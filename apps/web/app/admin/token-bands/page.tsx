@@ -15,28 +15,38 @@ export const metadata = { title: 'Token bands · Admin' };
  * single unlock covers ALL of the vendor's services for the event. The band
  * map must be admin-editable because minimum wages drift via wage orders.
  *
- * Table + RPC + seed: migration 20260908000000_vendor_token_burn_on_answer.sql.
+ * RECONCILED 2026-07-01 (burn-band single source · migration
+ * 20270331100000_burn_band_single_source.sql): this editor now reads/writes
+ * public.regions.burn_band — the SAME canonical map the RPC (unlock_vendor_event)
+ * resolves events.region against, and the same map lib/region-source.ts reads.
+ * It previously edited a parallel token_burn_bands table whose underscore/PSGC
+ * keys silently mis-matched the canonical hyphen slugs in events.region, so 6
+ * regions under-charged (cagayan, c-luzon, w-visayas, c-visayas, n-mindanao,
+ * nir). Switching to public.regions fixes that AND surfaces all 19 regions as
+ * editable rows (the old table was missing eight). token_burn_bands is retired
+ * (dropped in a follow-up migration). The economy is flat 1:1 band:token at
+ * ₱100/token, so tokens = band (shown read-only); decoupling them is a future
+ * column on regions, not built here.
+ *
  * Auth enforced at the admin layout level.
  */
 
-type BandRow = {
-  region_slug: string;
-  band: number;
-  tokens: number;
+type RegionBandRow = {
+  slug: string;
+  display_label: string | null;
+  burn_band: number;
   min_wage_php: number | null;
-  label: string | null;
   updated_at: string;
 };
 
 export default async function AdminTokenBandsPage() {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from('token_burn_bands')
-    .select('region_slug, band, tokens, min_wage_php, label, updated_at')
-    .order('band', { ascending: false })
-    .order('region_slug', { ascending: true });
+    .from('regions')
+    .select('slug, display_label, burn_band, min_wage_php, updated_at')
+    .order('sort_order', { ascending: true });
   if (error) logQueryError('AdminTokenBandsPage', error);
-  const rows = (data ?? []) as BandRow[];
+  const rows = (data ?? []) as RegionBandRow[];
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -54,8 +64,8 @@ export default async function AdminTokenBandsPage() {
         <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Pending owner ratification.</span> The
           seeded band→region map is the proposed default keyed to regional
-          minimum wage — adjust here as wage orders change. <code>__default__</code>{' '}
-          is the fallback for an unknown/blank region (conservative floor).
+          minimum wage — adjust here as wage orders change. An unknown / blank /
+          out-of-PH region falls to band&nbsp;1 (conservative floor).
         </p>
       </header>
 
@@ -72,11 +82,11 @@ export default async function AdminTokenBandsPage() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.region_slug} className="border-t border-ink/5">
+              <tr key={r.slug} className="border-t border-ink/5">
                 <td className="px-3 py-3">
-                  <p className="font-medium text-ink">{r.label ?? r.region_slug}</p>
+                  <p className="font-medium text-ink">{r.display_label ?? r.slug}</p>
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                    {r.region_slug}
+                    {r.slug}
                   </p>
                 </td>
                 <td className="hidden px-3 py-3 text-ink/70 sm:table-cell">
@@ -84,34 +94,23 @@ export default async function AdminTokenBandsPage() {
                 </td>
                 <td className="px-3 py-3" colSpan={3}>
                   <form action={updateBand} className="flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="region_slug" value={r.region_slug} />
-                    <label className="sr-only" htmlFor={`band-${r.region_slug}`}>
-                      Band for {r.region_slug}
+                    <input type="hidden" name="region_slug" value={r.slug} />
+                    <label className="sr-only" htmlFor={`band-${r.slug}`}>
+                      Band for {r.slug}
                     </label>
                     <select
-                      id={`band-${r.region_slug}`}
+                      id={`band-${r.slug}`}
                       name="band"
-                      defaultValue={String(r.band)}
+                      defaultValue={String(r.burn_band)}
                       className="input-field w-20 text-xs"
                     >
                       <option value="1">1</option>
                       <option value="2">2</option>
                       <option value="3">3</option>
                     </select>
-                    <label className="sr-only" htmlFor={`tokens-${r.region_slug}`}>
-                      Tokens for {r.region_slug}
-                    </label>
-                    <input
-                      id={`tokens-${r.region_slug}`}
-                      name="tokens"
-                      type="number"
-                      min={1}
-                      max={99}
-                      defaultValue={r.tokens}
-                      className="input-field w-24 text-xs"
-                    />
                     <span className="text-xs text-ink/55">
-                      = ₱{(r.tokens * 100).toLocaleString('en-PH')}
+                      {r.burn_band} {r.burn_band === 1 ? 'token' : 'tokens'} = ₱
+                      {(r.burn_band * 100).toLocaleString('en-PH')}
                     </span>
                     <SubmitButton className="button-secondary text-xs" pendingLabel="Saving…">
                       Save
@@ -126,7 +125,7 @@ export default async function AdminTokenBandsPage() {
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · token economy (owner-locked 2026-06-05) · table{' '}
-        <code>token_burn_bands</code> · migration 20260908000000
+        <code>regions</code> · burn-band single source (migration 20270331100000)
       </p>
     </div>
   );

@@ -27,6 +27,7 @@ import {
   type AmountKind,
   type DueAnchor,
 } from '@/lib/vendor-service-payment-schedules';
+import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -964,6 +965,39 @@ export async function commitVendorService(formData: FormData) {
   });
   if (error) return back(error.message);
 
+  // ---- PR-C — register the freshly-created service to the inviting couple ----
+  // When this create came from a couple's claim QR (?claim=<token> threaded
+  // through as a hidden field), link the new service back to the couple's plan
+  // (event_vendors.service_id). registerClaimedServiceToCouple re-verifies the
+  // full security chain server-side (claim owned by THIS user, claimed to THIS
+  // profile, couple already linked to THIS profile, service owned by THIS
+  // profile) before the cross-actor admin write, and is idempotent (won't
+  // clobber an existing service_id). On CREATE only — an edit never re-registers.
+  // Best-effort: a stale/foreign/failed claim never blocks the save; the
+  // service is already committed and the vendor continues to their dashboard.
+  const claimTokenRaw = formData.get('claim_token');
+  const claimToken =
+    typeof claimTokenRaw === 'string' && claimTokenRaw.length > 0
+      ? claimTokenRaw
+      : null;
+  let cameFromClaim = false;
+  if (isCreate && claimToken && typeof savedId === 'string' && savedId.length > 0) {
+    cameFromClaim = true;
+    try {
+      // Identity is derived from the session inside the helper — we only pass
+      // the claim token and the just-created service id, both re-verified there.
+      const res = await registerClaimedServiceToCouple({
+        claimToken,
+        vendorServiceId: savedId,
+      });
+      if (!res.ok) {
+        console.warn('[claim] service→couple registration skipped:', res.code, res.message);
+      }
+    } catch (e) {
+      console.warn('[claim] service→couple registration threw (service kept):', e);
+    }
+  }
+
   // Reverse-image repost-watch: hash the cover photo + flag cross-vendor,
   // non-demo perceptual matches, post-response (cron-free). Scheduled BEFORE the
   // redirect (which throws to unwind) and self-swallowing so it never affects
@@ -981,6 +1015,13 @@ export async function commitVendorService(formData: FormData) {
   }
 
   revalidatePath('/vendor-dashboard/services');
+  // PR-C — after a claim-driven first service, send the vendor on to their
+  // dashboard to "continue from there" (the new client is in their pipeline).
+  // The normal flow stays on the Services page with the saved anchor.
+  if (cameFromClaim) {
+    revalidatePath('/vendor-dashboard');
+    redirect('/vendor-dashboard?claimed=1&service=1');
+  }
   redirect(`/vendor-dashboard/services?saved=1#service-${savedId ?? ''}`);
 }
 

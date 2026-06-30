@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { applyClaimAutoLink } from '@/lib/vendor-invite-actions';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
+
+const VENDOR_CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
 export const metadata = {
   title: 'Connecting your Setnayan profile',
@@ -168,10 +171,40 @@ export default async function FinalizeClaimPage({ params }: Props) {
   }
 
   // ------------------------------------------------------------------
-  // 3. Done. Land them in the vendor dashboard with the new client
-  //    visible in their Clients pipeline (couple-source) or just the
-  //    fresh dashboard (admin-source).
+  // 3. PR-C — guided first-service setup.
+  //
+  //    On a FRESH couple-source claim (a manually-added off-platform vendor
+  //    who just signed up), route them into the EXISTING services-creation
+  //    wizard with the invite's category pre-picked, carrying the claim
+  //    token so the new service registers back to the couple's plan
+  //    (event_vendors.service_id) on submit.
+  //
+  //    Gates (any failing → fall through to the plain dashboard):
+  //      • Couple/auto_share_link source only (admin-source has no event_vendors
+  //        row to register against).
+  //      • Vendor has NO services yet (don't interrupt an established vendor
+  //        connecting to a new couple — they already have a catalog).
+  //      • The invite carries a service_category that maps to a real vendor
+  //        category route (else the /new/[category] page 404s).
   // ------------------------------------------------------------------
+  if (data.invite.source !== 'admin') {
+    const category = data.invite.service_category;
+    if (category && VENDOR_CATEGORY_SET.has(category)) {
+      const { count } = await admin
+        .from('vendor_services')
+        .select('vendor_service_id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorProfileId);
+      if ((count ?? 0) === 0) {
+        redirect(
+          `/vendor-dashboard/services/new/${encodeURIComponent(category)}?claim=${encodeURIComponent(token)}`,
+        );
+      }
+    }
+  }
+
+  // Default — land them in the vendor dashboard with the new client visible in
+  // their Clients pipeline (couple-source) or just the fresh dashboard
+  // (admin-source / already-has-services).
   redirect('/vendor-dashboard?claimed=1');
 }
 

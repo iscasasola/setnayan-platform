@@ -42,6 +42,7 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
+import { renderUrlQrSvg } from '@/lib/qr';
 import {
   fetchSlotsForCoupleBooking,
   type VendorServiceTimeSlot,
@@ -2140,7 +2141,7 @@ export async function attachManualVendorToCategory(
 // ============================================================================
 
 export type ManualVendorInviteResult =
-  | { ok: true; url: string }
+  | { ok: true; url: string; qrSvg: string }
   | { ok: false; error: string };
 
 export async function createManualVendorInvite(input: {
@@ -2188,7 +2189,12 @@ export async function createManualVendorInvite(input: {
   if (!invite) {
     return { ok: false, error: 'Could not create the invite link. Try again.' };
   }
-  return { ok: true, url: buildClaimUrl(invite.claim_token) };
+  // The couple shows this QR to the off-platform vendor — scanning it opens
+  // the claim/login page on the vendor's phone (owner 2026-07-01: "Add
+  // manually will create a QR code for the vendor to log in from"). Rendered
+  // server-side (the `qrcode` lib is server-only); the client just paints it.
+  const url = buildClaimUrl(invite.claim_token);
+  return { ok: true, url, qrSvg: await renderUrlQrSvg(url) };
 }
 
 // ============================================================================

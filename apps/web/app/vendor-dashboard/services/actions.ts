@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import {
   VENDOR_CATEGORIES,
   displayServiceLabel,
@@ -961,6 +963,22 @@ export async function commitVendorService(formData: FormData) {
     p_publish: publish,
   });
   if (error) return back(error.message);
+
+  // Reverse-image repost-watch: hash the cover photo + flag cross-vendor,
+  // non-demo perceptual matches, post-response (cron-free). Scheduled BEFORE the
+  // redirect (which throws to unwind) and self-swallowing so it never affects
+  // the save. Skips refs already hashed, so an edit that didn't change the photo
+  // is a cheap no-op.
+  const primaryPhoto = fields.primary_photo_r2_key;
+  if (typeof primaryPhoto === 'string' && primaryPhoto.length > 0) {
+    after(() =>
+      hashAndScanVendorImages({
+        vendorProfileId: profile.vendor_profile_id,
+        refs: [primaryPhoto],
+        surface: 'service_primary',
+      }),
+    );
+  }
 
   revalidatePath('/vendor-dashboard/services');
   redirect(`/vendor-dashboard/services?saved=1#service-${savedId ?? ''}`);

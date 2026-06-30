@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
@@ -442,6 +444,31 @@ export async function saveVendorProfile(formData: FormData) {
           hq_longitude: geo.longitude,
         })
         .eq('user_id', user.id);
+    }
+  }
+
+  // Reverse-image repost-watch: hash the portfolio gallery + flag cross-vendor,
+  // non-demo perceptual matches, post-response (cron-free). Scheduled BEFORE the
+  // redirect (which throws to unwind) and self-swallowing so it never affects
+  // the save. Re-saving with an unchanged gallery is cheap — already-hashed refs
+  // are skipped inside the task.
+  if (payload.portfolio_r2_keys.length > 0) {
+    const { data: idRow } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const vendorProfileId =
+      (idRow as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    if (vendorProfileId) {
+      const portfolioRefs = payload.portfolio_r2_keys;
+      after(() =>
+        hashAndScanVendorImages({
+          vendorProfileId,
+          refs: portfolioRefs,
+          surface: 'portfolio',
+        }),
+      );
     }
   }
 

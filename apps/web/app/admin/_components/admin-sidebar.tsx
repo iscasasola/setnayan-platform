@@ -81,6 +81,7 @@ import {
   LifeBuoy,
   Flag,
   MessageSquareWarning,
+  ScanSearch,
   Landmark,
   RefreshCw,
   UsersRound,
@@ -291,6 +292,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/user-reports',
         icon: MessageSquareWarning,
         matchPrefix: '/admin/user-reports',
+      },
+      {
+        // Reverse-image repost-watch queue. Cross-vendor perceptual-hash matches
+        // (a vendor's new upload matching an older image owned by a DIFFERENT,
+        // non-demo vendor). Detect-and-review only — never auto-takes-down.
+        key: 'repost-watch',
+        label: 'Repost watch',
+        href: '/admin/repost-watch',
+        icon: ScanSearch,
+        matchPrefix: '/admin/repost-watch',
       },
       {
         // Two-admin (four-eyes) approval queue — §9.1. A different admin

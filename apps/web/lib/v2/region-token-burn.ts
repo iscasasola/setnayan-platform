@@ -31,13 +31,15 @@
  * burn lookup is robust to the known region-slug drift across all four
  * vocabularies — that's the whole point of the 2026-06-19 canonical-source fix.
  *
- * WHAT THIS MODULE DOES NOT DO (activation is a separate go-live)
- * --------------------------------------------------------------
- * • Does NOT charge anything. This is the pricing DEFINITION only. The
- *   inquiry-answer path (unlock-category.ts · chat acceptInquiry) is
- *   "economically inert" in the pilot by design; wiring the real
- *   consume_vendor_assets(vendor, regionBurnTokens(event.region)) call is
- *   a deliberate post-pilot activation that needs owner sign-off.
+ * WHAT THIS MODULE DOES NOT DO
+ * ---------------------------
+ * • Does NOT charge anything itself — this module is the pricing DEFINITION only
+ *   (a pure region→token-count function). The actual consume is LIVE and lives
+ *   in the DB RPC `unlock_vendor_event` (chat acceptInquiry), which burns 1–3
+ *   region-banded tokens for PRO/ENTERPRISE vendors via
+ *   consume_vendor_assets_per_voucher. ⚠ Band-source note: that RPC reads the
+ *   `token_burn_bands` table while this module reads `regions.burn_band` — two
+ *   min-wage-seeded maps that SHOULD be reconciled to one source (follow-up).
  * • Pure function of a region slug, never throws (region-source's resolver is
  *   sync + never-throw; on a DB miss it falls back to its static band table).
  * • region→band now lives in public.regions.burn_band (admin-editable when the

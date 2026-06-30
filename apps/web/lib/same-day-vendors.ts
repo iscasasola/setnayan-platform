@@ -65,6 +65,12 @@ export async function findSameDayVendors(
       'vendor_profile_id, business_name, business_slug, hq_region, location_city, services, hq_latitude, hq_longitude',
     )
     .eq('public_visibility', 'verified')
+    // PR-B robustness: also gate on the verification_state enum, not just the
+    // public_visibility + non-free tier signals. A no-op today (the reconcile
+    // migration 20270331400000 marked every paid vendor 'verified'), but if a
+    // paid vendor is later demoted/rejected this keeps them out of the
+    // couple-facing day-of "Get help" shortlist.
+    .eq('verification_state', 'verified')
     .eq('same_day_available', true)
     .neq('tier_state', 'free')
     .limit(CANDIDATE_LIMIT);

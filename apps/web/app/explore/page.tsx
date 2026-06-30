@@ -3188,7 +3188,7 @@ async function CatalogView({
       .from('canonical_service_schemas')
       .select('canonical_service, display_name_en, display_name_tl')
       .order('display_name_en', { ascending: true }),
-    fetchVendorCountsByService(admin),
+    fetchVendorCountsByService(admin, inDemoMode),
     inDemoMode ? Promise.resolve([] as string[]) : fetchDemoVendorIds(admin),
   ]);
 
@@ -3385,6 +3385,7 @@ async function CatalogView({
         services: populatedServices,
         perServiceLimit: 3,
         excludeVendorIds: catalogExcludeVendorIds,
+        includeDemoUnverified: inDemoMode,
       })
     : new Map<string, string[]>();
 
@@ -3659,6 +3660,7 @@ async function CatalogView({
                 venueAnchor={venueAnchor}
                 currentEventId={currentEventId}
                 focusedMode={focusedMode}
+                includeDemoUnverified={inDemoMode}
               />
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tiles.map((tile) => (

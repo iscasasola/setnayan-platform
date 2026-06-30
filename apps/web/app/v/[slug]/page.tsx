@@ -161,11 +161,14 @@ type PublicVendorRow = {
   // name stays hidden, reviews stay gated).
   tier_state?: string | null;
   // PR-B public-visibility verification gate. `verification_state` is a
-  // public.vendor_verification_state enum on vendor_profiles ('unverified' |
-  // 'verified', NOT NULL DEFAULT 'unverified'). An UNVERIFIED vendor has no
-  // public website — the page 404s for everyone EXCEPT the owning vendor
-  // (self-preview, matched on `user_id`) and admins in demo mode. Optional +
-  // `!== 'verified'` everywhere so a missing column degrades to hidden (safe).
+  // public.vendor_verification_state enum on vendor_profiles with FIVE values
+  // (unverified | pending_review | verified | demoted | rejected, NOT NULL
+  // DEFAULT 'unverified'). The gate is intentionally allow-listed to the
+  // single 'verified' value: every other state (including pending_review,
+  // demoted, rejected) has NO public website — the page 404s for everyone
+  // EXCEPT the owning vendor (self-preview, matched on `user_id`) and admins
+  // in demo mode. Optional + `!== 'verified'` everywhere so a missing column
+  // degrades to hidden (safe).
   verification_state?: string | null;
   // PR-B self-preview. `user_id` is the owning vendor account. When the
   // logged-in viewer's id matches, an unverified page is shown to its owner

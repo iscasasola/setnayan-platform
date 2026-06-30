@@ -36,13 +36,29 @@ export type VendorCount = {
  */
 export async function fetchVendorCountsByService(
   admin: SupabaseClient,
+  /** PR-B demo carve-out (mirrors lib/wizard-recommendations.ts). Default
+   *  false = VERIFIED-ONLY counts: an unverified vendor never inflates a
+   *  catalog tile count or a couple-facing availability check. Only the admin
+   *  demo mode (CatalogView `inDemoMode`) passes TRUE to surface is_demo
+   *  sample vendors that may still be unverified. The couple-facing
+   *  onboarding-availability caller intentionally omits this → stays gated. */
+  includeDemoUnverified = false,
 ): Promise<Map<string, VendorCount>> {
-  const { data, error } = await admin
+  let query = admin
     .from('vendor_profiles')
     .select('services,public_visibility')
     .in('public_visibility', ['verified', 'coming_soon'])
     .not('business_name', 'is', null)
     .neq('business_name', '');
+
+  // PR-B verification gate (default ON). Unverified vendors are hidden from
+  // catalog-mode tile counts. The reconcile migration 20270331400000 marked
+  // the founder + every paid vendor 'verified', so no real vendor is dropped.
+  if (!includeDemoUnverified) {
+    query = query.eq('verification_state', 'verified');
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     // Soft-fail to an empty map so the catalog still renders every tile
@@ -258,6 +274,10 @@ async function topVendorsByServices(
     limit: number;
     excludeVendorIds?: ReadonlyArray<string>;
     visibilities: ReadonlyArray<VendorPublicVisibility>;
+    /** PR-B demo carve-out. Default false = VERIFIED-ONLY preview rows.
+     *  Only the admin demo mode passes TRUE to surface is_demo sample
+     *  vendors that may still be unverified. */
+    includeDemoUnverified?: boolean;
   },
 ): Promise<VendorPreviewRow[]> {
   if (services.length === 0) return [];
@@ -271,6 +291,13 @@ async function topVendorsByServices(
     .not('business_name', 'is', null)
     .neq('business_name', '')
     .overlaps('services', services);
+
+  // PR-B verification gate (default ON). Reads the verification_state column
+  // appended to vendor_market_stats by migration 20270331400000. An
+  // unverified vendor never surfaces as a named preview card in catalog mode.
+  if (!opts.includeDemoUnverified) {
+    query = query.eq('verification_state', 'verified');
+  }
 
   if (opts.excludeVendorIds && opts.excludeVendorIds.length > 0) {
     // PostgREST NOT IN with parenthesised comma list — same shape the
@@ -363,6 +390,9 @@ export async function findTopVendorsByFolder(
     excludeVendorIds?: ReadonlyArray<string>;
     /** When provided, RESTRICTS to these visibilities. Default both. */
     visibilities?: ReadonlyArray<VendorPublicVisibility>;
+    /** PR-B demo carve-out. Default false = verified-only. Admin demo mode
+     *  passes TRUE to surface unverified is_demo sample vendors. */
+    includeDemoUnverified?: boolean;
   },
 ): Promise<VendorPreviewRow[]> {
   const { byFolder } = await getCanonicalBuckets();
@@ -370,6 +400,7 @@ export async function findTopVendorsByFolder(
     limit: args.limit ?? 9,
     excludeVendorIds: args.excludeVendorIds,
     visibilities: args.visibilities ?? ['verified', 'coming_soon'],
+    includeDemoUnverified: args.includeDemoUnverified ?? false,
   });
 }
 
@@ -384,6 +415,9 @@ export async function findTopVendorsByTile(
     limit?: number;
     excludeVendorIds?: ReadonlyArray<string>;
     visibilities?: ReadonlyArray<VendorPublicVisibility>;
+    /** PR-B demo carve-out. Default false = verified-only. Admin demo mode
+     *  passes TRUE to surface unverified is_demo sample vendors. */
+    includeDemoUnverified?: boolean;
   },
 ): Promise<VendorPreviewRow[]> {
   const { byTile } = await getCanonicalBuckets();
@@ -391,6 +425,7 @@ export async function findTopVendorsByTile(
     limit: args.limit ?? 9,
     excludeVendorIds: args.excludeVendorIds,
     visibilities: args.visibilities ?? ['verified', 'coming_soon'],
+    includeDemoUnverified: args.includeDemoUnverified ?? false,
   });
 }
 
@@ -408,6 +443,10 @@ export async function fetchTopVendorNamesByService(
     /** Cap per service. Default 3 — fits one inline line of preview text. */
     perServiceLimit?: number;
     excludeVendorIds?: ReadonlyArray<string>;
+    /** PR-B demo carve-out. Default false = VERIFIED-ONLY sample names, so an
+     *  unverified vendor never appears in the "Sample: A · B · C" tile line.
+     *  Admin demo mode passes TRUE to surface unverified is_demo vendors. */
+    includeDemoUnverified?: boolean;
   },
 ): Promise<Map<string, string[]>> {
   const perServiceLimit = args.perServiceLimit ?? 3;
@@ -422,6 +461,12 @@ export async function fetchTopVendorNamesByService(
     .not('business_name', 'is', null)
     .neq('business_name', '')
     .overlaps('services', args.services as readonly string[]);
+
+  // PR-B verification gate (default ON). Reads the verification_state column
+  // appended to vendor_market_stats by migration 20270331400000.
+  if (!args.includeDemoUnverified) {
+    query = query.eq('verification_state', 'verified');
+  }
 
   if (args.excludeVendorIds && args.excludeVendorIds.length > 0) {
     type NotShape = {

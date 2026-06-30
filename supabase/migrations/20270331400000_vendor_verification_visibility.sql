@@ -28,7 +28,11 @@
 --     existing column is dropped or renamed.
 --
 -- `verification_state` is a public.vendor_verification_state enum column on
--- vendor_profiles ('unverified' | 'verified', NOT NULL DEFAULT 'unverified').
+-- vendor_profiles with FIVE values
+-- ('unverified' | 'pending_review' | 'verified' | 'demoted' | 'rejected',
+-- NOT NULL DEFAULT 'unverified'). The app gate is allow-listed to the single
+-- 'verified' value, so every other state (pending_review / demoted / rejected
+-- included) is hidden from the public marketplace.
 -- ============================================================================
 
 BEGIN;
@@ -98,8 +102,11 @@ SELECT
   -- (gated on VENDOR_TIER_SEARCH_GATE, default OFF).
   vp.tier_state,
   -- 2027-03-31 · PR-B · verification_state appended at position 27 (truly
-  -- last). Drives the ALWAYS-ON public-visibility gate: unverified vendors
-  -- are hidden from Explore / marketplace / OG / sitemap / recommendations.
+  -- last). Drives the ALWAYS-ON public-visibility gate, which is allow-listed
+  -- to the single 'verified' value: every other state of the five-value
+  -- vendor_verification_state enum (unverified | pending_review | verified |
+  -- demoted | rejected) is hidden from Explore / marketplace / OG / sitemap /
+  -- recommendations.
   vp.verification_state
 FROM public.vendor_profiles vp
 LEFT JOIN public.vendor_review_stats vrs USING (vendor_profile_id)

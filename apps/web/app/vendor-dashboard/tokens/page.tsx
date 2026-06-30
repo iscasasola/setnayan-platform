@@ -1,11 +1,21 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import {
+  enrichTeamWithUsers,
+  fetchVendorTeam,
+  isVendorAdminRole,
+} from '@/lib/vendor-team';
 import { BalanceCard } from './_components/balance-card';
 import { VoucherList, type VoucherRow } from './_components/voucher-list';
-import { BuyTokensCta, type TokenPack } from './_components/buy-tokens-cta';
+import {
+  BuyTokensCta,
+  type TokenPack,
+  type TokenRecipient,
+} from './_components/buy-tokens-cta';
 import {
   PendingPurchases,
   type PendingPurchase,
@@ -206,6 +216,48 @@ export default async function VendorTokensPage({ searchParams }: Props) {
   const purchased = walletRes.data?.purchased_tokens ?? 0;
   const earned = walletRes.data?.earned_tokens ?? 0;
 
+  // ── TEAM (multi-admin org model) — recipient picker + per-member balances ──
+  // This page is reachable by the founder (fetchOwnVendorProfile). Surface the
+  // "buy for a teammate" picker and where personally-held tokens landed.
+  const teamRows = await fetchVendorTeam(supabase, vendorId);
+  const adminDb = createAdminClient();
+  const team = await enrichTeamWithUsers(adminDb, teamRows);
+  const memberLabel = (m: (typeof team)[number]) =>
+    m.display_name?.trim() || m.email || 'Team member';
+
+  // Recipients: yourself + every other teammate. Only meaningful (>1) when the
+  // store has more than just you — drives the picker visibility in BuyTokensCta.
+  const recipients: TokenRecipient[] = [
+    { user_id: '', label: 'Yourself' },
+    ...team
+      .filter((m) => m.user_id !== user.id)
+      .map((m) => ({ user_id: m.user_id, label: memberLabel(m) })),
+  ];
+
+  // Per-member personal purchased balances (founder reads the whole team's via
+  // the vmtw_self_read admin clause). The founder's own balance is the store
+  // wallet's `purchased`; teammates draw from vendor_member_token_wallets.
+  const { data: memberWalletRows } = await supabase
+    .from('vendor_member_token_wallets')
+    .select('user_id, purchased_tokens')
+    .eq('vendor_id', vendorId);
+  const memberPurchased = new Map<string, number>(
+    (memberWalletRows ?? []).map((r) => [r.user_id as string, r.purchased_tokens as number]),
+  );
+  const teamBalances = team.map((m) => {
+    // The page is founder-scoped (fetchOwnVendorProfile), so the viewer is the
+    // founder; their spendable purchased pool is the store wallet.
+    const isFounder = m.user_id === user.id;
+    return {
+      key: m.vendor_team_member_id,
+      label: memberLabel(m),
+      isFounder,
+      isAdmin: isVendorAdminRole(m.role),
+      // Founder's spendable purchased pool is the store wallet; others personal.
+      purchased: isFounder ? purchased : memberPurchased.get(m.user_id) ?? 0,
+    };
+  });
+
   const vouchers: VoucherRow[] = (vouchersRes.data ?? []).map((v) => ({
     voucher_id: v.voucher_id,
     tokens_granted: v.tokens_granted,
@@ -303,7 +355,37 @@ export default async function VendorTokensPage({ searchParams }: Props) {
         <div className="space-y-4 sm:space-y-6">
           <PendingPurchases purchases={pendingPurchases} settings={settings} />
           <VoucherList vouchers={vouchers} />
-          <BuyTokensCta packs={packs} />
+          <BuyTokensCta packs={packs} recipients={recipients} />
+          {teamBalances.length > 1 ? (
+            <div className="m-card p-6">
+              <p className="m-label-mono">Team token balances</p>
+              <p className="mt-1 text-sm text-ink/65">
+                Tokens are personal — each member spends their own when answering couples.
+              </p>
+              <ul className="mt-3 divide-y divide-ink/10">
+                {teamBalances.map((b) => (
+                  <li key={b.key} className="flex items-center justify-between gap-3 py-2">
+                    <span className="min-w-0 truncate text-sm text-ink">
+                      {b.label}
+                      {b.isFounder ? (
+                        <span className="ml-2 rounded-full bg-ink/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">
+                          You · founder
+                        </span>
+                      ) : b.isAdmin ? (
+                        <span className="ml-2 rounded-full bg-sky-100 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-800">
+                          Admin
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 font-mono text-sm tabular-nums text-ink">
+                      {b.purchased}
+                      <span className="ml-1 text-[11px] text-ink/50">tokens</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <PurchaseHistory purchases={resolvedPurchases} />
         </div>
       </div>

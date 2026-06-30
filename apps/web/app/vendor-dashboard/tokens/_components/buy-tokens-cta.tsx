@@ -47,6 +47,12 @@ export type TokenPack = {
   price_php: number;
 };
 
+/** A teammate an admin can credit a pack to. The first entry ('' = yourself). */
+export type TokenRecipient = {
+  user_id: string; // '' means the buyer (self)
+  label: string;
+};
+
 const NUMBER = new Intl.NumberFormat('en-PH');
 
 /**
@@ -67,8 +73,17 @@ function mobileSrp(webPrice: number): number {
   return Math.round((webPrice * MOBILE_SRP_MULTIPLIER) / 50) * 50;
 }
 
-export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
+export function BuyTokensCta({
+  packs,
+  recipients,
+}: {
+  packs: TokenPack[];
+  /** Provided only to admins with teammates → enables "buy for a teammate". */
+  recipients?: TokenRecipient[];
+}) {
   const [native, setNative] = useState(false);
+  const [holder, setHolder] = useState('');
+  const canChooseRecipient = (recipients?.length ?? 0) > 1;
 
   useEffect(() => {
     setNative(isNativeApp());
@@ -112,6 +127,26 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
         />
       )}
 
+      {canChooseRecipient ? (
+        <label className="mb-3 block space-y-1">
+          <span className="block text-[11px] font-medium text-ink/70">Credit these tokens to</span>
+          <select
+            value={holder}
+            onChange={(e) => setHolder(e.target.value)}
+            className="input-field cursor-pointer text-sm"
+          >
+            {recipients!.map((r) => (
+              <option key={r.user_id || 'self'} value={r.user_id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <span className="block text-[11px] text-ink/50">
+            Tokens belong to whoever holds them — they can’t be transferred later.
+          </span>
+        </label>
+      ) : null}
+
       {packs.length === 0 ? (
         <p className="text-sm text-ink/60">
           Token packs are being set up. Check back shortly.
@@ -137,6 +172,9 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
                 </div>
                 <form action={startTokenPurchase} className="shrink-0">
                   <input type="hidden" name="pack_sku_code" value={pack.sku_code} />
+                  {canChooseRecipient ? (
+                    <input type="hidden" name="holder_user_id" value={holder} />
+                  ) : null}
                   <SubmitButton className="button-primary h-9 px-4 text-sm" pendingLabel="Starting…">Buy</SubmitButton>
                 </form>
               </li>

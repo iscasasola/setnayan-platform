@@ -73,6 +73,7 @@ import { FollowGate } from '@/app/_components/follow-gate';
 import {
   computeCandidateWindow,
   filterVendorsByAvailabilityIntersection,
+  getBatchVendorAvailableDays,
   getEventCommonAvailability,
 } from '@/lib/vendor-availability';
 import { VendorsAvailabilityBanner } from './_components/vendors-availability-banner';
@@ -1642,6 +1643,44 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           precision: coupleEventDatePrecision,
         };
       }
+
+      // Date-open priority (2026-06-30) — "a current calendar ranks you up."
+      // Within this results page, float vendors who are FREE in the couple's
+      // date window above vendors already booked then. This is independent of
+      // the locked-vendor intersection above: it applies whenever the couple
+      // has a date, even with zero confirmed vendors (lockedCount === 0).
+      //
+      // It only ever DEMOTES, never hides: vendors with no declared calendar
+      // are treated as available (the lib/vendor-availability V1 default — an
+      // undeclared calendar = fully free), so the sole effect is sinking a
+      // vendor whose calendar is EXPLICITLY blocked across the entire window
+      // (size 0). At day precision that's "booked on the couple's exact date";
+      // at month/year precision a vendor is only demoted if blocked every day
+      // in the window (rare) — so the signal is strongest where it matters.
+      //
+      // Partition (not Array.sort) so the SQL render order is preserved
+      // verbatim WITHIN each group. Fails to a no-op: on a calendar read error
+      // getBatchVendorAvailableDays hands back the full window for everyone, so
+      // every vendor reads as free and the order is untouched.
+      if (visible.length > 1) {
+        const availByVendor = await getBatchVendorAvailableDays(
+          admin,
+          visible.map((r) => r.vendor_profile_id),
+          window.start,
+          window.end,
+        );
+        const isOpenOnDate = (vendorProfileId: string): boolean => {
+          const days = availByVendor.get(vendorProfileId);
+          // Missing entry (defensive) or a non-empty free set → available.
+          // Only an explicit empty set means fully booked across the window.
+          return !days || days.size > 0;
+        };
+        const booked = visible.filter((r) => !isOpenOnDate(r.vendor_profile_id));
+        if (booked.length > 0) {
+          const open = visible.filter((r) => isOpenOnDate(r.vendor_profile_id));
+          visible = [...open, ...booked];
+        }
+      }
     }
   }
 
@@ -1651,7 +1690,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // The intersection filter narrows `visible` AFTER pagination: pages with
   // many filtered-out candidates may render short — acceptable at pilot
   // scale; V1.x folds the intersection into the SQL query so pagination
-  // and filter compose properly.
+  // and filter compose properly. The date-open priority boost above is the
+  // same shape — a WITHIN-PAGE reorder (free-on-date floats up on the current
+  // page); a true cross-page availability rank needs a denormalized
+  // next-open/booked-on flag on vendor_market_stats (same V1.x SQL follow-up).
   const totalPages = Math.max(1, Math.ceil((totalCount ?? rows.length) / PAGE_SIZE));
 
   // ---------------------------------------------------------------------

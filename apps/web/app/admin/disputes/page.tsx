@@ -1,5 +1,6 @@
 import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { assertHandlerLaneOrRedirect } from '@/lib/handler-lane';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { resolveDispute } from './actions';
@@ -132,6 +133,9 @@ type Props = {
 };
 
 export default async function AdminDisputesPage({ searchParams }: Props) {
+  // Handler-lane RBAC (Phase 2c): fence a scoped handler out of this queue.
+  // Inert while platform_settings.handler_lane_rbac_enforced is OFF.
+  await assertHandlerLaneOrRedirect('disputes');
   const search = await searchParams;
   // Default landing view = open queue. That's the surface the owner reaches
   // for first (what needs attention); resolved + withdrawn are historical.

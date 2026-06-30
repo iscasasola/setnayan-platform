@@ -10,11 +10,13 @@ import {
   Star,
   ArrowRight,
   QrCode,
+  Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchOwnVendorProfile,
   fetchVendorCompletedEventStats,
+  fetchVendorCustomerSourceCounts,
   fetchHasBusinessDocuments,
   businessProfileChecklist,
 } from '@/lib/vendor-profile';
@@ -110,6 +112,8 @@ type LoaderState =
       totalThreadsCount: number;
       activeServicesCount: number;
       confirmedBookingsCount: number;
+      /** In-house vs Import customer mix (owner taxonomy 2026-06-30). */
+      customerCounts: { inHouse: number; imported: number };
       tokenBalance: { purchased: number; earned: number };
       completion: { done: number; total: number; missing: string[] };
       /** UUID of the vendor_profiles row. Null when no profile exists yet
@@ -208,6 +212,7 @@ export default async function VendorHomePage() {
         totalThreadsCount: 0,
         activeServicesCount: 0,
         confirmedBookingsCount: 0,
+        customerCounts: { inHouse: 0, imported: 0 },
         tokenBalance: { purchased: 0, earned: 0 },
         completion: businessProfileChecklist(null, { hasDocuments: false }),
         vendorProfileId: null,
@@ -242,6 +247,7 @@ export default async function VendorHomePage() {
         walletRes,
         servicesCountRes,
         nameRevealRes,
+        customerCounts,
       ] = await Promise.all([
         fetchVendorThreads(supabase, profile.vendor_profile_id),
         fetchVendorCompletedEventStats(supabase, profile.vendor_profile_id),
@@ -260,6 +266,9 @@ export default async function VendorHomePage() {
           .select('name_revealed_at')
           .eq('vendor_profile_id', profile.vendor_profile_id)
           .maybeSingle(),
+        // In-house vs Import customer mix (owner taxonomy 2026-06-30). DEFINER
+        // RPC over couple-RLS event_vendors; fail-soft to 0/0 inside the helper.
+        fetchVendorCustomerSourceCounts(supabase, profile.vendor_profile_id),
       ]);
 
       const upcomingThreads = threadsAll.filter((t) =>
@@ -307,6 +316,7 @@ export default async function VendorHomePage() {
         totalThreadsCount: threadsAll.length,
         activeServicesCount: servicesCountRes.count ?? 0,
         confirmedBookingsCount,
+        customerCounts,
         tokenBalance: {
           purchased: walletRes.data?.purchased_tokens ?? 0,
           earned: walletRes.data?.earned_tokens ?? 0,
@@ -363,6 +373,7 @@ export default async function VendorHomePage() {
     totalThreadsCount,
     activeServicesCount,
     confirmedBookingsCount,
+    customerCounts,
     tokenBalance,
     completion,
     vendorProfileId,
@@ -578,6 +589,53 @@ export default async function VendorHomePage() {
           sub={`${tokenBalance.earned} earned · ${tokenBalance.purchased} bought`}
           href="/vendor-dashboard/tokens"
         />
+      </section>
+
+      {/* Customer mix — In-house (inquired via Explore + your Website) vs Import
+          (you brought them in via QR). Owner CRM taxonomy 2026-06-30. Counts the
+          vendor's own linked events via the vendor_customer_source_counts DEFINER
+          RPC (event_vendors is couple-RLS, so the session can't read it directly).
+          Sits right above the Invite CTA: "here's your mix → bring in more." */}
+      <section className="mb-8">
+        <Link
+          href="/vendor-dashboard/clients"
+          className="block rounded-2xl border border-ink/10 bg-cream p-4 hover:border-ink/20"
+        >
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="m-label-mono" style={{ color: 'var(--m-slate)' }}>
+              Where your customers came from
+            </h2>
+            <ArrowRight className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mulberry/10">
+                <Users className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-2xl font-semibold leading-none">
+                  {customerCounts.inHouse}
+                </span>
+                <span className="mt-1 block text-xs text-ink/60">
+                  In-house · Explore + your Website
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terracotta/15">
+                <QrCode className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-2xl font-semibold leading-none">
+                  {customerCounts.imported}
+                </span>
+                <span className="mt-1 block text-xs text-ink/60">
+                  Imported · via your QR
+                </span>
+              </span>
+            </div>
+          </div>
+        </Link>
       </section>
 
       {/* Invite-a-couple CTA — your QR onboards a couple onto Setnayan and

@@ -257,6 +257,39 @@ export async function fetchVendorCompletedEventStats(
   };
 }
 
+export type VendorCustomerSourceCounts = {
+  /** Customers who inquired via Setnayan (Explore + the vendor's Website). */
+  inHouse: number;
+  /** Customers imported / locked by the vendor via QR Code. */
+  imported: number;
+};
+
+/**
+ * In-house vs Import customer counts for the vendor's Home CRM signal (owner
+ * taxonomy locked 2026-06-30). Calls the `vendor_customer_source_counts`
+ * SECURITY DEFINER RPC — event_vendors is couple-RLS, so the vendor's own
+ * session can't read it directly; the RPC returns just the two aggregate counts
+ * for the vendor's own profile (gated to owner/team, else 0/0). Fail-soft: any
+ * RPC error (e.g. pre-migration deploy) collapses to 0/0 so Home still renders.
+ */
+export async function fetchVendorCustomerSourceCounts(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorCustomerSourceCounts> {
+  const { data, error } = await supabase.rpc('vendor_customer_source_counts', {
+    p_vendor_profile_id: vendorProfileId,
+  });
+  if (error || !data) return { inHouse: 0, imported: 0 };
+  // RETURNS TABLE → supabase returns an array of rows; take the first.
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { in_house?: number | string; imported?: number | string }
+    | undefined;
+  return {
+    inHouse: Number(row?.in_house ?? 0) || 0,
+    imported: Number(row?.imported ?? 0) || 0,
+  };
+}
+
 /**
  * Whether the vendor has uploaded their full set of required business
  * documents (the "Updated Business Documents" item of the Business Profile).

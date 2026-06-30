@@ -245,6 +245,10 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
       'vendor_profile_id, business_name, services, location_city, hq_region, tier_state, tier_expires_at',
     )
     .eq('public_visibility', 'verified')
+    // PR-B — only auto-publish social features for VERIFIED vendors. An
+    // unverified vendor is private (no public website / marketplace listing),
+    // so it must never be auto-promoted to FB/IG. Mirrors the Explore gate.
+    .eq('verification_state', 'verified')
     .eq('social_feature_opt_out', false)
     .is('social_featured_at', null)
     .order('created_at', { ascending: true })
@@ -366,7 +370,10 @@ async function sweepMilestones(admin: AdminClient): Promise<void> {
     admin
       .from('vendor_profiles')
       .select('vendor_profile_id', { count: 'exact', head: true })
-      .eq('public_visibility', 'verified'),
+      .eq('public_visibility', 'verified')
+      // PR-B — the "vendors_verified" milestone must count truly-verified
+      // vendors only, matching what the public marketplace surfaces.
+      .eq('verification_state', 'verified'),
     admin.from('guests').select('guest_id', { count: 'exact', head: true }),
   ]);
 

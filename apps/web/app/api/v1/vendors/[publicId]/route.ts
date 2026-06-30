@@ -40,12 +40,18 @@ export async function GET(req: Request, { params }: Params) {
 
   // Decision 6 (2026-05-15): public surface includes coming_soon + verified;
   // hidden + archived stay 404 to avoid leaking suspended/closed profiles.
+  // PR-B — public detail must 404 for UNVERIFIED vendors, mirroring the
+  // /v/[slug] microsite + the public /api/v1/vendors list. No per-user auth on
+  // this public API, so there's no owner self-preview carve-out here (the
+  // vendor previews from their dashboard). The reconcile migration
+  // 20270331400000 marked the founder + every paid vendor 'verified'.
   if (looksLikePublicId) {
     const { data } = await admin
       .from('vendor_profiles')
       .select(SELECT_COLUMNS)
       .eq('public_id', publicId)
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      .eq('verification_state', 'verified')
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }
@@ -56,6 +62,7 @@ export async function GET(req: Request, { params }: Params) {
       .select(SELECT_COLUMNS)
       .ilike('business_slug', publicId)
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      .eq('verification_state', 'verified')
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }

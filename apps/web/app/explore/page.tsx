@@ -11,7 +11,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
@@ -1261,22 +1260,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
       // only used in .order() before) so the in-memory rating/review re-sort
       // below can preserve the first-party float precedence explicitly.
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '');
 
-  // Phase C searchability gate (vendor-tier-caps · FLAG-DARK). The matrix says
-  // FREE = not marketplace-searchable, but a raw `.neq('tier_state','free')`
-  // would EMPTY the live marketplace today (the lone real founder vendor + all
-  // demo vendors are tier_state='free'). So it's behind VENDOR_TIER_SEARCH_GATE
-  // (default OFF → this branch is skipped → query unchanged → prod identical).
-  // Suppressed in demo mode so admins still see demo (free) vendors. Reads the
-  // `tier_state` column the migration 20260929000000 adds to the view.
-  if (isVendorSearchGateEnabled() && !inDemoMode) {
-    query = query.neq('tier_state', 'free');
+  // PR-B verification gate (ALWAYS ON). An UNVERIFIED vendor is private — it
+  // never appears on Explore / the public marketplace and has no public
+  // website (mirrored in /v/[slug] + sitemap). Only VERIFIED vendors surface.
+  // The reconcile migration 20270331400000 marked the lone real founder vendor
+  // + every paid-tier vendor 'verified', so this gate never empties the live
+  // marketplace. Suppressed in demo mode so admins previewing demo (which may
+  // include unverified rows) still see them. Reads the `verification_state`
+  // column that migration 20270331400000 appended to vendor_market_stats.
+  if (!inDemoMode) {
+    query = query.eq('verification_state', 'verified');
   }
 
   // PR brief 2026-05-22 evening — exclude demo vendor IDs unless an
@@ -1518,6 +1518,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .not('business_name', 'is', null)
       .neq('business_name', '');
+    // PR-B verification gate — mirror the main query so the "Show all"
+    // empty-state count never promises UNVERIFIED inventory to public visitors.
+    if (!inDemoMode) {
+      broadened = broadened.eq('verification_state', 'verified');
+    }
     // Mirror the demo exclusion on the broadened count so the "Show
     // all" empty-state messaging doesn't promise demo inventory to
     // non-admin visitors. Same type-narrowing as the main query above.

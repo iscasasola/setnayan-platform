@@ -153,6 +153,11 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     )
     .in('vendor_profile_id', ids)
     .in('public_visibility', ['verified', 'coming_soon'])
+    // PR-B — drop UNVERIFIED vendors from this public compare surface
+    // (anonymous viewers reach it). Demo rows are admitted at the query level
+    // so the admin demo-mode carve-out below still works; the demo-mode gate
+    // resolved after the fetch decides whether demo rows actually render.
+    .or('verification_state.eq.verified,is_demo.eq.true')
     .not('business_name', 'is', null)
     .neq('business_name', '');
 

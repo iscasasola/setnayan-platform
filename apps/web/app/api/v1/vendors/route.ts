@@ -66,6 +66,11 @@ export async function GET(req: Request) {
       'vendor_profile_id, public_id, business_name, business_slug, tagline, logo_url, services, location_city, website, public_visibility, created_at',
     )
     .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+    // PR-B — this public, CORS-open list must never expose UNVERIFIED vendors
+    // (they have no public website / marketplace listing). Mirrors the Explore
+    // + /v/[slug] + sitemap gate. The reconcile migration 20270331400000 marked
+    // the founder + every paid vendor 'verified', so no real vendor is dropped.
+    .eq('verification_state', 'verified')
     .order('created_at', { ascending: false })
     .order('public_id', { ascending: false })
     .limit(limit + 1);

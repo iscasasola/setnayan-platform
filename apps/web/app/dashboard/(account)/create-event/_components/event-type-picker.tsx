@@ -32,7 +32,7 @@ type ConciergeChoice = 'diy';
  * wedding-type-picker.tsx component was deleted 2026-06-15 — the tailored
  * /onboarding/wedding flow is the one and only wedding onboarding now.
  */
-export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
+export function EventTypePicker({ types, next }: { types: EventTypeRow[]; next?: string }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const conciergeChoice: ConciergeChoice = 'diy';
@@ -86,6 +86,7 @@ export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
         <form ref={formRef} action={createWeddingEvent} className="mt-10 space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />
+          {next ? <input type="hidden" name="next" value={next} /> : null}
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink" htmlFor="display_name">

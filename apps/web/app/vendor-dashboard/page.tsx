@@ -9,6 +9,7 @@ import {
   Sparkles,
   Star,
   ArrowRight,
+  QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -577,6 +578,27 @@ export default async function VendorHomePage() {
           sub={`${tokenBalance.earned} earned · ${tokenBalance.purchased} bought`}
           href="/vendor-dashboard/tokens"
         />
+      </section>
+
+      {/* Invite-a-couple CTA — your QR onboards a couple onto Setnayan and
+          lands you on their vendor shortlist. Free, both sides. */}
+      <section className="mb-8">
+        <Link
+          href="/vendor-dashboard/invite"
+          className="flex items-center gap-4 rounded-2xl border border-terracotta/25 bg-terracotta/5 p-4 hover:bg-terracotta/10"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-terracotta/15">
+            <QrCode className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Invite a couple — free</span>
+            <span className="block text-xs text-ink/60">
+              Share your QR. They set up their plan and you land on their
+              shortlist.
+            </span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+        </Link>
       </section>
 
       {/* Upcoming events */}

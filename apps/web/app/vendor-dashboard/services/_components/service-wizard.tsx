@@ -32,11 +32,19 @@ export function ServiceWizard({
   categoryLabel,
   otherCategories,
   vendorProfileId,
+  claimToken = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
   otherCategories: OtherCategory[];
   vendorProfileId: string;
+  /**
+   * PR-C — when present, this service-create came from a couple's claim QR.
+   * commitVendorService reads it and (after the create) registers the new
+   * service to that couple's plan (event_vendors.service_id). Null on the
+   * normal "add a service" flow.
+   */
+  claimToken?: string | null;
 }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
@@ -70,6 +78,9 @@ export function ServiceWizard({
   return (
     <form action={commitVendorService} className="space-y-5">
       <input type="hidden" name="category" value={categoryValue} />
+      {claimToken ? (
+        <input type="hidden" name="claim_token" value={claimToken} />
+      ) : null}
 
       {/* Progress */}
       <ol className="flex flex-wrap gap-1.5">

@@ -53,6 +53,7 @@ import { getEventPreferences } from '@/lib/event-preferences';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
+import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
@@ -574,44 +575,75 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const reviewStatusByVendorId = await (async (): Promise<Map<string, VendorReviewStatus>> => {
     const m = new Map<string, VendorReviewStatus>();
     try {
-      const completeVendors = vendors.filter((v) => v.status === 'complete');
-      if (completeVendors.length === 0) return m;
-
-      // Date window — must have an event_date in range [+30d, +365d].
-      if (!eventDate) return m;
-      const eventMs = new Date(eventDate).getTime();
-      if (!Number.isFinite(eventMs)) return m;
-      const now = Date.now();
-      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-      const YEAR_DAYS = 365 * 24 * 60 * 60 * 1000;
-      // Window not open yet (< 30 days after event) or closed (> 365 days)
-      if (now < eventMs + THIRTY_DAYS || now > eventMs + YEAR_DAYS) return m;
-
-      // Resolve which complete vendors have a linked vendor_profile_id
-      // (via contact_email match — same lookup the review page uses).
-      const emailsToCheck = completeVendors
-        .map((v) => v.contact_email)
-        .filter((e): e is string => !!e);
-      if (emailsToCheck.length === 0) return m;
+      // Candidates: any booking linked to a marketplace profile (the direct FK
+      // — marketplace "Save" + the vendor-invite QR import) OR an older row
+      // linked only by contact_email. NOT gated on status==='complete':
+      // imported off-platform vendors never run the vendor-driven completion
+      // handshake, so a status proxy would hide their review CTA forever. We
+      // instead use the SAME reviewState() gate the review page + RLS enforce
+      // (which includes the N=30d post-event auto-complete), so an imported
+      // vendor surfaces a "Leave a review" CTA once its event is 30d+ past.
+      const candidates = vendors.filter(
+        (v) => v.marketplace_vendor_id || v.contact_email,
+      );
+      if (candidates.length === 0) return m;
 
       const admin = createAdminClient();
-      const { data: profiles } = await admin
-        .from('vendor_profiles')
-        .select('vendor_profile_id, contact_email')
-        .in('contact_email', emailsToCheck);
 
-      type ProfileRow = { vendor_profile_id: string; contact_email: string };
+      // Completion-handshake fields per booking → reviewState() eligibility.
+      const { data: completionRows } = await admin
+        .from('event_vendors')
+        .select(
+          'vendor_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
+        )
+        .eq('event_id', eventId)
+        .in(
+          'vendor_id',
+          candidates.map((v) => v.vendor_id),
+        );
+      type CompletionRow = {
+        vendor_id: string;
+        status: string | null;
+        completion_status: string | null;
+        service_marked_complete_at: string | null;
+        customer_confirmed_received_at: string | null;
+      };
+      const completionByVendorId = new Map<string, CompletionRow>();
+      for (const r of (completionRows ?? []) as CompletionRow[]) {
+        completionByVendorId.set(r.vendor_id, r);
+      }
+
+      // Keep only bookings whose review window is actually open right now.
+      const eligible = candidates.filter((v) => {
+        const c = completionByVendorId.get(v.vendor_id);
+        return c ? reviewState(c, eventDate) === 'reviewable' : false;
+      });
+      if (eligible.length === 0) return m;
+
+      // Resolve vendor_profile_id: PREFER the direct FK marketplace_vendor_id;
+      // fall back to a contact_email lookup for legacy rows without the FK.
+      const emailsToCheck = eligible
+        .filter((v) => !v.marketplace_vendor_id && v.contact_email)
+        .map((v) => v.contact_email as string);
       const profileByEmail = new Map<string, string>();
-      for (const p of (profiles ?? []) as ProfileRow[]) {
-        if (p.contact_email) {
-          profileByEmail.set(p.contact_email.toLowerCase(), p.vendor_profile_id);
+      if (emailsToCheck.length > 0) {
+        const { data: profiles } = await admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id, contact_email')
+          .in('contact_email', emailsToCheck);
+        type ProfileRow = { vendor_profile_id: string; contact_email: string | null };
+        for (const p of (profiles ?? []) as ProfileRow[]) {
+          if (p.contact_email) {
+            profileByEmail.set(p.contact_email.toLowerCase(), p.vendor_profile_id);
+          }
         }
       }
 
       const vendorIdToProfileId = new Map<string, string>();
-      for (const v of completeVendors) {
-        if (!v.contact_email) continue;
-        const pid = profileByEmail.get(v.contact_email.toLowerCase());
+      for (const v of eligible) {
+        const pid =
+          v.marketplace_vendor_id ??
+          (v.contact_email ? profileByEmail.get(v.contact_email.toLowerCase()) ?? null : null);
         if (pid) vendorIdToProfileId.set(v.vendor_id, pid);
       }
       if (vendorIdToProfileId.size === 0) return m;

@@ -1715,8 +1715,11 @@ function VendorCardAtom({
         <ChangePickButton eventId={eventId} vendorId={pick.vendor_id} />
       )}
 
-      {/* Review badge — shown only on completed bookings (reviewStatus set by
-          the server fetch in vendors/page.tsx for event_vendors.status = 'complete').
+      {/* Review badge — reviewStatus is set by the server fetch in
+          vendors/page.tsx, which uses the reviewState() handshake gate (incl.
+          the N=30d post-event auto-complete) so imported/marketplace-linked
+          vendors surface a CTA once their event is 30d+ past, not only legacy
+          status='complete' bookings.
           'open'      → "Leave a review" button links to the review form.
           'submitted' → "Review submitted ✓" confirmation label. */}
       {reviewStatus === 'open' && (

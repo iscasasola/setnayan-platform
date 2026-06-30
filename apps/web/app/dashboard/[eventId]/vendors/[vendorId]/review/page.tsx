@@ -48,6 +48,7 @@ type EventVendorLookup = {
   vendor_name: string;
   category: string;
   contact_email: string | null;
+  marketplace_vendor_id: string | null;
   status: string;
   completion_status: string | null;
   service_marked_complete_at: string | null;
@@ -66,7 +67,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   const { data: ev } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, vendor_name, category, contact_email, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
+      'vendor_id, event_id, vendor_name, category, contact_email, marketplace_vendor_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -112,11 +113,14 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     );
   }
 
-  // Resolve the matching vendor_profile by contact_email. This is the only
-  // join key V1 ships with — once the linkage column lands on event_vendors
-  // we can swap this for a direct FK. We use the service-role client because
-  // vendor_profiles RLS only exposes published profiles publicly, and an
-  // unpublished one we still want to surface to the reviewing couple.
+  // Resolve the matching vendor_profile. PREFER the direct FK
+  // event_vendors.marketplace_vendor_id (set by the marketplace "Save" path and
+  // the vendor-invite QR import) — this is the linkage the RLS insert gate
+  // already correlates on (migration 20270206186005). Fall back to the legacy
+  // contact_email match for older rows that predate the FK. We use the
+  // service-role client because vendor_profiles RLS only exposes published
+  // profiles publicly, and an unpublished one we still want to surface to the
+  // reviewing couple.
   type VendorProfileLookup = {
     vendor_profile_id: string;
     business_name: string;
@@ -124,7 +128,15 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   };
   const admin = createAdminClient();
   let vendorProfile: VendorProfileLookup | null = null;
-  if (eventVendor.contact_email) {
+  if (eventVendor.marketplace_vendor_id) {
+    const { data: vp } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name, business_slug')
+      .eq('vendor_profile_id', eventVendor.marketplace_vendor_id)
+      .maybeSingle();
+    vendorProfile = (vp ?? null) as VendorProfileLookup | null;
+  }
+  if (!vendorProfile && eventVendor.contact_email) {
     const { data: vp } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, business_slug')

@@ -73,6 +73,21 @@ export async function saveBusinessIdentity(formData: FormData) {
     );
   }
 
+  // Reverse-image repost-watch match sensitivity (lib/vendor-image-repost-watch
+  // resolveThreshold reads this). Hamming distance is a 64-bit pHash comparison,
+  // so a valid threshold is 0..64. Reject non-numeric input; clamp in range.
+  const thresholdRaw = formData.get('repost_watch_hamming_threshold');
+  const thresholdNum =
+    typeof thresholdRaw === 'string' ? Number(thresholdRaw) : NaN;
+  if (!Number.isFinite(thresholdNum)) {
+    return redirect(
+      `/admin/settings?error=${encodeURIComponent(
+        'Repost-watch threshold must be a number 0–64',
+      )}`,
+    );
+  }
+  const repostThreshold = Math.min(64, Math.max(0, Math.round(thresholdNum)));
+
   const payload = {
     business_name:
       (typeof formData.get('business_name') === 'string'
@@ -82,6 +97,7 @@ export async function saveBusinessIdentity(formData: FormData) {
     business_address: nullIfBlank(formData.get('business_address')),
     business_email: nullIfBlank(formData.get('business_email')),
     default_vat_rate_pct: Math.round(vatRate * 100) / 100,
+    repost_watch_hamming_threshold: repostThreshold,
     updated_at: new Date().toISOString(),
   };
 

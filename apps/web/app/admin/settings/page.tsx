@@ -150,6 +150,23 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          <Field
+            label="Repost-watch match sensitivity (Hamming distance)"
+            htmlFor="repost_watch_hamming_threshold"
+            help="Reverse-image theft watch (lib/vendor-image-repost-watch.ts). Two vendor images flag as a repost when their perceptual hashes differ by ≤ this many bits (0–64). Lower = stricter (near-identical only); higher = looser (more, fuzzier matches). Default 10. Detect-and-flag for /admin/repost-watch review only — never auto-blocks."
+          >
+            <input
+              id="repost_watch_hamming_threshold"
+              name="repost_watch_hamming_threshold"
+              type="number"
+              min={0}
+              max={64}
+              step={1}
+              required
+              defaultValue={settings.repost_watch_hamming_threshold}
+              className="input-field"
+            />
+          </Field>
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">

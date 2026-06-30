@@ -297,17 +297,20 @@ export async function acceptInquiry(formData: FormData) {
     // accepting). It costs ONE idempotent unlock per (vendor, event), banded
     // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
     // unlock covers ALL of this vendor's services for the event. The RPC
-    // (unlock_vendor_event) is atomic + idempotent + TIER-GATED (owner 2026-06-07
-    // reissue, migration 20260911000000): FREE can't accept in-app inquiries;
-    // FREE-VERIFIED gets ≤10 new unlocks/rolling-week FREE (no token burn);
-    // PRO/ENTERPRISE unlimited + burns 1-3 tokens — EXCEPT a returning
-    // customer (prior unlock on a different event sharing a couple member)
-    // costs FLAT 1 token (resync · owner-locked 2026-06-12, migration
-    // 20261201000000). A re-accept of an already-unlocked
-    // (vendor,event) is free + un-gated. Any RAISE rolls the whole tx back (no
-    // phantom unlock) — we surface a friendly, tier-appropriate message and do
-    // NOT accept. The RPC also ownership-checks the caller (defense-in-depth
-    // atop the loadVendorThreadForActor gate above).
+    // (unlock_vendor_event) is atomic + idempotent + TIER-GATED. Per the LIVE
+    // body (migration 20270307985604, verified retune 2026-06-25): FREE can't
+    // accept in-app inquiries; VERIFIED is capped at ≤10 new unlocks/rolling-week
+    // AND burns 1-3 tokens per answer; SOLO/PRO/ENTERPRISE are uncapped + burn
+    // 1-3 tokens. The band resolves events.region → public.regions.burn_band by
+    // alias-match (burn-band single source, migration 20270331100000).
+    //   NOTE — the old "FREE-VERIFIED answers free" carve-out and the returning-
+    //   customer FLAT-1 "resync" branch are NO LONGER in the live RPC: the resync
+    //   branch was dropped at 20270221294989 (vendor_tier_solo) and verified was
+    //   moved onto the burning path at 20270307985604. Don't reason from those.
+    // A re-accept of an already-unlocked (vendor,event) is free + un-gated. Any
+    // RAISE rolls the whole tx back (no phantom unlock) — we surface a friendly,
+    // tier-appropriate message and do NOT accept. The RPC also ownership-checks
+    // the caller (defense-in-depth atop the loadVendorThreadForActor gate above).
     const { error: burnErr } = await supabase.rpc('unlock_vendor_event', {
       p_vendor_profile_id: thread.vendor_profile_id,
       p_event_id: thread.event_id,

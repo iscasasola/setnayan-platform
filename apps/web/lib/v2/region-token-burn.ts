@@ -36,15 +36,18 @@
  * • Does NOT charge anything itself — this module is the pricing DEFINITION only
  *   (a pure region→token-count function). The actual consume is LIVE and lives
  *   in the DB RPC `unlock_vendor_event` (chat acceptInquiry), which burns 1–3
- *   region-banded tokens for PRO/ENTERPRISE vendors via
- *   consume_vendor_assets_per_voucher. ⚠ Band-source note: that RPC reads the
- *   `token_burn_bands` table while this module reads `regions.burn_band` — two
- *   min-wage-seeded maps that SHOULD be reconciled to one source (follow-up).
+ *   region-banded tokens for VERIFIED / SOLO / PRO / ENTERPRISE vendors (FREE is
+ *   blocked; the 2026-06-25 retune put VERIFIED on the burning path too) via
+ *   consume_vendor_assets_per_voucher. RECONCILED 2026-07-01 (burn-band single
+ *   source · migration 20270331100000): the RPC now resolves events.region →
+ *   `public.regions.burn_band` by alias-match — the SAME map this module reads.
+ *   The old parallel `token_burn_bands` table is retired (it mis-keyed 6 regions
+ *   and under-charged them); there is no longer a second min-wage map to drift.
  * • Pure function of a region slug, never throws (region-source's resolver is
  *   sync + never-throw; on a DB miss it falls back to its static band table).
- * • region→band now lives in public.regions.burn_band (admin-editable when the
- *   region table gets an editor); region-source hydrates from it, and the
- *   static fallback in region-source is the V1 source of truth until then.
+ * • region→band lives in public.regions.burn_band, admin-editable at
+ *   /admin/token-bands (repointed onto regions in the same 2026-07-01 PR);
+ *   region-source hydrates from it, and its static fallback mirrors the seed.
  *
  * Cross-references: DECISION_LOG 2026-06-05 · Token_Economy_Flow_Map_2026-06-01.html
  * · CLAUDE-CODE-BRIEF-v2.1 § 2.4 · lib/region-source.ts (canonical region source).

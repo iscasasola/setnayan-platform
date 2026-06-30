@@ -365,20 +365,42 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
 
   const admin = createAdminClient();
 
-  // Snapshot vendor for audit metadata.
+  // Snapshot vendor for audit metadata + the founder id (the store-wallet owner).
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('business_name, public_id')
+    .select('business_name, public_id, user_id')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
   if (!vendor) {
     throw new Error('Vendor not found.');
   }
 
-  // Call the helper. Returns the voucher_id (or NULL on key collision).
-  const { data: voucherId, error: rpcErr } = await admin.rpc(
-    'grant_admin_direct_tokens',
-    {
+  // Optional recipient (multi-admin org model). Blank or the founder → the
+  // store's earned-voucher wallet (existing path). A non-founder teammate →
+  // their personal purchased balance (never-expire, non-transferable).
+  const holderRaw = formData.get('holder_user_id');
+  const holder =
+    typeof holderRaw === 'string' && holderRaw.trim().length > 0
+      ? holderRaw.trim()
+      : null;
+  const toMember = holder !== null && holder !== vendor.user_id;
+
+  let voucherId: unknown = null;
+  if (toMember) {
+    const { error: memErr } = await admin.rpc('grant_member_purchased_tokens', {
+      p_vendor_id: vendorId,
+      p_member_user_id: holder,
+      p_token_count: tokenCount,
+      p_granted_by_admin_id: adminUserId,
+      p_rationale: reason ?? `Admin member grant · ${tokenCount} tokens`,
+      p_idempotency_key: idempotencyKey,
+    });
+    if (memErr) {
+      throw new Error(`Could not grant tokens: ${memErr.message}`);
+    }
+  } else {
+    // Founder / store wallet — expiring earned voucher. Returns voucher_id.
+    const { data: vId, error: rpcErr } = await admin.rpc('grant_admin_direct_tokens', {
       p_vendor_id: vendorId,
       p_token_count: tokenCount,
       p_ttl_days: ttlDays,
@@ -386,10 +408,11 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
       p_granted_by_admin_id: adminUserId,
       p_rationale: reason ?? `Admin direct grant · ${tokenCount} tokens`,
       p_idempotency_key: idempotencyKey,
-    },
-  );
-  if (rpcErr) {
-    throw new Error(`Could not grant tokens: ${rpcErr.message}`);
+    });
+    if (rpcErr) {
+      throw new Error(`Could not grant tokens: ${rpcErr.message}`);
+    }
+    voucherId = vId;
   }
 
   // Audit-log canonical pattern matches issueCompGrant.
@@ -401,9 +424,11 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
       business_name: vendor.business_name,
       public_id: vendor.public_id,
       token_count: tokenCount,
-      ttl_days: ttlDays,
+      ttl_days: toMember ? null : ttlDays,
       grant_reason: reason,
       voucher_id: voucherId,
+      recipient_user_id: toMember ? holder : vendor.user_id,
+      recipient_kind: toMember ? 'member_purchased' : 'founder_earned',
       idempotency_key: idempotencyKey,
     },
   });

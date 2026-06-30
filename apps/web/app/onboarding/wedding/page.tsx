@@ -21,6 +21,7 @@
  */
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { safeNext } from '@/lib/auth';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
@@ -71,9 +72,14 @@ export const metadata: Metadata = {
 export default async function OnboardingWeddingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ resume?: string }>;
+  searchParams: Promise<{ resume?: string; next?: string }>;
 }) {
   const sp = await searchParams;
+  // Optional vendor-invite return path (2026-06-30): a 0-event couple sent here
+  // from /vendor-invite/[slug] to create their first event is returned to it
+  // after the commit so they can finish shortlisting the vendor. safeNext()
+  // keeps it to internal paths only.
+  const nextPath = safeNext(sp.next);
   const supabase = await createClient();
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
@@ -118,6 +124,7 @@ export default async function OnboardingWeddingPage({
       hiddenCats={hiddenCats}
       dynamicTiles={dynamicTiles}
       budgetBands={budgetBands}
+      nextPath={nextPath !== '/' ? nextPath : null}
     />
   );
 }

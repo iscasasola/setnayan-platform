@@ -1422,6 +1422,7 @@ export function OnboardingShell({
   hiddenCats = [],
   dynamicTiles = [],
   budgetBands = BUDGET_BANDS_FALLBACK,
+  nextPath = null,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1469,6 +1470,14 @@ export function OnboardingShell({
    * Defaults to the in-code fallback so the shell renders without the prop.
    */
   budgetBands?: BudgetBand[];
+  /**
+   * Optional internal return path (vendor-invite claim loop, 2026-06-30). When a
+   * 0-event couple is sent here from /vendor-invite/[slug] to create their first
+   * event, the plain-finish navigation returns them to it (so they can finish
+   * shortlisting the vendor) instead of landing on Home. Purchase/bundle CTAs
+   * keep precedence. Already safeNext()-validated in page.tsx.
+   */
+  nextPath?: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -2891,7 +2900,10 @@ export function OnboardingShell({
           ? `${base}/studio/${paySlug}`
           : toServices
             ? `${base}/vendors`
-            : base;
+            // Plain "continue free" finish: if the couple was sent here from a
+            // vendor-invite claim to create their first event, return them to it
+            // (vendor-invite/[slug]) to finish shortlisting; else land on Home.
+            : (nextPath ?? base);
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
@@ -3014,7 +3026,7 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-  }, [committedEventId, state, buildCommitPayload, router, goToId, pricing]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, pricing, nextPath]);
 
   return (
     <div className="onbw">

@@ -502,7 +502,7 @@ export async function resolveClaimContextForService(claimToken: string): Promise
 }
 
 export type RegisterClaimedServiceResult =
-  | { ok: true; registered: boolean; reason?: 'already_registered' }
+  | { ok: true; registered: boolean; reason?: 'already_registered' | 'category_mismatch' }
   | { ok: false; code: string; message: string };
 
 /**
@@ -561,7 +561,7 @@ export async function registerClaimedServiceToCouple(args: {
   // (2)(3)(4) Invite must be claimed BY this user TO this vendor profile.
   const { data: invite, error: invErr } = await admin
     .from('vendor_invites')
-    .select('invite_id,vendor_id,status,claimed_by_user_id,claimed_vendor_profile_id')
+    .select('invite_id,vendor_id,status,service_category,claimed_by_user_id,claimed_vendor_profile_id')
     .eq('claim_token', args.claimToken)
     .maybeSingle();
   if (invErr) return { ok: false, code: 'INVITE_LOOKUP_FAILED', message: invErr.message };
@@ -587,12 +587,25 @@ export async function registerClaimedServiceToCouple(args: {
   // (6) The service must belong to this vendor profile.
   const { data: svc } = await admin
     .from('vendor_services')
-    .select('vendor_service_id')
+    .select('vendor_service_id,category')
     .eq('vendor_service_id', args.vendorServiceId)
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (!svc) {
     return { ok: false, code: 'SERVICE_NOT_OWNED', message: 'That service is not yours.' };
+  }
+
+  // (7) The service's category must match the category the couple invited this
+  //     vendor for. A vendor who hand-navigates to /services/new/<other-cat>?
+  //     claim=<token> can create a real, owned service in the WRONG category;
+  //     linking it into the couple's plan row would silently mis-categorize the
+  //     booking. We skip (best-effort, consistent with the idempotent path) the
+  //     cross-actor write rather than throwing — the service still exists for the
+  //     vendor; it just isn't auto-registered to this claim.
+  const inviteCategory = (invite.service_category as string | null) ?? null;
+  const svcCategory = (svc.category as string | null) ?? null;
+  if (inviteCategory && svcCategory !== inviteCategory) {
+    return { ok: true, registered: false, reason: 'category_mismatch' };
   }
 
   // (5) The couple's row must already be linked to THIS vendor profile, and

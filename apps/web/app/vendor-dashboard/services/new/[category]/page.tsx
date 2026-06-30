@@ -58,7 +58,13 @@ export default async function NewServicePage({
     !!claimContext &&
     !claimContext.alreadyRegistered &&
     claimContext.claimedByUserId === user.id &&
-    claimContext.claimedVendorProfileId === profile.vendor_profile_id;
+    claimContext.claimedVendorProfileId === profile.vendor_profile_id &&
+    // Category-match guard — the banner + threaded claim_token only apply when
+    // THIS [category] route matches the category the couple invited the vendor
+    // for. A vendor who hand-navigates to /services/new/<other-category>?claim=
+    // <token> gets a plain "add a service" flow (no banner, no registration),
+    // mirroring the same guard the cross-actor write enforces server-side.
+    claimContext.serviceCategory === category;
 
   // The vendor's OTHER offered categories → the "comes with" link options.
   const { data: ownRows } = await supabase

@@ -43,3 +43,34 @@ foreign claim token (degrades to a plain "add a service" flow, never crashes).
 SPEC IMPACT: None. Reuses the existing manual-vendor claim/auto-link flow,
 the guided services wizard, and the `event_vendors.service_id` couple↔service
 link (migration `20260604070000`). No schema change, no SKU/pricing change.
+
+## 2026-07-01 · fix(vendor-claim): category-match guard + preserve claim context on validation failure (gap-check)
+
+Adversarial gap-check follow-up on the claim → guided-service → register flow.
+
+- `apps/web/lib/vendor-invite-actions.ts` — `registerClaimedServiceToCouple`
+  now also selects `invite.service_category` + `vendor_services.category` and
+  refuses (best-effort skip, `reason:'category_mismatch'`) the cross-actor write
+  when the service's category differs from the category the couple invited the
+  vendor for. Previously the chain proved the service was OWNED by the vendor but
+  not that it matched the invite's category, so a vendor who hand-navigated to
+  `/vendor-dashboard/services/new/<DIFFERENT-category>?claim=<token>` could link a
+  mismatched-category service into the couple's plan row.
+- `apps/web/app/vendor-dashboard/services/new/[category]/page.tsx` — mirrors the
+  same equality guard in `showClaimBanner`: the banner + threaded `claim_token`
+  only apply when `claimContext.serviceCategory === category` (the `[category]`
+  route param), so a wrong-category route degrades to a plain "add a service"
+  flow client-side too.
+- `apps/web/app/vendor-dashboard/services/actions.ts` — `commitVendorService`'s
+  validation-failure `back()` path no longer drops the claim context. On a
+  claim-driven CREATE it now routes failures to
+  `/vendor-dashboard/services/new/<category>?claim=<token>&error=…` (preserving
+  the token + category) instead of the generic services list, so the banner +
+  registration survive a retry.
+
+Two findings deliberately SKIPPED as acceptable V1 residuals (noted in the
+commit body): (a) claim re-entry doesn't re-offer the guided wizard once the
+vendor already has a service, and (b) the best-effort registration can
+double-create on a registration-failure retry. Neither corrupts state.
+
+SPEC IMPACT: None. Hardening of an existing flow; no schema/SKU/pricing change.

@@ -63,6 +63,13 @@ export type ShowcaseEntry = {
   // on the DB path today — a clip-as-hero needs a dedicated pick (the editorial
   // hero excludes clips); wired here so real editorials can opt in later.
   heroVideoUrl: string | null;
+  // TRUE when this entry is the curated SAMPLE event (events.is_sample), not a
+  // real consented couple. The sample is admitted to /realstories WITHOUT the
+  // RA 10173 consent/grace gates — precisely because it represents no real
+  // person — and the card keeps its honest "Sample" badge so nothing claims a
+  // real couple consented. Real editorials are always isSample=false (they pass
+  // G4 grace + G5 consent).
+  isSample: boolean;
 };
 
 const GRACE_DAYS = 30;
@@ -110,18 +117,22 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       .not('public_summary_consent_at', 'is', null)
       .is('deleted_at', null);
     const userIds = (consenters ?? []).map((u) => u.user_id as string);
-    if (userIds.length === 0) return [];
 
-    // 2 · the events those couples belong to.
-    const { data: members } = await admin
-      .from('event_members')
-      .select('event_id')
-      .eq('member_type', 'couple')
-      .in('user_id', userIds);
-    const eventIds = Array.from(
-      new Set((members ?? []).map((m) => m.event_id as string)),
-    );
-    if (eventIds.length === 0) return [];
+    // 2 · the events those couples belong to. (Empty until the first real
+    // consented couple exists — but we no longer short-circuit here: the
+    // SAMPLE branch below surfaces the curated Maria & Jose card even when
+    // zero real couples have consented yet.)
+    let eventIds: string[] = [];
+    if (userIds.length > 0) {
+      const { data: members } = await admin
+        .from('event_members')
+        .select('event_id')
+        .eq('member_type', 'couple')
+        .in('user_id', userIds);
+      eventIds = Array.from(
+        new Set((members ?? []).map((m) => m.event_id as string)),
+      );
+    }
 
     // 3 · their weddings, past the grace window, with a public slug.
     //
@@ -144,44 +155,104 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       venue_name: string | null;
       venue_address: string | null;
       monogram_color: string | null;
+      is_sample?: boolean | null;
       landing_page_hero_image_url?: string | null;
       landing_page_hero_video_r2_key?: string | null;
       showcase_featured_at?: string | null;
       showcase_feature_rank?: number | null;
     };
 
-    const featuredAware = await admin
-      .from('events')
-      .select(
-        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
-      )
-      .eq('event_type', 'wedding')
-      // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
-      // page the couple kept private — even if they consented to the showcase,
-      // a private page must not leak its canonical /[slug] into /realstories or
-      // the sitemap.
-      .neq('landing_page_visibility', 'private')
-      .in('event_id', eventIds)
-      .lte('event_date', cutoff)
-      .not('slug', 'is', null)
-      .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
-      .order('showcase_featured_at', { ascending: false, nullsFirst: false })
-      .order('event_date', { ascending: false })
-      .limit(limit);
+    const FEATURED_COLS =
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank';
+    const LEGACY_COLS =
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key';
 
-    let events = featuredAware.data as EventRow[] | null;
-    if (featuredAware.error) {
-      // Pre-migration fallback — drop the featuring columns + ordering.
-      const legacy = await admin
+    // 3a · CONSENTED real weddings — gated on G4 (grace window) + G5 (consent),
+    // featured-first. Skipped entirely when no real couple has consented yet.
+    let consentedEvents: EventRow[] = [];
+    if (eventIds.length > 0) {
+      const featuredAware = await admin
         .from('events')
-        .select('event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key')
+        .select(FEATURED_COLS)
         .eq('event_type', 'wedding')
+        // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
+        // page the couple kept private — even if they consented to the showcase,
+        // a private page must not leak its canonical /[slug] into /realstories or
+        // the sitemap.
+        .neq('landing_page_visibility', 'private')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
         .not('slug', 'is', null)
+        .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
+        .order('showcase_featured_at', { ascending: false, nullsFirst: false })
         .order('event_date', { ascending: false })
         .limit(limit);
-      events = legacy.data as EventRow[] | null;
+
+      if (featuredAware.error) {
+        // Pre-migration fallback — drop the featuring columns + ordering.
+        const legacy = await admin
+          .from('events')
+          .select(LEGACY_COLS)
+          .eq('event_type', 'wedding')
+          .in('event_id', eventIds)
+          .lte('event_date', cutoff)
+          .not('slug', 'is', null)
+          .order('event_date', { ascending: false })
+          .limit(limit);
+        consentedEvents = (legacy.data as EventRow[] | null) ?? [];
+      } else {
+        consentedEvents = (featuredAware.data as EventRow[] | null) ?? [];
+      }
+    }
+
+    // 3b · SAMPLE weddings (events.is_sample) — admitted to /realstories WITHOUT
+    // the G4/G5 consent + grace gates, because a sample represents no real
+    // person (the RA 10173 honesty lock only protects real couples). The card
+    // keeps its "Sample" badge (page.tsx wires isSample through), so nothing
+    // claims a real couple consented, and the sample stays future-dated — its
+    // planning/day-of demo is untouched. Same visibility + slug + featured
+    // ordering as the real path. Graceful-degrade identical to 3a.
+    let sampleEvents: EventRow[] = [];
+    {
+      const sampleFeatured = await admin
+        .from('events')
+        .select(FEATURED_COLS)
+        .eq('event_type', 'wedding')
+        .eq('is_sample', true)
+        .neq('landing_page_visibility', 'private')
+        .not('slug', 'is', null)
+        .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
+        .order('showcase_featured_at', { ascending: false, nullsFirst: false })
+        .order('event_date', { ascending: false })
+        .limit(limit);
+
+      if (sampleFeatured.error) {
+        const sampleLegacy = await admin
+          .from('events')
+          .select(LEGACY_COLS)
+          .eq('event_type', 'wedding')
+          .eq('is_sample', true)
+          .neq('landing_page_visibility', 'private')
+          .not('slug', 'is', null)
+          .order('event_date', { ascending: false })
+          .limit(limit);
+        sampleEvents = (sampleLegacy.data as EventRow[] | null) ?? [];
+      } else {
+        sampleEvents = (sampleFeatured.data as EventRow[] | null) ?? [];
+      }
+    }
+
+    // Merge consented + sample, de-dupe by event_id (consented wins — a real
+    // consented event is never re-shown as a "Sample"), real stories first then
+    // samples, capped at `limit`. Within each group the per-query ordering
+    // (featured-first, then newest) is preserved.
+    const seen = new Set<string>();
+    const events: EventRow[] = [];
+    for (const e of [...consentedEvents, ...sampleEvents]) {
+      if (seen.has(e.event_id)) continue;
+      seen.add(e.event_id);
+      events.push(e);
+      if (events.length >= limit) break;
     }
 
     // Style-Twin Discovery — batch-fetch the credited vendors behind each story
@@ -190,7 +261,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // excluded). One round trip across all stories (no N+1), deduped + capped
     // per card. Best-effort: any failure leaves vendors=[] and the card still
     // renders (the credits are a discovery affordance, not load-bearing).
-    const evList = events ?? [];
+    const evList = events;
     const creditsByEvent = new Map<string, ShowcaseVendorCredit[]>();
     if (evList.length > 0) {
       const { data: links } = await admin
@@ -263,6 +334,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         heroVideoUrl: e.landing_page_hero_video_r2_key
           ? await displayUrlForStoredAsset(e.landing_page_hero_video_r2_key)
           : null,
+        isSample: e.is_sample === true,
       })),
     );
   } catch {

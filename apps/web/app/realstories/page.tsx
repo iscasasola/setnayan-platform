@@ -59,7 +59,14 @@ export const revalidate = 3600;
 
 export default async function RealStoriesIndexPage() {
   const showcases = await loadPublishedShowcases();
+  // Fall back to the in-code curated samples only when the DB path is empty.
   const showingSamples = showcases.length === 0;
+  // Truth-in-UI: the "published with their consent" header copy is only honest
+  // once a REAL consented couple is on the page. The DB path now also includes
+  // the curated SAMPLE event (badged "Sample"), so when EVERY DB card is a
+  // sample we keep the samples framing in the header (the per-card "Sample"
+  // badge already disambiguates each card either way).
+  const hasRealStory = showcases.some((s) => !s.isSample);
 
   const items: GalleryItem[] = showingSamples
     ? ALL_REAL_WEDDINGS.map((w) => ({
@@ -96,7 +103,11 @@ export default async function RealStoriesIndexPage() {
         heroVideoUrl: s.heroVideoUrl,
         featureRank: s.featureRank,
         publishedSort: s.eventDate ?? '',
-        isSample: false,
+        // The DB path now includes the curated SAMPLE event (Maria & Jose),
+        // which keeps its honest "Sample" badge — so carry the loader's flag
+        // through instead of hardcoding false. Real consented editorials are
+        // always isSample=false.
+        isSample: s.isSample,
         searchText: `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''}`.toLowerCase(),
         eventType: null,
         witnessQuote: null,
@@ -149,7 +160,7 @@ export default async function RealStoriesIndexPage() {
             The front-page story of their life.
           </h1>
           <p className="text-base text-ink/65">
-            {showingSamples ? (
+            {!hasRealStory ? (
               <>
                 Every wedding, debut, anniversary, graduation, and reunion — told
                 in full, by the people who were there. Real editorials begin

@@ -97,16 +97,17 @@ export async function resolveRepostFlag(formData: FormData) {
 
 /**
  * Admin "Rescan all" backfill — hashes every real vendor's current portfolio +
- * service cover images and flags cross-vendor matches. REQUIRED for the feature
- * to have any signal (hashing otherwise only fires on new saves, and the
- * founder-only vendor set is near-static). Runs synchronously then redirects
- * back with a summary.
+ * service cover images AND re-matches the full hash set at the current threshold
+ * (so a widened threshold actually takes effect, not just newly-hashed refs).
+ * REQUIRED for the feature to have any signal (hashing otherwise only fires on
+ * new saves, and the founder-only vendor set is near-static). Runs synchronously
+ * then redirects back with a summary.
  */
 export async function rescanAllRepostWatch() {
   await requireAdmin();
   const summary = await rescanAllVendorImages();
   revalidatePath('/admin/repost-watch');
   redirect(
-    `/admin/repost-watch?rescanned=${summary.vendorsScanned}&refs=${summary.refsConsidered}`,
+    `/admin/repost-watch?rescanned=${summary.vendorsScanned}&refs=${summary.refsConsidered}&rematched=${summary.refsRematched}&flagged=${summary.flagsUpserted}`,
   );
 }

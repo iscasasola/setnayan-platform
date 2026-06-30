@@ -1649,9 +1649,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         };
       }
 
-      // Date-open priority (2026-06-30) — "a current calendar ranks you up."
-      // Within this results page, float vendors who are FREE in the couple's
-      // date window above vendors already booked then. This is independent of
+      // Date-open priority (2026-06-30) — vendors open on the couple's date rank
+      // above vendors already booked then. Within this results page, float
+      // vendors who are FREE in the couple's date window above the booked ones.
+      // (Demote-only: a vendor with no declared calendar is treated as open, so
+      // this never *rewards* calendar upkeep — it only sinks the booked.) This is
+      // independent of
       // the locked-vendor intersection above: it applies whenever the couple
       // has a date, even with zero confirmed vendors (lockedCount === 0).
       //

@@ -1,9 +1,10 @@
 // Shared client-side reel render engine.
 //
-// (Formerly lib/patiktok-render.ts. Patiktok was retired 2026-06-29; this
-// generic 9:16 reel encoder is kept because Guest Stories — the free,
-// photo-driven personal-reel tier — renders through it. No remaining Patiktok
-// caller; renamed to drop the retired product's name.)
+// (Formerly lib/patiktok-render.ts — renamed at the 2026-06-29 Patiktok
+// retirement to a product-neutral name. Patiktok was UN-RETIRED 2026-07-01
+// (PR #2464) and again renders through this engine; Guest Stories — the free,
+// photo-driven personal-reel tier — also renders through it. So this generic
+// 9:16 reel encoder is the shared client renderer for BOTH.)
 //
 // Render host (owner-locked 2026-06-18): CLIENT-SIDE, ₱0 server compute. The
 // couple browser stitches the captured clips/photos into a 9:16 MP4 and uploads

@@ -421,7 +421,16 @@ function getOrigin(url: string | undefined): string | null {
   }
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  // Root `@modal` parallel slot — hosts the intercepted /login overlay
+  // (app/@modal/(.)login) on soft navigation; renders null (app/@modal/default.tsx)
+  // on every other route and on a hard load of /login.
+  modal: React.ReactNode;
+}) {
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
   // the first auth check, first analytics event, and first signed-URL fetch.
@@ -550,6 +559,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Providers brandMarkUrl={brandMarkUrl}>
           <SiteChrome navSlots={navSlots} />
           {children}
+          {/* @modal parallel slot — the intercepted /login overlay slides in
+              here over the current page on soft nav; null elsewhere. Inside
+              <Providers> so it shares the same theme/brand context. */}
+          {modal}
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />

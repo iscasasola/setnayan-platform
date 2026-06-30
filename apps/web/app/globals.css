@@ -1699,3 +1699,496 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
 @media (max-width: 820px) {
   .sn-thread { display: none; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Full-bleed sign-in (/login) — mockup "1c · Full-bleed · sign-in rail"
+   (owner 2026-07-01). A photographic hero panel + a frosted obsidian sign-in
+   rail. Shared by the standalone page (app/login/page.tsx · `.sn-login--enter`)
+   and the intercepted overlay (app/@modal/(.)login · `.sn-login--overlay`).
+
+   The dark surface is the OBSIDIAN end of the Clean Editorial palette
+   (var(--m-ink) #1E2229) — not a separate theme. Local custom props keep the
+   light-on-dark tokens in one place.
+   ────────────────────────────────────────────────────────────────────────── */
+.sn-login {
+  --snl-bg: #14171c;
+  --snl-rail: #181b21;
+  --snl-text: #f6f4ef;
+  --snl-muted: rgba(255, 255, 255, 0.62);
+  --snl-faint: rgba(255, 255, 255, 0.42);
+  --snl-line: rgba(255, 255, 255, 0.14);
+  --snl-field: rgba(255, 255, 255, 0.06);
+  --snl-field-line: rgba(255, 255, 255, 0.16);
+  --snl-gold: var(--m-orange-3);
+  --snl-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 0.82fr);
+  min-height: 100dvh;
+  background: var(--snl-bg);
+  color: var(--snl-text);
+  font-family: var(--font-sans-marketing, Geist), system-ui, sans-serif;
+  overflow: hidden;
+}
+.sn-login-page {
+  min-height: 100dvh;
+  background: var(--snl-bg, #14171c);
+}
+
+/* ── Hero panel ─────────────────────────────────────────────────────────── */
+.sn-login-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(24px, 3.2vw, 44px);
+  background-color: #1a1e24;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100dvh;
+  isolation: isolate;
+}
+.sn-login-hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(16, 18, 22, 0.32) 0%, rgba(16, 18, 22, 0.1) 36%, rgba(16, 18, 22, 0.82) 100%),
+    linear-gradient(90deg, rgba(16, 18, 22, 0) 60%, rgba(16, 18, 22, 0.45) 100%);
+}
+.sn-login-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  align-self: flex-start;
+  padding: 9px 9px 9px 14px;
+  border-radius: var(--m-r-full);
+  background: rgba(18, 21, 26, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.sn-login-nav-logo {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  opacity: 0.95;
+}
+.sn-login-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+}
+.sn-login-nav-link {
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+.sn-login-nav-link:hover {
+  color: #fff;
+}
+.sn-login-nav-link--active {
+  color: #fff;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--m-r-full);
+  background: rgba(255, 255, 255, 0.12);
+}
+.sn-login-nav-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.sn-login-hero-copy {
+  position: relative;
+  max-width: 30ch;
+}
+.sn-login-eyebrow {
+  display: block;
+  font-family: var(--font-mono-marketing, var(--font-mono)), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--snl-faint);
+  margin-bottom: 16px;
+}
+.sn-login-headline {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: #fff;
+}
+.sn-login-sub {
+  margin: 18px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--snl-muted);
+  max-width: 34ch;
+}
+
+/* ── Sign-in rail ───────────────────────────────────────────────────────── */
+.sn-login-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(28px, 3vw, 52px);
+  background: color-mix(in srgb, var(--snl-rail) 90%, transparent);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(118%);
+  backdrop-filter: blur(22px) saturate(118%);
+  overflow-y: auto;
+}
+.sn-login-rail-inner {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sn-login-rail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sn-login-rail-title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: #fff;
+}
+.sn-login-rail-welcome {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--snl-muted);
+}
+.sn-login-banner {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: var(--m-r-sm);
+  border: 1px solid var(--snl-line);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.sn-login-banner--error {
+  border-color: rgba(206, 86, 74, 0.5);
+  background: rgba(206, 86, 74, 0.14);
+  color: #f0c1ba;
+}
+.sn-login-banner-em {
+  font-weight: 600;
+  color: #fff;
+}
+.sn-login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0;
+}
+.sn-login-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--snl-line);
+}
+.sn-login-divider-label {
+  font-family: var(--font-mono-marketing, var(--font-mono)), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--snl-faint);
+}
+.sn-login-form {
+  display: grid;
+  gap: 14px;
+}
+.sn-login-field {
+  display: grid;
+  gap: 6px;
+}
+.sn-login-field-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.sn-login-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+.sn-login-forgot {
+  font-size: 13px;
+  color: var(--snl-gold);
+  text-decoration: none;
+}
+.sn-login-forgot:hover {
+  text-decoration: underline;
+}
+.sn-login-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.sn-login-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--snl-field);
+  border: 1px solid var(--snl-field-line);
+  border-radius: var(--m-r-sm);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--snl-text);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sn-login-input::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+.sn-login-input:focus {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.09);
+}
+.sn-login-input-wrap .sn-login-input {
+  padding-right: 60px;
+}
+.sn-login-reveal {
+  position: absolute;
+  right: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.66);
+  cursor: pointer;
+  border-radius: var(--m-r-sm);
+}
+.sn-login-reveal:hover {
+  color: #fff;
+}
+.sn-login-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--snl-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.sn-login-remember input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--snl-gold);
+  cursor: pointer;
+}
+.sn-login-submit {
+  margin-top: 2px;
+  width: 100%;
+  padding: 13px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: var(--m-ink);
+  border: 0;
+  border-radius: var(--m-r-full);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease;
+}
+.sn-login-submit:hover {
+  background: #ece9e1;
+}
+.sn-login-submit:active {
+  transform: translateY(1px);
+}
+.sn-login-tail {
+  font-size: 13px;
+  text-align: center;
+  color: var(--snl-muted);
+}
+.sn-login-tail-link {
+  color: var(--snl-gold);
+  text-decoration: none;
+  font-weight: 500;
+}
+.sn-login-tail-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Overlay (intercepted route) ────────────────────────────────────────── */
+.sn-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(10, 12, 15, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.32s ease;
+}
+.sn-login-overlay[data-open='true'] {
+  opacity: 1;
+}
+.sn-login--overlay {
+  min-height: 100dvh;
+  height: 100dvh;
+}
+.sn-login-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--m-r-full);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sn-login-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+/* ── Entrance choreography ──────────────────────────────────────────────── */
+/* Desktop: hero settles from the left, rail slides in from the right. */
+@keyframes snLoginHeroIn {
+  from { opacity: 0; transform: translateX(-2.5%) scale(1.015); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes snLoginRailIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+/* Standalone page — animate once on load. */
+.sn-login--enter .sn-login-hero {
+  animation: snLoginHeroIn 0.6s var(--snl-ease) both;
+}
+.sn-login--enter .sn-login-rail {
+  animation: snLoginRailIn 0.55s var(--snl-ease) both;
+}
+/* Overlay — transition gated by [data-open] so the entrance runs after mount. */
+.sn-login--overlay .sn-login-hero {
+  opacity: 0;
+  transform: translateX(-2.5%) scale(1.015);
+  transition: opacity 0.5s var(--snl-ease), transform 0.5s var(--snl-ease);
+}
+.sn-login--overlay .sn-login-rail {
+  transform: translateX(100%);
+  transition: transform 0.5s var(--snl-ease);
+}
+.sn-login-overlay[data-open='true'] .sn-login-hero {
+  opacity: 1;
+  transform: none;
+}
+.sn-login-overlay[data-open='true'] .sn-login-rail {
+  transform: translateX(0);
+}
+
+/* ── Mobile: headline over photo + bottom-sheet rail ────────────────────── */
+@media (max-width: 768px) {
+  .sn-login {
+    display: block;
+    grid-template-columns: none;
+  }
+  .sn-login-hero {
+    position: absolute;
+    inset: 0;
+    justify-content: flex-start;
+    gap: 22px;
+    padding: 22px;
+    min-height: 0;
+  }
+  .sn-login-nav {
+    align-self: center;
+    padding: 8px 16px;
+  }
+  .sn-login-nav-links {
+    display: none;
+  }
+  .sn-login-hero-copy {
+    margin-top: 6vh;
+    max-width: none;
+  }
+  .sn-login-headline {
+    font-size: clamp(30px, 9vw, 40px);
+  }
+  .sn-login-sub {
+    display: none;
+  }
+  .sn-login-rail {
+    position: relative;
+    margin-top: 34dvh;
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px 24px 0 0;
+    min-height: 66dvh;
+    justify-content: flex-start;
+    padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -24px 60px -20px rgba(0, 0, 0, 0.55);
+  }
+  .sn-login-rail-inner {
+    max-width: 440px;
+  }
+  /* Mobile entrance — rail rises from the bottom instead of the side. */
+  @keyframes snLoginSheetIn {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  .sn-login--enter .sn-login-rail {
+    animation: snLoginSheetIn 0.5s var(--snl-ease) both;
+  }
+  .sn-login--enter .sn-login-hero {
+    animation: snLoginHeroIn 0.6s var(--snl-ease) both;
+  }
+  .sn-login--overlay .sn-login-rail {
+    transform: translateY(100%);
+    transition: transform 0.46s var(--snl-ease);
+  }
+  .sn-login-overlay[data-open='true'] .sn-login-rail {
+    transform: translateY(0);
+  }
+  /* Hero behind the sheet doesn't slide on mobile — just fades. */
+  .sn-login--overlay .sn-login-hero {
+    transform: none;
+  }
+  .sn-login-overlay[data-open='true'] .sn-login-hero {
+    transform: none;
+  }
+}
+
+/* ── Reduced motion — drop all transforms, keep a soft fade. ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .sn-login--enter .sn-login-hero,
+  .sn-login--enter .sn-login-rail,
+  .sn-login--overlay .sn-login-hero,
+  .sn-login--overlay .sn-login-rail {
+    animation: none !important;
+    transform: none !important;
+    transition: opacity 0.2s ease !important;
+    opacity: 1;
+  }
+  .sn-login-overlay {
+    transition: opacity 0.2s ease;
+  }
+}

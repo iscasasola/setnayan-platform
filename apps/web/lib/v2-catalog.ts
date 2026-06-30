@@ -31,7 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * days", matching the vendor 28-day billing cadence. Both the number AND the
  * unit come from the catalog row — never hardcoded.
  */
-export type BillingPeriod = 'one_time' | 'per_28d';
+export type BillingPeriod = 'one_time' | 'per_28d' | 'per_day';
 
 export type V2CustomerSku = {
   service_code: string;
@@ -357,6 +357,9 @@ export const getCustomerSkuPriceLabel = cache(
 const BILLING_PERIOD_SUFFIX: Record<BillingPeriod, string> = {
   one_time: '',
   per_28d: ' / 28 days',
+  // Per event-day charge (Patiktok ₱1,499/day) — same event-day model as Panood;
+  // the amount is flat per purchase, the couple activates it per day.
+  per_day: ' / day',
 };
 
 /**

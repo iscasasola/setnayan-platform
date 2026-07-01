@@ -23,6 +23,8 @@ import {
 import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
+import { fetchVendorConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import {
   asVendorTier,
   TIER_PRICE_PHP,
@@ -46,6 +48,8 @@ import {
   scopeLabelFor,
 } from './_components/service-scope-selector';
 import { ScopeNote } from './_components/scope-note';
+import { InquiryHandlingCard } from './_components/inquiry-handling-card';
+import { ConversionDealsCard } from './_components/conversion-deals-card';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -153,6 +157,8 @@ export default async function VendorPerformancePage({
     vendorCatalog,
     funnelTotals,
     demandRadar,
+    inquiryAnalytics,
+    conversionAnalytics,
   ] = await Promise.all([
     supabase
       .from('vendor_activity_stats')
@@ -165,6 +171,14 @@ export default async function VendorPerformancePage({
     fetchV2VendorCatalog().catch(() => []),
     fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     getVendorDemandRadar(supabase, profile.vendor_profile_id),
+    // Inquiry-handling + conversion analytics — shop-level, Pro+ (own-business).
+    // Skip the RPCs entirely for tiers that won't render the sections.
+    canAdvanced
+      ? fetchVendorInquiryAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve(null),
+    canAdvanced
+      ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve(null),
   ]);
 
   const statsRow = statsRes.data;
@@ -384,6 +398,31 @@ export default async function VendorPerformancePage({
           />
         )}
       </div>
+
+      {/* ── Inquiries (Pro+) · own-business inquiry-handling analytics. Omitted
+             for Solo. Shop-level (chat_threads has no per-service dimension), so
+             it wears the "across all services" note when a service is picked. */}
+      {canAdvanced && inquiryAnalytics && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Inquiries</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
+          <InquiryHandlingCard data={inquiryAnalytics} />
+        </div>
+      )}
+
+      {/* ── Conversion (Pro+) · own-business quote→booking economics. Shop-level,
+             so it wears the note when a service is picked. */}
+      {canAdvanced && conversionAnalytics && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Conversion</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
+          <ConversionDealsCard data={conversionAnalytics} />
+        </div>
+      )}
 
       {/* ── Market intelligence (Enterprise) · cross-business, de-identified.
           Demand Radar is a cross-market signal with no per-service dimension —

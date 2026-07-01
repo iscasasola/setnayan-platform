@@ -142,8 +142,8 @@ export default async function VendorDashboardLayout({
         .maybeSingle(),
     ]);
     vendorTier = (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null;
-    vendorTokenBalance =
-      (walletRes.data?.purchased_tokens ?? 0) + (walletRes.data?.earned_tokens ?? 0);
+    const earnedTokens = walletRes.data?.earned_tokens ?? 0;
+    vendorTokenBalance = (walletRes.data?.purchased_tokens ?? 0) + earnedTokens;
     // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
     // awaited write RPC that blocked every layout render — including every
     // Server-Action-triggered re-render of this dynamic layout. Deferring it to
@@ -152,11 +152,18 @@ export default async function VendorDashboardLayout({
     // token pill can be one load stale after an expiry — accepted by owner
     // 2026-07-01. `supabase` is captured in the closure (holds the access token
     // in memory), so the post-response call still authenticates.
-    after(async () => {
-      await supabase
-        .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
-        .then(() => undefined, () => undefined);
-    });
+    //
+    // GATED (2026-07-01 gap-fix): only *earned* tokens expire, so the sweep is
+    // a guaranteed no-op when the wallet holds none. Skipping it there avoids a
+    // pointless background write on every render for the majority of vendors
+    // (those with a zero earned balance).
+    if (earnedTokens > 0) {
+      after(async () => {
+        await supabase
+          .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
+          .then(() => undefined, () => undefined);
+      });
+    }
   }
 
   if (profile?.deleted_at) {

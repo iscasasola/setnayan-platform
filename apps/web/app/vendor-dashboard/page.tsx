@@ -43,7 +43,7 @@ export const metadata = { title: 'Overview · Vendor' };
 
 function AgentHome() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
           Setnayan · Vendor
@@ -100,7 +100,7 @@ export default async function VendorOverviewPage() {
   // that routes them to create one. No feed to compute.
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <header className="mb-6 space-y-1.5">
           <h1
             className="text-3xl font-semibold tracking-tight sm:text-4xl"
@@ -156,7 +156,7 @@ export default async function VendorOverviewPage() {
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard overview] loader failed', err);
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-start gap-3">
           <AlertTriangle
             aria-hidden
@@ -180,7 +180,7 @@ export default async function VendorOverviewPage() {
   const { whatsNew, ongoing, upcoming } = data;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Heading */}
       <header className="mb-8 space-y-1.5">
         <h1

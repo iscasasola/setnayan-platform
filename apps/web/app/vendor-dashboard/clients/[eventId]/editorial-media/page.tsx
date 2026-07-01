@@ -72,7 +72,7 @@ export default async function VendorEditorialMediaPage({
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <Link
         href={`/vendor-dashboard/clients/${eventId}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"

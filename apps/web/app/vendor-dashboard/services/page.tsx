@@ -383,7 +383,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   const specialistTools = specialistToolsForCategories(distinctCategories);
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
       {search.error ? (
         <p
           role="alert"

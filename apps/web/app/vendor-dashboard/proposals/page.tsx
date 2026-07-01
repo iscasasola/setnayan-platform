@@ -115,7 +115,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
   const notice = search.notice ? NOTICES[search.notice] : null;
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-2">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <FileText aria-hidden className="h-5 w-5" strokeWidth={1.75} />

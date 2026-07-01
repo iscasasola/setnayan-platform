@@ -2318,6 +2318,55 @@ html.hr-snap {
   line-height: 1.45;
   margin-top: 3px;
 }
+/* Tier chips (as-built §6 gating) — Free muted, paid tiers coloured. */
+.home-reskin-ov .hr-tier {
+  font-family: var(--hr-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--hr-r20);
+  padding: 1px 6px;
+  font-weight: 600;
+}
+.home-reskin-ov .hr-tier-free {
+  color: #8a857c;
+  border: 1px solid #e3ded4;
+  background: #f5f2ec;
+}
+.home-reskin-ov .hr-tier-solo {
+  color: #5a6b4a;
+  border: 1px solid #cfd9c2;
+  background: #eef3e7;
+}
+.home-reskin-ov .hr-tier-pro {
+  color: #a8621f;
+  border: 1px solid #ecc9a3;
+  background: #fbeedd;
+}
+.home-reskin-ov .hr-tier-enterprise {
+  color: #4a3d6b;
+  border: 1px solid #cbc0e0;
+  background: #efeaf7;
+}
+/* Tier legend block */
+.home-reskin-ov .hr-vb-legend {
+  font-size: 11.5px;
+  color: var(--hr-grey);
+  line-height: 1.6;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #e3ded4;
+  border-radius: var(--hr-r20);
+  background: #faf8f3;
+}
+.home-reskin-ov .hr-vb-legend b {
+  color: #2f2d2a;
+}
+.home-reskin-ov .hr-vb-legend-link {
+  color: var(--hr-pop1);
+  font-weight: 600;
+  white-space: nowrap;
+}
 @media (max-width: 680px) {
   .home-reskin-ov .hr-vb-grid {
     grid-template-columns: 1fr;

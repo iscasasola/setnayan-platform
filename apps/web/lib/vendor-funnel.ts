@@ -7,9 +7,10 @@
  *   QUOTES    → vendor_proposals            (status sent/viewed/accepted)
  *   BOOKED    → event_vendors.status        (contracted+)
  *
- * This module owns the SHARED, surface-agnostic helpers used by both the
- * vendor-side funnel panel (/vendor-dashboard/funnel) and the admin per-vendor
- * drill-down (/admin/funnels). It does NOT render anything.
+ * This module owns the SHARED, surface-agnostic helpers used by the vendor-side
+ * funnel + by-source breakdown (folded into /vendor-dashboard/performance and
+ * /vendor-dashboard/demand · 2026-07-02) and the admin per-vendor drill-down
+ * (/admin/funnels). It does NOT render anything.
  *
  * Behavioral-data lock (project_setnayan_behavioral_data_edge):
  *   - The viewer is de-identified: hashViewer() returns sha256(salt || id);
@@ -233,4 +234,101 @@ export function buildFunnelSteps(totals: {
     { label: 'Quotes sent', count: totals.quotes },
     { label: 'Booked', count: totals.booked },
   ];
+}
+
+// ── "By source" breakdown ────────────────────────────────────────────────────
+// Shared between My Performance (/vendor-dashboard/performance) and Demand Radar
+// (/vendor-dashboard/demand). Both slice the vendor's OWN bookings / views by
+// the `source` axis (where the couple came from) and apply the same min-N floor,
+// so the two surfaces never disagree on a label or a suppression call.
+
+/** Friendly labels for the source axis (event_vendors.source /
+ *  vendor_profile_views.source). Unknown keys fall back to a humanized form. */
+export const SOURCE_LABELS: Record<string, string> = {
+  profile_direct: 'Profile (direct)',
+  host_manual: 'Added by couple',
+  host_marketplace_search: 'Marketplace search',
+  explore_card: 'Explore card',
+  auto_cascade_from_finalize: 'Auto-added (you locked a related vendor)',
+};
+
+/** Humanize a raw source key. Null → "Unattributed". */
+export function humanizeSource(src: string | null): string {
+  if (!src) return 'Unattributed';
+  return (
+    SOURCE_LABELS[src] ??
+    src.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
+/** One source row: a labeled count, plus whether it cleared the min-N floor.
+ *  `shown=false` means render the count as "—" (suppressed thin slice). */
+export type SourceSlice = {
+  key: string;
+  label: string;
+  count: number;
+  shown: boolean;
+};
+
+/** Aggregate `{ source }[]` rows into sorted, min-N-gated slices. */
+function buildSourceSlices(rows: { source: string | null }[]): SourceSlice[] {
+  const by = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.source ?? '(unattributed)';
+    by.set(key, (by.get(key) ?? 0) + 1);
+  }
+  return [...by.entries()]
+    .map(([key, count]) => ({
+      key,
+      label: humanizeSource(key === '(unattributed)' ? null : key),
+      count,
+      shown: minNOk(count),
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// Loose client contract — a PostgREST query builder. Accepts either the
+// RLS-scoped server client or the admin client (both expose this surface).
+type SourceQueryClient = {
+  from: (table: string) => {
+    select: (cols: string) => any;
+  };
+};
+
+/**
+ * Booked rows sliced by `event_vendors.source` — where the vendor's booked
+ * couples first found them. RLS/ownership-scoped by marketplace_vendor_id; each
+ * slice is min-N gated. Same BOOKED_EVENT_VENDOR_STATUSES + created_at window as
+ * the funnel's BOOKED stage, so the breakdown reconciles with the funnel total.
+ */
+export async function fetchBookedBySource(
+  client: SourceQueryClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<SourceSlice[]> {
+  const { data } = await client
+    .from('event_vendors')
+    .select('source')
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
+    .gte('created_at', sinceIso);
+  return buildSourceSlices((data ?? []) as { source: string | null }[]);
+}
+
+/**
+ * Profile views sliced by `vendor_profile_views.source` — where the vendor's
+ * top-of-funnel traffic comes from. RLS-gated to current_vendor_profile_ids();
+ * each slice is min-N gated. Same viewed_at window as the funnel's VIEWS stage.
+ */
+export async function fetchViewsBySource(
+  client: SourceQueryClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<SourceSlice[]> {
+  const { data } = await client
+    .from('vendor_profile_views')
+    .select('source')
+    .eq('vendor_profile_id', vendorProfileId)
+    .gte('viewed_at', sinceIso);
+  return buildSourceSlices((data ?? []) as { source: string | null }[]);
 }

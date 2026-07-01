@@ -18,6 +18,9 @@ import {
   buildFunnelSteps,
   fetchServiceBookedCount,
   fetchNullServiceBookedCount,
+  fetchBookedBySource,
+  fetchViewsBySource,
+  FUNNEL_MIN_N,
 } from '@/lib/vendor-funnel';
 import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -52,7 +55,7 @@ import { InquiryHandlingCard } from './_components/inquiry-handling-card';
 import { ConversionDealsCard } from './_components/conversion-deals-card';
 import { ReputationCard } from './_components/reputation-card';
 import { CapacityCard } from './_components/capacity-card';
-import { SectionDisclosure } from './_components/section-disclosure';
+import { SourceBreakdown } from '../_components/source-breakdown';
 import { PerformanceControls } from './_components/performance-controls';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
@@ -151,6 +154,8 @@ export default async function VendorPerformancePage({
     demandRadar,
     inquiryAnalytics,
     conversionAnalytics,
+    bookedBySource,
+    viewsBySource,
   ] = await Promise.all([
     supabase
       .from('vendor_activity_stats')
@@ -171,6 +176,16 @@ export default async function VendorPerformancePage({
     canAdvanced
       ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
       : Promise.resolve(null),
+    // Booked / views sliced by source (this-year window) — the "where they came
+    // from" breakdown folded in from the retired /funnel page. Shop-level (no
+    // service_id on views/inquiries/quotes), so it doesn't depend on serviceId.
+    // Pro+ only, alongside the funnel bars.
+    canAdvanced
+      ? fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve([]),
+    canAdvanced
+      ? fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve([]),
   ]);
 
   const statsRow = statsRes.data;
@@ -373,50 +388,66 @@ export default async function VendorPerformancePage({
         }
       />
 
-      <SectionDisclosure>
-        {canAdvanced ? (
-          <>
-            {/* Setnayan vs your own book — app-vs-import ROI (year window). */}
-            <RoiAttributionCard
-              attribution={attributionYear}
-              annualPlanPhp={annualPlanPhp}
-              windowLabel="this year"
-              scopeLabel={scopeLabel}
-              nullServiceExcluded={nullExcludedYear}
-            />
-            {/* Where bookings come from — inline funnel bars (→ full /funnel).
-                Only the BOOKED stage can segment; when a service is selected we
-                show its booked count as a callout and note the other stages are
-                shop-wide (the honest contract). */}
-            {serviceId ? (
-              <div
-                className="rounded-lg border p-4 text-sm"
-                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-              >
-                <p style={{ color: 'var(--m-ink)' }}>
-                  <span className="font-semibold">
-                    Bookings for {scopeLabel}:
-                  </span>{' '}
-                  <span className="tabular-nums">{serviceBookedCount ?? 0}</span>{' '}
-                  this year.
-                </p>
-                <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
-                  tracked per service.
-                </p>
-              </div>
-            ) : null}
-            <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
-          </>
-        ) : (
-          <VendorTierTeaser
-            feature="ROI & booking funnel"
-            requiredTier="pro"
-            blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
-            icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+      {/* ── ROI + booking funnel + where-they-came-from. Always expanded (the
+          old Show-more/less disclosure was removed · owner 2026-07-02) so the
+          full funnel read — folded in from the retired standalone /funnel page —
+          is visible without a click. */}
+      {canAdvanced ? (
+        <div className="space-y-6">
+          {/* Setnayan vs your own book — app-vs-import ROI (year window). */}
+          <RoiAttributionCard
+            attribution={attributionYear}
+            annualPlanPhp={annualPlanPhp}
+            windowLabel="this year"
+            scopeLabel={scopeLabel}
+            nullServiceExcluded={nullExcludedYear}
           />
-        )}
-      </SectionDisclosure>
+          {/* Your booking funnel — the four-stage bars. Only the BOOKED stage
+              can segment; when a service is selected we show its booked count as
+              a callout and note the other stages are shop-wide (honest contract). */}
+          {serviceId ? (
+            <div
+              className="rounded-lg border p-4 text-sm"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+            >
+              <p style={{ color: 'var(--m-ink)' }}>
+                <span className="font-semibold">
+                  Bookings for {scopeLabel}:
+                </span>{' '}
+                <span className="tabular-nums">{serviceBookedCount ?? 0}</span>{' '}
+                this year.
+              </p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
+                tracked per service.
+              </p>
+            </div>
+          ) : null}
+          <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
+
+          {/* Where they came from — the sliced breakdown folded in from the
+              retired /funnel page. Shop-level (not per-service). */}
+          <SourceBreakdown
+            title="Where your bookings come from"
+            blurb={`Where your booked couples first found you this year. Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
+            slices={bookedBySource}
+            emptyText="No bookings this year yet."
+          />
+          <SourceBreakdown
+            title="Where your profile views come from"
+            blurb={`Where your top-of-funnel traffic comes from this year. Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
+            slices={viewsBySource}
+            emptyText="No profile views this year yet."
+          />
+        </div>
+      ) : (
+        <VendorTierTeaser
+          feature="ROI & booking funnel"
+          requiredTier="pro"
+          blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
+          icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+        />
+      )}
     </section>
   );
 }

@@ -141,7 +141,10 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     ],
   },
   {
-    // My Performance — analytics destination + its drill-downs (demand · funnel).
+    // My Performance — analytics destination + its Demand Radar drill-down. The
+    // old /funnel drill-down was folded into Performance (2026-07-02); the
+    // retired route still redirects there, so it stays in activeMatch to keep
+    // the tab lit during that transient hop.
     key: 'performance',
     label: 'Performance',
     href: '/vendor-dashboard/performance',

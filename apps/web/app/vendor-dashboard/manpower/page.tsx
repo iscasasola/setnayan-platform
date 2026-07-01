@@ -152,10 +152,10 @@ export default async function VendorManpowerPage() {
           </span>
           {totalTokens < 2 ? (
             <Link
-              href="/vendor-dashboard/redeem-code"
+              href="/vendor-dashboard/tokens"
               className="text-xs font-medium text-orange-700 underline"
             >
-              Redeem a code →
+              Buy tokens →
             </Link>
           ) : null}
         </div>

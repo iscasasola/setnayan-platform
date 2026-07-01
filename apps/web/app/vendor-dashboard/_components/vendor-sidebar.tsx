@@ -34,9 +34,9 @@
  *   1. Overview (key 'home')         — Overview (/vendor-dashboard root · exact-match)
  *   2. My Shop (key 'shop')          — Profile · Verify · Website · Reviews · Real
  *                      Stories · Recaps · Recommend · Partnerships · Team & Setnayan ·
- *                      Branches · Subscription · Tokens · Redeem code (storefront +
- *                      reputation + account/plan; Subscription/Tokens move to sidebar
- *                      chrome chips + Redeem code hard-deletes in a follow-up)
+ *                      Branches · Subscription · Tokens (storefront + reputation +
+ *                      account/plan; Subscription/Tokens move to sidebar chrome
+ *                      chips in a follow-up · Redeem code hard-deleted 2026-07-01)
  *   3. My Customers (key 'customers') — Messages · Clients · Bookings · Calendar ·
  *                      Contracts · Proposals · Earnings · Payday · How clients pay you
  *                      (booking pipeline + comms + the money that flows from them)
@@ -61,11 +61,10 @@
  * (/vendor-dashboard/services) + Attributes (/vendor-dashboard/attributes)
  * land in Pipeline (they set the offerings vendors lock with hosts) ·
  * Reviews (/vendor-dashboard/reviews) + Moodboard library
- * (/vendor-dashboard/moodboard-library) land in Marketing (both are
- * trust + visibility surfaces) · Redeem code (/vendor-dashboard/redeem-code)
- * lands in Money (token redemption · sits with Tokens). All 6 surfaces
- * exist on disk per the audit + need sidebar entries so they don't
- * orphan after the pill bar retires.
+ * (/vendor-dashboard/moodboard-library) are trust + visibility surfaces.
+ * These surfaces exist on disk per the audit + need sidebar entries so they
+ * don't orphan after the pill bar retires. (Redeem code was hard-deleted
+ * 2026-07-01 under the "no free tokens" money-integrity pass — no entry.)
  *
  * NOTIFICATIONS — surfaced via topbar UnreadBellBadge per the admin
  * pattern (PR #606). Not duplicated in the sidebar — the topbar bell
@@ -144,9 +143,9 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
   // the role filter (by item key), the /more landing + mobile landing
   // (both derive from this array) stay valid. Group keys are new where the
   // grouping is new (localStorage open-state resets for those sections —
-  // cosmetic). Subscription/Tokens/Redeem sit under My Shop for now; a
-  // follow-up moves Subscription+Tokens to sidebar chrome chips and Phase 2
-  // hard-deletes Redeem code.
+  // cosmetic). Subscription/Tokens sit under My Shop for now; a follow-up
+  // moves them to sidebar chrome chips. (Redeem code was hard-deleted
+  // 2026-07-01 under the "no free tokens" money-integrity pass.)
   {
     // Overview — the single at-a-glance landing. Sentinel matchPrefix so the
     // strict-prefix branch never fires; every other vendor route begins with
@@ -184,7 +183,6 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
       { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
       { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
-      { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
     ],
   },
   {

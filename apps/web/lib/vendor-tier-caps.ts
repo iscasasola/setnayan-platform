@@ -239,17 +239,16 @@ export const TOKEN_BUY_PRICE_PHP = 100;
 /**
  * May purchase additional lifetime tokens (₱100/token)?
  *
- * ALL tiers may buy — including FREE (owner 2026-06-07 override; canBuyTokens
- * returns true for all). ⚠ The original rationale ("let FREE buy tokens to import
- * their clients") is now STALE: customer import is FREE (#2448 retired the
- * 1-token import fee), so a FREE vendor currently has NO token sink at all —
- * in-app inquiries stay tier-blocked for FREE regardless of balance (see
- * unlock_vendor_event / TIER_FREE_NO_INAPP). The "FREE may buy" override is kept
- * (owner-locked) even though its import justification no longer applies. This
- * overrides the matrix's "Cost per additional Lifetime Token: Not Allowed (FREE)".
+ * VERIFICATION-GATED (owner 2026-07-01: "they can only purchase tokens and
+ * subscribe when they are verified"). Only a VERIFIED store may buy — i.e. any
+ * tier except unverified `free`. This is the client-side UX mirror; the server
+ * RPC `create_vendor_token_purchase` is authoritative — it RAISEs NOT_VERIFIED
+ * on `vendor_profiles.verification_state <> 'verified'` (migration
+ * 20270403095563). Reverses the 2026-06-07 "FREE may buy" override, whose
+ * client-import justification died when customer import went free (#2448).
  */
-export function canBuyTokens(_tier: string | null | undefined): boolean {
-  return true;
+export function canBuyTokens(tier: string | null | undefined): boolean {
+  return asVendorTier(tier) !== 'free';
 }
 
 export const TIER_LABEL: Record<VendorTier, string> = {

@@ -1434,18 +1434,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 13,
   },
   {
-    key: "vendor.sidebar.redeem-code",
-    scope: "vendor",
-    area: "vendor-sidebar",
-    route: "/vendor-dashboard/redeem-code",
-    label: "Redeem code",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Tag",
-    customRef: null,
-    sortOrder: 14,
-  },
-  {
     key: "vendor.sidebar.verify",
     scope: "vendor",
     area: "vendor-sidebar",

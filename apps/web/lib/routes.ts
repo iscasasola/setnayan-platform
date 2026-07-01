@@ -512,7 +512,6 @@ export const routes = {
     proposals: () => `/vendor-dashboard/proposals`,
     realStories: () => `/vendor-dashboard/real-stories`,
     recaps: () => `/vendor-dashboard/recaps`,
-    redeemCode: () => `/vendor-dashboard/redeem-code`,
     repertoire: () => `/vendor-dashboard/repertoire`,
     reviews: () => `/vendor-dashboard/reviews`,
     services: () => `/vendor-dashboard/services`,

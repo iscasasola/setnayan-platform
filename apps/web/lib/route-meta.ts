@@ -267,7 +267,6 @@ export const routeMeta = {
     proposals: { icon: FileText, label: 'Proposals' },
     realStories: { icon: Sparkles, label: 'Real Stories' },
     recaps: { icon: Images, label: 'Recaps' },
-    redeemCode: { icon: Tag, label: 'Redeem code' },
     repertoire: { icon: Music, label: 'Repertoire' },
     reviews: { icon: Star, label: 'Reviews' },
     services: { icon: ClipboardList, label: 'Services' },

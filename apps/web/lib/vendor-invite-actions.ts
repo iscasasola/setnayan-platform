@@ -332,6 +332,29 @@ export async function applyClaimAutoLink(args: {
     .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
   if (linkErr) return { ok: false, code: 'LINK_FAILED', message: linkErr.message };
 
+  // 2b. Reconcile SIBLING category rows for the same manually-added vendor.
+  //     A couple who added this vendor under multiple categories has N distinct
+  //     event_vendors rows (own vendor_id, shared manual_vendor_id); the claim
+  //     binds to only ONE. Upgrade the siblings too so the couple doesn't end up
+  //     with one real linked account + leftover unclaimed manual contacts for a
+  //     single real vendor. Best-effort (never fails the claim), scoped to the
+  //     couple's OWN event, same null-or-same-profile re-point guard as step 2,
+  //     and skipped cleanly when the row has no manual_vendor_id (admin-source).
+  const { data: parentRow } = await admin
+    .from('event_vendors')
+    .select('manual_vendor_id,event_id')
+    .eq('vendor_id', invite.vendor_id)
+    .maybeSingle();
+  if (parentRow?.manual_vendor_id && parentRow.event_id) {
+    await admin
+      .from('event_vendors')
+      .update({ marketplace_vendor_id: args.claimedVendorProfileId })
+      .eq('manual_vendor_id', parentRow.manual_vendor_id)
+      .eq('event_id', parentRow.event_id)
+      .neq('vendor_id', invite.vendor_id)
+      .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
+  }
+
   // 3. Mark the invite claimed.
   const { error: inviteErr } = await admin
     .from('vendor_invites')

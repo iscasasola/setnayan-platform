@@ -26,5 +26,13 @@ Three gap-audit hardening fixes across the vendor recommendation + claim paths.
   only sets the bond when unset (legitimate first claim) or already this profile
   (idempotent retry); a re-claim by a different profile now matches 0 rows and
   is refused.
+- **Multi-category sibling reconcile (FIX #7 · same file · `applyClaimAutoLink`
+  step 2b):** a couple who added one vendor under multiple categories has N
+  `event_vendors` rows (shared `manual_vendor_id`); the claim bound only the one
+  invited row, leaving the others as unclaimed manual contacts for the same real
+  vendor. After the primary bond, now also stamps `marketplace_vendor_id` on the
+  sibling rows (same `manual_vendor_id` + same event, best-effort, same null-or-
+  same-profile guard, skipped when no `manual_vendor_id`) so a single real vendor
+  no longer shows as one linked account + leftover placeholders.
 
 SPEC IMPACT: None

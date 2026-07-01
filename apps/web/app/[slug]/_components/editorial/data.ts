@@ -17,6 +17,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventSkuActive } from '@/lib/entitlements';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   fetchEventRecommendations,
   type EventRecommendation,
@@ -149,10 +150,10 @@ export type VendorCredit = {
   // Tier-aware showcase (Wedding_Website_Lifecycle_Spec §3): a vendor's
   // featured card (logo + profile link) renders on the Editorial only while
   // they are currently Pro/Enterprise. `tier` is the linked vendor_profile's
-  // tier_state ('free'|'verified'|'pro'|'enterprise') or null when the event
-  // vendor isn't linked to a marketplace profile. Free vendors are excluded
-  // upstream (hidden from the Editorial entirely, per §3).
-  tier: 'free' | 'verified' | 'pro' | 'enterprise' | null;
+  // tier_state ('free'|'verified'|'solo'|'pro'|'enterprise') or null when the
+  // event vendor isn't linked to a marketplace profile. Free vendors are
+  // excluded upstream (hidden from the Editorial entirely, per §3).
+  tier: 'free' | 'verified' | 'solo' | 'pro' | 'enterprise' | null;
   logoUrl: string | null;
   slug: string | null;
 };
@@ -588,7 +589,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
             const id = asString(p.vendor_profile_id);
             if (!id) continue;
             const tierRaw = asString(p.tier_state);
-            const tier = (['free', 'verified', 'pro', 'enterprise'] as const).find(
+            const tier = (['free', 'verified', 'solo', 'pro', 'enterprise'] as const).find(
               (t) => t === tierRaw,
             ) ?? null;
             profiles.set(id, {
@@ -611,12 +612,12 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         const tier = prof?.tier ?? null;
         // §3 + tier matrix (Phase C #4): Free vendors are hidden from the
         // Editorial entirely. Editorial *tagging* — the showcase treatment
-        // (logo + tier badge + profile link) — is PRO/ENTERPRISE only (matrix
-        // "Editorial" row: free ✗ / verified ✗ / pro Tagged / ent Tagged).
-        // Verified vendors stay credited (the couple used them) but as a plain
-        // text credit: suppress logo + slug so they get no card/link/badge.
+        // (logo + tier badge + profile link) — is the editorialTagged cap
+        // (Pro/Enterprise). Verified/Solo stay credited (the couple used them)
+        // but as a plain text credit: suppress logo + slug so they get no
+        // card/link/badge. Reads the SSOT cap instead of hardcoding tiers.
         if (tier === 'free') continue;
-        const tagged = tier === 'pro' || tier === 'enterprise';
+        const tagged = tierCaps(tier).editorialTagged;
         vendors.push({
           name,
           category: asString(r.category),

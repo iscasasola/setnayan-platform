@@ -7,6 +7,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
+import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { VendorTierGate } from '../_components/tier-gate';
 
 export const metadata = { title: 'Recaps · Vendor' };
 
@@ -29,6 +32,18 @@ export default async function VendorRecapsPage() {
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+
+  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  if (isVendorFeatureGateEnabled() && !canUseSoloBusinessTools(tier)) {
+    return (
+      <VendorTierGate
+        feature="Recaps"
+        requiredTier="solo"
+        blurb="One-tap share of every wedding you helped create — real proof of your work, straight to your Facebook Page. Recap sharing is a Solo feature."
+        icon={<Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      />
+    );
+  }
 
   const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
   const recaps = await loadVendorRecaps(bookings.map((b) => b.eventId));

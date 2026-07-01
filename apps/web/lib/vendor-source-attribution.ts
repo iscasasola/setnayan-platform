@@ -71,6 +71,10 @@ function pct(part: number, whole: number): number | null {
  *                  ownership-gates the caller internally).
  * @param vendorProfileId  The caller's own vendor profile id.
  * @param sinceIso  Optional lower bound on booking created_at (ISO string).
+ * @param serviceId  Optional per-service segment (a vendor_services id owned by
+ *                   the caller). null/undefined = shop-level. The RPC IDOR-guards
+ *                   it — a service that isn't the caller's raises, so the page
+ *                   only ever passes an id it has already validated as owned.
  * @returns the rolled-up attribution, or null on error (caller shows an empty
  *          state rather than crashing the page).
  */
@@ -78,10 +82,12 @@ export async function fetchVendorSourceAttribution(
   supabase: SupabaseClient,
   vendorProfileId: string,
   sinceIso?: string | null,
+  serviceId?: string | null,
 ): Promise<SourceAttribution | null> {
   const { data, error } = await supabase.rpc('vendor_source_attribution', {
     p_vendor_profile_id: vendorProfileId,
     p_since: sinceIso ?? null,
+    p_service_id: serviceId ?? null,
   });
 
   if (error) {

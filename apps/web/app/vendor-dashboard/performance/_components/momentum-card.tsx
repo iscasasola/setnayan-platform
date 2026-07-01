@@ -3,6 +3,7 @@ import { Briefcase, Wallet } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
 import { BookingsBars, EarningsSparkline, type ChartPoint } from './momentum-chart';
+import { buildPerformanceHref } from './perf-links';
 
 /**
  * "Momentum" — a windowed view over the vendor's booked business, tiered:
@@ -61,6 +62,9 @@ export function MomentumCard({
   year,
   monthlySeries = [],
   dailySeries = [],
+  serviceId = null,
+  scopeLabel = null,
+  nullServiceExcluded = null,
 }: {
   mode: MomentumMode;
   /** 'basic' (Solo) hides earnings + the Daily view; 'full' (Pro+) shows all. */
@@ -71,6 +75,16 @@ export function MomentumCard({
   year: MomentumWindow;
   monthlySeries?: BookingMonthPoint[];
   dailySeries?: BookingDayPoint[];
+  /** Active service scope — threaded into the window-toggle links so switching
+   *  Daily/Monthly/Annual preserves ?service. null = All services. */
+  serviceId?: string | null;
+  /** Selected service's display label, or null when All services. Drives the
+   *  scoped empty-state copy ("No bookings for {label} yet"). */
+  scopeLabel?: string | null;
+  /** Count of booked rows NOT tied to any service (service_id IS NULL) in the
+   *  active window, for the reconciliation footnote. null = All services (no
+   *  footnote). */
+  nullServiceExcluded?: number | null;
 }) {
   const isFull = variant === 'full';
   // Basic never lands on 'day' (the toggle doesn't offer it); guard anyway.
@@ -109,10 +123,25 @@ export function MomentumCard({
           aria-label="Momentum window"
         >
           {isFull && (
-            <ToggleLink label="Daily" value="day" active={effectiveMode === 'day'} />
+            <ToggleLink
+              label="Daily"
+              value="day"
+              active={effectiveMode === 'day'}
+              serviceId={serviceId}
+            />
           )}
-          <ToggleLink label="Monthly" value="month" active={effectiveMode === 'month'} />
-          <ToggleLink label="Annual" value="year" active={effectiveMode === 'year'} />
+          <ToggleLink
+            label="Monthly"
+            value="month"
+            active={effectiveMode === 'month'}
+            serviceId={serviceId}
+          />
+          <ToggleLink
+            label="Annual"
+            value="year"
+            active={effectiveMode === 'year'}
+            serviceId={serviceId}
+          />
         </div>
       </div>
 
@@ -131,7 +160,9 @@ export function MomentumCard({
             {active.bookings}
           </p>
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            {bookedCaption}
+            {scopeLabel && active.bookings === 0
+              ? `No bookings for ${scopeLabel} yet`
+              : bookedCaption}
           </p>
           <BookingsBars series={chartSeries} unit={chartUnit} />
         </div>
@@ -160,6 +191,15 @@ export function MomentumCard({
           </div>
         )}
       </div>
+
+      {/* NULL-service reconciliation — bookings not tied to any specific
+          service are excluded from a per-service view; say so honestly. */}
+      {scopeLabel && nullServiceExcluded && nullServiceExcluded > 0 ? (
+        <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+          Excludes {nullServiceExcluded} booking
+          {nullServiceExcluded === 1 ? '' : 's'} not tied to a specific service.
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -168,14 +208,17 @@ function ToggleLink({
   label,
   value,
   active,
+  serviceId,
 }: {
   label: string;
   value: MomentumMode;
   active: boolean;
+  /** Active service scope — preserved across the window switch. */
+  serviceId: string | null;
 }) {
   return (
     <Link
-      href={`?momentum=${value}`}
+      href={buildPerformanceHref({ service: serviceId, momentum: value })}
       scroll={false}
       role="tab"
       aria-selected={active}

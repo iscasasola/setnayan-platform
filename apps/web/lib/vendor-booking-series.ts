@@ -67,15 +67,20 @@ function axisLabel(monthIso: string): string {
  *                  ownership-gates the caller internally).
  * @param vendorProfileId  The caller's own vendor profile id.
  * @param months  Trailing month count (clamped 1..24 in SQL).
+ * @param serviceId  Optional per-service segment (a vendor_services id owned by
+ *                   the caller). null/undefined = shop-level. IDOR-guarded in the
+ *                   RPC; the page only passes an id it validated as owned.
  */
 export async function fetchVendorBookingSeries(
   supabase: SupabaseClient,
   vendorProfileId: string,
   months = 12,
+  serviceId?: string | null,
 ): Promise<BookingMonthPoint[]> {
   const { data, error } = await supabase.rpc('vendor_booking_monthly_series', {
     p_vendor_profile_id: vendorProfileId,
     p_months: months,
+    p_service_id: serviceId ?? null,
   });
 
   if (error) {

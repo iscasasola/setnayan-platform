@@ -78,12 +78,20 @@ export function RoiAttributionCard({
   attribution,
   annualPlanPhp,
   windowLabel,
+  scopeLabel = null,
+  nullServiceExcluded = null,
 }: {
   attribution: SourceAttribution | null;
   /** The vendor's own annual plan cost (PHP), or 0/null when on a free tier. */
   annualPlanPhp: number | null;
   /** Human window label for the headline, e.g. "this year". */
   windowLabel: string;
+  /** Selected service's display label, or null when All services. Drives the
+   *  scoped empty-state copy ("No bookings for {label} yet"). */
+  scopeLabel?: string | null;
+  /** Count of booked rows NOT tied to any service (service_id IS NULL) in this
+   *  window, for the reconciliation footnote. null = All services (no footnote). */
+  nullServiceExcluded?: number | null;
 }) {
   const hasAnything = attribution && attribution.totalBookings > 0;
 
@@ -127,7 +135,7 @@ export function RoiAttributionCard({
         >
           <Sparkles className="mx-auto mb-2 h-6 w-6" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />
           <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-            No booked business yet
+            {scopeLabel ? `No bookings for ${scopeLabel} yet` : 'No booked business yet'}
           </p>
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Once couples start booking you, this shows how much of that work
@@ -192,6 +200,16 @@ export function RoiAttributionCard({
                 appear here.
               </p>
             </div>
+          ) : null}
+
+          {/* NULL-service reconciliation — a per-service view omits bookings
+              not tied to any specific service; say so honestly. */}
+          {scopeLabel && nullServiceExcluded && nullServiceExcluded > 0 ? (
+            <p className="mt-3 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+              Excludes {nullServiceExcluded} booking
+              {nullServiceExcluded === 1 ? '' : 's'} not tied to a specific
+              service.
+            </p>
           ) : null}
         </div>
       )}

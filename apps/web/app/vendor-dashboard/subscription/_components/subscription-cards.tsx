@@ -96,7 +96,7 @@ export function SubscriptionCards({
       {native && (
         <WebNudgeBanner
           savingsCopy="up to 33% off"
-          webPricesCopy="Pro ₱2,499/28d · Enterprise ₱7,499/28d on web"
+          webPricesCopy="Solo ₱999/28d · Pro ₱2,499/28d · Enterprise ₱7,499/28d on web"
           webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}
@@ -135,7 +135,32 @@ export function SubscriptionCards({
         </div>
       )}
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+      {/* Shared benefits — true for every paid plan, so shown once here instead
+          of repeated on all three cards (keeps each card to its differentiators). */}
+      <div
+        className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border px-4 py-3 text-xs text-ink/70"
+        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+      >
+        <span className="font-medium text-ink/80">Every plan includes</span>
+        {[
+          'Real business name shown day one',
+          'Unlimited in-app inquiries',
+          'Listed in marketplace search',
+          'Your own event website',
+        ].map((line) => (
+          <span key={line} className="inline-flex items-center gap-1.5">
+            <Check className="h-3.5 w-3.5 shrink-0 text-success-600" strokeWidth={2.25} aria-hidden />
+            {line}
+          </span>
+        ))}
+      </div>
+
+      <div
+        className={
+          'grid gap-4 sm:gap-5 ' +
+          (cards.length >= 3 ? 'md:grid-cols-3' : 'sm:grid-cols-2')
+        }
+      >
         {cards.map((card) => {
           const webPrice = card.price;
           const displayPrice = native ? mobileSrp(webPrice) : webPrice;
@@ -162,9 +187,7 @@ export function SubscriptionCards({
               }
             >
               <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="m-label-mono">
-                  {card.tier === 'pro' ? 'Pro' : 'Enterprise'}
-                </p>
+                <p className="m-label-mono">{TIER_NAME[card.tier]}</p>
                 {card.isCurrent ? (
                   <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                     Current
@@ -192,6 +215,11 @@ export function SubscriptionCards({
               <p className="mt-0.5 text-xs text-ink/55">
                 ≈ ₱{NUMBER.format(perDay)}/day · ₱{NUMBER.format(perWeek)}/week
               </p>
+              {cycle === 'annual' && (
+                <p className="mt-1 inline-flex w-fit items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
+                  Save 12 weeks vs paying monthly
+                </p>
+              )}
               {native && (
                 <p className="mt-0.5 text-xs text-ink/50">
                   Web price: ₱{NUMBER.format(webPrice)}/

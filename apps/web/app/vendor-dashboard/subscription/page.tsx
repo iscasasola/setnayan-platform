@@ -59,35 +59,57 @@ type Props = {
   searchParams: Promise<{ ordered?: string; error?: string; cycle?: string }>;
 };
 
-// Self-serve subscription tiers. Solo is ADMIN-SET only (create_vendor_subscription
-// maps solo → UNMAPPED_SKU_TIER, so a self-serve Solo card would hard-error at
-// checkout), so it is intentionally excluded from the buyable cards.
-type PaidTier = Extract<VendorTier, 'pro' | 'enterprise'>;
+// Self-serve subscription tiers. All three paid tiers (Solo · Pro · Enterprise)
+// are buyable — create_vendor_subscription maps solo_/pro_/enterprise_ SKUs to
+// their tier and mints an apply-then-pay order (Solo self-serve wired by
+// migration 20270426213000: the solo_vendor_annual SKU + the RPC's solo branch).
+type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
-const PAID_TIERS: PaidTier[] = ['pro', 'enterprise'];
+const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
 
 const TIER_PITCH: Record<PaidTier, string> = {
-  pro: 'For growing studios — more reach, agents, and unlimited in-app inquiries.',
-  enterprise: 'For multi-branch teams — unlimited everything, nationwide reach.',
+  solo: 'For solo pros — one category, your real business name, unlimited inquiries.',
+  pro: 'For growing studios — more categories, agent seats, and full analytics.',
+  enterprise: 'For multi-branch teams — the widest reach, seats, and listings.',
 };
 
-// The few caps worth surfacing on a marketing-style card (the full matrix lives
-// in vendor-tier-caps.ts). Keep this list short + scannable.
+// The tier-DIFFERENTIATING benefits, in a PARALLEL order across the three cards
+// so a vendor can compare Solo → Pro → Enterprise line-by-line. Derived from the
+// TIER_CAPS matrix (vendor-tier-caps.ts) so the copy can never drift from the
+// enforced caps. Benefits shared by ALL paid plans (real name day one, unlimited
+// in-app inquiries, marketplace search, own event website) live in the "Every
+// plan includes" strip above the cards, not repeated on each card.
 function keyCapLines(tier: PaidTier): string[] {
   const c = TIER_CAPS[tier];
   const fin = (n: number) => (Number.isFinite(n) ? NUMBER.format(n) : 'Unlimited');
-  const agentLabel =
+
+  const categories = Number.isFinite(c.parentCategories)
+    ? `${fin(c.parentCategories)} listing categor${c.parentCategories === 1 ? 'y' : 'ies'}`
+    : 'List under every category';
+
+  const seats =
     c.agentAccounts === 0
-      ? 'Solo operator · no agent seats'
+      ? 'Solo operator — no agent seats'
       : `${fin(c.agentAccounts)} agent seat${c.agentAccounts === 1 ? '' : 's'}`;
-  return [
-    `${fin(c.parentCategories)} listing categor${c.parentCategories === 1 ? 'y' : 'ies'}`,
-    agentLabel,
-    `${Number.isFinite(c.serviceRadiusKm) ? `${fin(c.serviceRadiusKm)} km` : 'Nationwide'} reach`,
-    `${fin(c.portfolioPhotos)} portfolio photos`,
-    'Unlimited in-app inquiries',
-    'Real business name shown day one',
-  ];
+
+  const reach =
+    !Number.isFinite(c.serviceRadiusKm) || c.serviceRadiusKm >= 100
+      ? 'Nationwide reach'
+      : `${fin(c.serviceRadiusKm)} km service reach`;
+
+  const listings = Number.isFinite(c.servicesPerLeaf)
+    ? `${fin(c.servicesPerLeaf)} service listings / category`
+    : 'Unlimited service listings';
+
+  const photos = `${fin(c.portfolioPhotos)} portfolio photos`;
+
+  const analytics = c.marketIntel
+    ? 'Advanced analytics + Demand Radar'
+    : c.performanceAdvanced
+      ? 'Advanced ROI & funnel analytics'
+      : 'Business-performance basics';
+
+  return [categories, seats, reach, listings, photos, analytics];
 }
 
 function skuFor(tier: PaidTier, cycle: 'monthly' | 'annual'): string {
@@ -135,6 +157,17 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       priceBySku.set(r.sku_code, r.price_php);
     }
   }
+
+  // Solo self-serve is gated on its wiring being LIVE. Migration 20270426213000
+  // seeds solo_vendor_annual AND adds the RPC's solo branch together, so the
+  // annual SKU's presence in the catalog is a safe proxy for "Solo checkout
+  // works." Until it's applied, Solo is omitted so we never render a buy button
+  // that would hard-error (UNMAPPED_SKU_TIER). Once applied, Solo appears on the
+  // next request — no redeploy (this is a server component reading live prices).
+  const soloBuyable = priceBySku.has('solo_vendor_annual');
+  const visibleTiers: PaidTier[] = soloBuyable
+    ? PAID_TIERS
+    : PAID_TIERS.filter((t) => t !== 'solo');
 
   // Token packs available to fold into a plan order as an optional add-on
   // (one payment for plan + tokens). Cheapest first.
@@ -204,9 +237,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           Choose your plan.
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
-          Upgrade to reach more couples and answer unlimited inquiries. Every
-          plan includes free tokens each cycle — no features are locked behind a
-          paywall.
+          Upgrade to reach more couples and answer unlimited inquiries — no
+          features are locked behind a paywall. Pro and Enterprise also bundle
+          free tokens each cycle.
         </p>
 
         {/* Current tier + renewal */}
@@ -262,7 +295,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         <SubscriptionCards
           cycle={cycle}
           packs={addonPacks}
-          cards={PAID_TIERS.flatMap((tier) => {
+          cards={visibleTiers.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
             // read failed (e.g. CI with no service-role key).

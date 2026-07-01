@@ -152,8 +152,15 @@ Hand-curated ops intros · Advanced Proposal Drafting · onboarding bundle maker
 
 ## 7 · Benefit-catalog sync (2026-07-01)
 
-The homepage "For vendors" overlay (`app/_components/home/vendor-benefits.ts`) was **out of sync** — it had ~45 benefits ported from `03_Strategy/Vendor_Benefits_Catalog_2026-06-29.md` (50), while this doc's §2/§6 had ~88, and the union was 100+. Reconciled via a 7-lens merge + per-benefit code verification into **ONE catalog: 61 distinct benefits · 36 live · 25 soon** (honest dedup — no padding; the "100+" was inflated by cross-tier repeats + caps counted as benefits). The overlay is now generated from that verified set; its `soon` flags match §6.
+The homepage "For vendors" overlay (`app/_components/home/vendor-benefits.ts`) was **out of sync** — it had ~45 benefits ported from `03_Strategy/Vendor_Benefits_Catalog_2026-06-29.md` (50), while this doc's §2/§6 had ~88, and the union was 100+. Reconciled via a 7-lens merge + per-benefit code verification into **ONE catalog: 60 distinct benefits · 40 live · 20 soon** (honest dedup — no padding; the "100+" was inflated by cross-tier repeats + caps counted as benefits). The overlay is now generated from that verified set; its `soon` flags match §6.
 
-**This doc's §6 is the SSOT.** When the dashboard session ships a benefit, update §6's status here → the overlay's `soon` clears in step. Homepage count banner now reads "60+ ways · 36 live today."
+**This doc's §6 is the SSOT.** When the dashboard session ships a benefit, update §6's status here → the overlay's `soon` clears in step. Homepage count banner now reads "60+ ways · 40 live today."
 
 **Live-vs-soon by lens** (soon = not yet live end-to-end): Discovery 6/0 · Booking 8/4 · Money 7/0 · Trust 7/3 · Marketing 2/6 · Data 6/2 · Ecosystem 3/6. The heaviest remaining build is **Marketing/editorial** (social auto-share, Real Stories/Journal features, awards, referrals) and **Ecosystem** (crew earn-a-cut, resell Productions, white-label, certified-partner) — those are the roadmap program if we want the SOON count to keep dropping.
+
+---
+
+## 9 · Wave-1 build log (2026-07-01)
+
+- **✅ B · Profile score → Fix-It Tips — SHIPPED.** New pure builder `lib/vendor-profile-tips.ts` (`buildProfileTips`) turns the `vendor_activity_stats` components into a ranked, deterministic checklist (top drags on the quality score, concrete current→target + inquiry-lift framing; no ML). Replaced the old 3-condition inline `nudges` in `vendor-stats-panel.tsx` with a "Fix-it tips" card (hides when the score is strong). `Profile Score & Fix-It Tips` flipped `soon`→live (Data lens). Also **re-landed the stranded token-clear** — "Pay Only For Inquiries That Fit" was cleared in #2482 but auto-merge stranded that commit; re-cleared here. Counts now **40 live / 20 soon** (were mislabeled 36/25).
+- **⏳ A · Reverse-image theft-watch vendor surface — NOT started** (needs the vendor-dashboard route + shared nav-registry entry; still queued for the dashboard lane per §8).

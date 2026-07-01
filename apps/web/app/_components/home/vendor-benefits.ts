@@ -6,7 +6,7 @@
  * audit in apps/web/VENDOR_TIERS_AND_BENEFITS.md, and the live code — via a
  * 7-lens merge + per-benefit code verification. `soon` = not yet live end-to-end
  * (buildable/roadmap/partial); it clears as the vendor-dashboard session ships.
- * Totals: 61 distinct benefits · 36 live · 25 soon.
+ * Totals: 60 distinct benefits · 40 live · 20 soon.
  * Keep in step with VENDOR_TIERS_AND_BENEFITS.md §6 (the SSOT).
  */
 
@@ -103,7 +103,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
       { n: 'Peso-Per-Lead Scorecard', b: 'See the true cost of each booked couple vs your spend.' },
       { n: 'Your Own Funnel Metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
       { n: 'Category Benchmarks vs Peers', soon: true, b: 'Rank your funnel against anonymized peers in your exact category.' },
-      { n: 'Profile Score & Fix-It Tips', soon: true, b: 'Get a ranked checklist of what\'s holding your profile back.' },
+      { n: 'Profile Score & Fix-It Tips', b: 'Get a ranked checklist of what\'s holding your profile back.' },
     ],
   },
   {
@@ -117,7 +117,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
       { n: 'Resell Setnayan Productions', soon: true, b: 'Bundle Papic, Live Studio, monogram or Pakanta into your own quote.' },
       { n: 'White-Label Couple Tools', soon: true, b: 'Hand couples the seating chart, mood board and schedule under your brand.' },
       { n: 'Setnayan-Certified Partner', soon: true, b: 'Get badged to deliver in-app services; couples who bought them route to you.' },
-      { n: 'Pay Only For Inquiries That Fit', soon: true, b: 'Charged only for matched, intent-qualified inquiries — never junk.' },
+      { n: 'Pay Only For Inquiries That Fit', b: 'Charged only for matched, intent-qualified inquiries — never junk.' },
     ],
   },
 ];

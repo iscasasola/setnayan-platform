@@ -18,6 +18,7 @@ import {
   fetchVendorFunnelTotals,
   buildFunnelSteps,
   fetchServiceBookedCount,
+  fetchNullServiceBookedCount,
 } from '@/lib/vendor-funnel';
 import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -140,16 +141,16 @@ export default async function VendorPerformancePage({
 
   // ── Batch A — everything that does NOT depend on the chosen service scope:
   //    the activity-stats row (health + growth), the vendor's own services (to
-  //    build + validate the scope selector), the catalog (plan price), the
-  //    shop-level daily series, funnel totals, and demand radar. Runs in ONE
-  //    parallel batch (no per-fetch waterfall). We must know the vendor's own
-  //    services before we can validate a ?service param, so the SEGMENTABLE
-  //    readers run in Batch B below — a second parallel batch, not a chain.
+  //    build + validate the scope selector), the catalog (plan price), funnel
+  //    totals, and demand radar. Runs in ONE parallel batch (no per-fetch
+  //    waterfall). We must know the vendor's own services before we can validate
+  //    a ?service param, so the SEGMENTABLE readers (attribution windows +
+  //    monthly/daily chart series + null-service footnote counts) run in Batch B
+  //    below — a second parallel batch, not a chain.
   const [
     statsRes,
     services,
     vendorCatalog,
-    bookingDailySeries,
     funnelTotals,
     demandRadar,
   ] = await Promise.all([
@@ -162,7 +163,6 @@ export default async function VendorPerformancePage({
       .maybeSingle(),
     fetchVendorServices(supabase, profile.vendor_profile_id).catch(() => []),
     fetchV2VendorCatalog().catch(() => []),
-    fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30),
     fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     getVendorDemandRadar(supabase, profile.vendor_profile_id),
   ]);
@@ -196,44 +196,42 @@ export default async function VendorPerformancePage({
   const scopeLabel = scopeLabelFor(activeServices, serviceId);
 
   // ── Batch B — the SEGMENTABLE readers, now that serviceId is validated. When
-  //    a service is selected, the attribution windows + monthly chart series
-  //    filter to that service (real data, via event_vendors.service_id). When
-  //    serviceId is null they behave exactly as before (shop-level).
-  //    fetchServiceBookedCount runs ONLY when a service is selected, to
-  //    reconcile the NULL-service_id remainder (bookings not tied to any
-  //    service) for the honest "Excludes N …" footnotes.
+  //    a service is selected, the attribution windows + monthly chart series +
+  //    daily chart series filter to that service (real data, via
+  //    event_vendors.service_id). When serviceId is null they behave exactly as
+  //    before (shop-level). The null-service booked COUNTS run ONLY when a
+  //    service is selected — each is a direct count of bookings with
+  //    service_id IS NULL in that window (NOT shopTotal − thisService, which
+  //    would misattribute OTHER services' bookings), for the honest
+  //    "Excludes N bookings not tied to a specific service" footnotes.
   const [
     attributionYear,
     attributionMonth,
     attributionDay,
     bookingSeries,
-    // Shop-wide booked totals per window — only fetched when a service is
-    // selected, so the footnote can subtract the per-service count.
-    shopBookedYear,
-    shopBookedMonth,
+    bookingDailySeries,
+    // True count of service_id IS NULL bookings per window — only fetched when a
+    // service is selected, so the footnote counts ONLY genuinely service-less
+    // bookings.
+    nullExcludedYear,
+    nullExcludedMonth,
+    nullExcludedDay,
   ] = await Promise.all([
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
     fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12, serviceId),
+    fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30, serviceId),
     serviceId
-      ? fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365))
       : Promise.resolve(null),
     serviceId
-      ? fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      : Promise.resolve(null),
+    serviceId
+      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30))
       : Promise.resolve(null),
   ]);
-
-  // NULL-service reconciliation: bookings NOT tied to any specific service =
-  // (all-services booked total) − (this-service booked total). Non-negative
-  // guard against any transient count skew. Only meaningful with a service
-  // selected; null otherwise (no footnote).
-  const nullExcludedYear = serviceId
-    ? Math.max((shopBookedYear?.totalBookings ?? 0) - (attributionYear?.totalBookings ?? 0), 0)
-    : null;
-  const nullExcludedMonth = serviceId
-    ? Math.max((shopBookedMonth?.totalBookings ?? 0) - (attributionMonth?.totalBookings ?? 0), 0)
-    : null;
 
   const funnelSteps = buildFunnelSteps(funnelTotals);
 
@@ -248,12 +246,6 @@ export default async function VendorPerformancePage({
         serviceId,
       )
     : null;
-
-  // When a service is selected the daily CHART series can't segment (its RPC has
-  // no service filter and is out of scope). Rather than show shop-level daily
-  // bars under a per-service count (dishonest), pass an empty series — the chart
-  // renders nothing and the per-service count stands on its own.
-  const scopedDailySeries = serviceId ? [] : bookingDailySeries;
 
   // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
   // vendor's current tier. Falls back to the shipped tier-price constant only if
@@ -321,9 +313,9 @@ export default async function VendorPerformancePage({
 
       {/* ── Your business · Momentum (basic Solo / full Pro+) + ROI + Funnel.
           Momentum + ROI SEGMENT on real booked data when a service is selected
-          (via event_vendors.service_id); the daily chart stays shop-wide (its
-          RPC can't segment) so it renders empty under a per-service count rather
-          than a misleading shop-level chart. */}
+          (via event_vendors.service_id); the daily, monthly, and annual charts
+          all filter to that service too, so the whole card is per-service and
+          honest. */}
       <div className="space-y-6">
         <SectionHeading>Your business</SectionHeading>
 
@@ -334,19 +326,18 @@ export default async function VendorPerformancePage({
           month={monthWindow}
           year={yearWindow}
           monthlySeries={bookingSeries}
-          dailySeries={scopedDailySeries}
+          dailySeries={bookingDailySeries}
           serviceId={serviceId}
           scopeLabel={scopeLabel}
           nullServiceExcluded={
-            // Match the footnote to the ACTIVE window. Only year + month have a
-            // shop-wide total to reconcile against; Daily suppresses the
-            // footnote (no day-window shop total is fetched) rather than reuse a
-            // mismatched month figure.
+            // Match the footnote to the ACTIVE window. Each window has its own
+            // true null-service count (bookings with service_id IS NULL in that
+            // window), so Daily now shows the footnote too.
             momentumMode === 'year'
               ? nullExcludedYear
               : momentumMode === 'month'
                 ? nullExcludedMonth
-                : null
+                : nullExcludedDay
           }
         />
 

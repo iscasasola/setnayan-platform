@@ -14,9 +14,15 @@ import {
   fetchVendorBookingSeries,
   fetchVendorBookingDailySeries,
 } from '@/lib/vendor-booking-series';
-import { fetchVendorFunnelTotals, buildFunnelSteps } from '@/lib/vendor-funnel';
+import {
+  fetchVendorFunnelTotals,
+  buildFunnelSteps,
+  fetchServiceBookedCount,
+  fetchNullServiceBookedCount,
+} from '@/lib/vendor-funnel';
 import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import { fetchVendorConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import { fetchVendorReputationAnalytics } from '@/lib/vendor-reputation-analytics';
@@ -39,6 +45,11 @@ import { RoiAttributionCard } from './_components/roi-attribution-card';
 import { MomentumCard, type MomentumWindow, type MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandPreviewCard } from './_components/demand-preview-card';
+import {
+  ServiceScopeSelector,
+  scopeLabelFor,
+} from './_components/service-scope-selector';
+import { ScopeNote } from './_components/scope-note';
 import { InquiryHandlingCard } from './_components/inquiry-handling-card';
 import { ConversionDealsCard } from './_components/conversion-deals-card';
 import { ReputationCard } from './_components/reputation-card';
@@ -95,7 +106,7 @@ function SectionHeading({ children }: { children: ReactNode }) {
 export default async function VendorPerformancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ momentum?: string }>;
+  searchParams: Promise<{ momentum?: string; service?: string }>;
 }) {
   const search = await searchParams;
   const supabase = await createClient();
@@ -136,17 +147,45 @@ export default async function VendorPerformancePage({
     raw === 'year' ? 'year' : raw === 'day' ? 'day' : 'month';
   if (momentumMode === 'day' && !canAdvanced) momentumMode = 'month';
 
-  // ── Health + growth: the vendor-facing activity-stats row (the same row the
-  //    home VendorStatsPanel reads). maybeSingle() → graceful null for new
-  //    vendors; the composite + recs both degrade to honest empty states.
-  const { data: statsRow } = await supabase
-    .from('vendor_activity_stats')
-    .select(
-      'quality_score, response_rate_pct, booking_completion_rate_pct, profile_completeness_pct, review_avg_bayesian, review_count, inquiry_to_booking_pct, finalized_booking_count, avg_response_minutes',
-    )
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
+  // ── Batch A — everything that does NOT depend on the chosen service scope:
+  //    the activity-stats row (health + growth), the vendor's own services (to
+  //    build + validate the scope selector), the catalog (plan price), funnel
+  //    totals, and demand radar. Runs in ONE parallel batch (no per-fetch
+  //    waterfall). We must know the vendor's own services before we can validate
+  //    a ?service param, so the SEGMENTABLE readers (attribution windows +
+  //    monthly/daily chart series + null-service footnote counts) run in Batch B
+  //    below — a second parallel batch, not a chain.
+  const [
+    statsRes,
+    services,
+    vendorCatalog,
+    funnelTotals,
+    demandRadar,
+    inquiryAnalytics,
+    conversionAnalytics,
+  ] = await Promise.all([
+    supabase
+      .from('vendor_activity_stats')
+      .select(
+        'quality_score, response_rate_pct, booking_completion_rate_pct, profile_completeness_pct, review_avg_bayesian, review_count, inquiry_to_booking_pct, finalized_booking_count, avg_response_minutes',
+      )
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle(),
+    fetchVendorServices(supabase, profile.vendor_profile_id).catch(() => []),
+    fetchV2VendorCatalog().catch(() => []),
+    fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+    getVendorDemandRadar(supabase, profile.vendor_profile_id),
+    // Inquiry-handling + conversion analytics — shop-level, Pro+ (own-business).
+    // Skip the RPCs entirely for tiers that won't render the sections.
+    canAdvanced
+      ? fetchVendorInquiryAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve(null),
+    canAdvanced
+      ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve(null),
+  ]);
 
+  const statsRow = statsRes.data;
   const health = buildVendorHealthComposite(
     (statsRow as VendorHealthInputs | null) ?? null,
   );
@@ -157,40 +196,60 @@ export default async function VendorPerformancePage({
   // the delta is left null (the card omits the "+N this month" chip).
   const monthDelta: number | null = null;
 
-  // ── ROI + momentum: attribution windows off the same SECURITY DEFINER RPC
-  //    (ownership-gated in SQL). Year drives the ROI headline; day/month/year
-  //    drive the Momentum toggle. Monthly + daily series drive the charts;
-  //    funnelTotals + demandRadar drive the inline previews. All own-business
-  //    readers are ownership-gated; demandRadar is de-identified + min-N.
+  // ── Service scope. Only ACTIVE services are selectable (a retired/inactive or
+  //    deleted service must fall back to All silently). The selector shows only
+  //    with 2+ active services — a single/zero-service vendor has nothing to
+  //    segment by. Validate ?service against the vendor's OWN active services:
+  //    a spoofed / non-owned / inactive / deleted id resolves to null (All), no
+  //    redirect or 404. Segmentation itself is Pro+ (a Solo vendor sees the
+  //    shop-level cards only), so the selector is gated to canAdvanced.
+  const activeServices = services.filter((s) => s.is_active);
+  const showSelector = canAdvanced && activeServices.length >= 2;
+  const serviceId =
+    showSelector &&
+    search.service &&
+    activeServices.some((s) => s.vendor_service_id === search.service)
+      ? search.service
+      : null;
+  const scopeLabel = scopeLabelFor(activeServices, serviceId);
+
+  // ── Batch B — the SEGMENTABLE readers, now that serviceId is validated. When
+  //    a service is selected, the attribution windows + monthly chart series +
+  //    daily chart series filter to that service (real data, via
+  //    event_vendors.service_id). When serviceId is null they behave exactly as
+  //    before (shop-level). The null-service booked COUNTS run ONLY when a
+  //    service is selected — each is a direct count of bookings with
+  //    service_id IS NULL in that window (NOT shopTotal − thisService, which
+  //    would misattribute OTHER services' bookings), for the honest
+  //    "Excludes N bookings not tied to a specific service" footnotes.
   const [
     attributionYear,
     attributionMonth,
     attributionDay,
-    vendorCatalog,
     bookingSeries,
     bookingDailySeries,
-    funnelTotals,
-    demandRadar,
-    inquiryAnalytics,
-    conversionAnalytics,
+    // True count of service_id IS NULL bookings per window — only fetched when a
+    // service is selected, so the footnote counts ONLY genuinely service-less
+    // bookings.
+    nullExcludedYear,
+    nullExcludedMonth,
+    nullExcludedDay,
     reputationAnalytics,
     capacityAnalytics,
   ] = await Promise.all([
-    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
-    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
-    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30)),
-    fetchV2VendorCatalog().catch(() => []),
-    fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12),
-    fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30),
-    fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
-    getVendorDemandRadar(supabase, profile.vendor_profile_id),
-    // Inquiry-handling + conversion analytics — Pro+ (own-business). Skip the
-    // RPCs entirely for tiers that won't render the sections.
-    canAdvanced
-      ? fetchVendorInquiryAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
+    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
+    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
+    fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12, serviceId),
+    fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30, serviceId),
+    serviceId
+      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365))
       : Promise.resolve(null),
-    canAdvanced
-      ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+    serviceId
+      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      : Promise.resolve(null),
+    serviceId
+      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30))
       : Promise.resolve(null),
     canAdvanced
       ? fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id)
@@ -201,6 +260,18 @@ export default async function VendorPerformancePage({
   ]);
 
   const funnelSteps = buildFunnelSteps(funnelTotals);
+
+  // Per-service BOOKED count for the funnel callout — the ONLY funnel stage that
+  // can segment (views/inquiries/quotes have no service_id). Shop-level funnel
+  // bars are unchanged; this drives the "Bookings for {service}: N" note.
+  const serviceBookedCount = serviceId
+    ? await fetchServiceBookedCount(
+        supabase,
+        profile.vendor_profile_id,
+        isoDaysAgo(365),
+        serviceId,
+      )
+    : null;
 
   // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
   // vendor's current tier. Falls back to the shipped tier-price constant only if
@@ -240,16 +311,37 @@ export default async function VendorPerformancePage({
         <p className="text-base" style={{ color: 'var(--m-slate)' }}>
           How your shop is doing.
         </p>
+
+        {/* Per-service scope — only with 2+ active services (Pro+). Segments the
+            bookings-derived cards; shop-level cards wear an "across all services"
+            note when a service is picked. Preserves the momentum window. */}
+        {showSelector ? (
+          <ServiceScopeSelector
+            activeServices={activeServices}
+            activeServiceId={serviceId}
+            momentum={momentumMode}
+          />
+        ) : null}
       </header>
 
-      {/* ── Overview (Solo+) · the signature health card + growth tips. */}
+      {/* ── Overview (Solo+) · the signature health card + growth tips. These
+          are SHOP-LEVEL by design (built from activity-stats + growth rules that
+          have no per-service dimension), so they wear an "across all services"
+          note when a service is selected — the honest contract. */}
       <div className="space-y-6">
-        <SectionHeading>Overview</SectionHeading>
+        <div className="flex items-center justify-between gap-3">
+          <SectionHeading>Overview</SectionHeading>
+          {serviceId ? <ScopeNote /> : null}
+        </div>
         <HealthCompositeCard health={health} monthDelta={monthDelta} />
         <GrowthRecsCard recs={growthRecs} />
       </div>
 
-      {/* ── Your business · Momentum (basic Solo / full Pro+) + ROI + Funnel. */}
+      {/* ── Your business · Momentum (basic Solo / full Pro+) + ROI + Funnel.
+          Momentum + ROI SEGMENT on real booked data when a service is selected
+          (via event_vendors.service_id); the daily, monthly, and annual charts
+          all filter to that service too, so the whole card is per-service and
+          honest. */}
       <div className="space-y-6">
         <SectionHeading>Your business</SectionHeading>
 
@@ -261,17 +353,52 @@ export default async function VendorPerformancePage({
           year={yearWindow}
           monthlySeries={bookingSeries}
           dailySeries={bookingDailySeries}
+          serviceId={serviceId}
+          scopeLabel={scopeLabel}
+          nullServiceExcluded={
+            // Match the footnote to the ACTIVE window. Each window has its own
+            // true null-service count (bookings with service_id IS NULL in that
+            // window), so Daily now shows the footnote too.
+            momentumMode === 'year'
+              ? nullExcludedYear
+              : momentumMode === 'month'
+                ? nullExcludedMonth
+                : nullExcludedDay
+          }
         />
 
         {canAdvanced ? (
           <>
-            {/* Setnayan vs your own book — app-vs-import ROI. */}
+            {/* Setnayan vs your own book — app-vs-import ROI (year window). */}
             <RoiAttributionCard
               attribution={attributionYear}
               annualPlanPhp={annualPlanPhp}
               windowLabel="this year"
+              scopeLabel={scopeLabel}
+              nullServiceExcluded={nullExcludedYear}
             />
-            {/* Where bookings come from — inline funnel bars (→ full /funnel). */}
+            {/* Where bookings come from — inline funnel bars (→ full /funnel).
+                Only the BOOKED stage can segment; when a service is selected we
+                show its booked count as a callout and note the other stages are
+                shop-wide (the honest contract). */}
+            {serviceId ? (
+              <div
+                className="rounded-lg border p-4 text-sm"
+                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              >
+                <p style={{ color: 'var(--m-ink)' }}>
+                  <span className="font-semibold">
+                    Bookings for {scopeLabel}:
+                  </span>{' '}
+                  <span className="tabular-nums">{serviceBookedCount ?? 0}</span>{' '}
+                  this year.
+                </p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
+                  tracked per service.
+                </p>
+              </div>
+            ) : null}
             <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
           </>
         ) : (
@@ -285,41 +412,62 @@ export default async function VendorPerformancePage({
       </div>
 
       {/* ── Inquiries (Pro+) · own-business inquiry-handling analytics. Omitted
-             for Solo — the Pro teaser above already signals the upgrade. */}
+             for Solo. Shop-level (chat_threads has no per-service dimension), so
+             it wears the "across all services" note when a service is picked. */}
       {canAdvanced && inquiryAnalytics && (
         <div className="space-y-6">
-          <SectionHeading>Inquiries</SectionHeading>
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Inquiries</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
           <InquiryHandlingCard data={inquiryAnalytics} />
         </div>
       )}
 
-      {/* ── Conversion (Pro+) · own-business quote→booking economics. */}
+      {/* ── Conversion (Pro+) · own-business quote→booking economics. Shop-level,
+             so it wears the note when a service is picked. */}
       {canAdvanced && conversionAnalytics && (
         <div className="space-y-6">
-          <SectionHeading>Conversion</SectionHeading>
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Conversion</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
           <ConversionDealsCard data={conversionAnalytics} />
         </div>
       )}
 
-      {/* ── Reputation (Pro+) · own reviews: rating, coverage, velocity. */}
+      {/* ── Reputation (Pro+) · own reviews: rating, coverage, velocity.
+             Shop-level, so it wears the note when a service is picked. */}
       {canAdvanced && reputationAnalytics && (
         <div className="space-y-6">
-          <SectionHeading>Reputation</SectionHeading>
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Reputation</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
           <ReputationCard data={reputationAnalytics} />
         </div>
       )}
 
-      {/* ── Capacity (Pro+) · booked-ahead load + waitlist (unmet demand). */}
+      {/* ── Capacity (Pro+) · booked-ahead load + waitlist (unmet demand).
+             Shop-level, so it wears the note when a service is picked. */}
       {canAdvanced && capacityAnalytics && (
         <div className="space-y-6">
-          <SectionHeading>Capacity</SectionHeading>
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Capacity</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
           <CapacityCard data={capacityAnalytics} />
         </div>
       )}
 
-      {/* ── Market intelligence (Enterprise) · cross-business, de-identified. */}
+      {/* ── Market intelligence (Enterprise) · cross-business, de-identified.
+          Demand Radar is a cross-market signal with no per-service dimension —
+          shop-level by design, so it wears the note when a service is picked. */}
       <div className="space-y-6">
-        <SectionHeading>Market intelligence</SectionHeading>
+        <div className="flex items-center justify-between gap-3">
+          <SectionHeading>Market intelligence</SectionHeading>
+          {serviceId && canMarket ? <ScopeNote /> : null}
+        </div>
         {canMarket ? (
           <DemandPreviewCard radar={demandRadar} />
         ) : (

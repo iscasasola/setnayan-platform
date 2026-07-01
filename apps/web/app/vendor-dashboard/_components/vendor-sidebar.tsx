@@ -208,8 +208,7 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       // Branches — Enterprise sub-location accounts. Owner/admin only + the
       // page/actions re-check tier + role server-side.
       { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
-      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-      { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
+      { key: 'subscription', label: 'Plan & tokens', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
     ],
   },
   {
@@ -500,11 +499,11 @@ export function VendorSidebar({
 
 /**
  * VendorSidebarFooter — the prototype's pinned footer, passed to
- * <SidebarShell sidebarFooter>. Two rows:
- *   1. Subscription chip — a gold "Pro" pill (tier label · Free shows "Free") +
- *      "Subscription" label; the whole row links to /vendor-dashboard/subscription.
- *   2. Token balance row — "Your tokens ◎ N" (Coins icon + balance) →
- *      /vendor-dashboard/tokens.
+ * <SidebarShell sidebarFooter>. Two rows, BOTH linking to the unified Plan &
+ * tokens hub (/vendor-dashboard/subscription):
+ *   1. Plan chip — a gold "Pro" pill (tier label · Free shows "Free") +
+ *      "Plan & tokens" label.
+ *   2. Token balance row — "Your tokens ◎ N" (Coins icon + balance).
  * SidebarShell hides this whole slot when the sidebar collapses to the 64px rail.
  */
 export function VendorSidebarFooter({
@@ -520,7 +519,7 @@ export function VendorSidebarFooter({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Subscription chip — whole row links to /vendor-dashboard/subscription */}
+      {/* Plan chip — whole row links to the Plan & tokens hub */}
       <Link
         href="/vendor-dashboard/subscription"
         className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-paper)]"
@@ -538,7 +537,7 @@ export function VendorSidebarFooter({
           {tierLabel}
         </span>
         <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
-          Subscription
+          Plan &amp; tokens
         </span>
         <ChevronRight
           aria-hidden
@@ -548,9 +547,9 @@ export function VendorSidebarFooter({
         />
       </Link>
 
-      {/* Token balance row */}
+      {/* Token balance row — also lands on the unified Plan & tokens hub */}
       <Link
-        href="/vendor-dashboard/tokens"
+        href="/vendor-dashboard/subscription"
         className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-paper)]"
         style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
       >

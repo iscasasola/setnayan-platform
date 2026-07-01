@@ -200,7 +200,7 @@ export function GigCard({
                 You need 2 tokens to accept. Top up to claim this gig.
               </span>
               <Link
-                href="/vendor-dashboard/tokens"
+                href="/vendor-dashboard/subscription"
                 className="text-xs font-medium text-warn-800 underline"
               >
                 Buy tokens →

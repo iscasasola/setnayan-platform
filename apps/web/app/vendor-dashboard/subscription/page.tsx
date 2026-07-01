@@ -20,25 +20,34 @@ import {
 } from './_components/subscription-cards';
 import { PesoPerLeadCard } from './_components/peso-per-lead-card';
 import { PricePositionCard } from './_components/price-position-card';
+import { TokenWalletSection } from './_components/token-wallet-section';
+import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 
 /**
- * /vendor-dashboard/subscription — self-serve Pro / Enterprise upgrade
- * (Phase D · Vendor Tier #5). Apply-then-pay: the vendor picks a plan + cycle,
- * starts an order (create_vendor_subscription), pays our BDO / GCash account
- * with the reference code, and an admin confirms at /admin/subscriptions —
- * which activates the tier + grants the bundled tokens.
+ * /vendor-dashboard/subscription — the unified "Plan & tokens" hub. Self-serve
+ * Pro / Enterprise upgrade + the vendor token wallet in ONE place (owner
+ * 2026-07-01 "keep subscription and tokens in one place. so they can make 1
+ * purchase for both").
  *
- * PRICING is DB-DRIVEN: the subscription SKUs (pro/enterprise · monthly/annual)
- * come from vendor_billing_catalog. The cards show the catalog price; the form
- * posts only the sku_code (the RPC re-reads the authoritative price). The cap +
- * bundled-token copy comes from the TIER_CAPS / TIER_SUBSCRIPTION_BUNDLE_TOKENS
- * matrix in code (the capability source of truth).
+ * Apply-then-pay: the vendor picks a plan + cycle (optionally folding a token
+ * pack into the SAME order), starts it (create_vendor_subscription), pays our
+ * BDO / GCash account with the reference code, and an admin confirms at
+ * /admin/subscriptions — which activates the tier, grants the bundled tokens,
+ * and credits any add-on tokens. Standalone token top-ups live in the token
+ * wallet section below (TokenWalletSection). /vendor-dashboard/tokens redirects
+ * here.
+ *
+ * PRICING is DB-DRIVEN: the subscription + token_pack SKUs come from
+ * vendor_billing_catalog. The cards show the catalog price; the form posts only
+ * sku_code (+ optional add-on pack sku); the RPC re-reads authoritative prices.
+ * Cap + bundled-token copy comes from the TIER_CAPS /
+ * TIER_SUBSCRIPTION_BUNDLE_TOKENS matrix in code (the capability source).
  *
  * Current tier + renewal date are read via a soft-probe (tier_state /
  * tier_expires_at are not in FULL_VENDOR_PROFILE_SELECT).
  */
 
-export const metadata = { title: 'Subscription · Vendor' };
+export const metadata = { title: 'Plan & tokens · Vendor' };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
@@ -134,6 +143,56 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     }
   }
 
+  // Token packs available to fold into a plan order as an optional add-on
+  // (one payment for plan + tokens). Cheapest first.
+  const addonPacks: TokenPack[] = vendorCatalog
+    .filter((r) => r.offering_type === 'token_pack' && (r.token_grant_count ?? 0) > 0)
+    .map((r) => ({
+      sku_code: r.sku_code,
+      token_count: r.token_grant_count as number,
+      price_php: r.price_php,
+    }))
+    .sort((a, b) => a.token_count - b.token_count);
+
+  // When an order was just started, look up its amount (+ add-on breakdown) so
+  // the pay panel can tell the vendor exactly how much to send. The reference is
+  // SUB- (plan / combined) or TKN- (standalone token top-up); check both tables
+  // (RLS scopes each read to the caller's own rows).
+  let orderedSummary:
+    | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
+    | null = null;
+  if (search.ordered) {
+    const { data: subRow } = await supabase
+      .from('vendor_subscriptions')
+      .select('amount_php, addon_amount_php, addon_token_count')
+      .eq('reference_code', search.ordered)
+      .maybeSingle();
+    if (subRow) {
+      const total = Number(subRow.amount_php ?? 0);
+      const addonAmount = Number(subRow.addon_amount_php ?? 0);
+      orderedSummary = {
+        amount: total,
+        planAmount: total - addonAmount,
+        addonAmount,
+        addonTokens: Number(subRow.addon_token_count ?? 0),
+      };
+    } else {
+      const { data: tknRow } = await supabase
+        .from('vendor_token_purchases')
+        .select('amount_php, token_count')
+        .eq('reference_code', search.ordered)
+        .maybeSingle();
+      if (tknRow) {
+        orderedSummary = {
+          amount: Number(tknRow.amount_php ?? 0),
+          planAmount: 0,
+          addonAmount: Number(tknRow.amount_php ?? 0),
+          addonTokens: Number(tknRow.token_count ?? 0),
+        };
+      }
+    }
+  }
+
   // Renewal urgency — within ~14 days of expiry.
   const now = Date.now();
   const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
@@ -147,14 +206,15 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
-        <p className="m-eyebrow">Vendor subscription</p>
+        <p className="m-eyebrow">Plan &amp; tokens</p>
         <h1 className="m-display-tight mt-1 text-3xl sm:text-4xl">
           Choose your plan.
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
           Subscriptions sell reach, not paywalled features. Upgrade to be seen by
           more couples, add agent seats, and answer unlimited in-app inquiries.
-          Each plan bundles free tokens every period.
+          Each plan bundles free tokens every period — and you can add a token
+          pack to your plan for a single payment.
         </p>
 
         {/* Current tier + renewal */}
@@ -190,9 +250,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
         {search.ordered && (
           <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-            ✓ Upgrade started. Pay with the reference{' '}
+            ✓ Order started. Pay with the reference{' '}
             <span className="font-mono font-semibold">{search.ordered}</span> using
-            the instructions below — your plan activates once we confirm the payment.
+            the instructions below — it activates once we confirm the payment.
           </div>
         )}
         {search.error && (
@@ -209,6 +269,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       <div className="mt-5">
         <SubscriptionCards
           cycle={cycle}
+          packs={addonPacks}
           cards={PAID_TIERS.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
@@ -243,11 +304,33 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       {search.ordered && (
         <div className="mt-6 m-card p-6">
           <p className="m-label-mono">How to pay</p>
-          <p className="mt-1 text-sm text-ink/65">
-            Pay the amount to our BDO or GCash account and put{' '}
+          {orderedSummary && orderedSummary.amount > 0 && (
+            <div
+              className="mt-3 rounded-lg border p-4"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+            >
+              <p className="text-2xl font-semibold text-ink">
+                ₱{NUMBER.format(orderedSummary.amount)}
+              </p>
+              {orderedSummary.addonTokens > 0 && orderedSummary.planAmount > 0 ? (
+                <p className="mt-0.5 text-xs text-ink/60">
+                  Plan ₱{NUMBER.format(orderedSummary.planAmount)} ＋{' '}
+                  {NUMBER.format(orderedSummary.addonTokens)} tokens ₱
+                  {NUMBER.format(orderedSummary.addonAmount)}
+                </p>
+              ) : orderedSummary.addonTokens > 0 ? (
+                <p className="mt-0.5 text-xs text-ink/60">
+                  {NUMBER.format(orderedSummary.addonTokens)} tokens
+                </p>
+              ) : null}
+            </div>
+          )}
+          <p className="mt-3 text-sm text-ink/65">
+            Pay {orderedSummary && orderedSummary.amount > 0 ? 'that amount' : 'the amount'}{' '}
+            to our BDO or GCash account and put{' '}
             <span className="font-mono font-semibold text-ink">{search.ordered}</span>{' '}
-            in the transfer note so we can match it to your account. Your plan
-            activates once our team confirms the payment (within 24 hours).
+            in the transfer note so we can match it to your account. It activates
+            once our team confirms the payment (within 24 hours).
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <PayBox
@@ -265,11 +348,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-ink/50">
             Setnayan does not hold these funds in escrow — you pay our receiving
-            account directly. The plan is credited after our team confirms the
+            account directly. Your order is credited after our team confirms the
             payment.
           </p>
         </div>
       )}
+
+      {/* Token wallet — buy standalone packs, see balances + history */}
+      <TokenWalletSection />
     </main>
   );
 }

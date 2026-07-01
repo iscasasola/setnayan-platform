@@ -8,6 +8,7 @@ import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { readGuestSession } from '@/lib/guest-session';
 import {
   resolveEffectiveVisibility,
@@ -146,34 +147,6 @@ function displayNameOf(g: {
 // 2026-05-22).
 export const revalidate = 60;
 
-const RESERVED_TOP_LEVEL = new Set([
-  'admin',
-  'api',
-  'auth',
-  'dashboard',
-  'health',
-  'help',
-  'join',
-  'legal',
-  'login',
-  'logout',
-  'manifest.json',
-  'privacy',
-  'register',
-  'settings',
-  'signup',
-  'support',
-  'sw.js',
-  'terms',
-  'about',
-  'contact',
-  'vendor',
-  'v',
-  'venue',
-  'venues',
-  '_next',
-]);
-
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
@@ -208,7 +181,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
 
 export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const { slug } = await params;
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await fetchEventBySlug(slug);
   if (!event) notFound();
@@ -373,7 +346,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const invite = (search.invite ?? '').trim();
   const inviteError = search.invite_error ?? null;
 
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   // If an invite token is in the URL, hand off to the redeem route handler
   // which can write the session cookie (Server Components in Next 15 can't).

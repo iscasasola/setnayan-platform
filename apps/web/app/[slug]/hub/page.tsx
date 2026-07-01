@@ -41,6 +41,7 @@ import {
   Radio,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readGuestSession } from '@/lib/guest-session';
@@ -66,15 +67,6 @@ import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { HubShell } from '../_components/hub/hub-shell';
 
-const RESERVED_TOP_LEVEL = new Set([
-  'api',
-  'dashboard',
-  'admin',
-  'vendor-dashboard',
-  'papic',
-  'wall',
-]);
-
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -94,7 +86,7 @@ export const metadata: Metadata = {
 export default async function EventHubPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const admin = createAdminClient();
 

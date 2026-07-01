@@ -50,3 +50,46 @@ export function VendorTierGate({
     </section>
   );
 }
+
+/**
+ * INLINE tier teaser — a compact locked card shown IN PLACE of a single section
+ * on a mixed-tier page (e.g. My Performance, where Solo sees some cards and a
+ * teaser for the Pro / Enterprise ones). Unlike VendorTierGate it doesn't take
+ * over the whole page; it slots into the section flow so the vendor sees exactly
+ * what the next tier adds, in context. Only rendered when the master flag is on
+ * AND the vendor's tier lacks the cap (see lib/vendor-feature-gate).
+ */
+export function VendorTierTeaser({
+  feature,
+  requiredTier,
+  blurb,
+  icon,
+}: {
+  feature: string;
+  requiredTier: VendorTier;
+  blurb: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="relative mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+          {icon ?? <Lock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+        </span>
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
+            {TIER_LABEL[requiredTier]}
+          </p>
+          <h3 className="text-sm font-semibold text-ink">{feature}</h3>
+          <p className="mt-0.5 max-w-md text-xs text-ink/55">{blurb}</p>
+        </div>
+      </div>
+      <Link
+        href="/vendor-dashboard/subscription"
+        className="inline-flex shrink-0 items-center rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink transition hover:bg-ink hover:text-cream"
+      >
+        Unlock with {TIER_LABEL[requiredTier]}
+      </Link>
+    </div>
+  );
+}

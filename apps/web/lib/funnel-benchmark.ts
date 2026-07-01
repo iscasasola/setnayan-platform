@@ -1,5 +1,5 @@
 /**
- * Category Benchmarks vs Peers (Pro+ vendor benefit) — server-side assembly.
+ * Category Benchmarks vs Peers (Enterprise vendor benefit) — server-side assembly.
  *
  * "How does my funnel rank against anonymized peers in my exact category?" — a
  * first-party, de-identified read of peer funnel percentiles for the vendor's
@@ -22,7 +22,7 @@
  * band returns hasBand=false so the card renders a truthful "not enough peer
  * data yet" state — it never fabricates a ranking.
  *
- * Surface gate: the CARD is Pro+ (canSeeMarketIntel) — enforced by the caller
+ * Surface gate: the CARD is Enterprise (canSeeMarketIntel) — enforced by the caller
  * (vendor-stats-panel.tsx); this module carries no gating, just the read + the
  * percentile math.
  */

@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { Gauge, TrendingUp, Radar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -8,15 +10,29 @@ import {
 } from '@/lib/vendor-health-composite';
 import { buildGrowthRecs, type GrowthRecStats } from '@/lib/vendor-growth-recs';
 import { fetchVendorSourceAttribution } from '@/lib/vendor-source-attribution';
-import { fetchVendorBookingSeries } from '@/lib/vendor-booking-series';
+import {
+  fetchVendorBookingSeries,
+  fetchVendorBookingDailySeries,
+} from '@/lib/vendor-booking-series';
 import { fetchVendorFunnelTotals, buildFunnelSteps } from '@/lib/vendor-funnel';
 import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
-import { asVendorTier, TIER_PRICE_PHP } from '@/lib/vendor-tier-caps';
+import {
+  asVendorTier,
+  TIER_PRICE_PHP,
+  canSeePerformanceTrends,
+  canSeePerformanceAdvanced,
+  canSeeMarketIntel,
+} from '@/lib/vendor-tier-caps';
+import {
+  isVendorFeatureGateEnabled,
+  resolveVendorTier,
+} from '@/lib/vendor-feature-gate';
+import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
 import { HealthCompositeCard } from './_components/health-composite-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
 import { RoiAttributionCard } from './_components/roi-attribution-card';
-import { MomentumCard, type MomentumWindow } from './_components/momentum-card';
+import { MomentumCard, type MomentumWindow, type MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandPreviewCard } from './_components/demand-preview-card';
 
@@ -30,28 +46,43 @@ function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * DAY_MS).toISOString();
 }
 
+/** A small uppercase eyebrow that groups the cards below it into a section. */
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <p
+      className="font-mono text-[11px] uppercase tracking-[0.2em]"
+      style={{ color: 'var(--m-slate-3)' }}
+    >
+      {children}
+    </p>
+  );
+}
+
 /**
- * /vendor-dashboard/performance — "My Performance" cockpit, reskinned to the
- * finalized vendor-dashboard prototype.
+ * /vendor-dashboard/performance — the "My Performance" cockpit.
  *
- * Four sections, all wired to LIVE per-vendor data:
- *   1. Dark business-health card — the SIGNATURE surface. A champagne-gold
- *      composite ring + five vendor-SAFE pillar bars (Responsiveness /
- *      Reputation / Demand / Conversion / Delivery), built ONLY from the
- *      vendor's own vendor_activity_stats row. NEVER the HQ-internal
- *      platform_health_score.
- *   2. Grow your business — recommendation cards derived from the vendor's own
- *      gaps (response rate, profile completeness, review count) + a steady
- *      calendar-availability prompt.
- *   3. Setnayan vs your own book — app-vs-import ROI from
- *      vendor_source_attribution(). Headline peso + two channel bars.
- *   4. Momentum — Monthly/Annual toggle over booked count + confirmed revenue,
- *      also from vendor_source_attribution() across two windows.
+ * TIERED (owner 2026-07-01, "apply this to our live website"):
+ *   • Solo   — own-shop glance: Health composite · Grow recs · basic Momentum
+ *              (count, Monthly/Annual). variant='basic'.
+ *   • Pro    — full own-business analytics: + revenue & Daily Momentum · ROI
+ *              (Setnayan vs your book) · booking Funnel.
+ *   • Enter. — + cross-business MARKET INTEL (Demand Radar · Price-Position),
+ *              de-identified + min-N, nationwide totals only.
+ *   • Free/Verified — no My Performance (full-page upsell).
  *
- * OWNER/ADMIN ONLY: this surfaces money figures, so it mirrors the
- * Earnings/Demand gate — 'performance' is absent from
+ * The gates read the caps in lib/vendor-tier-caps.ts (performanceTrends /
+ * performanceAdvanced / marketIntel) and are FLAG-DARK behind
+ * isVendorFeatureGateEnabled(): default OFF → every tier sees every card, so
+ * today's founder + demo/test vendors (all tier_state='free') are unchanged.
+ * The owner flips VENDOR_TIER_FEATURE_GATE=true once paid vendors exist.
+ *
+ * OWNER/ADMIN ONLY: money figures — 'performance' is absent from
  * VENDOR_SCOPED_NAV_ITEM_KEYS, and the page re-checks canManageVendor()
  * server-side. Agents/viewers are redirected to the dashboard root.
+ *
+ * DATA ISOLATION: every own-business reader is a SECURITY DEFINER RPC
+ * ownership-gated to current_vendor_profile_ids(); the market-intel readers are
+ * de-identified + min-N floored. No card ever exposes another business's rows.
  */
 export default async function VendorPerformancePage({
   searchParams,
@@ -72,7 +103,30 @@ export default async function VendorPerformancePage({
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) redirect('/vendor-dashboard');
 
-  const momentumMode: 'month' | 'year' = search.momentum === 'year' ? 'year' : 'month';
+  // ── Tier gating (flag-dark). Resolve tier up front so a free/verified vendor
+  //    short-circuits to the upsell WITHOUT running the full data batch.
+  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  const gateOn = isVendorFeatureGateEnabled();
+
+  if (gateOn && !canSeePerformanceTrends(tier)) {
+    return (
+      <VendorTierGate
+        feature="My Performance"
+        requiredTier="solo"
+        blurb="See how your shop is doing — a business-health snapshot, growth tips, and your booking momentum. My Performance starts with Solo."
+        icon={<Gauge aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      />
+    );
+  }
+
+  const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
+  const canMarket = !gateOn || canSeeMarketIntel(tier); // Enterprise
+
+  // Momentum window from the URL. Daily is Pro+ only — normalize a stray ?day.
+  const raw = search.momentum;
+  let momentumMode: MomentumMode =
+    raw === 'year' ? 'year' : raw === 'day' ? 'day' : 'month';
+  if (momentumMode === 'day' && !canAdvanced) momentumMode = 'month';
 
   // ── Health + growth: the vendor-facing activity-stats row (the same row the
   //    home VendorStatsPanel reads). maybeSingle() → graceful null for new
@@ -95,29 +149,27 @@ export default async function VendorPerformancePage({
   // the delta is left null (the card omits the "+N this month" chip).
   const monthDelta: number | null = null;
 
-  // ── ROI + momentum: three attribution windows off the same SECURITY DEFINER
-  //    RPC (ownership-gated in SQL). Year window drives the ROI headline;
-  //    month + year windows drive the Momentum toggle.
-  //    bookingSeries drives the Momentum charts; funnelTotals + demandRadar
-  //    drive the inline funnel/demand bar previews. All ownership-gated readers.
+  // ── ROI + momentum: attribution windows off the same SECURITY DEFINER RPC
+  //    (ownership-gated in SQL). Year drives the ROI headline; day/month/year
+  //    drive the Momentum toggle. Monthly + daily series drive the charts;
+  //    funnelTotals + demandRadar drive the inline previews. All own-business
+  //    readers are ownership-gated; demandRadar is de-identified + min-N.
   const [
     attributionYear,
     attributionMonth,
+    attributionDay,
     vendorCatalog,
-    tierRow,
     bookingSeries,
+    bookingDailySeries,
     funnelTotals,
     demandRadar,
   ] = await Promise.all([
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
+    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30)),
     fetchV2VendorCatalog().catch(() => []),
-    supabase
-      .from('vendor_profiles')
-      .select('tier_state')
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .maybeSingle(),
     fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12),
+    fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30),
     fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     getVendorDemandRadar(supabase, profile.vendor_profile_id),
   ]);
@@ -127,7 +179,6 @@ export default async function VendorPerformancePage({
   // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
   // vendor's current tier. Falls back to the shipped tier-price constant only if
   // the catalog lacks the row (mirrors the subscription page's dual source).
-  const tier = asVendorTier((tierRow.data as { tier_state?: string | null } | null)?.tier_state);
   const annualSku = `${tier}_vendor_annual`;
   const catalogAnnual = vendorCatalog.find((r) => r.sku_code === annualSku)?.price_php ?? null;
   const annualPlanPhp = catalogAnnual ?? TIER_PRICE_PHP[tier].annual;
@@ -142,9 +193,14 @@ export default async function VendorPerformancePage({
     earningsPhp: attributionYear?.totalRevenuePhp ?? 0,
     pricedCount: attributionYear?.totalPriced ?? 0,
   };
+  const dayWindow: MomentumWindow = {
+    bookings: attributionDay?.totalBookings ?? 0,
+    earningsPhp: attributionDay?.totalRevenuePhp ?? 0,
+    pricedCount: attributionDay?.totalPriced ?? 0,
+  };
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <section className="mx-auto w-full max-w-5xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <header className="space-y-2">
         <p
           className="font-mono text-[11px] uppercase tracking-[0.2em]"
@@ -160,32 +216,62 @@ export default async function VendorPerformancePage({
         </p>
       </header>
 
-      {/* 1 · Dark business-health card (signature). */}
-      <HealthCompositeCard health={health} monthDelta={monthDelta} />
+      {/* ── Overview (Solo+) · the signature health card + growth tips. */}
+      <div className="space-y-6">
+        <SectionHeading>Overview</SectionHeading>
+        <HealthCompositeCard health={health} monthDelta={monthDelta} />
+        <GrowthRecsCard recs={growthRecs} />
+      </div>
 
-      {/* 2 · Grow your business — highest impact first. */}
-      <GrowthRecsCard recs={growthRecs} />
+      {/* ── Your business · Momentum (basic Solo / full Pro+) + ROI + Funnel. */}
+      <div className="space-y-6">
+        <SectionHeading>Your business</SectionHeading>
 
-      {/* 3 · Setnayan vs your own book — app-vs-import ROI. */}
-      <RoiAttributionCard
-        attribution={attributionYear}
-        annualPlanPhp={annualPlanPhp}
-        windowLabel="this year"
-      />
+        <MomentumCard
+          mode={momentumMode}
+          variant={canAdvanced ? 'full' : 'basic'}
+          day={dayWindow}
+          month={monthWindow}
+          year={yearWindow}
+          monthlySeries={bookingSeries}
+          dailySeries={bookingDailySeries}
+        />
 
-      {/* 4 · Momentum — Monthly / Annual toggle + trailing-12-month charts. */}
-      <MomentumCard
-        mode={momentumMode}
-        month={monthWindow}
-        year={yearWindow}
-        series={bookingSeries}
-      />
+        {canAdvanced ? (
+          <>
+            {/* Setnayan vs your own book — app-vs-import ROI. */}
+            <RoiAttributionCard
+              attribution={attributionYear}
+              annualPlanPhp={annualPlanPhp}
+              windowLabel="this year"
+            />
+            {/* Where bookings come from — inline funnel bars (→ full /funnel). */}
+            <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
+          </>
+        ) : (
+          <VendorTierTeaser
+            feature="ROI & booking funnel"
+            requiredTier="pro"
+            blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
+            icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          />
+        )}
+      </div>
 
-      {/* 5 · Where bookings come from — inline funnel bars (→ full /funnel). */}
-      <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
-
-      {/* 6 · Demand radar — inline look/month bars (→ full /demand). */}
-      <DemandPreviewCard radar={demandRadar} />
+      {/* ── Market intelligence (Enterprise) · cross-business, de-identified. */}
+      <div className="space-y-6">
+        <SectionHeading>Market intelligence</SectionHeading>
+        {canMarket ? (
+          <DemandPreviewCard radar={demandRadar} />
+        ) : (
+          <VendorTierTeaser
+            feature="Demand Radar & Price-Position"
+            requiredTier="enterprise"
+            blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
+            icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          />
+        )}
+      </div>
     </section>
   );
 }

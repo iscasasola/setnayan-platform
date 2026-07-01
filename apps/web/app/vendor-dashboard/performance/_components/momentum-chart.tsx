@@ -1,13 +1,17 @@
-import type { BookingMonthPoint } from '@/lib/vendor-booking-series';
 import { formatPhp } from '@/lib/vendors';
 
 /**
  * Momentum mini-charts — the visual half of the "Momentum" card. Two pure,
- * server-rendered (no client JS) charts over the same trailing monthly series:
+ * server-rendered (no client JS) charts over a trailing booked series:
  *
- *   • <BookingsBars>      — a bar per month (count of booked event_vendors),
- *                           the current month deepened for emphasis.
+ *   • <BookingsBars>      — a bar per bucket (count of booked event_vendors),
+ *                           the current bucket deepened for emphasis.
  *   • <EarningsSparkline> — an SVG area line of confirmed booked revenue.
+ *
+ * Both are granularity-agnostic: they render a `ChartPoint[]` and take a `unit`
+ * ('month' | 'day') that only drives caption wording + per-bar label density.
+ * The Monthly/Annual windows feed month buckets; the Daily view (owner
+ * 2026-07-01 "also plot daily", Pro+) feeds day buckets — same charts.
  *
  * Both degrade to nothing when there is no signal (all-zero series) so a brand
  * new vendor sees the honest big-number empty state, not a flat baseline that
@@ -16,6 +20,16 @@ import { formatPhp } from '@/lib/vendors';
  * Colors come from the champagne-gold palette (--m-orange / --m-orange-2) to
  * match the ROI card's bars and the rest of My Performance.
  */
+
+/** A granularity-agnostic chart bucket. `key` is a stable React key (ISO date). */
+export type ChartPoint = {
+  key: string;
+  label: string;
+  bookings: number;
+  revenuePhp: number;
+};
+
+type Unit = 'month' | 'day';
 
 /** Small caption under each chart naming the window. */
 function ChartCaption({ children }: { children: React.ReactNode }) {
@@ -26,26 +40,36 @@ function ChartCaption({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function BookingsBars({ series }: { series: BookingMonthPoint[] }) {
+export function BookingsBars({
+  series,
+  unit = 'month',
+}: {
+  series: ChartPoint[];
+  unit?: Unit;
+}) {
   const max = series.reduce((m, p) => Math.max(m, p.bookings), 0);
   if (series.length === 0 || max === 0) return null;
 
   const total = series.reduce((s, p) => s + p.bookings, 0);
+  // With many buckets (e.g. 30 daily bars) per-bar text labels turn to noise —
+  // show them only for a short series; tooltips + caption carry the rest.
+  const showBarLabels = series.length <= 12;
+  const unitWord = unit === 'day' ? 'day' : 'month';
 
   return (
     <div className="mt-4">
       <div
         className="flex h-16 items-end gap-1"
         role="img"
-        aria-label={`Monthly bookings for the last ${series.length} months: ${total} total.`}
+        aria-label={`Bookings per ${unitWord} for the last ${series.length} ${unitWord}s: ${total} total.`}
       >
         {series.map((p, i) => {
           const isCurrent = i === series.length - 1;
-          // Min visible sliver for non-zero months so a single booking still
-          // reads as a bar; zero months stay flat.
+          // Min visible sliver for non-zero buckets so a single booking still
+          // reads as a bar; zero buckets stay flat.
           const pct = p.bookings === 0 ? 0 : Math.max((p.bookings / max) * 100, 8);
           return (
-            <div key={p.month} className="flex flex-1 flex-col items-center gap-1">
+            <div key={p.key} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex w-full flex-1 items-end">
                 <div
                   className="w-full rounded-t-sm"
@@ -57,22 +81,32 @@ export function BookingsBars({ series }: { series: BookingMonthPoint[] }) {
                   title={`${p.label}: ${p.bookings} booked`}
                 />
               </div>
-              <span
-                className="font-mono text-[9px] leading-none"
-                style={{ color: isCurrent ? 'var(--m-orange-2)' : 'var(--m-slate-3)' }}
-              >
-                {p.label.charAt(0)}
-              </span>
+              {showBarLabels && (
+                <span
+                  className="font-mono text-[9px] leading-none"
+                  style={{ color: isCurrent ? 'var(--m-orange-2)' : 'var(--m-slate-3)' }}
+                >
+                  {p.label.charAt(0)}
+                </span>
+              )}
             </div>
           );
         })}
       </div>
-      <ChartCaption>Booked per month · last {series.length} months</ChartCaption>
+      <ChartCaption>
+        Booked per {unitWord} · last {series.length} {unitWord}s
+      </ChartCaption>
     </div>
   );
 }
 
-export function EarningsSparkline({ series }: { series: BookingMonthPoint[] }) {
+export function EarningsSparkline({
+  series,
+  unit = 'month',
+}: {
+  series: ChartPoint[];
+  unit?: Unit;
+}) {
   const max = series.reduce((m, p) => Math.max(m, p.revenuePhp), 0);
   const priced = series.filter((p) => p.revenuePhp > 0).length;
   if (series.length < 2 || max === 0) return null;
@@ -80,6 +114,7 @@ export function EarningsSparkline({ series }: { series: BookingMonthPoint[] }) {
   const W = 100;
   const H = 32;
   const n = series.length;
+  const unitWord = unit === 'day' ? 'day' : 'month';
   // Normalize each point into the viewBox. y is inverted (SVG origin top-left);
   // leave 3px headroom top + bottom so the stroke isn't clipped.
   const pts = series.map((p, i) => {
@@ -100,7 +135,7 @@ export function EarningsSparkline({ series }: { series: BookingMonthPoint[] }) {
         preserveAspectRatio="none"
         className="h-16 w-full"
         role="img"
-        aria-label={`Confirmed booked revenue trend over ${n} months; peak month ${peak}.`}
+        aria-label={`Confirmed booked revenue trend over ${n} ${unitWord}s; peak ${unitWord} ${peak}.`}
       >
         <path d={area} fill="var(--m-orange-4)" opacity={0.7} />
         <path
@@ -115,8 +150,8 @@ export function EarningsSparkline({ series }: { series: BookingMonthPoint[] }) {
         <circle cx={last.x} cy={last.y} r={2} fill="var(--m-orange-2)" />
       </svg>
       <ChartCaption>
-        Confirmed revenue trend · {priced} month{priced === 1 ? '' : 's'} with a
-        priced booking
+        Confirmed revenue trend · {priced} {unitWord}
+        {priced === 1 ? '' : 's'} with a priced booking
       </ChartCaption>
     </div>
   );

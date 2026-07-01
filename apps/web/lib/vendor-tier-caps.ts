@@ -81,12 +81,29 @@ export interface TierCaps {
    * and keeps the ops spine free. Enforced flag-dark via
    * isVendorFeatureGateEnabled() — see lib/vendor-feature-gate.ts.
    */
-  /** Demand Radar / premium market intelligence surface. Pro+. */
+  /**
+   * Demand Radar + Price-Position / cross-business market intelligence surface.
+   * ENTERPRISE-ONLY (owner 2026-07-01 My Performance tiering): this is the only
+   * class of analytics derived from OTHER businesses' aggregate (de-identified +
+   * min-N) data, so it sits at the top tier. Own-business analytics never gate
+   * here. (Was Pro+ until the tiering decision.)
+   */
   marketIntel: boolean;
   /** Reverse-image theft-watch surface. Pro+. */
   theftWatch: boolean;
-  /** Performance TRENDS / funnel time-series. Solo+ (the snapshot Performance panel stays free). */
+  /**
+   * BASIC own-business performance — My Performance access + Health composite +
+   * Grow recs + basic Momentum (count, Monthly/Annual). Solo+ (the free snapshot
+   * panel on Home stays free).
+   */
   performanceTrends: boolean;
+  /**
+   * ADVANCED own-business analytics — ROI attribution, Funnel, daily + revenue
+   * Momentum, and the inquiry-handling / conversion / catalog / reputation
+   * detail families. Pro+ (owner 2026-07-01 My Performance tiering: "basic
+   * information analytics will be for pro; more complex will be for enterprise").
+   */
+  performanceAdvanced: boolean;
   /** Solo business back-office (earnings analytics + recap sharing). Solo+ (2026-07-01 beef-up). */
   soloBusinessTools: boolean;
 }
@@ -110,6 +127,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
+    performanceAdvanced: false,
     soloBusinessTools: false,
     editorialTagged: false,
     reviewStarsCounted: false,
@@ -136,6 +154,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
+    performanceAdvanced: false,
     soloBusinessTools: false,
     slotsPerDay: 1,
     slotsTimeBounded: false,
@@ -159,6 +178,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: false,
     theftWatch: false,
     performanceTrends: true,
+    performanceAdvanced: false,
     soloBusinessTools: true,
     chat: 'chat',
     parentCategories: 1,
@@ -181,9 +201,13 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   pro: {
     serviceRadiusKm: 50,
-    marketIntel: true,
+    // Market intel is ENTERPRISE-ONLY (owner 2026-07-01 My Performance tiering).
+    // Pro gets the full OWN-business analytics via performanceAdvanced, not the
+    // cross-business Demand Radar / Price-Position surface.
+    marketIntel: false,
     theftWatch: true,
     performanceTrends: true,
+    performanceAdvanced: true,
     soloBusinessTools: true,
     servicesPerLeaf: 5,
     chat: 'chat',
@@ -215,6 +239,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
+    performanceAdvanced: true,
     soloBusinessTools: true,
     servicesPerLeaf: Infinity,
     chat: 'chat',
@@ -353,13 +378,16 @@ export function canPlotTimeSlots(tier: string | null | undefined): boolean {
  * out until paid vendors exist in prod.
  */
 export function canSeeMarketIntel(tier: string | null | undefined): boolean {
-  return tierCaps(tier).marketIntel; // Demand Radar + category benchmarks (Pro+)
+  return tierCaps(tier).marketIntel; // Demand Radar + Price-Position (ENTERPRISE-only)
 }
 export function canSeeTheftWatch(tier: string | null | undefined): boolean {
   return tierCaps(tier).theftWatch; // reverse-image theft watch (Pro+)
 }
 export function canSeePerformanceTrends(tier: string | null | undefined): boolean {
-  return tierCaps(tier).performanceTrends; // funnel time-series (Solo+); snapshot panel stays free
+  return tierCaps(tier).performanceTrends; // My Performance access + basic Momentum (Solo+); snapshot panel stays free
+}
+export function canSeePerformanceAdvanced(tier: string | null | undefined): boolean {
+  return tierCaps(tier).performanceAdvanced; // ROI + Funnel + daily/revenue Momentum + detail families (Pro+)
 }
 export function canUseSoloBusinessTools(tier: string | null | undefined): boolean {
   return tierCaps(tier).soloBusinessTools; // earnings dashboard + recap sharing (Solo+)

@@ -17,6 +17,7 @@
 import {
   fetchV2CustomerCatalog,
   fetchV2VendorCatalog,
+  getVendorPrices,
   formatPeso,
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
@@ -56,6 +57,9 @@ export type PricingData = {
   aiPeriod: string;
   freeChips: string[];
   groups: PriceGroup[];
+  /** Vendor tier prices (28-day + annual), resolved from the live catalog —
+   *  the "For vendors" overlay reads these so it never hardcodes a price. */
+  vendor: Awaited<ReturnType<typeof getVendorPrices>>;
 };
 
 const peso = (n: number) => `₱${formatPeso(n)}`;
@@ -89,7 +93,11 @@ function aiPeriodSuffix(): string {
 
 export async function getHomePricingData(): Promise<PricingData> {
   // Parallel reads; helpers return [] on error so the overlay still renders.
-  const [catalog] = await Promise.all([fetchV2CustomerCatalog(), fetchV2VendorCatalog()]);
+  // getVendorPrices reuses the vendor catalog read (cache()d) for the tier prices.
+  const [catalog, vendor] = await Promise.all([
+    fetchV2CustomerCatalog(),
+    getVendorPrices(),
+  ]);
 
   const ai = catalog.find((s) => s.service_code === 'SETNAYAN_AI');
   const aiPrice = ai ? peso(Number(ai.retail_price_php)) : '₱499';
@@ -200,6 +208,7 @@ export async function getHomePricingData(): Promise<PricingData> {
   return {
     aiPrice,
     aiPeriod: aiPeriodSuffix(),
+    vendor,
     freeChips: [
       'Guest list & RSVP',
       '2D seat plan',

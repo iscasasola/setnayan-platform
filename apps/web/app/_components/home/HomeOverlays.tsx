@@ -295,7 +295,35 @@ function DownloadOverlay({
 }
 
 
-function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
+/** DB-driven price block for a vendor tier section (28-day + annual secondary),
+ *  resolved from the live catalog via PricingData.vendor — never hardcoded. */
+function tierPriceBlock(tier: string, v: PricingData['vendor']) {
+  const p =
+    tier === 'solo'
+      ? { a: v.soloMonthly, u: '/ 28 days', y: v.soloAnnual }
+      : tier === 'pro'
+        ? { a: v.proMonthly, u: '/ 28 days', y: v.proAnnual }
+        : tier === 'enterprise'
+          ? { a: v.enterpriseMonthly, u: '/ 28 days', y: v.enterpriseAnnual }
+          : { a: '₱0', u: 'free while we launch', y: null as string | null };
+  return (
+    <div className="hr-vt-price">
+      {p.a}
+      <span className="hr-vt-unit"> {p.u}</span>
+      {p.y ? <span className="hr-vt-annual">or {p.y} / yr</span> : null}
+    </div>
+  );
+}
+
+function VendorsOverlay({
+  current,
+  onClose,
+  pricing,
+}: {
+  current: OverlayId;
+  onClose: () => void;
+  pricing: PricingData;
+}) {
   return (
     <OverlayShell id="vendors" current={current} onClose={onClose} label="For vendors">
       <div className="hr-ov-eyebrow">Setnayan for vendors</div>
@@ -324,10 +352,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         <div className={`hr-vt-section hr-vt-${section.tier}`} key={section.tier}>
           <div className="hr-vt-head">
             <div className="hr-vt-name">{section.name}</div>
-            <div className="hr-vt-price">
-              {section.price}
-              <span className="hr-vt-unit"> {section.unit}</span>
-            </div>
+            {tierPriceBlock(section.tier, pricing.vendor)}
           </div>
           <p className="hr-vt-tagline">{section.tagline}</p>
           {section.groups.map((group, gi) => (
@@ -493,7 +518,7 @@ export function HomeOverlays({
     <>
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
-      <VendorsOverlay current={current} onClose={onClose} />
+      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
     </>
   );

@@ -15,20 +15,18 @@ export type VendorTierGroup = { h?: string; items: VendorBenefit[] };
 export type VendorTierSection = {
   tier: VendorTier;
   name: string;
-  price: string;
-  /** Short "/28d" style qualifier shown next to the price. */
-  unit: string;
   /** One-line "what this tier is for". */
   tagline: string;
   groups: VendorTierGroup[];
+  // NOTE: prices are NOT stored here — the overlay resolves each tier's 28-day +
+  // annual price from the live catalog (getVendorPrices via PricingData.vendor)
+  // so a catalog reprice propagates without a code edit (never hardcode prices).
 };
 
 export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'free',
     name: 'Free · Verified',
-    price: '₱0',
-    unit: 'free while we launch',
     tagline: 'The whole business — get found, get trusted, get booked. Keep 100%.',
     groups: [
       {
@@ -120,8 +118,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'solo',
     name: 'Solo',
-    price: '₱999',
-    unit: '/ 28 days',
     tagline: 'Operate friction-free. Everything in Free, plus your own business analytics.',
     groups: [
       {
@@ -141,8 +137,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'pro',
     name: 'Pro',
-    price: '₱2,499',
-    unit: '/ 28 days',
     tagline: 'Grow — a team, wider reach, and premium market intelligence. Everything in Solo, plus:',
     groups: [
       {
@@ -170,8 +164,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'enterprise',
     name: 'Enterprise',
-    price: '₱7,499',
-    unit: '/ 28 days',
     tagline: 'Scale as an organization. Everything in Pro, plus:',
     groups: [
       {

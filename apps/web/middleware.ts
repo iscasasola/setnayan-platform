@@ -8,6 +8,11 @@ import {
   isAdminProfile,
   stripDemoModeQueryParam,
 } from '@/lib/demo-mode';
+import {
+  isSetnayanHost,
+  isLocalOrPreviewHost,
+  resolveCustomDomainPath,
+} from '@/lib/custom-domain-resolve';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
 // (`[a-z0-9-]+`), so a UUID — 36 chars including hyphens — cannot
@@ -117,6 +122,38 @@ export async function middleware(request: NextRequest) {
       ? `/v/${vendorSlug}`
       : `/v/${vendorSlug}${pathname}`;
     return NextResponse.rewrite(rewrite);
+  }
+
+  // Custom BYO domain · e.g. `sny.theirshop.com/<rest>` → internal rewrite to the
+  // owner's `/v/{slug}` (vendor) or `/u/{slug}` (user) page. Only fires for
+  // hosts that are NEITHER a setnayan.com/.ph host NOR a localhost/vercel.app
+  // preview host — so the primary domain + previews + dev pay ZERO cost (two
+  // cheap string checks, no DB call). For an actual custom domain (its DNS
+  // points here), resolution goes through the staleness-free
+  // resolve_custom_domain RPC. Fail-open: an unknown/unverified host or any
+  // error returns null and falls through to normal routing. Inert until a
+  // verified custom_domains row exists.
+  if (hostname && !isSetnayanHost(hostname) && !isLocalOrPreviewHost(hostname)) {
+    const target = await resolveCustomDomainPath(hostname); // '/v/{slug}' | '/u/{slug}' | null
+    if (target) {
+      const rewrite = request.nextUrl.clone();
+      if (pathname === '/') {
+        // Root → the owner's page (vendor shop, or user profile which itself
+        // redirects into their single event / shows a picker).
+        rewrite.pathname = target;
+        return NextResponse.rewrite(rewrite);
+      }
+      if (target.startsWith('/v/')) {
+        // Vendor sub-path → under the vendor route (vendors have no subroutes,
+        // so this simply 404s for unknown paths — expected).
+        rewrite.pathname = `${target}${pathname}`;
+        return NextResponse.rewrite(rewrite);
+      }
+      // User sub-path → the event subtree lives at the bare root (this mirrors
+      // the /u/{user}/{event} → /{event} strip, which a rewrite can't re-trigger).
+      // Leave pathname as-is and fall through to normal routing so
+      // e.g. sny.maria.com/aira-boy/welcome resolves at app/[slug]/welcome.
+    }
   }
 
   // User-profile event nesting · `/u/{userSlug}/{eventSlug}[/rest]` → internal

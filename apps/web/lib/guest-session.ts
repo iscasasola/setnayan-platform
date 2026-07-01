@@ -48,18 +48,37 @@ export async function readGuestSession(): Promise<GuestSessionPayload | null> {
   }
 }
 
+/** Cookie options shared by every guest-session writer. */
+const GUEST_SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'lax',
+  path: '/',
+  maxAge: COOKIE_MAX_AGE_SECONDS,
+} as const;
+
+/**
+ * Build the {name, value, options} for the guest-session cookie WITHOUT writing
+ * it. Lets a Route Handler attach the cookie directly to a NextResponse (e.g. a
+ * redirect), where setting via `cookies()` after building a redirect can be
+ * dropped. setGuestSession (next/headers) is the Server-Action/page path.
+ */
+export async function buildGuestSessionCookie(payload: GuestSessionPayload): Promise<{
+  name: string;
+  value: string;
+  options: typeof GUEST_SESSION_COOKIE_OPTIONS;
+}> {
+  return {
+    name: COOKIE_NAME,
+    value: await signGuestSession(payload),
+    options: GUEST_SESSION_COOKIE_OPTIONS,
+  };
+}
+
 export async function setGuestSession(payload: GuestSessionPayload): Promise<void> {
   const cookieStore = await cookies();
-  const token = await signGuestSession(payload);
-  cookieStore.set({
-    name: COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: COOKIE_MAX_AGE_SECONDS,
-  });
+  const { name, value, options } = await buildGuestSessionCookie(payload);
+  cookieStore.set({ name, value, ...options });
 }
 
 export async function clearGuestSession(): Promise<void> {

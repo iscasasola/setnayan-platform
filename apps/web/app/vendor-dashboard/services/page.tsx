@@ -384,20 +384,6 @@ export default async function VendorServicesPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-2">
-        <span
-          aria-hidden
-          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-        >
-          <Layers className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">My Services</h1>
-        <p className="max-w-prose text-base" style={{ color: 'var(--m-slate)' }}>
-          What you sell, your coverage, and specialist tools.
-        </p>
-      </header>
-
       {search.error ? (
         <p
           role="alert"

@@ -24,10 +24,27 @@ import { resolveVendorCategory } from '@/lib/vendor-packages';
 
 const PRIMARY_HOST_ROLE_SUBTYPES = ['couple', 'co_host'] as const;
 
-/** Public couple-facing URL the vendor's invite QR encodes. */
-export function buildVendorInviteUrl(slug: string): string {
+/**
+ * Public couple-facing URL the vendor's invite (Shortlist) QR encodes.
+ *
+ * The base is still keyed on the public `business_slug` (stateless, tokenless —
+ * a vendor advertising themselves isn't a per-recipient secret). The optional
+ * `eventType` + `category` are the vendor's "pick an event / pick a service"
+ * choices from the Shortlist QR generator: they scope the landing (which event
+ * the couple is being invited to plan, and which category the vendor is
+ * shortlisted under) and are read back on /vendor-invite/[slug].
+ */
+export function buildVendorInviteUrl(
+  slug: string,
+  opts?: { eventType?: string | null; category?: string | null },
+): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
-  return `${appUrl.replace(/\/$/, '')}/vendor-invite/${slug}`;
+  const base = `${appUrl.replace(/\/$/, '')}/vendor-invite/${slug}`;
+  const params = new URLSearchParams();
+  if (opts?.eventType) params.set('et', opts.eventType);
+  if (opts?.category) params.set('cat', opts.category);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 /**
@@ -46,6 +63,30 @@ export function coerceVendorCategory(services: ReadonlyArray<string>): VendorCat
     if (resolved !== 'misc') return resolved;
   }
   return 'misc';
+}
+
+/**
+ * Distinct coarse VendorCategories a vendor covers, derived from their
+ * `services` text[] (leaf codes). Powers the "pick a service" selector in the
+ * Shortlist QR generator — the vendor scopes the QR to one of the categories
+ * they actually serve. Order-stable (first appearance). Empty → caller shows
+ * the "all my services" default only.
+ */
+export function vendorCoverageCategories(
+  services: ReadonlyArray<string>,
+): VendorCategory[] {
+  const seen = new Set<VendorCategory>();
+  const out: VendorCategory[] = [];
+  for (const s of services) {
+    const cat = VENDOR_CATEGORIES.includes(s as VendorCategory)
+      ? (s as VendorCategory)
+      : resolveVendorCategory(s);
+    if (cat && cat !== 'misc' && !seen.has(cat)) {
+      seen.add(cat);
+      out.push(cat);
+    }
+  }
+  return out;
 }
 
 export type HostEvent = {
@@ -134,7 +175,18 @@ export type ImportResult =
  */
 export async function importVendorToEventShortlist(
   admin: SupabaseClient,
-  input: { eventId: string; vendorProfileId: string; pickedBy: string },
+  input: {
+    eventId: string;
+    vendorProfileId: string;
+    pickedBy: string;
+    /**
+     * The category the vendor chose in the Shortlist QR generator. When it's a
+     * valid VendorCategory it overrides the coarse coercion from the vendor's
+     * full service list, so the shortlist row lands under exactly the service
+     * the QR was cut for. Ignored (falls back to coercion) when absent/invalid.
+     */
+    categoryOverride?: string | null;
+  },
 ): Promise<ImportResult> {
   const { data: vendor, error: vError } = await admin
     .from('vendor_profiles')
@@ -154,7 +206,11 @@ export async function importVendorToEventShortlist(
     return { status: 'already_saved', eventVendorId: existing.vendor_id };
   }
 
-  const category = coerceVendorCategory((vendor.services ?? []) as string[]);
+  const category =
+    input.categoryOverride &&
+    VENDOR_CATEGORIES.includes(input.categoryOverride as VendorCategory)
+      ? (input.categoryOverride as VendorCategory)
+      : coerceVendorCategory((vendor.services ?? []) as string[]);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
     .insert({

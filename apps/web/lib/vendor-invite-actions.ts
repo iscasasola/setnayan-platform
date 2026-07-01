@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendVendorInviteEmail } from '@/lib/email';
+import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
 
@@ -316,10 +317,19 @@ export async function applyClaimAutoLink(args: {
   }
 
   // 2. Write marketplace_vendor_id on the parent event_vendors row.
+  //    CONDITIONAL re-point guard: this multi-step sequence is non-transactional,
+  //    so if a later step fails the invite stays 'pending' and a DIFFERENT second
+  //    claimer could otherwise overwrite the couple's marketplace_vendor_id and
+  //    re-point their vendor. Only set the bond when it's currently unset (null)
+  //    or already this same profile (idempotent retry) — a re-claim by a
+  //    different profile matches 0 rows and is refused. The legitimate FIRST
+  //    claim has marketplace_vendor_id = null → the .or() admits it. A same-
+  //    profile retry matches via the second predicate → still succeeds.
   const { error: linkErr } = await admin
     .from('event_vendors')
     .update({ marketplace_vendor_id: args.claimedVendorProfileId })
-    .eq('vendor_id', invite.vendor_id);
+    .eq('vendor_id', invite.vendor_id)
+    .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
   if (linkErr) return { ok: false, code: 'LINK_FAILED', message: linkErr.message };
 
   // 3. Mark the invite claimed.
@@ -612,7 +622,7 @@ export async function registerClaimedServiceToCouple(args: {
   //     not already carry a service_id (idempotency / don't-clobber).
   const { data: parent, error: parentErr } = await admin
     .from('event_vendors')
-    .select('vendor_id,marketplace_vendor_id,service_id')
+    .select('vendor_id,event_id,marketplace_vendor_id,service_id')
     .eq('vendor_id', eventVendorId)
     .maybeSingle();
   if (parentErr) return { ok: false, code: 'PARENT_LOOKUP_FAILED', message: parentErr.message };
@@ -648,6 +658,53 @@ export async function registerClaimedServiceToCouple(args: {
     // A racing register won → treat as already-registered, not an error.
     return { ok: true, registered: false, reason: 'already_registered' };
   }
+
+  // The couple's plan row just upgraded from a manual placeholder to the
+  // vendor's real service card. Refresh the couple's vendors page so they see
+  // the upgraded vendor instead of the stale placeholder. revalidatePath is a
+  // no-op-if-nothing-to-do call and never throws in a request context (this
+  // runs inside the service-create server action), so it's safe here. Best-
+  // effort: wrapped so a revalidation hiccup never turns a successful link into
+  // a failure the vendor sees.
+  const eventId = (parent.event_id as string | null) ?? null;
+  if (eventId) {
+    try {
+      revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+    } catch (e) {
+      console.warn('[claim] revalidate couple vendors page skipped:', e);
+    }
+
+    // Notify the couple that their vendor joined + linked a service. Uses the
+    // existing `vendor_joined` type ("couple: an invited vendor claimed their
+    // profile" — notifications.ts §NotificationType) via emitNotification, which
+    // fails soft and is NOT on the email allowlist, so this is an in-app/push
+    // nudge only. Fan out to every couple member of the event (both partners),
+    // mirroring the auto-follow fan-out in applyClaimAutoLink.
+    try {
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      const coupleUserIds = (members ?? [])
+        .map((m) => m.user_id as string)
+        .filter(Boolean);
+      await Promise.all(
+        coupleUserIds.map((uid) =>
+          emitNotification({
+            userId: uid,
+            type: 'vendor_joined',
+            title: 'Your vendor joined Setnayan',
+            body: 'A vendor you added has linked their service to your plan.',
+            relatedUrl: `/dashboard/${eventId}/vendors`,
+          }),
+        ),
+      );
+    } catch (e) {
+      console.warn('[claim] vendor_joined notify skipped:', e);
+    }
+  }
+
   return { ok: true, registered: true };
 }
 

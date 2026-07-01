@@ -19,7 +19,7 @@ import {
   fetchServiceBookedCount,
   fetchNullServiceBookedCount,
 } from '@/lib/vendor-funnel';
-import { getVendorDemandRadar } from '@/lib/demand-radar';
+import { getVendorDemandRadar, EMPTY_RADAR } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
@@ -63,6 +63,37 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * DAY_MS).toISOString();
+}
+
+/** Empty funnel totals — the graceful fallback when the funnel reader fails. */
+const EMPTY_FUNNEL_TOTALS = { views: 0, inquiries: 0, quotes: 0, booked: 0 };
+
+/**
+ * FAULT ISOLATION (2026-07-02 · fixes the whole-cockpit crash behind the
+ * /vendor-dashboard error boundary).
+ *
+ * My Performance fans ~15 analytics reads across two Promise.all batches. Each
+ * card is INDEPENDENTLY designed to degrade to an empty state, and the readers
+ * already handle a PostgREST `.error` gracefully (return null / [] / empty). But
+ * a reader that *rejects* — a transient network blip, a cold-start hiccup, a
+ * statement-timeout surfacing as a thrown fetch — rejects the entire
+ * `Promise.all`, blanking the WHOLE surface into the segment error boundary
+ * ("Your shop console is temporarily unavailable") even though every other card
+ * had data. Two readers (services + catalog) already guarded themselves with
+ * `.catch(fallback)`; this makes ALL of them do so, uniformly.
+ *
+ * `Promise.resolve()` first so this also adopts the raw PostgREST query builders
+ * (which are thenable but have no `.catch` of their own). A failed reader logs
+ * (Sentry still captures via the global handler) and yields the SAME fallback it
+ * would return on a `.error`, so one reader failing now costs one empty card,
+ * never the whole cockpit.
+ */
+function safeRead<T>(p: PromiseLike<T>, fallback: T, label: string): Promise<T> {
+  return Promise.resolve(p).catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error(`[my-performance] reader "${label}" failed; using fallback`, err);
+    return fallback;
+  });
 }
 
 /**
@@ -144,7 +175,7 @@ export default async function VendorPerformancePage({
   //    monthly/daily chart series + null-service footnote counts) run in Batch B
   //    below — a second parallel batch, not a chain.
   const [
-    statsRes,
+    statsRow,
     services,
     vendorCatalog,
     funnelTotals,
@@ -152,28 +183,44 @@ export default async function VendorPerformancePage({
     inquiryAnalytics,
     conversionAnalytics,
   ] = await Promise.all([
-    supabase
-      .from('vendor_activity_stats')
-      .select(
-        'quality_score, response_rate_pct, booking_completion_rate_pct, profile_completeness_pct, review_avg_bayesian, review_count, inquiry_to_booking_pct, finalized_booking_count, avg_response_minutes',
-      )
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .maybeSingle(),
-    fetchVendorServices(supabase, profile.vendor_profile_id).catch(() => []),
-    fetchV2VendorCatalog().catch(() => []),
-    fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
-    getVendorDemandRadar(supabase, profile.vendor_profile_id),
+    safeRead(
+      supabase
+        .from('vendor_activity_stats')
+        .select(
+          'quality_score, response_rate_pct, booking_completion_rate_pct, profile_completeness_pct, review_avg_bayesian, review_count, inquiry_to_booking_pct, finalized_booking_count, avg_response_minutes',
+        )
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle()
+        .then((r) => r.data),
+      null,
+      'activity_stats',
+    ),
+    safeRead(fetchVendorServices(supabase, profile.vendor_profile_id), [], 'services'),
+    safeRead(fetchV2VendorCatalog(), [], 'catalog'),
+    safeRead(
+      fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+      EMPTY_FUNNEL_TOTALS,
+      'funnel_totals',
+    ),
+    safeRead(getVendorDemandRadar(supabase, profile.vendor_profile_id), EMPTY_RADAR, 'demand_radar'),
     // Inquiry-handling + conversion analytics — shop-level, Pro+ (own-business).
     // Skip the RPCs entirely for tiers that won't render the sections.
     canAdvanced
-      ? fetchVendorInquiryAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      ? safeRead(
+          fetchVendorInquiryAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+          null,
+          'inquiry_analytics',
+        )
       : Promise.resolve(null),
     canAdvanced
-      ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      ? safeRead(
+          fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+          null,
+          'conversion_analytics',
+        )
       : Promise.resolve(null),
   ]);
 
-  const statsRow = statsRes.data;
   const health = buildVendorHealthComposite(
     (statsRow as VendorHealthInputs | null) ?? null,
   );
@@ -225,25 +272,65 @@ export default async function VendorPerformancePage({
     reputationAnalytics,
     capacityAnalytics,
   ] = await Promise.all([
-    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
-    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
-    fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
-    fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12, serviceId),
-    fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30, serviceId),
+    safeRead(
+      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
+      null,
+      'attribution_year',
+    ),
+    safeRead(
+      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
+      null,
+      'attribution_month',
+    ),
+    safeRead(
+      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
+      null,
+      'attribution_day',
+    ),
+    safeRead(
+      fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12, serviceId),
+      [],
+      'booking_monthly',
+    ),
+    safeRead(
+      fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30, serviceId),
+      [],
+      'booking_daily',
+    ),
     serviceId
-      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      ? safeRead(
+          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+          null,
+          'null_excluded_year',
+        )
       : Promise.resolve(null),
     serviceId
-      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      ? safeRead(
+          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
+          null,
+          'null_excluded_month',
+        )
       : Promise.resolve(null),
     serviceId
-      ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30))
+      ? safeRead(
+          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30)),
+          null,
+          'null_excluded_day',
+        )
       : Promise.resolve(null),
     canAdvanced
-      ? fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id)
+      ? safeRead(
+          fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id),
+          null,
+          'reputation_analytics',
+        )
       : Promise.resolve(null),
     canAdvanced
-      ? fetchVendorCapacityAnalytics(supabase, profile.vendor_profile_id)
+      ? safeRead(
+          fetchVendorCapacityAnalytics(supabase, profile.vendor_profile_id),
+          null,
+          'capacity_analytics',
+        )
       : Promise.resolve(null),
   ]);
 
@@ -253,11 +340,15 @@ export default async function VendorPerformancePage({
   // can segment (views/inquiries/quotes have no service_id). Shop-level funnel
   // bars are unchanged; this drives the "Bookings for {service}: N" note.
   const serviceBookedCount = serviceId
-    ? await fetchServiceBookedCount(
-        supabase,
-        profile.vendor_profile_id,
-        isoDaysAgo(365),
-        serviceId,
+    ? await safeRead(
+        fetchServiceBookedCount(
+          supabase,
+          profile.vendor_profile_id,
+          isoDaysAgo(365),
+          serviceId,
+        ),
+        null,
+        'service_booked_count',
       )
     : null;
 

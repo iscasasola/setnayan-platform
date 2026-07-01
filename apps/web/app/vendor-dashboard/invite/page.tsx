@@ -196,12 +196,20 @@ async function LockedMode({
             Give this to that one customer. It works once — after they claim it,
             the QR is spent.
           </p>
-          <Link
-            href="/vendor-dashboard/invite?mode=locked"
-            className="mt-4 inline-block text-sm font-medium text-terracotta hover:underline"
-          >
-            Create another Locked QR
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-4">
+            <Link
+              href="/vendor-dashboard/invite?mode=locked"
+              className="inline-block text-sm font-medium text-terracotta hover:underline"
+            >
+              Create another Locked QR
+            </Link>
+            <Link
+              href="/vendor-dashboard/locked-qr"
+              className="inline-block text-sm font-medium text-ink/60 hover:underline"
+            >
+              View all issued →
+            </Link>
+          </div>
         </div>
       );
     }
@@ -220,6 +228,12 @@ async function LockedMode({
         </p>
       ) : null}
       <LockedQrGenerator eventTypes={eventTypes} coverage={coverage} />
+      <Link
+        href="/vendor-dashboard/locked-qr"
+        className="mt-4 inline-block text-sm font-medium text-terracotta hover:underline"
+      >
+        View your issued Locked QRs →
+      </Link>
     </>
   );
 }

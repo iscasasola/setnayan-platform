@@ -24,6 +24,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 
 /**
  * A credited vendor surfaced on a Real Story card (Style-Twin Discovery): the
@@ -293,8 +294,10 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
               tier_state: string | null;
             }>
           ).map(async (p) => {
-            const tier = p.tier_state ?? '';
-            if ((tier !== 'pro' && tier !== 'enterprise') || !p.business_slug) return;
+            // Editorial "tagged" showcase credit (logo + slug link) = the
+            // editorialTagged cap (Pro/Enterprise). Reads the SSOT cap instead
+            // of hardcoding the tiers — same result, no magic strings.
+            if (!tierCaps(p.tier_state).editorialTagged || !p.business_slug) return;
             profMap.set(p.vendor_profile_id, {
               name: p.business_name?.trim() || 'Vendor',
               slug: p.business_slug,

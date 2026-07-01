@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
+import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { VendorTierGate } from '../_components/tier-gate';
 import {
   computeMonthlySubtotals,
   fetchVendorEarnings,
@@ -42,6 +45,18 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+
+  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  if (isVendorFeatureGateEnabled() && !canUseSoloBusinessTools(tier)) {
+    return (
+      <VendorTierGate
+        feature="Earnings"
+        requiredTier="solo"
+        blurb="Your year-to-date revenue, monthly subtotals and scheduled payouts in one view. Business analytics start with Solo — you always get paid directly, 0% commission."
+        icon={<Wallet aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      />
+    );
+  }
 
   // Categories the vendor offers (active or not — pricing history shouldn't
   // disappear when they pause a service).

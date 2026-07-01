@@ -87,6 +87,8 @@ export interface TierCaps {
   theftWatch: boolean;
   /** Performance TRENDS / funnel time-series. Solo+ (the snapshot Performance panel stays free). */
   performanceTrends: boolean;
+  /** Solo business back-office (earnings analytics + recap sharing). Solo+ (2026-07-01 beef-up). */
+  soloBusinessTools: boolean;
 }
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
@@ -108,6 +110,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
+    soloBusinessTools: false,
     editorialTagged: false,
     reviewStarsCounted: false,
     reviewCommentsViewable: false,
@@ -133,6 +136,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
+    soloBusinessTools: false,
     slotsPerDay: 1,
     slotsTimeBounded: false,
     inAppCustomersPerWeek: 10,
@@ -155,6 +159,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: false,
     theftWatch: false,
     performanceTrends: true,
+    soloBusinessTools: true,
     chat: 'chat',
     parentCategories: 1,
     agentAccounts: 0,
@@ -179,6 +184,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
+    soloBusinessTools: true,
     servicesPerLeaf: 5,
     chat: 'chat',
     parentCategories: 3,
@@ -209,6 +215,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
+    soloBusinessTools: true,
     servicesPerLeaf: Infinity,
     chat: 'chat',
     parentCategories: Infinity,
@@ -353,4 +360,7 @@ export function canSeeTheftWatch(tier: string | null | undefined): boolean {
 }
 export function canSeePerformanceTrends(tier: string | null | undefined): boolean {
   return tierCaps(tier).performanceTrends; // funnel time-series (Solo+); snapshot panel stays free
+}
+export function canUseSoloBusinessTools(tier: string | null | undefined): boolean {
+  return tierCaps(tier).soloBusinessTools; // earnings dashboard + recap sharing (Solo+)
 }

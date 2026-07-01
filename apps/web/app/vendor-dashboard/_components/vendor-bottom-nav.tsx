@@ -14,7 +14,8 @@
  *
  * The desktop sidebar (vendor-sidebar.tsx) exposes the 6-menu IA (reorg
  * 2026-07-01): Overview · My Shop · My Customers · My Performance · My
- * Services · On the Day (6th deferred). The bottom strip is route-based —
+ * Services · On the Day (6th landed Phase 7, 2026-07-01). The bottom strip is
+ * route-based —
  * unaffected by the sidebar regroup — and flattens into 5 tabs
  * (2026-06-21 <=5 reroster — Website demoted to More):
  *   1. Home (key 'profile') — /vendor-dashboard (exact-match · Overview)
@@ -27,8 +28,8 @@
  *   5. More        — Everything else (Website · Profile · Clients · Services ·
  *                    Contracts · Proposals · Attributes · Repertoire ·
  *                    Subscription · Tokens · Marketing ·
- *                    Verify · Reviews · Moodboard library · Earnings ·
- *                    Payment options · Manpower · Branches · Team ·
+ *                    Verify · Reviews · Moodboard library · On the Day ·
+ *                    Earnings · Payment options · Manpower · Branches · Team ·
  *                    Notifications) routed through the
  *                    /vendor-dashboard/more landing.
  *
@@ -158,6 +159,9 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/real-stories',
       '/vendor-dashboard/recaps',
       '/vendor-dashboard/moodboard-library',
+      // On the Day — the 6th sidebar menu (Phase 7, 2026-07-01). No dedicated
+      // mobile tab (the strip is capped at 5); lit via More.
+      '/vendor-dashboard/on-the-day',
       // Business group (Earnings moved here from the tab bar 2026-06-14)
       '/vendor-dashboard/earnings',
       '/vendor-dashboard/payment-options',

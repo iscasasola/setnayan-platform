@@ -91,6 +91,10 @@ const DESCRIPTIONS: Record<string, string> = {
   // Team group
   team:
     'Team members + Setnayan support. Add staff to manage replies, view bookings, or coordinate the day.',
+
+  // On the Day group
+  'on-the-day':
+    'Your day-of console — the events you’re booked on, their live run-of-show, and a tool tuned to what you do: a shot list, the command center, headcount, or your setlist.',
 };
 
 export default async function VendorMoreLanding() {

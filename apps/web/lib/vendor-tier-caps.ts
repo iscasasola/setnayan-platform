@@ -175,21 +175,26 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     customWebsiteName: true,
     inquireLink: true,
   },
+  // Enterprise is now a BOUNDED "larger range", not truly unlimited (owner
+  // 2026-07-01, alongside the ₱4,999→₱7,499 reprice). The four scale axes are
+  // finite; a negotiated "Custom" tier (follow-up) is the home for franchises /
+  // multi-location / truly-unlimited. Left unbounded: parentCategories ("all
+  // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
-    serviceRadiusKm: Infinity,
+    serviceRadiusKm: 100, // nationwide-marketed (top of the Local→20→50→100 ladder)
     servicesPerLeaf: Infinity,
     chat: 'chat',
     parentCategories: Infinity,
-    agentAccounts: Infinity,
+    agentAccounts: 10,
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
-    slotsPerDay: Infinity,
+    slotsPerDay: 8,
     slotsTimeBounded: true,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: Infinity,
+    portfolioPhotos: 300,
     editorialTagged: true,
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
@@ -200,15 +205,23 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
 };
 
 /**
- * Monthly (28-day) + annual subscription price (PHP) — owner reissue 2026-06-07.
- * NOTE: round numbers (not the brand charm/-1 convention) — owner-set explicitly.
+ * Monthly (28-day) + annual subscription price (PHP) — fallback only; the live
+ * `vendor_billing_catalog` (read via getVendorPrices) is authoritative. Never
+ * hardcode a price in UI copy.
+ *
+ * LADDER B (owner-confirmed 2026-07-01 · the pre-reset ₱2,000/6,000/10,000
+ * "Ladder A" is dead): Solo ₱999 · Pro ₱2,499 · Enterprise ₱7,499 /28d, with
+ * annual = 10× the 28-day fee (a subscription year is 13 cycles, billed for 10
+ * — first 3 free). Enterprise repriced ₱4,999→₱7,499 the same day it became a
+ * BOUNDED tier (see TIER_CAPS below); a negotiated "Custom" tier for the
+ * truly-unlimited case lands in a follow-up.
  */
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  solo: { monthly: 2000, annual: 0 },
-  pro: { monthly: 6000, annual: 60000 },
-  enterprise: { monthly: 10000, annual: 100000 },
+  solo: { monthly: 999, annual: 9999 },
+  pro: { monthly: 2499, annual: 24999 },
+  enterprise: { monthly: 7499, annual: 74999 },
 };
 
 /**

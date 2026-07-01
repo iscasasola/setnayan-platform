@@ -15,6 +15,7 @@
     "lint:chat-guard": "node scripts/lint-admin-chat-guard.mjs",
     "lint:legibility": "node scripts/lint-guest-legibility.mjs",
     "lint:radius": "node scripts/lint-radius.mjs",
+    "lint:vendor-layout": "node scripts/lint-vendor-layout-revalidate.mjs",
     "bundle-size-check": "node scripts/check-bundle-size.mjs",
     "check:no-demo-in-prod": "node scripts/check-no-demo-in-prod.mjs",
     "brand:icons": "node scripts/regen-brand-rasters.mjs",

@@ -1,35 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { RESERVED_SLUGS } from './reserved-slugs';
 
 const SLUG_PATTERN = /^[a-z0-9-]{3,32}$/;
-const RESERVED_SLUGS = new Set([
-  'admin',
-  'vendor',
-  'v',
-  'dashboard',
-  'api',
-  'register',
-  'login',
-  'signup',
-  'settings',
-  'dpo',
-  'legal',
-  'privacy',
-  'support',
-  'terms',
-  'about',
-  'help',
-  'contact',
-  'join',
-  'auth',
-  'health',
-  'manifest.json',
-  'sw.js',
-  'icon-192.svg',
-  'icon-512.svg',
-  '_next',
-  'static',
-  'public',
-]);
 
 export function isValidSlug(slug: string): boolean {
   if (!SLUG_PATTERN.test(slug)) return false;

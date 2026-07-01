@@ -36,7 +36,15 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import type { PricingData, PriceRow } from './pricing-data';
-import { VENDOR_HERO_CARDS, VENDOR_GROUPS } from './vendor-benefits';
+import { VENDOR_HERO_CARDS, VENDOR_GROUPS, type VendorTier } from './vendor-benefits';
+
+/** Tier chip labels for the vendor-benefits overlay (as-built §6 gating). */
+const TIER_LABEL: Record<VendorTier, string> = {
+  free: 'Free',
+  solo: 'Solo',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+};
 
 export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | null;
 
@@ -310,6 +318,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
             <div className="hr-ic">{c.ic}</div>
             <div className="hr-t">
               {c.title}
+              <span className={`hr-tier hr-tier-${c.tier}`}>{TIER_LABEL[c.tier]}</span>
               {c.soon && <span className="hr-soon">Soon</span>}
             </div>
             <div className="hr-d">{c.body}</div>
@@ -323,6 +332,16 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         <span className="hr-soonkey">The “Soon” tags clear as features go live.</span>
       </div>
 
+      <div className="hr-vb-legend">
+        <b>How the tiers work.</b> Nearly everything here is <b>Free</b>. The paid tiers mainly lift your
+        limits: <b>Solo</b> — unlimited answering + your real business name shown day-1; <b>Pro</b>{' '}
+        (tagged below) — a team, wider reach, more categories, and editorial features; <b>Enterprise</b>{' '}
+        — no category, team, or reach limits at all.{' '}
+        <Link className="hr-vb-legend-link" href="/for-vendors" onClick={onClose}>
+          See the full ladder →
+        </Link>
+      </div>
+
       {VENDOR_GROUPS.map((group) => (
         <div className="hr-vb-group" key={group.h}>
           <div className="hr-vb-h">{group.h}</div>
@@ -331,6 +350,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
               <div className="hr-vb-item" key={it.n}>
                 <div className="hr-n">
                   {it.n}
+                  <span className={`hr-tier hr-tier-${it.tier}`}>{TIER_LABEL[it.tier]}</span>
                   {it.soon && <span className="hr-soon">Soon</span>}
                 </div>
                 <div className="hr-b">{it.b}</div>

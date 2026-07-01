@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { fetchVendorOverviewData } from '@/lib/vendor-overview';
+import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
 import {
@@ -137,6 +138,7 @@ export default async function VendorOverviewPage() {
     );
   }
 
+  const timer = new ServerTimer('vendor-dashboard/overview');
   let data;
   let spotlightAwards;
   try {
@@ -144,14 +146,14 @@ export default async function VendorOverviewPage() {
     // vendor_profile_id and have no dependency on each other — fetch them in
     // parallel (2026-07-01 perf). Awards fail soft to [] so a failed award read
     // only hides the banner instead of tripping the overview-unavailable page.
-    [data, spotlightAwards] = await Promise.all([
+    [data, spotlightAwards] = await timer.track('overview-data', () => Promise.all([
       fetchVendorOverviewData(
         supabase,
         profile.vendor_profile_id,
         profile.services ?? [],
       ),
       fetchVendorCurrentAwards(supabase, profile.vendor_profile_id).catch(() => []),
-    ]);
+    ]));
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard overview] loader failed', err);
@@ -178,6 +180,8 @@ export default async function VendorOverviewPage() {
   }
 
   const { whatsNew, ongoing, upcoming } = data;
+
+  timer.flush();
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">

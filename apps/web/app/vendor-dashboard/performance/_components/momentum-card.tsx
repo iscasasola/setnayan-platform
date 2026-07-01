@@ -1,13 +1,17 @@
 import Link from 'next/link';
 import { Briefcase, Wallet } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
+import type { BookingMonthPoint } from '@/lib/vendor-booking-series';
+import { BookingsBars, EarningsSparkline } from './momentum-chart';
 
 /**
  * "Momentum" — a Monthly / Annual toggle over the vendor's booked business.
  * Shows Bookings (count) + Earnings (confirmed booked revenue, PHP) for the
- * selected window. Both windows are computed server-side from
- * vendor_source_attribution(); the toggle is a URL param (?momentum=month|year)
- * so the surface stays a server component (no client JS).
+ * selected window, each paired with a trailing-12-month chart (bars for
+ * bookings, an area sparkline for revenue). Windows come from
+ * vendor_source_attribution(); the charts come from
+ * vendor_booking_monthly_series(). The toggle is a URL param
+ * (?momentum=month|year) so the surface stays a server component (no client JS).
  *
  * Earnings are the CONFIRMED booked revenue only (total_cost_php on booked
  * event_vendors) — partial by design, since vendors settle off-platform. The
@@ -24,10 +28,13 @@ export function MomentumCard({
   mode,
   month,
   year,
+  series = [],
 }: {
   mode: 'month' | 'year';
   month: MomentumWindow;
   year: MomentumWindow;
+  /** Trailing monthly series driving the two mini-charts. */
+  series?: BookingMonthPoint[];
 }) {
   const active = mode === 'month' ? month : year;
   const earningsLabel = mode === 'month' ? 'Earnings this month' : 'Earnings this year';
@@ -67,6 +74,7 @@ export function MomentumCard({
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Booked {mode === 'month' ? 'in the last 28 days' : 'in the last 12 months'}
           </p>
+          <BookingsBars series={series} />
         </div>
 
         <div
@@ -87,6 +95,7 @@ export function MomentumCard({
               ? `Confirmed on ${active.pricedCount} of ${active.bookings} booking${active.bookings === 1 ? '' : 's'}`
               : 'No confirmed prices in this window yet'}
           </p>
+          <EarningsSparkline series={series} />
         </div>
       </div>
     </section>

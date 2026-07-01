@@ -92,6 +92,14 @@ const DESCRIPTIONS: Record<string, string> = {
   team:
     'Team members + Setnayan support. Add staff to manage replies, view bookings, or coordinate the day.',
 
+  // My Performance group
+  performance:
+    'Your business at a glance — how much booked work Setnayan sourced for you, your health score, and where to focus next.',
+  demand:
+    'Where demand is building in your area — by month and by the looks couples are choosing. A de-identified read of your market.',
+  funnel:
+    'How couples move from finding you to booking you — profile views to inquiries to quotes to bookings.',
+
   // On the Day group
   'on-the-day':
     'Your day-of console — the events you’re booked on, their live run-of-show, and a tool tuned to what you do: a shot list, the command center, headcount, or your setlist.',

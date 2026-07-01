@@ -613,7 +613,7 @@ type VendorCardRow = {
   avg_response_minutes?: number | null;
   /**
    * PR #6 — partnership badge resolved from vendor_partnerships.
-   * NULL = no admin-verified partnership to a shortlisted couple vendor.
+   * NULL = no mutually-accepted partnership to a shortlisted couple vendor.
    */
   partnership_badge?: {
     relationship_type: 'sponsored_included' | 'sponsored_discounted' | 'accredited' | 'general';
@@ -2010,7 +2010,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       //   2. If there are any, fetch vendor_partnerships WHERE
       //      recommending_vendor_id IN (shortlisted IDs) AND
       //      recommended_vendor_id IN (visibleVendorIds) AND
-      //      admin_verified = true AND is_active = true.
+      //      status = 'accepted' AND is_active = true.
       //   3. Also fetch business_name for the recommending vendors.
       //   4. For each visible vendor, find the "best" partnership
       //      (priority: sponsored_included > sponsored_discounted > accredited > general).
@@ -2045,8 +2045,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         );
         if (shortlistedIds.length === 0) return new Map();
 
-        // Fetch active admin-verified partnerships where the recommender is
+        // Fetch active, mutually-ACCEPTED partnerships where the recommender is
         // one of the shortlisted vendors and the recommended is on this page.
+        // (Phase 4 mutual-accept: visibility is gated on status='accepted', NOT
+        // on the retired admin_verified flag.)
         const { data: pData, error: pError } = await admin
           .from('vendor_partnerships')
           .select(
@@ -2055,7 +2057,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           .in('recommending_vendor_id', shortlistedIds)
           .in('recommended_vendor_id', visibleVendorIds)
           .eq('is_active', true)
-          .eq('admin_verified', true);
+          .eq('status', 'accepted');
         if (pError) {
           console.warn('[explore] vendor_partnerships read failed', pError.message);
           return new Map();

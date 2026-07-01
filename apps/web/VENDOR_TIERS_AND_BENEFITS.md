@@ -147,3 +147,13 @@ Hand-curated ops intros · Advanced Proposal Drafting · onboarding bundle maker
 1. **Solo linchpin FALSE** — `solo.inAppGated=true`, Solo burns tokens. Re-pitch (recommended) or set `inAppGated=false`. No "Solo = no tokens" copy until resolved.
 2. **Price — RESOLVED (owner 2026-07-01): Ladder B canonical** = Solo ₱999 / Pro ₱2,499 / Ent ₱4,999 / 28d (annual ₱9,999 / ₱24,999 / ₱49,999). **Ladder A (₱2,000/6,000/10,000) DELETED.** Dashboard: purge Ladder A from the `TIER_PRICE_PHP` fallback + reprice migration; confirm live DB = Ladder B.
 3. **Solo flat vs Verified** on portfolio/slots/radius — bump one axis or lean the pitch on volume + real-name + servicesPerLeaf 3.
+
+---
+
+## 7 · Benefit-catalog sync (2026-07-01)
+
+The homepage "For vendors" overlay (`app/_components/home/vendor-benefits.ts`) was **out of sync** — it had ~45 benefits ported from `03_Strategy/Vendor_Benefits_Catalog_2026-06-29.md` (50), while this doc's §2/§6 had ~88, and the union was 100+. Reconciled via a 7-lens merge + per-benefit code verification into **ONE catalog: 61 distinct benefits · 36 live · 25 soon** (honest dedup — no padding; the "100+" was inflated by cross-tier repeats + caps counted as benefits). The overlay is now generated from that verified set; its `soon` flags match §6.
+
+**This doc's §6 is the SSOT.** When the dashboard session ships a benefit, update §6's status here → the overlay's `soon` clears in step. Homepage count banner now reads "60+ ways · 36 live today."
+
+**Live-vs-soon by lens** (soon = not yet live end-to-end): Discovery 6/0 · Booking 8/4 · Money 7/0 · Trust 7/3 · Marketing 2/6 · Data 6/2 · Ecosystem 3/6. The heaviest remaining build is **Marketing/editorial** (social auto-share, Real Stories/Journal features, awards, referrals) and **Ecosystem** (crew earn-a-cut, resell Productions, white-label, certified-partner) — those are the roadmap program if we want the SOON count to keep dropping.

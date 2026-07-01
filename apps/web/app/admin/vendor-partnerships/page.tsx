@@ -207,10 +207,11 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           Vendor Partnerships
         </h1>
         <p className="text-base text-ink/65">
-          Vendors and HQ can declare commercial relationships here. Badges are{' '}
-          <strong className="text-ink">invisible to couples</strong> until a second admin
-          verifies them (four-eyes gate). Reject sets the partnership inactive — no badge
-          ever shows.
+          Vendor partnerships now use a <strong className="text-ink">mutual-accept</strong>{' '}
+          handshake: one vendor proposes, the other accepts, and only then does the badge
+          go live for couples. This queue is HQ&apos;s oversight view — you can still record
+          a partnership on a vendor&apos;s behalf (it lands in their inbox to accept) and
+          reject anything abusive (sets it inactive — no badge ever shows).
         </p>
       </header>
 
@@ -230,7 +231,8 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       ) : null}
       {sp.created ? (
         <FormFlash tone="success">
-          Partnership created by HQ. It needs two-admin verification before going live.
+          Partnership proposed on the vendor&apos;s behalf. It lands in the recommended
+          vendor&apos;s inbox and only goes live once they accept it.
         </FormFlash>
       ) : null}
 
@@ -401,8 +403,8 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           Add partnership (HQ entry)
         </h2>
         <p className="mb-4 text-xs text-ink/55">
-          Manually record a partnership that vendors confirmed verbally. It still
-          requires two-admin approval before the badge goes live.
+          Propose a partnership on a vendor&apos;s behalf. It lands in the recommended
+          vendor&apos;s partnerships inbox — the badge only goes live once THEY accept it.
         </p>
 
         <form action={createPartnershipHq} className="grid gap-4 sm:grid-cols-2">

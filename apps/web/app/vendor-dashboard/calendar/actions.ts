@@ -107,7 +107,21 @@ async function requireVendor() {
 function backToCalendar(formData: FormData, notice: string): never {
   const month = str(formData, 'return_month');
   const pool = str(formData, 'return_pool');
-  const back = str(formData, 'return_to') === 'clients' ? 'clients' : 'calendar';
+  const returnTo = str(formData, 'return_to');
+
+  // PHASE 5 drill-down: an action fired from /calendar/[date] returns THERE so
+  // the vendor stays on the day they were editing.
+  if (returnTo === 'day') {
+    const date = str(formData, 'return_date');
+    if (DATE_RE.test(date)) {
+      const params = new URLSearchParams();
+      if (pool) params.set('pool', pool);
+      params.set('notice', notice);
+      redirect(`/vendor-dashboard/calendar/${date}?${params.toString()}`);
+    }
+  }
+
+  const back = returnTo === 'clients' ? 'clients' : 'calendar';
   const params = new URLSearchParams();
   if (month) params.set('m', month);
   if (pool) params.set('pool', pool);
@@ -276,6 +290,50 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
 
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'waitlist_notified');
+}
+
+/**
+ * PHASE 5 — set / clear an explicit day state (locked | whitelist) on a date.
+ *
+ * The 6-state taxonomy's two vendor-set states. `locked` = a hard hold (gates
+ * new bookings like a closure); `whitelist` = approve-first (new bookings are
+ * held for the vendor to vet). scope 'org' = business-wide (every schedule);
+ * a pool_id = that one schedule. day_state 'open' clears the state.
+ *
+ * The write goes through set_vendor_calendar_day_state (SECURITY DEFINER — it
+ * validates ownership + pool membership), so a forged pool_id or a foreign
+ * profile is rejected in SQL. The atomic acquire_schedule_pools RPC reads these
+ * states, so the gate is server-enforced, not UI-only.
+ */
+export async function setCalendarDayState(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+
+  const scope = str(formData, 'scope'); // 'org' | pool_id
+  const date = str(formData, 'state_date');
+  const requested = str(formData, 'day_state'); // 'locked' | 'whitelist' | 'open'
+  const note = str(formData, 'note');
+  if (!DATE_RE.test(date)) backToCalendar(formData, 'bad_dates');
+
+  const poolId = scope && scope !== 'org' ? scope : null;
+  // 'open' → clear (NULL day-state); otherwise pass the value through and let
+  // the RPC validate it.
+  const dayState = requested === 'open' ? null : requested;
+
+  const { data, error } = await supabase.rpc('set_vendor_calendar_day_state', {
+    p_vendor_profile_id: profile.vendor_profile_id,
+    p_pool_id: poolId,
+    p_state_date: date,
+    p_day_state: dayState,
+    p_note: note || null,
+  });
+  if (error) backToCalendar(formData, 'save_failed');
+  const status = (data as { status?: string } | null)?.status;
+  if (status === 'bad_pool') backToCalendar(formData, 'bad_pool');
+  if (status === 'bad_state' || status === 'bad_date') backToCalendar(formData, 'bad_dates');
+  if (status !== 'ok' && status !== 'cleared') backToCalendar(formData, 'save_failed');
+
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
 
 /** Pool daily capacity — clamped to the tier's slotsPerDay ceiling (the

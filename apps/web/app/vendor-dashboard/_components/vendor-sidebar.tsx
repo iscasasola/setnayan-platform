@@ -208,8 +208,7 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       // Branches — Enterprise sub-location accounts. Owner/admin only + the
       // page/actions re-check tier + role server-side.
       { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
-      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-      { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
+      { key: 'subscription', label: 'Plan & tokens', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
     ],
   },
   {

@@ -3,41 +3,29 @@
 -- Unified vendor billing · ONE payment for a plan + a token pack.
 --
 -- Owner 2026-07-01: "keep subscription and tokens in one place. so they can make
--- 1 purchase for both." The vendor billing hub now lets a Pro/Enterprise order
--- optionally carry a token-pack ADD-ON — folded into the SAME apply-then-pay
--- order (one SUB- reference, one amount, one admin approval activates BOTH the
--- tier and the tokens). Standalone token-pack purchases (vendor_token_purchases)
--- are unchanged and still available for top-ups without a plan change.
+-- 1 purchase for both." A Pro/Enterprise order may optionally carry a token-pack
+-- ADD-ON folded into the SAME apply-then-pay order (one SUB- reference, one
+-- amount, one admin approval activates BOTH the tier and the tokens). Standalone
+-- token-pack purchases (vendor_token_purchases) are unchanged.
 --
--- WHY piggyback on the subscription order rather than build a cart:
---   • The subscription approval already grants tokens (the per-period bundle via
---     grant_admin_direct_tokens), so "a subscription order that also delivers
---     tokens" is a solved, idempotent pattern — we extend it, not reinvent it.
---   • No new order_items table, no second reference namespace, no touch to the
---     couple-side orders spine. One row, one reference, one payment, one review.
+-- ⚠ THIS MIGRATION EXTENDS THE *CURRENT* FUNCTION BODIES — it does NOT revert to
+-- the original 20261010000000 versions. create_vendor_subscription is taken from
+-- its latest definition 20270403095563 (admin-resolution via current_vendor_ids
+-- ('admin') + NOT_VENDOR_ADMIN, and the owner-locked NOT_VERIFIED gate), and
+-- _apply_subscription_credit from its latest definition 20261012000000 (LIFETIME
+-- bundle Pro 5/50 · Ent 10/100 via grant_vendor_lifetime_tokens into the
+-- never-expire purchased_tokens bucket). Only the add-on logic is layered on top.
 --
--- THREE changes, all additive / backward-compatible:
---   1. vendor_subscriptions gains addon columns + holder_user_id (defaulted NULL
---      → legacy + plan-only orders are untouched; amount_php becomes the GRAND
---      TOTAL = plan + COALESCE(addon,0), which equals the plan price when no
---      add-on, so existing rows keep their meaning).
---   2. create_vendor_subscription(p_sku_code, p_addon_token_pack_sku DEFAULT NULL)
---      resolves the add-on price + token count from vendor_billing_catalog
---      (DB-authoritative, never client-supplied) and folds it into amount_php.
---   3. _apply_subscription_credit also credits the add-on's NEVER-EXPIRE
---      purchased tokens to the holder (founder → vendor_wallets · member →
---      vendor_member_token_wallets), reusing the exact credit shape from
---      approve_vendor_token_purchase. Idempotent via the existing status='paid'
---      guard (runs once, on activation).
+-- WHY piggyback on the subscription order rather than build a cart: the approval
+-- already grants tokens (the per-period bundle), so "a subscription order that
+-- also delivers tokens" is a solved, idempotent pattern — we extend it. No new
+-- order_items table, no second reference namespace, no touch to the couple-side
+-- orders spine. One row, one reference, one payment, one review.
 --
--- SECURITY POSTURE (unchanged): create_ + approve_ are the only vendor/admin
--- entry points; _apply_subscription_credit stays internal (REVOKE anon +
--- authenticated). The add-on price/count are read from the catalog inside the
--- SECURITY DEFINER function, never trusted from the client (mirrors the plan
--- price + the token-pack flow). create_vendor_subscription remains founder-only
--- (resolves vendor via vendor_profiles.user_id = auth.uid()), so the add-on
--- holder is always the founder today; the member-wallet branch is kept for
--- forward-compatibility if subscription creation is later widened to co-admins.
+-- amount_php becomes the GRAND TOTAL (plan + COALESCE(addon,0)); the add-on peso
+-- portion is stored separately in addon_amount_php so plan-only spend is
+-- recoverable (see the peso-per-lead scorecard fix in §4). Legacy rows have
+-- addon_amount_php NULL → amount_php still equals the plan price.
 -- ============================================================================
 
 BEGIN;
@@ -51,7 +39,7 @@ ALTER TABLE public.vendor_subscriptions
   ADD COLUMN IF NOT EXISTS addon_amount_php     NUMERIC(10,2);
 
 COMMENT ON COLUMN public.vendor_subscriptions.holder_user_id IS
-  'Member who receives the add-on tokens (the buyer). Founder today (create_ is founder-only); NULL legacy/plan-only rows credit the founder.';
+  'The buying admin (auth.uid() at create) who receives the add-on tokens: founder → store wallet, co-admin → personal wallet. NULL legacy rows credit the founder.';
 COMMENT ON COLUMN public.vendor_subscriptions.addon_token_pack_sku IS
   'Optional token-pack SKU bought in the SAME order as the plan. NULL = plan only.';
 COMMENT ON COLUMN public.vendor_subscriptions.addon_token_count IS
@@ -60,8 +48,9 @@ COMMENT ON COLUMN public.vendor_subscriptions.addon_amount_php IS
   'Peso price of the add-on pack. amount_php = plan price + COALESCE(addon_amount_php, 0) = the grand total the vendor pays.';
 
 -- ── 2 · create: plan + optional token-pack add-on, ONE order ────────────────
--- DROP the 1-arg version so PostgREST resolves the new 2-arg signature without
--- overload ambiguity (mirrors 20270401611377 for create_vendor_token_purchase).
+-- Body = the CURRENT definition (20270403095563): admin-resolution +
+-- verification gate, PLUS the optional add-on. DROP the 1-arg version so
+-- PostgREST resolves the new 2-arg signature without overload ambiguity.
 DROP FUNCTION IF EXISTS public.create_vendor_subscription(TEXT);
 CREATE OR REPLACE FUNCTION public.create_vendor_subscription(
   p_sku_code             TEXT,
@@ -82,10 +71,18 @@ DECLARE
   v_total       NUMERIC(10,2);
   v_row         public.vendor_subscriptions;
 BEGIN
-  SELECT vendor_profile_id INTO v_vendor_id
-    FROM public.vendor_profiles WHERE user_id = auth.uid() LIMIT 1;
+  -- Admin-only: resolve the store where the caller is an admin (multi-admin org
+  -- model — NOT founder-only). Preserved from 20270401574089 / 20270403095563.
+  SELECT vid INTO v_vendor_id FROM public.current_vendor_ids('admin') AS vid LIMIT 1;
   IF v_vendor_id IS NULL THEN
-    RAISE EXCEPTION 'NO_VENDOR_PROFILE: caller has no vendor profile';
+    RAISE EXCEPTION 'NOT_VENDOR_ADMIN: only a store admin can purchase a subscription';
+  END IF;
+
+  -- Verification gate (owner 2026-07-01): only a VERIFIED store may subscribe.
+  IF COALESCE(
+       (SELECT verification_state::text FROM public.vendor_profiles
+         WHERE vendor_profile_id = v_vendor_id), '') <> 'verified' THEN
+    RAISE EXCEPTION 'NOT_VERIFIED: verify your shop before subscribing';
   END IF;
 
   -- Plan price + offering from the catalog (subscriptions only).
@@ -146,10 +143,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 REVOKE ALL ON FUNCTION public.create_vendor_subscription(TEXT, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.create_vendor_subscription(TEXT, TEXT) TO authenticated;
 
--- ── 3 · credit core: tier + bundle + PAID token add-on ──────────────────────
--- Extends the existing function: after the tier flip + per-period free bundle,
--- credit the add-on's NEVER-EXPIRE purchased tokens to the holder. Idempotent
--- via the status='paid' early-return at the top (the whole body runs once).
+-- ── 3 · credit core: tier + LIFETIME bundle + PAID token add-on ─────────────
+-- Body = the CURRENT definition (20261012000000): LIFETIME bundle (Pro 5/50 ·
+-- Ent 10/100) via grant_vendor_lifetime_tokens into the never-expire
+-- purchased_tokens bucket, PLUS the add-on credit. Idempotent via the existing
+-- status='paid' early-return (the whole body runs once, on activation).
 CREATE OR REPLACE FUNCTION public._apply_subscription_credit(
   p_purchase_id UUID,
   p_reviewed_by UUID
@@ -189,29 +187,30 @@ BEGIN
          tier_billing_cycle = v_s.billing_cycle
    WHERE vendor_profile_id = v_s.vendor_id;
 
-  -- Per-period FREE token bundle (mirrors TIER_SUBSCRIPTION_BUNDLE_TOKENS).
+  -- Per-period FREE token bundle (Pro 5/50 · Ent 10/100). LIFETIME (owner
+  -- 2026-06-09) — credited to the never-expire purchased_tokens bucket.
+  -- Idempotent per purchase via key 'sub_bundle:<purchase_id>'.
   v_bundle := CASE
-    WHEN v_s.tier = 'pro'        AND v_s.billing_cycle = 'monthly' THEN 30
-    WHEN v_s.tier = 'pro'        AND v_s.billing_cycle = 'annual'  THEN 300
-    WHEN v_s.tier = 'enterprise' AND v_s.billing_cycle = 'monthly' THEN 100
-    WHEN v_s.tier = 'enterprise' AND v_s.billing_cycle = 'annual'  THEN 1000
+    WHEN v_s.tier = 'pro'        AND v_s.billing_cycle = 'monthly' THEN 5
+    WHEN v_s.tier = 'pro'        AND v_s.billing_cycle = 'annual'  THEN 50
+    WHEN v_s.tier = 'enterprise' AND v_s.billing_cycle = 'monthly' THEN 10
+    WHEN v_s.tier = 'enterprise' AND v_s.billing_cycle = 'annual'  THEN 100
     ELSE 0
   END;
 
   IF v_bundle > 0 THEN
-    PERFORM public.grant_admin_direct_tokens(
+    PERFORM public.grant_vendor_lifetime_tokens(
       v_s.vendor_id,
       v_bundle,
-      v_s.period_days,
       'admin_grant',
       p_reviewed_by,
-      'Subscription bundle: ' || v_s.sku_code,
+      'Subscription bundle (lifetime): ' || v_s.sku_code,
       'sub_bundle:' || p_purchase_id::text
     );
   END IF;
 
   -- PAID token-pack ADD-ON bought in this same order → never-expire purchased
-  -- tokens credited to the holder (founder → store wallet · member → personal
+  -- tokens credited to the HOLDER (founder → store wallet · co-admin → personal
   -- wallet), reusing approve_vendor_token_purchase's credit shape exactly.
   IF v_s.addon_token_pack_sku IS NOT NULL AND COALESCE(v_s.addon_token_count, 0) > 0 THEN
     SELECT user_id INTO v_founder FROM public.vendor_profiles
@@ -249,6 +248,132 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Internal-only (unchanged posture): only the DEFINER wrappers may call it.
 REVOKE ALL ON FUNCTION public._apply_subscription_credit(UUID, UUID) FROM PUBLIC, anon, authenticated;
 
+-- ── 4 · peso-per-lead scorecard: count only the PLAN portion as sub spend ───
+-- amount_php now includes the token add-on. The scorecard's "subscription spend"
+-- must stay plan-only, so subtract addon_amount_php (NULL on legacy/plan-only
+-- rows → unchanged). Bodies are otherwise verbatim from 20270322391018.
+CREATE OR REPLACE FUNCTION public.vendor_peso_per_lead(
+  p_vendor_profile_id UUID,
+  p_period_days       INT DEFAULT 28
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_since               TIMESTAMPTZ;
+  v_clamped_days        INT;
+  v_tokens_burned_total BIGINT;
+  v_leads_answered      INT;
+  v_subscription_php    NUMERIC(12,2);
+  v_finalized_bookings  INT;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vendor_profiles vp
+    WHERE vp.vendor_profile_id = p_vendor_profile_id
+      AND vp.user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'FORBIDDEN: caller does not own this vendor profile';
+  END IF;
+
+  v_clamped_days := LEAST(GREATEST(COALESCE(p_period_days, 28), 1), 730);
+  v_since := NOW() - (v_clamped_days || ' days')::INTERVAL;
+
+  SELECT COALESCE(SUM(u.tokens_burned), 0)::BIGINT, COUNT(*)::INT
+    INTO v_tokens_burned_total, v_leads_answered
+    FROM public.vendor_event_unlocks u
+   WHERE u.vendor_profile_id = p_vendor_profile_id
+     AND u.unlocked_at >= v_since;
+
+  -- Plan-only PHP (exclude any token add-on folded into the order).
+  SELECT COALESCE(SUM(s.amount_php - COALESCE(s.addon_amount_php, 0)), 0)::NUMERIC(12,2)
+    INTO v_subscription_php
+    FROM public.vendor_subscriptions s
+   WHERE s.vendor_id = p_vendor_profile_id
+     AND s.status = 'paid'
+     AND COALESCE(s.paid_at, s.created_at) >= v_since;
+
+  SELECT COALESCE(a.finalized_booking_count, 0)
+    INTO v_finalized_bookings
+    FROM public.vendor_activity_stats a
+   WHERE a.vendor_profile_id = p_vendor_profile_id;
+
+  RETURN jsonb_build_object(
+    'period_days',         v_clamped_days,
+    'since',               v_since,
+    'tokens_burned_total', v_tokens_burned_total,
+    'leads_answered',      v_leads_answered,
+    'subscription_php',    v_subscription_php,
+    'finalized_bookings',  COALESCE(v_finalized_bookings, 0)
+  );
+END;
+$$;
+REVOKE ALL ON FUNCTION public.vendor_peso_per_lead(UUID, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.vendor_peso_per_lead(UUID, INT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_peso_per_lead_overview(
+  p_period_days INT DEFAULT 28
+) RETURNS TABLE (
+  vendor_profile_id    UUID,
+  business_name        TEXT,
+  tier_state           TEXT,
+  tokens_burned_total  BIGINT,
+  leads_answered       INT,
+  subscription_php     NUMERIC(12,2),
+  finalized_bookings   INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_since TIMESTAMPTZ;
+BEGIN
+  IF NOT public.is_console_admin() THEN
+    RAISE EXCEPTION 'FORBIDDEN: admin only';
+  END IF;
+
+  v_since := NOW() - (LEAST(GREATEST(COALESCE(p_period_days, 28), 1), 730)
+                      || ' days')::INTERVAL;
+
+  RETURN QUERY
+  SELECT
+    vp.vendor_profile_id,
+    vp.business_name,
+    vp.tier_state::TEXT,
+    COALESCE(u.tokens_burned_total, 0)::BIGINT,
+    COALESCE(u.leads_answered, 0)::INT,
+    COALESCE(s.subscription_php, 0)::NUMERIC(12,2),
+    COALESCE(a.finalized_booking_count, 0)::INT
+  FROM public.vendor_profiles vp
+  LEFT JOIN (
+    SELECT eu.vendor_profile_id,
+           SUM(eu.tokens_burned)::BIGINT AS tokens_burned_total,
+           COUNT(*)::INT                 AS leads_answered
+      FROM public.vendor_event_unlocks eu
+     WHERE eu.unlocked_at >= v_since
+     GROUP BY eu.vendor_profile_id
+  ) u ON u.vendor_profile_id = vp.vendor_profile_id
+  LEFT JOIN (
+    SELECT vs.vendor_id,
+           SUM(vs.amount_php - COALESCE(vs.addon_amount_php, 0))::NUMERIC(12,2) AS subscription_php
+      FROM public.vendor_subscriptions vs
+     WHERE vs.status = 'paid'
+       AND COALESCE(vs.paid_at, vs.created_at) >= v_since
+     GROUP BY vs.vendor_id
+  ) s ON s.vendor_id = vp.vendor_profile_id
+  LEFT JOIN public.vendor_activity_stats a
+         ON a.vendor_profile_id = vp.vendor_profile_id
+  WHERE COALESCE(u.leads_answered, 0) > 0
+     OR COALESCE(s.subscription_php, 0) > 0
+     OR COALESCE(a.finalized_booking_count, 0) > 0
+  ORDER BY COALESCE(a.finalized_booking_count, 0) DESC,
+           COALESCE(u.leads_answered, 0) DESC;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.admin_peso_per_lead_overview(INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_peso_per_lead_overview(INT) TO authenticated;
+
 COMMIT;
 
 -- ============================================================================
@@ -258,20 +383,21 @@ COMMIT;
 -- SELECT column_name FROM information_schema.columns
 --   WHERE table_name='vendor_subscriptions'
 --     AND column_name IN ('holder_user_id','addon_token_pack_sku',
---                         'addon_token_count','addon_amount_php');
--- -- Expected: 4 rows
+--                         'addon_token_count','addon_amount_php');  -- Expected: 4
 --
--- -- (2) create_ now takes 2 args (1-arg dropped):
--- SELECT pg_get_function_identity_arguments(oid) FROM pg_proc
---   WHERE proname='create_vendor_subscription';
--- -- Expected: 'p_sku_code text, p_addon_token_pack_sku text'
+-- -- (2) create_ takes 2 args; the verification + admin gates survive:
+-- SELECT pg_get_functiondef('public.create_vendor_subscription(text,text)'::regprocedure)
+--   ~ 'NOT_VERIFIED' AS has_verify_gate,
+--        pg_get_functiondef('public.create_vendor_subscription(text,text)'::regprocedure)
+--   ~ 'current_vendor_ids' AS has_admin_gate;  -- Expected: t, t
 --
--- -- (3) End-to-end combined order (replace SKUs / UUIDs):
--- -- as the vendor:
--- --   SELECT public.create_vendor_subscription('pro_vendor_monthly',
--- --                                             'vendor_token_pack_10');
--- -- amount_php should equal plan ₱2,499 + pack ₱1,000 = ₱3,499.
--- -- as an admin:  SELECT public.approve_vendor_subscription('<purchase_id>');
--- -- SELECT purchased_tokens FROM vendor_wallets WHERE vendor_id='<vendor_id>';
--- -- Expected: +10 never-expire purchased tokens (on top of the bundle grant).
+-- -- (3) Bundle stays LIFETIME 5/50/10/100 (grant_vendor_lifetime_tokens):
+-- SELECT pg_get_functiondef('public._apply_subscription_credit(uuid,uuid)'::regprocedure)
+--   ~ 'grant_vendor_lifetime_tokens' AS lifetime_bundle;  -- Expected: t
+--
+-- -- (4) End-to-end combined order (VERIFIED admin, replace SKUs/UUIDs):
+-- --   SELECT public.create_vendor_subscription('pro_vendor_monthly','vendor_token_pack_10');
+-- --   -- amount_php = ₱2,499 + ₱1,000 = ₱3,499; addon_amount_php = ₱1,000.
+-- --   SELECT public.approve_vendor_subscription('<purchase_id>');
+-- --   -- vendor_wallets.purchased_tokens += 5 (Pro-monthly bundle) + 10 (add-on) = +15.
 -- ============================================================================

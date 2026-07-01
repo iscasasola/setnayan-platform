@@ -140,13 +140,9 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what
         couples pay you — Setnayan no longer routes payments between you and your
         clients. This page is the running ledger you use to track direct bookings.
-        Manage your plan on the{' '}
+        Manage your plan and token packs on the{' '}
         <Link href="/vendor-dashboard/subscription" className="underline hover:text-ink">
-          Subscription
-        </Link>{' '}
-        tab and your token packs on the{' '}
-        <Link href="/vendor-dashboard/tokens" className="underline hover:text-ink">
-          Tokens
+          Plan &amp; tokens
         </Link>{' '}
         tab.
       </p>
@@ -166,9 +162,10 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
       {/* Buy-tokens discovery · repointed from the retired redeem-code voucher
           surface (hard-deleted 2026-07-01 under "no free tokens"). Tokens are
-          purchased at ₱100 each (verified stores only). */}
+          purchased at ₱100 each (verified stores only). Lands on the unified
+          Plan & tokens hub. */}
       <Link
-        href="/vendor-dashboard/tokens"
+        href="/vendor-dashboard/subscription"
         className="group flex items-center justify-between gap-3 rounded-2xl border border-orange/20 bg-orange/5 p-4 text-sm text-ink/75 hover:bg-orange/10"
       >
         <div className="flex items-start gap-3">

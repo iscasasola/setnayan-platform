@@ -123,7 +123,7 @@ export function BuyTokensCta({
       {native && (
         <WebNudgeBanner
           savingsCopy={`₱${NUMBER.format(webTokenPrice)}/token (save ₱${NUMBER.format(mobileTokenPrice - webTokenPrice)} each)`}
-          webUrl="https://setnayan.com/vendor-dashboard/tokens"
+          webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}
 

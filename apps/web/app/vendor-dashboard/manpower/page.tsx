@@ -152,7 +152,7 @@ export default async function VendorManpowerPage() {
           </span>
           {totalTokens < 2 ? (
             <Link
-              href="/vendor-dashboard/tokens"
+              href="/vendor-dashboard/subscription"
               className="text-xs font-medium text-orange-700 underline"
             >
               Buy tokens →

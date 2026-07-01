@@ -200,14 +200,31 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const waitingForQuotes: WaitingInquiry[] = [];
 
   if (marketplaceIds.length > 0) {
+    // Couple-visibility fix (2026-07-01): the picked-vendor marketplace
+    // enrichment (name / logo / rating / badges) is read through the ADMIN
+    // client, NOT the couple RLS client. `marketplaceIds` is derived from the
+    // couple's own RLS-scoped event_vendors picks above, so this admin read is
+    // legitimately scoped to the couple's OWN connected vendors — the same trust
+    // model event-home (page.tsx:957) + lib/vendor-cards.ts:56 already use.
+    // WHY: a vendor a couple added-manually + had claim (the #2463/#2470 flow)
+    // is a real but UNPUBLISHED (is_published=false) vendor. The public-read RLS
+    // on vendor_market_stats / vendor_profiles (USING is_published=TRUE) returns
+    // NOTHING for it, so `if (!s) continue` below skipped enrichment and the row
+    // rendered stripped (typed name + initials only). Reading the couple's own
+    // picks via admin hydrates them regardless of public is_published state,
+    // WITHOUT widening what non-owners can see. No verification_state /
+    // is_published filter is applied to the couple's own picks (by design). The
+    // chat_threads read stays on the couple RLS client — it's the couple's own
+    // event's threads, correctly RLS-scoped, not the public vendor row.
+    const enrichmentAdmin = createAdminClient();
     const [statsRes, profRes, threadsRes] = await Promise.all([
-      supabase
+      enrichmentAdmin
         .from('vendor_market_stats')
         .select(
           'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services',
         )
         .in('vendor_profile_id', marketplaceIds),
-      supabase
+      enrichmentAdmin
         .from('vendor_profiles')
         .select('vendor_profile_id, name_revealed_at, screen_name, tier_state')
         .in('vendor_profile_id', marketplaceIds),

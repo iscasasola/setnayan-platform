@@ -88,6 +88,12 @@ function isMissingRelation(error: { code?: string } | null | undefined): boolean
  * Read-only fields only — the workspace page already pulls business_name
  * + logo_url for the header from the same row earlier in the request, so
  * this helper deliberately returns the subset the new Contact card needs.
+ *
+ * `supabase` may be either the couple RLS client (default) OR an admin client.
+ * The workspace page passes an admin client for the couple's OWN picked vendor
+ * (ownership already proven via the event_vendors row), so a claimed-but-
+ * UNPUBLISHED vendor (is_published=false) still hydrates instead of coming back
+ * empty from the public-read RLS. See the caller for the ownership proof.
  */
 export async function fetchMarketplaceContact(
   supabase: SupabaseClient,
@@ -117,6 +123,11 @@ export async function fetchMarketplaceContact(
 /**
  * Fetch active vendor_services rows. Empty array on any failure (table missing,
  * RLS, transient). Drives the Services card.
+ *
+ * `supabase` may be either the couple RLS client (default) OR an admin client.
+ * The workspace page passes an admin client for the couple's OWN picked vendor
+ * (ownership already proven via the event_vendors row) so an unpublished claimed
+ * vendor's services still render — same rationale as fetchMarketplaceContact.
  */
 export async function fetchMarketplaceServices(
   supabase: SupabaseClient,

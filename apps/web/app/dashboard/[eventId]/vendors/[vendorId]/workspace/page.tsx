@@ -330,6 +330,22 @@ export default async function VendorWorkspacePage({ params }: Props) {
       ev.status === 'delivered' ||
       ev.status === 'complete');
 
+  // Couple-visibility fix (2026-07-01): the couple's OWN picked-vendor
+  // marketplace HEADER (business_name / logo / city / is_setnayan_service),
+  // SERVICES, and CONTACT are resolved via the ADMIN client. Ownership is
+  // already proven above — the event_vendors row was fetched through the couple
+  // RLS client keyed on (vendor_id, event_id), and a miss/deny hits notFound().
+  // WHY: a vendor a couple added-manually + had claim (the #2463/#2470 flow) is
+  // real but UNPUBLISHED (is_published=false); the public-read RLS on
+  // vendor_profiles / vendor_services (USING is_published=TRUE) returns nothing,
+  // so the header + services + contact came back empty and the couple saw their
+  // just-connected vendor stripped. This mirrors the proven-ownership admin path
+  // already used for direct-pay methods (fetchPublishedMethodsForCouple, below).
+  // REVIEWS stay on the couple RLS client — vendor_reviews / vendor_review_stats
+  // are public-read for marketplace consumption and carry no is_published gate.
+  // This does NOT widen non-owner visibility: only this couple's own event's
+  // booked vendor is read, and only when the ownership-proven row exists.
+  const marketplaceAdmin = createAdminClient();
   // Parallel fetches for the panel data sources + the three marketplace-info
   // surfaces. None are critical-path — any failure renders that section's empty
   // state rather than crashing. The per-vendor budget snapshot (fetched below)
@@ -364,9 +380,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
       .order('starts_at', { ascending: true }),
 
     // Marketplace profile — logo, business name, city, + is_setnayan_service
-    // (drives the "Provided by Setnayan" attribution).
+    // (drives the "Provided by Setnayan" attribution). ADMIN read (ownership
+    // proven above) so an unpublished claimed vendor still hydrates the header.
     ev.marketplace_vendor_id
-      ? supabase
+      ? marketplaceAdmin
           .from('vendor_profiles')
           .select('business_name, business_slug, logo_url, city, is_setnayan_service')
           .eq('vendor_profile_id', ev.marketplace_vendor_id)
@@ -384,12 +401,15 @@ export default async function VendorWorkspacePage({ params }: Props) {
       : Promise.resolve({ data: null, error: null }),
 
     // Marketplace info — services / contact / reviews. Each helper handles its
-    // own 42P01 / 42703 graceful-degrade.
+    // own 42P01 / 42703 graceful-degrade. Services + contact go through the
+    // ADMIN client (couple's OWN pick, ownership proven above → unpublished
+    // claimed vendors still hydrate). Reviews stay on the RLS client (public-
+    // read, no is_published gate).
     ev.marketplace_vendor_id
-      ? fetchMarketplaceServices(supabase, ev.marketplace_vendor_id)
+      ? fetchMarketplaceServices(marketplaceAdmin, ev.marketplace_vendor_id)
       : Promise.resolve([]),
     ev.marketplace_vendor_id
-      ? fetchMarketplaceContact(supabase, ev.marketplace_vendor_id)
+      ? fetchMarketplaceContact(marketplaceAdmin, ev.marketplace_vendor_id)
       : Promise.resolve(null),
     ev.marketplace_vendor_id
       ? fetchMarketplaceReviews(supabase, ev.marketplace_vendor_id)

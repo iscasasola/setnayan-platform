@@ -126,7 +126,9 @@ import {
   widgetInPhase,
   isWebsitePhasesEnabled,
   getLifecyclePhase,
+  manualLaunchPhase,
 } from '@/lib/invitation-widgets';
+import { LaunchHostBar } from './_components/launch-host-bar';
 
 function displayNameOf(g: {
   first_name: string;
@@ -694,12 +696,68 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       ? (phaseParam as LifecyclePhase)
       : null;
 
+  // Launch mode (owner 2026-07-02) — the couple can flip their website between
+  // AUTOMATIC (phase follows the event date) and MANUAL (they PIN one phase and
+  // it stays live for every visitor until they switch). A signed-in COUPLE host
+  // also gets an in-context control bar on their own live page to flip it.
+  //
+  // Read separately + tolerantly (NOT folded into the main events select above):
+  // on a DB where the launch-mode migration hasn't applied yet, an unknown
+  // column in the MAIN select would error the whole fetch and 404 every wedding
+  // page — here it just degrades to AUTO. Same defensive pattern as the
+  // rsvp_backdrop read below. `manualLaunchPhase` returns null for auto/invalid,
+  // so the fallback is always the date-driven phase.
+  const { data: launchRow } = await admin
+    .from('events')
+    .select('launch_mode, manual_phase')
+    .eq('event_id', event.event_id)
+    .maybeSingle();
+  const launchMode: 'auto' | 'manual' =
+    (launchRow as { launch_mode?: string } | null)?.launch_mode === 'manual'
+      ? 'manual'
+      : 'auto';
+  const manualPhasePinned = manualLaunchPhase(
+    (launchRow as { launch_mode?: string } | null)?.launch_mode,
+    (launchRow as { manual_phase?: string } | null)?.manual_phase,
+  );
+
+  // Is THIS viewer a couple host of THIS event? Only couples get the launch
+  // control bar (launch decisions are couple-gated everywhere, mirroring
+  // requireCouple). Anonymous guests — the vast majority — pay zero host lookups
+  // (no auth user → skip). Wrapped so any auth hiccup can't break the page.
+  let isCoupleHost = false;
+  if (phasesEnabled) {
+    try {
+      const authed = await createClient();
+      const {
+        data: { user },
+      } = await authed.auth.getUser();
+      if (user) {
+        const { data: memberRow } = await admin
+          .from('event_members')
+          .select('member_type')
+          .eq('event_id', event.event_id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        isCoupleHost =
+          (memberRow as { member_type?: string } | null)?.member_type === 'couple';
+      }
+    } catch {
+      isCoupleHost = false;
+    }
+  }
+
+  // A host `?phase=` preview (transient) OR the persisted manual pin (applies to
+  // everyone) forces the phase; otherwise it's date-driven.
+  const forcedPhase: LifecyclePhase | null =
+    phaseOverride ?? (launchMode === 'manual' ? manualPhasePinned : null);
+
   // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
-  // unless the demo override forces a phase (event→live so the day-of UI shows).
-  const dayOfPhase: DayOfPhase = phaseOverride
-    ? phaseOverride === 'event'
+  // unless a forced phase overrides it (event→live so the day-of UI shows).
+  const dayOfPhase: DayOfPhase = forcedPhase
+    ? forcedPhase === 'event'
       ? 'live'
-      : phaseOverride === 'editorial'
+      : forcedPhase === 'editorial'
         ? 'post'
         : 'pre'
     : event.event_date
@@ -708,7 +766,25 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into
   // PublicLanding + InvitationSite like heroPhotoUrl.
-  const lifecyclePhase: LifecyclePhase = phaseOverride ?? getLifecyclePhase(event.event_date);
+  const lifecyclePhase: LifecyclePhase = forcedPhase ?? getLifecyclePhase(event.event_date);
+
+  // The date-driven phase, shown on the host bar so the couple can see what
+  // AUTOMATIC would pick even while a manual pin is active.
+  const autoPhase: LifecyclePhase = getLifecyclePhase(event.event_date);
+
+  // Host launch-control bar — a fixed, host-only overlay rendered alongside
+  // whichever public view is returned below. Couples only; gated to the
+  // website-phase surface (weddings).
+  const hostBar =
+    phasesEnabled && isCoupleHost ? (
+      <LaunchHostBar
+        eventId={event.event_id}
+        slug={event.slug ?? ''}
+        mode={launchMode}
+        manualPhase={manualPhasePinned}
+        autoPhase={autoPhase}
+      />
+    ) : null;
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
@@ -835,6 +911,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   if (!session) {
     return (
+      <>
+      {hostBar}
       <PublicLanding
         event={event}
         monogram={monogram}
@@ -864,6 +942,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         bespokeSvg={bespokeSvg}
         proWatermarkHidden={proWatermarkHidden}
       />
+      </>
     );
   }
 
@@ -871,6 +950,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // (Sign-out from the footer is how a guest swaps between events.)
   if (session.event_id !== event.event_id) {
     return (
+      <>
+      {hostBar}
       <PublicLanding
         event={event}
         monogram={monogram}
@@ -900,6 +981,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         bespokeSvg={bespokeSvg}
         proWatermarkHidden={proWatermarkHidden}
       />
+      </>
     );
   }
 
@@ -914,6 +996,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   if (!guest) {
     return (
+      <>
+      {hostBar}
       <PublicLanding
         event={event}
         monogram={monogram}
@@ -943,6 +1027,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         bespokeSvg={bespokeSvg}
         proWatermarkHidden={proWatermarkHidden}
       />
+      </>
     );
   }
 
@@ -1250,6 +1335,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   return (
     <>
+      {hostBar}
       <InvitationSite
         event={event}
         guest={guest}

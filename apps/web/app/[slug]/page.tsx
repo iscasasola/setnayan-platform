@@ -9,6 +9,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+// Bare-root dispatch: a slug that isn't a renderable event may be a vendor
+// (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
+import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
 import {
   resolveEffectiveVisibility,
@@ -184,11 +187,13 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await fetchEventBySlug(slug);
-  if (!event) notFound();
+  // Bare-root dispatch (PR5): not a renderable event → use the vendor metadata
+  // (vendorMetadataBySlug returns a generic title if it isn't a vendor either).
+  if (!event) return vendorMetadataBySlug(slug);
   // Iteration 0053: the public couple website is the 'website' profile surface.
-  // Generic (non-wedding) profiles don't enable it, so non-weddings still 404 —
-  // byte-identical to the old `!== 'wedding'` gate, but now config-driven.
-  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  // Generic (non-wedding) profiles don't enable it → fall through to vendor
+  // metadata (config-driven; was a notFound() before PR5).
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) return vendorMetadataBySlug(slug);
 
   // Private by default (owner 2026-06-20): a wedding page is private until the
   // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
@@ -360,13 +365,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const event = await fetchEventBySlug(slug);
 
-  if (!event) notFound();
+  // Bare-root dispatch (PR5): not a renderable event → try a vendor at this
+  // slug. renderVendorBySlug notFound()s itself if there's no vendor either.
+  if (!event) return renderVendorBySlug({ slug, searchParams });
   // Iteration 0053: the whole public couple website is the 'website' profile
-  // surface. Non-wedding (generic) profiles don't enable it → still notFound(),
-  // byte-identical to the old `!== 'wedding'` gate but now config-driven. The
-  // resolved profile is reused for the phase engine below.
+  // surface. Non-wedding (generic) profiles don't enable it → fall through to
+  // the vendor check (config-driven; was a notFound() before PR5). The resolved
+  // profile is reused for the phase engine below.
   const eventTypeProfile = await resolveProfile(event.event_type);
-  if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
+  if (!surfaceEnabled(eventTypeProfile, 'website')) return renderVendorBySlug({ slug, searchParams });
 
   const monogram = resolveMonogram(event);
 

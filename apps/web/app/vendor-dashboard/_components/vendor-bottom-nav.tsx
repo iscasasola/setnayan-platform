@@ -26,7 +26,7 @@
  *   4. Messages    — Chat inbox (per-thread workspace)
  *   5. More        — Everything else (Website · Profile · Clients · Services ·
  *                    Contracts · Proposals · Attributes · Repertoire ·
- *                    Subscription · Tokens · Redeem code · Marketing ·
+ *                    Subscription · Tokens · Marketing ·
  *                    Verify · Reviews · Moodboard library · Earnings ·
  *                    Payment options · Manpower · Branches · Team ·
  *                    Notifications) routed through the
@@ -148,11 +148,10 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/proposals',
       '/vendor-dashboard/repertoire',
       '/vendor-dashboard/attributes',
-      // Grow group (Subscription · Tokens · Redeem code folded in here
-      // 2026-06-14 — kept under More on mobile)
+      // Account/plan (Subscription · Tokens — kept under More on mobile;
+      // Redeem code was hard-deleted 2026-07-01 under "no free tokens")
       '/vendor-dashboard/subscription',
       '/vendor-dashboard/tokens',
-      '/vendor-dashboard/redeem-code',
       '/vendor-dashboard/verify',
       '/vendor-dashboard/partnerships',
       '/vendor-dashboard/reviews',

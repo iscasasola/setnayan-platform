@@ -200,10 +200,10 @@ export function GigCard({
                 You need 2 tokens to accept. Top up to claim this gig.
               </span>
               <Link
-                href="/vendor-dashboard/redeem-code"
+                href="/vendor-dashboard/tokens"
                 className="text-xs font-medium text-warn-800 underline"
               >
-                Redeem code →
+                Buy tokens →
               </Link>
             </div>
           ) : (

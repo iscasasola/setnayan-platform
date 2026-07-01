@@ -85,8 +85,6 @@ const DESCRIPTIONS: Record<string, string> = {
   // vendor income tax under V2 publisher posture, so the only document
   // it ever issued (Form 2307) no longer applies. Vendors handle their
   // own Form 2307 as income recipient per RR 16-2023.
-  'redeem-code':
-    'Redeem a token-pack voucher code. Codes top up your purchased token balance immediately.',
   branches:
     'Your additional branch locations. Each Enterprise sub-location runs its own calendar and team under your account.',
 

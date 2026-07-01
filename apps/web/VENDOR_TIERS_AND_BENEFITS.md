@@ -152,8 +152,27 @@ Hand-curated ops intros · Advanced Proposal Drafting · onboarding bundle maker
 
 ## 7 · Benefit-catalog sync (2026-07-01)
 
-The homepage "For vendors" overlay (`app/_components/home/vendor-benefits.ts`) was **out of sync** — it had ~45 benefits ported from `03_Strategy/Vendor_Benefits_Catalog_2026-06-29.md` (50), while this doc's §2/§6 had ~88, and the union was 100+. Reconciled via a 7-lens merge + per-benefit code verification into **ONE catalog: 61 distinct benefits · 36 live · 25 soon** (honest dedup — no padding; the "100+" was inflated by cross-tier repeats + caps counted as benefits). The overlay is now generated from that verified set; its `soon` flags match §6.
+The homepage "For vendors" overlay (`app/_components/home/vendor-benefits.ts`) was **out of sync** — it had ~45 benefits ported from `03_Strategy/Vendor_Benefits_Catalog_2026-06-29.md` (50), while this doc's §2/§6 had ~88, and the union was 100+. Reconciled via a 7-lens merge + per-benefit code verification into **ONE catalog: 61 distinct benefits · 37 live · 24 soon** (honest dedup — no padding; the "100+" was inflated by cross-tier repeats + caps counted as benefits). The overlay is now generated from that verified set; its `soon` flags match §6.
 
-**This doc's §6 is the SSOT.** When the dashboard session ships a benefit, update §6's status here → the overlay's `soon` clears in step. Homepage count banner now reads "60+ ways · 36 live today."
+**This doc's §6 is the SSOT.** When the dashboard session ships a benefit, update §6's status here → the overlay's `soon` clears in step. Homepage count banner now reads "60+ ways · 37 live today."
 
 **Live-vs-soon by lens** (soon = not yet live end-to-end): Discovery 6/0 · Booking 8/4 · Money 7/0 · Trust 7/3 · Marketing 2/6 · Data 6/2 · Ecosystem 3/6. The heaviest remaining build is **Marketing/editorial** (social auto-share, Real Stories/Journal features, awards, referrals) and **Ecosystem** (crew earn-a-cut, resell Productions, white-label, certified-partner) — those are the roadmap program if we want the SOON count to keep dropping.
+
+---
+
+## 8 · Wave-1 SOON→LIVE build specs (for the DASHBOARD session · 2026-07-01)
+
+Owner greenlit building the SOON features live. These are **vendor-dashboard + nav-registry** builds = the dashboard session's lane (the marketing session must NOT build them — nav registry is shared + lint-enforced, collision risk). Marketing already **cleared "Pay Only For Inquiries That Fit"** (token burn live + owner copy sign-off). Build these next; when each ships, flip its §6/overlay `soon`→live:
+
+**A · Reverse-image theft watch — vendor-facing surface** (engine already ships).
+- Data exists: `lib/vendor-image-repost-watch.ts` writes `vendor_image_flags` (RLS-blocked from vendors) via `hashAndScanVendorImages`; admin sees it at `/admin/repost-watch`.
+- Build: a `/vendor-dashboard/theft-watch` page + an **admin-client server action** that reads `vendor_image_flags WHERE source_vendor_id = <session vendor profile>` (a vendor seeing reposts OF their work). Render surface + matched image + status; no new detection logic, no migration.
+- Nav: add to `VENDOR_NAV_GROUPS` (Trust group) + honor `lint-nav-icon-source`.
+- Effect: clears the `Reverse-Image Theft Watch` SOON (Trust lens).
+
+**B · Profile score → fix-it tips** (score already computes).
+- Data exists: `vendor-stats-panel` renders `quality_score` + its components (reply time, completion, conversion, review count, portfolio).
+- Build: a deterministic "what's holding you back" checklist derived from those components, ranked by inquiry-lift weight (no ML) — e.g. "Reply time 6h → aim <2h (+X inquiries)". A `lib/vendor-profile-tips.ts` pure builder + a card in the Performance panel.
+- Effect: clears the `Profile Score & Fix-It Tips` SOON (Data lens).
+
+**C (later waves):** the heavier SOON — automated-bookings pipeline · in-app RA 8792 e-sign · social auto-share (vendor-credited + TikTok) · Real Stories/Journal features (need launch content) · couple referral rewards · crew earn-a-cut · resell Productions bundling · white-label couple tools · certified-partner routing. Sequence by value; each needs admin+vendor+customer surfaces.

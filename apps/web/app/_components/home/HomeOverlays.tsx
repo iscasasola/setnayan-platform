@@ -317,7 +317,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         ))}
       </div>
       <div className="hr-vb-stat">
-        <b>60+ ways we help you win — 36 live today.</b> 0% commission, direct payouts, verification,
+        <b>60+ ways we help you win — 37 live today.</b> 0% commission, direct payouts, verification,
         matchmaking, your dashboard, and real analytics are live now; the rest is in active build and
         marked “Soon” until it ships.{' '}
         <span className="hr-soonkey">The “Soon” tags clear as features go live.</span>

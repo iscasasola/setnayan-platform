@@ -326,17 +326,19 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         ))}
       </div>
       <div className="hr-vb-stat">
-        <b>60+ ways we help you win — 41 live today.</b> 0% commission, direct payouts, verification,
+        <b>60+ ways we help you win — 42 live today.</b> 0% commission, direct payouts, verification,
         matchmaking, your dashboard, and real analytics are live now; the rest is in active build and
         marked “Soon” until it ships.{' '}
         <span className="hr-soonkey">The “Soon” tags clear as features go live.</span>
       </div>
 
       <div className="hr-vb-legend">
-        <b>How the tiers work.</b> Nearly everything here is <b>Free</b>. The paid tiers mainly lift your
-        limits: <b>Solo</b> — unlimited answering + your real business name shown day-1; <b>Pro</b>{' '}
-        (tagged below) — a team, wider reach, more categories, and editorial features; <b>Enterprise</b>{' '}
-        — no category, team, or reach limits at all.{' '}
+        <b>How the tiers work.</b> The whole ops spine is <b>Free</b> — dashboard, calendar, proposals,
+        contracts, payments, discovery and trust. <b>Solo</b> adds unlimited answering, your real business
+        name shown day-1, and your own performance analytics (funnel, win/loss, cost-per-lead).{' '}
+        <b>Pro</b> (tagged below) adds a team, wider reach, more categories, premium market intel
+        (Demand Radar, theft watch, peer benchmarks) and editorial features. <b>Enterprise</b> lifts every
+        limit — seats, photos, events, nationwide reach.{' '}
         <Link className="hr-vb-legend-link" href="/for-vendors" onClick={onClose}>
           See the full ladder →
         </Link>

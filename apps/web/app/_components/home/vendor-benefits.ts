@@ -6,8 +6,20 @@
  * audit in apps/web/VENDOR_TIERS_AND_BENEFITS.md, and the live code — via a
  * 7-lens merge + per-benefit code verification. `soon` = not yet live end-to-end
  * (buildable/roadmap/partial); it clears as the vendor-dashboard session ships.
- * Totals: 60 distinct benefits · 41 live · 19 soon.
- * Keep in step with VENDOR_TIERS_AND_BENEFITS.md §6 (the SSOT).
+ * Totals: 60 distinct benefits · 42 live · 18 soon.
+ *
+ * TIER TAGS follow the HYBRID gating decision (owner, 2026-07-01): gate the
+ * premium-few to their tier, keep the ops spine free for every verified vendor.
+ *  · Pro  = premium market intel + editorial + team (Demand Radar, Reverse-Image
+ *           Theft Watch, Category Benchmarks, Real Stories / Journal / Awards,
+ *           Team Sub-Accounts, resell / white-label / certified-partner, earn-on-crew).
+ *  · Solo = your own performance analytics / trends (Quote-to-Booking Funnel,
+ *           Won & Lost Reasons, Peso-Per-Lead Scorecard, Your Own Funnel Metrics).
+ *  · Free = the ops spine (dashboard, calendar, proposals, contracts, CRM,
+ *           earnings, pipeline, payments, discovery, trust, microsite) + Enterprise
+ *           reads as cap-expansion (seats / photos / events / nationwide) via the legend.
+ * Keep in step with VENDOR_TIERS_AND_BENEFITS.md §2 (allocation) + §6 (as-built);
+ * the code-owed gates for the dashboard session are logged in §5 (handoff).
  */
 
 export type VendorTier = 'free' | 'solo' | 'pro' | 'enterprise';
@@ -79,7 +91,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
       { tier: 'free', n: 'Merit-Only Ranking', b: 'No pay-to-rank — you can\'t buy your way up, and neither can rivals.' },
       { tier: 'free', n: 'No Fake Reviews, No Ghost Listings', soon: true, b: 'We screen bought reviews and ghost listings — protecting honest vendors most.' },
       { tier: 'free', n: 'Stand-Up-for-Yourself Dispute Mediation', soon: true, b: 'A neutral team reviews the record before anything touches your rating.' },
-      { tier: 'free', n: 'Reverse-Image Theft Watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
+      { tier: 'pro', n: 'Reverse-Image Theft Watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
     ],
   },
   {
@@ -98,12 +110,12 @@ export const VENDOR_GROUPS: VendorGroup[] = [
   {
     h: 'Data, analytics & pricing intelligence',
     items: [
-      { tier: 'free', n: 'Quote-to-Booking Funnel', b: 'See views to inquiries to signed, plus every booking\'s source.' },
+      { tier: 'solo', n: 'Quote-to-Booking Funnel', b: 'See views to inquiries to signed, plus every booking\'s source.' },
       { tier: 'free', n: 'Price-Position Meter', b: 'Know if you\'re under-priced, on-market, or premium for your category.' },
-      { tier: 'free', n: 'Demand Radar (Dates, Regions & Styles)', b: 'See which dates, regions, and looks couples book hardest.' },
-      { tier: 'free', n: 'Won & Lost Reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
-      { tier: 'free', n: 'Peso-Per-Lead Scorecard', b: 'See the true cost of each booked couple vs your spend.' },
-      { tier: 'free', n: 'Your Own Funnel Metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
+      { tier: 'pro', n: 'Demand Radar (Dates, Regions & Styles)', b: 'See which dates, regions, and looks couples book hardest.' },
+      { tier: 'solo', n: 'Won & Lost Reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
+      { tier: 'solo', n: 'Peso-Per-Lead Scorecard', b: 'See the true cost of each booked couple vs your spend.' },
+      { tier: 'solo', n: 'Your Own Funnel Metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
       { tier: 'pro', n: 'Category Benchmarks vs Peers', soon: true, b: 'Rank your funnel against anonymized peers in your exact category.' },
       { tier: 'free', n: 'Profile Score & Fix-It Tips', b: 'Get a ranked checklist of what\'s holding your profile back.' },
     ],

@@ -20,7 +20,6 @@ export const metadata = {
 export default function RefundsPage() {
   return (
     <LegalLayout
-      eyebrow="Refund & cancellation"
       title="Refunds & cancellations"
       meta="Effective 2026-06-30 · governed by Philippine law (incl. RA 7394, the Consumer Act)"
     >

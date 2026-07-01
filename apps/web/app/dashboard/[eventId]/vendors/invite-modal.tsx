@@ -123,9 +123,6 @@ export function InviteVendorButton({
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                  Setnayan · Couple invite
-                </p>
                 <h2 className="text-lg font-semibold text-ink">
                   {view.kind === 'sent'
                     ? `Invite sent to ${vendorName}`

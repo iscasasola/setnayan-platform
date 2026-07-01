@@ -213,9 +213,6 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Panood · live broadcast
-        </p>
         <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Broadcast your wedding live

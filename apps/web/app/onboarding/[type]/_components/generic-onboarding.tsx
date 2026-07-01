@@ -282,9 +282,7 @@ export function GenericOnboarding(props: Props) {
   // Brand-consistent editorial type (mirrors the wedding flow's `.eyebrow` + `.q`):
   // mono champagne-gold eyebrow over a Cormorant serif-italic headline, so the
   // non-wedding flow reads as the same premium Setnayan product, not a plain form.
-  const Eyebrow = ({ children }: { children: React.ReactNode }) => (
-    <p className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-terracotta-700">{children}</p>
-  );
+  const Eyebrow = (_props: { children: React.ReactNode }) => null;
   const Title = ({ children }: { children: React.ReactNode }) => (
     <h1 className="font-serif text-[28px] font-medium italic leading-[1.12] text-ink sm:text-4xl">{children}</h1>
   );

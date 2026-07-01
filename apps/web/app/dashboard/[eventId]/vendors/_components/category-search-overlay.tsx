@@ -427,7 +427,6 @@ export function CategorySearchOverlay({
         <button type="button" className="x" onClick={onClose} aria-label="Close">
           ✕
         </button>
-        <div className="eyebrow">Add to your plan</div>
         <div className="title">{label}</div>
         <div className="scope">{scope}</div>
       </div>

@@ -51,9 +51,6 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
       <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Papic · photo crew
-        </p>
         {children}
       </div>
     </main>

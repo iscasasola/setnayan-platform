@@ -60,9 +60,6 @@ export default async function WaitlistPage({ searchParams }: Props) {
 
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-3xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Couple waitlist
-          </p>
           <h1 className="mt-3 text-balance font-display text-5xl font-medium tracking-tight sm:text-6xl lg:text-7xl">
             Setnayan opens to couples on{' '}
             <span className="text-terracotta">December 1, 2026</span>.
@@ -215,9 +212,6 @@ export default async function WaitlistPage({ searchParams }: Props) {
 
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            What&rsquo;s already ready
-          </p>
           <ul className="mt-4 space-y-2 text-sm text-ink/70">
             {/* 2026-06-13 reprice scrub (Pricing.md § 00.D): the wedding
                 website, RSVP, and QR invitations are paid SKUs — listed as

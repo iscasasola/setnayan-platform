@@ -112,9 +112,6 @@ export default async function HelpPage({ searchParams }: Props) {
 
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Help &amp; support
-            </p>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {activeRoleMeta ? `Help for ${activeRoleMeta.label.toLowerCase()}s` : 'How can we help?'}
             </h1>

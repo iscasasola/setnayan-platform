@@ -299,9 +299,6 @@ export default async function AdminIntegrationsPage({
       {/* Registry-driven "simple secret" integrations (PR2) */}
       {SECRET_INTEGRATIONS.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
-            More integrations
-          </h2>
           {SECRET_INTEGRATIONS.map((intg) => (
             <SecretCard
               key={intg.id}
@@ -316,9 +313,6 @@ export default async function AdminIntegrationsPage({
       {/* OAuth client integrations (PR3b) — secret + config fields, no redeploy */}
       {OAUTH_INTEGRATIONS.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
-            OAuth integrations
-          </h2>
           {OAUTH_INTEGRATIONS.map((intg) => {
             const fields = intg.configFields.map((field) => {
               const dbVal = ((oauthSettings?.[field.column] as string | null) ?? '').trim();
@@ -347,9 +341,6 @@ export default async function AdminIntegrationsPage({
       {/* Social-publish credentials (PR4a) — Meta is the LIVE auto-publish path */}
       {SOCIAL_INTEGRATIONS.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
-            Social publishing
-          </h2>
           {SOCIAL_INTEGRATIONS.map((intg) => {
             const fields = intg.configFields.map((field) => {
               const dbVal = ((oauthSettings?.[field.column] as string | null) ?? '').trim();
@@ -377,9 +368,6 @@ export default async function AdminIntegrationsPage({
 
       {/* Payments (PR4c) — Maya: 2-secret bespoke card */}
       <section className="space-y-4">
-        <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
-          Payments
-        </h2>
         <MayaCard
           publicInDb={secretPresence[MAYA_INTEGRATION.publicKeyColumn] ?? false}
           secretInDb={secretPresence[MAYA_INTEGRATION.secretKeyColumn] ?? false}
@@ -400,9 +388,6 @@ export default async function AdminIntegrationsPage({
 
       {/* Build-time & env-only (PR4d) — read-only; these can't be DB-flipped */}
       <section className="space-y-4">
-        <h2 className="text-sm font-mono uppercase tracking-[0.18em] text-ink/45">
-          Build-time &amp; env-only
-        </h2>
         <BuildTimeStatus
           items={[
             {

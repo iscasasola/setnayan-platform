@@ -178,12 +178,6 @@ export default async function AlaalaPage({ params }: Props) {
     <section className="space-y-10">
       {/* ── Header — name the pillar + the promise + the guardrail ── */}
       <header className="space-y-3">
-        <p
-          className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.22em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Alaala · the memory you keep
-        </p>
         <h1
           className="text-3xl font-semibold tracking-tight sm:text-4xl"
           style={{ color: 'var(--m-ink)' }}
@@ -258,20 +252,12 @@ export default async function AlaalaPage({ params }: Props) {
             className="rounded-2xl border p-5 sm:p-6"
             style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
           >
-            <div className="flex items-baseline gap-3">
-              <span
-                className="font-mono text-[11px] tabular-nums"
-                style={{ color: 'var(--m-orange-3)' }}
-              >
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span
-                className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-                style={{ color: 'var(--m-orange-2)' }}
-              >
-                {stage.eyebrow}
-              </span>
-            </div>
+            <span
+              className="font-mono text-[11px] tabular-nums"
+              style={{ color: 'var(--m-orange-3)' }}
+            >
+              {String(i + 1).padStart(2, '0')}
+            </span>
 
             <h2 className="mt-2 text-xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
               {stage.title}

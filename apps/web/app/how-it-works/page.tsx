@@ -8,7 +8,6 @@ import {
   QrCode,
   ArrowRight,
   CheckCircle2,
-  Clock,
   Apple,
 } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
@@ -234,10 +233,7 @@ export default async function HowItWorksPage() {
         <HeroReveal>
           {(headingRef) => (
             <>
-              <div data-reveal-item className="mb-3 flex items-center justify-between gap-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-                  How it works
-                </p>
+              <div data-reveal-item className="mb-3 flex items-center justify-end gap-4">
                 <Link
                   href="/tl/how-it-works"
                   hrefLang="tl-PH"
@@ -330,9 +326,6 @@ export default async function HowItWorksPage() {
             H2's serif line-reveal via usePanelIntro. The page's ONLY thread. */}
         <FlowPanel>
           <div className="relative z-[1] max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              The flow
-            </p>
             <h2
               data-premium-headline
               className="text-2xl font-semibold tracking-tight sm:text-3xl"
@@ -373,10 +366,6 @@ export default async function HowItWorksPage() {
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-8">
-            <div className="flex items-center gap-2 text-terracotta">
-              <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Coming next</p>
-            </div>
             <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
               Adding another planner to your event
             </h2>
@@ -404,10 +393,6 @@ export default async function HowItWorksPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <article data-reveal-item className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For couples</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 Start planning, free.
               </h3>
@@ -426,10 +411,6 @@ export default async function HowItWorksPage() {
               </Link>
             </article>
             <article data-reveal-item className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For vendors</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 List your wedding business on Setnayan.
               </h3>

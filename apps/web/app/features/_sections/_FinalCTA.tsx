@@ -32,9 +32,6 @@ export function FinalCTA({ locale }: { locale: MarketingLocale }) {
     <section className="border-b border-ink/5">
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="mx-auto max-w-3xl space-y-6 text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            {c.eyebrow}
-          </p>
           <h2 className="font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl">
             {c.heading}
           </h2>

@@ -87,7 +87,6 @@ export default async function ScopeCategoriesPage({
       </Link>
 
       <header className="mb-6 mt-3 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan HQ · Scope categories</p>
         <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           <span aria-hidden className="text-3xl leading-none">{row.emoji}</span>
           {row.label_en}

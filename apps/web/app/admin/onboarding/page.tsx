@@ -125,9 +125,6 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
 
         {/* Related content — lives in its own catalog, linked for discoverability */}
         <div className="mt-4">
-          <p className="mb-2 m-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-            Content the wedding onboarding pulls from
-          </p>
           <div className="grid gap-2 sm:grid-cols-3">
             <RelatedLink
               href="/admin/songs"

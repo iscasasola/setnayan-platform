@@ -508,6 +508,7 @@ export default async function RootLayout({
                 cheap dns-prefetch; the provider opens the real connection after
                 consent. (Perf sweep 2026-07-02, finding #32.) */}
             <link rel="dns-prefetch" href={posthogOrigin} />
+          </>
         ) : null}
         {r2Origin ? (
           <>

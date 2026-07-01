@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveBrandedQrColors } from '@/lib/qr';
+import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { eventSkuActive } from '@/lib/entitlements';
 
 /**
@@ -101,7 +102,11 @@ export async function GET(
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const slug = event.slug ?? event.event_id;
-  const url = `${appUrl}/${slug}?invite=${guest.qr_token}`;
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover). Read with admin: ownership
+  // is event-level and event_members/users may be RLS-invisible to a co-host.
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const url = `${appUrl}${publicEventPath(slug, ownerSlug)}?invite=${guest.qr_token}`;
 
   // 1024px keeps the printed PNG crisp at postcard / table-card sizes.
   const png = await QRCode.toBuffer(url, {

@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { Camera, CircleSlash, Lock, MapPin, Sparkles, X } from 'lucide-react';
@@ -9,6 +10,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
+import {
+  isUserNestingCutoverEnabled,
+  publicEventPath,
+  publicEventUrl,
+  resolveEventOwnerSlug,
+  resolveRenamedEventPath,
+} from '@/lib/public-event-url';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
@@ -215,16 +224,21 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
+  // PR6 cutover: canonical + OG URL point at the nested /u/{owner}/{slug} once
+  // the flag is ON (self-noops to the bare slug while OFF). Keeps the crawler's
+  // canonical in lockstep with the redirect the page body issues for bare hits.
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const canonicalUrl = publicEventUrl(siteUrl, event.slug, ownerSlug);
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
   return {
     title: event.display_name,
     description,
-    alternates: { canonical: `${siteUrl}/${event.slug}` },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'website',
-      url: `${siteUrl}/${event.slug}`,
+      url: canonicalUrl,
       title: `${event.display_name} · Setnayan`,
       description,
       siteName: 'Setnayan',
@@ -365,15 +379,62 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const event = await fetchEventBySlug(slug);
 
-  // Bare-root dispatch (PR5): not a renderable event → try a vendor at this
-  // slug. renderVendorBySlug notFound()s itself if there's no vendor either.
-  if (!event) return renderVendorBySlug({ slug, searchParams });
+  // Bare-root dispatch (PR5): not a renderable event → it might be a renamed
+  // event's prior slug, else a vendor at this slug.
+  if (!event) {
+    // Renamed-event redirect (wires the long-dormant slug_change_log read): a
+    // bare slug mapping to no current event may be a PRIOR slug of one — send it
+    // to that event's CURRENT canonical /u/ URL. Flag-gated (resolveRenamedEventPath
+    // self-noops when OFF), so this — like the rest of the cutover — is fully
+    // inert until the flip; the old-QR-after-rename 404 gets fixed as part of it.
+    const renamedTo = await resolveRenamedEventPath(admin, slug);
+    if (renamedTo) redirect(renamedTo);
+    // Not a renamed event → try a vendor at this slug. renderVendorBySlug
+    // notFound()s itself if there's no vendor either.
+    return renderVendorBySlug({ slug, searchParams });
+  }
   // Iteration 0053: the whole public couple website is the 'website' profile
   // surface. Non-wedding (generic) profiles don't enable it → fall through to
   // the vendor check (config-driven; was a notFound() before PR5). The resolved
   // profile is reused for the phase engine below.
   const eventTypeProfile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(eventTypeProfile, 'website')) return renderVendorBySlug({ slug, searchParams });
+
+  // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
+  // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
+  // hit on the legacy bare root (printed QRs, old shares) 307-redirects to the
+  // nested URL. 307 (not 308) keeps the cutover REVERSIBLE — flipping the flag
+  // back never leaves a permanently-cached redirect. Suppressed when:
+  //   (a) the request already arrived via the /u/ middleware rewrite (the
+  //       x-sn-u-nesting header) — that IS the nested render; redirecting it
+  //       would loop /u/a/b → /b → /u/a/b forever;
+  //   (b) the Host is a custom BYO domain — there the bare URL is canonical
+  //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
+  if (isUserNestingCutoverEnabled()) {
+    const reqHeaders = await headers();
+    const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
+    const host = (reqHeaders.get('host') ?? '').toLowerCase();
+    const firstPartyHost =
+      !host || isSetnayanHost(host) || isLocalOrPreviewHost(host);
+    if (!viaNesting && firstPartyHost) {
+      const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+      if (ownerSlug && event.slug) {
+        // Carry the incoming query through the canonicalization redirect — the
+        // bare `/{slug}` URL is where server actions + the redeem route land
+        // their one-shot params (?save=, ?invite_error=, ?phase=, ?film=) and
+        // where inbound UTM/ref attribution arrives; dropping it would silently
+        // kill save-confirmation flashes, invalid-invite messaging, host phase
+        // previews, and analytics. (The `?invite=` redeem hand-off already fired
+        // above, so it's never in this query.)
+        const qs = new URLSearchParams();
+        for (const [k, v] of Object.entries(search)) {
+          if (typeof v === 'string') qs.set(k, v);
+        }
+        const q = qs.toString();
+        redirect(`${publicEventPath(event.slug, ownerSlug)}${q ? `?${q}` : ''}`);
+      }
+    }
+  }
 
   const monogram = resolveMonogram(event);
 
@@ -964,13 +1025,20 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Encode the guest's QR + shareable link at the canonical form — nested /u/
+  // under the cutover flag, bare root otherwise (owner resolve self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+  // Encode the DB-canonical slug (event.slug), not the raw URL param (matched
+  // case-insensitively), so the QR + link match the canonical everywhere else.
+  const canonicalSlug = event.slug ?? slug;
   const qrSvg = await renderInvitationQrSvg({
     appUrl,
-    slug,
+    slug: canonicalSlug,
     qrToken: guest.qr_token,
     monogram,
+    ownerSlug,
   });
-  const invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
+  const invitationUrl = buildInvitationUrl({ appUrl, slug: canonicalSlug, qrToken: guest.qr_token, ownerSlug });
   // scheduleBlocks already fetched above (hoisted 2026-05-23 so the
   // anonymous PublicLanding path could also render the Schedule
   // widget). Pass the same array through unchanged.

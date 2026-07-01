@@ -24,6 +24,8 @@
 
 import { ALL_REAL_WEDDINGS, REAL_WEDDINGS_LASTMOD } from '@/lib/real-weddings';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 
 export const revalidate = 3600;
 
@@ -54,10 +56,16 @@ export async function GET(): Promise<Response> {
   ];
 
   if (realShowcases.length > 0) {
-    // Real consent-gated editorials → the couple's canonical /[slug] page.
+    // Real consent-gated editorials → the couple's CANONICAL event URL. Nested
+    // /u/{owner}/{slug} under the URL-nesting cutover (so the sitemap lists the
+    // final URL, not a redirecting bare one), bare root otherwise —
+    // resolveEventOwnerSlug self-noops to null while the flag is OFF, so
+    // publicEventUrl degrades to today's `${baseUrl}/${slug}` with zero queries.
+    const admin = createAdminClient();
     for (const s of realShowcases) {
+      const ownerSlug = await resolveEventOwnerSlug(admin, s.eventId);
       rows.push({
-        loc: `${baseUrl}${s.href}`,
+        loc: publicEventUrl(baseUrl, s.slug, ownerSlug),
         lastmod: clampLastmod(s.eventDate ?? REAL_WEDDINGS_LASTMOD, today),
         changefreq: 'monthly',
         priority: '0.6',

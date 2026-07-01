@@ -1,5 +1,6 @@
 import { Check, ExternalLink, PencilLine, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
@@ -9,6 +10,7 @@ import {
   type MonogramMotionKey,
 } from '@/lib/monogram-motion';
 import { buildEventLandingUrl } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -95,8 +97,11 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
   const publicLandingUrl = event.slug
-    ? buildEventLandingUrl({ appUrl, slug: event.slug })
+    ? buildEventLandingUrl({ appUrl, slug: event.slug, ownerSlug })
     : null;
 
   // Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no

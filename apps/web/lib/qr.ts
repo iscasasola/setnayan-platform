@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { compositeMonogram, type MonogramConfig } from './monogram';
+import { publicEventPath } from './public-event-url';
 
 const QR_OPTIONS = {
   errorCorrectionLevel: 'H' as const, // ~30% redundancy per spec § Locked structural rules
@@ -34,8 +35,11 @@ export async function renderInvitationQrSvg(params: {
   slug: string;
   qrToken: string;
   monogram?: MonogramConfig;
+  /** Event owner's account slug — when the /u/ nesting cutover is ON, encodes
+   *  `/u/{ownerSlug}/{slug}`; absent / cutover-OFF encodes the bare `/{slug}`. */
+  ownerSlug?: string | null;
 }): Promise<string> {
-  const url = `${params.appUrl}/${params.slug}?invite=${params.qrToken}`;
+  const url = `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
   const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width: 256 });
   if (params.monogram) {
     return compositeMonogram(svg, params.monogram);
@@ -47,8 +51,9 @@ export function buildInvitationUrl(params: {
   appUrl: string;
   slug: string;
   qrToken: string;
+  ownerSlug?: string | null;
 }): string {
-  return `${params.appUrl}/${params.slug}?invite=${params.qrToken}`;
+  return `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
 }
 
 /**
@@ -65,8 +70,9 @@ export async function renderEventLandingQrSvg(params: {
   appUrl: string;
   slug: string;
   monogram?: MonogramConfig;
+  ownerSlug?: string | null;
 }): Promise<string> {
-  const url = `${params.appUrl}/${params.slug}`;
+  const url = `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}`;
   const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width: 256 });
   if (params.monogram) {
     return compositeMonogram(svg, params.monogram);
@@ -74,8 +80,12 @@ export async function renderEventLandingQrSvg(params: {
   return svg;
 }
 
-export function buildEventLandingUrl(params: { appUrl: string; slug: string }): string {
-  return `${params.appUrl}/${params.slug}`;
+export function buildEventLandingUrl(params: {
+  appUrl: string;
+  slug: string;
+  ownerSlug?: string | null;
+}): string {
+  return `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -160,8 +170,9 @@ export async function renderBrandedInvitationQrSvg(params: {
   qrToken: string;
   monogram?: MonogramConfig;
   colors: BrandedQrColors;
+  ownerSlug?: string | null;
 }): Promise<string> {
-  const url = `${params.appUrl}/${params.slug}?invite=${params.qrToken}`;
+  const url = `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
   const svg = await QRCode.toString(url, {
     ...QR_OPTIONS,
     color: { dark: params.colors.dark, light: params.colors.light },

@@ -175,7 +175,15 @@ export async function middleware(request: NextRequest) {
     if (segments.length >= 3) {
       const rewrite = request.nextUrl.clone();
       rewrite.pathname = `/${segments.slice(2).join('/')}`;
-      return NextResponse.rewrite(rewrite);
+      // PR6 loop-break: mark that this render arrived via the nested /u/ URL so
+      // the event dispatcher (app/[slug]/page.tsx) does NOT re-redirect it back
+      // to /u/ under the cutover flag — that would loop /u/a/b → /b → /u/a/b.
+      // This is a REQUEST header (forwarded to the render), invisible to the
+      // browser; a spoofed value only opts the request out of the canonical
+      // redirect (renders at bare root — the safe default), so it's harmless.
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-sn-u-nesting', '1');
+      return NextResponse.rewrite(rewrite, { request: { headers: requestHeaders } });
     }
   }
 

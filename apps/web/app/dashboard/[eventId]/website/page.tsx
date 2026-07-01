@@ -11,8 +11,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { buildEventLandingUrl } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { RevealList } from '@/app/_components/reveal-list';
 
@@ -88,8 +90,11 @@ export default async function WebsiteHubPage({
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
   const publicLandingUrl = event.slug
-    ? buildEventLandingUrl({ appUrl, slug: event.slug })
+    ? buildEventLandingUrl({ appUrl, slug: event.slug, ownerSlug })
     : null;
   const slugDisplay = publicLandingUrl
     ? publicLandingUrl.replace(/^https?:\/\//, '')

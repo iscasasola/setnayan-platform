@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { Filter } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { canSeePerformanceTrends } from '@/lib/vendor-tier-caps';
+import { canSeePerformanceAdvanced } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VendorTierGate } from '../_components/tier-gate';
 import {
@@ -55,12 +55,12 @@ export default async function VendorFunnelPage({ searchParams }: Props) {
   if (!profile) redirect('/vendor-dashboard');
 
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
-  if (isVendorFeatureGateEnabled() && !canSeePerformanceTrends(tier)) {
+  if (isVendorFeatureGateEnabled() && !canSeePerformanceAdvanced(tier)) {
     return (
       <VendorTierGate
         feature="Quote-to-Booking Funnel"
-        requiredTier="solo"
-        blurb="Your views → inquiries → quotes → booked trend over time, sliced by where couples found you. Your performance analytics start with Solo."
+        requiredTier="pro"
+        blurb="Your views → inquiries → quotes → booked trend over time, sliced by where couples found you. Full performance analytics come with Pro."
         icon={<Filter aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

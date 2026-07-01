@@ -63,8 +63,8 @@ export default async function VendorDemandPage() {
     return (
       <VendorTierGate
         feature="Demand Radar"
-        requiredTier="pro"
-        blurb="A de-identified read of where demand is building in your market — by month and by the looks couples choose. Market intelligence is a Pro feature."
+        requiredTier="enterprise"
+        blurb="A de-identified read of where demand is building in your market — by month and by the looks couples choose. Cross-business market intelligence is an Enterprise feature."
         icon={<Radar aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

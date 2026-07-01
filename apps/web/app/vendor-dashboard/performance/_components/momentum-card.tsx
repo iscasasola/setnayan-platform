@@ -1,21 +1,27 @@
 import Link from 'next/link';
 import { Briefcase, Wallet } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
-import type { BookingMonthPoint } from '@/lib/vendor-booking-series';
-import { BookingsBars, EarningsSparkline } from './momentum-chart';
+import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
+import { BookingsBars, EarningsSparkline, type ChartPoint } from './momentum-chart';
 
 /**
- * "Momentum" — a Monthly / Annual toggle over the vendor's booked business.
- * Shows Bookings (count) + Earnings (confirmed booked revenue, PHP) for the
- * selected window, each paired with a trailing-12-month chart (bars for
- * bookings, an area sparkline for revenue). Windows come from
- * vendor_source_attribution(); the charts come from
- * vendor_booking_monthly_series(). The toggle is a URL param
- * (?momentum=month|year) so the surface stays a server component (no client JS).
+ * "Momentum" — a windowed view over the vendor's booked business, tiered:
+ *
+ *   • BASIC (Solo, variant='basic'): Bookings count only, Monthly / Annual
+ *     toggle. No earnings panel, no Daily view.
+ *   • FULL (Pro+, variant='full'): Bookings + Earnings (confirmed booked
+ *     revenue, PHP), and a Daily / Monthly / Annual toggle (owner 2026-07-01
+ *     "also plot daily"). Each stat is paired with a trailing chart (bars for
+ *     bookings, an area sparkline for revenue).
+ *
+ * Windows come from vendor_source_attribution(); the monthly charts come from
+ * vendor_booking_monthly_series() and the daily charts from
+ * vendor_booking_daily_series(). The toggle is a URL param
+ * (?momentum=day|month|year) so the surface stays a server component (no client
+ * JS).
  *
  * Earnings are the CONFIRMED booked revenue only (total_cost_php on booked
- * event_vendors) — partial by design, since vendors settle off-platform. The
- * caller passes a note when priced coverage is thin.
+ * event_vendors) — partial by design, since vendors settle off-platform.
  */
 
 export type MomentumWindow = {
@@ -24,20 +30,69 @@ export type MomentumWindow = {
   pricedCount: number;
 };
 
+export type MomentumMode = 'day' | 'month' | 'year';
+
+function toChartPoints(
+  mode: MomentumMode,
+  monthly: BookingMonthPoint[],
+  daily: BookingDayPoint[],
+): ChartPoint[] {
+  if (mode === 'day') {
+    return daily.map((p) => ({
+      key: p.day,
+      label: p.label,
+      bookings: p.bookings,
+      revenuePhp: p.revenuePhp,
+    }));
+  }
+  return monthly.map((p) => ({
+    key: p.month,
+    label: p.label,
+    bookings: p.bookings,
+    revenuePhp: p.revenuePhp,
+  }));
+}
+
 export function MomentumCard({
   mode,
+  variant,
+  day,
   month,
   year,
-  series = [],
+  monthlySeries = [],
+  dailySeries = [],
 }: {
-  mode: 'month' | 'year';
+  mode: MomentumMode;
+  /** 'basic' (Solo) hides earnings + the Daily view; 'full' (Pro+) shows all. */
+  variant: 'basic' | 'full';
+  /** Trailing-30-day window (only meaningful in 'full' variant). */
+  day?: MomentumWindow;
   month: MomentumWindow;
   year: MomentumWindow;
-  /** Trailing monthly series driving the two mini-charts. */
-  series?: BookingMonthPoint[];
+  monthlySeries?: BookingMonthPoint[];
+  dailySeries?: BookingDayPoint[];
 }) {
-  const active = mode === 'month' ? month : year;
-  const earningsLabel = mode === 'month' ? 'Earnings this month' : 'Earnings this year';
+  const isFull = variant === 'full';
+  // Basic never lands on 'day' (the toggle doesn't offer it); guard anyway.
+  const effectiveMode: MomentumMode = !isFull && mode === 'day' ? 'month' : mode;
+
+  const active =
+    effectiveMode === 'day' ? (day ?? month) : effectiveMode === 'month' ? month : year;
+  const chartUnit = effectiveMode === 'day' ? 'day' : 'month';
+  const chartSeries = toChartPoints(effectiveMode, monthlySeries, dailySeries);
+
+  const bookedCaption =
+    effectiveMode === 'day'
+      ? 'Booked in the last 30 days'
+      : effectiveMode === 'month'
+        ? 'Booked in the last 28 days'
+        : 'Booked in the last 12 months';
+  const earningsLabel =
+    effectiveMode === 'day'
+      ? 'Earnings · last 30 days'
+      : effectiveMode === 'month'
+        ? 'Earnings this month'
+        : 'Earnings this year';
 
   return (
     <section className="space-y-4">
@@ -45,19 +100,23 @@ export function MomentumCard({
         <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
           Momentum
         </h2>
-        {/* Monthly / Annual toggle — URL-param, server-rendered. */}
+        {/* Daily / Monthly / Annual toggle — URL-param, server-rendered. Daily
+            is Pro+ only, so basic omits it. */}
         <div
           className="inline-flex rounded-full border p-0.5"
           style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
           role="tablist"
           aria-label="Momentum window"
         >
-          <ToggleLink label="Monthly" value="month" active={mode === 'month'} />
-          <ToggleLink label="Annual" value="year" active={mode === 'year'} />
+          {isFull && (
+            <ToggleLink label="Daily" value="day" active={effectiveMode === 'day'} />
+          )}
+          <ToggleLink label="Monthly" value="month" active={effectiveMode === 'month'} />
+          <ToggleLink label="Annual" value="year" active={effectiveMode === 'year'} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-3 ${isFull ? 'sm:grid-cols-2' : ''}`}>
         <div
           className="rounded-lg border bg-white p-5"
           style={{ borderColor: 'var(--m-line)' }}
@@ -72,31 +131,34 @@ export function MomentumCard({
             {active.bookings}
           </p>
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Booked {mode === 'month' ? 'in the last 28 days' : 'in the last 12 months'}
+            {bookedCaption}
           </p>
-          <BookingsBars series={series} />
+          <BookingsBars series={chartSeries} unit={chartUnit} />
         </div>
 
-        <div
-          className="rounded-lg border bg-white p-5"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
-            <Wallet className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
-              {earningsLabel}
-            </span>
+        {/* Earnings panel — FULL (Pro+) only. Basic/Solo shows count alone. */}
+        {isFull && (
+          <div
+            className="rounded-lg border bg-white p-5"
+            style={{ borderColor: 'var(--m-line)' }}
+          >
+            <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
+              <Wallet className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
+                {earningsLabel}
+              </span>
+            </div>
+            <p className="text-3xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+              {active.pricedCount > 0 ? formatPhp(active.earningsPhp) : '—'}
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              {active.pricedCount > 0
+                ? `Confirmed on ${active.pricedCount} of ${active.bookings} booking${active.bookings === 1 ? '' : 's'}`
+                : 'No confirmed prices in this window yet'}
+            </p>
+            <EarningsSparkline series={chartSeries} unit={chartUnit} />
           </div>
-          <p className="text-3xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
-            {active.pricedCount > 0 ? formatPhp(active.earningsPhp) : '—'}
-          </p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            {active.pricedCount > 0
-              ? `Confirmed on ${active.pricedCount} of ${active.bookings} booking${active.bookings === 1 ? '' : 's'}`
-              : 'No confirmed prices in this window yet'}
-          </p>
-          <EarningsSparkline series={series} />
-        </div>
+        )}
       </div>
     </section>
   );
@@ -108,7 +170,7 @@ function ToggleLink({
   active,
 }: {
   label: string;
-  value: 'month' | 'year';
+  value: MomentumMode;
   active: boolean;
 }) {
   return (

@@ -383,7 +383,7 @@ function NudgeCard({
 }
 
 // ---------------------------------------------------------------------------
-// Category Benchmarks vs Peers (Pro+ · lib/funnel-benchmark)
+// Category Benchmarks vs Peers (Enterprise · lib/funnel-benchmark)
 // ---------------------------------------------------------------------------
 
 /** Format one metric's own value for display (pct vs minutes). */
@@ -492,7 +492,7 @@ function BenchmarkMetricRow({ metric }: { metric: MetricBenchmark }) {
 /**
  * Category Benchmarks card — the vendor's funnel percentiles vs anonymized peers
  * in their exact (category, region, pax) bucket. Renders four states:
- *   • locked   — the feature gate is ON and this tier is below Pro (upsell hint)
+ *   • locked   — the feature gate is ON and this tier is below Enterprise (upsell hint)
  *   • no_data  — no peer band cleared the min-N floor (founder-only today)
  *   • ranked   — the three metric rows with percentile markers
  */
@@ -513,8 +513,8 @@ function CategoryBenchmarkCard({
           </p>
           <p className="mt-0.5 text-xs text-ink/50">
             See how your reply rate, reply time, and booking conversion rank
-            against anonymized peers in your category. Available on Pro and
-            Enterprise.
+            against anonymized peers in your category. Cross-business market
+            intelligence is available on Enterprise.
           </p>
         </div>
       </div>
@@ -656,7 +656,7 @@ export async function VendorStatsPanel({
 
   // Category Benchmarks vs Peers — de-identified funnel percentiles for the
   // vendor's exact (category, region, pax) bucket (lib/funnel-benchmark). The
-  // CARD is Pro+ (canSeeMarketIntel), enforced flag-dark via the same
+  // CARD is Enterprise (canSeeMarketIntel), enforced flag-dark via the same
   // isVendorFeatureGateEnabled() gate as Demand Radar so today's all-`free`
   // founder/demo vendors aren't locked out until paid vendors exist. Below the
   // gate: no fetch, render the upsell hint. The RPC additionally enforces
@@ -791,7 +791,7 @@ export async function VendorStatsPanel({
         </div>
       ) : null}
 
-      {/* Category Benchmarks vs Peers — real percentile reader (Pro+). */}
+      {/* Category Benchmarks vs Peers — real percentile reader (Enterprise). */}
       <CategoryBenchmarkCard
         benchmark={benchmark ?? EMPTY_FUNNEL_BENCHMARK}
         locked={benchmarkLocked}

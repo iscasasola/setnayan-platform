@@ -499,9 +499,10 @@ export async function renderVendorBySlug({
   searchParams,
 }: {
   slug: string;
-  // Permissive so the bare-root dispatcher (whose searchParams shape differs)
-  // can pass its own through. Only `reviewsPage` is read below.
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  // Permissive index (string values) so the bare-root dispatcher — whose
+  // searchParams shape differs — can pass its own through. The body reads only
+  // string-valued keys (reviewsPage, wl, utm*, src).
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const search = await searchParams;
   const vendor = await fetchVendor(slug);

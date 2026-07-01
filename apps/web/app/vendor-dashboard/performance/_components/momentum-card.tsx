@@ -1,31 +1,25 @@
-'use client';
-
-import { useState } from 'react';
 import { Briefcase, Wallet } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
 import { BookingsBars, EarningsSparkline, type ChartPoint } from './momentum-chart';
-import { buildPerformanceHref } from './perf-links';
 
 /**
  * "Momentum" — a windowed view over the vendor's booked business, tiered:
  *
- *   • BASIC (Solo, variant='basic'): Bookings count only, Monthly / Annual
- *     toggle. No earnings panel, no Daily view.
+ *   • BASIC (Solo, variant='basic'): Bookings count only. No earnings panel,
+ *     no Daily view.
  *   • FULL (Pro+, variant='full'): Bookings + Earnings (confirmed booked
- *     revenue, PHP), and a Daily / Monthly / Annual toggle (owner 2026-07-01
- *     "also plot daily"). Each stat is paired with a trailing chart (bars for
+ *     revenue, PHP). Each stat is paired with a trailing chart (bars for
  *     bookings, an area sparkline for revenue).
  *
  * Windows come from vendor_source_attribution(); the monthly charts come from
  * vendor_booking_monthly_series() and the daily charts from
  * vendor_booking_daily_series(). ALL THREE windows (day/month/year) + both
- * series are fetched server-side ONCE and passed in as props, so the
- * Daily/Monthly/Annual toggle switches CLIENT-SIDE with zero re-fetch — it never
- * re-runs the (heavy) performance page. `mode` seeds the initial client state
- * from the server (SSR / deep-link); toggling keeps ?momentum in the URL in sync
- * via history.replaceState (no navigation) so share/deep-links still work and a
- * later service-scope change preserves the chosen window.
+ * series are fetched server-side ONCE and passed in as props. `mode` is fully
+ * CONTROLLED by the parent (PerformanceControls) — the Daily/Monthly/Annual
+ * toggle now lives in the shared filter row alongside the service-scope
+ * selector, not inside this card, so this component just renders the active
+ * window with zero client state of its own.
  *
  * Earnings are the CONFIRMED booked revenue only (total_cost_php on booked
  * event_vendors) — partial by design, since vendors settle off-platform.
@@ -61,17 +55,17 @@ function toChartPoints(
 }
 
 export function MomentumCard({
-  mode: initialMode,
+  mode,
   variant,
   day,
   month,
   year,
   monthlySeries = [],
   dailySeries = [],
-  serviceId = null,
   scopeLabel = null,
   nullServiceExcluded = null,
 }: {
+  /** Active window — controlled by the parent's shared filter row. */
   mode: MomentumMode;
   /** 'basic' (Solo) hides earnings + the Daily view; 'full' (Pro+) shows all. */
   variant: 'basic' | 'full';
@@ -81,9 +75,6 @@ export function MomentumCard({
   year: MomentumWindow;
   monthlySeries?: BookingMonthPoint[];
   dailySeries?: BookingDayPoint[];
-  /** Active service scope — threaded into the window-toggle links so switching
-   *  Daily/Monthly/Annual preserves ?service. null = All services. */
-  serviceId?: string | null;
   /** Selected service's display label, or null when All services. Drives the
    *  scoped empty-state copy ("No bookings for {label} yet"). */
   scopeLabel?: string | null;
@@ -92,21 +83,7 @@ export function MomentumCard({
    *  footnote). */
   nullServiceExcluded?: number | null;
 }) {
-  const [mode, setMode] = useState<MomentumMode>(initialMode);
   const isFull = variant === 'full';
-
-  const handleSelect = (value: MomentumMode) => {
-    setMode(value);
-    // Keep ?momentum in the URL in sync WITHOUT a navigation/re-fetch, so a
-    // share/refresh reflects the view and a later service-scope change keeps it.
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(
-        null,
-        '',
-        buildPerformanceHref({ service: serviceId, momentum: value }),
-      );
-    }
-  };
 
   // Basic never lands on 'day' (the toggle doesn't offer it); guard anyway.
   const effectiveMode: MomentumMode = !isFull && mode === 'day' ? 'month' : mode;
@@ -131,40 +108,9 @@ export function MomentumCard({
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Momentum
-        </h2>
-        {/* Daily / Monthly / Annual toggle — URL-param, server-rendered. Daily
-            is Pro+ only, so basic omits it. */}
-        <div
-          className="inline-flex rounded-full border p-0.5"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-          role="tablist"
-          aria-label="Momentum window"
-        >
-          {isFull && (
-            <ToggleButton
-              label="Daily"
-              value="day"
-              active={effectiveMode === 'day'}
-              onSelect={handleSelect}
-            />
-          )}
-          <ToggleButton
-            label="Monthly"
-            value="month"
-            active={effectiveMode === 'month'}
-            onSelect={handleSelect}
-          />
-          <ToggleButton
-            label="Annual"
-            value="year"
-            active={effectiveMode === 'year'}
-            onSelect={handleSelect}
-          />
-        </div>
-      </div>
+      <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+        Momentum
+      </h2>
 
       <div className={`grid grid-cols-1 gap-3 ${isFull ? 'sm:grid-cols-2' : ''}`}>
         <div
@@ -222,34 +168,5 @@ export function MomentumCard({
         </p>
       ) : null}
     </section>
-  );
-}
-
-function ToggleButton({
-  label,
-  value,
-  active,
-  onSelect,
-}: {
-  label: string;
-  value: MomentumMode;
-  active: boolean;
-  onSelect: (value: MomentumMode) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(value)}
-      role="tab"
-      aria-selected={active}
-      className="rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors"
-      style={
-        active
-          ? { background: 'var(--m-ink)', color: 'var(--m-paper)' }
-          : { color: 'var(--m-slate)' }
-      }
-    >
-      {label}
-    </button>
   );
 }

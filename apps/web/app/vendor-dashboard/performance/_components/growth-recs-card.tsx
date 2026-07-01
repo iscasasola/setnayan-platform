@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import {
-  Rocket,
   Zap,
   ImagePlus,
   Star,
@@ -10,9 +9,10 @@ import {
 import type { GrowthRec, GrowthRecKey, GrowthImpact } from '@/lib/vendor-growth-recs';
 
 /**
- * "Grow your business · highest impact first" — the growth-recommendation block
- * from the My Performance prototype. Each card is derived from the vendor's own
- * gaps (lib/vendor-growth-recs.ts) and carries an impact chip + a routed CTA.
+ * Growth-recommendation block from the My Performance prototype. Each card is
+ * derived from the vendor's own gaps (lib/vendor-growth-recs.ts) and carries an
+ * impact chip + a routed CTA. Revealed by expanding the Business Health card
+ * above it — no header of its own.
  */
 
 const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
@@ -80,29 +80,10 @@ function GrowthCard({ rec }: { rec: GrowthRec }) {
 
 export function GrowthRecsCard({ recs }: { recs: GrowthRec[] }) {
   return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Rocket
-          aria-hidden
-          className="h-5 w-5"
-          strokeWidth={1.75}
-          style={{ color: 'var(--m-orange-2)' }}
-        />
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Grow your business
-        </h2>
-        <span
-          className="font-mono text-[11px] uppercase tracking-[0.15em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          Highest impact first
-        </span>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {recs.map((rec) => (
-          <GrowthCard key={rec.key} rec={rec} />
-        ))}
-      </div>
+    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {recs.map((rec) => (
+        <GrowthCard key={rec.key} rec={rec} />
+      ))}
     </section>
   );
 }

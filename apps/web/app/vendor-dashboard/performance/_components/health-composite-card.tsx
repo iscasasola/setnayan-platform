@@ -1,4 +1,7 @@
-import { ArrowUpRight } from 'lucide-react';
+'use client';
+
+import { useState, type ReactNode } from 'react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import type {
   VendorHealthComposite,
   HealthPillar,
@@ -14,6 +17,9 @@ import { pillarBand } from '@/lib/vendor-health-composite';
  *
  * Pillar bar color follows the prototype thresholds: red < 70, amber 70–85,
  * green > 85. Pillars without data yet render as an empty track + "—".
+ *
+ * Tapping the card toggles `children` (the growth recs) open/closed below it —
+ * collapsed by default so the cockpit opens on the health snapshot alone.
  */
 
 /** Gold ring — champagne-gold sweep on a faint track, over the dark card. */
@@ -109,66 +115,90 @@ function PillarBar({ pillar }: { pillar: HealthPillar }) {
 export function HealthCompositeCard({
   health,
   monthDelta,
+  children,
 }: {
   health: VendorHealthComposite;
   /** Change in composite vs last month, or null when there's no prior snapshot. */
   monthDelta: number | null;
+  /** Growth recs — hidden until the card is tapped. */
+  children?: ReactNode;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <section
-      className="rounded-2xl p-6 sm:p-8"
+      className="rounded-2xl"
       style={{ background: 'var(--m-ink)', boxShadow: 'var(--m-shadow-lg)' }}
     >
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-        <CompositeRing composite={health.composite} label={health.bandLabel} />
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="w-full rounded-2xl p-6 text-left sm:p-8"
+      >
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+          <CompositeRing composite={health.composite} label={health.bandLabel} />
 
-        <div className="min-w-0 flex-1">
-          <p
-            className="font-mono text-[11px] uppercase tracking-[0.2em]"
-            style={{ color: 'var(--m-orange-3)' }}
-          >
-            Business health
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-xl font-semibold text-white sm:text-2xl">
-              How your shop is doing
-            </h2>
-            {monthDelta !== null && monthDelta !== 0 ? (
-              <span
-                className="inline-flex items-center gap-1 text-sm font-medium"
-                style={{
-                  color:
-                    monthDelta > 0 ? 'var(--m-sage)' : 'var(--m-blush)',
-                }}
-              >
-                <ArrowUpRight
-                  aria-hidden
-                  className={`h-4 w-4 ${monthDelta > 0 ? '' : 'rotate-90'}`}
-                  strokeWidth={2}
-                />
-                {monthDelta > 0 ? '+' : ''}
-                {monthDelta} this month
-              </span>
-            ) : null}
+          <div className="min-w-0 flex-1">
+            <p
+              className="font-mono text-[11px] uppercase tracking-[0.2em]"
+              style={{ color: 'var(--m-orange-3)' }}
+            >
+              Business health
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-xl font-semibold text-white sm:text-2xl">
+                How your shop is doing
+              </h2>
+              {monthDelta !== null && monthDelta !== 0 ? (
+                <span
+                  className="inline-flex items-center gap-1 text-sm font-medium"
+                  style={{
+                    color:
+                      monthDelta > 0 ? 'var(--m-sage)' : 'var(--m-blush)',
+                  }}
+                >
+                  <ArrowUpRight
+                    aria-hidden
+                    className={`h-4 w-4 ${monthDelta > 0 ? '' : 'rotate-90'}`}
+                    strokeWidth={2}
+                  />
+                  {monthDelta > 0 ? '+' : ''}
+                  {monthDelta} this month
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-2 max-w-prose text-sm leading-relaxed text-white/65">
+              {health.coaching}
+            </p>
           </div>
-          <p className="mt-2 max-w-prose text-sm leading-relaxed text-white/65">
-            {health.coaching}
-          </p>
+
+          {children ? (
+            <ChevronDown
+              aria-hidden
+              className={`h-5 w-5 shrink-0 self-start text-white/40 transition-transform sm:self-center ${expanded ? 'rotate-180' : ''}`}
+              strokeWidth={1.75}
+            />
+          ) : null}
         </div>
-      </div>
 
-      {/* Five pillar bars. */}
-      <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-5">
-        {health.pillars.map((p) => (
-          <PillarBar key={p.key} pillar={p} />
-        ))}
-      </div>
+        {/* Five pillar bars. */}
+        <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-5">
+          {health.pillars.map((p) => (
+            <PillarBar key={p.key} pillar={p} />
+          ))}
+        </div>
 
-      <p className="mt-6 text-[11px] leading-snug text-white/40">
-        Built only from your own metrics — response rate, reviews, conversion,
-        and delivery. Pillars without data yet are left out of the average, not
-        counted against you.
-      </p>
+        <p className="mt-6 text-[11px] leading-snug text-white/40">
+          Built only from your own metrics — response rate, reviews, conversion,
+          and delivery. Pillars without data yet are left out of the average, not
+          counted against you.
+        </p>
+      </button>
+
+      {children && expanded ? (
+        <div className="px-6 pb-6 sm:px-8 sm:pb-8">{children}</div>
+      ) : null}
     </section>
   );
 }

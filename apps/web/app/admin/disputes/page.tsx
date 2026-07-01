@@ -64,6 +64,8 @@ type DisputeRow = {
   resolved_at: string | null;
   resolution_notes: string | null;
   counts_toward_demotion: boolean;
+  vendor_contest: string | null;
+  vendor_contested_at: string | null;
   created_at: string;
 };
 
@@ -145,7 +147,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   let listQuery = admin
     .from('vendor_disputes')
     .select(
-      'dispute_id,public_id,vendor_profile_id,payout_id,order_id,opened_by_user_id,category,description,status,resolved_at,resolution_notes,counts_toward_demotion,created_at',
+      'dispute_id,public_id,vendor_profile_id,payout_id,order_id,opened_by_user_id,category,description,status,resolved_at,resolution_notes,counts_toward_demotion,vendor_contest,vendor_contested_at,created_at',
     )
     .order('created_at', { ascending: false })
     .limit(200);
@@ -500,6 +502,17 @@ function DisputesTable({
                 </td>
                 <td className="hidden px-3 py-3 text-ink/80 lg:table-cell">
                   <p title={r.description}>{descPreview}</p>
+                  {r.vendor_contest ? (
+                    <details className="mt-2">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
+                        <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Vendor&apos;s response
+                      </summary>
+                      <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+                        {r.vendor_contest}
+                      </p>
+                    </details>
+                  ) : null}
                   {acks.length > 0 ? (
                     <details className="mt-2">
                       <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">

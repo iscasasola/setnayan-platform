@@ -91,6 +91,17 @@ export async function resolveDispute(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  // Review is the demotion GATE (dispute-mediation, 2027-04-13). A dispute
+  // demotes a vendor's rating ONLY when the neutral team resolves it against
+  // the vendor. So the resolution sets counts_toward_demotion explicitly:
+  //   • resolved_for_couple → TRUE  (the record was reviewed AND went against
+  //                                   the vendor — it now feeds the 3-in-30
+  //                                   demote-to-coming_soon counter)
+  //   • resolved_for_vendor / withdrawn → FALSE (never counts)
+  // Combined with the migration's default FALSE + the tightened
+  // count_vendor_disputes_30d (resolved_for_couple only), an unreviewed 'open'
+  // dispute can never silently demote.
+  const countsTowardDemotion = resolution === 'resolved_for_couple';
   // State-machine guard (cross-account QA, 2026-06-19): only flip an OPEN
   // dispute. If the row was already resolved/withdrawn (race with another
   // admin, double-click after a 503, stale page render), the `status='open'`
@@ -103,6 +114,7 @@ export async function resolveDispute(formData: FormData) {
     .update({
       status: resolution,
       resolution_notes: notes,
+      counts_toward_demotion: countsTowardDemotion,
       resolved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -136,8 +148,8 @@ export async function resolveDispute(formData: FormData) {
       action: 'dispute_resolved',
       target_table: 'vendor_disputes',
       target_id: updated.dispute_id as string,
-      before_json: { status: 'open' },
-      after_json: { status: resolution },
+      before_json: { status: 'open', counts_toward_demotion: false },
+      after_json: { status: resolution, counts_toward_demotion: countsTowardDemotion },
       reason: notes,
       actor_user_id: adminUserId,
     });

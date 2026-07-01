@@ -190,6 +190,11 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
+      // Track record across life events — the per-event-type reputation breakdown
+      // (Weddings 12 · ★4.8 / Debuts 3 · ★4.6). A reputation surface → lives under
+      // My Shop. Reachable via /more + mobile landing (both derive from this
+      // array); the 6 flat desktop destinations stay unchanged.
+      { key: 'track-record', label: 'Track record', href: '/vendor-dashboard/track-record', icon: BarChart2, matchPrefix: '/vendor-dashboard/track-record' },
       // Disputes — "stand up for yourself" mediation. A neutral team reviews any
       // dispute filed against your shop before it can touch your rating; you
       // contest + track outcomes here. Reputation surface → lives under My Shop.

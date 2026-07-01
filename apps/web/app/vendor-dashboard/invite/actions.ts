@@ -1,0 +1,91 @@
+'use server';
+
+/**
+ * Locked QR issuance. The vendor fills the deal (event-type + service + total +
+ * downpayment + schedule + proof) in the generator and this inserts a single-use
+ * `vendor_locked_qr_tokens` row under their own RLS session (the vendor-org
+ * INSERT policy gates vendor_profile_id). The token is then rendered as a QR by
+ * the generator page (?mode=locked&issued=<token>). Consumption happens later,
+ * atomically, via the vendor_claim_locked_qr() RPC when the couple scans.
+ */
+
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { vendorCoverageCategories } from '@/lib/vendor-couple-invite';
+import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
+
+function toAmount(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? '').trim();
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function fail(reason: string): never {
+  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}`);
+}
+
+export async function issueLockedQr(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+  const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+
+  // Service must be a real VendorCategory the vendor actually covers.
+  const { data: profRow } = await supabase
+    .from('vendor_profiles')
+    .select('services')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const coverage = vendorCoverageCategories(((profRow?.services ?? []) as string[]) ?? []);
+  const category = String(formData.get('category') ?? '').trim();
+  if (
+    !VENDOR_CATEGORIES.includes(category as VendorCategory) ||
+    !coverage.includes(category as VendorCategory)
+  ) {
+    fail('category');
+  }
+
+  // Event-type (optional) must be in the creatable roster when provided.
+  const rawEt = String(formData.get('event_type') ?? '').trim();
+  const eventTypes = await getCreatableEventTypes();
+  const eventType = rawEt && eventTypes.some((t) => t.key === rawEt) ? rawEt : null;
+
+  const totalPhp = toAmount(formData.get('total_php'));
+  const initialPaid = toAmount(formData.get('initial_paid_php')) ?? 0;
+  const proofRef = String(formData.get('proof_r2_ref') ?? '').trim() || null;
+
+  let schedule: ReturnType<typeof sanitizeLockSchedule> = [];
+  try {
+    schedule = sanitizeLockSchedule(JSON.parse(String(formData.get('schedule_json') ?? '[]')));
+  } catch {
+    schedule = [];
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('vendor_locked_qr_tokens')
+    .insert({
+      vendor_profile_id: vendorProfileId,
+      created_by_user_id: user.id,
+      event_type: eventType,
+      category,
+      total_php: totalPhp,
+      initial_paid_php: initialPaid,
+      schedule_json: schedule,
+      proof_r2_key: proofRef,
+    })
+    .select('token')
+    .single();
+
+  if (error || !inserted) fail('issue');
+
+  redirect(`/vendor-dashboard/invite?mode=locked&issued=${inserted.token}`);
+}

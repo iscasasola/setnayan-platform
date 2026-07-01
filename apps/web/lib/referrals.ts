@@ -169,6 +169,12 @@ function referralVoucherCode(): string {
  * Inert-when-unset: if referral_reward_php = 0 (or no admin row exists), the
  * redemption is marked `qualified` (lifecycle advances) but NO vouchers are
  * minted — a still-qualified row with NULL reward codes is the backfill marker.
+ *
+ * INTENTIONAL COVERAGE GAP (do not "fix" without a policy decision): this hook
+ * is wired ONLY into approvePayment (a real, admin-reconciled external payment).
+ * It is deliberately NOT wired into the ₱0 self-comp order path
+ * (createSelfCompOrder) — otherwise a couple could farm reward vouchers by
+ * self-comping free ₱0 "orders". Only a genuine paid order qualifies a referral.
  */
 export async function qualifyReferralOnFirstPaidOrder(
   buyerUserId: string,

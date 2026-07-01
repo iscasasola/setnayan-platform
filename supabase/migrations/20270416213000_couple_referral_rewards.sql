@@ -170,6 +170,19 @@ BEGIN
   IF NEW.referrer_user_id = NEW.referred_user_id THEN
     RAISE EXCEPTION 'Self-referral is not allowed (referrer = referred = %)', NEW.referred_user_id;
   END IF;
+  -- Attribution integrity: the referrer MUST own the referral_code being
+  -- redeemed. Without this, the referred couple's INSERT (which only has to
+  -- prove referred_user_id = auth.uid()) could credit an ARBITRARY referrer
+  -- against a code they don't own — attribution pollution / griefing. Bind
+  -- referrer to the code owner server-side (runs on INSERT and UPDATE; the
+  -- service-role qualify/reward UPDATE never changes these two columns).
+  IF NEW.referrer_user_id <> (
+    SELECT owner_user_id FROM public.referral_codes
+    WHERE referral_code_id = NEW.referral_code_id
+  ) THEN
+    RAISE EXCEPTION 'Referrer % is not the owner of referral_code %',
+      NEW.referrer_user_id, NEW.referral_code_id;
+  END IF;
   RETURN NEW;
 END;
 $$;
@@ -206,7 +219,17 @@ DROP POLICY IF EXISTS referral_redemptions_referred_insert ON public.referral_re
 CREATE POLICY referral_redemptions_referred_insert
   ON public.referral_redemptions FOR INSERT
   TO authenticated
-  WITH CHECK (referred_user_id = auth.uid());
+  WITH CHECK (
+    referred_user_id = auth.uid()
+    -- Only an OPEN, unrewarded, uncoded redemption may be self-inserted — a
+    -- couple can't seed a row already 'rewarded' or carrying voucher codes /
+    -- qualify timestamps. The qualify→reward transition is service-role only.
+    AND status = 'open'
+    AND qualified_at IS NULL
+    AND rewarded_at IS NULL
+    AND referrer_reward_code IS NULL
+    AND referred_reward_code IS NULL
+  );
 
 -- No couple-facing UPDATE/DELETE policy — the qualify→reward transition runs
 -- through the service-role admin client in the paid-order hook (which bypasses

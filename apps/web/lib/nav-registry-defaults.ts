@@ -1637,18 +1637,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 28,
   },
-  {
-    key: "vendor.sidebar.funnel",
-    scope: "vendor",
-    area: "vendor-sidebar",
-    route: "/vendor-dashboard/funnel",
-    label: "Funnel",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Filter",
-    customRef: null,
-    sortOrder: 29,
-  },
+  // vendor.sidebar.funnel RETIRED 2026-07-02 — the Quote-to-Booking Funnel was
+  // folded into /vendor-dashboard/performance (owner "just integrate this to My
+  // Performance"). Slot removed so it stops surfacing in the sidebar + /admin/menus.
   {
     // My Customers group — Payday (cash-flow / installment surface).
     key: "vendor.sidebar.payday",

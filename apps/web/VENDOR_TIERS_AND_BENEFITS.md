@@ -146,7 +146,7 @@ Discovery (matched search · leaf-match · no-reviews-neutral · hidden-until-re
 
 ### 🆕 Shipped analytics surfaces the doc never listed (add them)
 - **Demand Radar** (`/vendor-dashboard/demand`, `demand_radar_for_vendor` RPC) — this IS "demand pulse", shipped + **ungated** (role owner/admin), over-delivered vs the Pro intent.
-- **Vendor funnel** (`/vendor-dashboard/funnel`, `lib/vendor-funnel.ts`) — real views→inquiries→quotes→booked with time-over-time deltas (not vs-peers).
+- **Vendor funnel** (folded into `/vendor-dashboard/performance` · 2026-07-02, `lib/vendor-funnel.ts`; the standalone `/vendor-dashboard/funnel` route now redirects there) — real views→inquiries→quotes→booked with time-over-time deltas (not vs-peers), plus the "where your bookings/views come from" by-source breakdown (also surfaced as an own-data strip on Demand Radar).
 - **Price-position card** (`lib/price-position.ts`) — market_price_bands percentile (price-only, min-N floored). These three partially deliver "benchmarks/conversion" — but as **time-over-time / percentile**, not the doc's promised **vs-peers** comparison.
 
 ### 🟠 Thin / mis-tiered (correct the marker)

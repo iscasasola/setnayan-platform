@@ -11,8 +11,15 @@ import {
   getVendorDemandRadar,
   maybeRefreshDemandRadar,
 } from '@/lib/demand-radar';
+import { fetchBookedBySource, FUNNEL_MIN_N } from '@/lib/vendor-funnel';
 import { DemandRadarCard } from './_components/demand-radar-card';
+import { SourceBreakdown } from '../_components/source-breakdown';
 import { VendorTierGate } from '../_components/tier-gate';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * DAY_MS).toISOString();
+}
 
 export const metadata = { title: 'Demand Radar · Vendor' };
 
@@ -70,7 +77,14 @@ export default async function VendorDemandPage() {
     );
   }
 
-  const radar = await getVendorDemandRadar(supabase, profile.vendor_profile_id);
+  // Market intel (the radar) + a clearly-labeled OWN-DATA strip: where THIS
+  // vendor's own bookings came from this year (folded in from the retired
+  // /funnel page · owner 2026-07-02). The two are visually + textually separated
+  // so own-attribution never reads as de-identified market data.
+  const [radar, bookedBySource] = await Promise.all([
+    getVendorDemandRadar(supabase, profile.vendor_profile_id),
+    fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+  ]);
 
   // Cron-free, throttled opportunistic rebuild after the response flushes.
   after(async () => {
@@ -94,6 +108,29 @@ export default async function VendorDemandPage() {
       </article>
 
       <DemandRadarCard radar={radar} marketLabel={marketLabel} scope="vendor" />
+
+      {/* ── Your own data — clearly separated from the market-intel radar above.
+          The radar is de-identified + cross-business; this strip is YOUR own
+          bookings, sliced by where each couple found you. */}
+      <div className="space-y-3 border-t border-ink/10 pt-6">
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+          >
+            Your own data
+          </span>
+          <p className="text-xs text-ink/55">
+            Not market data — this is where your own bookings came from.
+          </p>
+        </div>
+        <SourceBreakdown
+          title="Where your bookings come from"
+          blurb={`Where your booked couples first found you this year. Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
+          slices={bookedBySource}
+          emptyText="No bookings this year yet."
+        />
+      </div>
     </section>
   );
 }

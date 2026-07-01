@@ -122,7 +122,6 @@ import {
   Building2,
   Images,
   Handshake,
-  Filter,
   Gauge,
   Lightbulb,
 } from 'lucide-react';
@@ -238,15 +237,15 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
   },
   {
     // My Performance — analytics + market intel. Owner/admin only (every key
-    // absent from VENDOR_SCOPED_NAV_ITEM_KEYS). The standalone Performance
-    // cockpit composes the ROI/health overview; Demand Radar + Funnel are its
-    // drill-downs.
+    // absent from VENDOR_SCOPED_NAV_ITEM_KEYS). The Performance cockpit composes
+    // the ROI/health overview + booking funnel + by-source breakdown (the old
+    // standalone /funnel page was folded in · 2026-07-02); Demand Radar is its
+    // remaining drill-down.
     key: 'performance',
     label: 'My Performance',
     items: [
       { key: 'performance', label: 'Overview', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
       { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
-      { key: 'funnel', label: 'Funnel', href: '/vendor-dashboard/funnel', icon: Filter, matchPrefix: '/vendor-dashboard/funnel' },
     ],
   },
   {

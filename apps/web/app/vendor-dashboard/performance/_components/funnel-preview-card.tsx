@@ -1,20 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { Filter, ArrowRight, ChevronDown } from 'lucide-react';
+import { Filter, ChevronDown } from 'lucide-react';
 import type { FunnelStep } from '@/lib/vendor-funnel';
 
 /**
- * Inline funnel preview for My Performance — the four-stage
+ * Your booking funnel on My Performance — the four-stage
  * views → inquiries → quotes → booked bar cascade, each bar scaled to the top
- * stage (profile views) so the drop-off is visible at a glance. Links through
- * to the full /vendor-dashboard/funnel surface for the sliced breakdown.
+ * stage (profile views) so the drop-off is visible at a glance. The sliced
+ * "where they came from" breakdown now renders directly below on the same page
+ * (the standalone /funnel page was folded in · owner 2026-07-02).
  *
  * Each row expands on tap to show a one-line explainer of what the stage
  * counts; tapping again collapses it. Data comes from the shared
- * fetchVendorFunnelTotals() + buildFunnelSteps() so this preview and the full
- * page never disagree on what "booked" means.
+ * fetchVendorFunnelTotals() + buildFunnelSteps() so this card and the by-source
+ * tables never disagree on what "booked" means.
  */
 
 function conv(part: number, whole: number): string | null {
@@ -53,7 +53,7 @@ export function FunnelPreviewCard({
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Where bookings come from
+          Your booking funnel
           <span
             className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]"
             style={{ color: 'var(--m-slate-3)' }}
@@ -61,18 +61,6 @@ export function FunnelPreviewCard({
             {windowLabel}
           </span>
         </h2>
-        <Link
-          href="/vendor-dashboard/funnel"
-          className="group inline-flex items-center gap-1 text-sm font-medium"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Details
-          <ArrowRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={1.75}
-            aria-hidden
-          />
-        </Link>
       </div>
 
       <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>

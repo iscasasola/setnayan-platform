@@ -120,9 +120,13 @@ export type CustomerMenuCtx = {
    *  takeovers carry no explore/budget menu so they're unaffected. */
   hideKeys?: string[];
   /** Whether this event type enables the 'website' surface — gates the Studio
-   *  "Launch" route child (preview + go-live). Resolved from the profile in
+   *  "Launch" route child. Resolved from the profile in
    *  layout.tsx. Undefined/false → the child is omitted. */
   websiteEnabled?: boolean;
+  /** The event's public slug. When present, the "Launch" child opens the
+   *  couple's live personal website (`/[slug]`); when absent it falls back to
+   *  the go-live/setup surface. Resolved from the event row in layout.tsx. */
+  slug?: string | null;
 };
 
 /**
@@ -279,8 +283,13 @@ export function buildCustomerMenuTree(
         ...(ctx.websiteEnabled
           ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
           : []),
-        // "Launch" (owner 2026-06-28) — a ROUTE child to the preview + go-live
-        // surface. Only when the event type enables the 'website' surface.
+        // "Launch" (owner 2026-06-28; repointed 2026-07-02) — a ROUTE child
+        // that OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly
+        // (owner: "launch on customer event is their personal website"). A
+        // signed-in host always sees their own page even while it's private, so
+        // this is safe pre-publish; before a slug exists we fall back to the
+        // go-live/setup surface (`/website/launch`). Only when the event type
+        // enables the 'website' surface.
         ...(ctx.websiteEnabled
           ? [
               {
@@ -288,8 +297,8 @@ export function buildCustomerMenuTree(
                 label: 'Launch',
                 icon: Rocket,
                 kind: 'route' as const,
-                href: `${base}/website/launch`,
-                match: `${base}/website/launch`,
+                href: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
+                match: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
                 slotKey: 'customer.studio-subnav.launch',
               },
             ]

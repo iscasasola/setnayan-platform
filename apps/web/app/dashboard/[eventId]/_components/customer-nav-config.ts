@@ -76,6 +76,10 @@ export function buildCustomerNavGroups(
     hideKeys?: string[];
     websiteEnabled?: boolean;
     monogramEnabled?: boolean;
+    /** The event's public slug. When present, the top-level "Launch" entry
+     *  points AT the couple's live personal website (`/[slug]`); when absent
+     *  (no slug yet) it falls back to the go-live/setup surface. */
+    slug?: string | null;
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
@@ -247,20 +251,26 @@ export function buildCustomerNavGroups(
             },
           ],
         },
-        // "Launch" (owner 2026-06-28) — a TOP-LEVEL, always-visible sidebar
-        // entry. NOT a Studio child: the sidebar collapses a parent's children
-        // unless the active route is inside that section, so as a Studio child it
-        // was invisible from Home/Guests/etc. (owner: "it's not there"). Gated on
-        // the 'website' surface (websiteEnabled). Not added to the locked 5-tab
-        // mobile bottom nav; mobile reaches it via the Studio section sub-nav.
+        // "Launch" (owner 2026-06-28; repointed 2026-07-02) — a TOP-LEVEL,
+        // always-visible sidebar entry that OPENS THE COUPLE'S LIVE PERSONAL
+        // WEBSITE (`/[slug]`) directly (owner: "launch on customer event is
+        // their personal website"). A signed-in host always sees their own page
+        // even while it's still private (app/[slug]/page.tsx host-gate), so this
+        // is safe pre-publish. Before a slug exists we fall back to the
+        // go-live/setup surface (`/website/launch`) so they can publish. NOT a
+        // Studio child: the sidebar collapses a parent's children unless the
+        // active route is inside that section, so as a Studio child it was
+        // invisible from Home/Guests/etc. Gated on the 'website' surface
+        // (websiteEnabled). Not added to the locked 5-tab mobile bottom nav;
+        // mobile reaches it via the Studio section sub-nav.
         ...(opts?.websiteEnabled
           ? [
               {
                 key: 'launch',
                 label: 'Launch',
-                href: `${base}/website/launch`,
+                href: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
                 icon: Rocket,
-                matchPrefix: `${base}/website/launch`,
+                matchPrefix: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
               } as NavItem,
             ]
           : []),

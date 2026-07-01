@@ -146,6 +146,7 @@ export function CustomerSidebar({
   hideKeys,
   websiteEnabled,
   monogramEnabled,
+  slug,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -165,6 +166,9 @@ export function CustomerSidebar({
   /** Whether this event type enables the 'monogram' surface — gates the Studio
    *  "Monogram" child. Resolved from the profile in layout. */
   monogramEnabled?: boolean;
+  /** The event's public slug — points the top-level "Launch" entry at the
+   *  couple's live personal website (`/[slug]`). Resolved in layout.tsx. */
+  slug?: string | null;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -172,7 +176,7 @@ export function CustomerSidebar({
     setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
   }, [eventDate]);
   const groups = applyRegistry(
-    buildCustomerNavGroups(eventId, { dayOfOpen, hideKeys, websiteEnabled, monogramEnabled }),
+    buildCustomerNavGroups(eventId, { dayOfOpen, hideKeys, websiteEnabled, monogramEnabled, slug }),
     navSlots,
   );
 

@@ -116,25 +116,48 @@ export default async function VendorServicesPage({ searchParams }: Props) {
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
 
+  const serviceIdList = services.map((s) => s.vendor_service_id);
+
+  // Four independent per-vendor reads batched into ONE round-trip instead of the
+  // former serial chain (2026-07-01 perf):
+  //   • linked-services-on-card  • tier/verification soft-probe
+  //   • time-bound slots         • payment schedules
+  // Each keeps its graceful-degrade contract (empty / null on error).
+  const [linkRowsRes, tierProbeRes, slotsByService, scheduleRowsByService] =
+    await Promise.all([
+      serviceIdList.length > 0
+        ? supabase
+            .from('vendor_service_links')
+            .select('vendor_service_id, linked_canonical_service')
+            .in('vendor_service_id', serviceIdList)
+            .then((r) => r, () => ({ data: null }))
+        : Promise.resolve({ data: [] }),
+      // Vendor-scoped fields not in the shared profile select:
+      //   tier_state · verification_state · name_revealed_at · screen_name.
+      // A missing column / RLS hiccup degrades to null (→ free / hidden).
+      supabase
+        .from('vendor_profiles')
+        .select('tier_state, verification_state, name_revealed_at, screen_name')
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle()
+        .then((r) => r, () => ({ data: null })),
+      fetchVendorTimeSlotsByService(supabase, profile.vendor_profile_id),
+      // Payment schedules (Vendor Transaction Lifecycle Phase 2 · PR-A).
+      fetchOwnSchedulesByService(supabase, serviceIdList),
+    ]);
+
   // Linked-services-on-card (locked spec): which OTHER categories each service
   // "comes with". Pre-checks the "Comes with" picker on each edit form. The
   // option set is the vendor's own distinct categories — a vendor can only
   // advertise coverage they actually offer (enforced again in setServiceLinks).
   const linkedByServiceId = new Map<string, Set<string>>();
-  const serviceIdList = services.map((s) => s.vendor_service_id);
-  if (serviceIdList.length > 0) {
-    const { data: linkRows } = await supabase
-      .from('vendor_service_links')
-      .select('vendor_service_id, linked_canonical_service')
-      .in('vendor_service_id', serviceIdList);
-    for (const r of (linkRows ?? []) as {
-      vendor_service_id: string;
-      linked_canonical_service: string;
-    }[]) {
-      const set = linkedByServiceId.get(r.vendor_service_id) ?? new Set<string>();
-      set.add(r.linked_canonical_service);
-      linkedByServiceId.set(r.vendor_service_id, set);
-    }
+  for (const r of (linkRowsRes.data ?? []) as {
+    vendor_service_id: string;
+    linked_canonical_service: string;
+  }[]) {
+    const set = linkedByServiceId.get(r.vendor_service_id) ?? new Set<string>();
+    set.add(r.linked_canonical_service);
+    linkedByServiceId.set(r.vendor_service_id, set);
   }
   const distinctCategories = Array.from(new Set(services.map((s) => s.category)));
 
@@ -148,36 +171,16 @@ export default async function VendorServicesPage({ searchParams }: Props) {
     {},
   );
 
-  // Soft-probe the vendor-scoped fields not in the shared profile select:
-  //   tier_state           — tier banner + caps + card price + name reveal
-  //   verification_state   — the card's "Verified" trust badge
-  //   name_revealed_at     — hybrid-anonymity name reveal on the card
-  //   screen_name          — the stored anonymized label for the card
-  // A missing column / RLS hiccup degrades to null (→ free / hidden), never
-  // crashing the page.
-  let tier: string | null = null;
-  let verificationState: string | null = null;
-  let nameRevealedAt: string | null = null;
-  let screenName: string | null = null;
-  try {
-    const { data } = await supabase
-      .from('vendor_profiles')
-      .select('tier_state, verification_state, name_revealed_at, screen_name')
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .maybeSingle();
-    const row = data as {
-      tier_state?: string | null;
-      verification_state?: string | null;
-      name_revealed_at?: string | null;
-      screen_name?: string | null;
-    } | null;
-    tier = row?.tier_state ?? null;
-    verificationState = row?.verification_state ?? null;
-    nameRevealedAt = row?.name_revealed_at ?? null;
-    screenName = row?.screen_name ?? null;
-  } catch {
-    tier = null;
-  }
+  const tierRow = tierProbeRes.data as {
+    tier_state?: string | null;
+    verification_state?: string | null;
+    name_revealed_at?: string | null;
+    screen_name?: string | null;
+  } | null;
+  const tier: string | null = tierRow?.tier_state ?? null;
+  const verificationState: string | null = tierRow?.verification_state ?? null;
+  const nameRevealedAt: string | null = tierRow?.name_revealed_at ?? null;
+  const screenName: string | null = tierRow?.screen_name ?? null;
   const tierKey: VendorTier = asVendorTier(tier);
   const caps = tierCaps(tier);
 
@@ -188,15 +191,6 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
   // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
   const canPlotSlots = canPlotTimeSlots(tier);
-  const slotsByService = await fetchVendorTimeSlotsByService(
-    supabase,
-    profile.vendor_profile_id,
-  );
-  // Payment schedules (Vendor Transaction Lifecycle Phase 2 · PR-A).
-  const scheduleRowsByService = await fetchOwnSchedulesByService(
-    supabase,
-    serviceIdList,
-  );
   const branches =
     tier === 'enterprise'
       ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(

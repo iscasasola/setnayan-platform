@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import type { ReactNode } from 'react';
 import { Gauge, TrendingUp, Radar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -42,18 +41,19 @@ import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
 import { HealthCompositeCard } from './_components/health-composite-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
 import { RoiAttributionCard } from './_components/roi-attribution-card';
-import { MomentumCard, type MomentumWindow, type MomentumMode } from './_components/momentum-card';
+import type { MomentumWindow, MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandPreviewCard } from './_components/demand-preview-card';
 import {
   ServiceScopeSelector,
   scopeLabelFor,
 } from './_components/service-scope-selector';
-import { ScopeNote } from './_components/scope-note';
 import { InquiryHandlingCard } from './_components/inquiry-handling-card';
 import { ConversionDealsCard } from './_components/conversion-deals-card';
 import { ReputationCard } from './_components/reputation-card';
 import { CapacityCard } from './_components/capacity-card';
+import { SectionDisclosure } from './_components/section-disclosure';
+import { PerformanceControls } from './_components/performance-controls';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -63,18 +63,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * DAY_MS).toISOString();
-}
-
-/** A small uppercase eyebrow that groups the cards below it into a section. */
-function SectionHeading({ children }: { children: ReactNode }) {
-  return (
-    <p
-      className="font-mono text-[11px] uppercase tracking-[0.2em]"
-      style={{ color: 'var(--m-slate-3)' }}
-    >
-      {children}
-    </p>
-  );
 }
 
 /**
@@ -297,76 +285,93 @@ export default async function VendorPerformancePage({
   };
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      <header className="space-y-2">
-        <p
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Vendor · My Performance
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          My Performance
-        </h1>
-        <p className="text-base" style={{ color: 'var(--m-slate)' }}>
-          How your shop is doing.
-        </p>
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* ── Everything below, down to the filter row, is SHOP-LEVEL: it has no
+          per-service or time-window dimension, so none of it depends on the
+          Daily/Monthly/Annual + service-scope controls further down the page. */}
 
-        {/* Per-service scope — only with 2+ active services (Pro+). Segments the
-            bookings-derived cards; shop-level cards wear an "across all services"
-            note when a service is picked. Preserves the momentum window. */}
-        {showSelector ? (
-          <ServiceScopeSelector
-            activeServices={activeServices}
-            activeServiceId={serviceId}
-            momentum={momentumMode}
-          />
-        ) : null}
-      </header>
-
-      {/* ── Overview (Solo+) · the signature health card + growth tips. These
-          are SHOP-LEVEL by design (built from activity-stats + growth rules that
-          have no per-service dimension), so they wear an "across all services"
-          note when a service is selected — the honest contract. */}
+      {/* Overview · the signature health card + growth tips. */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <SectionHeading>Overview</SectionHeading>
-          {serviceId ? <ScopeNote /> : null}
-        </div>
-        <HealthCompositeCard health={health} monthDelta={monthDelta} />
-        <GrowthRecsCard recs={growthRecs} />
+        <HealthCompositeCard health={health} monthDelta={monthDelta}>
+          <GrowthRecsCard recs={growthRecs} />
+        </HealthCompositeCard>
       </div>
 
-      {/* ── Your business · Momentum (basic Solo / full Pro+) + ROI + Funnel.
-          Momentum + ROI SEGMENT on real booked data when a service is selected
-          (via event_vendors.service_id); the daily, monthly, and annual charts
-          all filter to that service too, so the whole card is per-service and
-          honest. */}
+      {/* Inquiries (Pro+) · own-business inquiry-handling analytics. */}
+      {canAdvanced && inquiryAnalytics && (
+        <div className="space-y-6">
+          <InquiryHandlingCard data={inquiryAnalytics} />
+        </div>
+      )}
+
+      {/* Conversion (Pro+) · own-business quote→booking economics. */}
+      {canAdvanced && conversionAnalytics && (
+        <div className="space-y-6">
+          <ConversionDealsCard data={conversionAnalytics} />
+        </div>
+      )}
+
+      {/* Reputation (Pro+) · own reviews: rating, coverage, velocity. */}
+      {canAdvanced && reputationAnalytics && (
+        <div className="space-y-6">
+          <ReputationCard data={reputationAnalytics} />
+        </div>
+      )}
+
+      {/* Capacity (Pro+) · booked-ahead load + waitlist (unmet demand). */}
+      {canAdvanced && capacityAnalytics && (
+        <div className="space-y-6">
+          <CapacityCard data={capacityAnalytics} />
+        </div>
+      )}
+
+      {/* Market intelligence (Enterprise) · cross-business, de-identified,
+          nationwide totals — no per-service dimension either. */}
       <div className="space-y-6">
-        <SectionHeading>Your business</SectionHeading>
+        {canMarket ? (
+          <DemandPreviewCard radar={demandRadar} />
+        ) : (
+          <VendorTierTeaser
+            feature="Demand Radar & Price-Position"
+            requiredTier="enterprise"
+            blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
+            icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          />
+        )}
+      </div>
 
-        <MomentumCard
-          mode={momentumMode}
-          variant={canAdvanced ? 'full' : 'basic'}
-          day={dayWindow}
-          month={monthWindow}
-          year={yearWindow}
-          monthlySeries={bookingSeries}
-          dailySeries={bookingDailySeries}
-          serviceId={serviceId}
-          scopeLabel={scopeLabel}
-          nullServiceExcluded={
-            // Match the footnote to the ACTIVE window. Each window has its own
-            // true null-service count (bookings with service_id IS NULL in that
-            // window), so Daily now shows the footnote too.
-            momentumMode === 'year'
-              ? nullExcludedYear
-              : momentumMode === 'month'
-                ? nullExcludedMonth
-                : nullExcludedDay
-          }
-        />
+      {/* ── Your business · the ONLY content that actually changes with the
+          Daily/Monthly/Annual window + service scope. Momentum + ROI SEGMENT on
+          real booked data when a service is selected (via
+          event_vendors.service_id); the daily, monthly, and annual charts all
+          filter to that service too, so the whole card is per-service and
+          honest. The filter row drives Momentum directly and — via re-fetch on
+          navigation — everything below it. */}
+      <PerformanceControls
+        initialMode={momentumMode}
+        isFull={canAdvanced}
+        serviceId={serviceId}
+        day={dayWindow}
+        month={monthWindow}
+        year={yearWindow}
+        monthlySeries={bookingSeries}
+        dailySeries={bookingDailySeries}
+        scopeLabel={scopeLabel}
+        nullExcludedYear={nullExcludedYear}
+        nullExcludedMonth={nullExcludedMonth}
+        nullExcludedDay={nullExcludedDay}
+        serviceSelector={
+          showSelector ? (
+            <ServiceScopeSelector
+              activeServices={activeServices}
+              activeServiceId={serviceId}
+              momentum={momentumMode}
+            />
+          ) : null
+        }
+      />
 
+      <SectionDisclosure>
         {canAdvanced ? (
           <>
             {/* Setnayan vs your own book — app-vs-import ROI (year window). */}
@@ -409,76 +414,7 @@ export default async function VendorPerformancePage({
             icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
           />
         )}
-      </div>
-
-      {/* ── Inquiries (Pro+) · own-business inquiry-handling analytics. Omitted
-             for Solo. Shop-level (chat_threads has no per-service dimension), so
-             it wears the "across all services" note when a service is picked. */}
-      {canAdvanced && inquiryAnalytics && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <SectionHeading>Inquiries</SectionHeading>
-            {serviceId ? <ScopeNote /> : null}
-          </div>
-          <InquiryHandlingCard data={inquiryAnalytics} />
-        </div>
-      )}
-
-      {/* ── Conversion (Pro+) · own-business quote→booking economics. Shop-level,
-             so it wears the note when a service is picked. */}
-      {canAdvanced && conversionAnalytics && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <SectionHeading>Conversion</SectionHeading>
-            {serviceId ? <ScopeNote /> : null}
-          </div>
-          <ConversionDealsCard data={conversionAnalytics} />
-        </div>
-      )}
-
-      {/* ── Reputation (Pro+) · own reviews: rating, coverage, velocity.
-             Shop-level, so it wears the note when a service is picked. */}
-      {canAdvanced && reputationAnalytics && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <SectionHeading>Reputation</SectionHeading>
-            {serviceId ? <ScopeNote /> : null}
-          </div>
-          <ReputationCard data={reputationAnalytics} />
-        </div>
-      )}
-
-      {/* ── Capacity (Pro+) · booked-ahead load + waitlist (unmet demand).
-             Shop-level, so it wears the note when a service is picked. */}
-      {canAdvanced && capacityAnalytics && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <SectionHeading>Capacity</SectionHeading>
-            {serviceId ? <ScopeNote /> : null}
-          </div>
-          <CapacityCard data={capacityAnalytics} />
-        </div>
-      )}
-
-      {/* ── Market intelligence (Enterprise) · cross-business, de-identified.
-          Demand Radar is a cross-market signal with no per-service dimension —
-          shop-level by design, so it wears the note when a service is picked. */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <SectionHeading>Market intelligence</SectionHeading>
-          {serviceId && canMarket ? <ScopeNote /> : null}
-        </div>
-        {canMarket ? (
-          <DemandPreviewCard radar={demandRadar} />
-        ) : (
-          <VendorTierTeaser
-            feature="Demand Radar & Price-Position"
-            requiredTier="enterprise"
-            blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
-            icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-          />
-        )}
-      </div>
+      </SectionDisclosure>
     </section>
   );
 }

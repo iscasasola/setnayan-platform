@@ -222,13 +222,6 @@ export default async function VendorOnTheDayPage() {
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">On the Day</h1>
-        <p className="max-w-prose text-base" style={{ color: 'var(--m-slate)' }}>
-          Your live event-day console — activates only on an event day.
-        </p>
-      </header>
-
       {/* 1 · Amber info banner — the design-time visibility explainer. */}
       <div
         className="flex items-start gap-3 rounded-xl border px-4 py-3.5"

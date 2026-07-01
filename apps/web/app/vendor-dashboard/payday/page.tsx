@@ -45,24 +45,6 @@ export default async function VendorPaydayPage() {
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <CalendarClock aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-        </div>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Vendor dashboard · Payday calendar
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Payday</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Every installment your booked couples agreed to pay you, laid out by
-          due date across all your events. It&rsquo;s a forward view of your
-          cash flow — Setnayan never holds your money, so these are the dates to
-          plan around, not a balance we owe you.
-        </p>
-      </header>
-
       <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         <div className="space-y-1">

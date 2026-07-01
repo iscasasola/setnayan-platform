@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import {
   CheckCircle2,
   FileCheck,
-  ShieldCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -125,28 +124,18 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Verification
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Upload your {VENDOR_DOC_SLOTS.length} items below — our team runs the
-          other {ADMIN_DOC_SLOTS.length} — to flip your profile to{' '}
-          <span className="font-medium">Verified</span> on the marketplace.
-          Verified vendors unlock Pro Vendor and Enterprise subscriptions
-          and the verified badge on every listing.
-          Initial verification is{' '}
-          <span className="font-medium">free</span>; annual renewal is{' '}
-          <span className="font-medium">{formatPhpCentavos(150000)}</span>;
-          post-demotion re-verification is{' '}
-          <span className="font-medium">{formatPhpCentavos(250000)}</span>.
-        </p>
-      </header>
+      <p className="max-w-prose text-base text-ink/65">
+        Upload your {VENDOR_DOC_SLOTS.length} items below — our team runs the
+        other {ADMIN_DOC_SLOTS.length} — to flip your profile to{' '}
+        <span className="font-medium">Verified</span> on the marketplace.
+        Verified vendors unlock Pro Vendor and Enterprise subscriptions
+        and the verified badge on every listing.
+        Initial verification is{' '}
+        <span className="font-medium">free</span>; annual renewal is{' '}
+        <span className="font-medium">{formatPhpCentavos(150000)}</span>;
+        post-demotion re-verification is{' '}
+        <span className="font-medium">{formatPhpCentavos(250000)}</span>.
+      </p>
 
       <article className="flex items-start gap-3 rounded-2xl border border-success-300 bg-success-50 p-4 text-sm text-success-900">
         <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />

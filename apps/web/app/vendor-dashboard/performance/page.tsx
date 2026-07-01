@@ -298,31 +298,16 @@ export default async function VendorPerformancePage({
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      <header className="space-y-2">
-        <p
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Vendor · My Performance
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          My Performance
-        </h1>
-        <p className="text-base" style={{ color: 'var(--m-slate)' }}>
-          How your shop is doing.
-        </p>
-
-        {/* Per-service scope — only with 2+ active services (Pro+). Segments the
-            bookings-derived cards; shop-level cards wear an "across all services"
-            note when a service is picked. Preserves the momentum window. */}
-        {showSelector ? (
-          <ServiceScopeSelector
-            activeServices={activeServices}
-            activeServiceId={serviceId}
-            momentum={momentumMode}
-          />
-        ) : null}
-      </header>
+      {/* Per-service scope — only with 2+ active services (Pro+). Segments the
+          bookings-derived cards; shop-level cards wear an "across all services"
+          note when a service is picked. Preserves the momentum window. */}
+      {showSelector ? (
+        <ServiceScopeSelector
+          activeServices={activeServices}
+          activeServiceId={serviceId}
+          momentum={momentumMode}
+        />
+      ) : null}
 
       {/* ── Overview (Solo+) · the signature health card + growth tips. These
           are SHOP-LEVEL by design (built from activity-stats + growth rules that

@@ -462,7 +462,11 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How does Setnayan make money?',
-    a: "Three ways. (1) Getting verified costs nothing — a free business profile and a free verified badge. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and every unlock burns 1–3 tokens (₱100–₱300, banded by the wedding's region) when you accept a matched couple — one unlock covers every service you offer for that wedding. Verified is capped at up to 10 unlocks a week and each one still burns tokens; Solo, Pro, and Enterprise get uncapped unlocks, also token-burning. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    // NOTE: this default answer is OVERRIDDEN at render by FAQ() with
+    // DB-driven vendor prices (getVendorPrices) — see the map below. Kept
+    // price-free so a stale hardcode can never resurface if the override is
+    // removed (the old ₱6,000/₱10,000 Ladder-A figures were a stale landmine).
+    a: "Three ways. (1) Getting verified costs nothing — a free business profile and a free verified badge. Vendors who want extra reach take an optional 28-day prepaid subscription (Solo, Pro, or Enterprise — current prices on /pricing; annual prepay saves ~25%). (2) Tokens: a token unlocks a matched couple — you spend 1–3 tokens (banded by the wedding's region) when you accept, and one unlock covers every service you offer for that wedding. Verified is capped at up to 10 unlocks a week and each one still burns tokens; Solo, Pro, and Enterprise get uncapped unlocks, also token-burning. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',

@@ -1,20 +1,32 @@
 import { redirect } from 'next/navigation';
-import { Handshake, CheckCircle2, Clock } from 'lucide-react';
+import { Handshake, CheckCircle2, Inbox, Send, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitPartnershipClaim } from '@/app/admin/vendor-partnerships/actions';
+import {
+  proposePartnership,
+  acceptPartnership,
+  declinePartnership,
+  withdrawPartnership,
+} from './actions';
 
 export const metadata = { title: 'Partnerships · Vendor' };
 
-type SearchParams = { submitted?: string; error?: string };
+type SearchParams = {
+  proposed?: string;
+  accepted?: string;
+  declined?: string;
+  withdrawn?: string;
+  error?: string;
+};
 
 type PartnershipRow = {
   id: number;
+  recommending_vendor_id: string;
   recommended_vendor_id: string;
   relationship_type: string;
-  admin_verified: boolean;
+  status: string;
   is_active: boolean;
   created_at: string;
 };
@@ -53,180 +65,271 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+  const myId = profile.vendor_profile_id;
 
-  // Fetch this vendor's declared partnerships
-  const { data: myPartnerships } = await supabase
+  // Fetch every partnership this vendor is a party to (either direction), in
+  // any status. RLS "parties read own vendor partnerships" scopes this to rows
+  // where the current vendor is proposer or recipient.
+  const { data: rows } = await supabase
     .from('vendor_partnerships')
-    .select('id, recommended_vendor_id, relationship_type, admin_verified, is_active, created_at')
-    .eq('recommending_vendor_id', profile.vendor_profile_id)
+    .select(
+      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, status, is_active, created_at',
+    )
+    .or(`recommending_vendor_id.eq.${myId},recommended_vendor_id.eq.${myId}`)
     .order('created_at', { ascending: false });
 
-  const partnerships = (myPartnerships ?? []) as PartnershipRow[];
+  const partnerships = (rows ?? []) as PartnershipRow[];
 
-  // Resolve partner vendor names
-  const partnerIds = partnerships.map((p) => p.recommended_vendor_id);
-  const partnerNameMap = new Map<string, string>();
-  if (partnerIds.length > 0) {
-    const { data: partnerVendors } = await supabase
+  // Resolve the OTHER party's display name for every partnership.
+  const otherIds = Array.from(
+    new Set(
+      partnerships.map((p) =>
+        p.recommending_vendor_id === myId ? p.recommended_vendor_id : p.recommending_vendor_id,
+      ),
+    ),
+  );
+  const nameMap = new Map<string, string>();
+  if (otherIds.length > 0) {
+    const { data: others } = await supabase
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
-      .in('vendor_profile_id', partnerIds);
-    for (const v of (partnerVendors ?? []) as { vendor_profile_id: string; business_name: string }[]) {
-      partnerNameMap.set(v.vendor_profile_id, v.business_name);
+      .in('vendor_profile_id', otherIds);
+    for (const v of (others ?? []) as { vendor_profile_id: string; business_name: string }[]) {
+      nameMap.set(v.vendor_profile_id, v.business_name);
     }
   }
+  const otherName = (p: PartnershipRow) => {
+    const id = p.recommending_vendor_id === myId ? p.recommended_vendor_id : p.recommending_vendor_id;
+    return nameMap.get(id) ?? id;
+  };
 
-  // All other active vendors for the partnership claim form
+  // Partition into the three inbox buckets + accepted partners.
+  const incoming = partnerships.filter(
+    (p) => p.recommended_vendor_id === myId && p.status === 'proposed' && p.is_active,
+  );
+  const outgoing = partnerships.filter(
+    (p) => p.recommending_vendor_id === myId && p.status === 'proposed' && p.is_active,
+  );
+  const accepted = partnerships.filter((p) => p.status === 'accepted' && p.is_active);
+
+  // "Worked together" hints — vendor_profile_ids this vendor has shared an
+  // event with (marketplace co-occurrence). Surfaced as an eligibility hint in
+  // the propose picker; NOT a hard block. SECURITY DEFINER RPC, scoped to my id.
+  const { data: workedRows } = await supabase.rpc('vendor_worked_with_ids', {
+    for_vendor: myId,
+  });
+  const workedWith = new Set(
+    ((workedRows ?? []) as (string | { vendor_worked_with_ids: string })[]).map((r) =>
+      typeof r === 'string' ? r : r.vendor_worked_with_ids,
+    ),
+  );
+
+  // All other active vendors for the propose picker.
   const { data: allVendors } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
     .eq('is_active', true)
-    .neq('vendor_profile_id', profile.vendor_profile_id)
+    .neq('vendor_profile_id', myId)
     .order('business_name', { ascending: true })
     .limit(300);
   const vendorOptions = (allVendors ?? []) as VendorOption[];
 
-  const activeLive = partnerships.filter((p) => p.admin_verified && p.is_active);
-  const pendingReview = partnerships.filter((p) => !p.admin_verified && p.is_active);
-  const inactive = partnerships.filter((p) => !p.is_active);
+  // Sort the picker so vendors you've worked with float to the top.
+  const sortedOptions = [...vendorOptions].sort((a, b) => {
+    const aw = workedWith.has(a.vendor_profile_id) ? 0 : 1;
+    const bw = workedWith.has(b.vendor_profile_id) ? 0 : 1;
+    if (aw !== bw) return aw - bw;
+    return a.business_name.localeCompare(b.business_name);
+  });
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
       <header className="mb-8 space-y-1">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
-          Vendor partnerships
-        </p>
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Vendor partnerships</p>
         <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
-          Your partnerships
+          Partnerships
         </h1>
         <p className="text-sm text-ink/60">
-          Tell couples about vendors you work well with. Setnayan HQ reviews each claim
-          before the badge appears on your profile — usually within 2 business days.
+          Team up with vendors you work well with. You propose; the other vendor accepts.
+          Once <strong>both of you agree</strong>, the partnership badge appears on both
+          profiles in couple search results. No admin review needed.
         </p>
       </header>
 
-      {sp.error ? (
-        <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash>
-      ) : null}
-      {sp.submitted ? (
+      {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}
+      {sp.proposed ? (
         <FormFlash tone="success">
-          Partnership claim submitted. Our team will review it within 2 business days.
-          Once verified, the badge will appear on both profiles in search results.
+          Proposal sent. The other vendor will see it in their partnerships inbox — the
+          badge goes live once they accept.
         </FormFlash>
       ) : null}
+      {sp.accepted ? (
+        <FormFlash tone="success">Partnership accepted — the badge is now live on both profiles.</FormFlash>
+      ) : null}
+      {sp.declined ? <FormFlash tone="success">Proposal declined.</FormFlash> : null}
+      {sp.withdrawn ? <FormFlash tone="success">Proposal withdrawn.</FormFlash> : null}
 
-      {/* ── ACTIVE LIVE PARTNERSHIPS ──────────────────────────────────── */}
-      {activeLive.length > 0 ? (
-        <section className="mb-8">
-          <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Active ({activeLive.length})
-          </h2>
+      {/* ── INCOMING PROPOSALS (accept / decline) ─────────────────────────── */}
+      <section className="mb-8">
+        <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <Inbox className="h-3.5 w-3.5" /> Incoming proposals ({incoming.length})
+        </h2>
+        {incoming.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/45">
+            No pending proposals. When another vendor proposes a partnership with you, it
+            shows up here to accept or decline.
+          </p>
+        ) : (
           <ul className="space-y-3">
-            {activeLive.map((p) => (
-              <li key={p.id} className="m-card flex items-center gap-3 p-4">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" />
+            {incoming.map((p) => (
+              <li key={p.id} className="m-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink">
-                    {partnerNameMap.get(p.recommended_vendor_id) ?? p.recommended_vendor_id}
-                  </p>
+                  <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
                   <p className="text-xs text-ink/55">
-                    {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
+                    Proposes: {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
                   </p>
                 </div>
-                <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
-                  Live
-                </span>
+                <div className="flex shrink-0 gap-2">
+                  <form action={acceptPartnership}>
+                    <input type="hidden" name="partnership_id" value={p.id} />
+                    <SubmitButton
+                      pendingLabel="Accepting…"
+                      className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-ink/90"
+                    >
+                      Accept
+                    </SubmitButton>
+                  </form>
+                  <form action={declinePartnership}>
+                    <input type="hidden" name="partnership_id" value={p.id} />
+                    <SubmitButton
+                      pendingLabel="Declining…"
+                      className="rounded-md border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+                    >
+                      Decline
+                    </SubmitButton>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>
-        </section>
-      ) : null}
+        )}
+      </section>
 
-      {/* ── PENDING REVIEW ───────────────────────────────────────────── */}
-      {pendingReview.length > 0 ? (
+      {/* ── ACCEPTED PARTNERS ─────────────────────────────────────────────── */}
+      {accepted.length > 0 ? (
         <section className="mb-8">
-          <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Pending review ({pendingReview.length})
+          <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Partners ({accepted.length})
           </h2>
           <ul className="space-y-3">
-            {pendingReview.map((p) => (
+            {accepted.map((p) => {
+              const iProposed = p.recommending_vendor_id === myId;
+              return (
+                <li key={p.id} className="m-card flex items-center gap-3 p-4">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
+                    <p className="text-xs text-ink/55">
+                      {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
+                      {' · '}
+                      {iProposed ? 'You proposed' : 'They proposed'}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
+                    Live
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* ── OUTGOING PROPOSALS (withdraw) ─────────────────────────────────── */}
+      {outgoing.length > 0 ? (
+        <section className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <Send className="h-3.5 w-3.5" /> Sent — awaiting response ({outgoing.length})
+          </h2>
+          <ul className="space-y-3">
+            {outgoing.map((p) => (
               <li key={p.id} className="m-card flex items-center gap-3 p-4">
-                <Clock className="h-5 w-5 shrink-0 text-warn-500" />
+                <Send className="h-5 w-5 shrink-0 text-warn-500" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink">
-                    {partnerNameMap.get(p.recommended_vendor_id) ?? p.recommended_vendor_id}
-                  </p>
+                  <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
                   <p className="text-xs text-ink/55">
                     {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
-                    {' · '}Waiting for Setnayan HQ review
+                    {' · '}Waiting for them to accept
                   </p>
                 </div>
-                <span className="rounded-full bg-warn-50 px-2 py-0.5 text-[10px] font-semibold text-warn-700">
-                  Review
-                </span>
+                <form action={withdrawPartnership}>
+                  <input type="hidden" name="partnership_id" value={p.id} />
+                  <SubmitButton
+                    pendingLabel="Withdrawing…"
+                    className="rounded-md border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+                  >
+                    Withdraw
+                  </SubmitButton>
+                </form>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
 
-      {/* ── INACTIVE / REJECTED ──────────────────────────────────────── */}
-      {inactive.length > 0 ? (
-        <section className="mb-8">
-          <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Inactive ({inactive.length})
-          </h2>
-          <ul className="space-y-2">
-            {inactive.map((p) => (
-              <li key={p.id} className="m-card flex items-center gap-3 p-3 opacity-50">
-                <Handshake className="h-4 w-4 shrink-0 text-ink/40" />
-                <p className="text-sm text-ink/60">
-                  {partnerNameMap.get(p.recommended_vendor_id) ?? p.recommended_vendor_id}
-                  {' · '}
-                  {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* ── SUBMIT PARTNERSHIP CLAIM ──────────────────────────────────── */}
+      {/* ── PROPOSE A PARTNERSHIP ─────────────────────────────────────────── */}
       <section className="rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-3">
           <Handshake className="h-6 w-6 shrink-0 text-mulberry" />
           <div>
-            <h2 className="text-base font-semibold text-ink">
-              Declare a vendor partnership
-            </h2>
+            <h2 className="text-base font-semibold text-ink">Propose a partnership</h2>
             <p className="text-xs text-ink/55">
-              Work well with another vendor? Tell couples — once Setnayan HQ verifies
-              the claim, a badge will appear alongside both of your profiles.
+              Pick a vendor and a partnership type. They&apos;ll get a proposal to accept —
+              once they do, the badge goes live on both profiles.
             </p>
           </div>
         </div>
 
-        <form action={submitPartnershipClaim} className="grid gap-4 sm:grid-cols-2">
-          {/* Recommended vendor */}
+        <form action={proposePartnership} className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-semibold text-ink">Which vendor do you recommend?</span>
+            <span className="font-semibold text-ink">Which vendor?</span>
             <select
               name="recommended_vendor_id"
               required
               className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
             >
               <option value="">Search for a vendor…</option>
-              {vendorOptions.map((v) => (
-                <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                  {v.business_name}
-                </option>
-              ))}
+              {workedWith.size > 0 ? (
+                <optgroup label="Vendors you've worked with">
+                  {sortedOptions
+                    .filter((v) => workedWith.has(v.vendor_profile_id))
+                    .map((v) => (
+                      <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
+                        {v.business_name}
+                      </option>
+                    ))}
+                </optgroup>
+              ) : null}
+              <optgroup label="All vendors">
+                {sortedOptions
+                  .filter((v) => !workedWith.has(v.vendor_profile_id))
+                  .map((v) => (
+                    <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
+                      {v.business_name}
+                    </option>
+                  ))}
+              </optgroup>
             </select>
+            {workedWith.size > 0 ? (
+              <span className="flex items-center gap-1 text-[11px] text-ink/45">
+                <Sparkles className="h-3 w-3" /> Vendors you&apos;ve shared an event with are
+                listed first — they&apos;re the most likely to accept.
+              </span>
+            ) : null}
           </label>
 
-          {/* Relationship type */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-semibold text-ink">What kind of partnership is this?</span>
+            <span className="font-semibold text-ink">What kind of partnership?</span>
             <select
               name="relationship_type"
               required
@@ -243,14 +346,13 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
 
           <div className="sm:col-span-2">
             <SubmitButton
-              pendingLabel="Submitting…"
+              pendingLabel="Sending…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
-              Submit for review
+              Send proposal
             </SubmitButton>
             <p className="mt-2 text-xs text-ink/45">
-              Setnayan HQ will verify this with the other vendor before the badge goes live.
-              False claims may result in your profile being flagged.
+              The other vendor decides whether to accept. Nothing goes public until they do.
             </p>
           </div>
         </form>

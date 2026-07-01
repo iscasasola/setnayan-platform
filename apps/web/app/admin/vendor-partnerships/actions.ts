@@ -305,8 +305,12 @@ export async function createPartnershipHq(formData: FormData) {
       additional_fee_centavos: feeCentavos,
       discount_pct: discountPct,
       covered_plan_groups: coveredGroups,
-      // HQ-created partnerships start unverified — they still need the
-      // two-admin approval flow to become public.
+      // Phase 4 mutual-accept: an HQ-created partnership is a PROPOSAL — it
+      // lands in the recommended vendor's inbox and only publishes when THEY
+      // accept. status MUST be set explicitly here: the column default is
+      // 'accepted' (so pre-existing rows stay live), which would otherwise
+      // auto-publish a fabricated partnership without the recipient's consent.
+      status: 'proposed',
       admin_verified: false,
       is_active: true,
     })
@@ -330,50 +334,9 @@ export async function createPartnershipHq(formData: FormData) {
   redirect('/admin/vendor-partnerships?created=1');
 }
 
-// ---------------------------------------------------------------------------
-// ACTION 5 — Vendor-side: submit a partnership claim
-// (used from /vendor-dashboard/partnerships stub)
-// ---------------------------------------------------------------------------
-
-export async function submitPartnershipClaim(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Look up the vendor's own profile
-  const { data: profile } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!profile) redirect('/vendor-dashboard?error=No+vendor+profile+found.');
-
-  const recommendedId = readString(formData, 'recommended_vendor_id');
-  const relationshipType = readString(formData, 'relationship_type');
-
-  if (!recommendedId || !relationshipType) {
-    redirect('/vendor-dashboard/partnerships?error=Missing+required+fields.');
-  }
-  if (recommendedId === profile.vendor_profile_id) {
-    redirect('/vendor-dashboard/partnerships?error=You+cannot+partner+with+yourself.');
-  }
-
-  const { error: insErr } = await supabase.from('vendor_partnerships').insert({
-    recommending_vendor_id: profile.vendor_profile_id,
-    recommended_vendor_id: recommendedId,
-    relationship_type: relationshipType,
-    admin_verified: false,
-    is_active: true,
-  });
-
-  if (insErr) {
-    redirect(
-      `/vendor-dashboard/partnerships?error=${encodeURIComponent(insErr.message)}`,
-    );
-  }
-
-  revalidatePath('/vendor-dashboard/partnerships');
-  redirect('/vendor-dashboard/partnerships?submitted=1');
-}
+// NOTE: the former vendor-side `submitPartnershipClaim` action was REMOVED in
+// Phase 4 (mutual-accept). Vendors now propose partnerships via
+// `app/vendor-dashboard/partnerships/actions.ts::proposePartnership`, which
+// forces status='proposed' so nothing auto-publishes. The old action inserted
+// with no explicit status, which after Phase 4 would have defaulted to
+// 'accepted' and auto-published a partnership without the recipient's consent.

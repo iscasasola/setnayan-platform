@@ -32,9 +32,11 @@ test('a weak profile yields ranked tips, capped and sorted by weight', () => {
   };
   const tips = buildProfileTips(weak);
   assert.ok(tips.length > 0 && tips.length <= MAX_PROFILE_TIPS);
-  for (let i = 1; i < tips.length; i++) {
-    assert.ok(tips[i - 1].weight >= tips[i].weight, 'tips must be ranked high→low');
-  }
+  // Pairwise reduce avoids indexed access (noUncheckedIndexedAccess-safe).
+  tips.reduce((prev, cur) => {
+    assert.ok(prev.weight >= cur.weight, 'tips must be ranked high→low');
+    return cur;
+  });
 });
 
 test('avg_response_minutes === 0 is "no data" — no reply-time tip', () => {

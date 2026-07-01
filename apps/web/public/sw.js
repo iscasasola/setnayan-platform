@@ -59,7 +59,11 @@ const KNOWN_CACHES = [
 ];
 
 const SHELL_ASSETS = [
-  '/',
+  // NOTE: '/' is intentionally NOT precached. The homepage is force-dynamic and
+  // never edge-cached, so precaching it on SW install fired a second full-TTFB
+  // fetch of '/' right after first load — pure waste. Offline navigation still
+  // falls back to the static '/offline.html' below. (Perf sweep 2026-07-02,
+  // finding #26.)
   '/manifest.json',
   '/icon-192.svg',
   '/icon-512.svg',

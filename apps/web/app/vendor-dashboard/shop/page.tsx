@@ -380,7 +380,7 @@ export default async function VendorShopPage() {
           value="QR"
           label="Locked QR"
           sub="Per customer · lock + downpayment"
-          href="/vendor-dashboard/clients"
+          href="/vendor-dashboard/invite?mode=locked"
         />
       </ClusterSection>
 

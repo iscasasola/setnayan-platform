@@ -13,6 +13,12 @@ import {
   fetchHandoversByVendor,
   type HandoverEvidenceRow,
 } from '@/lib/booking-handovers.server';
+import {
+  VENDOR_TIERS,
+  asVendorTier,
+  TIER_LABEL,
+  type VendorTier,
+} from '@/lib/vendor-tier-caps';
 
 export const metadata = { title: 'Disputes · Admin' };
 
@@ -176,7 +182,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     vendorIds.length > 0
       ? admin
           .from('vendor_profiles')
-          .select('vendor_profile_id, business_name')
+          .select('vendor_profile_id, business_name, tier_state')
           .in('vendor_profile_id', vendorIds)
       : Promise.resolve({ data: [] }),
     openerIds.length > 0
@@ -188,12 +194,38 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   ]);
 
   const vendorMap = new Map<string, string>();
+  // Priority-dispute sort — resolve each disputed vendor's tier_state so premium
+  // vendors' disputes surface first. Reuses the canonical `tier_state` enum +
+  // asVendorTier() normalizer other admin surfaces read (lib/vendor-tier-caps.ts).
+  // This is a READ-ONLY ordering concern; nothing here writes back.
+  const vendorTierMap = new Map<string, VendorTier>();
   for (const v of vendorData ?? []) {
     vendorMap.set(
       v.vendor_profile_id as string,
       ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
     );
+    vendorTierMap.set(
+      v.vendor_profile_id as string,
+      asVendorTier((v as { tier_state?: string | null }).tier_state),
+    );
   }
+
+  // Tier priority rank — index into VENDOR_TIERS (free=0 … enterprise=highest),
+  // so enterprise > pro > solo > verified > free. A vendor with no resolved
+  // profile (e.g. deleted) defaults to 'free' via asVendorTier(undefined).
+  const tierRank = (vendorProfileId: string): number =>
+    VENDOR_TIERS.indexOf(vendorTierMap.get(vendorProfileId) ?? 'free');
+
+  // Stable re-order: tier rank DESC, then preserve the DB order the query
+  // already applied (created_at DESC). `rows` is server-controlled + capped at
+  // 200, so an in-memory sort is cheap and avoids a migration/RPC.
+  const sortedRows = rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => {
+      const rankDelta = tierRank(b.r.vendor_profile_id) - tierRank(a.r.vendor_profile_id);
+      return rankDelta !== 0 ? rankDelta : a.i - b.i;
+    })
+    .map((x) => x.r);
 
   // No-Show Downpayment Protection — pull the FROZEN reservation-policy
   // acknowledgements for every vendor in view, keyed by vendor_profile_id. These
@@ -261,7 +293,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         <p className="text-sm text-ink/65">
           Couples and vendors can both open a dispute when a booking goes
           sideways. The queue shows the latest 200 matching the filters below,
-          newest first.
+          ordered by vendor tier (enterprise first) then newest.
         </p>
         <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
           Use <span className="font-semibold">Resolve</span> on any open row to
@@ -286,8 +318,9 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
 
       <div className="mt-4">
         <DisputesTable
-          rows={rows}
+          rows={sortedRows}
           vendorMap={vendorMap}
+          vendorTierMap={vendorTierMap}
           openerMap={openerMap}
           policyAcksByVendor={policyAcksByVendor}
           handoversByVendor={handoversByVendor}
@@ -419,12 +452,14 @@ function FilterStrip({
 function DisputesTable({
   rows,
   vendorMap,
+  vendorTierMap,
   openerMap,
   policyAcksByVendor,
   handoversByVendor,
 }: {
   rows: DisputeRow[];
   vendorMap: Map<string, string>;
+  vendorTierMap: Map<string, VendorTier>;
   openerMap: Map<string, { name: string; email: string | null }>;
   policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
   handoversByVendor: Map<string, HandoverEvidenceRow[]>;
@@ -458,6 +493,7 @@ function DisputesTable({
         <tbody>
           {rows.map((r) => {
             const vendorName = vendorMap.get(r.vendor_profile_id) ?? 'Unnamed vendor';
+            const vendorTier = vendorTierMap.get(r.vendor_profile_id) ?? 'free';
             const opener = r.opened_by_user_id
               ? openerMap.get(r.opened_by_user_id)
               : null;
@@ -482,7 +518,10 @@ function DisputesTable({
                     </p>
                   ) : null}
                 </td>
-                <td className="px-3 py-3 font-medium text-ink">{vendorName}</td>
+                <td className="px-3 py-3 font-medium text-ink">
+                  <span className="block">{vendorName}</span>
+                  <TierChip tier={vendorTier} />
+                </td>
                 <td className="hidden px-3 py-3 md:table-cell">
                   {opener ? (
                     <>
@@ -692,6 +731,31 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
         </a>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Priority-dispute sort — a compact tier badge under the vendor name so an admin
+ * can see at a glance which tier a disputed vendor is on (the queue is ordered
+ * enterprise → free, so premium disputes surface first). Tones step up with tier
+ * priority; label copy reuses the canonical TIER_LABEL map.
+ */
+const TIER_CHIP_TONE: Record<VendorTier, string> = {
+  enterprise: 'bg-violet-100 text-violet-800',
+  pro: 'bg-success-100 text-success-800',
+  solo: 'bg-warn-100 text-warn-900',
+  verified: 'bg-ink/10 text-ink/70',
+  free: 'bg-ink/5 text-ink/55',
+};
+
+function TierChip({ tier }: { tier: VendorTier }) {
+  return (
+    <span
+      className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
+      title={`Vendor tier · ${TIER_LABEL[tier]}`}
+    >
+      {TIER_LABEL[tier]}
+    </span>
   );
 }
 

@@ -38,7 +38,7 @@ export const metadata = { title: 'My Customers · Vendor · Setnayan' };
  *   2. Month calendar — the 6-state day taxonomy from vendor_calendar_day_states
  *      + bookings + blocks + the couple waitlist queue.
  *   3. Three summary cards — Ongoing payments (this month), Messages, Service
- *      status.
+ *      coverage.
  *   4. Customers list — one row per booked / in-conversation event with a status
  *      pill + a money note.
  *
@@ -189,7 +189,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
   // ── Section 3b: messages ─────────────────────────────────────────────────
   const conversationCount = threads.length;
 
-  // ── Section 3c: service status ───────────────────────────────────────────
+  // ── Section 3c: service coverage ─────────────────────────────────────────
   // Per active service: is it live, and how many dates in the visible month is
   // its schedule full? "Full N dates" counts fully-booked days on the pool(s)
   // that carry the service's category.
@@ -215,7 +215,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     for (const n of consumed.values()) if (n >= cap) full += 1;
     return full;
   };
-  const serviceStatus = activeServices.slice(0, 3).map((s) => {
+  const serviceCoverage = activeServices.slice(0, 3).map((s) => {
     const catPools = poolsForCategory(s.category);
     const fullDates = catPools.reduce(
       (sum, p) => sum + fullDatesForPool(p.poolId, p.capacity),
@@ -471,7 +471,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
             </Link>
           </article>
 
-          {/* Service status */}
+          {/* Service coverage */}
           <article
             className="rounded-xl border p-4"
             style={{ borderColor: 'var(--m-line)', background: '#fff' }}
@@ -485,16 +485,17 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
                 <Sparkles className="h-4 w-4" strokeWidth={1.75} />
               </span>
               <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Service status
+                Service coverage
               </h3>
             </div>
-            {serviceStatus.length === 0 ? (
+            {serviceCoverage.length === 0 ? (
               <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                No live services yet. Post a service so couples can find and book you.
+                No services yet. Add a service to set your coverage so couples can
+                find and book you.
               </p>
             ) : (
               <ul className="mt-3 space-y-2">
-                {serviceStatus.map((s) => (
+                {serviceCoverage.map((s) => (
                   <li key={s.key} className="flex items-start justify-between gap-3 text-sm">
                     <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--m-ink)' }}>
                       {s.label}
@@ -507,7 +508,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
                           color: 'var(--m-sage-deep)',
                         }}
                       >
-                        Active
+                        Covered
                       </span>
                       {s.fullDates > 0 ? (
                         <span className="mt-0.5 block text-[11px]" style={{ color: 'var(--m-slate-2)' }}>

@@ -1382,7 +1382,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/services",
-    label: "Services",
+    label: "My Services",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "ClipboardList",
@@ -1622,13 +1622,15 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 26,
   },
   {
-    // My Performance group — Overview. Keys match the sidebar item keys 1:1 so
-    // /admin/menus can rename/hide them (previously hardcoded-only, no slot).
+    // My Performance — the flat 6-menu destination. Keys match the sidebar item
+    // keys 1:1 so /admin/menus can rename/hide them (previously hardcoded-only,
+    // no slot). Default seeded from the group-tree sub-item label ("Overview")
+    // by mistake; the flat destination reads "My Performance".
     key: "vendor.sidebar.performance",
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/performance",
-    label: "Overview",
+    label: "My Performance",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Gauge",

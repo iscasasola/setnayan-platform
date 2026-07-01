@@ -1,7 +1,6 @@
 import {
   Activity,
   Award,
-  Bell,
   BookOpen,
   MessageSquare,
   Star,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
+import { buildProfileTips, type ProfileTipKey } from '@/lib/vendor-profile-tips';
 
 /**
  * vendor-stats-panel.tsx — Vendor performance dashboard panel.
@@ -446,32 +446,20 @@ export async function VendorStatsPanel({
   const completedCount =
     bookedCount !== undefined ? bookedCount : stats.finalized_booking_count;
 
-  // Improvement nudges — non-blocking, shown only when conditions are met.
-  const nudges: Array<{ icon: React.ReactNode; message: string }> = [];
-
-  if (stats.response_rate_pct < 70) {
-    nudges.push({
-      icon: <Bell className="h-4 w-4" strokeWidth={1.75} />,
-      message:
-        'Enable push notifications to reply on the go — couples choose vendors who reply quickly.',
-    });
-  }
-
-  if (stats.review_count === 0) {
-    nudges.push({
-      icon: <Star className="h-4 w-4" strokeWidth={1.75} />,
-      message:
-        'You have completed bookings. Ask your couples to leave a review.',
-    });
-  }
-
-  if (stats.profile_completeness_pct < 70) {
-    nudges.push({
-      icon: <User className="h-4 w-4" strokeWidth={1.75} />,
-      message:
-        'Add more photos and service descriptions — complete profiles get 3× more inquiries.',
-    });
-  }
+  // Fix-it tips (Wave 1 · spec B) — a ranked, actionable checklist of the top
+  // drags on the quality score, derived deterministically from the same stats
+  // row (lib/vendor-profile-tips.ts). Replaces the old 3-condition nudges with
+  // concrete current→target + inquiry-lift framing, ranked by impact. Empty =
+  // strong profile → the card hides.
+  const TIP_ICON: Record<ProfileTipKey, React.ReactNode> = {
+    profile: <User className="h-4 w-4" strokeWidth={1.75} />,
+    reply_time: <Zap className="h-4 w-4" strokeWidth={1.75} />,
+    response_rate: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
+    reviews: <Star className="h-4 w-4" strokeWidth={1.75} />,
+    completion: <BookOpen className="h-4 w-4" strokeWidth={1.75} />,
+    conversion: <TrendingUp className="h-4 w-4" strokeWidth={1.75} />,
+  };
+  const tips = buildProfileTips(stats);
 
   const lastUpdatedLabel = stats.updated_at
     ? new Date(stats.updated_at).toLocaleDateString('en-PH', {
@@ -574,17 +562,17 @@ export async function VendorStatsPanel({
       {/* Quality score progress bar (full width) */}
       <QualityScoreBar score={stats.quality_score} />
 
-      {/* Improvement nudges */}
-      {nudges.length > 0 ? (
+      {/* Fix-it tips — ranked, actionable drags on the quality score */}
+      {tips.length > 0 ? (
         <div className="space-y-2">
           <p
             className="font-mono text-[10px] uppercase tracking-[0.18em]"
             style={{ color: 'var(--m-slate)' }}
           >
-            How to improve
+            Fix-it tips
           </p>
-          {nudges.map((nudge) => (
-            <NudgeCard key={nudge.message} icon={nudge.icon} message={nudge.message} />
+          {tips.map((tip) => (
+            <NudgeCard key={tip.key} icon={TIP_ICON[tip.key]} message={tip.message} />
           ))}
         </div>
       ) : null}

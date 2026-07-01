@@ -17,6 +17,7 @@ import {
 import { fetchVendorFunnelTotals, buildFunnelSteps } from '@/lib/vendor-funnel';
 import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import {
   asVendorTier,
   TIER_PRICE_PHP,
@@ -35,6 +36,7 @@ import { RoiAttributionCard } from './_components/roi-attribution-card';
 import { MomentumCard, type MomentumWindow, type MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandPreviewCard } from './_components/demand-preview-card';
+import { InquiryHandlingCard } from './_components/inquiry-handling-card';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -163,6 +165,7 @@ export default async function VendorPerformancePage({
     bookingDailySeries,
     funnelTotals,
     demandRadar,
+    inquiryAnalytics,
   ] = await Promise.all([
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
@@ -172,6 +175,11 @@ export default async function VendorPerformancePage({
     fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30),
     fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     getVendorDemandRadar(supabase, profile.vendor_profile_id),
+    // Inquiry-handling analytics — Pro+ (own-business). Skip the four RPCs
+    // entirely for tiers that won't render the section.
+    canAdvanced
+      ? fetchVendorInquiryAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve(null),
   ]);
 
   const funnelSteps = buildFunnelSteps(funnelTotals);
@@ -257,6 +265,15 @@ export default async function VendorPerformancePage({
           />
         )}
       </div>
+
+      {/* ── Inquiries (Pro+) · own-business inquiry-handling analytics. Omitted
+             for Solo — the Pro teaser above already signals the upgrade. */}
+      {canAdvanced && inquiryAnalytics && (
+        <div className="space-y-6">
+          <SectionHeading>Inquiries</SectionHeading>
+          <InquiryHandlingCard data={inquiryAnalytics} />
+        </div>
+      )}
 
       {/* ── Market intelligence (Enterprise) · cross-business, de-identified. */}
       <div className="space-y-6">

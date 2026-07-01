@@ -36,15 +36,7 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import type { PricingData, PriceRow } from './pricing-data';
-import { VENDOR_HERO_CARDS, VENDOR_GROUPS, type VendorTier } from './vendor-benefits';
-
-/** Tier chip labels for the vendor-benefits overlay (as-built §6 gating). */
-const TIER_LABEL: Record<VendorTier, string> = {
-  free: 'Free',
-  solo: 'Solo',
-  pro: 'Pro',
-  enterprise: 'Enterprise',
-};
+import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 
 export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | null;
 
@@ -312,55 +304,57 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         List your business, get matched to the couples who actually fit, and run every booking, chat,
         and calendar in one place. Free while we launch — and 0% commission, always.
       </p>
-      <div className="hr-vd-grid">
-        {VENDOR_HERO_CARDS.map((c) => (
-          <div className="hr-vd-card" key={c.title}>
-            <div className="hr-ic">{c.ic}</div>
-            <div className="hr-t">
-              {c.title}
-              <span className={`hr-tier hr-tier-${c.tier}`}>{TIER_LABEL[c.tier]}</span>
-              {c.soon && <span className="hr-soon">Soon</span>}
-            </div>
-            <div className="hr-d">{c.body}</div>
-          </div>
-        ))}
-      </div>
       <div className="hr-vb-stat">
-        <b>60+ ways we help you win — 42 live today.</b> 0% commission, direct payouts, verification,
-        matchmaking, your dashboard, and real analytics are live now; the rest is in active build and
-        marked “Soon” until it ships.{' '}
-        <span className="hr-soonkey">The “Soon” tags clear as features go live.</span>
+        <b>Everything below, by account type.</b> A free verified account is already a whole
+        business — 0% commission, direct payouts, matchmaking, your dashboard, and analytics. The
+        paid tiers add more as you grow, and each one includes everything in the tier before it.{' '}
+        <span className="hr-soonkey">“Soon” = in active build; it clears as features ship.</span>
       </div>
 
       <div className="hr-vb-legend">
-        <b>How the tiers work.</b> The whole ops spine is <b>Free</b> — dashboard, calendar, proposals,
-        contracts, payments, discovery and trust. <b>Solo</b> adds unlimited answering, your real business
-        name shown day-1, and your own performance analytics (funnel, win/loss, cost-per-lead).{' '}
-        <b>Pro</b> (tagged below) adds a team, wider reach, more categories, premium market intel
-        (Demand Radar, theft watch, peer benchmarks) and editorial features. <b>Enterprise</b> lifts every
-        limit — seats, photos, events, nationwide reach.{' '}
+        <b>How the tiers stack.</b> <b>Free</b> is the whole ops spine. <b>Solo</b> adds your
+        business analytics. <b>Pro</b> adds a team, wider reach, and premium market intel.{' '}
+        <b>Enterprise</b> lifts every limit — seats, photos, events, nationwide reach.{' '}
         <Link className="hr-vb-legend-link" href="/for-vendors" onClick={onClose}>
-          See the full ladder →
+          See the full comparison →
         </Link>
       </div>
 
-      {VENDOR_GROUPS.map((group) => (
-        <div className="hr-vb-group" key={group.h}>
-          <div className="hr-vb-h">{group.h}</div>
-          <div className="hr-vb-grid">
-            {group.items.map((it) => (
-              <div className="hr-vb-item" key={it.n}>
-                <div className="hr-n">
-                  {it.n}
-                  <span className={`hr-tier hr-tier-${it.tier}`}>{TIER_LABEL[it.tier]}</span>
-                  {it.soon && <span className="hr-soon">Soon</span>}
-                </div>
-                <div className="hr-b">{it.b}</div>
-              </div>
-            ))}
+      {VENDOR_TIER_SECTIONS.map((section) => (
+        <div className={`hr-vt-section hr-vt-${section.tier}`} key={section.tier}>
+          <div className="hr-vt-head">
+            <div className="hr-vt-name">{section.name}</div>
+            <div className="hr-vt-price">
+              {section.price}
+              <span className="hr-vt-unit"> {section.unit}</span>
+            </div>
           </div>
+          <p className="hr-vt-tagline">{section.tagline}</p>
+          {section.groups.map((group, gi) => (
+            <div className="hr-vt-group" key={group.h ?? gi}>
+              {group.h && <div className="hr-vt-subh">{group.h}</div>}
+              <div className="hr-vb-grid">
+                {group.items.map((it) => (
+                  <div className="hr-vb-item" key={it.n}>
+                    <div className="hr-n">
+                      {it.n}
+                      {it.soon && <span className="hr-soon">Soon</span>}
+                    </div>
+                    <div className="hr-b">{it.b}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ))}
+
+      <div className="hr-vt-section hr-vt-custom">
+        <div className="hr-vt-head">
+          <div className="hr-vt-name">{VENDOR_CUSTOM_TIER.name}</div>
+        </div>
+        <p className="hr-vt-tagline">{VENDOR_CUSTOM_TIER.tagline}</p>
+      </div>
 
       <div className="hr-vd-cta">
         <Link className="hr-vd-btn" href="/for-vendors" onClick={onClose}>

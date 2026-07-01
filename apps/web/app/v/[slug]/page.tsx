@@ -285,8 +285,9 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   return (data ?? null) as PublicVendorRow | null;
 }
 
-export async function generateMetadata({ params }: Props) {
-  const { slug } = await params;
+// Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
+// reuse the exact same vendor metadata when a bare slug resolves to a vendor.
+export async function vendorMetadataBySlug(slug: string) {
   const vendor = await fetchVendor(slug);
   if (!vendor || !isPubliclyVisible(vendor.public_visibility)) {
     return { title: 'Setnayan vendor' };
@@ -303,7 +304,9 @@ export async function generateMetadata({ params }: Props) {
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
-  const canonicalUrl = `${siteUrl}/v/${vendor.business_slug ?? slug}`;
+  // Bare root is the canonical vendor URL now (setnayan.com/{slug}); /v/{slug}
+  // still resolves but points here.
+  const canonicalUrl = `${siteUrl}/${vendor.business_slug ?? slug}`;
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity in
      metadata. Page title + description + OG card all consume the
      resolved display label so search engines + social previews
@@ -370,6 +373,11 @@ export async function generateMetadata({ params }: Props) {
       ...(vendor.logo_url ? { images: [vendor.logo_url] } : {}),
     },
   };
+}
+
+export async function generateMetadata({ params }: Props) {
+  const { slug } = await params;
+  return vendorMetadataBySlug(slug);
 }
 
 // ---------------------------------------------------------------------------
@@ -483,8 +491,19 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   }
 }
 
-export default async function PublicVendorPage({ params, searchParams }: Props) {
-  const { slug } = await params;
+// Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
+// render a vendor when a bare slug resolves to one, without duplicating this
+// route. The route's own default export (below) is a thin wrapper.
+export async function renderVendorBySlug({
+  slug,
+  searchParams,
+}: {
+  slug: string;
+  // Permissive index (string values) so the bare-root dispatcher — whose
+  // searchParams shape differs — can pass its own through. The body reads only
+  // string-valued keys (reviewsPage, wl, utm*, src).
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}) {
   const search = await searchParams;
   const vendor = await fetchVendor(slug);
   // Hidden + archived vendors 404 from the public surface (don't leak the
@@ -878,14 +897,14 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const vendorJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'ProfessionalService'],
-    '@id': `${SITE_URL}/v/${slug}#business`,
+    '@id': `${SITE_URL}/${slug}#business`,
     /* V2.1 brief amendment #2 (2026-05-30): emit the hybrid-anonymity
        display label so AI engines + Google extract the safe
        placeholder ("Manila Wedding Photographer · Manila") while the
        business_name is hidden — not the real name. Once revealed,
        the real business_name surfaces unchanged. */
     name: displayLabel,
-    url: `${SITE_URL}/v/${slug}`,
+    url: `${SITE_URL}/${slug}`,
     description: vendor.tagline ?? `${displayLabel} on Setnayan.`,
     image: vendor.logo_url ?? `${SITE_URL}/icon-512.svg`,
     address: {
@@ -980,7 +999,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
         itemOffered: {
           '@type': 'Service',
           name: isCanonicalService(s) ? displayServiceLabel(s) : s,
-          provider: { '@id': `${SITE_URL}/v/${slug}#business` },
+          provider: { '@id': `${SITE_URL}/${slug}#business` },
         },
       })),
     };
@@ -1017,7 +1036,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
            uses the display label so SERP breadcrumbs surface the safe
            placeholder while the name is hidden. */
         name: displayLabel,
-        item: `${SITE_URL}/v/${slug}`,
+        item: `${SITE_URL}/${slug}`,
       },
     ],
   };
@@ -1235,7 +1254,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                   isAuthenticated={user !== null}
                   initialFollowing={initialFollowing}
                   eventId={coupleEventId}
-                  revalidatePath={`/v/${slug}`}
+                  revalidatePath={`/${slug}`}
                 />
                 {/* Save-to-picks (2026-05-20). Only surfaced for logged-in
                     couples with at least one event; the button hides
@@ -1587,6 +1606,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   );
 }
 
+export default async function PublicVendorPage({ params, searchParams }: Props) {
+  const { slug } = await params;
+  return renderVendorBySlug({ slug, searchParams });
+}
+
 function ComingSoonBanner({ vendorName }: { vendorName: string }) {
   return (
     <section
@@ -1853,7 +1877,7 @@ function ReviewsSection({
       {hasMore && (showStars || showComments) ? (
         <div className="pt-2">
           <Link
-            href={`/v/${slug}?reviewsPage=${nextPage}#reviews`}
+            href={`/${slug}?reviewsPage=${nextPage}#reviews`}
             className="button-secondary inline-flex h-10 px-4"
           >
             Show more reviews

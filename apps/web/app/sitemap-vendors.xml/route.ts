@@ -90,7 +90,7 @@ export async function GET(): Promise<Response> {
         )
         .map(
           (row) =>
-            `  <url>\n    <loc>${baseUrl}/v/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
+            `  <url>\n    <loc>${baseUrl}/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
         )
         .join('\n');
     }

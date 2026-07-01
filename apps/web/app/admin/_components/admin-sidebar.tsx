@@ -125,6 +125,7 @@ import {
   Radar,
   Lightbulb,
   Film,
+  Gift,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -484,6 +485,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/discount-codes',
         icon: TagIcon,
         matchPrefix: '/admin/discount-codes',
+      },
+      {
+        key: 'referrals',
+        label: 'Referrals',
+        href: '/admin/referrals',
+        icon: Gift,
+        matchPrefix: '/admin/referrals',
       },
       {
         key: 'token-bands',

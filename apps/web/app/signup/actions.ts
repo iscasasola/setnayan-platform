@@ -11,6 +11,7 @@ import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { applyReferralAtSignup } from '@/lib/referral-actions';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -55,6 +56,10 @@ export async function signUp(formData: FormData) {
   const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
   const guestHostSrcEvent = String(formData.get('src_event') ?? '').trim();
   const isGuestHostAttributed = guestHostRef === 'guest' && guestHostSrcEvent !== '';
+  // Couple referral rewards — a new account arriving via a shared ?refc=<code>
+  // link. Carried through the form as a hidden input. Only couples can be
+  // referred (referrals reward event planning); ignored for vendor signups.
+  const referralCode = String(formData.get('refc') ?? '').trim();
   // Public Event Summary consent — couples only. Captured at signup per
   // CLAUDE.md decision-log rows 426 + 428 (2026-05-19) + the 8 RA 10173
   // safe-harbor guardrails. Vendors don't get this field (form hides it
@@ -170,6 +175,14 @@ export async function signUp(formData: FormData) {
         }).catch(() => {
           /* telemetry never blocks */
         });
+      }
+
+      // Couple referral rewards — record the OPEN redemption if this couple
+      // arrived via a shared ?refc= link. Best-effort (never throws); ANONYMOUS
+      // convert is always a couple, so no account-type gate needed. Awaited so
+      // the DB write lands before the redirect tears down the request.
+      if (referralCode) {
+        await applyReferralAtSignup(referralCode, userId);
       }
 
       // Honor the "stay signed in" checkbox before sending them to re-login as
@@ -387,6 +400,13 @@ export async function signUp(formData: FormData) {
         }).catch(() => {
           // Telemetry failure never blocks. Silent.
         });
+      }
+
+      // Couple referral rewards — record the OPEN redemption for a couple who
+      // signed up via a shared ?refc= link. Couples only (referrals reward
+      // event planning). Best-effort; awaited so the write lands pre-redirect.
+      if (referralCode && accountType === 'customer') {
+        await applyReferralAtSignup(referralCode, data.user.id);
       }
     }
     return redirect(

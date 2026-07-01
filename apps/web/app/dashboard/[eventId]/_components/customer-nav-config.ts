@@ -55,6 +55,7 @@ import {
   Shield,
   Eye,
   Rocket,
+  Gift,
 } from 'lucide-react';
 import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
@@ -134,6 +135,15 @@ export function buildCustomerNavGroups(
               href: `${base}/contracts`,
               icon: FileText,
               matchPrefix: `${base}/contracts`,
+            },
+            {
+              // Couple referral rewards — share your link; both sides get a
+              // perk when a referred couple books their first service.
+              key: 'refer',
+              label: 'Refer a couple',
+              href: `${base}/refer`,
+              icon: Gift,
+              matchPrefix: `${base}/refer`,
             },
           ],
         },

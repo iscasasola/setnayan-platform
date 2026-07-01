@@ -86,6 +86,10 @@ type SearchParams = Promise<{
    *  north-star event on a successful new-account creation. No PII. */
   ref?: string;
   src_event?: string;
+  /** Couple referral rewards. A new account arriving via a couple's shared
+   *  referral link (`/signup?refc=<code>`). Carried through the form as a
+   *  hidden input so signUp records an OPEN redemption on account creation. */
+  refc?: string;
 }>;
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
@@ -112,6 +116,12 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const srcEvent =
     refParam === 'guest' && typeof params.src_event === 'string'
       ? params.src_event
+      : '';
+  // Couple referral code (?refc=). Accept the S89R-<10> shape only; anything
+  // else is dropped so a junk param can't paint the referred-signup banner.
+  const referralCode =
+    typeof params.refc === 'string' && /^S89R-[0-9A-Z]{10}$/i.test(params.refc.trim())
+      ? params.refc.trim().toUpperCase()
       : '';
   const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
   // Persistent guest accounts (PR-E): if this browser carries a signed guest
@@ -321,6 +331,27 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
+          {/* Couple referral rewards — a friend's shared link. Reassures the
+              new couple that a perk is waiting once they book their first
+              service. No amount shown (it's admin-managed + may be inert). */}
+          {referralCode ? (
+            <p
+              role="status"
+              style={{
+                margin: 0,
+                padding: '10px 12px',
+                borderRadius: 'var(--m-r-sm)',
+                border: '1px solid var(--m-line)',
+                background: 'var(--m-paper-2)',
+                color: 'var(--m-ink)',
+                fontSize: 13,
+              }}
+            >
+              A couple invited you to Setnayan. Create your account and you&rsquo;ll
+              both get a little something when you book your first service.
+            </p>
+          ) : null}
+
           {/* OAuth above the email form (PR #422). Desktop gets the loopback
               variant, web the server-action row; mobile/older-native = email-only
               (see showOAuth/desktopOAuth). */}
@@ -368,6 +399,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
             {srcEvent ? (
               <input type="hidden" name="src_event" value={srcEvent} />
+            ) : null}
+            {/* Couple referral rewards — carried so signUp records the OPEN
+                redemption tying this new couple to the referrer. */}
+            {referralCode ? (
+              <input type="hidden" name="refc" value={referralCode} />
             ) : null}
 
             {/* Account-type pill toggle · matches template's segmented control.

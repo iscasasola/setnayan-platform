@@ -150,12 +150,18 @@ export default async function VendorPerformancePage({
     statsRes,
     services,
     vendorCatalog,
-    funnelTotals,
+    funnelTotalsYear,
     demandRadar,
     inquiryAnalytics,
     conversionAnalytics,
-    bookedBySource,
-    viewsBySource,
+    funnelTotalsMonth,
+    funnelTotalsDay,
+    bookedBySourceYear,
+    viewsBySourceYear,
+    bookedBySourceMonth,
+    viewsBySourceMonth,
+    bookedBySourceDay,
+    viewsBySourceDay,
   ] = await Promise.all([
     supabase
       .from('vendor_activity_stats')
@@ -176,15 +182,37 @@ export default async function VendorPerformancePage({
     canAdvanced
       ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
       : Promise.resolve(null),
-    // Booked / views sliced by source (this-year window) — the "where they came
-    // from" breakdown folded in from the retired /funnel page. Shop-level (no
-    // service_id on views/inquiries/quotes), so it doesn't depend on serviceId.
-    // Pro+ only, alongside the funnel bars.
+    // Funnel totals + booked/views sliced by source, for ALL THREE windows
+    // (year 365d · month 28d · day 30d). All three are pre-fetched so the
+    // Daily/Monthly/Annual toggle can swap the ROI + funnel + by-source section
+    // INSTANTLY client-side (no refetch, no Apply button) — the same pattern the
+    // Momentum card uses. Shop-level (views/inquiries/quotes carry no
+    // service_id), so none of these depend on serviceId. Pro+ only: month/day
+    // are gated to canAdvanced; the year funnel total stays ungated to preserve
+    // the prior behavior (basic tier never renders any of it either way).
+    canAdvanced
+      ? fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      : Promise.resolve({ views: 0, inquiries: 0, quotes: 0, booked: 0 }),
+    canAdvanced
+      ? fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(30))
+      : Promise.resolve({ views: 0, inquiries: 0, quotes: 0, booked: 0 }),
     canAdvanced
       ? fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365))
       : Promise.resolve([]),
     canAdvanced
       ? fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve([]),
+    canAdvanced
+      ? fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      : Promise.resolve([]),
+    canAdvanced
+      ? fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28))
+      : Promise.resolve([]),
+    canAdvanced
+      ? fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30))
+      : Promise.resolve([]),
+    canAdvanced
+      ? fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30))
       : Promise.resolve([]),
   ]);
 
@@ -262,19 +290,22 @@ export default async function VendorPerformancePage({
       : Promise.resolve(null),
   ]);
 
-  const funnelSteps = buildFunnelSteps(funnelTotals);
+  const funnelStepsYear = buildFunnelSteps(funnelTotalsYear);
+  const funnelStepsMonth = buildFunnelSteps(funnelTotalsMonth);
+  const funnelStepsDay = buildFunnelSteps(funnelTotalsDay);
 
   // Per-service BOOKED count for the funnel callout — the ONLY funnel stage that
   // can segment (views/inquiries/quotes have no service_id). Shop-level funnel
-  // bars are unchanged; this drives the "Bookings for {service}: N" note.
-  const serviceBookedCount = serviceId
-    ? await fetchServiceBookedCount(
-        supabase,
-        profile.vendor_profile_id,
-        isoDaysAgo(365),
-        serviceId,
-      )
-    : null;
+  // bars are unchanged; this drives the "Bookings for {service}: N" note, per
+  // window so it tracks the Daily/Monthly/Annual toggle. Only when a service is
+  // selected (one parallel batch, not a per-window waterfall).
+  const [serviceBookedYear, serviceBookedMonth, serviceBookedDay] = serviceId
+    ? await Promise.all([
+        fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
+        fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
+        fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
+      ])
+    : [null, null, null];
 
   // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
   // vendor's current tier. Falls back to the shipped tier-price constant only if
@@ -297,6 +328,81 @@ export default async function VendorPerformancePage({
     bookings: attributionDay?.totalBookings ?? 0,
     earningsPhp: attributionDay?.totalRevenuePhp ?? 0,
     pricedCount: attributionDay?.totalPriced ?? 0,
+  };
+
+  // ── Windowed "Your business" section (ROI + funnel + by-source). All three
+  //    windows are pre-rendered so <PerformanceControls> can swap them INSTANTLY
+  //    when the Daily/Monthly/Annual toggle changes — client-side, no refetch,
+  //    no Apply button (same pattern as the Momentum card). The window framing
+  //    matches the Momentum card ("this year" / "this month" / "in the last 30
+  //    days"). The "× your annual plan" ROI multiple is annual-specific, so
+  //    annualPlanPhp is passed to the year node only (the card hides the
+  //    multiple when it's null). Only rendered for Pro+ (canAdvanced).
+  const WINDOW_LABEL: Record<MomentumMode, string> = {
+    year: 'this year',
+    month: 'this month',
+    day: 'in the last 30 days',
+  };
+  const renderWindowedSection = (mode: MomentumMode) => {
+    const attribution =
+      mode === 'year' ? attributionYear : mode === 'month' ? attributionMonth : attributionDay;
+    const steps =
+      mode === 'year' ? funnelStepsYear : mode === 'month' ? funnelStepsMonth : funnelStepsDay;
+    const booked =
+      mode === 'year' ? bookedBySourceYear : mode === 'month' ? bookedBySourceMonth : bookedBySourceDay;
+    const views =
+      mode === 'year' ? viewsBySourceYear : mode === 'month' ? viewsBySourceMonth : viewsBySourceDay;
+    const nullExcluded =
+      mode === 'year' ? nullExcludedYear : mode === 'month' ? nullExcludedMonth : nullExcludedDay;
+    const serviceBooked =
+      mode === 'year' ? serviceBookedYear : mode === 'month' ? serviceBookedMonth : serviceBookedDay;
+    const label = WINDOW_LABEL[mode];
+    return (
+      <div className="space-y-6">
+        {/* Setnayan vs your own book — app-vs-import ROI for this window. */}
+        <RoiAttributionCard
+          attribution={attribution}
+          annualPlanPhp={mode === 'year' ? annualPlanPhp : null}
+          windowLabel={label}
+          scopeLabel={scopeLabel}
+          nullServiceExcluded={nullExcluded}
+        />
+        {/* Your booking funnel — the four-stage bars. Only the BOOKED stage can
+            segment; when a service is selected we show its booked count for this
+            window as a callout and note the other stages are shop-wide. */}
+        {serviceId ? (
+          <div
+            className="rounded-lg border p-4 text-sm"
+            style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+          >
+            <p style={{ color: 'var(--m-ink)' }}>
+              <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
+              <span className="tabular-nums">{serviceBooked ?? 0}</span> — {label}.
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
+              tracked per service.
+            </p>
+          </div>
+        ) : null}
+        <FunnelPreviewCard steps={steps} windowLabel={label} />
+
+        {/* Where they came from — sliced breakdown folded in from the retired
+            /funnel page. Shop-level (not per-service). */}
+        <SourceBreakdown
+          title="Where your bookings come from"
+          blurb={`Where your booked couples first found you (${label}). Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
+          slices={booked}
+          emptyText="No bookings in this window yet."
+        />
+        <SourceBreakdown
+          title="Where your profile views come from"
+          blurb={`Where your top-of-funnel traffic comes from (${label}). Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
+          slices={views}
+          emptyText="No profile views in this window yet."
+        />
+      </div>
+    );
   };
 
   return (
@@ -357,13 +463,15 @@ export default async function VendorPerformancePage({
         )}
       </div>
 
-      {/* ── Your business · the ONLY content that actually changes with the
-          Daily/Monthly/Annual window + service scope. Momentum + ROI SEGMENT on
-          real booked data when a service is selected (via
-          event_vendors.service_id); the daily, monthly, and annual charts all
-          filter to that service too, so the whole card is per-service and
-          honest. The filter row drives Momentum directly and — via re-fetch on
-          navigation — everything below it. */}
+      {/* ── Your business · the ONLY content that changes with the
+          Daily/Monthly/Annual window + service scope. Momentum + ROI + funnel +
+          by-source all SEGMENT on real booked data when a service is selected
+          (via event_vendors.service_id) and re-window on the toggle. The toggle
+          swaps the whole windowed section INSTANTLY client-side (no refetch, no
+          Apply button); the service selector re-fetches on navigation. Demand
+          Radar + Capacity sit ABOVE this row on purpose — they're market /
+          forward-looking reads that don't take a trailing window (owner
+          2026-07-02, "leave them global"). */}
       <PerformanceControls
         initialMode={momentumMode}
         isFull={canAdvanced}
@@ -386,61 +494,19 @@ export default async function VendorPerformancePage({
             />
           ) : null
         }
+        windowedSection={
+          canAdvanced
+            ? {
+                day: renderWindowedSection('day'),
+                month: renderWindowedSection('month'),
+                year: renderWindowedSection('year'),
+              }
+            : null
+        }
       />
 
-      {/* ── ROI + booking funnel + where-they-came-from. Always expanded (the
-          old Show-more/less disclosure was removed · owner 2026-07-02) so the
-          full funnel read — folded in from the retired standalone /funnel page —
-          is visible without a click. */}
-      {canAdvanced ? (
-        <div className="space-y-6">
-          {/* Setnayan vs your own book — app-vs-import ROI (year window). */}
-          <RoiAttributionCard
-            attribution={attributionYear}
-            annualPlanPhp={annualPlanPhp}
-            windowLabel="this year"
-            scopeLabel={scopeLabel}
-            nullServiceExcluded={nullExcludedYear}
-          />
-          {/* Your booking funnel — the four-stage bars. Only the BOOKED stage
-              can segment; when a service is selected we show its booked count as
-              a callout and note the other stages are shop-wide (honest contract). */}
-          {serviceId ? (
-            <div
-              className="rounded-lg border p-4 text-sm"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-            >
-              <p style={{ color: 'var(--m-ink)' }}>
-                <span className="font-semibold">
-                  Bookings for {scopeLabel}:
-                </span>{' '}
-                <span className="tabular-nums">{serviceBookedCount ?? 0}</span>{' '}
-                this year.
-              </p>
-              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
-                tracked per service.
-              </p>
-            </div>
-          ) : null}
-          <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
-
-          {/* Where they came from — the sliced breakdown folded in from the
-              retired /funnel page. Shop-level (not per-service). */}
-          <SourceBreakdown
-            title="Where your bookings come from"
-            blurb={`Where your booked couples first found you this year. Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
-            slices={bookedBySource}
-            emptyText="No bookings this year yet."
-          />
-          <SourceBreakdown
-            title="Where your profile views come from"
-            blurb={`Where your top-of-funnel traffic comes from this year. Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
-            slices={viewsBySource}
-            emptyText="No profile views this year yet."
-          />
-        </div>
-      ) : (
+      {/* ROI + funnel are Pro+; a Solo vendor sees the upsell in their place. */}
+      {!canAdvanced && (
         <VendorTierTeaser
           feature="ROI & booking funnel"
           requiredTier="pro"

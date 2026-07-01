@@ -1,3 +1,33 @@
+## 2026-07-02 · feat(vendor): Daily/Monthly/Annual filter now drives ROI + booking funnel
+
+Follow-up to the fold-in below. The Daily/Monthly/Annual window toggle + service
+scope now also drive **Setnayan vs your own book (ROI)** and **Where bookings
+come from (funnel + by-source)** — previously those were pinned to the annual
+window. Owner: *"align this to … setnayan vs your own book and where do bookings
+come from … autopopulate when the values are changed, no button to apply."*
+
+- **Instant, no Apply button** — all three windows (year 365d · month 28d · day
+  30d) are pre-fetched server-side and passed to `PerformanceControls`, which
+  swaps the ROI + funnel + by-source section **client-side** on toggle (same
+  pattern the Momentum card already used). The service selector still re-fetches
+  on navigation. No new button; nothing to "apply".
+- **Window framing** matches the Momentum card ("this year" / "this month" /
+  "in the last 30 days"). The **"× your annual plan"** ROI multiple is
+  annual-specific, so `annualPlanPhp` is passed to the year node only — the
+  multiple auto-hides on the month/day windows (comparing a month of sourced
+  revenue to an annual plan cost would be misleading).
+- **Per-service booked callout** now tracks the window too (year/month/day
+  `fetchServiceBookedCount`, one parallel batch, only when a service is picked).
+- **Demand Radar + Capacity intentionally NOT wired** (owner "leave them
+  global") — Demand Radar is de-identified cross-business *market* data and
+  Capacity is *forward-looking*; neither maps to a trailing window or the
+  vendor's own service list. They stay above the filter row, visibly outside it.
+
+Verified: `tsc --noEmit` clean · ESLint clean · production build.
+
+SPEC IMPACT: None (own-business analytics interaction — existing windowed data,
+now surfaced through the existing filter). Logged in `DECISION_LOG.md` (2026-07-02).
+
 ## 2026-07-02 · refactor(vendor): fold Quote-to-Booking Funnel into My Performance + Demand
 
 Consolidates the standalone `/vendor-dashboard/funnel` page (owner "just

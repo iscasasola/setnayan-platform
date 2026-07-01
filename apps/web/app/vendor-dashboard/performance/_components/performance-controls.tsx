@@ -6,10 +6,16 @@ import { MomentumWindowToggle } from './momentum-window-toggle';
 import { buildPerformanceHref } from './perf-links';
 
 /**
- * The shared filter row (Daily/Monthly/Annual + service scope) plus the
- * Momentum card it drives — the only content on My Performance whose numbers
- * actually change with these two controls. Everything else on the page is
- * shop-level and sits above this row untouched by either filter.
+ * The shared filter row (Daily/Monthly/Annual + service scope) plus everything
+ * it drives — the Momentum card AND (Pro+) the windowed "Your business" section
+ * (ROI + booking funnel + by-source). These are the only cards on My
+ * Performance whose numbers change with these two controls; everything else is
+ * shop-level / market / forward-looking and sits above this row untouched.
+ *
+ * The Daily/Monthly/Annual toggle is pure client state: all three windows are
+ * pre-rendered server-side and passed in, so switching swaps them INSTANTLY with
+ * no refetch and no Apply button. The service selector re-fetches on navigation
+ * (which re-renders the pre-rendered windows for the new scope).
  */
 export function PerformanceControls({
   initialMode,
@@ -25,6 +31,7 @@ export function PerformanceControls({
   nullExcludedMonth,
   nullExcludedDay,
   serviceSelector,
+  windowedSection = null,
 }: {
   initialMode: MomentumMode;
   isFull: boolean;
@@ -40,6 +47,9 @@ export function PerformanceControls({
   nullExcludedDay: number | null;
   /** Server-rendered <ServiceScopeSelector/> (or null when <2 active services). */
   serviceSelector: ReactNode;
+  /** Pre-rendered ROI+funnel+by-source per window (Pro+), swapped by the toggle.
+   *  null on Solo — the page shows an upsell in its place instead. */
+  windowedSection?: { day: ReactNode; month: ReactNode; year: ReactNode } | null;
 }) {
   const [mode, setMode] = useState<MomentumMode>(initialMode);
 
@@ -56,6 +66,14 @@ export function PerformanceControls({
 
   const nullServiceExcluded =
     mode === 'year' ? nullExcludedYear : mode === 'month' ? nullExcludedMonth : nullExcludedDay;
+
+  const activeWindowed = windowedSection
+    ? mode === 'year'
+      ? windowedSection.year
+      : mode === 'month'
+        ? windowedSection.month
+        : windowedSection.day
+    : null;
 
   return (
     <div className="space-y-6">
@@ -75,6 +93,8 @@ export function PerformanceControls({
         scopeLabel={scopeLabel}
         nullServiceExcluded={nullServiceExcluded}
       />
+
+      {activeWindowed}
     </div>
   );
 }

@@ -65,7 +65,7 @@ export function SubscriptionCards({
       {native && (
         <WebNudgeBanner
           savingsCopy="up to 33% off"
-          webPricesCopy="Pro ₱6,000/28d · Enterprise ₱10,000/28d on web"
+          webPricesCopy="Pro ₱2,499/28d · Enterprise ₱7,499/28d on web"
           webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}

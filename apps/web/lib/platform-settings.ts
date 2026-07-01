@@ -41,11 +41,19 @@ export type PlatformSettingsRow = {
    * admin has flagged award rows is_homepage_featured.
    */
   spotlight_homepage_enabled: boolean;
+  /**
+   * Owner master switch for the couple REFERRAL program (migration
+   * 20270419213000). FALSE by default — the "Refer a couple" surface and the
+   * signup/qualify engine stay inert until an admin flips this on. Separate
+   * from referral_reward_php (the reward amount): a program can be on with a
+   * ₱0 reward, but with the program OFF nothing is recorded or shown.
+   */
+  referral_program_enabled: boolean;
   updated_at: string;
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -71,6 +79,7 @@ const FALLBACK: PlatformSettingsRow = {
   brand_icon_version: 0,
   repost_watch_hamming_threshold: 10,
   spotlight_homepage_enabled: false,
+  referral_program_enabled: false,
   updated_at: new Date(0).toISOString(),
 };
 
@@ -115,5 +124,22 @@ export async function fetchOnboardingBgMusicUrl(): Promise<string | null> {
     return await displayUrlForStoredAsset(key);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Whether the couple referral program is active (owner master toggle). Reads
+ * platform_settings via the admin client so the signup + qualify engine (which
+ * run in anonymous / service-role contexts) can gate on it. Returns FALSE on
+ * any error or when unset — the program stays inert unless an admin turns it on.
+ */
+export async function isReferralProgramEnabled(): Promise<boolean> {
+  try {
+    const { createAdminClient } = await import('./supabase/admin');
+    const admin = createAdminClient();
+    const s = await fetchPlatformSettings(admin);
+    return s.referral_program_enabled === true;
+  } catch {
+    return false;
   }
 }

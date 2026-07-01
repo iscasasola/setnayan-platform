@@ -16,6 +16,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { referralShareLink } from '@/lib/referrals';
+import { isReferralProgramEnabled } from '@/lib/platform-settings';
 
 export type ReferralRedemptionSummary = {
   referred_user_id: string;
@@ -115,6 +116,10 @@ export async function applyReferralAtSignup(
   try {
     const code = (rawCode ?? '').trim();
     if (!code || !referredUserId) return;
+
+    // Master toggle: only track a referral while the program is active. Off →
+    // the new couple still signs up; we simply record no redemption.
+    if (!(await isReferralProgramEnabled())) return;
 
     const admin = createAdminClient();
 

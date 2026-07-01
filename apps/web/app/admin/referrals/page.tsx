@@ -15,6 +15,8 @@
 
 import { Gift, Hourglass, Check } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { setReferralProgramEnabled } from './actions';
 
 export const metadata = { title: 'Referrals · Admin' };
 
@@ -43,7 +45,11 @@ export default async function AdminReferralsPage() {
   const admin = createAdminClient();
 
   const [settingsRes, redemptionsRes] = await Promise.all([
-    admin.from('platform_settings').select('referral_reward_php').eq('id', 1).maybeSingle(),
+    admin
+      .from('platform_settings')
+      .select('referral_reward_php, referral_program_enabled')
+      .eq('id', 1)
+      .maybeSingle(),
     admin
       .from('referral_redemptions')
       .select(
@@ -54,6 +60,9 @@ export default async function AdminReferralsPage() {
   ]);
 
   const rewardPhp = Number(settingsRes.data?.referral_reward_php ?? 0);
+  const programEnabled =
+    (settingsRes.data as { referral_program_enabled?: boolean } | null)
+      ?.referral_program_enabled === true;
   const redemptions = (redemptionsRes.data ?? []) as RedemptionRow[];
 
   // Resolve emails for display in one round-trip.
@@ -87,6 +96,38 @@ export default async function AdminReferralsPage() {
           first paid order — both sides then get a single-use reward voucher.
         </p>
       </header>
+
+      {/* Master toggle: activate the whole referral program. */}
+      <form
+        action={setReferralProgramEnabled}
+        className="rounded-xl border border-ink/10 bg-cream p-5"
+      >
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            name="referral_program_enabled"
+            defaultChecked={programEnabled}
+            className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold text-ink">Referral program active</span>
+            <span className="text-xs text-ink/60">
+              Currently{' '}
+              <span className="font-semibold text-ink/80">{programEnabled ? 'on' : 'off'}</span>.
+              When off, the couple &ldquo;Refer a couple&rdquo; page is hidden and no referrals
+              are recorded. Turn it on to run the program &mdash; then set the reward below.
+            </span>
+          </span>
+        </label>
+        <div className="mt-4">
+          <SubmitButton
+            className="button-primary inline-flex items-center gap-2"
+            pendingLabel="Saving…"
+          >
+            Save
+          </SubmitButton>
+        </div>
+      </form>
 
       {/* Admin-managed reward amount. */}
       <section className="rounded-xl border border-ink/10 bg-cream p-4">

@@ -31,6 +31,7 @@
 
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isReferralProgramEnabled } from '@/lib/platform-settings';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -180,6 +181,8 @@ export async function qualifyReferralOnFirstPaidOrder(
   buyerUserId: string,
 ): Promise<void> {
   try {
+    // Master toggle: the referral program must be active to qualify/mint.
+    if (!(await isReferralProgramEnabled())) return;
     const admin = createAdminClient();
 
     // Is this buyer a referred account with an OPEN redemption? The partial

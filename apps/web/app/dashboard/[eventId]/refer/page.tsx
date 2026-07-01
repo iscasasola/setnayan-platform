@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { Gift, Check, Hourglass, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getMyReferral, type ReferralRedemptionSummary } from '@/lib/referral-actions';
+import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { CopyButton } from '@/app/_components/copy-button';
 
 export const metadata = { title: 'Refer a couple · Setnayan' };
@@ -33,6 +34,9 @@ export default async function ReferACouplePage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Master toggle: the Refer surface is only reachable while the program is on.
+  if (!(await isReferralProgramEnabled())) redirect(`/dashboard/${eventId}`);
 
   const referral = await getMyReferral();
   // getMyReferral returns null only if unauthenticated (already redirected) or

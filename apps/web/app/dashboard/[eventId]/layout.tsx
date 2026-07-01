@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
@@ -253,9 +254,13 @@ export default async function EventLayout({ children, params }: Props) {
   // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
   // to a hard-coded profile on any DB hiccup.
   const profile = await resolveProfile((event.event_type as string | null) ?? 'wedding');
+  // Couple referral program — hidden from every nav surface (sidebar, bottom
+  // nav, sub-nav) unless an admin has turned the program on (master toggle).
+  const referralEnabled = await isReferralProgramEnabled();
   const navHideKeys = [
     ...(profile.marketplaceEnabled ? [] : ['explore']),
     ...(surfaceEnabled(profile, 'budget') ? [] : ['budget']),
+    ...(referralEnabled ? [] : ['refer']),
   ];
   // Gates the Studio "Launch" child (preview + go-live) to event types whose
   // profile enables the public website (weddings today). Threaded to the

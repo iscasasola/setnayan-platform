@@ -1,8 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+// Couple referral rewards (2026-07-01). QUALIFYING EVENT = the referred
+// couple's FIRST PAID ORDER. Fired best-effort off an after() hook the moment
+// an order flips to 'paid' — never blocks or fails the reconciliation flow.
+// Idempotent + inert-when-reward-unset (see lib/referrals.ts).
+import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
@@ -214,6 +220,15 @@ export async function approvePayment(formData: FormData) {
         ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
         : null,
     });
+
+    // Couple referral rewards — QUALIFYING EVENT is this buyer's FIRST PAID
+    // ORDER. If they signed up via a ?refc= code, the hook marks their open
+    // redemption qualified and (when the admin-managed reward is set) mints the
+    // two single-use reward vouchers. after() runs post-response so it never
+    // delays the admin's reconciliation click; the helper is best-effort and
+    // never throws. Idempotent — the redemption lookup only matches an `open`
+    // row, so re-approvals / partial-then-full flows can't double-mint.
+    after(() => qualifyReferralOnFirstPaidOrder(payment.user_id));
 
     // Funnel event — fires the moment an order's status flips to paid.
     // Distinct id is the buyer's Supabase user_id (payment.user_id), so it

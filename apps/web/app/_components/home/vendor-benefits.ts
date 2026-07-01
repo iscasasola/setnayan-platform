@@ -77,7 +77,7 @@ export const VENDOR_GROUPS: VendorGroup[] = [
       { n: 'Merit-Only Ranking', b: 'No pay-to-rank — you can\'t buy your way up, and neither can rivals.' },
       { n: 'No Fake Reviews, No Ghost Listings', soon: true, b: 'We screen bought reviews and ghost listings — protecting honest vendors most.' },
       { n: 'Stand-Up-for-Yourself Dispute Mediation', soon: true, b: 'A neutral team reviews the record before anything touches your rating.' },
-      { n: 'Reverse-Image Theft Watch', soon: true, b: 'Reposts of your portfolio get flagged as yours across the platform.' },
+      { n: 'Reverse-Image Theft Watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
     ],
   },
   {

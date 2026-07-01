@@ -130,7 +130,8 @@ export function scoreGhostListing(inputs: {
     ['abandoned_listing', dormancyPts],
   ];
   contributors.sort((a, b) => b[1] - a[1]);
-  if (contributors[0][1] > 0) reason = contributors[0][0];
+  const top = contributors[0];
+  if (top && top[1] > 0) reason = top[0];
 
   const detail: GhostListingDetail = {
     score,

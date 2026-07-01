@@ -24,6 +24,8 @@ import { Globe, ExternalLink, SquarePen, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
+import { DomainManager } from './_domain-manager';
+import type { DomainRow } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your website · Setnayan' };
@@ -42,10 +44,22 @@ export default async function VendorWebsitePreview() {
 
   let slug: string | null = null;
   let visible = false;
+  let domains: DomainRow[] = [];
   try {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     slug = profile?.business_slug ?? null;
     visible = isPubliclyVisible(profile?.public_visibility ?? 'coming_soon');
+    // The vendor's own custom domains (RLS scopes this to their vendor profile).
+    const { data: domainRows } = await supabase
+      .from('custom_domains')
+      .select('domain_id, domain, verified_at')
+      .eq('owner_type', 'vendor')
+      .order('created_at', { ascending: true });
+    domains = (domainRows ?? []).map((d) => ({
+      domain_id: d.domain_id as string,
+      domain: d.domain as string,
+      verified: Boolean(d.verified_at),
+    }));
   } catch {
     // Degrade to the "not visible yet" state rather than crashing the tab.
     slug = null;
@@ -182,6 +196,10 @@ export default async function VendorWebsitePreview() {
           </div>
         </section>
       )}
+
+      {/* Custom domain — available once the vendor has a public address (a
+          custom domain resolves to /v/[slug], so it needs a slug to point at). */}
+      {slug && <DomainManager initial={domains} />}
     </div>
   );
 }

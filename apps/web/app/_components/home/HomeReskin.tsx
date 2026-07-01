@@ -22,10 +22,21 @@ import { cloneElement, isValidElement, useCallback, useEffect, useRef, useState 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
-import { HomeOverlays, type OverlayId, type SignInOAuth } from './HomeOverlays';
+import type { OverlayId, SignInOAuth } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { openConsentManager } from '@/lib/cookie-consent';
+import dynamic from 'next/dynamic';
+
+// The Sign-in / Prices / vendor / login overlays are CLOSED on first paint
+// (`overlay` is null → HomeOverlays renders nothing) yet their code was
+// statically imported into the homepage's first-load JS bundle. Load the chunk
+// lazily after hydration so it's off the critical first-load path. ssr:false is
+// safe because there is nothing to server-render while every overlay is closed.
+// (Perf sweep 2026-07-02, finding #7.)
+const HomeOverlays = dynamic(() => import('./HomeOverlays').then((m) => m.HomeOverlays), {
+  ssr: false,
+});
 
 const HOME_HERO = {
   kick: 'Set na ’yan',
@@ -391,7 +402,11 @@ export function HomeReskin({
             muted
             loop
             playsInline
-            preload="auto"
+            // metadata (not auto): don't buffer the whole clip against LCP —
+            // the src is injected post-hydration and the gradient scene is the
+            // real LCP element, so the backdrop needn't pre-fetch its full
+            // stream on first paint. (Perf sweep 2026-07-02, finding #24.)
+            preload="metadata"
             aria-hidden="true"
             style={{ opacity: 0 }}
           />

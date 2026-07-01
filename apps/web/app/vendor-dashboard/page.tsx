@@ -1,17 +1,29 @@
 import Link from 'next/link';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { fetchVendorOverviewData } from '@/lib/vendor-overview';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
+import {
+  asVendorTier,
+  canSeeMarketIntel,
+  canSeePerformanceTrends,
+} from '@/lib/vendor-tier-caps';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
+import { regionLabel } from '@/lib/region-source';
+import { getVendorDemandRadar, maybeRefreshDemandRadar } from '@/lib/demand-radar';
+import { computeVendorFunnelView } from '@/lib/vendor-funnel';
 import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
 import {
   WhatsNewFeed,
   OngoingTasks,
   UpcomingSchedules,
 } from './_components/overview-sections';
+import { DemandRadarPanel } from './_components/demand-radar-panel';
+import { FunnelPanel } from './_components/funnel-panel';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -164,6 +176,50 @@ export default async function VendorOverviewPage() {
 
   const { whatsNew, ongoing, upcoming } = data;
 
+  // ── Market-intel analytics (same live sources + role-scoping the standalone
+  // /demand + /funnel routes use) ─────────────────────────────────────────────
+  // We're already past the owner/admin gate (agents got AgentHome above), which
+  // mirrors /demand's canManageVendor() check. The tier gates below are the
+  // same flag-dark ones the standalone routes apply: Demand Radar → Pro
+  // (canSeeMarketIntel), Funnel → Solo (canSeePerformanceTrends). Both are
+  // no-ops until VENDOR_TIER_FEATURE_GATE flips on, so today every vendor sees
+  // both sections — matching the live standalone surfaces.
+  const gateOn = isVendorFeatureGateEnabled();
+
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('hq_region, tier_state')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const typedTierRow = tierRow as
+    | { hq_region?: string | null; tier_state?: string | null }
+    | null;
+  const tier = asVendorTier(typedTierRow?.tier_state);
+  const hqRegion = typedTierRow?.hq_region ?? null;
+  const marketLabel = hqRegion ? regionLabel(hqRegion) ?? hqRegion : null;
+
+  const showDemandRadar = !gateOn || canSeeMarketIntel(tier);
+  const showFunnel = !gateOn || canSeePerformanceTrends(tier);
+
+  // Fetch only what we'll render. Both reads degrade honestly (empty radar /
+  // zeroed funnel) rather than throwing — analytics never breaks the Overview.
+  const [demandRadar, funnelView] = await Promise.all([
+    showDemandRadar
+      ? getVendorDemandRadar(supabase, profile.vendor_profile_id)
+      : Promise.resolve(null),
+    showFunnel
+      ? computeVendorFunnelView(supabase, profile.vendor_profile_id, 'month')
+      : Promise.resolve(null),
+  ]);
+
+  // Cron-free, throttled opportunistic radar rebuild after the response flushes
+  // (mirrors the standalone /demand route).
+  if (showDemandRadar) {
+    after(async () => {
+      await maybeRefreshDemandRadar();
+    });
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Heading */}
@@ -214,6 +270,48 @@ export default async function VendorOverviewPage() {
 
       {/* 4 · Upcoming schedules — next 5 booked events */}
       <UpcomingSchedules rows={upcoming} />
+
+      {/* 5 · Demand Radar — full detail, shared with /vendor-dashboard/demand */}
+      {demandRadar ? (
+        <section className="mt-10">
+          <DemandRadarPanel
+            radar={demandRadar}
+            marketLabel={marketLabel}
+            scope="vendor"
+            variant="section"
+          />
+          <Link
+            href="/vendor-dashboard/demand"
+            className="mt-4 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+            style={{ color: 'var(--m-orange-2)' }}
+          >
+            Open Demand Radar
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+          </Link>
+        </section>
+      ) : null}
+
+      {/* 6 · Quote-to-Booking Funnel — full detail, shared with /vendor-dashboard/funnel */}
+      {funnelView ? (
+        <section className="mt-10">
+          <FunnelPanel
+            steps={funnelView.steps}
+            sourceSlices={funnelView.sourceSlices}
+            viewSourceSlices={funnelView.viewSourceSlices}
+            range={funnelView.range}
+            sinceIso={funnelView.sinceIso}
+            variant="section"
+          />
+          <Link
+            href="/vendor-dashboard/funnel"
+            className="mt-4 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+            style={{ color: 'var(--m-orange-2)' }}
+          >
+            Open the full funnel — change the time range
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+          </Link>
+        </section>
+      ) : null}
     </div>
   );
 }

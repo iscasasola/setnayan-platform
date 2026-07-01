@@ -13,9 +13,10 @@ import type { DemandRadar } from '@/lib/demand-radar';
  * fabricates a trend. Founder-only marketplace lands here most of the time
  * today, which is expected and correct.
  *
- * Doorway-idiomatic styling: vendor scope uses the vendor ink/cream/terracotta
- * tokens; admin scope reuses the same primitives (the admin doorway tolerates
- * them and they read consistently with /admin/intelligence's calm tables).
+ * Shared by BOTH the standalone /vendor-dashboard/demand route AND the
+ * vendor Overview's inline Demand Radar section (via DemandRadarPanel) — one
+ * source of truth. Editorial `--m-*` palette throughout (Alabaster paper /
+ * Obsidian ink / Champagne gold accent), matching the vendor Overview.
  */
 export function DemandRadarCard({
   radar,
@@ -28,12 +29,20 @@ export function DemandRadarCard({
 }) {
   if (!radar.hasData) {
     return (
-      <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
-        <Radar aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
-        <p className="mt-3 text-sm font-medium text-ink">
+      <div
+        className="rounded-xl border border-dashed p-10 text-center"
+        style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+      >
+        <Radar
+          aria-hidden
+          className="mx-auto h-8 w-8"
+          strokeWidth={1.5}
+          style={{ color: 'var(--m-slate-4)' }}
+        />
+        <p className="mt-3 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
           Not enough demand data yet
         </p>
-        <p className="mx-auto mt-1 max-w-md text-sm text-ink/55">
+        <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate)' }}>
           {scope === 'vendor' ? (
             <>
               The radar fills in once there&rsquo;s enough activity in{' '}
@@ -81,26 +90,50 @@ export function DemandRadarCard({
       </div>
 
       {/* Month heat strip */}
-      <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
-        <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink">Month heat</h2>
-          <span className="text-xs text-ink/55">
+      <section
+        className="overflow-hidden rounded-xl border"
+        style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+      >
+        <header
+          className="flex items-center justify-between gap-2 border-b px-4 py-3"
+          style={{ borderColor: 'var(--m-line)' }}
+        >
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+            Month heat
+          </h3>
+          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Demand by the month events are happening
           </span>
         </header>
-        <ul className="divide-y divide-ink/[0.06]">
+        <ul className="divide-y" style={{ borderColor: 'var(--m-line-soft)' }}>
           {radar.months.map((m) => (
-            <li key={m.month} className="flex items-center gap-3 px-4 py-3">
-              <span className="w-20 shrink-0 text-sm font-medium text-ink">
+            <li
+              key={m.month}
+              className="flex items-center gap-3 border-t px-4 py-3 first:border-t-0"
+              style={{ borderColor: 'var(--m-line-soft)' }}
+            >
+              <span
+                className="w-20 shrink-0 text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
                 {m.label}
               </span>
-              <span className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-ink/[0.06]">
+              <span
+                className="relative h-2.5 flex-1 overflow-hidden rounded-full"
+                style={{ background: 'var(--m-paper-2)' }}
+              >
                 <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-terracotta/70"
-                  style={{ width: `${Math.round((m.total / maxMonth) * 100)}%` }}
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{
+                    width: `${Math.round((m.total / maxMonth) * 100)}%`,
+                    background: 'var(--m-orange)',
+                  }}
                 />
               </span>
-              <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-ink/80">
+              <span
+                className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums"
+                style={{ color: 'var(--m-slate)' }}
+              >
                 {m.total}
               </span>
             </li>
@@ -109,22 +142,33 @@ export function DemandRadarCard({
       </section>
 
       {/* Hot looks */}
-      <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
-        <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink">Hot looks</h2>
-          <span className="text-xs text-ink/55">
+      <section
+        className="overflow-hidden rounded-xl border"
+        style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+      >
+        <header
+          className="flex items-center justify-between gap-2 border-b px-4 py-3"
+          style={{ borderColor: 'var(--m-line)' }}
+        >
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+            Hot looks
+          </h3>
+          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Capture styles couples are choosing
           </span>
         </header>
-        <ul className="divide-y divide-ink/[0.06]">
+        <ul className="divide-y" style={{ borderColor: 'var(--m-line-soft)' }}>
           {topLooks.map((l) => (
             <li
               key={l.style}
-              className="flex items-center justify-between gap-3 px-4 py-3"
+              className="flex items-center justify-between gap-3 border-t px-4 py-3 first:border-t-0"
+              style={{ borderColor: 'var(--m-line-soft)' }}
             >
-              <span className="text-sm font-medium text-ink">{l.label}</span>
-              <span className="text-xs text-ink/55">
-                <span className="font-semibold tabular-nums text-ink/80">
+              <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                {l.label}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                <span className="font-semibold tabular-nums" style={{ color: 'var(--m-slate)' }}>
                   {l.total}
                 </span>{' '}
                 signals
@@ -137,19 +181,32 @@ export function DemandRadarCard({
       {/* Admin-only breakdowns: regions + event types */}
       {scope === 'admin' ? (
         <>
-          <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
-            <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-              <h2 className="text-sm font-semibold text-ink">Top regions</h2>
-              <span className="text-xs text-ink/55">Demand by market</span>
+          <section
+            className="overflow-hidden rounded-xl border"
+            style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+          >
+            <header
+              className="flex items-center justify-between gap-2 border-b px-4 py-3"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+                Top regions
+              </h3>
+              <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Demand by market
+              </span>
             </header>
-            <ul className="divide-y divide-ink/[0.06]">
+            <ul className="divide-y" style={{ borderColor: 'var(--m-line-soft)' }}>
               {topRegions.map((r) => (
                 <li
                   key={r.region || '(unspecified)'}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex items-center justify-between gap-3 border-t px-4 py-3 first:border-t-0"
+                  style={{ borderColor: 'var(--m-line-soft)' }}
                 >
-                  <span className="text-sm font-medium text-ink">{r.label}</span>
-                  <span className="text-xs text-ink/55">
+                  <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                    {r.label}
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
                     <span className="tabular-nums">{r.inquiries}</span> inq ·{' '}
                     <span className="tabular-nums">{r.unlocks}</span> unlocks ·{' '}
                     <span className="tabular-nums">{r.bookings}</span> bookings
@@ -159,20 +216,33 @@ export function DemandRadarCard({
             </ul>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
-            <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
-              <h2 className="text-sm font-semibold text-ink">By event type</h2>
-              <span className="text-xs text-ink/55">Where the demand sits</span>
+          <section
+            className="overflow-hidden rounded-xl border"
+            style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+          >
+            <header
+              className="flex items-center justify-between gap-2 border-b px-4 py-3"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+                By event type
+              </h3>
+              <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Where the demand sits
+              </span>
             </header>
-            <ul className="divide-y divide-ink/[0.06]">
+            <ul className="divide-y" style={{ borderColor: 'var(--m-line-soft)' }}>
               {topEventTypes.map((et) => (
                 <li
                   key={et.eventType}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex items-center justify-between gap-3 border-t px-4 py-3 first:border-t-0"
+                  style={{ borderColor: 'var(--m-line-soft)' }}
                 >
-                  <span className="text-sm font-medium text-ink">{et.label}</span>
-                  <span className="text-xs text-ink/55">
-                    <span className="font-semibold tabular-nums text-ink/80">
+                  <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                    {et.label}
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                    <span className="font-semibold tabular-nums" style={{ color: 'var(--m-slate)' }}>
                       {et.total}
                     </span>{' '}
                     signals
@@ -197,12 +267,20 @@ function SignalTile({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-white p-4">
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/55">
-        <span className="text-terracotta">{icon}</span>
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+    >
+      <span
+        className="inline-flex items-center gap-1.5 text-xs font-medium"
+        style={{ color: 'var(--m-slate-3)' }}
+      >
+        <span style={{ color: 'var(--m-orange-2)' }}>{icon}</span>
         {label}
       </span>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+        {value}
+      </p>
     </div>
   );
 }

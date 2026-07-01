@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { Radar, Info } from 'lucide-react';
+import { Radar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -11,7 +11,7 @@ import {
   getVendorDemandRadar,
   maybeRefreshDemandRadar,
 } from '@/lib/demand-radar';
-import { DemandRadarCard } from './_components/demand-radar-card';
+import { DemandRadarPanel } from '../_components/demand-radar-panel';
 import { VendorTierGate } from '../_components/tier-gate';
 
 export const metadata = { title: 'Demand Radar · Vendor' };
@@ -78,44 +78,13 @@ export default async function VendorDemandPage() {
   });
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          <Radar aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Vendor dashboard · Demand Radar
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Demand Radar
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Where the demand is building in{' '}
-          <span className="font-medium text-ink">
-            {marketLabel ?? 'your area'}
-          </span>{' '}
-          — by month, and by the looks couples are choosing. It&rsquo;s a
-          bird&rsquo;s-eye read of your market to help you plan where to focus,
-          built only from de-identified totals. We never show you a single
-          couple or any one plan.
-        </p>
-      </header>
-
-      <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
-        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
-        <div className="space-y-1">
-          <p className="font-medium text-ink">How Demand Radar protects privacy</p>
-          <p className="text-sm text-ink/70">
-            Every number here is a <span className="font-medium">count</span> —
-            inquiries, paid unlocks, and bookings rolled up by month and look for
-            your region. Small groups are hidden until there are enough of them
-            that no single couple can be picked out. That&rsquo;s why the radar
-            can look quiet early on — it fills in as your market grows.
-          </p>
-        </div>
-      </article>
-
-      <DemandRadarCard radar={radar} marketLabel={marketLabel} scope="vendor" />
+    <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <DemandRadarPanel
+        radar={radar}
+        marketLabel={marketLabel}
+        scope="vendor"
+        variant="page"
+      />
     </section>
   );
 }

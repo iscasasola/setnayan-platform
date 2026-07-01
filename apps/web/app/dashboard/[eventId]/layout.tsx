@@ -161,7 +161,7 @@ export default async function EventLayout({ children, params }: Props) {
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
+          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -334,6 +334,7 @@ export default async function EventLayout({ children, params }: Props) {
             hideKeys={navHideKeys}
             websiteEnabled={websiteEnabled}
             monogramEnabled={monogramEnabled}
+            slug={(event.slug as string | null) ?? null}
           />
         }
         topBar={topBar}
@@ -374,7 +375,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} slug={(event.slug as string | null) ?? null} />
     </>
   );
 }

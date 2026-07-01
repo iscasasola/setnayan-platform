@@ -43,7 +43,7 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
         </Link>
       </div>
 
-      <div className="rounded-[14px] border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
         {!radar.hasData ? (
           <div className="flex items-center gap-3 py-2" style={{ color: 'var(--m-slate)' }}>
             <Radar className="h-5 w-5" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />
@@ -111,7 +111,7 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
                       <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
                         <div className="flex w-full flex-1 items-end">
                           <div
-                            className="w-full rounded-t-[3px]"
+                            className="w-full rounded-t-sm"
                             style={{ height: `${pct}%`, background: 'var(--m-orange-3)' }}
                             title={`${m.label}: ${m.total} signal`}
                           />

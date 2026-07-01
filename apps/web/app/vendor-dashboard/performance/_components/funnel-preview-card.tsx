@@ -54,7 +54,7 @@ export function FunnelPreviewCard({
         </Link>
       </div>
 
-      <div className="rounded-[14px] border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
         {!hasData ? (
           <div className="flex items-center gap-3 py-2" style={{ color: 'var(--m-slate)' }}>
             <Filter className="h-5 w-5" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />

@@ -106,19 +106,13 @@ export async function resolveIntegrityFlag(formData: FormData) {
       ? ` — ${note.trim().slice(0, 500)}`
       : '';
 
-  // hide_listing: un-publish the ghost listing FIRST (the one action that
-  // touches the subject). Idempotent — a re-hide of an already-hidden listing is
-  // a harmless no-op.
-  if (action === 'hide_listing') {
-    const vendorId = (flag as { subject_vendor_id: string }).subject_vendor_id;
-    const { error: hideErr } = await admin
-      .from('vendor_profiles')
-      .update({ is_published: false })
-      .eq('vendor_profile_id', vendorId);
-    if (hideErr) throw new Error(`Failed to hide listing: ${hideErr.message}`);
-  }
-
-  const { error } = await admin
+  // Resolve the flag FIRST, guarded on status='open' (idempotency), and capture
+  // whether it actually transitioned a still-open flag. The destructive
+  // un-publish below must ONLY run when this click transitioned an open flag —
+  // otherwise a stale click on an already-resolved flag (e.g. the listing has
+  // since recovered and the flag auto-dismissed) would un-publish a legitimate,
+  // recovered listing off a no-op status update.
+  const { data: transitioned, error } = await admin
     .from('integrity_flags')
     .update({
       status: ACTION_STATUS[action],
@@ -127,8 +121,21 @@ export async function resolveIntegrityFlag(formData: FormData) {
       reviewed_at: new Date().toISOString(),
     })
     .eq('id', Number(flagId))
-    .eq('status', 'open'); // idempotency guard
+    .eq('status', 'open') // idempotency guard
+    .select('id');
   if (error) throw new Error(error.message);
+
+  // hide_listing: un-publish the ghost listing ONLY when THIS click actually
+  // transitioned a still-open flag. Idempotent — a re-hide of an
+  // already-resolved flag is a no-op and never touches the subject.
+  if (action === 'hide_listing' && transitioned && transitioned.length > 0) {
+    const vendorId = (flag as { subject_vendor_id: string }).subject_vendor_id;
+    const { error: hideErr } = await admin
+      .from('vendor_profiles')
+      .update({ is_published: false })
+      .eq('vendor_profile_id', vendorId);
+    if (hideErr) throw new Error(`Failed to hide listing: ${hideErr.message}`);
+  }
 
   // Audit — every admin mutation logs to admin_audit_log (§ 9.1 discipline).
   // Best-effort: audit failure logs to console but does NOT roll back.

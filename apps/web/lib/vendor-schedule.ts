@@ -58,9 +58,59 @@ export type CalendarBlockEntry = {
   endDate: string;   // YYYY-MM-DD
 };
 
+/**
+ * PHASE 5 6-state taxonomy — an explicit vendor-set day state (the two states
+ * with dedicated storage). `open` / `booked` / `full` / `blocked` are derived
+ * (bookings + blocks + capacity); `waitlist` lives in vendor_date_waitlist.
+ */
+export type VendorDayStateValue = 'locked' | 'whitelist';
+
+export type VendorCalendarDayState = {
+  dayStateId: string;
+  poolId: string | null; // null = org-wide (every schedule)
+  stateDate: string; // YYYY-MM-DD (PH civil day)
+  dayState: VendorDayStateValue;
+  note: string | null;
+};
+
 /** PH civil date for a timestamptz ISO string. */
 export function manilaDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+}
+
+/**
+ * The vendor's explicit day states (locked / whitelist), optionally bounded to
+ * a date range for a single-month render. RLS scopes to the vendor's own rows.
+ * Fail-soft: returns [] on error (e.g. pre-migration DB) so the calendar page
+ * degrades to the 4-state view rather than throwing.
+ */
+export async function fetchVendorDayStates(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  fromDate?: string,
+  toDate?: string,
+): Promise<VendorCalendarDayState[]> {
+  let q = supabase
+    .from('vendor_calendar_day_states')
+    .select('day_state_id, pool_id, state_date, day_state, note')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (fromDate) q = q.gte('state_date', fromDate);
+  if (toDate) q = q.lte('state_date', toDate);
+  const { data, error } = await q.order('state_date', { ascending: true });
+  if (error || !data) return [];
+  return (data as {
+    day_state_id: string;
+    pool_id: string | null;
+    state_date: string;
+    day_state: VendorDayStateValue;
+    note: string | null;
+  }[]).map((r) => ({
+    dayStateId: r.day_state_id,
+    poolId: r.pool_id,
+    stateDate: r.state_date,
+    dayState: r.day_state,
+    note: r.note,
+  }));
 }
 
 function humanizeCategory(key: string): string {

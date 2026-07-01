@@ -280,9 +280,17 @@ export async function updateVendorStatus(formData: FormData) {
           `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before marking the deposit paid.`,
         );
       }
-      if (acq.status === 'blocked') {
+      if (acq.status === 'blocked' || acq.status === 'locked') {
+        // PHASE 5: 'locked' is a vendor's explicit hard hold on the date —
+        // same couple-facing outcome as a closure block (never who/why).
         throw new Error(
           "The vendor has closed this date on their calendar — message them before marking the deposit paid.",
+        );
+      }
+      if (acq.status === 'whitelist') {
+        // PHASE 5: the vendor wants to approve bookings on this date first.
+        throw new Error(
+          "This date needs the vendor to confirm before it can be booked — message them before marking the deposit paid.",
         );
       }
       if (acq.status === 'error') {
@@ -3029,10 +3037,19 @@ export async function recordDeposit(
           message: `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before recording the deposit.`,
         };
       }
-      if (acq.status === 'blocked') {
+      if (acq.status === 'blocked' || acq.status === 'locked') {
+        // PHASE 5: 'locked' = the vendor's explicit hard hold — couple-facing
+        // outcome identical to a closure block (privacy lock — never who/why).
         return {
           status: 'error',
           message: "The vendor has closed this date on their calendar — message them before recording the deposit.",
+        };
+      }
+      if (acq.status === 'whitelist') {
+        // PHASE 5: the vendor wants to approve bookings on this date first.
+        return {
+          status: 'error',
+          message: "This date needs the vendor to confirm before it can be booked — message them before recording the deposit.",
         };
       }
       if (acq.status === 'error') {

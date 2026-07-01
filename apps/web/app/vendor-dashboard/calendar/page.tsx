@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchVendorBlocks,
+  fetchVendorDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
   fetchVendorServicesForPicker,
@@ -12,6 +13,7 @@ import {
   type CalendarServiceOption,
   type PoolBookingEntry,
   type SchedulePool,
+  type VendorCalendarDayState,
 } from '@/lib/vendor-schedule';
 import {
   addManualBlock,
@@ -63,6 +65,8 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   capacity_clamped: { tone: 'warn', text: 'Saved at your plan’s maximum bookings-per-day. Upgrade to raise the ceiling.' },
   pool_saved: { tone: 'ok', text: 'Schedule assignment saved.' },
   waitlist_notified: { tone: 'ok', text: 'Waitlisted couples emailed — they know the date is open again.' },
+  day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
+  day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
   calendar_created: { tone: 'ok', text: 'Calendar created. Assign services + set its limit any time.' },
   calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
   bad_dates: { tone: 'warn', text: 'Those dates don’t work — check the start and end date.' },
@@ -98,6 +102,9 @@ type DayState = {
   booked: number;
   external: number;
   closed: boolean;
+  /** PHASE 5 vendor-set day states (locked = hard hold, whitelist = approve-first). */
+  locked: boolean;
+  whitelist: boolean;
 };
 
 /** Per-pool day-state maps for one month. */
@@ -105,6 +112,7 @@ function buildDayStates(
   pools: SchedulePool[],
   bookings: PoolBookingEntry[],
   blocks: CalendarBlockEntry[],
+  dayStates: VendorCalendarDayState[],
   month: string,
   daysInMonth: number,
 ): Map<string, Map<string, DayState>> {
@@ -113,7 +121,13 @@ function buildDayStates(
   for (const pool of pools) {
     const states = new Map<string, DayState>();
     for (let d = 1; d <= daysInMonth; d++) {
-      states.set(dateOf(d), { booked: 0, external: 0, closed: false });
+      states.set(dateOf(d), {
+        booked: 0,
+        external: 0,
+        closed: false,
+        locked: false,
+        whitelist: false,
+      });
     }
     byPool.set(pool.poolId, states);
   }
@@ -137,6 +151,17 @@ function buildDayStates(
           st.closed = true;
         }
       }
+    }
+  }
+  // PHASE 5: fold explicit locked / whitelist states. A NULL pool_id is org-wide
+  // (applies to every schedule); a set pool_id scopes to that one pool.
+  for (const ds of dayStates) {
+    const targets = ds.poolId === null ? pools.map((p) => p.poolId) : [ds.poolId];
+    for (const poolId of targets) {
+      const st = byPool.get(poolId)?.get(ds.stateDate);
+      if (!st) continue;
+      if (ds.dayState === 'locked') st.locked = true;
+      else if (ds.dayState === 'whitelist') st.whitelist = true;
     }
   }
   return byPool;
@@ -168,7 +193,10 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
   const now = new Date();
   const todayIso = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 
-  const [pools, bookings, blocks, services, waitlist] = await Promise.all([
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
+
+  const [pools, bookings, blocks, services, waitlist, dayStates] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
@@ -176,10 +204,14 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
       ? fetchVendorServicesForPicker(supabase, profile.vendor_profile_id)
       : Promise.resolve([] as CalendarServiceOption[]),
     fetchVendorWaitlist(supabase, profile.vendor_profile_id, todayIso),
+    // PHASE 5 — explicit locked / whitelist day states for the visible month.
+    fetchVendorDayStates(
+      supabase,
+      profile.vendor_profile_id,
+      `${month}-01`,
+      `${month}-31`,
+    ),
   ]);
-
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
   // Universal "All schedules" is the default view for multi-schedule vendors;
   // single-schedule vendors land straight on their one pool.
   const requestedPool = search.pool ?? (pools.length > 1 ? 'all' : pools[0]?.poolId);
@@ -193,7 +225,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
   const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
   const firstWeekday = new Date(yearNum, monthNum - 1, 1).getDay();
   const dateOf = (day: number) => `${month}-${String(day).padStart(2, '0')}`;
-  const statesByPool = buildDayStates(pools, bookings, blocks, month, daysInMonth);
+  const statesByPool = buildDayStates(pools, bookings, blocks, dayStates, month, daysInMonth);
 
   const today = todayIso;
   const visiblePools = isAllView ? pools : activePool ? [activePool] : [];
@@ -487,14 +519,17 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                       const st = statesByPool.get(p.poolId)?.get(date);
                       if (!st) return null;
                       const consumed = st.booked + st.external;
+                      // Precedence: closed > locked > whitelist > full > partial.
                       if (st.closed) return { pool: p, kind: 'closed' as const, consumed };
+                      if (st.locked) return { pool: p, kind: 'locked' as const, consumed };
+                      if (st.whitelist) return { pool: p, kind: 'whitelist' as const, consumed };
                       if (consumed >= p.capacity) return { pool: p, kind: 'full' as const, consumed };
                       if (consumed > 0) return { pool: p, kind: 'partial' as const, consumed };
                       return null; // open days stay quiet
                     })
                     .filter(Boolean) as {
                       pool: SchedulePool;
-                      kind: 'closed' | 'full' | 'partial';
+                      kind: 'closed' | 'locked' | 'whitelist' | 'full' | 'partial';
                       consumed: number;
                     }[];
                   const allClosed =
@@ -502,9 +537,10 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     && chips.length === pools.length
                     && chips.every((c) => c.kind === 'closed');
                   return (
-                    <div
+                    <Link
                       key={date}
-                      className={`min-h-16 rounded-lg border border-ink/10 bg-white/40 p-1 text-left ${past ? 'opacity-50' : ''}`}
+                      href={`/vendor-dashboard/calendar/${date}?pool=${viewParam}`}
+                      className={`block min-h-16 rounded-lg border border-ink/10 bg-white/40 p-1 text-left hover:border-ink/30 ${past ? 'opacity-50' : ''}`}
                     >
                       <span className="text-xs font-medium">{day}</span>
                       {allClosed ? (
@@ -516,21 +552,36 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                           <span
                             key={c.pool.poolId}
                             title={`${c.pool.label}: ${
-                              c.kind === 'closed' ? 'closed' : `${c.consumed}/${c.pool.capacity} booked`
+                              c.kind === 'closed'
+                                ? 'closed'
+                                : c.kind === 'locked'
+                                  ? 'locked (hold)'
+                                  : c.kind === 'whitelist'
+                                    ? 'approve-first'
+                                    : `${c.consumed}/${c.pool.capacity} booked`
                             }`}
                             className={`mt-0.5 block truncate rounded px-1 text-[11px] font-semibold leading-tight ${
-                              c.kind === 'closed'
+                              c.kind === 'closed' || c.kind === 'locked'
                                 ? 'bg-ink/10 text-ink/55'
-                                : c.kind === 'full'
-                                  ? 'bg-terracotta/20 text-terracotta'
-                                  : 'bg-warn-100 text-warn-900'
+                                : c.kind === 'whitelist'
+                                  ? 'bg-success-100 text-success-900'
+                                  : c.kind === 'full'
+                                    ? 'bg-terracotta/20 text-terracotta'
+                                    : 'bg-warn-100 text-warn-900'
                             }`}
                           >
-                            {poolTag(c.pool.label)} {c.kind === 'closed' ? '✕' : `${c.consumed}/${c.pool.capacity}`}
+                            {poolTag(c.pool.label)}{' '}
+                            {c.kind === 'closed'
+                              ? '✕'
+                              : c.kind === 'locked'
+                                ? '🔒'
+                                : c.kind === 'whitelist'
+                                  ? '✓?'
+                                  : `${c.consumed}/${c.pool.capacity}`}
                           </span>
                         ))
                       )}
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -542,7 +593,9 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                 ))}
                 <span><span className="font-semibold">n/cap</span> = booked + imported</span>
                 <span><span className="font-semibold">✕</span> = closed</span>
-                <span>Quiet day = every schedule open</span>
+                <span><span className="font-semibold">🔒</span> = locked hold</span>
+                <span><span className="font-semibold">✓?</span> = approve-first</span>
+                <span>Tap a day to manage it · Quiet day = every schedule open</span>
               </div>
             </div>
           ) : null}
@@ -564,15 +617,24 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                       booked: 0,
                       external: 0,
                       closed: false,
+                      locked: false,
+                      whitelist: false,
                     };
                     const consumed = st.booked + st.external;
                     const full = consumed >= activePool.capacity;
                     const past = date < today;
                     let cls = 'border-ink/10 bg-white/40';
                     let badge: string | null = null;
+                    // Precedence: closed > locked > whitelist > booked/full.
                     if (st.closed) {
                       cls = 'border-ink/20 bg-ink/10 text-ink/50';
                       badge = 'Closed';
+                    } else if (st.locked) {
+                      cls = 'border-ink/20 bg-ink/10 text-ink/50';
+                      badge = '🔒 Locked';
+                    } else if (st.whitelist) {
+                      cls = 'border-success-300 bg-success-50 text-success-900';
+                      badge = '✓? Approve';
                     } else if (consumed > 0) {
                       cls = full
                         ? 'border-terracotta/40 bg-terracotta/15'
@@ -580,24 +642,26 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                       badge = `${consumed}/${activePool.capacity}`;
                     }
                     return (
-                      <div
+                      <Link
                         key={date}
-                        className={`min-h-14 rounded-lg border p-1 text-left ${cls} ${past ? 'opacity-50' : ''}`}
+                        href={`/vendor-dashboard/calendar/${date}?pool=${activePool.poolId}`}
+                        className={`block min-h-14 rounded-lg border p-1 text-left hover:border-ink/40 ${cls} ${past ? 'opacity-50' : ''}`}
                       >
                         <span className="text-xs font-medium">{day}</span>
                         {badge ? (
-                          <span className="mt-0.5 block text-[11px] font-semibold leading-tight">
+                          <span className="mt-0.5 block truncate text-[11px] font-semibold leading-tight">
                             {badge}
                           </span>
                         ) : null}
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
                 <p className="mt-3 text-xs text-ink/55">
                   <span className="font-semibold">n/{activePool.capacity}</span> = booked
                   + imported clients vs daily capacity · <span className="font-semibold">Closed</span> = your
-                  block (this schedule or business-wide).
+                  block · <span className="font-semibold">🔒 Locked</span> = hard hold ·
+                  <span className="font-semibold"> ✓? Approve</span> = approve-first. Tap a day to manage it.
                 </p>
               </div>
 

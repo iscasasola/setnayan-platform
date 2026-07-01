@@ -108,7 +108,7 @@ export function SubscriptionCards({
         >
           <label className="block space-y-1">
             <span className="block text-[11px] font-medium text-ink/70">
-              Add tokens to this order (optional)
+              Bundle tokens with your plan — optional
             </span>
             <select
               value={addonSku}
@@ -156,7 +156,7 @@ export function SubscriptionCards({
               key={card.sku}
               className="m-card flex flex-col p-6"
               style={
-                card.tier === 'enterprise'
+                card.tier === 'pro'
                   ? { borderColor: 'var(--m-orange)' }
                   : undefined
               }
@@ -165,11 +165,18 @@ export function SubscriptionCards({
                 <p className="m-label-mono">
                   {card.tier === 'pro' ? 'Pro' : 'Enterprise'}
                 </p>
-                {card.isCurrent && (
+                {card.isCurrent ? (
                   <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                     Current
                   </span>
-                )}
+                ) : card.tier === 'pro' ? (
+                  <span
+                    className="rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-paper"
+                    style={{ background: 'var(--m-orange)' }}
+                  >
+                    Recommended
+                  </span>
+                ) : null}
               </div>
               <p className="text-sm text-ink/65">{card.pitch}</p>
 

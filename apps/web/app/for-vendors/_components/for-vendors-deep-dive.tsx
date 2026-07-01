@@ -29,20 +29,22 @@
  */
 import Link from 'next/link';
 import { getVendorPrices } from '@/lib/v2-catalog';
-import { VendorPricingMatrix } from './vendor-pricing-matrix';
+import { VendorTierLadder } from './vendor-tier-ladder';
 
 // PRIMARY — the advantages no directory or SaaS stack can copy, ordered most →
 // least important (owner 2026-06-28 "focus on our advantages as our primary
 // post"). 0% commission leads as its own hero strip below; these are the
-// ecosystem moat. Each is verified-shipped (couple matchmaking, earned badges
-// via vendor-badges.ts, category benchmarks + theft watch on Pro, Productions
-// co-listing). No unbuilt claims — per [[project_setnayan_public_claims_purge]].
+// ecosystem moat. Every one is verified-shipped per the 2026-07-01 origin/main
+// audit (VENDOR_TIERS_AND_BENEFITS.md §6): deterministic fit-matching, earned
+// badges (vendor-badges.ts), the built analytics surfaces (Demand Radar +
+// funnel + price-position), the free import CRM (#2448-2453), and HQ-verified
+// vendor partnerships. No roadmap claims — per [[project_setnayan_public_claims_purge]].
 const ADVANTAGES = [
   {
     num: '1',
     tag: '🔗 The couples',
-    title: 'Couple matchmaking',
-    body: "We hand-curate couple → vendor matches from briefs already in the platform. Not lead-gen ads — actual ops-team intros.",
+    title: 'Matched to couples by fit',
+    body: 'Couples reach you matched on what actually fits — style, budget, faith, coverage — not lead-gen ads and not who-paid-most. You start at "here’s what I need."',
   },
   {
     num: '2',
@@ -53,20 +55,20 @@ const ADVANTAGES = [
   {
     num: '3',
     tag: '📊 The data',
-    title: 'Category benchmarks',
-    body: "Your funnel, your pricing, your reply-time — vs the median for your category. Know if you're under-priced before you lose a deal.",
+    title: 'Grow with your own data',
+    body: 'See what couples are searching in your area with Demand Radar, your own views → inquiries → booked funnel, and where your price sits in the market. Know before you lose a deal.',
   },
   {
     num: '4',
-    tag: '🛡️ The data',
-    title: 'Reverse-image theft watch',
-    body: 'Monthly scans of the open web for stolen versions of your portfolio. We surface the evidence — you decide what to do with it. Only possible because we see the marketplace.',
+    tag: '📇 Your book',
+    title: 'Bring your business with you',
+    body: 'Import your past clients for free — their reviews and a "verified wedding" proof come with them. Start with a real reputation on day one, not an empty profile.',
   },
   {
     num: '5',
-    tag: '🎬 First-party',
-    title: 'Co-listing with Productions',
-    body: "Setnayan Productions is in every couple's bundle recommendation. Pro lets your service ride alongside ours.",
+    tag: '🤝 The network',
+    title: 'Partner with other vendors',
+    body: 'Declare working partnerships with other Setnayan vendors (HQ-verified) so couples see your trusted circle — only possible because we see the whole marketplace.',
   },
 ];
 
@@ -98,9 +100,9 @@ const ESSENTIALS = [
     body: 'Every event type opens as our verified vendor count crosses the threshold in your area. Your verification, reviews, and CRM history carry into each one — no second listing, no second login.',
   },
   {
-    tag: 'Crew-rate marketplace',
-    title: 'Coming soon — list your crew, earn from every booking they take.',
-    body: "Service captains, photographers, AV ops can opt into Setnayan's crew rates. You earn a referral cut on every gig your team picks up.",
+    tag: 'Manpower marketplace',
+    title: 'Pick up paid gigs from events already on Setnayan.',
+    body: "Browse open crew gigs — service captains, photographers, AV ops — posted by hosts on events you're tied to. Accept the ones that fit; the couple pays your crew directly, off-platform.",
   },
 ];
 
@@ -362,7 +364,7 @@ export async function ForVendorsDeepDive() {
       {/* Pricing — value first, price after. Tier intro + 3-tier matrix. */}
       <div style={{ marginBottom: 14, marginTop: 48 }}>
         <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
-          Solo · Pro · Enterprise — one tier for every stage of your business
+          Free · Solo · Pro · Enterprise · Custom — one tier for every stage
         </div>
         <div
           style={{
@@ -373,62 +375,19 @@ export async function ForVendorsDeepDive() {
             lineHeight: 1.5,
           }}
         >
-          Solo is a complete business: one category, one operator, the full
-          in-app suite. Pro and Enterprise don&rsquo;t unlock your craft — they expand
-          it: more categories, more team, wider reach, and tools that scale as
-          you grow. Every tool on the list is{' '}
+          Free gets you found, trusted, and messaged — forever, at no cost. The paid
+          tiers don&rsquo;t unlock your craft — they expand it: unlimited answering, your
+          real name up front, more categories, more team, wider reach, and the data to
+          grow. Every one of them is{' '}
           <em style={{ color: 'var(--m-ink)' }}>only possible because Setnayan</em>{' '}
-          has the couples, the data, and the ops team behind it.
+          has the couples, the marketplace, and the data behind it.
         </div>
       </div>
 
-      {/* 3-tier matrix — desktop grid + mobile tier switcher */}
-      <VendorPricingMatrix prices={p} />
-
-      {/* Enterprise tier teaser */}
-      <div
-        className="m-card m-callout"
-        style={{
-          padding: 22,
-          marginTop: 16,
-          display: 'grid',
-          gap: 20,
-          alignItems: 'center',
-          background: 'var(--m-paper-2)',
-        }}
-      >
-        <div
-          className="m-display"
-          style={{ fontSize: 'clamp(1.6rem, 3.5vw, 36px)', color: 'var(--m-orange-2)' }}
-        >
-          {p.enterpriseAnnual}/yr
-        </div>
-        <div>
-          <div className="m-label-mono">
-            Enterprise · {p.enterpriseAnnual} / year · or {p.enterpriseMonthly} / 28 days
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              color: 'var(--m-slate)',
-              marginTop: 4,
-              lineHeight: 1.5,
-            }}
-          >
-            Multi-category listing + unlimited team accounts. Same Pro feature
-            set, scaled for full-service event houses running coordination,
-            florals, photo, and catering under one roof. Verification still
-            required.
-          </div>
-        </div>
-        <Link
-          href="/help#contact"
-          className="m-btn m-btn-ghost"
-          style={{ padding: '10px 18px' }}
-        >
-          Talk to ops →
-        </Link>
-      </div>
+      {/* Benefits-forward tier ladder — Free-Verified spotlight + Solo/Pro/
+          Enterprise/Custom benefit cards (replaces the dense price matrix;
+          honest to VENDOR_TIERS §6). */}
+      <VendorTierLadder prices={p} />
 
       {/* Vendor CTA strip */}
       <div

@@ -1,5 +1,7 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
+import { Menu } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
@@ -8,7 +10,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
-import { VendorSidebar } from './_components/vendor-sidebar';
+import { VendorSidebar, VendorSidebarFooter } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
@@ -34,6 +36,20 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
  * AccountSwitcher owns identity + event switching + cross-console hopping
  * on all three doorways, consistent with the customer doorway.
  */
+/**
+ * Up to two uppercase initials from a business/display name for the identity
+ * card avatar (e.g. "Silverlens Studio" → "SS", "Aperture" → "AP"). Falls back
+ * to the first two letters of a single-word name, or "SN" when empty.
+ */
+function deriveInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 'SN';
+  if (words.length === 1) {
+    return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
+  }
+  return (words[0]![0]! + words[1]![0]!).toUpperCase();
+}
+
 export default async function VendorDashboardLayout({
   children,
 }: {
@@ -84,6 +100,44 @@ export default async function VendorDashboardLayout({
   // Service-aware nav: Repertoire is a music-act surface only.
   const showRepertoire = isMusicVendor(vendorProfile?.services);
 
+  // Sidebar chrome data (proto-shell) — the identity card + footer chips.
+  //   • tier          — soft-probed tier_state (not in the shared profile
+  //                     select), normalized in VendorSidebarFooter.
+  //   • tokenBalance  — the SAME wallet read the /tokens page uses: a lazy-eval
+  //                     expiry sweep RPC, then purchased + earned. Fail-soft to
+  //                     0 so the sidebar never blocks on a wallet error.
+  //   • verified      — public_visibility === 'verified' (matches the Overview
+  //                     page's isVerified derivation).
+  //   • initials      — up to 2 uppercase letters from the business name.
+  const vendorSidebarName =
+    vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Vendor';
+  const vendorInitials = deriveInitials(vendorSidebarName);
+  const vendorIsVerified = vendorProfile?.public_visibility === 'verified';
+  let vendorTier: string | null = null;
+  let vendorTokenBalance = 0;
+  if (vendorProfile?.vendor_profile_id) {
+    const vendorId = vendorProfile.vendor_profile_id;
+    // Lazy-eval expiry sweep BEFORE the wallet read (same order as /tokens).
+    await supabase
+      .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
+      .then(() => undefined, () => undefined);
+    const [tierRes, walletRes] = await Promise.all([
+      supabase
+        .from('vendor_profiles')
+        .select('tier_state')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle(),
+      supabase
+        .from('vendor_wallets')
+        .select('purchased_tokens, earned_tokens')
+        .eq('vendor_id', vendorId)
+        .maybeSingle(),
+    ]);
+    vendorTier = (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null;
+    vendorTokenBalance =
+      (walletRes.data?.purchased_tokens ?? 0) + (walletRes.data?.earned_tokens ?? 0);
+  }
+
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
     redirect('/login?error=Account+deleted');
@@ -110,6 +164,18 @@ export default async function VendorDashboardLayout({
   // AccountSwitcherStandalone row in the sidebar header.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      {/* Mobile-only "More" overflow — the 6-tab bottom bar covers the primary
+          menus; every deeper surface (profile · verify · earnings · …) stays
+          one tap away via the /more landing. Hidden on desktop, where the
+          sidebar already lists every destination. */}
+      <Link
+        href="/vendor-dashboard/more"
+        aria-label="More vendor surfaces"
+        className="button-secondary inline-flex h-9 items-center gap-1.5 px-3 text-xs lg:hidden"
+      >
+        <Menu aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        More
+      </Link>
       <UnreadBellBadge
         userId={user.id}
         initialUnread={unreadCount}
@@ -137,7 +203,17 @@ export default async function VendorDashboardLayout({
     <div className="app-surface">
       <SidebarShell
         sidebarHeader={<DoorwaySidebarHeader label="Vendor" switcherData={switcherData} />}
-        sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} navSlots={navSlots} />}
+        sidebar={
+          <VendorSidebar
+            role={vendorRole}
+            showRepertoire={showRepertoire}
+            navSlots={navSlots}
+            displayName={vendorSidebarName}
+            initials={vendorInitials}
+            isVerified={vendorIsVerified}
+          />
+        }
+        sidebarFooter={<VendorSidebarFooter tier={vendorTier} tokenBalance={vendorTokenBalance} />}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last

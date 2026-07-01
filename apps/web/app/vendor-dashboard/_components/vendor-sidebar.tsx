@@ -90,6 +90,11 @@
 
 import {
   Home,
+  ShoppingBag,
+  BarChart2,
+  ChevronRight,
+  Check,
+  Zap,
   Briefcase,
   CalendarCheck,
   CalendarDays,
@@ -120,13 +125,14 @@ import {
   Gauge,
   Lightbulb,
 } from 'lucide-react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SidebarSection } from '@/app/_components/nav/sidebar-section';
-import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import type { NavGroup } from '@/app/_components/nav/types';
+import type { LucideIcon } from 'lucide-react';
+import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups } from '@/lib/vendor-role';
+import { TIER_LABEL, asVendorTier, type VendorTier } from '@/lib/vendor-tier-caps';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 /**
@@ -176,6 +182,9 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     key: 'shop',
     label: 'My Shop',
     items: [
+      // Shop overview — the storefront landing (proto-shell 6-menu destination).
+      // First item so the /more "My Shop" section leads with it.
+      { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
       { key: 'profile', label: 'Profile', href: '/vendor-dashboard/profile', icon: User, matchPrefix: '/vendor-dashboard/profile' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
@@ -199,6 +208,9 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     key: 'customers',
     label: 'My Customers',
     items: [
+      // Customers overview — the pipeline landing (proto-shell 6-menu destination).
+      // First item so the /more "My Customers" section leads with it.
+      { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
       { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
       { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
       { key: 'bookings', label: 'Bookings', href: '/vendor-dashboard/bookings', icon: Briefcase, matchPrefix: '/vendor-dashboard/bookings' },
@@ -256,67 +268,289 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
 ];
 
 /**
- * VendorSidebar — renders the 4 vendor nav groups using the shared
- * SidebarSection + SidebarItem primitives. Wraps with a brand header
- * (Wordmark + 'Vendor' eyebrow) so the vendor doorway reads as a
- * separate context from customer + admin doorways. Mirrors the
- * customer-sidebar + admin-sidebar header treatment.
+ * THE 6 FLAT SIDEBAR DESTINATIONS (proto-shell 2026-07-01).
+ *
+ * The finalized prototype renders the vendor sidebar as SIX flat destination
+ * items — NOT the collapsible group tree. Each is a single menu that lands on
+ * its own overview page; the sub-surfaces underneath each menu (the full
+ * `VENDOR_NAV_GROUPS` items) still exist as routes and stay reachable via the
+ * /more landing + deep-links — they're just no longer enumerated in the desktop
+ * sidebar chrome. Keys/hrefs/matchPrefixes match the group model 1:1 where a
+ * destination already existed:
+ *   1. Overview        → /vendor-dashboard            (exact-match)
+ *   2. My Shop         → /vendor-dashboard/shop
+ *   3. My Customers    → /vendor-dashboard/customers
+ *   4. My Performance  → /vendor-dashboard/performance
+ *   5. My Services     → /vendor-dashboard/services
+ *   6. On the Day      → /vendor-dashboard/on-the-day (amber "attention" dot)
+ *
+ * REGISTRY: each destination keys off a `vendor.sidebar.<key>` slot for the
+ * admin label/icon override (same overlay the group tree used), so /admin/menus
+ * still governs these. `overview` + `services` + `on-the-day` reuse their
+ * existing slots; `shop` + `customers` + `performance` get new slots in
+ * nav-registry-defaults.ts.
  */
+const VENDOR_SIDEBAR_DESTINATIONS: NavItem[] = [
+  { key: 'overview', label: 'Overview', href: '/vendor-dashboard', icon: Home, matchPrefix: '__overview-exact__' },
+  { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
+  { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
+  { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: BarChart2, matchPrefix: '/vendor-dashboard/performance' },
+  { key: 'services', label: 'My Services', href: '/vendor-dashboard/services', icon: Briefcase, matchPrefix: '/vendor-dashboard/services' },
+  { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day', badge: { count: 1, tone: 'amber' } },
+];
+
 /**
- * Overlays admin nav-registry label + icon onto each sidebar item via its
- * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
- * Fallback = the item's hardcoded default; a hidden slot drops the item; no-op
- * when navSlots is absent (fails open). href/matchPrefix + group structure +
- * role/repertoire gating all stay in code.
+ * Active-detection for a flat destination — exact href OR strict prefix-match
+ * (trailing slash so /vendor-dashboard/services doesn't light /vendor-dashboard).
+ * Overview carries a sentinel matchPrefix so its strict-prefix branch never
+ * fires (every other route shares the /vendor-dashboard prefix).
  */
-function applyVendorRegistry(
-  groups: NavGroup[],
-  navSlots?: Record<string, NavSlotLite>,
-): NavGroup[] {
-  if (!navSlots) return groups;
-  return groups.map((group) => ({
-    ...group,
-    items: group.items.flatMap((item) => {
-      const slot = navSlots[`vendor.sidebar.${item.key}`];
-      if (!slot) return [item];
-      if (slot.isHidden) return [];
-      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
-    }),
-  }));
+function destinationActive(item: NavItem, pathname: string): boolean {
+  const prefix = item.matchPrefix ?? item.href;
+  return pathname === item.href || pathname.startsWith(prefix + '/');
 }
 
+/**
+ * Overlays the admin nav-registry label + icon onto a flat destination via its
+ * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
+ * Fallback = the item's hardcoded default; a hidden slot drops the item; no-op
+ * when navSlots is absent (fails open). href/matchPrefix/badge stay in code.
+ */
+function applyVendorRegistry(
+  items: NavItem[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavItem[] {
+  if (!navSlots) return items;
+  return items.flatMap((item) => {
+    const slot = navSlots[`vendor.sidebar.${item.key}`];
+    if (!slot) return [item];
+    if (slot.isHidden) return [];
+    return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+  });
+}
+
+/**
+ * The vendor identity card — a dark rounded-square avatar (initials) + the
+ * business display name + a green "Verified" / muted "Unverified" line. Reads
+ * as the prototype's obsidian avatar tile. Hidden on the collapsed 64px rail
+ * (no room) via the same data-attr selector the shell uses elsewhere.
+ */
+function VendorIdentityCard({
+  displayName,
+  initials,
+  isVerified,
+}: {
+  displayName: string;
+  initials: string;
+  isVerified: boolean;
+}) {
+  return (
+    <div
+      className="mx-2 mb-2 flex items-center gap-3 rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
+      style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+    >
+      <span
+        aria-hidden
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
+        style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+      >
+        {initials}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          {displayName}
+        </p>
+        {isVerified ? (
+          <p
+            className="mt-0.5 flex items-center gap-1 text-xs font-medium"
+            style={{ color: 'var(--m-sage-deep)' }}
+          >
+            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Verified
+          </p>
+        ) : (
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            Unverified
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A single flat destination row — the prototype's obsidian-active treatment:
+ * ACTIVE = solid --m-ink (obsidian) rounded fill + white icon/label; INACTIVE =
+ * obsidian text on transparent, subtle paper hover. Label + amber dot hide on
+ * the collapsed 64px rail. This is a purpose-built row (NOT <SidebarItem>, whose
+ * active state is a champagne-gold tint + accent bar) so it reads as the
+ * prototype's dark selected pill.
+ */
+function VendorDestinationRow({
+  item,
+  active,
+}: {
+  item: NavItem;
+  active: boolean;
+}) {
+  const Icon = item.icon as LucideIcon;
+  const hasDot = item.badge && item.badge.count > 0;
+  return (
+    <li>
+      <Link
+        href={item.href}
+        aria-current={active ? 'page' : undefined}
+        title={item.label}
+        className={`relative flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+          active ? '' : 'hover:bg-[var(--m-paper)]'
+        }`}
+        style={{
+          color: active ? 'var(--m-paper)' : 'var(--m-ink)',
+          background: active ? 'var(--m-ink)' : 'transparent',
+          outlineColor: 'var(--m-orange)',
+        }}
+      >
+        <Icon
+          aria-hidden
+          className="h-[19px] w-[19px] shrink-0"
+          strokeWidth={1.75}
+          style={{ color: active ? 'var(--m-paper)' : 'var(--m-slate)' }}
+        />
+        <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
+        {hasDot ? (
+          <span
+            aria-label={item.badge?.label ?? 'Needs attention'}
+            className="ml-auto h-2 w-2 shrink-0 rounded-full [[data-sidebar-collapsed='1']_&]:hidden"
+            style={{ background: 'var(--m-orange)' }}
+          />
+        ) : null}
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * VendorSidebar — the prototype vendor shell body: the identity card + the SIX
+ * flat destination rows. The brand wordmark + "Vendor" eyebrow + account
+ * switcher live in DoorwaySidebarHeader (pinned above this by SidebarShell); the
+ * subscription chip + token row live in VendorSidebarFooter (pinned below via
+ * SidebarShell's sidebarFooter slot).
+ */
 export function VendorSidebar({
   role,
-  showRepertoire = true,
+  showRepertoire: _showRepertoire = true,
   navSlots,
+  displayName,
+  initials,
+  isVerified,
 }: {
   role: VendorTeamRole | null;
+  /** Retained for API compatibility; the flat destinations don't surface
+   *  the music-only Repertoire sub-surface, so this is a no-op here. */
   showRepertoire?: boolean;
   navSlots?: Record<string, NavSlotLite>;
+  displayName: string;
+  initials: string;
+  isVerified: boolean;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
-  // Role-aware nav shell — owner/admin see the full tree; agent/viewer see
-  // the scoped subset (Phase 1: Overview only). Single source of truth in
-  // lib/vendor-role.ts so Phase 2 expands agent surfaces in one place.
-  // Service-aware: Repertoire is a music-act surface (band · singer ·
-  // orchestra · choir · DJ) — hidden for every other category (owner
-  // directive 2026-06-13; the page keeps its own isMusicVendor gate).
-  const groups = applyVendorRegistry(
-    filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
-      showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
-    ),
-    navSlots,
-  );
+  // Role-aware: owner/admin see all six destinations; agent/viewer see only the
+  // scoped subset (Overview + My Services per VENDOR_SCOPED_NAV_ITEM_KEYS). We
+  // reuse the same NavGroup-based filter by wrapping the flat list in a single
+  // group, then unwrapping — one source of truth in lib/vendor-role.ts. The
+  // filter drops the group if every item is scoped out; default to [] then.
+  const visibleItems =
+    filterVendorNavGroups(
+      [{ key: 'shell', label: '', items: VENDOR_SIDEBAR_DESTINATIONS }],
+      role,
+    )[0]?.items ?? [];
+  const destinations = applyVendorRegistry(visibleItems, navSlots);
 
   return (
-    <>
-      {groups.map((group) => (
-        <SidebarSection key={group.key} group={group} pathname={pathname}>
-          {group.items.map((item) => (
-            <SidebarItem key={item.key} item={item} pathname={pathname} />
+    <div className="pt-1">
+      <VendorIdentityCard
+        displayName={displayName}
+        initials={initials}
+        isVerified={isVerified}
+      />
+      <nav aria-label="Vendor menu" className="px-2">
+        <ul className="flex flex-col gap-1">
+          {destinations.map((item) => (
+            <VendorDestinationRow
+              key={item.key}
+              item={item}
+              active={destinationActive(item, pathname)}
+            />
           ))}
-        </SidebarSection>
-      ))}
-    </>
+        </ul>
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * VendorSidebarFooter — the prototype's pinned footer, passed to
+ * <SidebarShell sidebarFooter>. Two rows:
+ *   1. Subscription chip — a gold "Pro" pill (tier label · Free shows "Free") +
+ *      "Subscription" + "Manage" → /vendor-dashboard/subscription.
+ *   2. Token balance row — "Your tokens ◎ N" (Coins icon + balance) →
+ *      /vendor-dashboard/tokens.
+ * SidebarShell hides this whole slot when the sidebar collapses to the 64px rail.
+ */
+export function VendorSidebarFooter({
+  tier,
+  tokenBalance,
+}: {
+  tier: string | null;
+  tokenBalance: number;
+}) {
+  const normalizedTier: VendorTier = asVendorTier(tier);
+  const tierLabel = TIER_LABEL[normalizedTier];
+  const numberFormat = new Intl.NumberFormat('en-PH');
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Subscription chip */}
+      <div
+        className="flex items-center gap-2 rounded-xl border p-2.5"
+        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+      >
+        <span
+          className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          style={{
+            background: 'var(--m-orange-4)',
+            border: '1px solid var(--m-orange-3)',
+            color: 'var(--m-orange-2)',
+          }}
+        >
+          <Zap aria-hidden className="h-3 w-3" strokeWidth={2} />
+          {tierLabel}
+        </span>
+        <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+          Subscription
+        </span>
+        <Link
+          href="/vendor-dashboard/subscription"
+          className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium transition-colors hover:underline"
+          style={{ color: 'var(--m-ink)' }}
+        >
+          Manage
+          <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        </Link>
+      </div>
+
+      {/* Token balance row */}
+      <Link
+        href="/vendor-dashboard/tokens"
+        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-paper)]"
+        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+      >
+        <Coins aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
+        <span>Your tokens</span>
+        <span className="ml-auto font-semibold" style={{ color: 'var(--m-ink)' }}>
+          {numberFormat.format(tokenBalance)}
+        </span>
+      </Link>
+    </div>
   );
 }

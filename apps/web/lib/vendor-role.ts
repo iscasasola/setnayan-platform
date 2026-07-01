@@ -76,12 +76,16 @@ export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
   'messages',
 ]);
 
-/** Bottom-nav tab keys an agent/viewer may see (Home · Bookings · Messages · More). */
+/**
+ * Bottom-nav tab keys an agent/viewer may see. Reroster 2026-07-01 to the
+ * 6-tab proto-shell strip (Overview · Shop · Customers · Performance · Services
+ * · On the Day). Agents keep Overview (their landing) + Services (they manage
+ * their assigned services); the storefront/money/analytics tabs stay owner/admin
+ * only until per-agent data scoping opens them in a later phase.
+ */
 export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
-  'profile', // the Home tab (key kept as 'profile' for localStorage continuity)
-  'bookings',
-  'messages',
-  'more',
+  'profile', // the Overview tab (key kept as 'profile' for localStorage continuity)
+  'services',
 ]);
 
 /** Filter a vendor NavGroup[] down to what `role` may see; drops empty groups. */

@@ -21,6 +21,7 @@ import { PushNotificationRegistrar } from './_components/push-notification-regis
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { ServerTimer } from '@/lib/server-timing';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -68,6 +69,10 @@ export default async function VendorDashboardLayout({
     events: [],
     context: { hasVendor: true, vendorName: null, isAdmin: false },
   };
+
+  // Server-render timing (2026-07-01) — one structured stdout line per layout
+  // render → log drain. See lib/server-timing.ts.
+  const timer = new ServerTimer('vendor-dashboard/layout');
 
   // Vendor profile (own or via team membership) — drives service-aware nav +
   // the tier/wallet read below. Kicked off on its own (not folded into the
@@ -126,7 +131,7 @@ export default async function VendorDashboardLayout({
   // bottom of the layout — it has no dependency on anything, so it joins the
   // batch here (2026-07-01 perf) and stops sitting on the critical path.
   const [profileRes, unreadCount, switcherData, vendorRole, vendorProfile, navSlots, tierWallet] =
-    await Promise.all([
+    await timer.track('chrome', () => Promise.all([
       supabase
         .from('users')
         .select('account_type, email, display_name, deleted_at')
@@ -155,7 +160,7 @@ export default async function VendorDashboardLayout({
       // fails open. No dependency → batched here rather than run sequentially.
       getNavSlotMap(),
       tierWalletPromise,
-    ]);
+    ]));
   const profile = profileRes.data;
   // Service-aware nav: Repertoire is a music-act surface only.
   const showRepertoire = isMusicVendor(vendorProfile?.services);
@@ -248,6 +253,8 @@ export default async function VendorDashboardLayout({
       </div>
     </div>
   );
+
+  timer.flush();
 
   return (
     <div className="app-surface">

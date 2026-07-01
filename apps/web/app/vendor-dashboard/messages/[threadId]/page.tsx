@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchMessages, fetchReturningClientFlags, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -77,6 +78,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // contract via per-item .catch(). markThreadRead is a WRITE fired inside the
   // batch (last element, result ignored): it still clears unread on this load,
   // but concurrently, adding zero serial round-trips instead of blocking render.
+  const msgTimer = new ServerTimer('vendor-dashboard/messages-thread');
   const paxAdmin = createAdminClient();
   const [
     blockState,
@@ -90,7 +92,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     planProgress,
     reasonCodes,
     { data: existingOutcome },
-  ] = await Promise.all([
+  ] = await msgTimer.track('thread', () => Promise.all([
     // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
     getThreadBlockState(thread, user.id, 'vendor'),
     // Identity-masking source of truth: never expose the couple's email or
@@ -159,7 +161,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // Mark read (WRITE) — fired concurrently; result ignored. No-op + logged if
     // migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
     markThreadRead(threadId).catch(() => undefined),
-  ]);
+  ]));
 
   const coupleLabel = event?.display_name ?? 'Couple';
 
@@ -219,6 +221,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       current={currentOutcome}
     />
   );
+
+  msgTimer.flush();
 
   return (
     <section className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">

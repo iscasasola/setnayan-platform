@@ -1582,6 +1582,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 25,
   },
   {
+    key: "vendor.sidebar.on-the-day",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/on-the-day",
+    label: "On the Day",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "CalendarCheck",
+    customRef: null,
+    sortOrder: 26,
+  },
+  {
     key: "vendor.bottom-nav.bookings",
     scope: "vendor",
     area: "vendor-bottom-nav",

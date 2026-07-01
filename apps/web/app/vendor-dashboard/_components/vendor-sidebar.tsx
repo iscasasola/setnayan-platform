@@ -26,11 +26,12 @@
  * 5-item mobile BottomNav lives in vendor-bottom-nav.tsx alongside this
  * file.
  *
- * 6-MENU IA (REORG 2026-07-01 from the 4-group 2026-06-04 layout). This
- * landing ships the 5 existing-route menus; the 6th ("On the Day") arrives
- * with its route in a later phase (orphan-prevention). Item keys/hrefs/
- * matchPrefixes/icons are byte-identical to the 4-group layout — only the
- * grouping changed — so deep-links + the item-key role filter stay valid:
+ * 6-MENU IA (REORG 2026-07-01 from the 4-group 2026-06-04 layout). The 6th
+ * menu ("On the Day") landed with its route in Phase 7 (2026-07-01) — the
+ * /vendor-dashboard/on-the-day category-conditional day-of console. The other
+ * five menus keep item keys/hrefs/matchPrefixes/icons byte-identical to the
+ * 4-group layout — only the grouping changed — so deep-links + the item-key
+ * role filter stay valid:
  *   1. Overview (key 'home')         — Overview (/vendor-dashboard root · exact-match)
  *   2. My Shop (key 'shop')          — Profile · Verify · Website · Reviews · Real
  *                      Stories · Recaps · Recommend · Partnerships · Team & Setnayan ·
@@ -44,7 +45,9 @@
  *                      intel · owner/admin only · standalone Performance page joins later)
  *   5. My Services (key 'offerings')  — Services · Attributes · Repertoire · Manpower ·
  *                      Moodboard library (offerings + the specialist tools that set them)
- *   6. On the Day (deferred)         — category-conditional day-of console (later phase)
+ *   6. On the Day (key 'onday')       — On the Day (/vendor-dashboard/on-the-day ·
+ *                      category-conditional day-of console: shot list · command
+ *                      center · headcount · setlist. Free surface · Phase 7)
  *
  * OMITTED PER ORPHAN-PREVENTION RULE — routes the brief enumerated but
  * which DON'T EXIST on disk get dropped per
@@ -88,6 +91,7 @@
 import {
   Home,
   Briefcase,
+  CalendarCheck,
   CalendarDays,
   CalendarClock,
   ClipboardList,
@@ -136,10 +140,11 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
  */
 export const VENDOR_NAV_GROUPS: NavGroup[] = [
   // REORG 2026-07-01 — 4 groups → 6-menu IA (Overview · My Shop · My
-  // Customers · My Performance · My Services · On the Day). This landing
-  // ships the 5 existing-route menus; "On the Day" (6th) arrives with its
-  // route in a later phase (orphan-prevention — no nav entry without a
-  // page). Every item's key/href/matchPrefix/icon is byte-identical to the
+  // Customers · My Performance · My Services · On the Day). "On the Day" (6th)
+  // landed with its route in Phase 7 (2026-07-01) — the
+  // /vendor-dashboard/on-the-day category-conditional day-of console (its nav
+  // entry was added only AFTER the page existed, per orphan-prevention). Every
+  // OTHER item's key/href/matchPrefix/icon is byte-identical to the
   // 4-group layout — ONLY the grouping changed — so all 900+ deep-links,
   // the role filter (by item key), the /more landing + mobile landing
   // (both derive from this array) stay valid. Group keys are new where the
@@ -232,6 +237,18 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
       { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
+    ],
+  },
+  {
+    // On the Day — the free, category-conditional day-of console (Phase 7,
+    // 2026-07-01). Resolves the vendor's category from their services and shows
+    // the matching day-of tool: shot list (photo/video) · command center
+    // (coordinator) · headcount (caterer) · setlist (band/DJ), plus the live
+    // run-of-show for the event in focus. Ordered LAST per the 6-menu IA.
+    key: 'onday',
+    label: 'On the Day',
+    items: [
+      { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
     ],
   },
 ];

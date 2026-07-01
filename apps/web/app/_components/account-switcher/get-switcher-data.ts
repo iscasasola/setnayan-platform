@@ -82,7 +82,7 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
   const supabase = await createClient();
 
   // Parallel: user profile + role summary + events the user belongs to
-  const [userRes, roles, membershipRes] = await Promise.all([
+  const [userRes, roles, membershipRes, favRes] = await Promise.all([
     supabase
       .from('users')
       .select('display_name, email, profile_photo_url, is_internal, is_team_member')
@@ -93,6 +93,16 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
       .from('event_members')
       .select('event_id, member_type')
       .eq('user_id', userId),
+    // Favorites (saved vendors) depend only on userId — no reason to wait for the
+    // events→gallery chain, so this joins the first batch (2026-07-01 perf). The
+    // `.then(ok, err)` keeps the graceful-degrade contract inside Promise.all: a
+    // missing table (pre-migration) resolves to an empty result, never a throw.
+    supabase
+      .from('vendor_favorites')
+      .select('vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url )')
+      .eq('user_id', userId)
+      .limit(20)
+      .then((r) => r, () => ({ data: null })),
   ]);
 
   if (userRes.error) {
@@ -124,6 +134,13 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     event_id: string;
     member_type: string;
   }>;
+
+  // Kick off the profile-photo presign now — it only needs the profile row from
+  // batch 1 and is independent of the events→gallery chain below, so it overlaps
+  // those queries instead of running as a tail await (2026-07-01 perf).
+  const photoUrlPromise = displayUrlForStoredAsset(
+    profile?.profile_photo_url ?? null,
+  ).catch(() => null);
 
   // Fetch event metadata for all events the user is a member of
   let events: SwitcherEvent[] = [];
@@ -190,16 +207,11 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     }
   }
 
-  // Favorites: saved vendors (graceful degrade if table absent)
+  // Favorites resolved in the first batch above — just shape the rows here.
   let favorites: SwitcherFavorite[] = [];
-  try {
-    const { data: favRows, error: favErr } = await supabase
-      .from('vendor_favorites')
-      .select('vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url )')
-      .eq('user_id', userId)
-      .limit(20);
-
-    if (!favErr && favRows) {
+  {
+    const favRows = favRes.data;
+    if (favRows) {
       favorites = (favRows as unknown as Array<{
         vendor_profile_id: string;
         vendor_profiles: { business_name: string | null; logo_url: string | null } | null;
@@ -209,14 +221,10 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
         logo_url: row.vendor_profiles?.logo_url ?? null,
       }));
     }
-  } catch {
-    // vendor_favorites may not exist yet — degrade to empty
   }
 
-  // Presign profile photo
-  const photoUrl = await displayUrlForStoredAsset(
-    profile?.profile_photo_url ?? null,
-  ).catch(() => null);
+  // Presign profile photo (kicked off in parallel above).
+  const photoUrl = await photoUrlPromise;
 
   const context: SwitcherContext = {
     hasVendor: roles.hasVendorAccess,

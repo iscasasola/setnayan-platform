@@ -275,26 +275,69 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   if (error || !data) redirect('/vendor-dashboard/clients');
   const brief = data as Brief;
 
-  // "From your vendors" editorial-media entry — surfaced to the couple's
-  // RECOMMENDED pick (event_vendors.selection_match_rank = 1) for a category.
-  // The active card opens only AFTER completion is confirmed (Stage-10 gate);
-  // before that the recommended pick sees a locked "once they confirm" state.
-  const editorialEligibility = await getEditorialEligibility(
-    createAdminClient(),
-    eventId,
-    profile.vendor_profile_id,
-  );
+  // Everything below the booked-gate is independent of the brief and of each
+  // other (except the change-order trail, which needs the event_vendor id from
+  // the completion row). Batch it into ONE parallel round-trip instead of the
+  // former 5-step waterfall (2026-07-01 perf):
+  //   • "From your vendors" editorial-media eligibility — surfaced to the
+  //     couple's RECOMMENDED pick (selection_match_rank = 1). The active card
+  //     opens only AFTER completion is confirmed (Stage-10 gate).
+  //   • Completion handshake state (Event Lifecycle Menu §6.1) — admin read;
+  //     the vendor is already booked-gated by the RPC above.
+  //   • Cocktail-area editability probe — a clean result means we can show the
+  //     "arrange it" entry point.
+  //   • Phase 3 live timeline rows + this org's suggestion history + booking↔
+  //     contract presence (2026-06-22).
+  //   • Delivery Handover (Wave 4) — this org's posted handovers for the booking.
+  const admin = createAdminClient();
+  const [
+    editorialEligibility,
+    { data: completionRow },
+    { data: cocktailEdit },
+    [{ data: liveBlocks }, { data: mySuggestions }, contractRes],
+    { data: handoverRows },
+  ] = await Promise.all([
+    getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
+    admin
+      .from('event_vendors')
+      .select(
+        'vendor_id, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+      )
+      .eq('event_id', eventId)
+      .eq('marketplace_vendor_id', profile.vendor_profile_id)
+      .maybeSingle(),
+    supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId }),
+    Promise.all([
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at')
+        .eq('event_id', eventId)
+        .order('start_at', { ascending: true })
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('event_schedule_suggestions')
+        .select('suggestion_id, block_id, kind, note, status, created_at')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase
+        .from('vendor_contracts')
+        .select('contract_id')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .neq('status', 'cancelled')
+        .limit(1),
+    ]),
+    supabase
+      .from('booking_handovers')
+      .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ]);
 
-  // Completion handshake state (Event Lifecycle Menu §6.1) — admin read; the
-  // vendor is already booked-gated by the RPC above.
-  const { data: completionRow } = await createAdminClient()
-    .from('event_vendors')
-    .select(
-      'vendor_id, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
-    )
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', profile.vendor_profile_id)
-    .maybeSingle();
   const completion = (completionRow ?? null) as {
     vendor_id: string | null;
     completion_status: string | null;
@@ -316,49 +359,15 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   const isDisputed = completion?.completion_status === 'disputed';
   const isVendorMarked = Boolean(completion?.service_marked_complete_at) && !isCompleteConfirmed && !isDisputed;
 
-  // Cocktail-area editability probe: the RPC raises unless this vendor is booked
-  // in an eligible category AND the couple has enabled the room + left vendor
-  // editing on. A clean result means we can show the "arrange it" entry point.
-  const { data: cocktailEdit } = await supabase.rpc('get_vendor_cocktail_editor', {
-    p_event_id: eventId,
-  });
   const canEditCocktail = !!cocktailEdit;
 
-  // Phase 3: live timeline rows (RLS booked-vendor read, locked D2 full
-  // visibility) — block ids drive the Suggest forms — plus this org's own
-  // suggestion history.
-  const [{ data: liveBlocks }, { data: mySuggestions }, contractRes] = await Promise.all([
-    supabase
-      .from('event_schedule_blocks')
-      .select('block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at')
-      .eq('event_id', eventId)
-      .order('start_at', { ascending: true })
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('event_schedule_suggestions')
-      .select('suggestion_id, block_id, kind, note, status, created_at')
-      .eq('event_id', eventId)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .order('created_at', { ascending: false })
-      .limit(10),
-    // Booking↔contract (2026-06-22): does this vendor already have a
-    // non-cancelled contract for this couple? Drives the CTA wording.
-    supabase
-      .from('vendor_contracts')
-      .select('contract_id')
-      .eq('event_id', eventId)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .neq('status', 'cancelled')
-      .limit(1),
-  ]);
   const hasContract = (contractRes.data?.length ?? 0) > 0;
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
 
   // Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log for
-  // this booking, sitting beside the Suggest flow. RLS-gated to the vendor's
-  // own bookings (booked event + own profile). The vendor raises + responds to
-  // couple-raised orders via the single-winner RPCs.
+  // this booking. Depends on the event_vendor id resolved in the completion read
+  // above, so it's the one query that must follow the batch.
   const { data: changeOrderRows } = eventVendorId
     ? await supabase
         .from('vendor_change_orders')
@@ -371,15 +380,6 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
 
-  // Delivery Handover (Wave 4) — this org's posted handovers for the booking,
-  // beside the Suggest flow. RLS-gated to the vendor's own profile.
-  const { data: handoverRows } = await supabase
-    .from('booking_handovers')
-    .select('handover_id, kind, label, payload, status, delivered_at, couple_acknowledged_at')
-    .eq('event_id', eventId)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .order('created_at', { ascending: false })
-    .limit(20);
   const handovers = (handoverRows ?? []) as HandoverRow[];
 
   // Run-of-show header rows (now/next/±N) — derived from the live timeline's

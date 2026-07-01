@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
+import { ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
@@ -10,6 +10,7 @@ import {
   fetchVendorDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
+  fetchBookingServiceAgentMeta,
 } from '@/lib/vendor-schedule';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
@@ -18,12 +19,14 @@ import { manilaTodayIso, type PaydayInstallmentRow } from '@/lib/vendor-cashflow
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   buildCustomerCalendarMonth,
+  buildMonthDemandHeat,
   summarizeMonthlyPayments,
   computeEventMoneyPositions,
-  type CustomerRow,
+  type BookingMeta,
   type CustomerStatus,
+  type EventMoneyPosition,
 } from '@/lib/vendor-customers';
-import { CustomersCalendar } from './_components/customers-calendar';
+import { CustomersClient, type CustomerRowVM } from './_components/customers-client';
 import type { FilterOption } from './_components/customers-filter-bar';
 
 export const metadata = { title: 'My Customers · Vendor · Setnayan' };
@@ -63,61 +66,35 @@ function shiftMonth(ym: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return 'Date not set';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'SN';
-  if (words.length === 1) return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
-  return (words[0]![0]! + words[1]![0]!).toUpperCase();
-}
-
-const STATUS_PILL: Record<
-  CustomerStatus,
-  { label: string; bg: string; fg: string; border: string }
-> = {
-  booked: {
-    label: 'Booked',
-    bg: 'rgba(79,107,74,0.12)',
-    fg: 'var(--m-sage-deep)',
-    border: 'rgba(79,107,74,0.28)',
-  },
-  locked: {
-    label: 'Locked',
-    bg: 'var(--m-orange-4)',
-    fg: 'var(--m-orange-2)',
-    border: 'var(--m-orange-3)',
-  },
-  whitelist: {
-    label: 'Whitelist',
-    bg: 'rgba(139,123,184,0.12)',
-    fg: '#6D5C9C',
-    border: 'rgba(139,123,184,0.30)',
-  },
-  waitlist: {
-    label: 'Waitlist',
-    bg: 'rgba(184,134,47,0.12)',
-    fg: '#946A17',
-    border: 'rgba(184,134,47,0.28)',
-  },
-  in_conversation: {
-    label: 'In conversation',
-    bg: 'var(--m-paper-2)',
-    fg: 'var(--m-slate)',
-    border: 'var(--m-line)',
-  },
-};
-
 function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
 }
+
+/**
+ * Human label for a day/customer STATE value — the "All types" filter now keys
+ * off booking state (not event type). Kept in sync with the calendar/list chip
+ * copy: 'in_conversation' surfaces as "Scheduled".
+ */
+const STATE_LABEL: Record<string, string> = {
+  full: 'Full',
+  booked: 'Booked',
+  locked: 'Locked',
+  whitelist: 'Whitelist',
+  blocked: 'Blocked',
+  waitlist: 'Waitlist',
+  in_conversation: 'Scheduled',
+};
+
+/** Canonical display order for the state-type filter options. */
+const STATE_ORDER = [
+  'full',
+  'booked',
+  'locked',
+  'whitelist',
+  'blocked',
+  'waitlist',
+  'in_conversation',
+];
 
 export default async function VendorCustomersPage({ searchParams }: Props) {
   const search = await searchParams;
@@ -148,6 +125,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     services,
     teamRows,
     paydayRes,
+    demandRes,
   ] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     fetchVendorPoolBookings(supabase, vendorProfileId),
@@ -162,11 +140,20 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     fetchVendorTeam(supabase, vendorProfileId),
     // Frozen installment plan across all booked events (ownership-gated RPC).
     supabase.rpc('vendor_payday_installments'),
+    // Demand Radar buckets (de-identified, min-N gated in SQL) — the source for
+    // the Heat map overlay. Errors degrade to no overlay.
+    supabase.rpc('demand_radar_for_vendor', { p_vendor_profile_id: vendorProfileId }),
   ]);
 
   const paydayRows = (
     paydayRes.error ? [] : ((paydayRes.data ?? []) as unknown as PaydayInstallmentRow[])
   );
+
+  // Resolve each booking's leaf service category + assigned agents — the filter
+  // index for "All services" / "All agents". Keyed by pool_booking_id.
+  const bookingMetaById = await fetchBookingServiceAgentMeta(supabase, bookings);
+  // The lib module's BookingMeta is structurally identical; reuse the map.
+  const calendarMeta: Map<string, BookingMeta> = bookingMetaById;
 
   // ── Section 2: month calendar ────────────────────────────────────────────
   const calendar = buildCustomerCalendarMonth(
@@ -177,7 +164,20 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     waitlist,
     month,
     todayIso,
+    calendarMeta,
   );
+
+  // ── Heat map: Demand Radar intensity for the visible month, by event type ──
+  const demandBuckets = (
+    demandRes.error || !Array.isArray(demandRes.data) ? [] : demandRes.data
+  ) as {
+    month_bucket: string;
+    event_type: string;
+    inquiry_count: number;
+    unlock_count: number;
+    booking_count: number;
+  }[];
+  const demandHeat = buildMonthDemandHeat(demandBuckets, month);
 
   // ── Section 3a: this-month payments roll-up ──────────────────────────────
   const payments = summarizeMonthlyPayments(paydayRows, month);
@@ -231,6 +231,25 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
   // ── Section 4: customers list ────────────────────────────────────────────
   const moneyByEvent = computeEventMoneyPositions(paydayRows);
 
+  // Per-event filter index: aggregate each event's booked service categories +
+  // assigned agent member-ids from the resolved per-booking metadata.
+  const categoriesByEvent = new Map<string, Set<string>>();
+  const agentsByEvent = new Map<string, Set<string>>();
+  for (const b of bookings) {
+    const meta = bookingMetaById.get(b.poolBookingId);
+    if (!meta) continue;
+    if (meta.category) {
+      const cats = categoriesByEvent.get(b.eventId) ?? new Set<string>();
+      cats.add(meta.category);
+      categoriesByEvent.set(b.eventId, cats);
+    }
+    if (meta.agentMemberIds.length > 0) {
+      const agents = agentsByEvent.get(b.eventId) ?? new Set<string>();
+      for (const id of meta.agentMemberIds) agents.add(id);
+      agentsByEvent.set(b.eventId, agents);
+    }
+  }
+
   // Booked events (live pool reservations) grouped by event.
   const bookedByEvent = new Map<
     string,
@@ -269,8 +288,9 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     }
   }
 
-  const rows: CustomerRow[] = [];
+  const rows: CustomerRowVM[] = [];
   for (const [eventId, g] of bookedByEvent) {
+    const money = moneyByEvent.get(eventId) ?? null;
     rows.push({
       eventId,
       eventName: g.eventName,
@@ -278,7 +298,9 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
       place: venueByEvent.get(eventId) ?? null,
       status: 'booked',
       threadId: g.threadId,
-      money: moneyByEvent.get(eventId) ?? null,
+      serviceCategories: [...(categoriesByEvent.get(eventId) ?? [])],
+      agentMemberIds: [...(agentsByEvent.get(eventId) ?? [])],
+      note: moneyNote('booked', money),
     });
   }
 
@@ -293,7 +315,9 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
       place: null,
       status: 'in_conversation',
       threadId: t.thread_id,
-      money: moneyByEvent.get(t.event_id) ?? null,
+      serviceCategories: [],
+      agentMemberIds: [],
+      note: moneyNote('in_conversation', moneyByEvent.get(t.event_id) ?? null),
     });
   }
 
@@ -305,7 +329,19 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     return a.eventName.localeCompare(b.eventName);
   });
 
-  // Filter option sets (real data · presentational for now).
+  // ── Filter option sets (all LIVE, all functional) ────────────────────────
+  // "All types" = the booking/day STATE, sourced from what actually appears in
+  // this vendor's data (calendar day states + customer statuses) — no invented
+  // state is ever offered.
+  const presentStates = new Set<string>();
+  for (const d of calendar.days) if (d.state) presentStates.add(d.state);
+  for (const r of rows) presentStates.add(r.status);
+  const typeOptions: FilterOption[] = STATE_ORDER.filter((s) =>
+    presentStates.has(s),
+  ).map((s) => ({ value: s, label: STATE_LABEL[s] ?? s }));
+
+  // "All services" = the vendor's leaf service CATEGORIES (distinct taxonomy
+  // leaves of their vendor_services).
   const serviceOptions: FilterOption[] = [
     ...new Map(
       services.map((s) => [
@@ -314,20 +350,21 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
       ]),
     ).values(),
   ];
-  const eventTypeOptions: FilterOption[] = (profile.event_types ?? []).map((t) => ({
-    value: t,
-    label: t.charAt(0).toUpperCase() + t.slice(1),
-  }));
-  // Agent labels need users.email/display_name, which is owner-only RLS
-  // (Pattern A) — resolve via the admin client. Fail-soft: if enrichment throws
-  // we fall back to the team labels so the select never blocks the page.
+
+  // "All agents" = team-member NAMES (never raw emails). Names come from
+  // users.display_name (owner-only RLS → admin client). Last-resort fallback is
+  // the local-part of the email or the team label — never the full email.
   let agentOptions: FilterOption[] = [];
   if (teamRows.length > 0) {
     try {
       const teamWithUser = await enrichTeamWithUsers(createAdminClient(), teamRows);
       agentOptions = teamWithUser.map((m) => ({
         value: m.vendor_team_member_id,
-        label: m.display_name?.trim() || m.email || m.team_label?.trim() || 'Team member',
+        label:
+          m.display_name?.trim() ||
+          m.team_label?.trim() ||
+          (m.email ? m.email.split('@')[0]! : '') ||
+          'Team member',
       }));
     } catch {
       agentOptions = teamRows.map((m) => ({
@@ -357,20 +394,26 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
           </p>
         </header>
 
-        {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
-        <CustomersCalendar
-          data={calendar}
+        {/*
+          Sections 1+2+3+4 — the filter row + calendar + summary cards + list
+          live inside one client island so the three filters (state / service /
+          agent) and the Heat map toggle drive BOTH the calendar AND the list
+          from a single source of state. The summary cards (month-level roll-ups)
+          are slotted through unfiltered.
+        */}
+        <CustomersClient
+          calendar={calendar}
+          rows={rows}
           monthLabel={monthLabelOf(month)}
           prevHref={`/vendor-dashboard/customers?m=${shiftMonth(month, -1)}`}
           nextHref={`/vendor-dashboard/customers?m=${shiftMonth(month, 1)}`}
           dayHrefBase={dayHrefBase}
-          types={eventTypeOptions}
-          services={serviceOptions}
-          agents={agentOptions}
-        />
-
-        {/* Section 3 — three summary cards. */}
-        <div className="grid gap-4 md:grid-cols-3">
+          typeOptions={typeOptions}
+          serviceOptions={serviceOptions}
+          agentOptions={agentOptions}
+          demandHeat={demandHeat}
+          summaryCards={
+            <div className="grid gap-4 md:grid-cols-3">
           {/* Ongoing payments */}
           <article
             className="rounded-xl border p-4"
@@ -390,7 +433,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
             </div>
             {payments.isEmpty ? (
               <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                No installments due this month. Amounts appear here once a couple
+                No payments expected this month. Amounts appear here once a couple
                 books you on a service with a payment schedule.
               </p>
             ) : (
@@ -528,100 +571,22 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
               <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </Link>
           </article>
-        </div>
-
-        {/* Section 4 — customers list. */}
-        <div
-          className="rounded-xl border"
-          style={{ borderColor: 'var(--m-line)', background: '#fff' }}
-        >
-          <div
-            className="flex items-center justify-between gap-2 border-b px-4 py-3"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
-            <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-              Customers
-            </h2>
-            <Link
-              href="/vendor-dashboard/clients"
-              className="inline-flex items-center gap-1 text-sm font-medium"
-              style={{ color: 'var(--m-orange-2)' }}
-            >
-              <CalendarDays className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Book of business
-            </Link>
-          </div>
-          {rows.length === 0 ? (
-            <p className="px-4 py-8 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              No customers yet. When a couple books you, or you accept an inquiry,
-              they show up here with their event, date, and where they&rsquo;re at
-              with payments.
-            </p>
-          ) : (
-            <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
-              {rows.map((r) => {
-                const pill = STATUS_PILL[r.status];
-                const note = moneyNote(r);
-                const inner = (
-                  <>
-                    <span
-                      aria-hidden
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-                    >
-                      {initialsOf(r.eventName)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                          {r.eventName}
-                        </span>
-                        <span
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-                          style={{ background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }}
-                        >
-                          {pill.label}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                        {fmtDate(r.eventDate)}
-                        {r.place ? ` · ${r.place}` : ''}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-right text-xs" style={{ color: note.tone }}>
-                      {note.text}
-                    </span>
-                  </>
-                );
-                return (
-                  <li key={`${r.status}:${r.eventId}`}>
-                    {r.threadId ? (
-                      <Link
-                        href={`/vendor-dashboard/messages/${r.threadId}`}
-                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--m-paper-2)]"
-                      >
-                        {inner}
-                      </Link>
-                    ) : (
-                      <div className="flex items-center gap-3 px-4 py-3">{inner}</div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+            </div>
+          }
+        />
       </div>
     </section>
   );
 }
 
-/** The right-aligned money note for a customer row. */
-function moneyNote(r: CustomerRow): { text: string; tone: string } {
-  if (r.status === 'in_conversation') {
+/** The right-aligned money note for a customer row (status + money position). */
+function moneyNote(
+  status: CustomerStatus,
+  m: EventMoneyPosition | null,
+): { text: string; tone: string } {
+  if (status === 'in_conversation') {
     return { text: 'Quote pending', tone: 'var(--m-slate-2)' };
   }
-  const m = r.money;
   if (!m || m.allUnresolved || m.installmentCount === 0) {
     // Booked but no resolvable installment plan yet.
     return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };

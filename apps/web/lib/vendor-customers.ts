@@ -60,6 +60,17 @@ export type CustomerCalendarDay = {
   waitlistCount: number;
   /** Short event labels for this day (e.g. booked event names). Deduped. */
   eventLabels: string[];
+  /**
+   * Distinct leaf service categories that have a booking on this day — the
+   * filter index for "All services". Empty when nothing is booked/held here.
+   */
+  serviceCategories: string[];
+  /**
+   * Distinct team-member ids (vendor_team_member_id) whose assigned services
+   * are booked on this day — the filter index for "All agents". Empty when the
+   * day's bookings carry no agent-assigned service.
+   */
+  agentMemberIds: string[];
 };
 
 export type CustomerCalendarMonth = {
@@ -77,6 +88,20 @@ type DayAcc = {
   closed: boolean;
   locked: boolean;
   whitelist: boolean;
+};
+
+/**
+ * Per-booking service/agent metadata, resolved server-side from
+ * event_vendors.service_id → vendor_services.category and
+ * vendor_service_agents. Keyed by pool_booking_id so a booking's day inherits
+ * exactly its own leaf category + assigned agents (no cross-booking bleed).
+ */
+export type BookingMeta = {
+  /** Leaf service category of the booked service (null when the booking has no
+   *  resolved service_id — e.g. a legacy booking). */
+  category: string | null;
+  /** vendor_team_member_ids whose assignment covers this booking's service. */
+  agentMemberIds: string[];
 };
 
 function daysInMonthOf(month: string): number {
@@ -99,6 +124,9 @@ export function buildCustomerCalendarMonth(
   waitlist: { requestedDate: string; pendingCount: number }[],
   month: string,
   todayIso: string,
+  /** pool_booking_id → resolved service/agent metadata (optional; defaults to
+   *  empty so the calendar still renders on a pre-enrichment call). */
+  bookingMetaById: Map<string, BookingMeta> = new Map(),
 ): CustomerCalendarMonth {
   const daysInMonth = daysInMonthOf(month);
   const [y = 2026, m = 1] = month.split('-').map(Number);
@@ -123,8 +151,11 @@ export function buildCustomerCalendarMonth(
     acc.set(p.poolId, inner);
   }
 
-  // Booked reservations consume capacity + contribute an event label.
+  // Booked reservations consume capacity + contribute an event label + the
+  // per-day service-category / agent filter index (from the resolved metadata).
   const labelsByDate = new Map<string, Set<string>>();
+  const categoriesByDate = new Map<string, Set<string>>();
+  const agentsByDate = new Map<string, Set<string>>();
   for (const b of bookings) {
     if (!poolIds.has(b.poolId)) continue;
     const st = acc.get(b.poolId)?.get(b.bookedDate);
@@ -132,6 +163,18 @@ export function buildCustomerCalendarMonth(
     const set = labelsByDate.get(b.bookedDate) ?? new Set<string>();
     set.add(b.eventName);
     labelsByDate.set(b.bookedDate, set);
+
+    const meta = bookingMetaById.get(b.poolBookingId);
+    if (meta?.category) {
+      const cats = categoriesByDate.get(b.bookedDate) ?? new Set<string>();
+      cats.add(meta.category);
+      categoriesByDate.set(b.bookedDate, cats);
+    }
+    if (meta && meta.agentMemberIds.length > 0) {
+      const agents = agentsByDate.get(b.bookedDate) ?? new Set<string>();
+      for (const id of meta.agentMemberIds) agents.add(id);
+      agentsByDate.set(b.bookedDate, agents);
+    }
   }
 
   // Blocks: external clients consume capacity; manual/synced blocks close.
@@ -222,6 +265,8 @@ export function buildCustomerCalendarMonth(
       capacity,
       waitlistCount,
       eventLabels: [...(labelsByDate.get(date) ?? [])],
+      serviceCategories: [...(categoriesByDate.get(date) ?? [])],
+      agentMemberIds: [...(agentsByDate.get(date) ?? [])],
     });
   }
 
@@ -347,4 +392,72 @@ export type CustomerRow = {
   threadId: string | null;
   /** The money position, when the event has a booked installment plan. */
   money: EventMoneyPosition | null;
+  /** Leaf service categories tied to this customer's booking(s) — "All
+   *  services" filter index. Empty for an in-conversation row (no service_id). */
+  serviceCategories: string[];
+  /** vendor_team_member_ids assigned to this customer's booked service(s) —
+   *  "All agents" filter index. Empty when no agent covers the service. */
+  agentMemberIds: string[];
 };
+
+// ── Demand heatmap (from Demand Radar) ────────────────────────────────────
+
+/**
+ * Per-event-type demand intensity for a single calendar month, folded from the
+ * Demand Radar's month buckets. The radar rolls up demand by (month, event
+ * type) — it has NO per-date resolution — so the heat is a month-level signal
+ * every date in that month shares. `byEventType` lets the calendar re-key the
+ * intensity to whichever event type the vendor has selected; `total` is the
+ * all-types sum used when no type is selected.
+ */
+export type MonthDemandHeat = {
+  /** event_type slug → demand signal (inquiries+unlocks+bookings) for `month`. */
+  byEventType: Record<string, number>;
+  /** Sum across every event type — the all-types intensity. */
+  total: number;
+  /**
+   * Normalization ceiling: the single busiest (month, event-type) demand signal
+   * across the WHOLE radar. Intensity for a date = thisMonthSignal / scaleMax,
+   * so navigating months shows real differences and the busiest month reads
+   * "hottest". >0 only when the radar surfaced any demand.
+   */
+  scaleMax: number;
+};
+
+/** A demand-radar bucket, narrowed to what the heatmap needs (month + type). */
+type RadarHeatBucket = {
+  month_bucket: string;
+  event_type: string;
+  inquiry_count: number;
+  unlock_count: number;
+  booking_count: number;
+};
+
+/**
+ * Fold the demand-radar buckets into this-month intensity, keyed by event type.
+ * Buckets whose first-of-month `month_bucket` doesn't match `month` ('YYYY-MM')
+ * are ignored. Pure; safe with [] (yields an all-zero heat → no overlay).
+ */
+export function buildMonthDemandHeat(
+  buckets: RadarHeatBucket[],
+  month: string,
+): MonthDemandHeat {
+  const byEventType: Record<string, number> = {};
+  let total = 0;
+  // Normalization ceiling: busiest (month, event-type) cell across the radar.
+  const perMonthType = new Map<string, number>();
+  for (const b of buckets) {
+    const signal =
+      (b.inquiry_count || 0) + (b.unlock_count || 0) + (b.booking_count || 0);
+    if (signal <= 0 || typeof b.month_bucket !== 'string') continue;
+    const cellKey = `${b.month_bucket.slice(0, 7)}:${b.event_type}`;
+    perMonthType.set(cellKey, (perMonthType.get(cellKey) ?? 0) + signal);
+    if (b.month_bucket.slice(0, 7) === month) {
+      byEventType[b.event_type] = (byEventType[b.event_type] ?? 0) + signal;
+      total += signal;
+    }
+  }
+  let scaleMax = 0;
+  for (const v of perMonthType.values()) if (v > scaleMax) scaleMax = v;
+  return { byEventType, total, scaleMax };
+}

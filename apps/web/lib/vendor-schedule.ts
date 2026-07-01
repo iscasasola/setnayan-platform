@@ -41,9 +41,19 @@ export type PoolBookingEntry = {
   poolBookingId: string;
   poolId: string;
   eventId: string;
+  eventVendorId: string;
   bookedDate: string; // YYYY-MM-DD
   eventName: string;
   threadId: string | null;
+};
+
+/** Resolved service/agent metadata for one booking (see resolver below). */
+export type BookingServiceAgentMeta = {
+  /** Leaf service category of the booked service (null when the booking's
+   *  event_vendors row has no resolved service_id). */
+  category: string | null;
+  /** vendor_team_member_ids assigned to the booked service. */
+  agentMemberIds: string[];
 };
 
 export type CalendarBlockEntry = {
@@ -308,7 +318,7 @@ export async function fetchVendorPoolBookings(
 ): Promise<PoolBookingEntry[]> {
   const { data: rows } = await supabase
     .from('vendor_schedule_pool_bookings')
-    .select('pool_booking_id, pool_id, event_id, booked_date')
+    .select('pool_booking_id, pool_id, event_id, event_vendor_id, booked_date')
     .eq('vendor_profile_id', vendorProfileId)
     .is('released_at', null)
     .order('booked_date', { ascending: true });
@@ -316,6 +326,7 @@ export async function fetchVendorPoolBookings(
     pool_booking_id: string;
     pool_id: string;
     event_id: string;
+    event_vendor_id: string;
     booked_date: string;
   }[];
   if (bookings.length === 0) return [];
@@ -350,10 +361,92 @@ export async function fetchVendorPoolBookings(
     poolBookingId: b.pool_booking_id,
     poolId: b.pool_id,
     eventId: b.event_id,
+    eventVendorId: b.event_vendor_id,
     bookedDate: b.booked_date,
     eventName: nameByEvent.get(b.event_id) ?? 'A Setnayan event',
     threadId: threadByEvent.get(b.event_id) ?? null,
   }));
+}
+
+/**
+ * Resolve each booking's leaf service category + assigned agents — the filter
+ * index for the My Customers "All services" and "All agents" filters. Chain:
+ *
+ *   pool_booking → event_vendors.service_id → vendor_services.category
+ *                                          → vendor_service_agents (member ids)
+ *
+ * event_vendors carries no direct vendor-read RLS (the vendor is party to the
+ * booking but holds no couple-table read), so the service_id lookup goes
+ * through the admin client — bounded to THIS vendor's own event_vendor_ids, so
+ * nothing leaks. vendor_services + vendor_service_agents are vendor-owned
+ * (member-read RLS), so those read on the caller's session client.
+ *
+ * Returns a Map keyed by pool_booking_id. Bookings whose event_vendors row has
+ * a null service_id resolve to `{ category: null, agentMemberIds: [] }` — an
+ * honest "unassigned" that the filters treat as matching only "All".
+ */
+export async function fetchBookingServiceAgentMeta(
+  supabase: SupabaseClient,
+  bookings: PoolBookingEntry[],
+): Promise<Map<string, BookingServiceAgentMeta>> {
+  const out = new Map<string, BookingServiceAgentMeta>();
+  const eventVendorIds = [
+    ...new Set(bookings.map((b) => b.eventVendorId).filter(Boolean)),
+  ];
+  if (eventVendorIds.length === 0) return out;
+
+  // 1. event_vendor_id → service_id (admin client; bounded to own bookings).
+  const admin = createAdminClient();
+  const { data: evRows } = await admin
+    .from('event_vendors')
+    .select('vendor_id, service_id')
+    .in('vendor_id', eventVendorIds);
+  const serviceByEventVendor = new Map<string, string | null>();
+  for (const r of (evRows ?? []) as { vendor_id: string; service_id: string | null }[]) {
+    serviceByEventVendor.set(r.vendor_id, r.service_id ?? null);
+  }
+
+  const serviceIds = [
+    ...new Set(
+      [...serviceByEventVendor.values()].filter((v): v is string => v !== null),
+    ),
+  ];
+
+  // 2. service_id → category + assigned agent member ids (vendor-owned tables).
+  const categoryByService = new Map<string, string>();
+  const agentsByService = new Map<string, string[]>();
+  if (serviceIds.length > 0) {
+    const [{ data: svcRows }, { data: agentRows }] = await Promise.all([
+      supabase
+        .from('vendor_services')
+        .select('vendor_service_id, category')
+        .in('vendor_service_id', serviceIds),
+      supabase
+        .from('vendor_service_agents')
+        .select('vendor_service_id, vendor_team_member_id')
+        .in('vendor_service_id', serviceIds),
+    ]);
+    for (const s of (svcRows ?? []) as { vendor_service_id: string; category: string | null }[]) {
+      if (s.category) categoryByService.set(s.vendor_service_id, s.category);
+    }
+    for (const a of (agentRows ?? []) as {
+      vendor_service_id: string;
+      vendor_team_member_id: string;
+    }[]) {
+      const list = agentsByService.get(a.vendor_service_id) ?? [];
+      list.push(a.vendor_team_member_id);
+      agentsByService.set(a.vendor_service_id, list);
+    }
+  }
+
+  for (const b of bookings) {
+    const serviceId = serviceByEventVendor.get(b.eventVendorId) ?? null;
+    out.set(b.poolBookingId, {
+      category: serviceId ? categoryByService.get(serviceId) ?? null : null,
+      agentMemberIds: serviceId ? agentsByService.get(serviceId) ?? [] : [],
+    });
+  }
+  return out;
 }
 
 /** All calendar blocks for the vendor, normalized to PH civil-day ranges. */

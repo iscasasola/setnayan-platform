@@ -1,22 +1,23 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { Filter, Info, Flame } from 'lucide-react';
+import { Filter, Info, Flame, X } from 'lucide-react';
 
 /**
  * Filter row for My Customers — All types / All services / All agents selects
- * plus a Heat map toggle + an info tooltip. Client component because the Heat
- * map toggle is a live view switch (it dims non-booked days so the vendor's
- * busiest stretches jump out) and the info tooltip is disclosure-on-tap.
+ * plus a Heat map toggle + an info tooltip. Client component: the three selects
+ * are CONTROLLED by the parent island so the same values filter both the month
+ * calendar AND the customers list below.
  *
- * The three selects reflect the vendor's REAL option sets (their event types,
- * their service categories, their team agents). Cross-cutting server-side
- * filtering of the calendar + customer list by these dimensions isn't wired
- * yet — there's no per-booking type/service/agent index to filter on — so the
- * selects are presentational for now and default to "All …". They never show a
- * fabricated option: an empty option set collapses the select to just "All".
- * The Heat map toggle, by contrast, is fully live (it drives `data-heatmap` on
- * the calendar via a shared parent, below).
+ *   • All types    — the booking/day STATE (Full · Booked · Locked · Whitelist ·
+ *                    Blocked · Waitlist · Scheduled), NOT the event type.
+ *   • All services — the vendor's leaf service CATEGORIES (distinct taxonomy
+ *                    leaves of their vendor_services).
+ *   • All agents   — team-member NAMES (resolved from vendor_team + users).
+ *
+ * Each option set reflects the vendor's REAL data — an empty set collapses the
+ * select to just "All …" and never fabricates an option. The Heat map toggle
+ * overlays the Demand Radar intensity on the calendar.
  */
 
 export type FilterOption = { value: string; label: string };
@@ -25,17 +26,30 @@ export function CustomersFilterBar({
   types,
   services,
   agents,
+  typeValue,
+  serviceValue,
+  agentValue,
+  onTypeChange,
+  onServiceChange,
+  onAgentChange,
   heatmap,
   onHeatmapChange,
 }: {
   types: FilterOption[];
   services: FilterOption[];
   agents: FilterOption[];
+  typeValue: string;
+  serviceValue: string;
+  agentValue: string;
+  onTypeChange: (v: string) => void;
+  onServiceChange: (v: string) => void;
+  onAgentChange: (v: string) => void;
   heatmap: boolean;
   onHeatmapChange: (next: boolean) => void;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   const infoId = useId();
+  const anyActive = Boolean(typeValue || serviceValue || agentValue);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -47,9 +61,30 @@ export function CustomersFilterBar({
         <Filter className="h-4 w-4" strokeWidth={1.75} />
       </span>
 
-      <FilterSelect label="All types" options={types} />
-      <FilterSelect label="All services" options={services} />
-      <FilterSelect label="All agents" options={agents} />
+      <FilterSelect label="All types" options={types} value={typeValue} onChange={onTypeChange} />
+      <FilterSelect
+        label="All services"
+        options={services}
+        value={serviceValue}
+        onChange={onServiceChange}
+      />
+      <FilterSelect label="All agents" options={agents} value={agentValue} onChange={onAgentChange} />
+
+      {anyActive ? (
+        <button
+          type="button"
+          onClick={() => {
+            onTypeChange('');
+            onServiceChange('');
+            onAgentChange('');
+          }}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border px-2.5 text-sm font-medium transition-colors"
+          style={{ borderColor: 'var(--m-line)', background: '#fff', color: 'var(--m-slate)' }}
+        >
+          <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Clear
+        </button>
+      ) : null}
 
       <button
         type="button"
@@ -109,7 +144,8 @@ export function CustomersFilterBar({
               <LegendRow tone="waitlist" label="Waitlist — couples waiting on this date" />
             </ul>
             <p className="mt-2" style={{ color: 'var(--m-slate-2)' }}>
-              Turn on Heat map to dim the quiet days so your busy stretches stand out.
+              Filters narrow the calendar and the list below. Turn on Heat map to
+              overlay demand for your area instead.
             </p>
           </div>
         ) : null}
@@ -118,13 +154,30 @@ export function CustomersFilterBar({
   );
 }
 
-function FilterSelect({ label, options }: { label: string; options: FilterOption[] }) {
+function FilterSelect({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: FilterOption[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const active = value !== '';
   return (
     <select
-      defaultValue=""
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
       aria-label={label}
       className="h-9 rounded-lg border px-3 text-sm"
-      style={{ borderColor: 'var(--m-line)', background: '#fff', color: 'var(--m-slate)' }}
+      style={{
+        borderColor: active ? 'var(--m-orange-2)' : 'var(--m-line)',
+        background: active ? 'var(--m-orange-4)' : '#fff',
+        color: active ? 'var(--m-orange-2)' : 'var(--m-slate)',
+        fontWeight: active ? 600 : 400,
+      }}
     >
       <option value="">{label}</option>
       {options.map((o) => (

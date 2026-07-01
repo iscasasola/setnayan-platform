@@ -6,7 +6,7 @@
  * audit in apps/web/VENDOR_TIERS_AND_BENEFITS.md, and the live code — via a
  * 7-lens merge + per-benefit code verification. `soon` = not yet live end-to-end
  * (buildable/roadmap/partial); it clears as the vendor-dashboard session ships.
- * Totals: 60 distinct benefits · 40 live · 20 soon.
+ * Totals: 60 distinct benefits · 41 live · 19 soon.
  * Keep in step with VENDOR_TIERS_AND_BENEFITS.md §6 (the SSOT).
  */
 

@@ -66,8 +66,6 @@ export default async function VendorDashboardLayout({
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    gallery: [],
-    favorites: [],
     context: { hasVendor: true, vendorName: null, isAdmin: false },
   };
 

@@ -4,7 +4,10 @@ import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { canSeeTheftWatch } from '@/lib/vendor-tier-caps';
+import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
+import { VendorTierGate } from '../_components/tier-gate';
 import {
   fetchVendorReposts,
   type RepostFlagStatus,
@@ -45,6 +48,18 @@ export default async function VendorTheftWatchPage() {
 
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) redirect('/vendor-dashboard');
+
+  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  if (isVendorFeatureGateEnabled() && !canSeeTheftWatch(tier)) {
+    return (
+      <VendorTierGate
+        feature="Theft Watch"
+        requiredTier="pro"
+        blurb="We fingerprint every photo you upload and scan the marketplace for copies, flagging reposts as yours. Portfolio protection is a Pro feature."
+        icon={<ShieldAlert aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      />
+    );
+  }
 
   const reposts = await fetchVendorReposts(profile.vendor_profile_id);
 

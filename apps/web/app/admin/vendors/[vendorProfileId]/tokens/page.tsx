@@ -320,52 +320,27 @@ export default async function AdminVendorTokensPage({
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="token_count"
-                className="block text-sm font-medium text-ink"
-              >
-                How many tokens?
-              </label>
-              <p className="mt-1 text-xs text-ink/60">
-                Whole number between 1 and 10,000.
-              </p>
-              <input
-                type="number"
-                id="token_count"
-                name="token_count"
-                min="1"
-                max="10000"
-                step="1"
-                defaultValue="100"
-                required
-                className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="ttl_days"
-                className="block text-sm font-medium text-ink"
-              >
-                Available for (days)
-              </label>
-              <p className="mt-1 text-xs text-ink/60">
-                Default 45 · matches the founder-bonus convention.
-              </p>
-              <input
-                type="number"
-                id="ttl_days"
-                name="ttl_days"
-                min="1"
-                max="365"
-                step="1"
-                defaultValue="45"
-                required
-                className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
+          <div>
+            <label
+              htmlFor="token_count"
+              className="block text-sm font-medium text-ink"
+            >
+              How many tokens?
+            </label>
+            <p className="mt-1 text-xs text-ink/60">
+              Whole number between 1 and 10,000. Granted tokens never expire.
+            </p>
+            <input
+              type="number"
+              id="token_count"
+              name="token_count"
+              min="1"
+              max="10000"
+              step="1"
+              defaultValue="100"
+              required
+              className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            />
           </div>
 
           <div>

@@ -449,3 +449,66 @@ export async function fetchVendorCurrentAwards(
     (r) => r.award_type,
   );
 }
+
+/** One homepage-strip card: a featured vendor + the award types they hold. */
+export type SpotlightHomepageVendor = {
+  vendor_profile_id: string;
+  business_name: string | null;
+  business_slug: string | null;
+  logo_url: string | null;
+  award_types: SpotlightAwardType[];
+};
+
+/**
+ * Loads the PUBLIC homepage Spotlight strip, DOUBLE-GATED and inert by default:
+ *
+ *   1. Owner switch — `platform_settings.spotlight_homepage_enabled` (migration
+ *      20270417213000, DEFAULT FALSE). Featuring vendors publicly needs owner
+ *      sign-off; while OFF this returns [] and the strip renders nothing.
+ *   2. Per-row curation — only `is_homepage_featured` award rows (admin-flipped
+ *      in /admin/spotlight-awards) are read (featuredOnly), for the current
+ *      period.
+ *
+ * Self-contained: the homepage is anonymous, so this reads with the service-role
+ * admin client (mirrors fetchOnboardingBgMusicUrl) rather than depending on anon
+ * RLS. Returns [] on ANY error / gate-off — the strip simply never mounts.
+ * Rows are collapsed to one card per vendor (a vendor holding two featured
+ * awards shows one card with both badges), preserving the fetchSpotlightAwards
+ * sort (top_pick → most_booked → rising).
+ */
+export async function fetchHomepageSpotlight(): Promise<SpotlightHomepageVendor[]> {
+  try {
+    const { createAdminClient } = await import('./supabase/admin');
+    const { fetchPlatformSettings } = await import('./platform-settings');
+    const admin = createAdminClient();
+
+    const settings = await fetchPlatformSettings(admin);
+    if (!settings.spotlight_homepage_enabled) return [];
+
+    const rows = await fetchSpotlightAwards(admin, { featuredOnly: true });
+    if (rows.length === 0) return [];
+
+    // Collapse to one card per vendor, keeping fetchSpotlightAwards' order.
+    const byVendor = new Map<string, SpotlightHomepageVendor>();
+    for (const r of rows) {
+      const existing = byVendor.get(r.vendor_profile_id);
+      if (existing) {
+        if (!existing.award_types.includes(r.award_type)) {
+          existing.award_types.push(r.award_type);
+        }
+        continue;
+      }
+      byVendor.set(r.vendor_profile_id, {
+        vendor_profile_id: r.vendor_profile_id,
+        business_name: r.business_name,
+        business_slug: r.business_slug,
+        logo_url: r.logo_url,
+        award_types: [r.award_type],
+      });
+    }
+    return [...byVendor.values()];
+  } catch (err) {
+    console.error('[spotlight-awards] homepage strip load failed', err);
+    return [];
+  }
+}

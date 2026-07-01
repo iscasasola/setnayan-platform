@@ -43,6 +43,13 @@ export const metadata = { title: 'More · Vendor · Setnayan' };
  * items even though BottomNav also surfaces some at the strip level.
  */
 const DESCRIPTIONS: Record<string, string> = {
+  // My Shop group — the storefront landing (proto-shell 6-menu destination).
+  shop:
+    'Your storefront home — profile, website, reviews, and everything couples see about your business, all in one place.',
+  // My Customers group — the pipeline landing (proto-shell 6-menu destination).
+  customers:
+    'The couples you work with — messages, bookings, contracts, and the money that flows from them.',
+
   // Home group
   profile:
     'Your vendor profile — business name, services, public bio, and the verification badge state.',

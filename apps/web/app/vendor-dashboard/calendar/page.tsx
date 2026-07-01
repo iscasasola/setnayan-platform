@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, CalendarPlus, Lock, UserPlus, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, CheckCircle2, Lock, UserPlus, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
@@ -29,6 +29,7 @@ import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitli
 import { BellRing } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import type { ReactNode } from 'react';
 
 export const metadata = { title: 'Calendar · Vendor' };
 
@@ -570,14 +571,18 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                                     : 'bg-warn-100 text-warn-900'
                             }`}
                           >
-                            {poolTag(c.pool.label)}{' '}
-                            {c.kind === 'closed'
-                              ? '✕'
-                              : c.kind === 'locked'
-                                ? '🔒'
-                                : c.kind === 'whitelist'
-                                  ? '✓?'
-                                  : `${c.consumed}/${c.pool.capacity}`}
+                            <span className="inline-flex items-center gap-0.5">
+                              {poolTag(c.pool.label)}{' '}
+                              {c.kind === 'closed' ? (
+                                <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                              ) : c.kind === 'locked' ? (
+                                <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                              ) : c.kind === 'whitelist' ? (
+                                <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                              ) : (
+                                <span>{`${c.consumed}/${c.pool.capacity}`}</span>
+                              )}
+                            </span>
                           </span>
                         ))
                       )}
@@ -592,9 +597,15 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                   </span>
                 ))}
                 <span><span className="font-semibold">n/cap</span> = booked + imported</span>
-                <span><span className="font-semibold">✕</span> = closed</span>
-                <span><span className="font-semibold">🔒</span> = locked hold</span>
-                <span><span className="font-semibold">✓?</span> = approve-first</span>
+                <span className="inline-flex items-center gap-1">
+                  <X className="h-3 w-3" strokeWidth={2.5} aria-hidden /> = closed
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden /> = locked hold
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden /> = approve-first
+                </span>
                 <span>Tap a day to manage it · Quiet day = every schedule open</span>
               </div>
             </div>
@@ -624,17 +635,29 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     const full = consumed >= activePool.capacity;
                     const past = date < today;
                     let cls = 'border-ink/10 bg-white/40';
-                    let badge: string | null = null;
+                    let badge: ReactNode = null;
                     // Precedence: closed > locked > whitelist > booked/full.
                     if (st.closed) {
                       cls = 'border-ink/20 bg-ink/10 text-ink/50';
-                      badge = 'Closed';
+                      badge = (
+                        <span className="inline-flex items-center gap-0.5">
+                          <X className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Closed
+                        </span>
+                      );
                     } else if (st.locked) {
                       cls = 'border-ink/20 bg-ink/10 text-ink/50';
-                      badge = '🔒 Locked';
+                      badge = (
+                        <span className="inline-flex items-center gap-0.5">
+                          <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Locked
+                        </span>
+                      );
                     } else if (st.whitelist) {
                       cls = 'border-success-300 bg-success-50 text-success-900';
-                      badge = '✓? Approve';
+                      badge = (
+                        <span className="inline-flex items-center gap-0.5">
+                          <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Approve
+                        </span>
+                      );
                     } else if (consumed > 0) {
                       cls = full
                         ? 'border-terracotta/40 bg-terracotta/15'
@@ -660,8 +683,15 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                 <p className="mt-3 text-xs text-ink/55">
                   <span className="font-semibold">n/{activePool.capacity}</span> = booked
                   + imported clients vs daily capacity · <span className="font-semibold">Closed</span> = your
-                  block · <span className="font-semibold">🔒 Locked</span> = hard hold ·
-                  <span className="font-semibold"> ✓? Approve</span> = approve-first. Tap a day to manage it.
+                  block ·{' '}
+                  <span className="inline-flex items-center gap-0.5 font-semibold">
+                    <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Locked
+                  </span>{' '}
+                  = hard hold ·{' '}
+                  <span className="inline-flex items-center gap-0.5 font-semibold">
+                    <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Approve
+                  </span>{' '}
+                  = approve-first. Tap a day to manage it.
                 </p>
               </div>
 

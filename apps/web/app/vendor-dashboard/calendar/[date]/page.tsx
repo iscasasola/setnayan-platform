@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, BellRing } from 'lucide-react';
+import { CalendarDays, BellRing, CheckCircle2, Lock } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
@@ -67,10 +68,11 @@ type PoolDay = {
   whitelist: boolean;
 };
 
-function stateLabel(d: PoolDay): { text: string; cls: string } {
+function stateLabel(d: PoolDay): { text: string; cls: string; icon?: LucideIcon } {
   if (d.closed) return { text: 'Closed', cls: 'bg-ink/10 text-ink/60' };
-  if (d.locked) return { text: '🔒 Locked', cls: 'bg-ink/10 text-ink/60' };
-  if (d.whitelist) return { text: '✓? Approve-first', cls: 'bg-success-100 text-success-900' };
+  if (d.locked) return { text: 'Locked', cls: 'bg-ink/10 text-ink/60', icon: Lock };
+  if (d.whitelist)
+    return { text: 'Approve-first', cls: 'bg-success-100 text-success-900', icon: CheckCircle2 };
   if (d.consumed >= d.pool.capacity)
     return { text: `Full · ${d.consumed}/${d.pool.capacity}`, cls: 'bg-terracotta/20 text-terracotta' };
   if (d.consumed > 0)
@@ -196,7 +198,8 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-semibold">{d.pool.label}</h2>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${s.cls}`}>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${s.cls}`}>
+                    {s.icon ? <s.icon className="h-3 w-3" strokeWidth={2.5} aria-hidden /> : null}
                     {s.text}
                   </span>
                 </div>
@@ -219,8 +222,8 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                       className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
                     >
                       <option value="open">Open (bookable)</option>
-                      <option value="locked">🔒 Locked (hard hold)</option>
-                      <option value="whitelist">✓? Approve-first</option>
+                      <option value="locked">Locked (hard hold)</option>
+                      <option value="whitelist">Approve-first</option>
                     </select>
                   </label>
                   <input
@@ -258,8 +261,8 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
                   className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
                 >
                   <option value="open">Open (bookable)</option>
-                  <option value="locked">🔒 Locked (hard hold)</option>
-                  <option value="whitelist">✓? Approve-first</option>
+                  <option value="locked">Locked (hard hold)</option>
+                  <option value="whitelist">Approve-first</option>
                 </select>
               </label>
               <input

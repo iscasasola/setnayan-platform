@@ -5,6 +5,7 @@ import {
   Briefcase,
   CheckCircle2,
   Coins,
+  Gauge,
   MessageSquare,
   Sparkles,
   Star,
@@ -22,7 +23,6 @@ import {
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
-import { VendorStatsPanel } from './_components/vendor-stats-panel';
 import { ShortlistRadarCard } from './_components/shortlist-radar-card';
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
 import { JournalFeatureCard } from './_components/journal-feature-card';
@@ -117,9 +117,9 @@ type LoaderState =
       tokenBalance: { purchased: number; earned: number };
       completion: { done: number; total: number; missing: string[] };
       /** UUID of the vendor_profiles row. Null when no profile exists yet
-       *  (team-member view). Passed to VendorStatsPanel so it can query
-       *  vendor_activity_stats without needing the supabase client from
-       *  inside the try/catch scope. */
+       *  (team-member view). Gates the Home "My Performance" pointer card
+       *  (the detailed stats panel moved to /vendor-dashboard/performance in
+       *  Phase 6). */
       vendorProfileId: string | null;
       /** Spotlight Awards (Wave 5) the vendor holds this period — drives the
        *  "You earned a Spotlight Award" banner. Empty when none / no profile. */
@@ -380,11 +380,6 @@ export default async function VendorHomePage() {
     spotlightAwards,
     journalFeatures,
   } = loaderState;
-
-  // VendorStatsPanel needs a fresh supabase client for its own fetch.
-  // createClient() is memoized per-request (Next 15 cache semantics),
-  // so calling it again here incurs zero extra overhead.
-  const supabaseForStats = await createClient();
 
   const totalTokens = tokenBalance.purchased + tokenBalance.earned;
   const upcomingCount = upcomingThreads.length;
@@ -710,18 +705,34 @@ export default async function VendorHomePage() {
         )}
       </section>
 
-      {/* Performance stats panel (PR #1659 · 2026-06-17).
-       *  Shown only when the vendor has a profile — agent/no-profile
-       *  states don't have a vendor_profile_id to query against.
-       *  VendorStatsPanel is a server component that issues its own
-       *  vendor_activity_stats fetch; it degrades gracefully when no
-       *  stats row exists yet (e.g., brand-new vendors). */}
+      {/* Performance pointer — the detailed stats panel moved to the standalone
+       *  My Performance cockpit (Phase 6 · 2026-07-01). Home keeps a one-tap
+       *  entry point instead of the full panel so the overview stays scannable
+       *  and every metric surface has one canonical home. Owner/admin only —
+       *  agents never reach this render (AgentHome returns earlier). */}
       {profileExists && vendorProfileId ? (
-        <VendorStatsPanel
-          supabase={supabaseForStats}
-          vendorProfileId={vendorProfileId}
-          finalized_booking_count={completedStats.full_completed_count}
-        />
+        <Link
+          href="/vendor-dashboard/performance"
+          className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40"
+        >
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
+            <Gauge className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-semibold text-ink">
+              My Performance
+            </span>
+            <span className="mt-0.5 block text-xs text-ink/55">
+              Your health score, how much booked work Setnayan sourced for you,
+              demand in your area, and your booking funnel.
+            </span>
+          </span>
+          <ArrowRight
+            className="h-4 w-4 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+        </Link>
       ) : null}
 
       {/* Shortlist Radar (Wave 2 · 2026-06-29) — live saved-you tally +

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(admin): read-only consolidated account view — Phase 1c
+
+The "open a customer's account and see everything we've gathered, read-only" page (the owner's original ask). Reachable by clicking a user's email on `/admin/users`.
+
+- **`app/admin/users/[userId]/page.tsx`** (new) — a read-only consolidated view: profile + flags, events & progress, gifts/comps, orders, and the **who-viewed-this-account** access trail (`admin_data_access_log`, RA 10173 right-to-know). All reads via the admin client (route gated by `app/admin/layout.tsx`). VIEW-ONLY by design — no writes; changes still route through the per-user actions (and, later, consent-to-fix / takeover).
+- **Deliberately excludes the off-limits classes** — chat message bodies, shared files, raw behavioral data, raw face vectors are never shown (consistent with the merged `lint-admin-chat-guard` + RLS). A footer note states this.
+- **`app/admin/users/page.tsx`** — the user's email is now a link to the account view.
+
+No migration. tsc 0 · `next lint` clean · **production build green** (`/admin/users/[userId]` in the route table). **PR opened as a DRAFT** (the reliable hold — the repo re-arms auto-merge).
+
+SPEC IMPACT: Recorded — `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22. No SKU/price change; admin read-only surface.
+
+---
+
 ## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
 
 RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).

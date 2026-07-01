@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Radar, Filter, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -10,12 +8,17 @@ import {
 } from '@/lib/vendor-health-composite';
 import { buildGrowthRecs, type GrowthRecStats } from '@/lib/vendor-growth-recs';
 import { fetchVendorSourceAttribution } from '@/lib/vendor-source-attribution';
+import { fetchVendorBookingSeries } from '@/lib/vendor-booking-series';
+import { fetchVendorFunnelTotals, buildFunnelSteps } from '@/lib/vendor-funnel';
+import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { asVendorTier, TIER_PRICE_PHP } from '@/lib/vendor-tier-caps';
 import { HealthCompositeCard } from './_components/health-composite-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
 import { RoiAttributionCard } from './_components/roi-attribution-card';
 import { MomentumCard, type MomentumWindow } from './_components/momentum-card';
+import { FunnelPreviewCard } from './_components/funnel-preview-card';
+import { DemandPreviewCard } from './_components/demand-preview-card';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -95,7 +98,17 @@ export default async function VendorPerformancePage({
   // ── ROI + momentum: three attribution windows off the same SECURITY DEFINER
   //    RPC (ownership-gated in SQL). Year window drives the ROI headline;
   //    month + year windows drive the Momentum toggle.
-  const [attributionYear, attributionMonth, vendorCatalog, tierRow] = await Promise.all([
+  //    bookingSeries drives the Momentum charts; funnelTotals + demandRadar
+  //    drive the inline funnel/demand bar previews. All ownership-gated readers.
+  const [
+    attributionYear,
+    attributionMonth,
+    vendorCatalog,
+    tierRow,
+    bookingSeries,
+    funnelTotals,
+    demandRadar,
+  ] = await Promise.all([
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
     fetchV2VendorCatalog().catch(() => []),
@@ -104,7 +117,12 @@ export default async function VendorPerformancePage({
       .select('tier_state')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle(),
+    fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12),
+    fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+    getVendorDemandRadar(supabase, profile.vendor_profile_id),
   ]);
+
+  const funnelSteps = buildFunnelSteps(funnelTotals);
 
   // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
   // vendor's current tier. Falls back to the shipped tier-price constant only if
@@ -155,77 +173,19 @@ export default async function VendorPerformancePage({
         windowLabel="this year"
       />
 
-      {/* 4 · Momentum — Monthly / Annual toggle. */}
-      <MomentumCard mode={momentumMode} month={monthWindow} year={yearWindow} />
+      {/* 4 · Momentum — Monthly / Annual toggle + trailing-12-month charts. */}
+      <MomentumCard
+        mode={momentumMode}
+        month={monthWindow}
+        year={yearWindow}
+        series={bookingSeries}
+      />
 
-      {/* Drill-down links to the already-shipped analytics surfaces. */}
-      <section className="space-y-3">
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Go deeper
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Link
-            href="/vendor-dashboard/demand"
-            className="group flex items-start gap-3 rounded-[14px] border bg-white p-4 transition-colors"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
-            <span
-              aria-hidden
-              className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-            >
-              <Radar className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1 text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Demand Radar
-                <ArrowRight
-                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                  strokeWidth={1.75}
-                  aria-hidden
-                  style={{ color: 'var(--m-slate-3)' }}
-                />
-              </span>
-              <span className="mt-0.5 block text-xs" style={{ color: 'var(--m-slate)' }}>
-                Where demand is building in your area — by month and by the looks
-                couples are choosing.
-              </span>
-            </span>
-          </Link>
+      {/* 5 · Where bookings come from — inline funnel bars (→ full /funnel). */}
+      <FunnelPreviewCard steps={funnelSteps} windowLabel="this year" />
 
-          <Link
-            href="/vendor-dashboard/funnel"
-            className="group flex items-start gap-3 rounded-[14px] border bg-white p-4 transition-colors"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
-            <span
-              aria-hidden
-              className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-            >
-              <Filter className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1 text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Quote-to-Booking Funnel
-                <ArrowRight
-                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                  strokeWidth={1.75}
-                  aria-hidden
-                  style={{ color: 'var(--m-slate-3)' }}
-                />
-              </span>
-              <span className="mt-0.5 block text-xs" style={{ color: 'var(--m-slate)' }}>
-                How couples move from finding you to booking you — views to
-                inquiries to quotes to bookings.
-              </span>
-            </span>
-          </Link>
-        </div>
-      </section>
+      {/* 6 · Demand radar — inline look/month bars (→ full /demand). */}
+      <DemandPreviewCard radar={demandRadar} />
     </section>
   );
 }

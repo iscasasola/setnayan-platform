@@ -75,6 +75,18 @@ export interface TierCaps {
   customWebsiteName: boolean;
   /** Inquire link surfaced. True for all tiers. */
   inquireLink: boolean;
+  /**
+   * HYBRID feature gates (owner 2026-07-01). The audit found most Solo/Pro
+   * benefits were built but ungated; the hybrid decision gates the premium few
+   * and keeps the ops spine free. Enforced flag-dark via
+   * isVendorFeatureGateEnabled() — see lib/vendor-feature-gate.ts.
+   */
+  /** Demand Radar / premium market intelligence surface. Pro+. */
+  marketIntel: boolean;
+  /** Reverse-image theft-watch surface. Pro+. */
+  theftWatch: boolean;
+  /** Performance TRENDS / funnel time-series. Solo+ (the snapshot Performance panel stays free). */
+  performanceTrends: boolean;
 }
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
@@ -93,6 +105,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: false,
     importCustomerTokenCost: 0,
     portfolioPhotos: 30,
+    marketIntel: false,
+    theftWatch: false,
+    performanceTrends: false,
     editorialTagged: false,
     reviewStarsCounted: false,
     reviewCommentsViewable: false,
@@ -115,6 +130,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'screen',
+    marketIntel: false,
+    theftWatch: false,
+    performanceTrends: false,
     slotsPerDay: 1,
     slotsTimeBounded: false,
     inAppCustomersPerWeek: 10,
@@ -134,6 +152,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   solo: {
     serviceRadiusKm: 20,
     servicesPerLeaf: 3,
+    marketIntel: false,
+    theftWatch: false,
+    performanceTrends: true,
     chat: 'chat',
     parentCategories: 1,
     agentAccounts: 0,
@@ -155,6 +176,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   pro: {
     serviceRadiusKm: 50,
+    marketIntel: true,
+    theftWatch: true,
+    performanceTrends: true,
     servicesPerLeaf: 5,
     chat: 'chat',
     parentCategories: 3,
@@ -182,6 +206,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
     serviceRadiusKm: 100, // nationwide-marketed (top of the Local→20→50→100 ladder)
+    marketIntel: true,
+    theftWatch: true,
+    performanceTrends: true,
     servicesPerLeaf: Infinity,
     chat: 'chat',
     parentCategories: Infinity,
@@ -309,4 +336,21 @@ export function canAcceptInAppInquiries(tier: string | null | undefined): boolea
  */
 export function canPlotTimeSlots(tier: string | null | undefined): boolean {
   return asVendorTier(tier) === 'enterprise';
+}
+
+/**
+ * HYBRID feature gates (owner 2026-07-01). The premium-few gate up to their
+ * tier; the ops spine stays free. These read the caps above; enforcement is
+ * flag-dark behind isVendorFeatureGateEnabled() (lib/vendor-feature-gate.ts) so
+ * the founder + demo/test vendors (all tier_state='free' today) aren't locked
+ * out until paid vendors exist in prod.
+ */
+export function canSeeMarketIntel(tier: string | null | undefined): boolean {
+  return tierCaps(tier).marketIntel; // Demand Radar + category benchmarks (Pro+)
+}
+export function canSeeTheftWatch(tier: string | null | undefined): boolean {
+  return tierCaps(tier).theftWatch; // reverse-image theft watch (Pro+)
+}
+export function canSeePerformanceTrends(tier: string | null | undefined): boolean {
+  return tierCaps(tier).performanceTrends; // funnel time-series (Solo+); snapshot panel stays free
 }

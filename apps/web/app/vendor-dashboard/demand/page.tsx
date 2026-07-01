@@ -4,12 +4,15 @@ import { Radar, Info } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { asVendorTier, canSeeMarketIntel } from '@/lib/vendor-tier-caps';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { regionLabel } from '@/lib/region-source';
 import {
   getVendorDemandRadar,
   maybeRefreshDemandRadar,
 } from '@/lib/demand-radar';
 import { DemandRadarCard } from './_components/demand-radar-card';
+import { VendorTierGate } from '../_components/tier-gate';
 
 export const metadata = { title: 'Demand Radar · Vendor' };
 
@@ -46,13 +49,26 @@ export default async function VendorDemandPage() {
 
   // The vendor's home market label (the RPC scopes by hq_region server-side;
   // this is purely for the card header). Targeted single-column read.
+  // hq_region for the card header + tier_state for the gate, in one read.
   const { data: regionRow } = await supabase
     .from('vendor_profiles')
-    .select('hq_region')
+    .select('hq_region, tier_state')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  const hqRegion = (regionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
+  const typedRow = regionRow as { hq_region?: string | null; tier_state?: string | null } | null;
+  const hqRegion = typedRow?.hq_region ?? null;
   const marketLabel = hqRegion ? regionLabel(hqRegion) ?? hqRegion : null;
+
+  if (isVendorFeatureGateEnabled() && !canSeeMarketIntel(asVendorTier(typedRow?.tier_state))) {
+    return (
+      <VendorTierGate
+        feature="Demand Radar"
+        requiredTier="pro"
+        blurb="A de-identified read of where demand is building in your market — by month and by the looks couples choose. Market intelligence is a Pro feature."
+        icon={<Radar aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      />
+    );
+  }
 
   const radar = await getVendorDemandRadar(supabase, profile.vendor_profile_id);
 

@@ -34,11 +34,18 @@ export type PlatformSettingsRow = {
    * default 10.
    */
   repost_watch_hamming_threshold: number;
+  /**
+   * Owner master switch for the PUBLIC homepage Spotlight strip (migration
+   * 20270417213000). FALSE by default — featuring vendors publicly needs owner
+   * sign-off, so the strip renders nothing until the owner flips this on AND an
+   * admin has flagged award rows is_homepage_featured.
+   */
+  spotlight_homepage_enabled: boolean;
   updated_at: string;
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -63,6 +70,7 @@ const FALLBACK: PlatformSettingsRow = {
   brand_icon_svg_url: null,
   brand_icon_version: 0,
   repost_watch_hamming_threshold: 10,
+  spotlight_homepage_enabled: false,
   updated_at: new Date(0).toISOString(),
 };
 

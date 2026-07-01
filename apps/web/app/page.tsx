@@ -27,7 +27,9 @@
 import { after } from 'next/server';
 import './_components/home/home-reskin.css';
 import { HomeReskin } from './_components/home/HomeReskin';
+import { HomeSpotlightStrip } from './_components/home/HomeSpotlightStrip';
 import { getHomePricingData } from './_components/home/pricing-data';
+import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { ANY_OAUTH_ENABLED } from './_components/oauth-button-row';
@@ -161,6 +163,12 @@ export default async function HomePage() {
     pillars: [1, 2, 3, 4, 5].map((slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null),
   };
 
+  // Public Spotlight strip — DOUBLE-GATED and inert by default: renders nothing
+  // unless the owner has flipped platform_settings.spotlight_homepage_enabled on
+  // AND an admin has featured award rows. Returns [] otherwise. See
+  // lib/spotlight-awards.ts → fetchHomepageSpotlight.
+  const spotlightVendors = await fetchHomepageSpotlight();
+
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the
   // console even on a quiet day. Throttled + single-claim + gated OFF by
@@ -179,6 +187,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
       <HomeReskin pricing={pricing} bgVideos={bgVideos} oauth={oauth} />
+      <HomeSpotlightStrip vendors={spotlightVendors} />
     </>
   );
 }

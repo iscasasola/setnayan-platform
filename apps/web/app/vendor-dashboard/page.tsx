@@ -12,6 +12,8 @@ import {
   OngoingTasks,
   UpcomingSchedules,
 } from './_components/overview-sections';
+import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
+import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -164,6 +166,14 @@ export default async function VendorOverviewPage() {
 
   const { whatsNew, ongoing, upcoming } = data;
 
+  // Spotlight Awards — the vendor's OWN current-period awards, read with their
+  // session (RLS-scoped) client. Empty array → the banner renders nothing.
+  // Never throws the page; a failed read simply hides the banner.
+  const spotlightAwards = await fetchVendorCurrentAwards(
+    supabase,
+    profile.vendor_profile_id,
+  );
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Heading */}
@@ -178,6 +188,10 @@ export default async function VendorOverviewPage() {
           What needs you today — {todayLabel()}.
         </p>
       </header>
+
+      {/* Spotlight Award — celebratory banner, shown only when this vendor holds
+          at least one current-period award (empty list renders nothing). */}
+      <SpotlightAwardBanner awards={spotlightAwards} />
 
       {/* 1 · What's new — the decision feed (centrepiece) */}
       <WhatsNewFeed

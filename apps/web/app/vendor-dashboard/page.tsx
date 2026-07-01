@@ -84,12 +84,17 @@ export default async function VendorOverviewPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const vendorRole = await resolveVendorRole(supabase, user.id);
+  // Role + profile have no dependency on each other — resolve them together.
+  // Both are React-cache()-wrapped and were already read by the vendor layout
+  // in this same request, so these calls hit the per-request cache rather than
+  // re-querying (2026-07-01 perf).
+  const [vendorRole, profile] = await Promise.all([
+    resolveVendorRole(supabase, user.id),
+    fetchOwnVendorProfile(supabase, user.id),
+  ]);
   if (vendorRole && !canManageVendor(vendorRole)) {
     return <AgentHome />;
   }
-
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
 
   // No profile yet (fresh team-member without an owned shop) — a light landing
   // that routes them to create one. No feed to compute.
@@ -133,12 +138,20 @@ export default async function VendorOverviewPage() {
   }
 
   let data;
+  let spotlightAwards;
   try {
-    data = await fetchVendorOverviewData(
-      supabase,
-      profile.vendor_profile_id,
-      profile.services ?? [],
-    );
+    // The decision feed and the Spotlight Award banner both key off the same
+    // vendor_profile_id and have no dependency on each other — fetch them in
+    // parallel (2026-07-01 perf). Awards fail soft to [] so a failed award read
+    // only hides the banner instead of tripping the overview-unavailable page.
+    [data, spotlightAwards] = await Promise.all([
+      fetchVendorOverviewData(
+        supabase,
+        profile.vendor_profile_id,
+        profile.services ?? [],
+      ),
+      fetchVendorCurrentAwards(supabase, profile.vendor_profile_id).catch(() => []),
+    ]);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard overview] loader failed', err);
@@ -165,14 +178,6 @@ export default async function VendorOverviewPage() {
   }
 
   const { whatsNew, ongoing, upcoming } = data;
-
-  // Spotlight Awards — the vendor's OWN current-period awards, read with their
-  // session (RLS-scoped) client. Empty array → the banner renders nothing.
-  // Never throws the page; a failed read simply hides the banner.
-  const spotlightAwards = await fetchVendorCurrentAwards(
-    supabase,
-    profile.vendor_profile_id,
-  );
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">

@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type VendorProfileRow = {
@@ -104,10 +105,20 @@ const FULL_VENDOR_PROFILE_SELECT =
 const LEGACY_VENDOR_PROFILE_SELECT =
   'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at';
 
-export async function fetchOwnVendorProfile(
+/**
+ * Fetch the caller's own vendor profile (or the one they're a team member of).
+ *
+ * Wrapped in React `cache()` (2026-07-01 perf): the vendor dashboard layout and
+ * the page it renders each fetch the profile in the SAME request. Since the
+ * server `createClient()` is request-cached, both call sites share the identical
+ * client reference, so `cache()` keyed on `(supabase, userId)` dedupes the two
+ * calls into a single set of reads (this fn can fire up to 3 queries) instead of
+ * running the whole chain twice per render.
+ */
+export const fetchOwnVendorProfile = cache(async (
   supabase: SupabaseClient,
   userId: string,
-): Promise<VendorProfileRow | null> {
+): Promise<VendorProfileRow | null> => {
   let { data, error } = await supabase
     .from('vendor_profiles')
     .select(FULL_VENDOR_PROFILE_SELECT)
@@ -211,7 +222,7 @@ export async function fetchOwnVendorProfile(
       ? row.event_types
       : ['wedding'],
   };
-}
+});
 
 /**
  * Per-vendor public + full completed-event counts. Wraps the two

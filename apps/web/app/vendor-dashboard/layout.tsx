@@ -71,31 +71,40 @@ export default async function VendorDashboardLayout({
     context: { hasVendor: true, vendorName: null, isAdmin: false },
   };
 
-  const [profileRes, unreadCount, switcherData, vendorRole, vendorProfile] = await Promise.all([
-    supabase
-      .from('users')
-      .select('account_type, email, display_name, deleted_at')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    countUnread(supabase, user.id),
-    getSwitcherData(user.id).catch((err: unknown) => {
-      logQueryError(
-        'VendorDashboardLayout (getSwitcherData threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return minimalSwitcherFallback;
-    }),
-    // Vendor team role for the role-aware nav shell (owner/admin = full nav,
-    // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
-    // render from one source.
-    resolveVendorRole(supabase, user.id),
-    // Vendor profile (own or via team membership) — drives service-aware nav:
-    // Repertoire only exists for music acts (owner directive 2026-06-13).
-    // Defensive .catch(): nav gating must never crash the layout.
-    fetchOwnVendorProfile(supabase, user.id).catch(() => null),
-  ]);
+  // Single parallel batch for all chrome data with no inter-dependency. The
+  // nav-registry overrides (getNavSlotMap) used to run sequentially near the
+  // bottom of the layout — it has no dependency on anything, so it joins the
+  // batch here (2026-07-01 perf) and stops sitting on the critical path.
+  const [profileRes, unreadCount, switcherData, vendorRole, vendorProfile, navSlots] =
+    await Promise.all([
+      supabase
+        .from('users')
+        .select('account_type, email, display_name, deleted_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      countUnread(supabase, user.id),
+      getSwitcherData(user.id).catch((err: unknown) => {
+        logQueryError(
+          'VendorDashboardLayout (getSwitcherData threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        return minimalSwitcherFallback;
+      }),
+      // Vendor team role for the role-aware nav shell (owner/admin = full nav,
+      // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
+      // render from one source.
+      resolveVendorRole(supabase, user.id),
+      // Vendor profile (own or via team membership) — drives service-aware nav:
+      // Repertoire only exists for music acts (owner directive 2026-06-13).
+      // Defensive .catch(): nav gating must never crash the layout.
+      fetchOwnVendorProfile(supabase, user.id).catch(() => null),
+      // Nav registry: admin-managed name+icon overrides, resolved server-side
+      // and handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG,
+      // fails open. No dependency → batched here rather than run sequentially.
+      getNavSlotMap(),
+    ]);
   const profile = profileRes.data;
   // Service-aware nav: Repertoire is a music-act surface only.
   const showRepertoire = isMusicVendor(vendorProfile?.services);
@@ -103,9 +112,10 @@ export default async function VendorDashboardLayout({
   // Sidebar chrome data (proto-shell) — the identity card + footer chips.
   //   • tier          — soft-probed tier_state (not in the shared profile
   //                     select), normalized in VendorSidebarFooter.
-  //   • tokenBalance  — the SAME wallet read the /tokens page uses: a lazy-eval
-  //                     expiry sweep RPC, then purchased + earned. Fail-soft to
-  //                     0 so the sidebar never blocks on a wallet error.
+  //   • tokenBalance  — the SAME wallet read the /tokens page uses: purchased +
+  //                     earned. Fail-soft to 0 so the sidebar never blocks on a
+  //                     wallet error. The expiry sweep that used to run inline
+  //                     before this read is now deferred to after() (see below).
   //   • verified      — public_visibility === 'verified' (matches the Overview
   //                     page's isVerified derivation).
   //   • initials      — up to 2 uppercase letters from the business name.
@@ -117,10 +127,8 @@ export default async function VendorDashboardLayout({
   let vendorTokenBalance = 0;
   if (vendorProfile?.vendor_profile_id) {
     const vendorId = vendorProfile.vendor_profile_id;
-    // Lazy-eval expiry sweep BEFORE the wallet read (same order as /tokens).
-    await supabase
-      .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
-      .then(() => undefined, () => undefined);
+    // Tier + wallet read. This is the one unavoidable second stage — both keys
+    // depend on the vendor_profile_id resolved in the batch above.
     const [tierRes, walletRes] = await Promise.all([
       supabase
         .from('vendor_profiles')
@@ -136,6 +144,19 @@ export default async function VendorDashboardLayout({
     vendorTier = (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null;
     vendorTokenBalance =
       (walletRes.data?.purchased_tokens ?? 0) + (walletRes.data?.earned_tokens ?? 0);
+    // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
+    // awaited write RPC that blocked every layout render — including every
+    // Server-Action-triggered re-render of this dynamic layout. Deferring it to
+    // after() (post-response, same cron-free pattern as the ghosting check)
+    // keeps expiry current without gating first paint. Trade-off: the sidebar
+    // token pill can be one load stale after an expiry — accepted by owner
+    // 2026-07-01. `supabase` is captured in the closure (holds the access token
+    // in memory), so the post-response call still authenticates.
+    after(async () => {
+      await supabase
+        .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
+        .then(() => undefined, () => undefined);
+    });
   }
 
   if (profile?.deleted_at) {
@@ -194,10 +215,6 @@ export default async function VendorDashboardLayout({
       </div>
     </div>
   );
-
-  // Nav registry: admin-managed name+icon overrides, resolved server-side and
-  // handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG, fails open.
-  const navSlots = await getNavSlotMap();
 
   return (
     <div className="app-surface">

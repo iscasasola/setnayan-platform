@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { type ReactNode } from 'react';
-import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
+import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, Star, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -15,6 +15,7 @@ import {
   forceSignOutUser,
   issueCompGrant,
   resetUserPassword,
+  requestCoupleReview,
   revokeCompGrant,
   toggleTeamMember,
   unblacklistEmail,
@@ -432,6 +433,17 @@ function UsersTable({
                           >
                             <KeyRound className="h-3 w-3" strokeWidth={2} />
                             Reset password
+                          </SubmitButton>
+                        </form>
+                        <form action={requestCoupleReview}>
+                          <input type="hidden" name="user_id" value={u.user_id} />
+                          <SubmitButton
+                            title="Manually ask this couple to share a review of their Setnayan experience (in-app prompt to the couple; not automatic)."
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-gold/15 hover:text-gold disabled:opacity-60"
+                            pendingLabel="Sending…"
+                          >
+                            <Star className="h-3 w-3" strokeWidth={2} />
+                            Request a review
                           </SubmitButton>
                         </form>
                         {/* Irreversible/destructive ops live behind a collapsed

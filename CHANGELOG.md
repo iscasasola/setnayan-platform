@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(gifts): admin-manual "request a review" from a gifted couple (PR 3 of 3)
+
+The review-ask, owner-specced as ADMIN-MANUAL ("on the admin page, when we open their account and decide to give them a feature manually — not automatic"). When an admin opens a customer's account, a "Request a review" button asks that couple to share their Setnayan experience. No migration — `feature_reviews` already had couple-insert RLS and `review_request` already exists.
+
+- **`app/admin/users/actions.ts`** — `requestCoupleReview`: requireAdmin → resolves the couple's wedding event (`event_members`) → emits a `review_request` notification (in-app bell; not on the email allowlist) → audit-logged. Manual, deliberate, never automatic.
+- **`app/admin/users/page.tsx`** — a "Request a review" button in the per-user safe-actions cluster (`Star` icon), beside Confirm email / Reset password.
+- **`app/dashboard/[eventId]/review/`** (new) — the couple's review surface, the **first writer** of `feature_reviews` (the table was read-only until now): a star-rating + note form (`review-form.tsx`, client) → `submitFeatureReview` action inserts via the couple's own RLS-gated client (`feature_reviews_couple_insert` enforces `couple_user_id = auth.uid()` + event ownership, so an admin can never forge a review). Gates on an existing review (warm thank-you); default `feature_key = SETNAYAN_EXPERIENCE` (a general experience review, not a per-feature rating).
+
+Independent of PR 1/PR 2 (branches off main). tsc 0 · `next lint` clean · **production build green**. **Auto-merge OFF** (gift experience reviews before merge).
+
+SPEC IMPACT: Recorded — `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22. Completes the gift experience (gift unlocks → reveal → admin-requested review). No price/SKU change.
+
+---
+
 ## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
 
 RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).

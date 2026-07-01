@@ -1,7 +1,7 @@
 /**
  * VendorTierLadder · benefits-forward tier presentation (owner 2026-07-01).
  *
- * REPLACES the dense VendorPricingMatrix. Owner direction across the session:
+ * REPLACES the dense 3-tier pricing matrix. Owner direction across the session:
  *   - "all i see are prices … show the benefits of the free" → Free-Verified is
  *     the SPOTLIGHT (everything you get for ₱0), price shrunk to a tag.
  *   - "show the 4 tiers from free to subscription" → Free · Solo · Pro ·
@@ -97,7 +97,6 @@ const TIERS: Tier[] = [
       'Up to 10 team seats + multi-admin governance',
       'Nationwide reach + 300-photo portfolio',
       'Up to 8 events per category',
-      'Priority support',
     ],
   },
   {

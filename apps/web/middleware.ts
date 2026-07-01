@@ -119,6 +119,29 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(rewrite);
   }
 
+  // User-profile event nesting · `/u/{userSlug}/{eventSlug}[/rest]` → internal
+  // rewrite to `/{eventSlug}[/rest]` so the existing event route SUBTREE (the
+  // landing page + its 12 subroutes: hub, recap, welcome, venue, invite,
+  // find-my-table, find-seat, seat, seat/claim, redeem, live-wall, sign-out)
+  // renders under the pretty nested URL WITHOUT duplicating any of those routes.
+  // This mirrors the vendor-subdomain rewrite pattern directly above.
+  //
+  // Bare `/u/{userSlug}` (no event segment) is NOT rewritten — it falls through
+  // to the real profile page at app/u/[userSlug]/page.tsx.
+  //
+  // Additive: the bare-root event URLs (`/{eventSlug}[/rest]`, still on printed
+  // QR codes) keep resolving in parallel. The QR/link cutover to `/u/` and the
+  // bare-root→`/u/` permanent redirect land in a later PR, behind a flag.
+  if (pathname.startsWith('/u/')) {
+    // ['u', userSlug, eventSlug, ...rest]
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length >= 3) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = `/${segments.slice(2).join('/')}`;
+      return NextResponse.rewrite(rewrite);
+    }
+  }
+
   // /vendors → /explore rename (permanent · owner directive 2026-06-14). The
   // public marketplace moved from /vendors to /explore; redirect the old paths
   // (with subpaths + query strings) so bookmarks, shared links, and search

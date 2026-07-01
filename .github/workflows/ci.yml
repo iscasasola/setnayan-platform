@@ -290,3 +290,24 @@ jobs:
 
       - name: Unit-test the guard rules
         run: node --test scripts/check-migration-timestamps.test.mjs
+
+  lint-vendor-layout-revalidate:
+    name: lint vendor layout revalidate
+    runs-on: ubuntu-latest
+    # Protects the 2026-07-01 vendor-dashboard perf work (PRs #2529/#2533/#2543/
+    # #2546). The layout re-renders server-side on every navigation, so a broad
+    # `revalidatePath('/vendor-dashboard', 'layout')` (or global `'/', 'layout'`)
+    # silently re-inflates it by busting the client Router-Cache window for the
+    # whole subtree. This guard fails when a NEW broad layout-wide bust appears
+    # beyond the committed baseline (a few intentional admin/tour uses). Not yet
+    # a required check — owner promotes via branch protection. Pure node, no
+    # install. See apps/web/scripts/lint-vendor-layout-revalidate.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint vendor layout revalidate
+        run: node apps/web/scripts/lint-vendor-layout-revalidate.mjs

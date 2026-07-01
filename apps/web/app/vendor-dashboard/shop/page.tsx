@@ -253,7 +253,7 @@ export default async function VendorShopPage() {
   // simple set-up prompt rather than a broken storefront.
   if (!data) {
     return (
-      <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">My Shop</h1>
           <p className="max-w-prose text-base text-ink/65">
@@ -283,14 +283,7 @@ export default async function VendorShopPage() {
   const publicPath = data.slug ? `/v/${data.slug}` : null;
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">My Shop</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Everything that defines your shop and your reach.
-        </p>
-      </header>
-
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <HeroCard data={data} publicPath={publicPath} />
 

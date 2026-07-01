@@ -18,7 +18,6 @@ export const metadata = {
 export default function AcceptableUsePage() {
   return (
     <LegalLayout
-      eyebrow="Acceptable use"
       title="Acceptable use & community guidelines"
       meta="Effective 2026-06-30 · part of the Setnayan terms of service"
     >

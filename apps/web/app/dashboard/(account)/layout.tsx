@@ -57,8 +57,6 @@ export default async function AccountDashboardLayout({
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    gallery: [],
-    favorites: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
   const [{ unreadCount }, switcherData, navSlots] = await Promise.all([

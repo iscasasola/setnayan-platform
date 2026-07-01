@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { fetchVendorOverviewData } from '@/lib/vendor-overview';
+import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
 import {
@@ -43,7 +44,7 @@ export const metadata = { title: 'Overview · Vendor' };
 
 function AgentHome() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
           Setnayan · Vendor
@@ -100,7 +101,7 @@ export default async function VendorOverviewPage() {
   // that routes them to create one. No feed to compute.
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <header className="mb-6 space-y-1.5">
           <h1
             className="text-3xl font-semibold tracking-tight sm:text-4xl"
@@ -137,6 +138,7 @@ export default async function VendorOverviewPage() {
     );
   }
 
+  const timer = new ServerTimer('vendor-dashboard/overview');
   let data;
   let spotlightAwards;
   try {
@@ -144,19 +146,19 @@ export default async function VendorOverviewPage() {
     // vendor_profile_id and have no dependency on each other — fetch them in
     // parallel (2026-07-01 perf). Awards fail soft to [] so a failed award read
     // only hides the banner instead of tripping the overview-unavailable page.
-    [data, spotlightAwards] = await Promise.all([
+    [data, spotlightAwards] = await timer.track('overview-data', () => Promise.all([
       fetchVendorOverviewData(
         supabase,
         profile.vendor_profile_id,
         profile.services ?? [],
       ),
       fetchVendorCurrentAwards(supabase, profile.vendor_profile_id).catch(() => []),
-    ]);
+    ]));
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard overview] loader failed', err);
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-start gap-3">
           <AlertTriangle
             aria-hidden
@@ -179,8 +181,10 @@ export default async function VendorOverviewPage() {
 
   const { whatsNew, ongoing, upcoming } = data;
 
+  timer.flush();
+
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Heading */}
       <header className="mb-8 space-y-1.5">
         <h1

@@ -21,7 +21,6 @@ export const metadata = {
 export default function TermsPage() {
   return (
     <LegalLayout
-      eyebrow="Terms of service"
       title="Setnayan terms of service"
       meta="Effective 2026-06-30 · governed by the laws of the Republic of the Philippines"
     >

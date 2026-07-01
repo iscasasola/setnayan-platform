@@ -21,6 +21,7 @@ import { PushNotificationRegistrar } from './_components/push-notification-regis
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { ServerTimer } from '@/lib/server-timing';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -66,17 +67,71 @@ export default async function VendorDashboardLayout({
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    gallery: [],
-    favorites: [],
     context: { hasVendor: true, vendorName: null, isAdmin: false },
   };
+
+  // Server-render timing (2026-07-01) — one structured stdout line per layout
+  // render → log drain. See lib/server-timing.ts.
+  const timer = new ServerTimer('vendor-dashboard/layout');
+
+  // Vendor profile (own or via team membership) — drives service-aware nav +
+  // the tier/wallet read below. Kicked off on its own (not folded into the
+  // big Promise.all) so the tier/wallet queries below can chain directly off
+  // it instead of waiting on the whole batch — see the latency note below.
+  const vendorProfilePromise = fetchOwnVendorProfile(supabase, user.id).catch(() => null);
+
+  // Sidebar chrome data (proto-shell) — the identity card + footer chips.
+  //   • tier          — soft-probed tier_state (not in the shared profile
+  //                     select), normalized in VendorSidebarFooter.
+  //   • tokenBalance  — the SAME wallet read the /tokens page uses: purchased +
+  //                     earned. Fail-soft to 0 so the sidebar never blocks on a
+  //                     wallet error. The expiry sweep that used to run inline
+  //                     before this read is now deferred to after() (see below).
+  //
+  // PERF FIX (2026-07-01, "sidebar nav feels slow"): this used to `await` the
+  // whole chrome Promise.all (below) — which includes getSwitcherData()'s own
+  // 3-stage sequential chain (membership batch → events → gallery counts) —
+  // before even ISSUING the tier/wallet queries, then awaited those as a
+  // 4th sequential round trip. That serialized an independent 2-query read
+  // behind the single slowest, unrelated fetch in the layout, on *every*
+  // sidebar click (this layout re-renders server-side on every navigation
+  // since it reads cookies via getCurrentUser()). Chaining off
+  // vendorProfilePromise directly lets tier/wallet fire as soon as the
+  // vendor profile resolves, overlapping with switcherData's remaining
+  // stages instead of queuing behind them — cuts one full round trip off
+  // the critical path of every sidebar navigation.
+  const tierWalletPromise = vendorProfilePromise.then(async (vp) => {
+    if (!vp?.vendor_profile_id) {
+      return { tier: null as string | null, tokenBalance: 0, earnedTokens: 0, vendorId: null as string | null };
+    }
+    const vendorId = vp.vendor_profile_id;
+    const [tierRes, walletRes] = await Promise.all([
+      supabase
+        .from('vendor_profiles')
+        .select('tier_state')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle(),
+      supabase
+        .from('vendor_wallets')
+        .select('purchased_tokens, earned_tokens')
+        .eq('vendor_id', vendorId)
+        .maybeSingle(),
+    ]);
+    const earnedTokens = walletRes.data?.earned_tokens ?? 0;
+    return {
+      tier: (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null,
+      tokenBalance: (walletRes.data?.purchased_tokens ?? 0) + earnedTokens,
+      earnedTokens,
+      vendorId,
+    };
+  });
 
   // Single parallel batch for all chrome data with no inter-dependency. The
   // nav-registry overrides (getNavSlotMap) used to run sequentially near the
   // bottom of the layout — it has no dependency on anything, so it joins the
   // batch here (2026-07-01 perf) and stops sitting on the critical path.
-  const [profileRes, unreadCount, switcherData, vendorRole, vendorProfile, navSlots] =
-    await Promise.all([
+  const [profileRes, unreadCount, switcherData, vendorRole, vendorProfile, navSlots, tierWallet] =
+    await timer.track('chrome', () => Promise.all([
       supabase
         .from('users')
         .select('account_type, email, display_name, deleted_at')
@@ -99,23 +154,17 @@ export default async function VendorDashboardLayout({
       // Vendor profile (own or via team membership) — drives service-aware nav:
       // Repertoire only exists for music acts (owner directive 2026-06-13).
       // Defensive .catch(): nav gating must never crash the layout.
-      fetchOwnVendorProfile(supabase, user.id).catch(() => null),
+      vendorProfilePromise,
       // Nav registry: admin-managed name+icon overrides, resolved server-side
       // and handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG,
       // fails open. No dependency → batched here rather than run sequentially.
       getNavSlotMap(),
-    ]);
+      tierWalletPromise,
+    ]));
   const profile = profileRes.data;
   // Service-aware nav: Repertoire is a music-act surface only.
   const showRepertoire = isMusicVendor(vendorProfile?.services);
 
-  // Sidebar chrome data (proto-shell) — the identity card + footer chips.
-  //   • tier          — soft-probed tier_state (not in the shared profile
-  //                     select), normalized in VendorSidebarFooter.
-  //   • tokenBalance  — the SAME wallet read the /tokens page uses: purchased +
-  //                     earned. Fail-soft to 0 so the sidebar never blocks on a
-  //                     wallet error. The expiry sweep that used to run inline
-  //                     before this read is now deferred to after() (see below).
   //   • verified      — public_visibility === 'verified' (matches the Overview
   //                     page's isVerified derivation).
   //   • initials      — up to 2 uppercase letters from the business name.
@@ -123,47 +172,29 @@ export default async function VendorDashboardLayout({
     vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Vendor';
   const vendorInitials = deriveInitials(vendorSidebarName);
   const vendorIsVerified = vendorProfile?.public_visibility === 'verified';
-  let vendorTier: string | null = null;
-  let vendorTokenBalance = 0;
-  if (vendorProfile?.vendor_profile_id) {
-    const vendorId = vendorProfile.vendor_profile_id;
-    // Tier + wallet read. This is the one unavoidable second stage — both keys
-    // depend on the vendor_profile_id resolved in the batch above.
-    const [tierRes, walletRes] = await Promise.all([
-      supabase
-        .from('vendor_profiles')
-        .select('tier_state')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle(),
-      supabase
-        .from('vendor_wallets')
-        .select('purchased_tokens, earned_tokens')
-        .eq('vendor_id', vendorId)
-        .maybeSingle(),
-    ]);
-    vendorTier = (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null;
-    const earnedTokens = walletRes.data?.earned_tokens ?? 0;
-    vendorTokenBalance = (walletRes.data?.purchased_tokens ?? 0) + earnedTokens;
-    // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
-    // awaited write RPC that blocked every layout render — including every
-    // Server-Action-triggered re-render of this dynamic layout. Deferring it to
-    // after() (post-response, same cron-free pattern as the ghosting check)
-    // keeps expiry current without gating first paint. Trade-off: the sidebar
-    // token pill can be one load stale after an expiry — accepted by owner
-    // 2026-07-01. `supabase` is captured in the closure (holds the access token
-    // in memory), so the post-response call still authenticates.
-    //
-    // GATED (2026-07-01 gap-fix): only *earned* tokens expire, so the sweep is
-    // a guaranteed no-op when the wallet holds none. Skipping it there avoids a
-    // pointless background write on every render for the majority of vendors
-    // (those with a zero earned balance).
-    if (earnedTokens > 0) {
-      after(async () => {
-        await supabase
-          .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
-          .then(() => undefined, () => undefined);
-      });
-    }
+  const vendorTier = tierWallet.tier;
+  const vendorTokenBalance = tierWallet.tokenBalance;
+
+  // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
+  // awaited write RPC that blocked every layout render — including every
+  // Server-Action-triggered re-render of this dynamic layout. Deferring it to
+  // after() (post-response, same cron-free pattern as the ghosting check)
+  // keeps expiry current without gating first paint. Trade-off: the sidebar
+  // token pill can be one load stale after an expiry — accepted by owner
+  // 2026-07-01. `supabase` is captured in the closure (holds the access token
+  // in memory), so the post-response call still authenticates.
+  //
+  // GATED (2026-07-01 gap-fix): only *earned* tokens expire, so the sweep is
+  // a guaranteed no-op when the wallet holds none. Skipping it there avoids a
+  // pointless background write on every render for the majority of vendors
+  // (those with a zero earned balance).
+  if (tierWallet.vendorId && tierWallet.earnedTokens > 0) {
+    const vendorId = tierWallet.vendorId;
+    after(async () => {
+      await supabase
+        .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
+        .then(() => undefined, () => undefined);
+    });
   }
 
   if (profile?.deleted_at) {
@@ -222,6 +253,8 @@ export default async function VendorDashboardLayout({
       </div>
     </div>
   );
+
+  timer.flush();
 
   return (
     <div className="app-surface">

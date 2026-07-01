@@ -86,9 +86,6 @@ export default async function StylistMoodboardLibraryPage() {
       </Link>
 
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Setnayan · Stylist tools · Iteration 0010
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           My moodboard designs
         </h1>

@@ -502,7 +502,7 @@ export function VendorSidebar({
  * VendorSidebarFooter — the prototype's pinned footer, passed to
  * <SidebarShell sidebarFooter>. Two rows:
  *   1. Subscription chip — a gold "Pro" pill (tier label · Free shows "Free") +
- *      "Subscription" + "Manage" → /vendor-dashboard/subscription.
+ *      "Subscription" label; the whole row links to /vendor-dashboard/subscription.
  *   2. Token balance row — "Your tokens ◎ N" (Coins icon + balance) →
  *      /vendor-dashboard/tokens.
  * SidebarShell hides this whole slot when the sidebar collapses to the 64px rail.
@@ -520,9 +520,10 @@ export function VendorSidebarFooter({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Subscription chip */}
-      <div
-        className="flex items-center gap-2 rounded-xl border p-2.5"
+      {/* Subscription chip — whole row links to /vendor-dashboard/subscription */}
+      <Link
+        href="/vendor-dashboard/subscription"
+        className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-paper)]"
         style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
       >
         <span
@@ -539,15 +540,13 @@ export function VendorSidebarFooter({
         <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
           Subscription
         </span>
-        <Link
-          href="/vendor-dashboard/subscription"
-          className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium transition-colors hover:underline"
+        <ChevronRight
+          aria-hidden
+          className="ml-auto h-3.5 w-3.5 shrink-0"
+          strokeWidth={2}
           style={{ color: 'var(--m-ink)' }}
-        >
-          Manage
-          <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        </Link>
-      </div>
+        />
+      </Link>
 
       {/* Token balance row */}
       <Link

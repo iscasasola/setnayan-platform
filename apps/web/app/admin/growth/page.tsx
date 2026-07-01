@@ -44,7 +44,6 @@ export default async function AdminGrowthPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
             Growth &amp; Population

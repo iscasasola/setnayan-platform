@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, HelpCircle } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import {
   ALL_HELP_ARTICLES,
@@ -166,10 +166,6 @@ export default async function HelpArticlePage({ params }: Props) {
           </Link>
         </nav>
 
-        <p className="mb-3 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          <HelpCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {topic.label}
-        </p>
         <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
           {article.title}
         </h1>

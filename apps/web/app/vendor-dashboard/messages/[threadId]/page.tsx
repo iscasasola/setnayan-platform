@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchMessages, fetchReturningClientFlags, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -70,33 +71,100 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
 
-  // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
-  const blockState = await getThreadBlockState(thread, user.id, 'vendor');
+  // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
+  // Every read below the ownership gate is independent — only paxProposals needs
+  // livePax first — so they run in ONE parallel batch instead of the former
+  // ~14-step serial waterfall. Best-effort loaders keep their graceful-degrade
+  // contract via per-item .catch(). markThreadRead is a WRITE fired inside the
+  // batch (last element, result ignored): it still clears unread on this load,
+  // but concurrently, adding zero serial round-trips instead of blocking render.
+  const msgTimer = new ServerTimer('vendor-dashboard/messages-thread');
+  const paxAdmin = createAdminClient();
+  const [
+    blockState,
+    { data: event },
+    initialMessages,
+    [existingInterests, ownServices],
+    [tplRes, pkgRes],
+    returningMap,
+    livePax,
+    pendingPayments,
+    planProgress,
+    reasonCodes,
+    { data: existingOutcome },
+  ] = await msgTimer.track('thread', () => Promise.all([
+    // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
+    getThreadBlockState(thread, user.id, 'vendor'),
+    // Identity-masking source of truth: never expose the couple's email or
+    // personal name; show only the event's display_name + date.
+    supabase
+      .from('events')
+      .select('display_name, event_date')
+      .eq('event_id', thread.event_id)
+      .maybeSingle(),
+    // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
+    fetchMessages(supabase, threadId),
+    // Inverse cross-sell (owner-locked 2026-06-12) — active services minus those
+    // already recorded as thread interests.
+    Promise.all([
+      fetchThreadInterests(supabase, threadId),
+      fetchVendorServices(supabase, profile.vendor_profile_id),
+    ]),
+    // In-chat proposals — the vendor's own templates + packages (RLS-scoped).
+    Promise.all([
+      supabase
+        .from('vendor_proposal_templates')
+        .select('template_id, template_name')
+        .eq('vendor_profile_id', profile.vendor_profile_id),
+      supabase
+        .from('vendor_packages')
+        .select('package_id, package_name')
+        .eq('vendor_profile_id', profile.vendor_profile_id),
+    ]),
+    // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
+    // inquiry is pending. Graceful-degrades pre-migration.
+    thread.inquiry_status === 'pending'
+      ? fetchReturningClientFlags(supabase, profile.vendor_profile_id, [thread.event_id])
+      : Promise.resolve(null),
+    // Adaptive Pax Pricing Phase 5 — recompute live pax FRESH on view (admin
+    // client, gated by the thread-ownership check above).
+    resolveLivePax(paxAdmin, thread.event_id),
+    // Phase 2 PR-C — couple-logged payments awaiting confirmation. Best-effort:
+    // a failure degrades to no cards.
+    fetchPendingVendorPayments({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }).catch((e): Awaited<ReturnType<typeof fetchPendingVendorPayments>> => {
+      console.error('[vendor-thread] fetchPendingVendorPayments threw', e);
+      return [];
+    }),
+    // Phase 2 PR-D — plan progress for this vendor's bookings. Best-effort.
+    fetchPlanProgressForVendor({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }).catch((e): Awaited<ReturnType<typeof fetchPlanProgressForVendor>> => {
+      console.error('[vendor-thread] fetchPlanProgressForVendor threw', e);
+      return [];
+    }),
+    // Won & Lost Reasons (Wave 6) — live admin-managed reason taxonomy.
+    fetchReasonCodes(supabase),
+    // Any outcome already logged for THIS thread.
+    supabase
+      .from('inquiry_outcomes')
+      .select('outcome, reason_code, free_text')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .eq('chat_thread_id', threadId)
+      .is('vendor_proposal_id', null)
+      .maybeSingle(),
+    // Mark read (WRITE) — fired concurrently; result ignored. No-op + logged if
+    // migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
+    markThreadRead(threadId).catch(() => undefined),
+  ]));
 
-  // Mark read for the vendor viewer (parity with the couple side). No-op +
-  // logged if migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
-  await markThreadRead(threadId);
-
-  // Identity-masking source of truth: never expose the couple's email or
-  // personal name; show only the event's display_name + date.
-  const { data: event } = await supabase
-    .from('events')
-    .select('display_name, event_date')
-    .eq('event_id', thread.event_id)
-    .maybeSingle();
-
-  // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
-  const initialMessages = await fetchMessages(supabase, threadId);
   const coupleLabel = event?.display_name ?? 'Couple';
 
-  // Inverse cross-sell (owner-locked 2026-06-12) — the vendor can offer one of
-  // their OWN active services that isn't already on the thread's interest list.
-  // Resolve the gap = (active services) − (services already recorded as
-  // interests). Best-effort + graceful-degrade (pre-migration → empty options).
-  const [existingInterests, ownServices] = await Promise.all([
-    fetchThreadInterests(supabase, threadId),
-    fetchVendorServices(supabase, profile.vendor_profile_id),
-  ]);
   const alreadyOnThread = new Set(
     existingInterests
       .map((r) => r.vendor_service_id)
@@ -113,18 +181,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           : s.category),
     }));
 
-  // In-chat proposals — the vendor's own templates + packages populate the
-  // "Send a proposal" composer card. RLS scopes both to their org.
-  const [tplRes, pkgRes] = await Promise.all([
-    supabase
-      .from('vendor_proposal_templates')
-      .select('template_id, template_name')
-      .eq('vendor_profile_id', profile.vendor_profile_id),
-    supabase
-      .from('vendor_packages')
-      .select('package_id, package_name')
-      .eq('vendor_profile_id', profile.vendor_profile_id),
-  ]);
   const proposalTemplates = ((tplRes.data ?? []) as { template_id: string; template_name: string }[]).map(
     (t) => ({ id: t.template_id, name: t.template_name }),
   );
@@ -132,23 +188,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     (p) => ({ id: p.package_id, name: p.package_name }),
   );
 
-  // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
-  // inquiry is pending (the accept decision). Graceful-degrades pre-migration.
-  const returning =
-    thread.inquiry_status === 'pending'
-      ? (
-          await fetchReturningClientFlags(supabase, profile.vendor_profile_id, [
-            thread.event_id,
-          ])
-        ).get(thread.event_id)
-      : undefined;
+  const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
 
-  // Adaptive Pax Pricing Phase 5 — recompute the live pax FRESH on view (the
-  // vendor's RLS can't read the couple's guests, so use the admin client, gated
-  // by the thread-ownership check above) + any pending surcharge to confirm.
-  const paxAdmin = createAdminClient();
-  const livePax = await resolveLivePax(paxAdmin, thread.event_id);
   const headerPax = livePax ?? thread.pax_current;
+  // paxProposals depends on livePax, so it's the one query that follows the batch.
   const paxProposals = await fetchVendorPaxProposals(paxAdmin, {
     eventId: thread.event_id,
     vendorProfileId: profile.vendor_profile_id,
@@ -156,59 +199,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     paxAtInquiry: thread.pax_at_inquiry,
   });
 
-  // Phase 2 PR-C — couple-logged payments on this vendor's bookings awaiting
-  // confirmation. event_vendor_payments is couple-RLS'd, so this admin-reads
-  // them AFTER the thread-ownership gate above (profile owns this thread). Each
-  // becomes an Accept card. Best-effort: a failure degrades to no cards.
-  let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
-  try {
-    pendingPayments = await fetchPendingVendorPayments({
-      adminClient: paxAdmin,
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-    });
-  } catch (e) {
-    console.error('[vendor-thread] fetchPendingVendorPayments threw', e);
-    pendingPayments = [];
-  }
-
-  // Phase 2 PR-D — the PLAN PROGRESS for this vendor's bookings on the event:
-  // the frozen installments + per-installment states + cleared flag. Drives the
-  // vendor-side stepper + the "Mark payment cleared" gate (enabled only when
-  // every installment is vendor-confirmed, or the booking has no schedule).
-  // Admin-read after the thread-ownership gate (same model as pendingPayments).
-  // Best-effort: a failure degrades to no progress card.
-  let planProgress: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
-  try {
-    planProgress = await fetchPlanProgressForVendor({
-      adminClient: paxAdmin,
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-    });
-  } catch (e) {
-    console.error('[vendor-thread] fetchPlanProgressForVendor threw', e);
-    planProgress = [];
-  }
-
   const peso = (n: number) =>
     `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
 
-  // Won & Lost Reasons (Wave 6) — the live admin-managed reason taxonomy +
-  // any outcome already logged for THIS thread. The reason list is read from
-  // the table (never hardcoded); both degrade to empty/null pre-migration.
-  const reasonCodes = await fetchReasonCodes(supabase);
   const reasonOptions: OutcomeReasonOption[] = reasonCodes.map((r) => ({
     reasonCode: r.reasonCode,
     label: r.label,
     appliesTo: r.appliesTo,
   }));
-  const { data: existingOutcome } = await supabase
-    .from('inquiry_outcomes')
-    .select('outcome, reason_code, free_text')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .eq('chat_thread_id', threadId)
-    .is('vendor_proposal_id', null)
-    .maybeSingle();
   const currentOutcome = existingOutcome
     ? {
         outcome: existingOutcome.outcome as 'won' | 'lost' | 'no_response',
@@ -223,6 +221,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       current={currentOutcome}
     />
   );
+
+  msgTimer.flush();
 
   return (
     <section className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">

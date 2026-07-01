@@ -103,9 +103,6 @@ export function Communications({ locale }: { locale: MarketingLocale }) {
     >
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <header className="mb-10 max-w-2xl space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            {c.eyebrow}
-          </p>
           <h2
             id="communications-heading"
             className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl"

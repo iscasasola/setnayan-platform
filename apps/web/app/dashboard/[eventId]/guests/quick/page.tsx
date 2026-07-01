@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Zap, Upload } from 'lucide-react';
+import { ArrowLeft, Upload } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { QuickAddList } from './_components/quick-add-list';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -44,10 +44,6 @@ export default async function QuickAddGuestsPage({ params, searchParams }: Props
       </Link>
 
       <header className="mb-6 space-y-2">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          <Zap aria-hidden className="h-3 w-3" strokeWidth={2} />
-          Quick add
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           List your guests, one row at a time.
         </h1>

@@ -116,9 +116,6 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
       </Link>
 
       <header className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Add-ons · Setnayan Supplies
-        </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

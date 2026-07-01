@@ -52,12 +52,6 @@ export function SetnayanAiHero() {
       ref={groupRef as React.RefObject<HTMLElement>}
       className="mx-auto max-w-2xl text-center"
     >
-      <p
-        data-reveal-item
-        className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]"
-      >
-        Planning intelligence
-      </p>
       <h1
         ref={headingRef as React.RefObject<HTMLHeadingElement>}
         className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"

@@ -288,7 +288,9 @@ export default async function VendorPerformancePage({
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* ── Everything below, down to the filter row, is SHOP-LEVEL: it has no
           per-service or time-window dimension, so none of it depends on the
-          Daily/Monthly/Annual + service-scope controls further down the page. */}
+          Daily/Monthly/Annual + service-scope controls further down the page.
+          (The service-scope selector moved into <PerformanceControls> below, so
+          the standalone top-of-page selector is intentionally gone.) */}
 
       {/* Overview · the signature health card + growth tips. */}
       <div className="space-y-6">

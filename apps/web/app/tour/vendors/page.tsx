@@ -206,9 +206,6 @@ export default async function TourVendorsPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">
-          Tour · Stop 02
-        </p>
         <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
           The AI did the hard part
         </h1>
@@ -226,9 +223,6 @@ export default async function TourVendorsPage() {
       {/* Scripted chat — what reaching out to a shortlisted vendor feels like */}
       <section className="mx-auto mt-16 max-w-2xl">
         <div className="text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">
-            Then you say hello
-          </p>
           <h2 className="mt-2 font-serif text-3xl text-[#1E2229]">
             One tap, and you&rsquo;re talking
           </h2>

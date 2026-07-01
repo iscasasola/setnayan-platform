@@ -148,8 +148,6 @@ export default async function EventLayout({ children, params }: Props) {
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    gallery: [],
-    favorites: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
   const [

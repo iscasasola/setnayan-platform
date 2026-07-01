@@ -98,9 +98,6 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
       <div className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl bg-cream shadow-xl ring-1 ring-ink/10 sm:rounded-xl">
         <header className="flex items-start justify-between gap-3 border-b border-ink/10 p-6">
           <div className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-              Setnayan · Wedding basics
-            </p>
             <h2 id="ceremony-modal-title" className="text-lg font-semibold text-ink">
               {isEditing ? 'Update wedding type' : 'Set wedding type'}
             </h2>

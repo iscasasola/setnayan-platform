@@ -76,9 +76,6 @@ export default async function PanoodReviewsPage({ params }: Props) {
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">
-          Panood · ratings &amp; reviews
-        </p>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           What couples say about Panood
         </h1>

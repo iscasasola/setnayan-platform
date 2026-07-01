@@ -96,9 +96,6 @@ export default async function LedBackgroundPage({ params }: Props) {
       */}
       {!owns && (
         <header className="space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Pailaw · LED Background Maker
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             8K loop generators for your venue&rsquo;s LED wall
           </h1>

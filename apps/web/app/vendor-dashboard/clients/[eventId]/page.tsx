@@ -20,6 +20,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
@@ -289,6 +290,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   //   • Phase 3 live timeline rows + this org's suggestion history + booking↔
   //     contract presence (2026-06-22).
   //   • Delivery Handover (Wave 4) — this org's posted handovers for the booking.
+  const clientTimer = new ServerTimer('vendor-dashboard/client-detail');
   const admin = createAdminClient();
   const [
     editorialEligibility,
@@ -296,7 +298,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
     { data: cocktailEdit },
     [{ data: liveBlocks }, { data: mySuggestions }, contractRes],
     { data: handoverRows },
-  ] = await Promise.all([
+  ] = await clientTimer.track('client-detail', () => Promise.all([
     getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
     admin
       .from('event_vendors')
@@ -336,7 +338,7 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .order('created_at', { ascending: false })
       .limit(20),
-  ]);
+  ]));
 
   const completion = (completionRow ?? null) as {
     vendor_id: string | null;
@@ -424,8 +426,10 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
       ? brief.monogram.custom_svg
       : null;
 
+  clientTimer.flush();
+
   return (
-    <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <Link
         href="/vendor-dashboard/clients"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"

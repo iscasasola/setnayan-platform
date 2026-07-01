@@ -411,9 +411,6 @@ export default async function PricingPage() {
       {/* Hero */}
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-28 sm:pb-16 lg:px-8 lg:pt-32 lg:pb-20">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Pricing
-          </p>
           <LineRevealHeading
             as="h1"
             trigger="mount"
@@ -437,9 +434,6 @@ export default async function PricingPage() {
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mb-10 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Included with every account
-            </p>
             <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Start free. Stay free as long as you like.
             </LineRevealHeading>
@@ -485,9 +479,6 @@ export default async function PricingPage() {
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-12 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              How couples pay
-            </p>
             <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Start free. Add Setnayan AI. Build the rest à la carte.
             </LineRevealHeading>
@@ -539,9 +530,6 @@ export default async function PricingPage() {
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-10 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Panood · livestream
-            </p>
             <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Livestream your wedding free. Run a control room when you want more.
             </LineRevealHeading>
@@ -627,9 +615,6 @@ export default async function PricingPage() {
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <CatalogPanel>
           <div className="mb-12 max-w-2xl space-y-3">
-            <p data-premium-item className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Software catalog
-            </p>
             <h2 data-premium-headline className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Pick what you actually need.
             </h2>
@@ -724,9 +709,6 @@ export default async function PricingPage() {
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-12 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              For vendors
-            </p>
             <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
               Subscription + token packs.
             </LineRevealHeading>
@@ -873,9 +855,6 @@ export default async function PricingPage() {
       {/* How money flows */}
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            How money flows
-          </p>
           <LineRevealHeading
             as="p"
             className="mt-4 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"

@@ -372,7 +372,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
 
   if (!loaderState.ok) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-start gap-3">
           <AlertTriangle
             aria-hidden
@@ -512,7 +512,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       {/*
         v2.1 visual overlay 2026-05-28 — label-mono uppercase eyebrow above
         the display heading mirrors vendor-dashboard.jsx template per the
@@ -1180,7 +1180,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     console.error('[/vendor-dashboard] top-level page render failed (final guard)', err);
     const message = err instanceof Error ? err.message : String(err);
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-start gap-3">
           <AlertTriangle
             aria-hidden

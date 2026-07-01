@@ -336,16 +336,10 @@ export default async function AdminOverview() {
        *  Per-queue counts come from the shared digest, so they agree with the
        *  nav badges + /admin/work + the digest email by construction. */}
       <section
-        aria-labelledby="action-queues-heading"
+        aria-label="Action queues"
         className="mb-8 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6"
       >
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h2
-            id="action-queues-heading"
-            className="m-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
-          >
-            Action queues
-          </h2>
+        <div className="mb-4 flex flex-wrap items-baseline justify-end gap-2">
           <div className="flex items-center gap-3">
             <p className="text-xs text-ink/55">
               {totalOpen > 0

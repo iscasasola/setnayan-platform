@@ -42,7 +42,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
   const isCancelled = contract.status === 'cancelled';
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6">
       <Link
         href="/vendor-dashboard/contracts"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"

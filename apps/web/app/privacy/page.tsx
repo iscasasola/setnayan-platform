@@ -34,9 +34,6 @@ export default function PrivacyPage() {
       <Header />
       <article className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <header className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Privacy policy
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             How we handle your data
           </h1>

@@ -20,7 +20,6 @@ export const metadata = {
 export default function CookiesPage() {
   return (
     <LegalLayout
-      eyebrow="Cookie policy"
       title="Cookies & local storage"
       meta="Effective 2026-06-30 · subject to RA 10173 (Philippines Data Privacy Act)"
     >

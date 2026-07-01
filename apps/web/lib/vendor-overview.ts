@@ -182,9 +182,12 @@ export async function fetchVendorOverviewData(
   const inquiryEventIds = pendingThreads.map((t) => t.event_id);
   const bookingEventIds = poolBookings.map((b) => b.eventId);
   const eventIds = [...new Set([...inquiryEventIds, ...bookingEventIds])];
-  const eventMeta = await fetchEventMeta(admin, eventIds);
-
-  const lockRequests = await fetchLockRequests(admin, vendorProfileId);
+  // eventMeta needs the ids derived from step 1; lockRequests needs only the
+  // vendor id — they're independent, so run them together (2026-07-01 perf).
+  const [eventMeta, lockRequests] = await Promise.all([
+    fetchEventMeta(admin, eventIds),
+    fetchLockRequests(admin, vendorProfileId),
+  ]);
 
   // --- Assemble WHAT'S NEW ---------------------------------------------------
   const whatsNew: WhatsNewCard[] = [];

@@ -136,39 +136,20 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <Wallet aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-        </div>
-        {/*
-          v2.1 visual overlay 2026-05-28 — label-mono eyebrow above the
-          display heading per vendor-dashboard.jsx template (label-mono
-          uppercase eyebrow + bold display title). Visual treatment only;
-          KPI cards + ledger tabular data + pagination below preserve
-          placement and every interaction unchanged per
-          [[feedback_setnayan_button_preservation]].
-        */}
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Vendor dashboard · Earnings ledger
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Earnings</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what
-          couples pay you — Setnayan no longer routes payments between you and your
-          clients. This page is the running ledger you use to track direct bookings.
-          Manage your plan on the{' '}
-          <Link href="/vendor-dashboard/subscription" className="underline hover:text-ink">
-            Subscription
-          </Link>{' '}
-          tab and your token packs on the{' '}
-          <Link href="/vendor-dashboard/tokens" className="underline hover:text-ink">
-            Tokens
-          </Link>{' '}
-          tab.
-        </p>
-      </header>
+      <p className="max-w-prose text-base text-ink/65">
+        A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what
+        couples pay you — Setnayan no longer routes payments between you and your
+        clients. This page is the running ledger you use to track direct bookings.
+        Manage your plan on the{' '}
+        <Link href="/vendor-dashboard/subscription" className="underline hover:text-ink">
+          Subscription
+        </Link>{' '}
+        tab and your token packs on the{' '}
+        <Link href="/vendor-dashboard/tokens" className="underline hover:text-ink">
+          Tokens
+        </Link>{' '}
+        tab.
+      </p>
 
       <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
@@ -257,10 +238,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       </section>
 
       <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Legacy payout records ({payouts.length})
-          </h2>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
             <ShieldCheck className="h-3 w-3" aria-hidden /> {verificationState}
           </span>
@@ -373,10 +351,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Booking ledger ({earnings.length})
-          </h2>
+        <div className="flex items-center justify-end">
           {totalPages > 1 ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
               Page {page} / {totalPages}

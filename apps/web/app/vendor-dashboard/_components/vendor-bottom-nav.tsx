@@ -159,6 +159,15 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/real-stories',
       '/vendor-dashboard/recaps',
       '/vendor-dashboard/moodboard-library',
+      // My Shop — leaf→SKU recommendation engine (no dedicated mobile tab).
+      '/vendor-dashboard/recommendations',
+      // My Performance group — analytics surfaces reachable via sidebar + /more
+      // but with no dedicated tab; enumerated so they light More on mobile.
+      '/vendor-dashboard/performance',
+      '/vendor-dashboard/demand',
+      '/vendor-dashboard/funnel',
+      // My Customers — installment / cash-flow surface.
+      '/vendor-dashboard/payday',
       // On the Day — the 6th sidebar menu (Phase 7, 2026-07-01). No dedicated
       // mobile tab (the strip is capped at 5); lit via More.
       '/vendor-dashboard/on-the-day',

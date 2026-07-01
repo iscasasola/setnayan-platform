@@ -135,11 +135,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
     tier = null;
   }
   // #2 daily booking capacity: the tier caps the max bookings/day a vendor can
-  // declare per service (FREE 0 / VERIFIED 1 / PRO 3 / ENTERPRISE ∞). Only show
+  // declare per service (FREE 0 / VERIFIED 1 / PRO 3 / ENTERPRISE 8). Only show
   // the capacity input when the tier allows bookings at all (slotsCap > 0).
   const slotsCap = tierCaps(asVendorTier(tier)).slotsPerDay;
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
-  // #3 time-bound slots: ENTERPRISE-only plotting (slotsPerDay === Infinity).
+  // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
   // The slot LIST (read + delete) shows whenever a service has slots — even for
   // a downgraded vendor — so they can clean up; only ADD is Enterprise-gated.
   const canPlotSlots = canPlotTimeSlots(tier);

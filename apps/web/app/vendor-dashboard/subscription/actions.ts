@@ -60,6 +60,9 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
 
   if (error) {
     const m = error.message?.toUpperCase() ?? '';
+    if (m.includes('NOT_VERIFIED')) {
+      ERR('Verify your shop before subscribing. Once your verification is approved you can upgrade your plan.');
+    }
     if (m.includes('NOT_VENDOR_ADMIN')) {
       ERR('Only a store admin can purchase a subscription. Ask an admin on your team to upgrade.');
     }

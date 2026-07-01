@@ -130,11 +130,15 @@ const QUEUE_DEFS: QueueDef[] = [
     table: 'help_messages',
     filter: (q) => q.in('status', ['new', 'in_progress']),
   },
-  // Vendor partnerships — unverified + active = awaiting HQ two-admin review.
+  // Vendor partnerships — under mutual-accept, visibility is gated on
+  // status='accepted' (recipient-settable), NOT the now-inert admin_verified
+  // flag. HQ oversight = live PROPOSALS that a recipient hasn't yet accepted /
+  // declined / that haven't been withdrawn. Keying on admin_verified would
+  // never drain (it defaults false and nothing flips it anymore).
   {
     key: 'vendor-partnerships',
     table: 'vendor_partnerships',
-    filter: (q) => q.eq('admin_verified', false).eq('is_active', true),
+    filter: (q) => q.eq('status', 'proposed').eq('is_active', true),
   },
   // User reports — UGC moderation queue (Apple 1.2 / Play UGC). status='open'
   // is the actionable cut (open → actioned/dismissed).

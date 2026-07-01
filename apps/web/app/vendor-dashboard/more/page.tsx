@@ -69,6 +69,8 @@ const DESCRIPTIONS: Record<string, string> = {
     'Verification status, document checklist, and the lifetime badge after admin review.',
   reviews:
     'Past-host reviews and ratings. The trust signal that surfaces on your public profile.',
+  recommendations:
+    'Curated add-ons and services to recommend alongside your bookings — the right upsell surfaced at the right moment for each couple.',
   'moodboard-library':
     'Your private moodboard assets — portfolio shots and palette references hosts pin to their event.',
 
@@ -99,6 +101,10 @@ const DESCRIPTIONS: Record<string, string> = {
     'Where demand is building in your area — by month and by the looks couples are choosing. A de-identified read of your market.',
   funnel:
     'How couples move from finding you to booking you — profile views to inquiries to quotes to bookings.',
+
+  // My Customers group
+  payday:
+    'Your cash-flow calendar — when each booking pays out, and the installment milestones couples still owe. See your next payday at a glance.',
 
   // On the Day group
   'on-the-day':

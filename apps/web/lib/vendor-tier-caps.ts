@@ -4,7 +4,7 @@
  *
  * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
  * free + verified are legacy states kept for backward compatibility.
- * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱4,999/28d).
+ * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,499/28d).
  * (Prices shown for reference only — the live figures are read from
  * vendor_billing_catalog; this file only carries capability caps, not prices.)
  *
@@ -241,7 +241,11 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 > = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  solo: { monthly: 2, annual: 0 },
+  // Solo grants NO bundle tokens: neither the SQL CASE in
+  // _apply_subscription_credit (branches pro/enterprise only) nor setVendorTier
+  // (guarded to pro/enterprise) ever credits Solo. Zeroed 2026-07-01 so the
+  // subscription card can't advertise free tokens no grant path delivers.
+  solo: { monthly: 0, annual: 0 },
   pro: { monthly: 5, annual: 50 },
   enterprise: { monthly: 10, annual: 100 },
 };
@@ -295,12 +299,14 @@ export function canAcceptInAppInquiries(tier: string | null | undefined): boolea
 
 /**
  * Tier #3 (owner 2026-06-07): only ENTERPRISE may plot time-bound booking
- * slots. The Enterprise signal is `slotsPerDay === Infinity` (unbounded
- * bookings/day) — NOT `slotsTimeBounded`, which is true for both Pro and
- * Enterprise. Pro keeps the #2 daily_capacity model (finite slotsPerDay); only
- * Enterprise gets the separate named-window model. Re-checked server-side on
- * every plot/edit action so a downgrade can't keep adding slots.
+ * slots. Keyed directly on the enterprise tier — NOT on a numeric slot cap:
+ * Enterprise is now BOUNDED to slotsPerDay=8 (owner 2026-07-01), so the old
+ * `slotsPerDay === Infinity` test went permanently false and broke the feature
+ * for every tier. `slotsTimeBounded` is also unusable (true for Pro too). Pro
+ * keeps the #2 daily_capacity model; only Enterprise gets the separate
+ * named-window model. Re-checked server-side on every plot/edit action so a
+ * downgrade can't keep adding slots.
  */
 export function canPlotTimeSlots(tier: string | null | undefined): boolean {
-  return tierCaps(tier).slotsPerDay === Infinity;
+  return asVendorTier(tier) === 'enterprise';
 }

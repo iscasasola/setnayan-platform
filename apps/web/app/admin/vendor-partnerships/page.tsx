@@ -1,23 +1,17 @@
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
-import {
-  initiateApproval,
-  confirmApproval,
-  rejectPartnership,
-  createPartnershipHq,
-} from './actions';
+import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Vendor Partnerships · Admin' };
 
 type SearchParams = {
-  verified?: string;
-  initiated?: string;
   rejected?: string;
   created?: string;
   error?: string;
 };
+
+type PartnershipStatus = 'proposed' | 'accepted' | 'declined' | 'withdrawn';
 
 type PartnershipRow = {
   id: number;
@@ -28,19 +22,10 @@ type PartnershipRow = {
   discount_pct: number | null;
   covered_plan_groups: string[];
   is_active: boolean;
-  admin_verified: boolean;
+  status: PartnershipStatus;
   created_at: string;
   recommending: { business_name: string; services: string[] } | null;
   recommended: { business_name: string; services: string[] } | null;
-};
-
-type PendingApproval = {
-  approval_id: string;
-  target_id: string | null;
-  initiated_by: string;
-  status: string;
-  created_at: string;
-  expires_at: string;
 };
 
 type VendorOption = {
@@ -59,6 +44,13 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
   sponsored_included: 'Included in package',
   sponsored_discounted: 'Discounted',
   general: 'General referral',
+};
+
+const STATUS_LABELS: Record<PartnershipStatus, string> = {
+  proposed: 'Proposed',
+  accepted: 'Accepted · live',
+  declined: 'Declined',
+  withdrawn: 'Withdrawn',
 };
 
 function formatFee(cents: number | null, type: string): string {
@@ -84,40 +76,37 @@ type Props = {
 export default async function AdminVendorPartnershipsPage({ searchParams }: Props) {
   const sp = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const meId = user?.id ?? '';
-
   const admin = createAdminClient();
 
-  // Pending partnerships (admin_verified=false, is_active=true)
-  const { data: rawPending } = await admin
+  // Live PROPOSALS — recipient hasn't accepted/declined yet, still active. This
+  // is HQ's oversight cut (the queue badge keys on the same filter): nothing has
+  // published to couples, and HQ can veto an abusive one before it ever can.
+  const { data: rawProposed } = await admin
     .from('vendor_partnerships')
     .select(
-      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, additional_fee_centavos, discount_pct, covered_plan_groups, is_active, admin_verified, created_at',
+      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, additional_fee_centavos, discount_pct, covered_plan_groups, is_active, status, created_at',
     )
-    .eq('admin_verified', false)
+    .eq('status', 'proposed')
     .eq('is_active', true)
     .order('created_at', { ascending: true });
 
-  // Recently verified
-  const { data: rawVerified } = await admin
+  // Live (accepted + active) partnerships — the badges couples actually see.
+  const { data: rawLive } = await admin
     .from('vendor_partnerships')
     .select(
-      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, additional_fee_centavos, discount_pct, covered_plan_groups, is_active, admin_verified, created_at',
+      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, additional_fee_centavos, discount_pct, covered_plan_groups, is_active, status, created_at',
     )
-    .eq('admin_verified', true)
+    .eq('status', 'accepted')
+    .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(25);
 
-  const pendingRows = (rawPending ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
-  const verifiedRows = (rawVerified ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
+  const proposedRows = (rawProposed ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
+  const liveRows = (rawLive ?? []) as Omit<PartnershipRow, 'recommending' | 'recommended'>[];
 
   // Resolve vendor names for all rows in one round-trip
   const allVendorIds = new Set<string>();
-  [...pendingRows, ...verifiedRows].forEach((r) => {
+  [...proposedRows, ...liveRows].forEach((r) => {
     allVendorIds.add(r.recommending_vendor_id);
     allVendorIds.add(r.recommended_vendor_id);
   });
@@ -136,35 +125,6 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         business_name: v.business_name,
         services: v.services ?? [],
       });
-    }
-  }
-
-  // Resolve pending two-admin approvals for these partnerships
-  const pendingIds = pendingRows.map((r) => String(r.id));
-  const pendingApprovalsMap = new Map<string, PendingApproval>();
-  if (pendingIds.length > 0) {
-    const { data: approvals } = await admin
-      .from('admin_approval_requests')
-      .select('approval_id, target_id, initiated_by, status, created_at, expires_at')
-      .eq('action_type', 'approve_vendor_partnership')
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString())
-      .in('target_id', pendingIds);
-    for (const a of (approvals ?? []) as PendingApproval[]) {
-      if (a.target_id) pendingApprovalsMap.set(a.target_id, a);
-    }
-  }
-
-  // Resolve admin display names for pending approvals
-  const initiatorIds = new Set([...pendingApprovalsMap.values()].map((a) => a.initiated_by));
-  const adminNameMap = new Map<string, string>();
-  if (initiatorIds.size > 0) {
-    const { data: adminUsers } = await admin
-      .from('users')
-      .select('user_id, display_name, email')
-      .in('user_id', [...initiatorIds]);
-    for (const u of (adminUsers ?? []) as { user_id: string; display_name: string | null; email: string | null }[]) {
-      adminNameMap.set(u.user_id, u.display_name ?? u.email ?? '—');
     }
   }
 
@@ -194,8 +154,8 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     recommended: vendorNameMap.get(row.recommended_vendor_id) ?? null,
   });
 
-  const pending = pendingRows.map(enrich);
-  const verified = verifiedRows.map(enrich);
+  const proposed = proposedRows.map(enrich);
+  const live = liveRows.map(enrich);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -207,24 +167,17 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           Vendor Partnerships
         </h1>
         <p className="text-base text-ink/65">
-          Vendor partnerships now use a <strong className="text-ink">mutual-accept</strong>{' '}
+          Vendor partnerships use a <strong className="text-ink">mutual-accept</strong>{' '}
           handshake: one vendor proposes, the other accepts, and only then does the badge
-          go live for couples. This queue is HQ&apos;s oversight view — you can still record
-          a partnership on a vendor&apos;s behalf (it lands in their inbox to accept) and
-          reject anything abusive (sets it inactive — no badge ever shows).
+          go live for couples. This is HQ&apos;s <strong className="text-ink">oversight</strong>{' '}
+          view — no admin sign-off is needed for a partnership to publish. You can still
+          record a partnership on a vendor&apos;s behalf (it lands in their inbox to accept)
+          and reject anything abusive (sets it inactive — no badge ever shows).
         </p>
       </header>
 
       {sp.error ? (
         <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash>
-      ) : null}
-      {sp.verified ? (
-        <FormFlash tone="success">Partnership verified. Badge is now live.</FormFlash>
-      ) : null}
-      {sp.initiated ? (
-        <FormFlash tone="success">
-          Approval initiated. A different admin must confirm before the badge goes live.
-        </FormFlash>
       ) : null}
       {sp.rejected ? (
         <FormFlash tone="success">Partnership rejected and deactivated.</FormFlash>
@@ -236,30 +189,27 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         </FormFlash>
       ) : null}
 
-      {/* ── PENDING QUEUE ────────────────────────────────────────────────── */}
+      {/* ── OPEN PROPOSALS (HQ oversight) ────────────────────────────────── */}
       <section className="mb-10">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Pending verification ({pending.length})
+            Open proposals ({proposed.length})
           </h2>
           <p className="text-xs text-ink/45">
-            {pending.length === 0
-              ? 'Nothing waiting for review.'
-              : 'Two admins must verify each claim before couples see the badge.'}
+            {proposed.length === 0
+              ? 'No proposals awaiting a recipient response.'
+              : 'Awaiting the recommended vendor to accept or decline. Reject to veto.'}
           </p>
         </div>
 
-        {pending.length === 0 ? (
+        {proposed.length === 0 ? (
           <div className="m-card p-8 text-center text-sm text-ink/55">
-            No partnerships awaiting verification. Set na &apos;yan.
+            No open partnership proposals. Set na &apos;yan.
           </div>
         ) : (
           <ul className="space-y-4">
-            {pending.map((row) => {
+            {proposed.map((row) => {
               const partnershipIdStr = String(row.id);
-              const pendingApproval = pendingApprovalsMap.get(partnershipIdStr);
-              const isMineInitiated = pendingApproval?.initiated_by === meId;
-              const hasApprovalRequest = !!pendingApproval;
 
               return (
                 <li key={row.id} className="m-card p-4 sm:p-5">
@@ -269,6 +219,9 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-md bg-mulberry/10 px-2 py-0.5 text-[11px] font-bold text-mulberry">
                           {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
+                        </span>
+                        <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[11px] font-semibold text-warn-800">
+                          {STATUS_LABELS[row.status]}
                         </span>
                         {row.discount_pct ? (
                           <span className="rounded-md bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700">
@@ -306,88 +259,25 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                       ) : null}
 
                       <p className="text-xs text-ink/40">
-                        Submitted {timeAgo(row.created_at)}
+                        Proposed {timeAgo(row.created_at)}
                       </p>
-
-                      {hasApprovalRequest ? (
-                        <p className="mt-1 rounded-md bg-warn-50 px-2 py-1 text-xs text-warn-800">
-                          Approval initiated by{' '}
-                          <strong>{adminNameMap.get(pendingApproval.initiated_by) ?? '—'}</strong>{' '}
-                          {timeAgo(pendingApproval.created_at)} —{' '}
-                          {isMineInitiated
-                            ? 'waiting for a different admin to confirm.'
-                            : 'you can confirm or reject below.'}
-                        </p>
-                      ) : null}
                     </div>
 
-                    {/* Actions */}
+                    {/* Action — reject kill-switch only (no admin verify) */}
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      {hasApprovalRequest && !isMineInitiated ? (
-                        /* Second admin: can confirm or reject the pending approval */
-                        <>
-                          <form>
-                            <input type="hidden" name="approval_id" value={pendingApproval!.approval_id} />
-                            <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <SubmitButton
-                              formAction={confirmApproval}
-                              pendingLabel="Confirming…"
-                              className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700"
-                            >
-                              Confirm &amp; verify (2nd admin)
-                            </SubmitButton>
-                          </form>
-                          <form>
-                            <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <SubmitButton
-                              formAction={rejectPartnership}
-                              pendingLabel="Rejecting…"
-                              className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                            >
-                              Reject
-                            </SubmitButton>
-                          </form>
-                        </>
-                      ) : hasApprovalRequest && isMineInitiated ? (
-                        /* Initiating admin: can only reject (can't self-confirm) */
-                        <form>
-                          <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                          <SubmitButton
-                            formAction={rejectPartnership}
-                            pendingLabel="Rejecting…"
-                            className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                          >
-                            Reject
-                          </SubmitButton>
-                        </form>
-                      ) : (
-                        /* No pending approval yet: first admin initiates */
-                        <>
-                          <form>
-                            <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <SubmitButton
-                              formAction={initiateApproval}
-                              pendingLabel="Approving…"
-                              className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-ink/90"
-                            >
-                              Approve (two-admin gate)
-                            </SubmitButton>
-                          </form>
-                          <p className="max-w-[180px] text-right text-[10px] text-ink/45">
-                            A second admin must also confirm before the badge goes live.
-                          </p>
-                          <form>
-                            <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                            <SubmitButton
-                              formAction={rejectPartnership}
-                              pendingLabel="Rejecting…"
-                              className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                            >
-                              Reject
-                            </SubmitButton>
-                          </form>
-                        </>
-                      )}
+                      <form>
+                        <input type="hidden" name="partnership_id" value={partnershipIdStr} />
+                        <SubmitButton
+                          formAction={rejectPartnership}
+                          pendingLabel="Rejecting…"
+                          className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                        >
+                          Reject
+                        </SubmitButton>
+                      </form>
+                      <p className="max-w-[180px] text-right text-[10px] text-ink/45">
+                        Rejecting sets it inactive — no badge can ever show.
+                      </p>
                     </div>
                   </div>
                 </li>
@@ -510,17 +400,17 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
               pendingLabel="Creating…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
-              Create partnership (pending verification)
+              Propose partnership (lands in vendor inbox)
             </SubmitButton>
           </div>
         </form>
       </section>
 
-      {/* ── RECENTLY VERIFIED ───────────────────────────────────────────── */}
-      {verified.length > 0 ? (
+      {/* ── LIVE PARTNERSHIPS (accepted) ────────────────────────────────── */}
+      {live.length > 0 ? (
         <section>
           <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Recently verified ({verified.length} shown)
+            Live partnerships ({live.length} shown)
           </h2>
           <div className="m-card overflow-hidden p-0">
             <table className="w-full border-collapse text-sm">
@@ -530,11 +420,12 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                   <th className="px-4 py-2 font-medium">Recommended</th>
                   <th className="px-4 py-2 font-medium">Type</th>
                   <th className="px-4 py-2 font-medium">Fee / Discount</th>
-                  <th className="px-4 py-2 font-medium">Verified</th>
+                  <th className="px-4 py-2 font-medium">Accepted</th>
+                  <th className="px-4 py-2 font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {verified.map((row) => (
+                {live.map((row) => (
                   <tr key={row.id} className="border-b border-ink/5 last:border-0">
                     <td className="px-4 py-2 font-medium">
                       {row.recommending?.business_name ?? '—'}
@@ -551,6 +442,18 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                       {formatFee(row.additional_fee_centavos, row.relationship_type)}
                     </td>
                     <td className="px-4 py-2 text-ink/55">{timeAgo(row.created_at)}</td>
+                    <td className="px-4 py-2 text-right">
+                      <form>
+                        <input type="hidden" name="partnership_id" value={String(row.id)} />
+                        <SubmitButton
+                          formAction={rejectPartnership}
+                          pendingLabel="Removing…"
+                          className="rounded-md border border-terracotta/40 bg-white px-2.5 py-1 text-[11px] font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                        >
+                          Take down
+                        </SubmitButton>
+                      </form>
+                    </td>
                   </tr>
                 ))}
               </tbody>

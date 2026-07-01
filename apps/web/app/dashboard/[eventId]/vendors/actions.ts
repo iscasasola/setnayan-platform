@@ -986,6 +986,23 @@ export async function finalizeVendor(
             currentLimit: 0,
             existingHoldCount: 0,
           };
+        case 'locked':
+          // PHASE 5 gapfix: the vendor has a hard hold on this date — same
+          // couple-facing outcome as a closure (never who / why / which state).
+          // Mirrors the pool path's 'blocked'/'locked' copy above.
+          return {
+            status: 'error',
+            message:
+              "The vendor has closed this date on their calendar — message them before booking this time.",
+          };
+        case 'whitelist':
+          // PHASE 5 gapfix: the vendor wants to approve bookings on this date
+          // first. Mirrors the pool path's 'whitelist' copy above.
+          return {
+            status: 'error',
+            message:
+              "This date needs the vendor to confirm before it can be booked — message them before booking this time.",
+          };
         case 'slot_required':
         case 'slot_not_found':
           // Chosen slot is gone/inactive — ask the couple to pick again.

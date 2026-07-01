@@ -30,6 +30,14 @@ const MOBILE_SRP_MULTIPLIER = 1.5;
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
+// Button-label tier names — keyed on the actual card tier so the CTA never
+// mislabels (was a pro/Enterprise ternary that named a Solo card "Enterprise").
+const TIER_NAME: Record<SubscriptionCardData['tier'], string> = {
+  solo: 'Solo',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+};
+
 export interface SubscriptionCardData {
   tier: 'solo' | 'pro' | 'enterprise';
   sku: string;
@@ -119,10 +127,12 @@ export function SubscriptionCards({
                   {cycle === 'monthly' ? '28d' : 'yr'}
                 </p>
               )}
-              <p className="mt-1 text-xs text-ink/55">
-                Includes {NUMBER.format(card.bundleTokens)} free tokens{' '}
-                {cycle === 'monthly' ? 'each period' : 'on activation'}.
-              </p>
+              {card.bundleTokens > 0 ? (
+                <p className="mt-1 text-xs text-ink/55">
+                  Includes {NUMBER.format(card.bundleTokens)} free tokens{' '}
+                  {cycle === 'monthly' ? 'each period' : 'on activation'}.
+                </p>
+              ) : null}
 
               <ul className="mt-4 space-y-2">
                 {card.capLines.map((line) => (
@@ -149,8 +159,8 @@ export function SubscriptionCards({
                   {card.isPaid
                     ? card.isCurrent
                       ? 'Renew this plan'
-                      : `Switch to ${card.tier === 'pro' ? 'Pro' : 'Enterprise'}`
-                    : `Upgrade to ${card.tier === 'pro' ? 'Pro' : 'Enterprise'}`}
+                      : `Switch to ${TIER_NAME[card.tier]}`
+                    : `Upgrade to ${TIER_NAME[card.tier]}`}
                 </SubmitButton>
               </form>
             </section>

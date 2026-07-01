@@ -54,12 +54,14 @@ type Props = {
   searchParams: Promise<{ ordered?: string; error?: string; cycle?: string }>;
 };
 
-type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
+// Self-serve subscription tiers. Solo is ADMIN-SET only (create_vendor_subscription
+// maps solo → UNMAPPED_SKU_TIER, so a self-serve Solo card would hard-error at
+// checkout), so it is intentionally excluded from the buyable cards.
+type PaidTier = Extract<VendorTier, 'pro' | 'enterprise'>;
 
-const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
+const PAID_TIERS: PaidTier[] = ['pro', 'enterprise'];
 
 const TIER_PITCH: Record<PaidTier, string> = {
-  solo: 'For solo operators — one category, the full in-app suite, and unlimited inquiries.',
   pro: 'For growing studios — more reach, agents, and unlimited in-app inquiries.',
   enterprise: 'For multi-branch teams — unlimited everything, nationwide reach.',
 };
@@ -208,8 +210,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         <SubscriptionCards
           cycle={cycle}
           cards={PAID_TIERS.flatMap((tier) => {
-            // Solo is monthly-only — skip it from the annual view.
-            if (tier === 'solo' && cycle === 'annual') return [];
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
             // read failed (e.g. CI with no service-role key).

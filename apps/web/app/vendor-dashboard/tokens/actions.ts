@@ -69,6 +69,9 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
 
   if (error) {
     const m = error.message?.toUpperCase() ?? '';
+    if (m.includes('NOT_VERIFIED')) {
+      ERR('Verify your shop before buying tokens. Once your verification is approved you can purchase token packs.');
+    }
     if (m.includes('NO_VENDOR_PROFILE')) {
       ERR('Sign in with your vendor account to buy tokens.');
     }

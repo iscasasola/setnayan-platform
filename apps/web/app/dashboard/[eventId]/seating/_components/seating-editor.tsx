@@ -3425,6 +3425,11 @@ export function SeatingEditor({
         <>
         <div
           ref={canvasRef}
+          // Opt this canvas out of the app-wide pinch-zoom suppression
+          // (<ZoomGuard/> skips [data-allow-zoom] subtrees) — the editor runs
+          // its own pointer-event pan/pinch on `touch-none`, so it needs raw
+          // two-finger gestures here while the rest of the app stays zoom-locked.
+          data-allow-zoom=""
           onPointerDown={onCanvasPointerDown}
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}

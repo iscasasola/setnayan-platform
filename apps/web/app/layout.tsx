@@ -30,6 +30,7 @@ import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { ZoomGuard } from './_components/zoom-guard';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 import {
@@ -404,11 +405,20 @@ const organizationJsonLd = {
 // gets a dark chrome that mismatches the light page.
 // PWA-1 (2026-06-21): was #FFFFFF (pure white) while the manifest was #FAF7F2
 // and the painted surface is #FBFBFA — three near-whites reconciled to one.
+// Native-app feel (owner directive 2026-06-15: "disable zoom on the whole app
+// except the seat-plan touch/drag area"). `maximumScale: 1` + `userScalable:
+// false` disables Android Chrome pinch-zoom AND the iOS input focus-zoom (the
+// auto-zoom when you tap a sub-16px field). iOS Safari IGNORES these for the
+// deliberate pinch gesture though — that half is handled by <ZoomGuard/>, which
+// also re-permits the seat-plan canvas via [data-allow-zoom].
+// ⚠ Trades away WCAG 1.4.4 browser pinch-zoom by owner decision; OS-level zoom
+// (iOS/Android Accessibility → Zoom) remains as the user fallback.
 export const viewport: Viewport = {
   themeColor: '#FBFBFA',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 };
 
@@ -527,6 +537,9 @@ export default async function RootLayout({
           </div>
         </div>
         <AppInitSplash />
+        {/* Native-app zoom suppression (pinch-zoom off app-wide; seat-plan
+            canvas opts back in via [data-allow-zoom]). See _components/zoom-guard.tsx. */}
+        <ZoomGuard />
         {/* Global top loading bar — the future-proof catch-all that shows a
             loading indicator on EVERY route navigation (incl. routes without
             their own loading.tsx, and any added later). Pure client → no

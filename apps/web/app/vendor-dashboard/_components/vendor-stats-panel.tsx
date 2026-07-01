@@ -2,15 +2,25 @@ import {
   Activity,
   Award,
   BookOpen,
+  Lock,
   MessageSquare,
   Star,
   TrendingUp,
   User,
+  Users,
   Zap,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
 import { buildProfileTips, type ProfileTipKey } from '@/lib/vendor-profile-tips';
+import {
+  EMPTY_FUNNEL_BENCHMARK,
+  getVendorFunnelBenchmark,
+  type FunnelBenchmark,
+  type MetricBenchmark,
+} from '@/lib/funnel-benchmark';
+import { asVendorTier, canSeeMarketIntel } from '@/lib/vendor-tier-caps';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 
 /**
  * vendor-stats-panel.tsx — Vendor performance dashboard panel.
@@ -373,6 +383,189 @@ function NudgeCard({
 }
 
 // ---------------------------------------------------------------------------
+// Category Benchmarks vs Peers (Pro+ · lib/funnel-benchmark)
+// ---------------------------------------------------------------------------
+
+/** Format one metric's own value for display (pct vs minutes). */
+function formatBenchmarkValue(m: MetricBenchmark): string {
+  if (m.own === null) return '—';
+  if (m.key === 'reply_mins') {
+    const label = formatResponseTime(m.own);
+    return label ?? '—';
+  }
+  return `${Math.round(m.own)}%`;
+}
+
+/** Format a band edge for the peer-median caption (pct vs minutes). */
+function formatBandMedian(m: MetricBenchmark): string | null {
+  if (!m.band) return null;
+  if (m.key === 'reply_mins') {
+    return formatResponseTime(m.band.p50);
+  }
+  return `${Math.round(m.band.p50)}%`;
+}
+
+const BENCH_TIER_STYLE: Record<
+  NonNullable<MetricBenchmark['tier']>,
+  { label: string; color: string; bg: string; bar: string }
+> = {
+  top: {
+    label: 'Top quartile',
+    color: 'text-emerald-800',
+    bg: 'bg-emerald-100',
+    bar: 'bg-emerald-500',
+  },
+  above_median: {
+    label: 'Above median',
+    color: 'text-blue-800',
+    bg: 'bg-blue-100',
+    bar: 'bg-blue-500',
+  },
+  below_median: {
+    label: 'Below median',
+    color: 'text-amber-800',
+    bg: 'bg-amber-100',
+    bar: 'bg-amber-400',
+  },
+  bottom: {
+    label: 'Bottom quartile',
+    color: 'text-terracotta',
+    bg: 'bg-terracotta/12',
+    bar: 'bg-terracotta',
+  },
+};
+
+function BenchmarkMetricRow({ metric }: { metric: MetricBenchmark }) {
+  const pct = metric.percentile;
+  const median = formatBandMedian(metric);
+  const style = metric.tier ? BENCH_TIER_STYLE[metric.tier] : null;
+  return (
+    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.18em]"
+          style={{ color: 'var(--m-slate)' }}
+        >
+          {metric.label}
+        </span>
+        {style ? (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] ${style.bg} ${style.color}`}
+          >
+            {style.label}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <p className="text-2xl font-semibold tabular-nums text-ink">
+          {formatBenchmarkValue(metric)}
+        </p>
+        {pct !== null ? (
+          <span className="mb-1 font-mono text-[10px] text-ink/45 tabular-nums">
+            beats {pct}% of peers
+          </span>
+        ) : null}
+      </div>
+      {/* Percentile marker on a 0-100 rail (higher = better, always). */}
+      <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-ink/10">
+        {pct !== null ? (
+          <div
+            className={`h-full rounded-full transition-all ${style?.bar ?? 'bg-ink/40'}`}
+            style={{ width: `${pct}%` }}
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${metric.label}: beats ${pct}% of peers`}
+          />
+        ) : null}
+      </div>
+      <p className="mt-1.5 text-xs text-ink/55">
+        {median !== null
+          ? `Peer median ${median}`
+          : 'Not enough peer data for this metric yet'}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Category Benchmarks card — the vendor's funnel percentiles vs anonymized peers
+ * in their exact (category, region, pax) bucket. Renders four states:
+ *   • locked   — the feature gate is ON and this tier is below Pro (upsell hint)
+ *   • no_data  — no peer band cleared the min-N floor (founder-only today)
+ *   • ranked   — the three metric rows with percentile markers
+ */
+function CategoryBenchmarkCard({
+  benchmark,
+  locked,
+}: {
+  benchmark: FunnelBenchmark;
+  locked: boolean;
+}) {
+  if (locked) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-ink/[0.02] p-4">
+        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} aria-hidden />
+        <div>
+          <p className="text-sm font-medium text-ink/70">
+            Category benchmarks
+          </p>
+          <p className="mt-0.5 text-xs text-ink/50">
+            See how your reply rate, reply time, and booking conversion rank
+            against anonymized peers in your category. Available on Pro and
+            Enterprise.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!benchmark.hasBand) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-ink/[0.02] p-4">
+        <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} aria-hidden />
+        <div>
+          <p className="text-sm font-medium text-ink/70">
+            Category benchmarks
+          </p>
+          <p className="mt-0.5 text-xs text-ink/50">
+            Not enough peer data in your category yet. Once enough vendors in
+            your category and area are active, you&rsquo;ll see how your funnel
+            ranks against them — always anonymized.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <p
+          className="font-mono text-[10px] uppercase tracking-[0.18em]"
+          style={{ color: 'var(--m-slate)' }}
+        >
+          Category benchmarks
+        </p>
+        <span className="text-[10px] text-ink/40 tabular-nums">
+          vs {benchmark.sampleN} peer{benchmark.sampleN === 1 ? '' : 's'} in your
+          category
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {benchmark.metrics.map((m) => (
+          <BenchmarkMetricRow key={m.key} metric={m} />
+        ))}
+      </div>
+      <p className="text-[10px] text-ink/40">
+        Peer figures are anonymized aggregates — never a single vendor.
+      </p>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Empty / loading state
 // ---------------------------------------------------------------------------
 
@@ -460,6 +653,27 @@ export async function VendorStatsPanel({
     conversion: <TrendingUp className="h-4 w-4" strokeWidth={1.75} />,
   };
   const tips = buildProfileTips(stats);
+
+  // Category Benchmarks vs Peers — de-identified funnel percentiles for the
+  // vendor's exact (category, region, pax) bucket (lib/funnel-benchmark). The
+  // CARD is Pro+ (canSeeMarketIntel), enforced flag-dark via the same
+  // isVendorFeatureGateEnabled() gate as Demand Radar so today's all-`free`
+  // founder/demo vendors aren't locked out until paid vendors exist. Below the
+  // gate: no fetch, render the upsell hint. The RPC additionally enforces
+  // ownership + the min-N floor (founder-only → mostly suppressed → no_data).
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const tier = asVendorTier(
+    (tierRow as { tier_state?: string | null } | null)?.tier_state,
+  );
+  const benchmarkLocked =
+    isVendorFeatureGateEnabled() && !canSeeMarketIntel(tier);
+  const benchmark = benchmarkLocked
+    ? null
+    : await getVendorFunnelBenchmark(supabase, vendorProfileId);
 
   const lastUpdatedLabel = stats.updated_at
     ? new Date(stats.updated_at).toLocaleDateString('en-PH', {
@@ -577,20 +791,11 @@ export async function VendorStatsPanel({
         </div>
       ) : null}
 
-      {/* Anonymous benchmark placeholder */}
-      <div
-        className="flex items-center gap-3 rounded-2xl border border-ink/10 bg-ink/[0.02] p-4"
-      >
-        <Activity
-          className="h-4 w-4 shrink-0 text-ink/35"
-          strokeWidth={1.75}
-          aria-hidden
-        />
-        <p className="text-xs text-ink/45">
-          Benchmark data coming soon — you&rsquo;ll see how you rank against other
-          vendors in your category.
-        </p>
-      </div>
+      {/* Category Benchmarks vs Peers — real percentile reader (Pro+). */}
+      <CategoryBenchmarkCard
+        benchmark={benchmark ?? EMPTY_FUNNEL_BENCHMARK}
+        locked={benchmarkLocked}
+      />
     </section>
   );
 }

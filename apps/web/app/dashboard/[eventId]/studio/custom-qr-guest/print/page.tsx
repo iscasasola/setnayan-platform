@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import { renderBrandedInvitationQrSvg, resolveBrandedQrColors } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -68,6 +69,9 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
     event.monogram_color ??
     null;
   const qrColors = resolveBrandedQrColors(brandColor);
+  // Canonical URL form for the printed QRs — nested /u/ under the cutover flag,
+  // bare root otherwise (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
 
   const qrCards = await Promise.all(
     guests.map(async (g) => ({
@@ -78,6 +82,7 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
         qrToken: g.qr_token,
         monogram,
         colors: qrColors,
+        ownerSlug,
       }),
     })),
   );

@@ -59,6 +59,7 @@ import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { ScheduleWidget } from '../_components/schedule-widget';
@@ -257,13 +258,15 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ??
       'https://setnayan-platform-web.vercel.app';
+    const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
     qrSvg = await renderInvitationQrSvg({
       appUrl,
       slug,
       qrToken: guest.qr_token,
       monogram,
+      ownerSlug,
     });
-    invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
+    invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token, ownerSlug });
 
     // Paid LIMITED roll camera — only the 'ready' state lights the launch CTA.
     if (guest.rsvp_status !== 'declined') {

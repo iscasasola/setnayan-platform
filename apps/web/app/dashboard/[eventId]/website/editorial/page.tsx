@@ -10,6 +10,7 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { siteUrl } from '@/lib/social/urls';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { EditorialEditor } from './_components/editorial-editor';
 import type { EditorialEditorInput } from './actions';
 
@@ -125,6 +126,13 @@ export default async function EditorialEditorPage({
     publish: status === 'published',
   };
 
+  // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested
+  // /u/ under the cutover flag, bare root otherwise (resolve self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+  const shareUrl = event.slug
+    ? publicEventUrl(siteUrl().replace(/\/$/, ''), event.slug, ownerSlug)
+    : null;
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
@@ -148,7 +156,7 @@ export default async function EditorialEditorPage({
         eventId={eventId}
         slug={event.slug ?? null}
         initial={initial}
-        shareUrl={event.slug ? `${siteUrl().replace(/\/$/, '')}/${event.slug}` : null}
+        shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}
         isWedding={(event.event_type ?? 'wedding') === 'wedding'}

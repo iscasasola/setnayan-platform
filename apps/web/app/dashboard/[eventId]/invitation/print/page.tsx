@@ -1,7 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import { renderInvitationQrSvg } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 
 export const metadata = { title: 'Print sheet' };
@@ -30,11 +32,14 @@ export default async function PrintSheetPage({ params }: Props) {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const monogram = resolveMonogram(event);
+  // Canonical URL form for the printed QRs — nested /u/ under the cutover flag,
+  // bare root otherwise (resolve self-noops OFF, so no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
 
   const qrCards = await Promise.all(
     guests.map(async (g) => ({
       guest: g,
-      svg: await renderInvitationQrSvg({ appUrl, slug, qrToken: g.qr_token, monogram }),
+      svg: await renderInvitationQrSvg({ appUrl, slug, qrToken: g.qr_token, monogram, ownerSlug }),
     })),
   );
 

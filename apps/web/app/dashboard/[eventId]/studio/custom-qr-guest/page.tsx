@@ -11,6 +11,7 @@ import {
   renderInvitationQrSvg,
   resolveBrandedQrColors,
 } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -105,6 +106,9 @@ export default async function CustomQrGuestPage({ params }: Props) {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const slug = event.slug ?? eventId;
+  // Canonical URL form for the branded QRs — nested /u/ under the cutover flag,
+  // bare root otherwise (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
 
   // Pricing from the live V2 catalog (single source of truth) with a fallback
   // so the page never crashes if the catalog row is missing pre-seed.
@@ -157,6 +161,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
         <OwnedView
           eventId={eventId}
           slug={slug}
+          ownerSlug={ownerSlug}
           appUrl={appUrl}
           monogram={monogram}
           qrColors={qrColors}
@@ -167,6 +172,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
         <UnownedView
           eventId={eventId}
           slug={slug}
+          ownerSlug={ownerSlug}
           appUrl={appUrl}
           monogram={monogram}
           qrColors={qrColors}
@@ -190,6 +196,7 @@ type SupabaseLike = Awaited<ReturnType<typeof createClient>>;
 async function OwnedView({
   eventId,
   slug,
+  ownerSlug,
   appUrl,
   monogram,
   qrColors,
@@ -198,6 +205,7 @@ async function OwnedView({
 }: {
   eventId: string;
   slug: string;
+  ownerSlug: string | null;
   appUrl: string;
   monogram: ReturnType<typeof resolveMonogram>;
   qrColors: ReturnType<typeof resolveBrandedQrColors>;
@@ -211,13 +219,14 @@ async function OwnedView({
       guestId: g.guest_id,
       name: guestDisplayName(g),
       role: ROLE_LABELS[g.role],
-      url: buildInvitationUrl({ appUrl, slug, qrToken: g.qr_token }),
+      url: buildInvitationUrl({ appUrl, slug, qrToken: g.qr_token, ownerSlug }),
       svg: await renderBrandedInvitationQrSvg({
         appUrl,
         slug,
         qrToken: g.qr_token,
         monogram,
         colors: qrColors,
+        ownerSlug,
       }),
     })),
   );
@@ -295,6 +304,7 @@ async function OwnedView({
 async function UnownedView({
   eventId,
   slug,
+  ownerSlug,
   appUrl,
   monogram,
   qrColors,
@@ -305,6 +315,7 @@ async function UnownedView({
 }: {
   eventId: string;
   slug: string;
+  ownerSlug: string | null;
   appUrl: string;
   monogram: ReturnType<typeof resolveMonogram>;
   qrColors: ReturnType<typeof resolveBrandedQrColors>;
@@ -320,13 +331,14 @@ async function UnownedView({
   const previewToken = previewGuest?.qr_token ?? 'preview-sample-token';
 
   const [plainSvg, brandedSvg, settings] = await Promise.all([
-    renderInvitationQrSvg({ appUrl, slug, qrToken: previewToken, monogram }),
+    renderInvitationQrSvg({ appUrl, slug, qrToken: previewToken, monogram, ownerSlug }),
     renderBrandedInvitationQrSvg({
       appUrl,
       slug,
       qrToken: previewToken,
       monogram,
       colors: qrColors,
+      ownerSlug,
     }),
     fetchPlatformSettings(supabase),
   ]);

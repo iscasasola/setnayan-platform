@@ -41,6 +41,11 @@ export type ShowcaseVendorCredit = {
 
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page
+  // Internal event id + bare slug — used by the weddings sitemap to resolve the
+  // owner account slug and emit the canonical /u/{owner}/{slug} URL under the
+  // URL-nesting cutover (self-noops to the bare slug while the flag is OFF).
+  eventId: string;
+  slug: string;
   coupleNames: string;
   // Style-Twin Discovery: the credited Pro/Enterprise vendors behind this story,
   // rendered as tappable chips on the card that deep-link to /v/[slug].
@@ -320,6 +325,8 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     return await Promise.all(
       evList.map(async (e) => ({
         href: `/${e.slug as string}`,
+        eventId: e.event_id,
+        slug: e.slug as string,
         coupleNames: e.display_name?.trim() || 'A Setnayan wedding',
         vendors: creditsByEvent.get(e.event_id) ?? [],
         city: deriveCity(e.venue_name, e.venue_address),

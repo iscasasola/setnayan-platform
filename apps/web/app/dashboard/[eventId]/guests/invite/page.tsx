@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { InviteLink } from './_components/invite-link';
 
 export const metadata = { title: 'Invite guests' };
@@ -64,8 +66,10 @@ export default async function GuestInvitePage({ params }: Props) {
   // the /[slug]/invite route resolves the token server-side, so it stays out of
   // the shared URL + QR. Fall back to the opaque token URL otherwise.
   const slug = (eventRes.data?.slug as string | null) ?? null;
+  // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
+  const ownerSlug = slug ? await resolveEventOwnerSlug(createAdminClient(), eventId) : null;
   const joinUrl = slug
-    ? `${appUrl}/${slug}/invite`
+    ? `${appUrl}${publicEventPath(slug, ownerSlug)}/invite`
     : tokenRes.data?.token
       ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
       : null;

@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, X, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
+import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import {
   computeGuestStats,
   computePaxProgress,
@@ -812,7 +814,11 @@ async function fetchJoinUrl(
   // The /[slug]/invite route resolves the join token server-side, so it never
   // appears in the shared URL. Fall back to the opaque token URL otherwise.
   const slug = (ev?.slug as string | null) ?? null;
-  if (slug) return `${appUrl}/${slug}/invite`;
+  if (slug) {
+    // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
+    const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+    return `${appUrl}${publicEventPath(slug, ownerSlug)}/invite`;
+  }
   if (!data?.token) return null;
   return `${appUrl}/join/${eventId}?token=${data.token}`;
 }

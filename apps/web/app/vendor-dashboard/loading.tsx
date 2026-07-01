@@ -8,7 +8,7 @@ import { Screen, Sk, RowSkeleton } from '@/components/skeletons';
  */
 export default function VendorLoading() {
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <Screen label="Loading vendor dashboard">
         {/* Header — eyebrow + business name + verification chip */}
         <header className="space-y-2">

@@ -297,7 +297,7 @@ export default async function VendorPerformancePage({
   };
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Per-service scope — only with 2+ active services (Pro+). Segments the
           bookings-derived cards; shop-level cards wear an "across all services"
           note when a service is picked. Preserves the momentum window. */}

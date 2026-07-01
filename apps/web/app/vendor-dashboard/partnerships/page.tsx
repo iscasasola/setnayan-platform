@@ -143,7 +143,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   });
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
       <header className="mb-8 space-y-1">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">Vendor partnerships</p>
         <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">

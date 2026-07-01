@@ -344,7 +344,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
       className="min-h-full"
       style={{ background: 'var(--m-paper)' }}
     >
-      <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
         <CustomersCalendar
           data={calendar}

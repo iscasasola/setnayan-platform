@@ -56,7 +56,7 @@ type Props = {
 
 export function VendorMobileLanding({ title, subtitle, groups, descriptions, searchable }: Props) {
   return (
-    <div data-more-root className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:hidden">
+    <div data-more-root className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-6 sm:px-6 lg:hidden">
       <header className="mb-6 space-y-2">
         <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
           Vendor

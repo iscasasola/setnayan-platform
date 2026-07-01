@@ -44,7 +44,7 @@ export default async function VendorPaydayPage() {
   const timeline = buildPaydayTimeline(rows, today);
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         <div className="space-y-1">

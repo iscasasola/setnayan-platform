@@ -119,7 +119,7 @@ export default async function VendorManpowerPage() {
       className="min-h-screen"
       style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
     >
-      <div className="mx-auto w-full max-w-5xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <header>
           <p
             className="m-label-mono uppercase text-slate-500"

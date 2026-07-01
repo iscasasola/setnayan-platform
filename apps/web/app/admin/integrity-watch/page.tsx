@@ -8,6 +8,7 @@ import {
   X,
   Check,
 } from 'lucide-react';
+import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -250,7 +251,7 @@ export default async function AdminIntegrityWatchPage({
 
       {/* Tabs */}
       <div className="mb-4 flex items-center gap-2">
-        <a
+        <Link
           href="/admin/integrity-watch?tab=reviews"
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
             tab === 'reviews'
@@ -260,8 +261,8 @@ export default async function AdminIntegrityWatchPage({
         >
           <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Reviews
           {openReviews ? ` · ${openReviews}` : ''}
-        </a>
-        <a
+        </Link>
+        <Link
           href="/admin/integrity-watch?tab=listings"
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
             tab === 'listings'
@@ -271,13 +272,13 @@ export default async function AdminIntegrityWatchPage({
         >
           <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Listings
           {openListings ? ` · ${openListings}` : ''}
-        </a>
+        </Link>
       </div>
 
       {/* Status filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => (
-          <a
+          <Link
             key={f.value}
             href={`/admin/integrity-watch?tab=${tab}&status=${f.value}`}
             className={`rounded-full px-3 py-1.5 text-xs font-medium ${
@@ -287,7 +288,7 @@ export default async function AdminIntegrityWatchPage({
             }`}
           >
             {f.label}
-          </a>
+          </Link>
         ))}
       </div>
 
@@ -401,12 +402,12 @@ export default async function AdminIntegrityWatchPage({
                         Dismiss
                       </button>
                     </form>
-                    <a
+                    <Link
                       href={`/admin/vendors/${r.subject_vendor_id}`}
                       className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                     >
                       Open vendor →
-                    </a>
+                    </Link>
                   </div>
                 )}
                 {r.status !== 'open' && (

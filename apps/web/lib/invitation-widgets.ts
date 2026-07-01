@@ -429,3 +429,27 @@ export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
     }
   }
 }
+
+/**
+ * Manual-launch phase resolver (owner 2026-07-02). When the couple has flipped
+ * their website to MANUAL launch (`events.launch_mode = 'manual'`) and pinned a
+ * valid `events.manual_phase`, that phase overrides the date-driven
+ * getLifecyclePhase for EVERY visitor. Returns null in every other case
+ * (auto mode, or a missing/invalid pin), so callers fall back to the date phase:
+ *
+ *   const phase = manualLaunchPhase(launchMode, manualPhase) ?? getLifecyclePhase(date);
+ *
+ * Tolerant of unknown/legacy values (a not-yet-migrated row reads as auto).
+ */
+export function manualLaunchPhase(
+  launchMode: string | null | undefined,
+  manualPhase: string | null | undefined,
+): LifecyclePhase | null {
+  if (launchMode !== 'manual') return null;
+  return manualPhase === 'save_the_date' ||
+    manualPhase === 'rsvp' ||
+    manualPhase === 'event' ||
+    manualPhase === 'editorial'
+    ? manualPhase
+    : null;
+}

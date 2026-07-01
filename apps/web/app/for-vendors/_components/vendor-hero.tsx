@@ -96,8 +96,8 @@ export async function VendorHero() {
               0% commission · Setnayan never takes a cut of your bookings.
             </strong>{' '}
             Pro at <strong style={{ color: 'var(--m-ink)' }}>{p.proMonthly}/28 days</strong>{' '}
-            unlocks AI matchmaking, boosted reach, AI proposal
-            drafting, and demand pulse.
+            adds a team, wider reach, full reviews, and the data to grow —
+            Demand Radar, your funnel, and price position.
           </p>
           <div
             style={{

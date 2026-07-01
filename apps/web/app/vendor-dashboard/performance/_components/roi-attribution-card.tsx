@@ -122,7 +122,7 @@ export function RoiAttributionCard({
 
       {!hasAnything ? (
         <div
-          className="rounded-[14px] border border-dashed p-6 text-center"
+          className="rounded-lg border border-dashed p-6 text-center"
           style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
         >
           <Sparkles className="mx-auto mb-2 h-6 w-6" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />
@@ -136,7 +136,7 @@ export function RoiAttributionCard({
         </div>
       ) : (
         <div
-          className="rounded-[14px] border bg-white p-5 sm:p-6"
+          className="rounded-lg border bg-white p-5 sm:p-6"
           style={{ borderColor: 'var(--m-line)' }}
         >
           {/* Headline */}

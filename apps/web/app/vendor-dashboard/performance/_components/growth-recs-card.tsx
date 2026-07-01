@@ -38,7 +38,7 @@ function impactChipStyle(impact: GrowthImpact): React.CSSProperties {
 function GrowthCard({ rec }: { rec: GrowthRec }) {
   return (
     <div
-      className="flex flex-col rounded-[14px] border bg-white p-4"
+      className="flex flex-col rounded-lg border bg-white p-4"
       style={{ borderColor: 'var(--m-line)' }}
     >
       <div className="mb-3 flex items-start justify-between gap-3">

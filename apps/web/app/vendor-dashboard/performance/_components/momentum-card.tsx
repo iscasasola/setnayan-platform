@@ -59,7 +59,7 @@ export function MomentumCard({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div
-          className="rounded-[14px] border bg-white p-5"
+          className="rounded-lg border bg-white p-5"
           style={{ borderColor: 'var(--m-line)' }}
         >
           <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
@@ -78,7 +78,7 @@ export function MomentumCard({
         </div>
 
         <div
-          className="rounded-[14px] border bg-white p-5"
+          className="rounded-lg border bg-white p-5"
           style={{ borderColor: 'var(--m-line)' }}
         >
           <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>

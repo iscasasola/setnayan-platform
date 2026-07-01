@@ -48,7 +48,7 @@ export function BookingsBars({ series }: { series: BookingMonthPoint[] }) {
             <div key={p.month} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex w-full flex-1 items-end">
                 <div
-                  className="w-full rounded-t-[3px]"
+                  className="w-full rounded-t-sm"
                   style={{
                     height: `${pct}%`,
                     minHeight: p.bookings > 0 ? 2 : 0,

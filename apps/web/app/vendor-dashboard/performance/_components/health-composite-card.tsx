@@ -116,7 +116,7 @@ export function HealthCompositeCard({
 }) {
   return (
     <section
-      className="rounded-[22px] p-6 sm:p-8"
+      className="rounded-2xl p-6 sm:p-8"
       style={{ background: 'var(--m-ink)', boxShadow: 'var(--m-shadow-lg)' }}
     >
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center">

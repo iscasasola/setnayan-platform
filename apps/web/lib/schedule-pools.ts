@@ -29,6 +29,11 @@ export type PoolAcquireResult =
   | { status: 'ok'; poolIds: string[]; bookedDate: string }
   | { status: 'full'; poolId: string | null; poolLabel: string | null }
   | { status: 'blocked'; poolId: string | null }
+  // PHASE 5 6-state taxonomy — vendor-set day states that gate the acquire:
+  //   'locked'    = a hard hold (cannot book, like a closure).
+  //   'whitelist' = approve-first (booking held for the vendor to vet).
+  | { status: 'locked'; poolId: string | null }
+  | { status: 'whitelist'; poolId: string | null }
   | { status: 'no_date' }
   | { status: 'no_pools' }
   | { status: 'not_authorized' }
@@ -186,6 +191,10 @@ export async function acquireSchedulePools(
       };
     case 'blocked':
       return { status: 'blocked', poolId: env.pool_id ?? null };
+    case 'locked':
+      return { status: 'locked', poolId: env.pool_id ?? null };
+    case 'whitelist':
+      return { status: 'whitelist', poolId: env.pool_id ?? null };
     case 'no_date':
       return { status: 'no_date' };
     case 'no_pools':

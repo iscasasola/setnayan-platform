@@ -1,4 +1,6 @@
-import Link from 'next/link';
+'use client';
+
+import { useState } from 'react';
 import { Briefcase, Wallet } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
@@ -17,9 +19,13 @@ import { buildPerformanceHref } from './perf-links';
  *
  * Windows come from vendor_source_attribution(); the monthly charts come from
  * vendor_booking_monthly_series() and the daily charts from
- * vendor_booking_daily_series(). The toggle is a URL param
- * (?momentum=day|month|year) so the surface stays a server component (no client
- * JS).
+ * vendor_booking_daily_series(). ALL THREE windows (day/month/year) + both
+ * series are fetched server-side ONCE and passed in as props, so the
+ * Daily/Monthly/Annual toggle switches CLIENT-SIDE with zero re-fetch — it never
+ * re-runs the (heavy) performance page. `mode` seeds the initial client state
+ * from the server (SSR / deep-link); toggling keeps ?momentum in the URL in sync
+ * via history.replaceState (no navigation) so share/deep-links still work and a
+ * later service-scope change preserves the chosen window.
  *
  * Earnings are the CONFIRMED booked revenue only (total_cost_php on booked
  * event_vendors) — partial by design, since vendors settle off-platform.
@@ -55,7 +61,7 @@ function toChartPoints(
 }
 
 export function MomentumCard({
-  mode,
+  mode: initialMode,
   variant,
   day,
   month,
@@ -86,7 +92,22 @@ export function MomentumCard({
    *  footnote). */
   nullServiceExcluded?: number | null;
 }) {
+  const [mode, setMode] = useState<MomentumMode>(initialMode);
   const isFull = variant === 'full';
+
+  const handleSelect = (value: MomentumMode) => {
+    setMode(value);
+    // Keep ?momentum in the URL in sync WITHOUT a navigation/re-fetch, so a
+    // share/refresh reflects the view and a later service-scope change keeps it.
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(
+        null,
+        '',
+        buildPerformanceHref({ service: serviceId, momentum: value }),
+      );
+    }
+  };
+
   // Basic never lands on 'day' (the toggle doesn't offer it); guard anyway.
   const effectiveMode: MomentumMode = !isFull && mode === 'day' ? 'month' : mode;
 
@@ -123,24 +144,24 @@ export function MomentumCard({
           aria-label="Momentum window"
         >
           {isFull && (
-            <ToggleLink
+            <ToggleButton
               label="Daily"
               value="day"
               active={effectiveMode === 'day'}
-              serviceId={serviceId}
+              onSelect={handleSelect}
             />
           )}
-          <ToggleLink
+          <ToggleButton
             label="Monthly"
             value="month"
             active={effectiveMode === 'month'}
-            serviceId={serviceId}
+            onSelect={handleSelect}
           />
-          <ToggleLink
+          <ToggleButton
             label="Annual"
             value="year"
             active={effectiveMode === 'year'}
-            serviceId={serviceId}
+            onSelect={handleSelect}
           />
         </div>
       </div>
@@ -204,22 +225,21 @@ export function MomentumCard({
   );
 }
 
-function ToggleLink({
+function ToggleButton({
   label,
   value,
   active,
-  serviceId,
+  onSelect,
 }: {
   label: string;
   value: MomentumMode;
   active: boolean;
-  /** Active service scope — preserved across the window switch. */
-  serviceId: string | null;
+  onSelect: (value: MomentumMode) => void;
 }) {
   return (
-    <Link
-      href={buildPerformanceHref({ service: serviceId, momentum: value })}
-      scroll={false}
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
       role="tab"
       aria-selected={active}
       className="rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors"
@@ -230,6 +250,6 @@ function ToggleLink({
       }
     >
       {label}
-    </Link>
+    </button>
   );
 }

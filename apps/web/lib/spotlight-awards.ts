@@ -25,6 +25,7 @@
  * RLS — callers MUST gate on admin/server context before invoking the writers.
  */
 
+import { unstable_cache } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -476,39 +477,55 @@ export type SpotlightHomepageVendor = {
  * awards shows one card with both badges), preserving the fetchSpotlightAwards
  * sort (top_pick → most_booked → rising).
  */
-export async function fetchHomepageSpotlight(): Promise<SpotlightHomepageVendor[]> {
-  try {
-    const { createAdminClient } = await import('./supabase/admin');
-    const { fetchPlatformSettings } = await import('./platform-settings');
-    const admin = createAdminClient();
+// The homepage renders this on EVERY request (it's on the force-dynamic home
+// page's critical path), but the strip is DOUBLE-GATED and inert by default, so
+// the result is almost always []. Without caching, a normal visitor paid a live
+// cross-region platform_settings round-trip just to read a default-OFF gate.
+// Cache the result with a short 60s revalidate (fresh enough when an admin flips
+// the toggle / features a vendor); SPOTLIGHT_HOMEPAGE_TAG lets admin actions bust
+// it immediately via revalidateTag. (Perf sweep 2026-07-02, finding #9.)
+export const SPOTLIGHT_HOMEPAGE_TAG = 'homepage-spotlight';
 
-    const settings = await fetchPlatformSettings(admin);
-    if (!settings.spotlight_homepage_enabled) return [];
+const loadHomepageSpotlight = unstable_cache(
+  async (): Promise<SpotlightHomepageVendor[]> => {
+    try {
+      const { fetchPlatformSettings } = await import('./platform-settings');
+      const admin = createAdminClient();
 
-    const rows = await fetchSpotlightAwards(admin, { featuredOnly: true });
-    if (rows.length === 0) return [];
+      const settings = await fetchPlatformSettings(admin);
+      if (!settings.spotlight_homepage_enabled) return [];
 
-    // Collapse to one card per vendor, keeping fetchSpotlightAwards' order.
-    const byVendor = new Map<string, SpotlightHomepageVendor>();
-    for (const r of rows) {
-      const existing = byVendor.get(r.vendor_profile_id);
-      if (existing) {
-        if (!existing.award_types.includes(r.award_type)) {
-          existing.award_types.push(r.award_type);
+      const rows = await fetchSpotlightAwards(admin, { featuredOnly: true });
+      if (rows.length === 0) return [];
+
+      // Collapse to one card per vendor, keeping fetchSpotlightAwards' order.
+      const byVendor = new Map<string, SpotlightHomepageVendor>();
+      for (const r of rows) {
+        const existing = byVendor.get(r.vendor_profile_id);
+        if (existing) {
+          if (!existing.award_types.includes(r.award_type)) {
+            existing.award_types.push(r.award_type);
+          }
+          continue;
         }
-        continue;
+        byVendor.set(r.vendor_profile_id, {
+          vendor_profile_id: r.vendor_profile_id,
+          business_name: r.business_name,
+          business_slug: r.business_slug,
+          logo_url: r.logo_url,
+          award_types: [r.award_type],
+        });
       }
-      byVendor.set(r.vendor_profile_id, {
-        vendor_profile_id: r.vendor_profile_id,
-        business_name: r.business_name,
-        business_slug: r.business_slug,
-        logo_url: r.logo_url,
-        award_types: [r.award_type],
-      });
+      return [...byVendor.values()];
+    } catch (err) {
+      console.error('[spotlight-awards] homepage strip load failed', err);
+      return [];
     }
-    return [...byVendor.values()];
-  } catch (err) {
-    console.error('[spotlight-awards] homepage strip load failed', err);
-    return [];
-  }
+  },
+  ['homepage-spotlight'],
+  { tags: [SPOTLIGHT_HOMEPAGE_TAG], revalidate: 60 },
+);
+
+export async function fetchHomepageSpotlight(): Promise<SpotlightHomepageVendor[]> {
+  return loadHomepageSpotlight();
 }

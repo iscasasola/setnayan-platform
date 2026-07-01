@@ -139,35 +139,38 @@ const softwareAppJsonLd = {
 };
 
 export default async function HomePage() {
-  // Catalog-driven pricing for the Prices overlay (no hardcoded numbers).
-  const pricing = await getHomePricingData();
+  // These four reads are fully independent — none consumes another's output —
+  // so run them CONCURRENTLY. Previously they were four serial top-level awaits,
+  // which on this force-dynamic (never-edge-cached) page stacked ~4 sequential
+  // PH→function→Supabase-Singapore round-trips onto TTFB. Promise.all collapses
+  // them to a single wall-clock round-trip. (Perf sweep 2026-07-02.)
+  //
+  //   • getHomePricingData        — catalog-driven pricing for the Prices overlay
+  //   • getClientShell            — OAuth-button visibility for the Sign-in overlay
+  //                                 (web + rebuilt desktop show OAuth; mobile /
+  //                                 older-native WebView hides it — Google refuses
+  //                                 OAuth in an embedded WebView). Header/cookie
+  //                                 read only; threaded down because the overlay is
+  //                                 a client component that can't read headers().
+  //   • fetchPublishedBackgroundVideos — admin homepage videos: slot 0 = hero
+  //                                 backdrop, slots 1-5 = pillar dock videos, in
+  //                                 PILLAR_HEROES order (each null until published,
+  //                                 falling back to the gradient scene).
+  //   • fetchHomepageSpotlight    — public Spotlight strip; DOUBLE-GATED + inert by
+  //                                 default (returns []).
+  const [pricing, shell, bg, spotlightVendors] = await Promise.all([
+    getHomePricingData(),
+    getClientShell(),
+    fetchPublishedBackgroundVideos(),
+    fetchHomepageSpotlight(),
+  ]);
 
-  // OAuth visibility for the Sign-in overlay — same shell gating as /login:
-  // shown on web + the rebuilt desktop app (system-browser loopback OAuth),
-  // hidden on the mobile/older-native shell where Google refuses OAuth in an
-  // embedded WebView. Desktop renders the loopback variant; web the
-  // server-action row. Resolved here (server) and threaded down because the
-  // overlay is a client component that can't read headers()/cookies().
-  const shell = await getClientShell();
   const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
   const oauth = { show: showOAuth, desktop: showOAuth && shell === 'desktop' };
-
-  // Admin-uploaded homepage background videos (/admin/background-videos):
-  // slot 0 = the main cinematic hero backdrop; slots 1-5 = the five pillar
-  // dock "icon" videos, in PILLAR_HEROES order (Ala Ala · Likha · Plano ·
-  // Suri · Tiangge). Each is null until its slot is published → the dock
-  // tile / hero scene falls back to its gradient. See lib/background-videos.ts.
-  const bg = await fetchPublishedBackgroundVideos();
   const bgVideos = {
     main: bg.main?.url ?? null,
     pillars: [1, 2, 3, 4, 5].map((slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null),
   };
-
-  // Public Spotlight strip — DOUBLE-GATED and inert by default: renders nothing
-  // unless the owner has flipped platform_settings.spotlight_homepage_enabled on
-  // AND an admin has featured award rows. Returns [] otherwise. See
-  // lib/spotlight-awards.ts → fetchHomepageSpotlight.
-  const spotlightVendors = await fetchHomepageSpotlight();
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the

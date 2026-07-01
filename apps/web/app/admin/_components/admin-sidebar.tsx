@@ -82,6 +82,7 @@ import {
   Flag,
   MessageSquareWarning,
   ScanSearch,
+  ShieldCheck,
   Landmark,
   RefreshCw,
   UsersRound,
@@ -304,6 +305,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/repost-watch',
         icon: ScanSearch,
         matchPrefix: '/admin/repost-watch',
+      },
+      {
+        // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost
+        // listings). Deterministic scoring of submitted reviews (velocity/burst,
+        // rating anomaly, shared-device reviewer clusters) + placeholder /
+        // abandoned / duplicate marketplace listings. Detect-and-review only —
+        // never auto-deletes a review or hides a listing without an admin click.
+        key: 'integrity-watch',
+        label: 'Integrity watch',
+        href: '/admin/integrity-watch',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/integrity-watch',
       },
       {
         // Two-admin (four-eyes) approval queue — §9.1. A different admin

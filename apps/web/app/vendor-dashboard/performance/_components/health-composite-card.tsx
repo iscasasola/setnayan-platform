@@ -1,133 +1,174 @@
-import { HeartPulse } from 'lucide-react';
-import type { VendorHealthComposite } from '@/lib/vendor-health-composite';
+import { ArrowUpRight } from 'lucide-react';
+import type {
+  VendorHealthComposite,
+  HealthPillar,
+} from '@/lib/vendor-health-composite';
+import { pillarBand } from '@/lib/vendor-health-composite';
 
 /**
- * Business-health composite card — a single vendor-SAFE health read built from
- * five vendor-facing pillars. NEVER surfaces the HQ-internal
- * platform_health_score (see lib/vendor-health-composite.ts).
+ * Business-health card — the SIGNATURE surface of My Performance. A dark
+ * (--m-ink) card with a champagne-gold composite ring + five vendor-SAFE pillar
+ * bars. It NEVER surfaces the HQ-internal platform_health_score (see
+ * lib/vendor-health-composite.ts) — this is a rollup of the vendor's own public
+ * metrics only.
+ *
+ * Pillar bar color follows the prototype thresholds: red < 70, amber 70–85,
+ * green > 85. Pillars without data yet render as an empty track + "—".
  */
 
-const BAND_META: Record<
-  VendorHealthComposite['band'],
-  { label: string; chip: string; ring: string }
-> = {
-  strong: { label: 'Strong', chip: 'bg-emerald-500/12 text-emerald-700', ring: 'text-emerald-500' },
-  steady: { label: 'Steady', chip: 'bg-amber-400/15 text-amber-700', ring: 'text-amber-400' },
-  building: { label: 'Building', chip: 'bg-terracotta/12 text-terracotta', ring: 'text-terracotta' },
-  no_data: { label: 'Getting started', chip: 'bg-ink/8 text-ink/55', ring: 'text-ink/25' },
-};
-
-function pillarBarColor(score: number): string {
-  if (score >= 75) return 'bg-emerald-500';
-  if (score >= 50) return 'bg-amber-400';
-  return 'bg-terracotta';
-}
-
+/** Gold ring — champagne-gold sweep on a faint track, over the dark card. */
 function CompositeRing({
   composite,
-  ringColor,
+  label,
 }: {
   composite: number | null;
-  ringColor: string;
+  label: string;
 }) {
   const pct = composite ?? 0;
-  const R = 34;
+  const R = 52;
   const C = 2 * Math.PI * R;
   const dash = (pct / 100) * C;
   return (
-    <div className="relative h-24 w-24 shrink-0">
-      <svg viewBox="0 0 80 80" className="h-24 w-24 -rotate-90">
-        <circle cx="40" cy="40" r={R} fill="none" strokeWidth="7" className="stroke-ink/10" />
+    <div className="relative h-36 w-36 shrink-0">
+      <svg viewBox="0 0 128 128" className="h-36 w-36 -rotate-90">
         <circle
-          cx="40"
-          cy="40"
+          cx="64"
+          cy="64"
           r={R}
           fill="none"
-          strokeWidth="7"
+          strokeWidth="9"
+          stroke="rgba(255,255,255,0.12)"
+        />
+        <circle
+          cx="64"
+          cy="64"
+          r={R}
+          fill="none"
+          strokeWidth="9"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${C}`}
-          className={ringColor}
-          stroke="currentColor"
+          stroke="var(--m-orange)"
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-semibold tabular-nums text-ink">
+        <span className="text-4xl font-semibold tabular-nums text-white">
           {composite === null ? '—' : composite}
         </span>
-        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
-          / 100
+        <span
+          className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-[0.2em]"
+          style={{ color: 'var(--m-orange-3)' }}
+        >
+          {label}
         </span>
       </div>
     </div>
   );
 }
 
-export function HealthCompositeCard({ health }: { health: VendorHealthComposite }) {
-  const band = BAND_META[health.band];
-
+/** One pillar bar, colored by the red/amber/green band over the dark card. */
+function PillarBar({ pillar }: { pillar: HealthPillar }) {
+  const band = pillarBand(pillar.score);
+  const barColor =
+    band === 'green'
+      ? 'var(--m-sage-deep)'
+      : band === 'amber'
+        ? 'var(--m-orange)'
+        : band === 'red'
+          ? 'var(--m-blush-deep)'
+          : 'rgba(255,255,255,0.2)';
   return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-2">
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Business health
-        </h2>
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${band.chip}`}
-        >
-          <HeartPulse className="h-3 w-3" strokeWidth={2} aria-hidden />
-          {band.label}
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="text-[13px] font-medium text-white/80">
+          {pillar.label}
+        </span>
+        <span className="font-mono text-sm tabular-nums text-white/90">
+          {pillar.score === null ? '—' : pillar.score}
         </span>
       </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        {pillar.score !== null ? (
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${pillar.score}%`, background: barColor }}
+            role="progressbar"
+            aria-valuenow={pillar.score}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${pillar.label}: ${pillar.score} out of 100`}
+          />
+        ) : null}
+      </div>
+      <p className="mt-1 text-[11px] leading-snug text-white/45">
+        {pillar.hint}
+      </p>
+    </div>
+  );
+}
 
-      <div className="rounded-2xl border border-ink/10 bg-cream p-5">
-        <div className="flex items-center gap-5">
-          <CompositeRing composite={health.composite} ringColor={band.ring} />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-ink">
-              {health.composite === null
-                ? 'Your health score fills in as you get inquiries and bookings.'
-                : 'A blended read of the five things couples judge you on.'}
-            </p>
-            <p className="mt-1 text-xs text-ink/55">
-              Built only from your own metrics — response rate, reliability,
-              reviews, profile strength, and your search-ranking score. Pillars
-              without data yet are left out of the average, not counted against
-              you.
-            </p>
+export function HealthCompositeCard({
+  health,
+  monthDelta,
+}: {
+  health: VendorHealthComposite;
+  /** Change in composite vs last month, or null when there's no prior snapshot. */
+  monthDelta: number | null;
+}) {
+  return (
+    <section
+      className="rounded-[22px] p-6 sm:p-8"
+      style={{ background: 'var(--m-ink)', boxShadow: 'var(--m-shadow-lg)' }}
+    >
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+        <CompositeRing composite={health.composite} label={health.bandLabel} />
+
+        <div className="min-w-0 flex-1">
+          <p
+            className="font-mono text-[11px] uppercase tracking-[0.2em]"
+            style={{ color: 'var(--m-orange-3)' }}
+          >
+            Business health
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="text-xl font-semibold text-white sm:text-2xl">
+              How your shop is doing
+            </h2>
+            {monthDelta !== null && monthDelta !== 0 ? (
+              <span
+                className="inline-flex items-center gap-1 text-sm font-medium"
+                style={{
+                  color:
+                    monthDelta > 0 ? 'var(--m-sage)' : 'var(--m-blush)',
+                }}
+              >
+                <ArrowUpRight
+                  aria-hidden
+                  className={`h-4 w-4 ${monthDelta > 0 ? '' : 'rotate-90'}`}
+                  strokeWidth={2}
+                />
+                {monthDelta > 0 ? '+' : ''}
+                {monthDelta} this month
+              </span>
+            ) : null}
           </div>
-        </div>
-
-        {/* Five pillar bars. */}
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {health.pillars.map((p) => (
-            <div key={p.key} className="rounded-xl border border-ink/8 bg-white/40 p-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs font-medium text-ink/80">{p.label}</span>
-                <span className="font-mono text-sm tabular-nums text-ink">
-                  {p.score === null ? '—' : p.score}
-                </span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-                {p.score !== null ? (
-                  <div
-                    className={`h-full rounded-full ${pillarBarColor(p.score)}`}
-                    style={{ width: `${p.score}%` }}
-                    role="progressbar"
-                    aria-valuenow={p.score}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${p.label}: ${p.score} out of 100`}
-                  />
-                ) : null}
-              </div>
-              <p className="mt-1.5 text-[11px] leading-snug text-ink/50">{p.hint}</p>
-            </div>
-          ))}
+          <p className="mt-2 max-w-prose text-sm leading-relaxed text-white/65">
+            {health.coaching}
+          </p>
         </div>
       </div>
+
+      {/* Five pillar bars. */}
+      <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-5">
+        {health.pillars.map((p) => (
+          <PillarBar key={p.key} pillar={p} />
+        ))}
+      </div>
+
+      <p className="mt-6 text-[11px] leading-snug text-white/40">
+        Built only from your own metrics — response rate, reviews, conversion,
+        and delivery. Pillars without data yet are left out of the average, not
+        counted against you.
+      </p>
     </section>
   );
 }

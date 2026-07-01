@@ -1,195 +1,199 @@
-import { Sparkles, Store, HelpCircle, Info } from 'lucide-react';
+import { Sparkles, Store, Info } from 'lucide-react';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import { formatPhp } from '@/lib/vendors';
 
 /**
- * ROI Attribution card — the "did Setnayan earn its keep?" panel.
+ * "Setnayan vs your own book · what the app added" — the app-vs-import ROI
+ * panel. It splits the vendor's BOOKED business into Setnayan-sourced (the
+ * marketplace found them the couple) vs. off-platform (a couple they already
+ * knew, added manually), from vendor_source_attribution().
  *
- * Splits the vendor's BOOKED business into Setnayan-sourced (the marketplace
- * found them the couple) vs. off-platform (a couple they already knew added
- * them manually). Booking COUNTS are always shown; the peso revenue split is
- * shown honestly labeled as partial, because total_cost_php is nullable and
- * vendors settle payment off-platform.
+ * Headline: "₱X in bookings Setnayan sourced for you this year — ~N× your
+ * annual plan", then two bars — Setnayan (gold) vs your imported clients (gray).
+ * Booking COUNTS are always shown; the peso figures are labeled honestly as
+ * partial, because total_cost_php is nullable and vendors settle off-platform.
  *
- * Money figures are rendered by this card only on a page that has already
- * gated the caller to owner/admin (canManageVendor) — the page is the gate.
+ * Money is rendered here only on a page already gated to owner/admin.
  */
 
-function SharePips({ pct }: { pct: number | null }) {
-  // A 10-pip bar visualizing the Setnayan share (green) vs off-platform (ink).
-  const filled = pct === null ? 0 : Math.round(pct / 10);
-  return (
-    <div className="flex gap-1" aria-hidden>
-      {Array.from({ length: 10 }).map((_, i) => (
-        <span
-          key={i}
-          className={`h-2 flex-1 rounded-full ${
-            i < filled ? 'bg-emerald-500' : 'bg-ink/12'
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function AttributionTile({
-  icon,
+/** A single labeled bar with a count + revenue, scaled to the larger of the two. */
+function AttributionBar({
   label,
   bookingCount,
-  pricedCount,
   revenuePhp,
-  accent,
-  blurb,
+  pricedCount,
+  widthPct,
+  tone,
 }: {
-  icon: React.ReactNode;
   label: string;
   bookingCount: number;
-  pricedCount: number;
   revenuePhp: number;
-  accent: string;
-  blurb: string;
+  pricedCount: number;
+  widthPct: number;
+  tone: 'setnayan' | 'own';
 }) {
+  const barColor = tone === 'setnayan' ? 'var(--m-orange)' : 'var(--m-slate-4)';
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className={accent}>{icon}</span>
-        <span
-          className="font-mono text-[10px] uppercase tracking-[0.18em]"
-          style={{ color: 'var(--m-slate)' }}
-        >
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+          {tone === 'setnayan' ? (
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden style={{ color: 'var(--m-orange-2)' }} />
+          ) : (
+            <Store className="h-4 w-4" strokeWidth={1.75} aria-hidden style={{ color: 'var(--m-slate-2)' }} />
+          )}
           {label}
         </span>
-      </div>
-      <p className="text-2xl font-semibold tabular-nums text-ink">
-        {bookingCount}
-        <span className="ml-1 text-sm font-normal text-ink/50">
-          booking{bookingCount === 1 ? '' : 's'}
+        <span className="font-mono text-xs tabular-nums" style={{ color: 'var(--m-slate)' }}>
+          {bookingCount} booking{bookingCount === 1 ? '' : 's'}
         </span>
-      </p>
-      <p className="mt-1 text-sm font-medium text-ink/80">
-        {pricedCount > 0 ? formatPhp(revenuePhp) : '—'}
-        {pricedCount > 0 && pricedCount < bookingCount ? (
-          <span className="ml-1 text-xs font-normal text-ink/45">
-            · {pricedCount} of {bookingCount} priced
-          </span>
-        ) : null}
-      </p>
-      <p className="mt-1.5 text-xs text-ink/55">{blurb}</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <div
+          className="h-8 flex-1 overflow-hidden rounded-lg"
+          style={{ background: 'color-mix(in srgb, var(--m-ink) 5%, transparent)' }}
+        >
+          <div
+            className="h-full rounded-lg"
+            style={{ width: `${Math.max(widthPct, bookingCount > 0 ? 6 : 0)}%`, background: barColor }}
+          />
+        </div>
+        <span
+          className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums"
+          style={{ color: 'var(--m-ink)' }}
+        >
+          {pricedCount > 0 ? formatPhp(revenuePhp) : '—'}
+        </span>
+      </div>
+      {pricedCount > 0 && pricedCount < bookingCount ? (
+        <p className="mt-1 text-right text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+          {pricedCount} of {bookingCount} priced
+        </p>
+      ) : null}
     </div>
   );
 }
 
 export function RoiAttributionCard({
   attribution,
+  annualPlanPhp,
+  windowLabel,
 }: {
   attribution: SourceAttribution | null;
+  /** The vendor's own annual plan cost (PHP), or 0/null when on a free tier. */
+  annualPlanPhp: number | null;
+  /** Human window label for the headline, e.g. "this year". */
+  windowLabel: string;
 }) {
   const hasAnything = attribution && attribution.totalBookings > 0;
 
+  const setnayan = attribution?.setnayan;
+  const off = attribution?.offPlatform;
+
+  // Bar scaling: relative to the larger booking count of the two channels.
+  const maxCount = Math.max(setnayan?.bookingCount ?? 0, off?.bookingCount ?? 0, 1);
+  const setnayanWidth = ((setnayan?.bookingCount ?? 0) / maxCount) * 100;
+  const offWidth = ((off?.bookingCount ?? 0) / maxCount) * 100;
+
+  const setnayanRevenue = setnayan?.revenuePhp ?? 0;
+  const setnayanPriced = setnayan?.pricedCount ?? 0;
+
+  // "~N× your annual plan" — only when the vendor pays for a plan AND there's
+  // confirmed Setnayan-sourced revenue to compare. Never fabricated.
+  const roiMultiple =
+    annualPlanPhp && annualPlanPhp > 0 && setnayanPriced > 0 && setnayanRevenue > 0
+      ? setnayanRevenue / annualPlanPhp
+      : null;
+  const roiMultipleLabel =
+    roiMultiple === null
+      ? null
+      : roiMultiple >= 10
+        ? `~${Math.round(roiMultiple)}×`
+        : `~${roiMultiple.toFixed(1)}×`;
+
   return (
     <section className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Did Setnayan earn its keep?
-        </h2>
-      </div>
+      <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+        Setnayan vs your own book
+        <span className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
+          What the app added
+        </span>
+      </h2>
 
       {!hasAnything ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-6 text-center">
-          <Sparkles className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} aria-hidden />
-          <p className="text-sm font-medium text-ink/65">No booked business yet</p>
-          <p className="mt-1 text-xs text-ink/45">
+        <div
+          className="rounded-[14px] border border-dashed p-6 text-center"
+          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+        >
+          <Sparkles className="mx-auto mb-2 h-6 w-6" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
+            No booked business yet
+          </p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Once couples start booking you, this shows how much of that work
             Setnayan sourced for you versus business you brought in yourself.
           </p>
         </div>
       ) : (
-        <>
-          {/* Headline share bar. */}
-          <div className="rounded-2xl border border-ink/10 bg-cream p-4">
-            <div className="flex items-end justify-between gap-2">
-              <div>
-                <p className="text-xs text-ink/55">Setnayan-sourced share of your bookings</p>
-                <p className="mt-0.5 text-3xl font-semibold tabular-nums text-ink">
-                  {attribution.setnayanBookingSharePct === null
-                    ? '—'
-                    : `${attribution.setnayanBookingSharePct}%`}
-                </p>
-              </div>
-              {attribution.setnayanRevenueSharePct !== null ? (
-                <p className="mb-1 text-right text-xs text-ink/55">
-                  <span className="font-medium text-ink/80">
-                    {attribution.setnayanRevenueSharePct}%
-                  </span>
-                  <br />
-                  of confirmed revenue
-                </p>
-              ) : null}
-            </div>
-            <div className="mt-3">
-              <SharePips pct={attribution.setnayanBookingSharePct} />
-            </div>
-            <p className="mt-2 text-xs text-ink/45">
-              Out of bookings we can attribute. Unattributed legacy bookings are
-              excluded from this share.
-            </p>
-          </div>
+        <div
+          className="rounded-[14px] border bg-white p-5 sm:p-6"
+          style={{ borderColor: 'var(--m-line)' }}
+        >
+          {/* Headline */}
+          <p className="text-3xl font-semibold tabular-nums sm:text-4xl" style={{ color: 'var(--m-ink)' }}>
+            {setnayanPriced > 0 ? formatPhp(setnayanRevenue) : `${setnayan?.bookingCount ?? 0} bookings`}
+          </p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+            {setnayanPriced > 0 ? 'in bookings' : ''} Setnayan sourced for you {windowLabel}
+            {roiMultipleLabel ? (
+              <>
+                {' — '}
+                <span className="font-semibold" style={{ color: 'var(--m-orange-2)' }}>
+                  {roiMultipleLabel} your annual plan
+                </span>
+              </>
+            ) : null}
+          </p>
 
-          {/* Two tiles: Setnayan-sourced vs off-platform. */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <AttributionTile
-              icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-              accent="text-emerald-600"
-              label="Setnayan sourced"
-              bookingCount={attribution.setnayan.bookingCount}
-              pricedCount={attribution.setnayan.pricedCount}
-              revenuePhp={attribution.setnayan.revenuePhp}
-              blurb="Couples who found you through marketplace search or a Setnayan suggestion."
+          {/* Two bars */}
+          <div className="mt-6 space-y-5">
+            <AttributionBar
+              label="From Setnayan"
+              tone="setnayan"
+              bookingCount={setnayan?.bookingCount ?? 0}
+              revenuePhp={setnayanRevenue}
+              pricedCount={setnayanPriced}
+              widthPct={setnayanWidth}
             />
-            <AttributionTile
-              icon={<Store className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-              accent="text-ink/55"
-              label="Brought in yourself"
-              bookingCount={attribution.offPlatform.bookingCount}
-              pricedCount={attribution.offPlatform.pricedCount}
-              revenuePhp={attribution.offPlatform.revenuePhp}
-              blurb="Couples you already knew, added to their plan manually."
+            <AttributionBar
+              label="Your imported clients"
+              tone="own"
+              bookingCount={off?.bookingCount ?? 0}
+              revenuePhp={off?.revenuePhp ?? 0}
+              pricedCount={off?.pricedCount ?? 0}
+              widthPct={offWidth}
             />
           </div>
-
-          {/* Unattributed note (only when present). */}
-          {attribution.unattributed.bookingCount > 0 ? (
-            <div className="flex items-start gap-2 rounded-2xl border border-ink/10 bg-ink/[0.02] p-3">
-              <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} aria-hidden />
-              <p className="text-xs text-ink/50">
-                {attribution.unattributed.bookingCount} older booking
-                {attribution.unattributed.bookingCount === 1 ? '' : 's'} predate
-                source tracking, so we can&rsquo;t attribute{' '}
-                {attribution.unattributed.bookingCount === 1 ? 'it' : 'them'} to a
-                channel.
-              </p>
-            </div>
-          ) : null}
 
           {/* Honesty footer — the peso ROI is partial. */}
           {attribution.totalPriced < attribution.totalBookings ? (
-            <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.75} aria-hidden />
-              <p className="text-xs text-amber-900">
-                Revenue figures cover the{' '}
+            <div
+              className="mt-5 flex items-start gap-2 rounded-xl border p-3"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+            >
+              <Info className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden style={{ color: 'var(--m-slate-3)' }} />
+              <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                Peso figures cover the{' '}
                 <span className="font-medium">
                   {attribution.totalPriced} of {attribution.totalBookings}
                 </span>{' '}
-                bookings that have a confirmed price on Setnayan. You settle
-                payment directly with couples, so amounts you agreed off-platform
-                won&rsquo;t appear here.
+                bookings with a confirmed price on Setnayan. You settle payment
+                directly with couples, so amounts agreed off-platform won&rsquo;t
+                appear here.
               </p>
             </div>
           ) : null}
-        </>
+        </div>
       )}
     </section>
   );

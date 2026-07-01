@@ -19,6 +19,7 @@ import { getVendorDemandRadar } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import { fetchVendorConversionAnalytics } from '@/lib/vendor-conversion-analytics';
+import { fetchVendorReputationAnalytics } from '@/lib/vendor-reputation-analytics';
 import {
   asVendorTier,
   TIER_PRICE_PHP,
@@ -39,6 +40,7 @@ import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandPreviewCard } from './_components/demand-preview-card';
 import { InquiryHandlingCard } from './_components/inquiry-handling-card';
 import { ConversionDealsCard } from './_components/conversion-deals-card';
+import { ReputationCard } from './_components/reputation-card';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -169,6 +171,7 @@ export default async function VendorPerformancePage({
     demandRadar,
     inquiryAnalytics,
     conversionAnalytics,
+    reputationAnalytics,
   ] = await Promise.all([
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
@@ -185,6 +188,9 @@ export default async function VendorPerformancePage({
       : Promise.resolve(null),
     canAdvanced
       ? fetchVendorConversionAnalytics(supabase, profile.vendor_profile_id, isoDaysAgo(365))
+      : Promise.resolve(null),
+    canAdvanced
+      ? fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id)
       : Promise.resolve(null),
   ]);
 
@@ -286,6 +292,14 @@ export default async function VendorPerformancePage({
         <div className="space-y-6">
           <SectionHeading>Conversion</SectionHeading>
           <ConversionDealsCard data={conversionAnalytics} />
+        </div>
+      )}
+
+      {/* ── Reputation (Pro+) · own reviews: rating, coverage, velocity. */}
+      {canAdvanced && reputationAnalytics && (
+        <div className="space-y-6">
+          <SectionHeading>Reputation</SectionHeading>
+          <ReputationCard data={reputationAnalytics} />
         </div>
       )}
 

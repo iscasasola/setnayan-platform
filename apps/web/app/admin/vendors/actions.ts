@@ -424,7 +424,7 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
       business_name: vendor.business_name,
       public_id: vendor.public_id,
       token_count: tokenCount,
-      ttl_days: toMember ? null : ttlDays,
+      ttl_days: null, // tokens never expire (owner 2026-07-01)
       grant_reason: reason,
       voucher_id: voucherId,
       recipient_user_id: toMember ? holder : vendor.user_id,

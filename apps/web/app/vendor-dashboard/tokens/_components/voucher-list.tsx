@@ -106,6 +106,9 @@ export function VoucherList({ vouchers }: { vouchers: VoucherRow[] }) {
       <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
         {vouchers.map((v) => {
           const expiresAt = new Date(v.expires_at);
+          // Tokens never expire (owner 2026-07-01) — grants are minted at a
+          // far-future 2999 sentinel. Render those as permanent, not a date.
+          const neverExpires = expiresAt.getFullYear() >= 2900;
           const days = daysBetween(now, expiresAt);
           const tone = expiryToneFor(days);
           const label = GRANT_SOURCE_LABEL[v.grant_source] ?? v.grant_source;
@@ -115,8 +118,8 @@ export function VoucherList({ vouchers }: { vouchers: VoucherRow[] }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">{label}</p>
                 <p className="mt-0.5 text-xs text-ink/55">
-                  Granted {SHORT_DATE.format(new Date(v.granted_at))} · expires{' '}
-                  {SHORT_DATE.format(expiresAt)}
+                  Granted {SHORT_DATE.format(new Date(v.granted_at))}
+                  {neverExpires ? ' · never expires' : ` · expires ${SHORT_DATE.format(expiresAt)}`}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
@@ -126,17 +129,22 @@ export function VoucherList({ vouchers }: { vouchers: VoucherRow[] }) {
                     <p className="text-[10px] text-ink/45">of {v.tokens_granted}</p>
                   )}
                 </div>
-                <span
-                  className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium"
-                  style={{
-                    color: tone.text,
-                    borderColor: tone.border,
-                    background: tone.bg,
-                  }}
-                >
-                  <Clock3 className="h-3 w-3" strokeWidth={1.75} />
-                  {tone.badge}
-                </span>
+                {neverExpires ? (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium"
+                    style={{ color: 'var(--m-slate)', borderColor: 'var(--m-line)', background: 'transparent' }}
+                  >
+                    Permanent
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium"
+                    style={{ color: tone.text, borderColor: tone.border, background: tone.bg }}
+                  >
+                    <Clock3 className="h-3 w-3" strokeWidth={1.75} />
+                    {tone.badge}
+                  </span>
+                )}
               </div>
             </li>
           );

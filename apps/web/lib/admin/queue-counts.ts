@@ -46,6 +46,7 @@ export const ADMIN_QUEUE_META: Record<
   verify: { lane: 'growth', slaHours: 48 }, // a vendor is waiting for the badge
   'vendor-partnerships': { lane: 'growth', slaHours: 72 },
   'user-reports': { lane: 'trust', slaHours: 24 }, // UGC moderation (Apple 1.2)
+  'integrity-watch': { lane: 'trust', slaHours: 72 }, // review-fraud + ghost listings
 };
 
 type QueueDef = {
@@ -145,6 +146,14 @@ const QUEUE_DEFS: QueueDef[] = [
   {
     key: 'user-reports',
     table: 'user_reports',
+    filter: (q) => q.eq('status', 'open'),
+  },
+  // Integrity watch — review-fraud + ghost-listing flags awaiting a verdict
+  // (integrity_flags · status='open'). Both kinds share one queue; the badge is
+  // the combined open count.
+  {
+    key: 'integrity-watch',
+    table: 'integrity_flags',
     filter: (q) => q.eq('status', 'open'),
   },
 ];

@@ -25,6 +25,8 @@ import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import { fetchVendorConversionAnalytics } from '@/lib/vendor-conversion-analytics';
+import { fetchVendorReputationAnalytics } from '@/lib/vendor-reputation-analytics';
+import { fetchVendorCapacityAnalytics } from '@/lib/vendor-capacity-analytics';
 import {
   asVendorTier,
   TIER_PRICE_PHP,
@@ -50,6 +52,8 @@ import {
 import { ScopeNote } from './_components/scope-note';
 import { InquiryHandlingCard } from './_components/inquiry-handling-card';
 import { ConversionDealsCard } from './_components/conversion-deals-card';
+import { ReputationCard } from './_components/reputation-card';
+import { CapacityCard } from './_components/capacity-card';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -230,6 +234,8 @@ export default async function VendorPerformancePage({
     nullExcludedYear,
     nullExcludedMonth,
     nullExcludedDay,
+    reputationAnalytics,
+    capacityAnalytics,
   ] = await Promise.all([
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
     fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
@@ -244,6 +250,12 @@ export default async function VendorPerformancePage({
       : Promise.resolve(null),
     serviceId
       ? fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30))
+      : Promise.resolve(null),
+    canAdvanced
+      ? fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id)
+      : Promise.resolve(null),
+    canAdvanced
+      ? fetchVendorCapacityAnalytics(supabase, profile.vendor_profile_id)
       : Promise.resolve(null),
   ]);
 
@@ -421,6 +433,30 @@ export default async function VendorPerformancePage({
             {serviceId ? <ScopeNote /> : null}
           </div>
           <ConversionDealsCard data={conversionAnalytics} />
+        </div>
+      )}
+
+      {/* ── Reputation (Pro+) · own reviews: rating, coverage, velocity.
+             Shop-level, so it wears the note when a service is picked. */}
+      {canAdvanced && reputationAnalytics && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Reputation</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
+          <ReputationCard data={reputationAnalytics} />
+        </div>
+      )}
+
+      {/* ── Capacity (Pro+) · booked-ahead load + waitlist (unmet demand).
+             Shop-level, so it wears the note when a service is picked. */}
+      {canAdvanced && capacityAnalytics && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading>Capacity</SectionHeading>
+            {serviceId ? <ScopeNote /> : null}
+          </div>
+          <CapacityCard data={capacityAnalytics} />
         </div>
       )}
 

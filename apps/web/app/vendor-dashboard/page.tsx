@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowRight, Info, UserPlus } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -95,7 +95,12 @@ export default async function VendorOverviewPage() {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <header className="mb-6 space-y-1.5">
-          <h1 className="m-display text-4xl sm:text-5xl">Overview</h1>
+          <h1
+            className="text-3xl font-semibold tracking-tight sm:text-4xl"
+            style={{ color: 'var(--m-ink)' }}
+          >
+            Overview
+          </h1>
           <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
             What needs you today — {todayLabel()}.
           </p>
@@ -163,7 +168,12 @@ export default async function VendorOverviewPage() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Heading */}
       <header className="mb-8 space-y-1.5">
-        <h1 className="m-display text-4xl sm:text-5xl">Overview</h1>
+        <h1
+          className="text-3xl font-semibold tracking-tight sm:text-4xl"
+          style={{ color: 'var(--m-ink)' }}
+        >
+          Overview
+        </h1>
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           What needs you today — {todayLabel()}.
         </p>
@@ -204,38 +214,6 @@ export default async function VendorOverviewPage() {
 
       {/* 4 · Upcoming schedules — next 5 booked events */}
       <UpcomingSchedules rows={upcoming} />
-
-      {/* Invite-a-couple — free onboarding QR (kept from the prior Overview;
-          routed exit so a quiet day still has a clear next action). */}
-      <Link
-        href="/vendor-dashboard/invite"
-        className="mt-8 flex items-center gap-4 rounded-xl border p-4 transition-colors"
-        style={{ background: '#fff', borderColor: 'var(--m-line)' }}
-      >
-        <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-          style={{ background: 'var(--m-orange-4)' }}
-        >
-          <UserPlus
-            className="h-5 w-5"
-            strokeWidth={1.75}
-            style={{ color: 'var(--m-orange-2)' }}
-          />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-            Invite a couple — free
-          </span>
-          <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
-            Share your QR. They set up their plan and you land on their shortlist.
-          </span>
-        </span>
-        <ArrowRight
-          className="h-4 w-4 shrink-0"
-          strokeWidth={1.75}
-          style={{ color: 'var(--m-slate-3)' }}
-        />
-      </Link>
     </div>
   );
 }

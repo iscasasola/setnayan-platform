@@ -29,7 +29,9 @@ function str(formData: FormData, key: string): string {
 
 export async function joinVendorWaitlist(formData: FormData): Promise<void> {
   const slug = str(formData, 'slug');
-  const backTo = slug ? `/v/${slug}` : '/explore';
+  // Bare root is the canonical vendor URL (PR5) — redirect + revalidate there,
+  // not the legacy /v/{slug}, so the couple stays on the page they were on.
+  const backTo = slug ? `/${slug}` : '/explore';
 
   const vendorProfileId = str(formData, 'vendor_profile_id');
   const requestedDate = str(formData, 'requested_date');

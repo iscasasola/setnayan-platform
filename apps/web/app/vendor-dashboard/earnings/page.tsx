@@ -238,10 +238,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       </section>
 
       <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Legacy payout records ({payouts.length})
-          </h2>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
             <ShieldCheck className="h-3 w-3" aria-hidden /> {verificationState}
           </span>
@@ -354,10 +351,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Booking ledger ({earnings.length})
-          </h2>
+        <div className="flex items-center justify-end">
           {totalPages > 1 ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
               Page {page} / {totalPages}

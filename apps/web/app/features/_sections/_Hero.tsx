@@ -52,10 +52,7 @@ export function FeaturesHero({ locale }: { locale: MarketingLocale }) {
     <section className="border-b border-ink/5 bg-cream">
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="max-w-3xl space-y-6">
-          <div className="flex items-center justify-between gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              {c.eyebrow}
-            </p>
+          <div className="flex items-center justify-end gap-4">
             <LocaleSwitch locale={locale} paths={FEATURES_PATHS} />
           </div>
           <h1 className="font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl lg:text-7xl">

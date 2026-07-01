@@ -116,9 +116,6 @@ export default async function PanoodControlRoomPage({ params }: Props) {
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Control room
-        </p>
         <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight sm:text-3xl">
           <Tv aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
           {event.display_name}

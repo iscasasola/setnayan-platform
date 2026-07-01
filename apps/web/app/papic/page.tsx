@@ -160,7 +160,6 @@ export default function PapicLandingPage() {
         {/* Hero — text-led; the line-reveal headline + quiet rise are the only
             motion here, so the step-02 sort stays the page's one spectacle. */}
         <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">In your wedding · guest photo gallery</p>
           <LineRevealHeading
             as="h1"
             trigger="mount"

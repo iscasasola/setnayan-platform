@@ -131,9 +131,6 @@ export default async function PatiktokBoothDashboard({
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Operator Dashboard · Patiktok booth
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           {event?.display_name ?? 'Your event'}
           {event?.event_date ? (

@@ -119,13 +119,7 @@ export function VendorPrepForBooking({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Prep schedule
-          {items.length > 0 ? (
-            <span className="ml-1 text-ink/35">· {items.length}</span>
-          ) : null}
-        </p>
+      <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => setOpen(true)}

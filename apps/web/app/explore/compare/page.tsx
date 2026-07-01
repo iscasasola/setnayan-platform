@@ -322,9 +322,6 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="mb-6 space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Compare · {rows.length} vendors
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Side-by-side comparison.
           </h1>

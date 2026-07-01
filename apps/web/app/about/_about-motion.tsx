@@ -22,7 +22,6 @@
  */
 
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useReveal, useLineReveal } from '@/app/_components/marketing/_premium';
 
@@ -65,13 +64,6 @@ export function AboutHero() {
         </Link>
       </nav>
 
-      <p
-        data-reveal-item
-        className="mb-4 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
-      >
-        <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        About Setnayan
-      </p>
       <h1
         ref={headingRef as React.RefObject<HTMLHeadingElement>}
         className="max-w-3xl font-display text-4xl leading-tight text-ink sm:text-5xl"

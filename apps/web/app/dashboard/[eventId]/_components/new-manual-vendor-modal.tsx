@@ -9,7 +9,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, Sparkles, Store, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
 import {
   createManualVendor,
   attachManualVendorToCategory,
@@ -878,11 +878,7 @@ function MarketplaceAutocomplete({
       aria-label="Marketplace vendor matches"
       className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-ink/15 bg-cream shadow-lg"
     >
-      <header className="sticky top-0 flex items-center justify-between border-b border-ink/10 bg-cream px-3 py-2">
-        <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-          <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Found on Setnayan
-        </p>
+      <header className="sticky top-0 flex items-center justify-end border-b border-ink/10 bg-cream px-3 py-2">
         <button
           type="button"
           onClick={onDismiss}
@@ -1005,11 +1001,7 @@ function LinkedVendorConfirmation({
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-terracotta/40 bg-terracotta/5 p-3">
-        <header className="mb-2 flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-            <Store aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            From Setnayan marketplace
-          </p>
+        <header className="mb-2 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}

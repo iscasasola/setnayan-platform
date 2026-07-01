@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Music, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
-  categoryLabel,
   findPatiktokTemplate,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
@@ -57,9 +56,6 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          {categoryLabel(template.category)} · Patiktok template
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           {template.name}
         </h1>

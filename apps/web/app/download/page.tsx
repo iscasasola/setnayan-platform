@@ -62,14 +62,6 @@ export default async function DownloadPage() {
       <section>
         <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1fr,1fr] lg:gap-16 lg:px-8 lg:py-28">
           <RevealGroup className="space-y-7">
-            <p
-              data-reveal-item
-              className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta"
-            >
-              <span className="h-px w-7 bg-terracotta/60" aria-hidden />
-              macOS · Apple Silicon
-            </p>
-
             <LineRevealH1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.02em] text-ink sm:text-6xl">
               Setnayan, on your Mac.
             </LineRevealH1>
@@ -113,9 +105,6 @@ export default async function DownloadPage() {
       <section className="border-t border-ink/8">
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-14 max-w-xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta">
-              Why the Mac app
-            </p>
             <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
               The same Setnayan, closer to hand.
             </h2>
@@ -149,9 +138,6 @@ export default async function DownloadPage() {
       <section className="border-t border-ink/8">
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-14 max-w-xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta">
-              Install in 30 seconds
-            </p>
             <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
               Four steps, done.
             </h2>

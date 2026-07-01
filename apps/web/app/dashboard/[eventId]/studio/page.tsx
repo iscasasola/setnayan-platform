@@ -294,9 +294,6 @@ export default async function StudioPage({ params }: Props) {
   return (
     <section className="space-y-8">
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-          Studio
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
           Everything you can make with Setnayan
         </h1>

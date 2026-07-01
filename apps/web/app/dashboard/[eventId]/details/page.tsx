@@ -147,12 +147,6 @@ export default async function PersonalizationPage({
   return (
     <section className="space-y-5">
       <header className="space-y-1.5">
-        <p
-          className="font-mono text-[10px] uppercase tracking-[0.22em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Your wedding
-        </p>
         <h1
           className="m-display-tight text-2xl uppercase sm:text-3xl"
           style={{ letterSpacing: '-0.005em', color: 'var(--m-ink)' }}

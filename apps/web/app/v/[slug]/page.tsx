@@ -1120,9 +1120,6 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
           <Logo logoUrl={vendor.logo_url} name={displayLabel} />
           <div className="min-w-0 space-y-2">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Setnayan vendor
-            </p>
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches

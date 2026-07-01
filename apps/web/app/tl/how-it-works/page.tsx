@@ -8,7 +8,6 @@ import {
   QrCode,
   ArrowRight,
   CheckCircle2,
-  Clock,
   Apple,
 } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
@@ -200,10 +199,7 @@ export default async function HowItWorksPageTaglish() {
 
         {/* Hero */}
         <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              How it works
-            </p>
+          <div className="mb-3 flex items-center justify-end gap-4">
             <Link
               href="/how-it-works"
               hrefLang="en-PH"
@@ -292,9 +288,6 @@ export default async function HowItWorksPageTaglish() {
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Ang flow
-            </p>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Paano nagkokonekta ang lahat, in order
             </h2>
@@ -332,10 +325,6 @@ export default async function HowItWorksPageTaglish() {
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-8">
-            <div className="flex items-center gap-2 text-terracotta">
-              <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Susunod na</p>
-            </div>
             <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
               Pagdagdag ng isa pang planner sa event mo
             </h2>
@@ -365,10 +354,6 @@ export default async function HowItWorksPageTaglish() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <article className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa couples</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 Magsimulang magplano, free.
               </h3>
@@ -384,10 +369,6 @@ export default async function HowItWorksPageTaglish() {
               </Link>
             </article>
             <article className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa vendors</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 I-list ang wedding business mo sa Setnayan.
               </h3>

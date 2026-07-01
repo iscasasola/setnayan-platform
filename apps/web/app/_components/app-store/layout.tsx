@@ -159,9 +159,6 @@ export function AppStoreLayout({
             <Icon className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={1.5} />
           </span>
           <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">
-              {hero.eyebrow}
-            </p>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {hero.title}
             </h1>

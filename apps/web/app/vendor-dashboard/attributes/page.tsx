@@ -172,9 +172,6 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0044 · Per-service attributes
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Service attributes
         </h1>

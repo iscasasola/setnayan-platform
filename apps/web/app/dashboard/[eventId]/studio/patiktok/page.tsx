@@ -213,9 +213,6 @@ export default async function PatiktokGallery({
       </div>
 
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Patiktok · TikTok-style mimic station
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Pick the reel templates for your booth
         </h1>

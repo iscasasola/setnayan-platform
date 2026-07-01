@@ -190,19 +190,15 @@ export function StickyMarketplaceHeader({
         className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-0 sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        {/* Eyebrow + applied-count chip. Reads as 'MARKETPLACE · 192
-            categories · 2 filters applied'. Concise replacement for the
-            retired italic-serif headline + paragraph. */}
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Marketplace
-          </p>
-          {appliedCount > 0 ? (
+        {/* Applied-count chip. Concise replacement for the retired
+            italic-serif headline + paragraph. */}
+        {appliedCount > 0 ? (
+          <div className="mb-2 flex items-center justify-end gap-3">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
               {appliedCount} filter{appliedCount === 1 ? '' : 's'} applied
             </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {/* Search pill + Filters button row. The search input owns its own
             rounded-full pill via TaxonomySearch's existing styling; the

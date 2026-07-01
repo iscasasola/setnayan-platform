@@ -182,19 +182,24 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
     }));
   }
 
-  // Gallery: count papic_photos per event (graceful degrade if table absent)
+  // Gallery: count papic_photos per event via a grouped-COUNT RPC (perf fix
+  // 2026-07-01) — this used to pull one row per photo across every event just
+  // to tally them in JS (`.select('event_id').in('event_id', eventIds)`),
+  // which meant thousands of rows crossing the wire for a wedding with a full
+  // Papic gallery, on every dashboard chrome render. current_user_gallery_counts()
+  // is self-gated (current_event_ids()), so it needs no event-id input.
+  // Graceful degrade if the RPC or table isn't migrated yet.
   let gallery: SwitcherGallery[] = [];
   if (events.length > 0) {
     try {
-      const { data: photoRows, error: photoErr } = await supabase
-        .from('papic_photos')
-        .select('event_id')
-        .in('event_id', events.map((e) => e.event_id));
+      const { data: countRows, error: countErr } = await supabase.rpc(
+        'current_user_gallery_counts',
+      );
 
-      if (!photoErr && photoRows) {
+      if (!countErr && countRows) {
         const countMap = new Map<string, number>();
-        for (const row of photoRows as Array<{ event_id: string }>) {
-          countMap.set(row.event_id, (countMap.get(row.event_id) ?? 0) + 1);
+        for (const row of countRows as Array<{ event_id: string; photo_count: number }>) {
+          countMap.set(row.event_id, row.photo_count);
         }
         gallery = events.map((ev) => ({
           event_id: ev.event_id,
@@ -203,7 +208,7 @@ export async function getSwitcherData(userId: string): Promise<SwitcherData> {
         }));
       }
     } catch {
-      // papic_photos may not exist yet — degrade to empty
+      // current_user_gallery_counts may not exist yet — degrade to empty
     }
   }
 

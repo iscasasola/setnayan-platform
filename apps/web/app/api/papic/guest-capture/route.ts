@@ -129,6 +129,19 @@ export async function POST(req: Request) {
     }
   }
 
+  // Optional dominant-face center (normalized 0..1) from the SAME on-device pass
+  // — Tier-2 auto-reframe. Parsed defensively; anything out of [0,1] is ignored.
+  let subjectCenterX: number | null = null;
+  let subjectCenterY: number | null = null;
+  {
+    const sx = Number(form.get('subject_center_x'));
+    const sy = Number(form.get('subject_center_y'));
+    if (Number.isFinite(sx) && Number.isFinite(sy) && sx >= 0 && sx <= 1 && sy >= 0 && sy <= 1) {
+      subjectCenterX = sx;
+      subjectCenterY = sy;
+    }
+  }
+
   const admin = createAdminClient();
 
   // UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
@@ -253,6 +266,20 @@ export async function POST(req: Request) {
       captureId = null;
     }
   }
+
+  // Persist the dominant-face center for Tier-2 auto-reframe (best-effort,
+  // additive; the Stories render falls back to a centered focal when absent).
+  if (captureId && subjectCenterX !== null && subjectCenterY !== null) {
+    try {
+      await admin
+        .from('papic_guest_captures')
+        .update({ subject_center_x: subjectCenterX, subject_center_y: subjectCenterY })
+        .eq('capture_id', captureId);
+    } catch {
+      // best-effort — never blocks the capture
+    }
+  }
+
   if (result.status === 'ok') {
     // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs
     // in the BACKGROUND with after() so the shutter stays instant. We already

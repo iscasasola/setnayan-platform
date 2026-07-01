@@ -6,6 +6,14 @@
  * Extracted from the server-rendered subscription page to enable
  * Capacitor detection (isNativeApp()) for mobile SRP pricing display.
  *
+ * COMBINED PURCHASE (2026-07-01 · owner "1 purchase for both")
+ *   An optional token-pack ADD-ON selector lets the vendor fold tokens into the
+ *   SAME plan order — one payment, one SUB- reference, one admin approval
+ *   activates the tier AND credits the tokens. The selection posts as a hidden
+ *   `addon_token_pack_sku` on whichever plan form the vendor submits; the DB RPC
+ *   re-reads the add-on price + count (never trusts the client). Standalone
+ *   top-ups still live in the Token packs card below.
+ *
  * MOBILE CHANNEL PRICING (SRP)
  *   Pro:        ₱9,000/28d  · ₱90,000/yr   (1.5× web)
  *   Enterprise: ₱15,000/28d · ₱150,000/yr  (1.5× web)
@@ -24,6 +32,7 @@ import { Check } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebNudgeBanner } from '@/app/vendor-dashboard/_components/web-nudge-banner';
 import { isNativeApp } from '@/lib/capacitor';
+import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 import { startSubscriptionPurchase } from '../actions';
 
 const MOBILE_SRP_MULTIPLIER = 1.5;
@@ -58,15 +67,29 @@ function mobileSrp(webPrice: number): number {
 export function SubscriptionCards({
   cards,
   cycle,
+  packs = [],
 }: {
   cards: SubscriptionCardData[];
   cycle: 'monthly' | 'annual';
+  /** Token packs available to fold into a plan order as an optional add-on. */
+  packs?: TokenPack[];
 }) {
   const [native, setNative] = useState(false);
+  // '' = no add-on. The selection applies to whichever plan card is submitted.
+  const [addonSku, setAddonSku] = useState('');
 
   useEffect(() => {
     setNative(isNativeApp());
   }, []);
+
+  const addonPack = packs.find((p) => p.sku_code === addonSku) ?? null;
+  // Keep the add-on's displayed price on the same basis as the plan headline
+  // (native shows SRP). Display-only — the DB re-prices from the catalog.
+  const addonDisplayPrice = addonPack
+    ? native
+      ? Math.round(addonPack.price_php * MOBILE_SRP_MULTIPLIER)
+      : addonPack.price_php
+    : 0;
 
   return (
     <>
@@ -77,6 +100,41 @@ export function SubscriptionCards({
           webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}
+
+      {packs.length > 0 && (
+        <div
+          className="mb-4 rounded-xl border p-4"
+          style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+        >
+          <label className="block space-y-1">
+            <span className="block text-[11px] font-medium text-ink/70">
+              Add tokens to this order (optional)
+            </span>
+            <select
+              value={addonSku}
+              onChange={(e) => setAddonSku(e.target.value)}
+              className="input-field cursor-pointer text-sm"
+            >
+              <option value="">No tokens — plan only</option>
+              {packs.map((p) => (
+                <option key={p.sku_code} value={p.sku_code}>
+                  {NUMBER.format(p.token_count)} tokens · ₱
+                  {NUMBER.format(
+                    native
+                      ? Math.round(p.price_php * MOBILE_SRP_MULTIPLIER)
+                      : p.price_php,
+                  )}
+                </option>
+              ))}
+            </select>
+            <span className="block text-[11px] text-ink/50">
+              Bought together with your plan — one payment, one reference code.
+              Purchased tokens never expire.
+            </span>
+          </label>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {cards.map((card) => {
           const webPrice = card.price;
@@ -87,6 +145,12 @@ export function SubscriptionCards({
           // (÷4 wk); annual ÷ 365 (÷52 wk).
           const perDay = Math.round(displayPrice / (cycle === 'monthly' ? 28 : 365));
           const perWeek = Math.round(displayPrice / (cycle === 'monthly' ? 4 : 52));
+          const orderTotal = displayPrice + addonDisplayPrice;
+          const baseLabel = card.isPaid
+            ? card.isCurrent
+              ? 'Renew this plan'
+              : `Switch to ${TIER_NAME[card.tier]}`
+            : `Upgrade to ${TIER_NAME[card.tier]}`;
           return (
             <section
               key={card.sku}
@@ -150,17 +214,36 @@ export function SubscriptionCards({
                 ))}
               </ul>
 
+              {addonPack && (
+                <div
+                  className="mt-4 flex items-center justify-between gap-2 rounded-md border-l-2 px-3 py-2 text-xs"
+                  style={{
+                    borderColor: 'var(--m-orange)',
+                    background: 'rgba(201, 107, 58, 0.04)',
+                    color: 'var(--m-ink)',
+                  }}
+                >
+                  <span>
+                    ＋ {NUMBER.format(addonPack.token_count)} tokens
+                  </span>
+                  <span className="font-medium">
+                    You pay ₱{NUMBER.format(orderTotal)}
+                  </span>
+                </div>
+              )}
+
               <form action={startSubscriptionPurchase} className="mt-5">
                 <input type="hidden" name="sku_code" value={card.sku} />
+                <input
+                  type="hidden"
+                  name="addon_token_pack_sku"
+                  value={addonSku}
+                />
                 <SubmitButton
                   className="button-primary w-full"
                   pendingLabel="Starting…"
                 >
-                  {card.isPaid
-                    ? card.isCurrent
-                      ? 'Renew this plan'
-                      : `Switch to ${TIER_NAME[card.tier]}`
-                    : `Upgrade to ${TIER_NAME[card.tier]}`}
+                  {addonPack ? `${baseLabel} · pay ₱${NUMBER.format(orderTotal)}` : baseLabel}
                 </SubmitButton>
               </form>
             </section>

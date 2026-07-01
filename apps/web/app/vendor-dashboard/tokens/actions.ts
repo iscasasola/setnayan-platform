@@ -31,8 +31,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { notifyAdminsTokenPurchasePending } from '@/lib/token-purchase-notify';
 
+// Token purchases now land on the unified Plan & tokens hub
+// (/vendor-dashboard/subscription); /vendor-dashboard/tokens redirects there.
 const ERR = (msg: string) =>
-  redirect('/vendor-dashboard/tokens?error=' + encodeURIComponent(msg));
+  redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
 
 /**
  * Begin a token-pack purchase. Form field:
@@ -100,8 +102,8 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
     await notifyAdminsTokenPurchasePending(purchaseId);
   }
 
-  revalidatePath('/vendor-dashboard/tokens');
+  revalidatePath('/vendor-dashboard/subscription');
   redirect(
-    '/vendor-dashboard/tokens?ordered=' + encodeURIComponent(ref ?? ''),
+    '/vendor-dashboard/subscription?ordered=' + encodeURIComponent(ref ?? ''),
   );
 }

@@ -119,11 +119,19 @@ const sourceSans = Source_Sans_3({
 // Monogram display faces — the couple's onboarding monogram renders in its
 // EXACT chosen face in the dashboard chrome (event switcher + profile avatar),
 // matching the onboarding medallion. Owner-locked 2026-06-03 ("yes exact font").
+// preload: false on all seven monogram/script faces below — they render ONLY in
+// the Monogram Maker + monogram chrome, never on the marketing homepage or any
+// public page, yet next/font was emitting a <link rel=preload as=font> for each
+// into EVERY page's <head>. `preload:false` keeps them fully functional (loaded
+// on demand when a monogram surface mounts, display:swap covers the swap) while
+// removing ~7 wasted font preloads from the first-paint path site-wide.
+// (Perf sweep 2026-07-02, findings #5/#11/#12/#14.)
 const cinzel = Cinzel({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '600'],
   variable: '--font-cinzel',
+  preload: false,
 });
 
 const playfairDisplay = Playfair_Display({
@@ -132,6 +140,7 @@ const playfairDisplay = Playfair_Display({
   weight: ['400', '600'],
   style: ['normal', 'italic'],
   variable: '--font-playfair',
+  preload: false,
 });
 
 const greatVibes = Great_Vibes({
@@ -139,6 +148,7 @@ const greatVibes = Great_Vibes({
   display: 'swap',
   weight: '400',
   variable: '--font-script',
+  preload: false,
 });
 
 // Monogram typeface expansion — owner picks 2026-06-11 (font specimen session):
@@ -150,6 +160,7 @@ const libreCaslon = Libre_Caslon_Display({
   display: 'swap',
   weight: '400',
   variable: '--font-libre-caslon',
+  preload: false,
 });
 
 const tangerine = Tangerine({
@@ -157,6 +168,7 @@ const tangerine = Tangerine({
   display: 'swap',
   weight: ['400', '700'],
   variable: '--font-tangerine',
+  preload: false,
 });
 
 const luxuriousScript = Luxurious_Script({
@@ -164,6 +176,7 @@ const luxuriousScript = Luxurious_Script({
   display: 'swap',
   weight: '400',
   variable: '--font-luxurious',
+  preload: false,
 });
 
 const vidaloka = Vidaloka({
@@ -171,6 +184,7 @@ const vidaloka = Vidaloka({
   display: 'swap',
   weight: '400',
   variable: '--font-vidaloka',
+  preload: false,
 });
 
 // v2.1 marketing typography (Setnayan Vendor Keynote template package · CLAUDE.md
@@ -438,18 +452,16 @@ export default async function RootLayout({
   const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
 
-  // Admin-controlled brand mark for the in-app <Logo>/<LogoMark> (owner
-  // 2026-06-10). Cached read (deduped with generateMetadata's call) → null when
-  // no admin icon is set, so BrandProvider uses the built-in gold default.
-  const brandMarkUrl = resolveBrandMarkUrl(await getBrandSettings());
-
-  // Nav/icon/menu-registry slot map for the public marketing nav (the LAST
-  // doorway to wire — customer/vendor/admin already consume the registry). The
-  // marketing nav is label-only, so SiteChrome overlays public.site-nav.*
-  // labels onto its in-code links. Cached read (unstable_cache + NAV_REGISTRY_TAG)
-  // shared with the dashboard layouts; fails open to code defaults so the public
-  // nav always renders even if the override table is unreachable.
-  const navSlots = await getNavSlotMap();
+  // Two independent cached reads that gate EVERY page's render — resolve them
+  // concurrently so a cold cache / post-revalidate request doesn't pay two
+  // serial Singapore round-trips in the global layout. (Perf sweep 2026-07-02,
+  // findings #15/#30.)
+  //   • brand mark for the in-app <Logo>/<LogoMark> (owner 2026-06-10; deduped
+  //     with generateMetadata's call, null → built-in gold default).
+  //   • nav/icon/menu-registry slot map for the public marketing nav (label-only;
+  //     SiteChrome overlays public.site-nav.* labels; fails open to code defaults).
+  const [brandSettings, navSlots] = await Promise.all([getBrandSettings(), getNavSlotMap()]);
+  const brandMarkUrl = resolveBrandMarkUrl(brandSettings);
 
   return (
     <html
@@ -489,9 +501,13 @@ export default async function RootLayout({
         ) : null}
         {posthogOrigin ? (
           <>
-            <link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
+            {/* PostHog is consent-gated and never loads until the visitor
+                accepts analytics cookies, so a speculative preconnect (DNS+TCP+
+                TLS) just burns one of the browser's limited early connections
+                for a request most first-time visitors never make. Keep only the
+                cheap dns-prefetch; the provider opens the real connection after
+                consent. (Perf sweep 2026-07-02, finding #32.) */}
             <link rel="dns-prefetch" href={posthogOrigin} />
-          </>
         ) : null}
         {r2Origin ? (
           <>

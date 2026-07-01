@@ -1391,9 +1391,15 @@ html[data-sn-boot] #sn-init-splash {
   justify-content: center;
   background: var(--m-paper, #fbfbfa);
   opacity: 1;
+  /* aria-hidden decoration — never intercept clicks, so a slow-hydration or
+     stuck splash can't freeze the app shell beneath it. (Perf sweep 2026-07-02,
+     finding #21.) */
+  pointer-events: none;
   transition: opacity 0.45s ease;
-  /* No-JS / stuck failsafe — fade out after 4s even if AppInitSplash never runs. */
-  animation: sn-boot-failsafe 0.45s ease 4s forwards;
+  /* No-JS / stuck failsafe — fade out after 1.5s even if AppInitSplash never
+     runs (was 4s). The JS fade normally completes by ~1.25s, so 1.5s is a tight
+     backstop that no longer leaves an opaque layer sitting for 4 seconds. */
+  animation: sn-boot-failsafe 0.45s ease 1.5s forwards;
 }
 html[data-sn-boot] #sn-init-splash.sn-boot-done {
   opacity: 0;

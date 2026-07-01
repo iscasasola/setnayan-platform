@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
@@ -38,11 +39,17 @@ export function canManageVendor(role: VendorTeamRole | null | undefined): boolea
  * `vendor_profiles` row but has no membership row (pre-seed trigger) is treated
  * as 'admin' (the store creator is the founding admin in the multi-admin org
  * model). Returns null if the user has no vendor relationship.
+ *
+ * Wrapped in React `cache()` (2026-07-01 perf): the vendor layout AND the page
+ * it renders both resolve the role in the SAME request. Because the server
+ * `createClient()` is itself request-cached, both call sites pass the identical
+ * client reference — so `cache()` keyed on `(supabase, userId)` collapses the
+ * two calls into a single set of DB reads instead of running the queries twice.
  */
-export async function resolveVendorRole(
+export const resolveVendorRole = cache(async (
   supabase: SupabaseClient,
   userId: string,
-): Promise<VendorTeamRole | null> {
+): Promise<VendorTeamRole | null> => {
   const { data: memberships } = await supabase
     .from('vendor_team_members')
     .select('role')
@@ -61,7 +68,7 @@ export async function resolveVendorRole(
     .eq('user_id', userId)
     .maybeSingle();
   return owned ? 'admin' : null;
-}
+});
 
 /**
  * Nav item keys an agent/viewer may see. Owner/admin always see the full nav.

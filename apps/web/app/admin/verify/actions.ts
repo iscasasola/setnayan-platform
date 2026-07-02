@@ -691,3 +691,36 @@ export async function setApplicationInReview(formData: FormData) {
   revalidatePath('/admin/verify');
   redirect('/admin/verify?in_review=1&status=in_review');
 }
+
+/**
+ * Marks the vendor's "VALIDATE <shop name>" email or text as RECEIVED on a
+ * verification application (redesigned My Shop verification, owner 2026-07-02).
+ *
+ * Calls the admin-only SECURITY DEFINER RPC mark_vendor_contact_confirmed
+ * (migration 20270503417266) with the ADMIN'S OWN session client — never the
+ * service-role client — so auth.uid() resolves for both the is_admin() guard
+ * and the _confirmed_by attribution. Idempotent server-side (first stamp wins).
+ */
+export async function markVendorContactConfirmed(formData: FormData) {
+  await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const channel = readFormString(formData, 'channel');
+  if (!applicationId) throw new Error('Missing application_id.');
+  if (channel !== 'email' && channel !== 'phone') {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent('Unknown contact channel.')}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('mark_vendor_contact_confirmed', {
+    p_application_id: applicationId,
+    p_channel: channel,
+  });
+  if (error) {
+    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?contact_marked=1');
+}

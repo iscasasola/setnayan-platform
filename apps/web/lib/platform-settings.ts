@@ -95,6 +95,55 @@ export async function fetchPlatformSettings(
   return data as PlatformSettingsRow;
 }
 
+// ---------------------------------------------------------------------------
+// Vendor VALIDATE contact destinations (migration 20270503417266)
+//
+// Where vendors send their "VALIDATE <shop name>" email/text during
+// verification. Kept OUT of the main PlatformSettingsRow SELECT on purpose:
+// adding new columns there makes the whole fetch fall back to FALLBACK on a
+// pre-migration database (42703), degrading receipts/brand/payment surfaces
+// that have nothing to do with verification. Instead this is a separate soft
+// probe that degrades to the defaults on ANY error.
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_VENDOR_VALIDATE_EMAIL = 'verify@setnayan.com';
+
+export type VendorValidateContacts = {
+  /** Inbox the vendor emails "VALIDATE <shop name>" to. */
+  vendor_validate_email: string;
+  /** Number the vendor texts "VALIDATE <shop name>" to. NULL = coming soon. */
+  vendor_validate_phone: string | null;
+};
+
+export async function fetchVendorValidateContacts(
+  supabase: SupabaseClient,
+): Promise<VendorValidateContacts> {
+  try {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('vendor_validate_email,vendor_validate_phone')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error || !data) {
+      return {
+        vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
+        vendor_validate_phone: null,
+      };
+    }
+    const row = data as Partial<VendorValidateContacts>;
+    return {
+      vendor_validate_email:
+        row.vendor_validate_email?.trim() || DEFAULT_VENDOR_VALIDATE_EMAIL,
+      vendor_validate_phone: row.vendor_validate_phone?.trim() || null,
+    };
+  } catch {
+    return {
+      vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
+      vendor_validate_phone: null,
+    };
+  }
+}
+
 export function hasMerchantPaymentInfo(s: PlatformSettingsRow): boolean {
   return Boolean(
     s.bdo_account_number?.trim() ||

@@ -13,7 +13,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
+import {
+  fetchPlatformSettings,
+  fetchVendorValidateContacts,
+} from '@/lib/platform-settings';
 import { removeBrandIcon, saveAdminDigest, saveBusinessIdentity } from './actions';
 import { TinInput } from './_components/tin-input';
 import { BrandIconUploadForm } from './_components/brand-icon-form';
@@ -52,6 +55,8 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
+  // Soft probe (degrades to defaults pre-migration 20270503417266).
+  const validateContacts = await fetchVendorValidateContacts(admin);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -164,6 +169,34 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
               step={1}
               required
               defaultValue={settings.repost_watch_hamming_threshold}
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Vendor VALIDATE email"
+            htmlFor="vendor_validate_email"
+            help='Setnayan-owned inbox vendors email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
+          >
+            <input
+              id="vendor_validate_email"
+              name="vendor_validate_email"
+              type="email"
+              required
+              defaultValue={validateContacts.vendor_validate_email}
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Vendor VALIDATE mobile number"
+            htmlFor="vendor_validate_phone"
+            help='Setnayan-owned number vendors text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to vendors until one exists.'
+          >
+            <input
+              id="vendor_validate_phone"
+              name="vendor_validate_phone"
+              type="tel"
+              defaultValue={validateContacts.vendor_validate_phone ?? ''}
+              placeholder="09XX XXX XXXX"
               className="input-field"
             />
           </Field>

@@ -13,6 +13,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorCoverageCategories } from '@/lib/vendor-couple-invite';
+import { fetchVendorServices } from '@/lib/vendor-services';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
@@ -39,14 +40,23 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (!profile) redirect('/vendor-dashboard');
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
 
-  // Service must be a real VendorCategory the vendor actually covers.
+  // Service picker is now the vendor's own leaf offerings (vendor_services,
+  // DB-driven). The option value is a vendor_service_id, or a VendorCategory key
+  // for the no-published-services fallback. Resolve either back to the coarse
+  // category (required for event_vendors) and record the leaf id when present.
   const { data: profRow } = await supabase
     .from('vendor_profiles')
     .select('services')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   const coverage = vendorCoverageCategories(((profRow?.services ?? []) as string[]) ?? []);
-  const category = String(formData.get('category') ?? '').trim();
+  const serviceRef = String(formData.get('service_ref') ?? '').trim();
+  const activeServices = (await fetchVendorServices(supabase, vendorProfileId).catch(() => [])).filter(
+    (s) => s.is_active,
+  );
+  const matchedService = activeServices.find((s) => s.vendor_service_id === serviceRef) ?? null;
+  const category = matchedService ? matchedService.category : serviceRef;
+  const vendorServiceId = matchedService ? matchedService.vendor_service_id : null;
   if (
     !VENDOR_CATEGORIES.includes(category as VendorCategory) ||
     !coverage.includes(category as VendorCategory)
@@ -58,6 +68,17 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const rawEt = String(formData.get('event_type') ?? '').trim();
   const eventTypes = await getCreatableEventTypes();
   const eventType = rawEt && eventTypes.some((t) => t.key === rawEt) ? rawEt : null;
+
+  // Owner 2026-07: a Locked QR must carry WHAT the couple availed + the AGREED
+  // wedding date. Both required at issue (legacy tokens predate them).
+  const serviceDescription = String(formData.get('service_description') ?? '').trim();
+  if (serviceDescription.length === 0) fail('description');
+  const rawDate = String(formData.get('event_date') ?? '').trim();
+  const eventDate =
+    /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !Number.isNaN(Date.parse(rawDate))
+      ? rawDate
+      : null;
+  if (!eventDate) fail('event_date');
 
   const totalPhp = toAmount(formData.get('total_php'));
   const initialPaid = toAmount(formData.get('initial_paid_php')) ?? 0;
@@ -77,6 +98,9 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       created_by_user_id: user.id,
       event_type: eventType,
       category,
+      vendor_service_id: vendorServiceId,
+      service_description: serviceDescription,
+      event_date: eventDate,
       total_php: totalPhp,
       initial_paid_php: initialPaid,
       schedule_json: schedule,

@@ -40,6 +40,7 @@ import {
   vendorCoverageCategories,
 } from '@/lib/vendor-couple-invite';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { fetchVendorServices } from '@/lib/vendor-services';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -120,6 +121,7 @@ type ShopData = {
   branchLocations: number;
   recommendedByShops: number;
   coverage: VendorCategory[];
+  serviceOptions: { value: string; label: string }[];
   team: TeamMember[];
 };
 
@@ -210,6 +212,19 @@ async function loadShopData(): Promise<ShopData | null> {
     enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
   }
 
+  // Locked-QR service picker = the vendor's own leaf offerings (DB-driven), with
+  // a coverage-category fallback for vendors who haven't published services yet.
+  const coverage = vendorCoverageCategories((profile.services ?? []) as string[]);
+  const activeServices = (
+    await fetchVendorServices(supabase, vendorId).catch(() => [])
+  ).filter((s) => s.is_active);
+  const serviceOptions = activeServices.length
+    ? activeServices.map((s) => ({
+        value: s.vendor_service_id,
+        label: s.title ?? VENDOR_CATEGORY_LABEL[s.category as VendorCategory] ?? s.category,
+      }))
+    : coverage.map((c) => ({ value: c as string, label: VENDOR_CATEGORY_LABEL[c] ?? c }));
+
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -232,7 +247,8 @@ async function loadShopData(): Promise<ShopData | null> {
     teamMembers: team.length,
     branchLocations: 1 + activeBranches,
     recommendedByShops: partnershipsRes,
-    coverage: vendorCoverageCategories((profile.services ?? []) as string[]),
+    coverage,
+    serviceOptions,
     team: enrichedTeam,
   };
 }
@@ -327,10 +343,7 @@ export default async function VendorShopPage({
     lockedBody = (
       <LockedBody
         eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))}
-        coverage={data.coverage.map((c) => ({
-          value: c,
-          label: VENDOR_CATEGORY_LABEL[c] ?? c,
-        }))}
+        services={data.serviceOptions}
       />
     );
   } else {
@@ -884,10 +897,10 @@ function ShortlistBody({
 
 function LockedBody({
   eventTypes,
-  coverage,
+  services,
 }: {
   eventTypes: { value: string; label: string }[];
-  coverage: { value: string; label: string }[];
+  services: { value: string; label: string }[];
 }) {
   return (
     <div className="space-y-3">
@@ -895,7 +908,7 @@ function LockedBody({
         Lock one customer to a plan and downpayment. Scanning freezes the deal
         onto their event.
       </p>
-      <LockedQrGenerator eventTypes={eventTypes} coverage={coverage} />
+      <LockedQrGenerator eventTypes={eventTypes} services={services} />
       <Link
         href="/vendor-dashboard/locked-qr"
         className="inline-block text-sm font-medium text-terracotta hover:underline"

@@ -61,7 +61,7 @@ export default async function PapicDemoJoinPage({ params }: Props) {
 
   return (
     <Shell>
-      <DemoJoinFlow sessionId={resolved.sessionId} role={resolved.role} />
+      <DemoJoinFlow sessionId={resolved.sessionId} role={resolved.role} token={cleanToken} />
     </Shell>
   );
 }

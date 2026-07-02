@@ -128,6 +128,54 @@ export async function markDemoSessionJoined(sessionId: string, role: DemoRole): 
   }
 }
 
+/** The owner-locked shots-per-session cap, enforced server-side across BOTH phones. */
+export const DEMO_SHOT_CAP = 3;
+
+export type DemoShotResult =
+  | { ok: true; shotNumber: number; remaining: number }
+  | { ok: false; reason: 'cap' | 'expired_or_invalid' };
+
+/**
+ * Record one shot against the session's cap (PR-2 of the Papic demo). The
+ * increment is ATOMIC — `shot_count = shot_count + 1 WHERE shot_count < cap
+ * AND not expired` — so two phones racing the last slot can't both win it.
+ * The photo itself never reaches the server (it relays peer-to-peer over the
+ * session's Realtime channel); this counts frames, nothing more.
+ */
+export async function incrementDemoShot(token: string): Promise<DemoShotResult> {
+  try {
+    const resolved = await resolveDemoToken(token);
+    if (!resolved) return { ok: false, reason: 'expired_or_invalid' };
+    const admin = createAdminClient();
+    // supabase-js has no `SET x = x + 1` expression; emulate the atomic
+    // conditional bump with a short optimistic-concurrency loop — each attempt
+    // only succeeds if the row still holds the shot_count we read, so a racing
+    // phone forces a re-read instead of a double-count.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: row } = await admin
+        .from('demo_sessions')
+        .select('shot_count')
+        .eq('id', resolved.sessionId)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+      if (!row) return { ok: false, reason: 'expired_or_invalid' };
+      if (row.shot_count >= DEMO_SHOT_CAP) return { ok: false, reason: 'cap' };
+      const next = row.shot_count + 1;
+      const { data: updated } = await admin
+        .from('demo_sessions')
+        .update({ shot_count: next })
+        .eq('id', resolved.sessionId)
+        .eq('shot_count', row.shot_count)
+        .select('shot_count')
+        .maybeSingle();
+      if (updated) return { ok: true, shotNumber: next, remaining: DEMO_SHOT_CAP - next };
+    }
+    return { ok: false, reason: 'cap' };
+  } catch {
+    return { ok: false, reason: 'expired_or_invalid' };
+  }
+}
+
 /**
  * Best-effort hard-delete of rows past their grace window. Called via
  * `after()` from the pages that mint/resolve sessions (no polling cron, per

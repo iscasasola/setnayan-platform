@@ -3,11 +3,13 @@
 import { after } from 'next/server';
 import {
   createDemoSession,
+  incrementDemoShot,
   markDemoSessionJoined,
   purgeExpiredDemoSessions,
   resolveDemoToken,
   type DemoKind,
   type DemoRole,
+  type DemoShotResult,
 } from '@/lib/demo-sessions';
 import { renderUrlQrSvg } from '@/lib/qr';
 
@@ -55,4 +57,16 @@ export async function joinDemoSession(token: string): Promise<JoinDemoResult> {
   if (!resolved) return { ok: false, reason: 'expired_or_invalid' };
   await markDemoSessionJoined(resolved.sessionId, resolved.role);
   return { ok: true, sessionId: resolved.sessionId, demoKind: resolved.demoKind, role: resolved.role };
+}
+
+/**
+ * Record one shot against the session's 3-per-session cap (PR-2). Token-gated
+ * exactly like joining — only a phone holding a live QR token can count a
+ * shot. The frame itself never reaches the server (peer-to-peer relay only).
+ */
+export async function recordDemoShot(token: string): Promise<DemoShotResult> {
+  const clean = token?.trim();
+  const result = clean ? await incrementDemoShot(clean) : ({ ok: false, reason: 'expired_or_invalid' } as const);
+  after(() => purgeExpiredDemoSessions());
+  return result;
 }

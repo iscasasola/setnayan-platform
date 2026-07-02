@@ -232,6 +232,7 @@ export async function createVendorService(formData: FormData) {
   let category: VendorCategory;
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
+  let base_pax: number | null = null;
   let crew_size: number | null;
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
@@ -246,6 +247,9 @@ export async function createVendorService(formData: FormData) {
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     // Optional per-added-guest surcharge (Adaptive Pax Pricing); blank = none.
     added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
+    // Base pax the starting price covers (CHECK > 0 or NULL); pairs with above.
+    const basePaxParsed = parseInt0OrNull(formData.get('base_pax'));
+    base_pax = basePaxParsed && basePaxParsed > 0 ? basePaxParsed : null;
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
     recommended_lead_time_months = parseLeadTimeMonthsOrNull(
@@ -349,6 +353,7 @@ export async function createVendorService(formData: FormData) {
     title,
     starting_price_php,
     added_pax_price_php,
+    base_pax,
     crew_size,
     crew_meal_required,
     branch_id,
@@ -419,6 +424,7 @@ export async function updateVendorService(formData: FormData) {
 
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
+  let base_pax: number | null = null;
   let crew_size: number | null;
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
@@ -431,6 +437,9 @@ export async function updateVendorService(formData: FormData) {
   try {
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
+    // Base pax the starting price covers (CHECK > 0 or NULL); pairs with above.
+    const basePaxParsed = parseInt0OrNull(formData.get('base_pax'));
+    base_pax = basePaxParsed && basePaxParsed > 0 ? basePaxParsed : null;
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
     recommended_lead_time_months = parseLeadTimeMonthsOrNull(
@@ -479,6 +488,7 @@ export async function updateVendorService(formData: FormData) {
     .update({
       starting_price_php,
       added_pax_price_php,
+      base_pax,
       crew_size,
       crew_meal_required,
       branch_id,

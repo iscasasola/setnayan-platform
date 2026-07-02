@@ -1,9 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import {
-  ArrowRight,
   Building2,
   ChevronDown,
   Globe,
@@ -13,14 +11,15 @@ import {
 
 import { Collapsible } from './collapsible';
 
-type ToolKey = 'website' | 'team' | 'branch';
+type ToolKey = 'profile' | 'website' | 'team' | 'branch';
 
 /**
- * Manage grid for My Shop. Profile is the ONLY tile that navigates (owner
- * rule 2026-07); Website, Team, and Branch each expand their function INLINE
- * via the shared Collapsible primitive — one open at a time, animated. The
- * panel bodies are rendered on the server (real data + server-action forms)
- * and handed in as props; this client component only owns which is open.
+ * Manage grid for My Shop. Every tile expands its function INLINE via the
+ * shared Collapsible primitive — one open at a time, animated (owner
+ * 2026-07-02: Profile joined Website / Team / Branch as inline; it no longer
+ * navigates out). The panel bodies are rendered on the server (real data +
+ * server-action forms) and handed in as props; this client component only
+ * owns which is open.
  */
 export function ManageTiles({
   completionPct,
@@ -28,6 +27,7 @@ export function ManageTiles({
   websiteLive,
   teamLabel,
   branchLabel,
+  profilePanel,
   websitePanel,
   teamPanel,
   branchPanel,
@@ -37,6 +37,7 @@ export function ManageTiles({
   websiteLive: boolean;
   teamLabel: string;
   branchLabel: string;
+  profilePanel: React.ReactNode;
   websitePanel: React.ReactNode;
   teamPanel: React.ReactNode;
   branchPanel: React.ReactNode;
@@ -51,38 +52,15 @@ export function ManageTiles({
       </h2>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* Profile — the one link out */}
-        <Link
-          href="/vendor-dashboard/profile"
-          className="group flex flex-col rounded-xl border bg-white p-4 transition-colors hover:border-[color:var(--m-orange-3)]"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <ChipIcon>
-              <ShieldCheck className="h-5 w-5" strokeWidth={1.75} />
-            </ChipIcon>
-            <ArrowRight
-              aria-hidden
-              className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5"
-              strokeWidth={1.75}
-              style={{ color: 'var(--m-slate-4)' }}
-            />
-          </div>
-          <p className="text-xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
-            {completionPct}%
-          </p>
-          <p className="mt-0.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-            Profile
-          </p>
-          <p
-            className="inline-flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--m-orange-2)' }}
-          >
-            {verifyLabel}
-            <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
-          </p>
-        </Link>
-
+        <ToolTile
+          icon={<ShieldCheck className="h-5 w-5" strokeWidth={1.75} />}
+          value={`${completionPct}%`}
+          label="Profile"
+          sub={verifyLabel}
+          subEmphasis
+          isOpen={open === 'profile'}
+          onToggle={() => toggle('profile')}
+        />
         <ToolTile
           icon={<Globe className="h-5 w-5" strokeWidth={1.75} />}
           value={websiteLive ? 'Live' : 'Draft'}
@@ -110,6 +88,9 @@ export function ManageTiles({
       </div>
 
       {/* Inline panels — one shared region below the grid, each animated. */}
+      <Collapsible open={open === 'profile'}>
+        <PanelShell>{profilePanel}</PanelShell>
+      </Collapsible>
       <Collapsible open={open === 'website'}>
         <PanelShell>{websitePanel}</PanelShell>
       </Collapsible>
@@ -128,6 +109,7 @@ function ToolTile({
   value,
   label,
   sub,
+  subEmphasis = false,
   isOpen,
   onToggle,
 }: {
@@ -135,6 +117,8 @@ function ToolTile({
   value: string;
   label: string;
   sub: string;
+  /** Render the sub-line as an orange status (e.g. "1 doc to verify"). */
+  subEmphasis?: boolean;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -164,7 +148,13 @@ function ToolTile({
       <p className="mt-0.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
         {label}
       </p>
-      <p className="truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+      <p
+        className="truncate text-xs"
+        style={{
+          color: subEmphasis ? 'var(--m-orange-2)' : 'var(--m-slate-3)',
+          fontWeight: subEmphasis ? 500 : undefined,
+        }}
+      >
         {sub}
       </p>
     </button>

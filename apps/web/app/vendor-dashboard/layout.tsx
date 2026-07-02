@@ -12,6 +12,8 @@ import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { VendorSidebar, VendorSidebarFooter } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { VendorNavFab } from './_components/vendor-nav-fab';
@@ -37,20 +39,6 @@ import { ServerTimer } from '@/lib/server-timing';
  * AccountSwitcher owns identity + event switching + cross-console hopping
  * on all three doorways, consistent with the customer doorway.
  */
-/**
- * Up to two uppercase initials from a business/display name for the identity
- * card avatar (e.g. "Silverlens Studio" → "SS", "Aperture" → "AP"). Falls back
- * to the first two letters of a single-word name, or "SN" when empty.
- */
-function deriveInitials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'SN';
-  if (words.length === 1) {
-    return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
-  }
-  return (words[0]![0]! + words[1]![0]!).toUpperCase();
-}
-
 export default async function VendorDashboardLayout({
   children,
 }: {
@@ -172,6 +160,12 @@ export default async function VendorDashboardLayout({
     vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Vendor';
   const vendorInitials = deriveInitials(vendorSidebarName);
   const vendorIsVerified = vendorProfile?.public_visibility === 'verified';
+  // Identity-card avatar shows the uploaded logo when present (owner
+  // 2026-07-02), initials otherwise. Presign is local crypto (no network);
+  // best-effort — a hiccup just falls back to initials.
+  const vendorLogoUrl = vendorProfile?.logo_url
+    ? await displayUrlForStoredAsset(vendorProfile.logo_url).catch(() => null)
+    : null;
   const vendorTier = tierWallet.tier;
   const vendorTokenBalance = tierWallet.tokenBalance;
 
@@ -267,6 +261,7 @@ export default async function VendorDashboardLayout({
             navSlots={navSlots}
             displayName={vendorSidebarName}
             initials={vendorInitials}
+            logoUrl={vendorLogoUrl}
             isVerified={vendorIsVerified}
           />
         }

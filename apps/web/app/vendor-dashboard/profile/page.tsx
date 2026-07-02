@@ -8,7 +8,6 @@ import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import {
   fetchOwnVendorProfile,
   fetchVendorCompletedEventStats,
-  fetchHasBusinessDocuments,
   businessProfileChecklist,
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
@@ -413,13 +412,10 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     expVerifiedAt,
   } = loaderState;
   // Required Business Profile (vendor onboarding · owner 2026-06-28) — the 8
-  // fields a vendor must complete to be published/listed. The documents item
-  // lives in a separate table (verification flow), fetched here.
-  const bpSupabase = await createClient();
-  const hasDocuments = profile
-    ? await fetchHasBusinessDocuments(bpSupabase, profile.vendor_profile_id)
-    : false;
-  const completion = businessProfileChecklist(profile, { hasDocuments });
+  // identity fields a vendor must complete to be published/listed. Verification
+  // documents no longer gate publication (2026-07-03) — they live in the My
+  // Shop "Get verified" section and gate only the badge.
+  const completion = businessProfileChecklist(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
 
   // Live admin-taxonomy DISPLAY labels + tradition/specialty leaves for the
@@ -557,15 +553,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               ) : (
                 <AlertTriangle aria-hidden className="h-3.5 w-3.5 text-warn-900" strokeWidth={2} />
               )}
-              {item.surface === 'documents' && !item.ok ? (
-                <Link href="/vendor-dashboard/verify" className="underline hover:no-underline">
-                  {item.label}
-                </Link>
-              ) : (
-                <span className={item.ok ? 'line-through opacity-70' : 'font-medium'}>
-                  {item.label}
-                </span>
-              )}
+              <span className={item.ok ? 'line-through opacity-70' : 'font-medium'}>
+                {item.label}
+              </span>
             </li>
           ))}
         </ul>

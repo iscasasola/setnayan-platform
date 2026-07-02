@@ -11,7 +11,6 @@ import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
   BUSINESS_PROFILE_LABELS,
-  fetchHasBusinessDocuments,
   fetchOwnVendorProfile,
 } from '@/lib/vendor-profile';
 import { geocodeNominatim } from '@/lib/geo';
@@ -370,23 +369,17 @@ export async function saveVendorProfile(formData: FormData) {
   };
 
   // Business Profile publish gate (vendor onboarding · owner 2026-06-28; Logo
-  // added + relabelled 2026-07-02): a vendor can only go LIVE once their
-  // Business Profile is complete (the 9 required fields incl. logo + uploaded
-  // documents). If they tick "publish" while incomplete, we still save their
+  // added + relabelled 2026-07-02; documents REMOVED 2026-07-03): a vendor can
+  // go LIVE once the 8 identity fields are complete. Verification documents no
+  // longer gate publication — they moved to the My Shop "Get verified" section
+  // and gate only the verified BADGE (owner-approved redesign: "profile
+  // complete → couples can find and contact you; get verified to earn the
+  // badge"). If they tick "publish" while incomplete, we still save their
   // edits but keep them unpublished and tell them what's missing — never
   // silently publish a half-built profile. Labels come from the shared
   // BUSINESS_PROFILE_LABELS so this gate and the completion card never drift.
   let publishBlockedMissing: string[] = [];
   if (payload.is_published) {
-    const { data: idRow } = await supabase
-      .from('vendor_profiles')
-      .select('vendor_profile_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const vendorProfileId = (idRow as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
-    const hasDocuments = vendorProfileId
-      ? await fetchHasBusinessDocuments(supabase, vendorProfileId)
-      : false;
     const missing: string[] = [];
     if (!payload.logo_url) missing.push(BUSINESS_PROFILE_LABELS.logo);
     if (!payload.business_name) missing.push(BUSINESS_PROFILE_LABELS.business_name);
@@ -396,7 +389,6 @@ export async function saveVendorProfile(formData: FormData) {
     if (!payload.contact_email) missing.push(BUSINESS_PROFILE_LABELS.contact_email);
     if (payload.services.length === 0) missing.push(BUSINESS_PROFILE_LABELS.services);
     if (!in_business_since_year) missing.push(BUSINESS_PROFILE_LABELS.in_business_since_year);
-    if (!hasDocuments) missing.push(BUSINESS_PROFILE_LABELS.business_documents);
     if (missing.length > 0) {
       payload.is_published = false;
       publishBlockedMissing = missing;

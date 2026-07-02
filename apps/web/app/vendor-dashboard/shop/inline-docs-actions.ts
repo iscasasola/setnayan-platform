@@ -2,17 +2,24 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  businessProfileChecklist,
+  fetchOwnVendorProfile,
+  type VendorProfileRow,
+} from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   APPLICATION_FEE_CENTAVOS,
   DOC_SLOTS,
   VENDOR_DOC_SLOTS,
+  addBusinessDays,
   countCompleteSlots,
   countCompleteVendorSlots,
   fetchLatestApplication,
   parseVerificationState,
   recommendedApplicationType,
+  verificationSubmitMissing,
   type ApplicationStatus,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
@@ -53,6 +60,8 @@ export type DocSlotSaveResult =
 async function requireVendorId(): Promise<{
   supabase: SupabaseClient;
   vendorProfileId: string;
+  profile: VendorProfileRow;
+  userId: string;
 } | null> {
   const supabase = await createClient();
   const {
@@ -61,7 +70,7 @@ async function requireVendorId(): Promise<{
   if (!user) return null;
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return null;
-  return { supabase, vendorProfileId: profile.vendor_profile_id };
+  return { supabase, vendorProfileId: profile.vendor_profile_id, profile, userId: user.id };
 }
 
 const LOCKED_STATUSES: ReadonlySet<ApplicationStatus> = new Set<ApplicationStatus>([
@@ -292,4 +301,125 @@ export async function updateDocUploadInline(
     vendorTotal: VENDOR_TOTAL,
     allComplete: completeCount >= DOC_SLOTS.length,
   };
+}
+
+export type SubmitResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Read the VALIDATE contact-confirmation stamps for an application — a SOFT
+ * probe kept separate from `fetchLatestApplication` because the columns land
+ * in a parallel migration; pre-migration environments read as unconfirmed
+ * instead of crashing.
+ */
+export async function readContactStamps(
+  supabase: SupabaseClient,
+  applicationId: string,
+): Promise<{ emailConfirmedAt: string | null; phoneConfirmedAt: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_verification_applications')
+      .select('contact_email_confirmed_at,contact_phone_confirmed_at')
+      .eq('application_id', applicationId)
+      .maybeSingle();
+    if (error || !data) return { emailConfirmedAt: null, phoneConfirmedAt: null };
+    const row = data as {
+      contact_email_confirmed_at?: string | null;
+      contact_phone_confirmed_at?: string | null;
+    };
+    return {
+      emailConfirmedAt: row.contact_email_confirmed_at ?? null,
+      phoneConfirmedAt: row.contact_phone_confirmed_at ?? null,
+    };
+  } catch {
+    return { emailConfirmedAt: null, phoneConfirmedAt: null };
+  }
+}
+
+/**
+ * Submit the vendor's draft application for review, INLINE (owner 2026-07-03:
+ * the whole verification flow lives on My Shop — no /verify page). The
+ * non-redirecting twin of `verify/actions.ts:submitApplication`, enforcing the
+ * ONE shared soft-gate (`verificationSubmitMissing`): complete profile + the 4
+ * required documents + both VALIDATE contact confirmations. Flips
+ * draft → pending_review, stamps submitted_at + the 5-business-day SLA, bumps
+ * `vendor_profiles.verification_state`, writes the audit row, and fans out the
+ * admin notification — then returns a VALUE for `useActionState`.
+ */
+export async function submitInlineForReview(
+  _prev: SubmitResult | null,
+  _formData: FormData,
+): Promise<SubmitResult> {
+  const auth = await requireVendorId();
+  if (!auth) return { ok: false, error: 'Please sign in again.' };
+
+  const app = await fetchLatestApplication(auth.supabase, auth.vendorProfileId).catch(() => null);
+  if (!app || app.status !== 'draft') {
+    return { ok: false, error: 'Nothing to submit yet — upload your documents first.' };
+  }
+
+  const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
+  const stamps = await readContactStamps(auth.supabase, app.application_id);
+  const missing = verificationSubmitMissing({
+    profileComplete: businessProfileChecklist(auth.profile).complete,
+    uploads,
+    emailConfirmedAt: stamps.emailConfirmedAt,
+    phoneConfirmedAt: stamps.phoneConfirmedAt,
+  });
+  if (missing.length > 0) {
+    return { ok: false, error: `Not quite ready: ${missing.join(' · ').toLowerCase()}.` };
+  }
+
+  const now = new Date();
+  const { error: updErr } = await auth.supabase
+    .from('vendor_verification_applications')
+    .update({
+      status: 'pending_review',
+      submitted_at: now.toISOString(),
+      sla_due_at: addBusinessDays(now, 5).toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq('application_id', app.application_id);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  // Bump the profile's verification_state so perk gates + payout model read
+  // the in-flight signal (owner-only RLS admits the vendor's own session).
+  const { data: prior } = await auth.supabase
+    .from('vendor_profiles')
+    .select('verification_state')
+    .eq('vendor_profile_id', auth.vendorProfileId)
+    .maybeSingle();
+  const fromState =
+    ((prior as { verification_state?: string | null } | null)?.verification_state as
+      | string
+      | null) ?? 'unverified';
+  await auth.supabase
+    .from('vendor_profiles')
+    .update({ verification_state: 'pending_review', updated_at: now.toISOString() })
+    .eq('vendor_profile_id', auth.vendorProfileId);
+
+  // Audit + admin fan-out — best-effort, never blocks the submit that landed.
+  await auth.supabase
+    .from('admin_audit_log')
+    .insert({
+      action: 'vendor_verification_submit',
+      target_table: 'vendor_verification_applications',
+      target_id: app.application_id,
+      before_json: { status: 'draft', verification_state: fromState },
+      after_json: { status: 'pending_review', verification_state: 'pending_review' },
+      actor_user_id: auth.userId,
+      reason: null,
+    })
+    .then(
+      () => undefined,
+      () => undefined,
+    );
+  await notifyAdminsApplicationSubmitted({
+    vendorProfileId: auth.vendorProfileId,
+    applicationId: app.application_id,
+    applicationType: app.application_type as string | null | undefined,
+  }).catch(() => undefined);
+
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/admin/verify');
+  return { ok: true };
 }

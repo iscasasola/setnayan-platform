@@ -122,6 +122,14 @@ export type DocSlot = {
   hint: string;
 };
 
+// PRUNED 2026-07-03 (owner: "we do not need this … what we have, that is it"):
+// government_id, live_selfie, phone_email_otp, and amlc_screening are RETIRED.
+// Identity confirmation is the 15-min Google Meet; the OTP slot is superseded by
+// the VALIDATE contact-confirmation (the vendor emails + texts Setnayan the
+// token "VALIDATE <shop name>" from their own email/number — stamped on
+// vendor_verification_applications.contact_*_confirmed_at). Any value already
+// stored under a retired key in doc_uploads JSONB is simply ignored (extra keys
+// never count toward completion), so in-flight applications keep working.
 export const DOC_SLOTS: readonly DocSlot[] = [
   {
     key: 'dti_certificate',
@@ -145,69 +153,53 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     hint: 'PDF / JPG / PNG up to 15 MB.',
   },
   {
-    key: 'government_id',
-    number: 4,
-    label: 'Valid government ID (owner)',
-    kind: 'external',
-    hint: 'Verified via Persona / Veriff / Onfido. Owner-side signup pending — upload a JPG/PNG for now and Setnayan staff will queue the ID-liveness check.',
-  },
-  {
     key: 'bank_account_proof',
-    number: 5,
+    number: 4,
     label: 'Bank account proof',
     kind: 'upload',
     hint: 'Screenshot or PDF of Maya / GCash / bank statement. Micro-deposit verification happens once Setnayan Pay integration is live.',
   },
   {
     key: 'portfolio_samples',
-    number: 6,
+    number: 5,
     label: '5–10 portfolio samples',
     kind: 'upload',
     hint: 'JPG / PNG / WEBP. We run a reverse image search to flag stolen portfolios.',
   },
   {
     key: 'client_references',
-    number: 7,
+    number: 6,
     label: '3–5 past client references',
     kind: 'upload',
     hint: "Upload a single PDF or image with each reference's name, phone, and event date. Setnayan will randomly call 1–2.",
   },
   {
-    key: 'live_selfie',
-    number: 8,
-    label: 'Live selfie + ID liveness check',
+    key: 'social_media',
+    number: 7,
+    label: 'Social media presence',
     kind: 'upload',
-    hint: 'Single live selfie photo for the admin to cross-reference with the government ID. Liveness/biometric step runs via Persona once integration ships.',
+    hint: 'Your public Instagram or Facebook business page.',
   },
   {
     key: 'google_meet',
-    number: 9,
+    number: 8,
     label: '15-min Google Meet with admin',
     kind: 'manual',
-    hint: "We'll email you a scheduling link once the document checklist is complete.",
-  },
-  {
-    key: 'phone_email_otp',
-    number: 10,
-    label: 'Phone SMS OTP + email confirmation',
-    kind: 'manual',
-    hint: 'Phone OTP triggers from the vendor onboarding tour — admin marks complete once both confirmations land.',
-  },
-  {
-    key: 'social_media',
-    number: 11,
-    label: 'Social media presence',
-    kind: 'upload',
-    hint: 'Paste a public Instagram or Facebook business page URL into the notes field, then attach a screenshot for the admin.',
-  },
-  {
-    key: 'amlc_screening',
-    number: 12,
-    label: 'Sanctions / PEP screening',
-    kind: 'external',
-    hint: 'AMLC sanctions/PEP watchlist screening. Auto-run once AMLC API access is live; manual lookup until then.',
+    hint: "We'll email you a scheduling link once your documents are in — that's where we confirm your identity.",
   },
 ] as const;
+
+/**
+ * The documents a vendor MUST upload before submitting for review (owner
+ * 2026-07-03). The remaining vendor uploads (portfolio, references, social)
+ * strengthen the application but don't block submission.
+ */
+export const REQUIRED_DOC_SLOT_KEYS: ReadonlySet<string> = new Set([
+  'dti_certificate',
+  'bir_2303',
+  'mayors_permit',
+  'bank_account_proof',
+]);
 
 // ---------------------------------------------------------------------------
 // Application row + helpers
@@ -288,12 +280,10 @@ export function isSlotComplete(slotKey: string, v: DocUpload): boolean {
   return typeof (v as { r2_key?: string }).r2_key === 'string';
 }
 
-// The slots the VENDOR fills themselves vs the four the Setnayan team runs
-// (ID liveness, the video call, phone/email confirmation, AMLC screening).
-// The vendor's progress + submit gate count against VENDOR_DOC_SLOTS only — the
-// admin-run four flip on our side after submit. Counting the vendor against all
-// 12 made a finished application read as "8 of 12 · 67%" (the deceptively-stuck
-// denominator the usability audit flagged).
+// The slots the VENDOR fills themselves vs the one the Setnayan team runs
+// (the 15-min Google Meet — post-prune the sole non-upload slot; it renders as
+// Step 3 of the Get-verified stepper, never as a document card). The vendor's
+// progress + submit gate count against VENDOR_DOC_SLOTS only.
 export const VENDOR_DOC_SLOTS: readonly DocSlot[] = DOC_SLOTS.filter(
   (s) => s.kind === 'upload',
 );
@@ -308,6 +298,39 @@ export function countCompleteVendorSlots(uploads: DocUploadMap): number {
     if (isSlotComplete(slot.key, uploads?.[slot.key])) count++;
   }
   return count;
+}
+
+/** Whether every REQUIRED upload (REQUIRED_DOC_SLOT_KEYS) is in. */
+export function requiredDocsComplete(uploads: DocUploadMap): boolean {
+  for (const key of REQUIRED_DOC_SLOT_KEYS) {
+    if (!isSlotComplete(key, uploads?.[key])) return false;
+  }
+  return true;
+}
+
+/**
+ * The ONE submit gate for verification (owner 2026-07-03 soft-gate): documents
+ * + VALIDATE messages can start anytime; submitting for review requires a
+ * complete profile + the 4 required documents + both contact confirmations.
+ * Shared by the Get-verified section (renders the reasons) and
+ * `submitInlineForReview` (enforces them) so client copy and server validation
+ * can never drift. Returns plain-English blockers; empty = ready to submit.
+ */
+export function verificationSubmitMissing(input: {
+  profileComplete: boolean;
+  uploads: DocUploadMap;
+  emailConfirmedAt: string | null;
+  phoneConfirmedAt: string | null;
+}): string[] {
+  const missing: string[] = [];
+  if (!input.profileComplete) missing.push('Finish your business profile');
+  if (!requiredDocsComplete(input.uploads)) {
+    missing.push('Upload your DTI/SEC, BIR 2303, Business Permit, and bank proof');
+  }
+  if (!input.emailConfirmedAt || !input.phoneConfirmedAt) {
+    missing.push('Send the VALIDATE email and text so we can confirm your contacts');
+  }
+  return missing;
 }
 
 // ---------------------------------------------------------------------------

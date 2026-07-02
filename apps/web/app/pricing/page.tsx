@@ -537,10 +537,10 @@ export default async function PricingPage() {
                 28 days.
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
-                The full matchmaking engine — date, availability, budget,
-                venue, guest count, religion, and reviews cross-referenced —
-                plus the guided planning workspace. Active until your wedding
-                day, then it ends.
+                The paid brain that watches your vendors so you don&rsquo;t have to —
+                it finds your best-fit matches, then flags a deposit due, a price
+                change, or a clash before it costs you. Covers all your events,
+                0% vendor commission. Active until your wedding day, then it ends.
               </p>
             </article>
           </RevealBand>

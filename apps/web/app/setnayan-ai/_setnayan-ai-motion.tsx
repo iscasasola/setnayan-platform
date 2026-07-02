@@ -56,14 +56,15 @@ export function SetnayanAiHero() {
         ref={headingRef as React.RefObject<HTMLHeadingElement>}
         className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
       >
-        Say it once. Find your perfect fit.
+        It doesn&rsquo;t chat. It watches your wedding for you.
       </h1>
       <p
         data-reveal-item
         className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg"
       >
-        A thousand vendor choices, the same questions over and over. Setnayan AI learns what matters to your wedding
-        and finds the verified Filipino vendors that actually fit — then builds your plan and keeps it on track.
+        Every other wedding AI waits for you to ask a question. Setnayan AI keeps an eye on your vendors — the ones
+        you&rsquo;re eyeing and the ones you&rsquo;ve booked — and taps you only when something needs you: a deposit due, a
+        price that moved, a date about to clash. Every planning tool stays free; Setnayan AI is the paid brain on top.
       </p>
       <div
         data-reveal-item
@@ -139,10 +140,11 @@ export function Matchmaking({ rows }: { rows: ReadonlyArray<readonly string[]> }
       aria-label="What makes Setnayan AI different"
     >
       <h2 data-premium-headline className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-        Matchmaking, not a chatbot
+        A chatbot waits. Setnayan AI watches.
       </h2>
       <p data-premium-item className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-        It doesn’t hand you a search box and a thousand results. It does the finding.
+        Like a price watcher for flights or a home-search alert — but for your actual vendors, not the whole internet.
+        It comes to you.
       </p>
       <ul className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-ink)]/10">
         {rows.map(([before, after], i) => (
@@ -190,11 +192,12 @@ export function CtaPanel() {
       className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[#FBF6EA] px-6 py-10 text-center"
     >
       <h2 data-premium-headline className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-        Let it find your fit
+        Let it watch your back
       </h2>
       <p data-premium-item className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-        Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your wedding website. Add
-        Setnayan AI when you want the finding and planning done for you.
+        Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your wedding website. Setnayan AI
+        is the paid brain that watches your vendors so you don&rsquo;t have to — a job you&rsquo;d otherwise need a small team
+        for. Add it when you want it; 0% vendor commission, so it recommends what fits you, never what pays us.
       </p>
       <Link
         data-premium-item

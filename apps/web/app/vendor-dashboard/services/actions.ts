@@ -897,6 +897,7 @@ export async function commitVendorService(formData: FormData) {
       title,
       starting_price_php: parseInt0OrNull(formData.get('starting_price_php')),
       added_pax_price_php: parseInt0OrNull(formData.get('added_pax_price_php')),
+      base_pax: parseInt0OrNull(formData.get('base_pax')) || null,
       crew_size: parseInt0OrNull(formData.get('crew_size')),
       crew_meal_required: formData.get('crew_meal_required') === 'on',
       branch_id,

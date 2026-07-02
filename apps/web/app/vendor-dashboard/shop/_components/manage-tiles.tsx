@@ -1,13 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Building2,
-  ChevronDown,
-  Globe,
-  ShieldCheck,
-  Users,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 import { Collapsible } from '../../_components/collapsible';
 
@@ -20,13 +14,21 @@ type ToolKey = 'profile' | 'website' | 'team' | 'branch';
  * navigates out). The panel bodies are rendered on the server (real data +
  * server-action forms) and handed in as props; this client component only
  * owns which is open.
+ *
+ * 2026-07-02 (owner): tiles are icon-less and centre-aligned — the value is the
+ * identity, the chevron the only affordance. Team / Branch subs report how many
+ * MORE can be added at the current plan (`teamSub` / `branchSub`, computed
+ * server-side from the tier seat/branch caps). The Website tile dropped its
+ * "Live" pill — it's the editor entry, not a status readout (the live/draft
+ * state lives inside the expanded editor panel).
  */
 export function ManageTiles({
   completionPct,
   verifyLabel,
-  websiteLive,
   teamLabel,
+  teamSub,
   branchLabel,
+  branchSub,
   profilePanel,
   websitePanel,
   teamPanel,
@@ -34,9 +36,10 @@ export function ManageTiles({
 }: {
   completionPct: number;
   verifyLabel: string;
-  websiteLive: boolean;
   teamLabel: string;
+  teamSub: string;
   branchLabel: string;
+  branchSub: string;
   profilePanel: React.ReactNode;
   websitePanel: React.ReactNode;
   teamPanel: React.ReactNode;
@@ -53,7 +56,6 @@ export function ManageTiles({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <ToolTile
-          icon={<ShieldCheck className="h-5 w-5" strokeWidth={1.75} />}
           value={`${completionPct}%`}
           label="Profile"
           sub={verifyLabel}
@@ -62,28 +64,23 @@ export function ManageTiles({
           onToggle={() => toggle('profile')}
         />
         <ToolTile
-          icon={<Globe className="h-5 w-5" strokeWidth={1.75} />}
           value="Website"
-          statusPill={websiteLive ? 'Live' : 'Draft'}
-          statusLive={websiteLive}
-          label="Your page"
-          sub="Customize here"
+          label="Editor"
+          sub="Customize your page"
           isOpen={open === 'website'}
           onToggle={() => toggle('website')}
         />
         <ToolTile
-          icon={<Users className="h-5 w-5" strokeWidth={1.75} />}
           value={teamLabel}
           label="Team"
-          sub="Invite + manage"
+          sub={teamSub}
           isOpen={open === 'team'}
           onToggle={() => toggle('team')}
         />
         <ToolTile
-          icon={<Building2 className="h-5 w-5" strokeWidth={1.75} />}
           value={branchLabel}
           label="Branch"
-          sub="Locations"
+          sub={branchSub}
           isOpen={open === 'branch'}
           onToggle={() => toggle('branch')}
         />
@@ -107,26 +104,18 @@ export function ManageTiles({
 }
 
 function ToolTile({
-  icon,
   value,
   label,
   sub,
   subEmphasis = false,
-  statusPill,
-  statusLive = false,
   isOpen,
   onToggle,
 }: {
-  icon: React.ReactNode;
   value: string;
   label: string;
   sub: string;
   /** Render the sub-line as an orange status (e.g. "1 doc to verify"). */
   subEmphasis?: boolean;
-  /** Optional small status pill in the header (e.g. "Live") — de-emphasized so
-   *  it never becomes the tile's headline (the big value stays the identity). */
-  statusPill?: string;
-  statusLive?: boolean;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -135,45 +124,9 @@ function ToolTile({
       type="button"
       aria-expanded={isOpen}
       onClick={onToggle}
-      className="group flex flex-col rounded-xl border bg-white p-4 text-left transition-colors hover:border-[color:var(--m-orange-3)]"
+      className="group flex flex-col items-center rounded-xl border bg-white p-4 text-center transition-colors hover:border-[color:var(--m-orange-3)]"
       style={{ borderColor: isOpen ? 'var(--m-orange-3)' : 'var(--m-line)' }}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <ChipIcon>{icon}</ChipIcon>
-        <div className="flex items-center gap-2">
-          {statusPill ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-              style={
-                statusLive
-                  ? {
-                      background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
-                      color: 'var(--m-sage-deep)',
-                    }
-                  : { background: 'var(--m-paper)', color: 'var(--m-slate-3)' }
-              }
-            >
-              {statusLive ? (
-                <span
-                  aria-hidden
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ background: 'var(--m-sage-deep)' }}
-                />
-              ) : null}
-              {statusPill}
-            </span>
-          ) : null}
-          <ChevronDown
-            aria-hidden
-            className="h-4 w-4 shrink-0 transition-transform"
-            strokeWidth={1.75}
-            style={{
-              color: 'var(--m-slate-4)',
-              transform: isOpen ? 'rotate(180deg)' : 'none',
-            }}
-          />
-        </div>
-      </div>
       <p className="text-xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
@@ -181,7 +134,7 @@ function ToolTile({
         {label}
       </p>
       <p
-        className="truncate text-xs"
+        className="mt-0.5 max-w-full truncate text-xs"
         style={{
           color: subEmphasis ? 'var(--m-orange-2)' : 'var(--m-slate-3)',
           fontWeight: subEmphasis ? 500 : undefined,
@@ -189,19 +142,16 @@ function ToolTile({
       >
         {sub}
       </p>
+      <ChevronDown
+        aria-hidden
+        className="mt-2 h-4 w-4 shrink-0 transition-transform"
+        strokeWidth={1.75}
+        style={{
+          color: 'var(--m-slate-4)',
+          transform: isOpen ? 'rotate(180deg)' : 'none',
+        }}
+      />
     </button>
-  );
-}
-
-function ChipIcon({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
-      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-      aria-hidden
-    >
-      {children}
-    </span>
   );
 }
 

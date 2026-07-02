@@ -56,6 +56,62 @@ export function isSectionVisible(
 }
 
 /**
+ * Curated accent presets (PRO control). NOT a free hex picker — each preset is a
+ * hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the default
+ * champagne ramp's lightness relationships, so retinting stays legible on the
+ * cream microsite. The stored value is the KEY; the ramp lives in code so it can
+ * be tuned later without a migration. `null` / unknown = the default champagne
+ * accent (no override).
+ *
+ * `ramp` values are space-separated RGB triplets (the format Tailwind's
+ * `rgb(var(--color-terracotta) / <alpha>)` consumes). `swatch` is a display hex
+ * for the editor picker.
+ */
+export type MicrositeAccent = {
+  key: string;
+  label: string;
+  /** [base (500), hover (600), deepest (700)] as "R G B" triplets. */
+  ramp: [string, string, string];
+  swatch: string;
+};
+
+export const MICROSITE_ACCENTS: readonly MicrositeAccent[] = [
+  { key: 'champagne', label: 'Champagne', ramp: ['197 160 89', '168 131 64', '140 105 50'], swatch: '#c5a059' },
+  { key: 'clay', label: 'Clay', ramp: ['192 113 79', '158 91 62', '126 72 48'], swatch: '#c0714f' },
+  { key: 'sage', label: 'Sage', ramp: ['124 144 112', '100 120 87', '78 94 67'], swatch: '#7c9070' },
+  { key: 'slate', label: 'Dusty blue', ramp: ['110 134 163', '86 110 138', '67 86 110'], swatch: '#6e86a3' },
+  { key: 'plum', label: 'Plum', ramp: ['138 90 120', '111 69 96', '87 54 80'], swatch: '#8a5a78' },
+  { key: 'teal', label: 'Teal', ramp: ['74 140 134', '58 113 108', '44 85 79'], swatch: '#4a8c86' },
+] as const;
+
+/** The default accent when a vendor hasn't chosen one (matches globals.css). */
+export const MICROSITE_DEFAULT_ACCENT_KEY = 'champagne';
+
+export function isValidAccentKey(key: string | null | undefined): boolean {
+  return !!key && MICROSITE_ACCENTS.some((a) => a.key === key);
+}
+
+/**
+ * Inline CSS-variable overrides that retint the microsite's accent ramp for a
+ * chosen preset. Returns `undefined` for the default / unset / unknown accent so
+ * the page keeps its baseline champagne (no override emitted). Spread onto the
+ * microsite root's `style` (cast to CSSProperties — custom props are valid CSS).
+ */
+export function micrositeAccentVars(
+  accentKey: string | null | undefined,
+): Record<string, string> | undefined {
+  if (!accentKey || accentKey === MICROSITE_DEFAULT_ACCENT_KEY) return undefined;
+  const preset = MICROSITE_ACCENTS.find((a) => a.key === accentKey);
+  if (!preset) return undefined;
+  const [base, hover, deep] = preset.ramp;
+  return {
+    '--color-terracotta': base,
+    '--color-terracotta-600': hover,
+    '--color-terracotta-700': deep,
+  };
+}
+
+/**
  * Order a vendor's service leaves so the featured ones lead, preserving the
  * original relative order within each group (stable). Featured ids not present
  * in `services` are ignored — the picker constrains to owned leaves, but this

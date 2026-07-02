@@ -118,6 +118,7 @@ type ShopData = {
   isProWebsite: boolean;
   yearsLabel: string | null;
   microsite: VendorMicrosite;
+  portfolioPhotos: { key: string; url: string }[];
   completionPct: number;
   hasDocuments: boolean;
   checklist: BusinessProfileItem[];
@@ -268,6 +269,21 @@ async function loadShopData(): Promise<ShopData | null> {
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
     : null;
 
+  // Portfolio thumbnails for the Pro hero-photo picker. Best-effort — a presign
+  // hiccup just drops that option, never crashes the page.
+  const portfolioPhotos = (
+    await Promise.all(
+      ((profile.portfolio_r2_keys ?? []) as string[]).map(async (key) => {
+        try {
+          const url = await displayUrlForStoredAsset(key);
+          return url ? { key, url } : null;
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((p): p is { key: string; url: string } => p !== null);
+
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -282,6 +298,7 @@ async function loadShopData(): Promise<ShopData | null> {
     isProWebsite,
     yearsLabel,
     microsite,
+    portfolioPhotos,
     completionPct,
     hasDocuments,
     checklist: completion.items,
@@ -390,6 +407,10 @@ export default async function VendorShopPage({
             serviceLabels={data.profileFields.serviceLabels}
             isVerified={data.isVerified}
             yearsLabel={data.yearsLabel}
+            slug={data.slug}
+            heroPhotoKey={data.microsite.heroPhotoKey}
+            accent={data.microsite.accent}
+            portfolioPhotos={data.portfolioPhotos}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}

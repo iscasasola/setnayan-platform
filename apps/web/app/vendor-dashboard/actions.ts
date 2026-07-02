@@ -20,6 +20,7 @@ import {
   MICROSITE_ABOUT_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
+  isValidAccentKey,
 } from '@/lib/vendor-microsite';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -789,6 +790,17 @@ const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_about',
   'microsite_sections',
   'microsite_featured_services',
+  // PRO controls (gated on tierCaps.customWebsiteName).
+  'business_slug',
+  'microsite_hero_photo',
+  'microsite_accent',
+]);
+
+/** PRO-gated website fields. Reuses the same cap the custom slug already uses. */
+const PRO_WEBSITE_FIELDS = new Set([
+  'business_slug',
+  'microsite_hero_photo',
+  'microsite_accent',
 ]);
 
 /**
@@ -812,18 +824,36 @@ export async function updateVendorWebsiteField(
     return { ok: false, error: 'That field can’t be edited here.' };
   }
 
-  // Current services (to constrain featured picks to owned leaves) + slug (to
-  // revalidate the public page). One read, reused below.
+  // One read, reused below: current services (constrain featured picks to owned
+  // leaves), portfolio keys (constrain hero photo), slug (revalidation), tier
+  // (Pro gate).
   const { data: row } = await supabase
     .from('vendor_profiles')
-    .select('business_slug, services')
+    .select('business_slug, services, portfolio_r2_keys, tier_state')
     .eq('user_id', user.id)
     .maybeSingle();
   const rowTyped = row as
-    | { business_slug?: string | null; services?: string[] | null }
+    | {
+        business_slug?: string | null;
+        services?: string[] | null;
+        portfolio_r2_keys?: string[] | null;
+        tier_state?: string | null;
+      }
     | null;
   const currentServices = (rowTyped?.services ?? []) as string[];
-  const slug = rowTyped?.business_slug ?? null;
+  const currentSlug = rowTyped?.business_slug ?? null;
+  const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
+  const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
+
+  // PRO gate — the premium customization controls reuse the same cap as the
+  // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
+  // the server-side backstop.
+  if (PRO_WEBSITE_FIELDS.has(field) && !caps.customWebsiteName) {
+    return { ok: false, error: 'This is a Pro feature — upgrade to customize.' };
+  }
+
+  // Slug edits change the public path — revalidate BOTH the old and the new.
+  let nextSlug = currentSlug;
 
   let patch: Record<string, unknown> = {};
   switch (field) {
@@ -852,6 +882,34 @@ export async function updateVendorWebsiteField(
       patch = { microsite_featured_service_ids: featured };
       break;
     }
+    case 'business_slug': {
+      let parsed: string | null;
+      try {
+        parsed = parseSlug(formData.get('business_slug'));
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+      patch = { business_slug: parsed };
+      nextSlug = parsed;
+      break;
+    }
+    case 'microsite_hero_photo': {
+      // Must be one of the vendor's own portfolio photos, or cleared.
+      const raw = nullIfBlank(formData.get('microsite_hero_photo'));
+      if (raw && !portfolioKeys.includes(raw)) {
+        return { ok: false, error: 'Pick a photo from your portfolio.' };
+      }
+      patch = { microsite_hero_photo_key: raw };
+      break;
+    }
+    case 'microsite_accent': {
+      const raw = nullIfBlank(formData.get('microsite_accent'));
+      if (raw && !isValidAccentKey(raw)) {
+        return { ok: false, error: 'Pick an accent from the palette.' };
+      }
+      patch = { microsite_accent: raw };
+      break;
+    }
     default:
       return { ok: false, error: 'That field can’t be edited here.' };
   }
@@ -860,12 +918,18 @@ export async function updateVendorWebsiteField(
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('user_id', user.id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    // Surface the common slug-collision case with friendly copy.
+    if (field === 'business_slug' && /duplicate|unique/i.test(error.message)) {
+      return { ok: false, error: 'That address is taken — try another.' };
+    }
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath('/vendor-dashboard/shop');
-  if (slug) {
-    revalidatePath(`/v/${slug}`);
-    revalidatePath(`/${slug}`);
+  for (const s of new Set([currentSlug, nextSlug].filter(Boolean) as string[])) {
+    revalidatePath(`/v/${s}`);
+    revalidatePath(`/${s}`);
   }
   return { ok: true };
 }

@@ -15,6 +15,7 @@ import {
   Palette,
   Pencil,
   Pin,
+  Sparkles,
 } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
@@ -22,6 +23,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
   MICROSITE_ABOUT_MAX,
+  MICROSITE_ACCENTS,
+  MICROSITE_DEFAULT_ACCENT_KEY,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
   isSectionVisible,
@@ -30,7 +33,9 @@ import {
 import { Collapsible } from '../../_components/collapsible';
 import { updateVendorWebsiteField, type FieldSaveResult } from '../../actions';
 
-type RowKey = 'about' | 'featured' | 'sections';
+type RowKey = 'about' | 'featured' | 'sections' | 'slug' | 'hero' | 'accent';
+
+export type MicrositePortfolioPhoto = { key: string; url: string };
 
 /**
  * My Shop → Website. The passive "Live" card reworked into an inline content
@@ -54,6 +59,10 @@ export function WebsiteEditor({
   serviceLabels,
   isVerified,
   yearsLabel,
+  slug,
+  heroPhotoKey,
+  accent,
+  portfolioPhotos,
 }: {
   publicPath: string | null;
   displayHost: string;
@@ -66,6 +75,10 @@ export function WebsiteEditor({
   serviceLabels?: Record<string, string>;
   isVerified: boolean;
   yearsLabel: string | null;
+  slug: string | null;
+  heroPhotoKey: string | null;
+  accent: string | null;
+  portfolioPhotos: MicrositePortfolioPhoto[];
 }) {
   const [open, setOpen] = useState<RowKey | null>(null);
   const toggle = (k: RowKey) => setOpen((cur) => (cur === k ? null : k));
@@ -254,7 +267,7 @@ export function WebsiteEditor({
         </div>
       </div>
 
-      {/* ── PRO controls (locked teaser) ─────────────────────────────────── */}
+      {/* ── PRO controls — editable for Pro, locked teaser for Free ───────── */}
       <div
         className="space-y-3 rounded-xl border p-4"
         style={{
@@ -267,12 +280,16 @@ export function WebsiteEditor({
             className="inline-flex items-center gap-1.5 text-sm font-medium"
             style={{ color: 'var(--m-plum, #6b4d8a)' }}
           >
-            <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            {isPro ? (
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            )}
             Pro customization
           </span>
           {isPro ? (
             <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Included with your plan — coming soon
+              Included with your plan
             </span>
           ) : (
             <Link
@@ -286,13 +303,54 @@ export function WebsiteEditor({
           )}
         </div>
 
-        <ul className="space-y-1.5">
-          <ProRow icon={<LinkIcon className="h-4 w-4" strokeWidth={1.75} />} label="Custom address" hint="/v/your-name" />
-          <ProRow icon={<ImageIcon className="h-4 w-4" strokeWidth={1.75} />} label="Hero photo" hint="Choose or upload" />
-          <ProRow icon={<Palette className="h-4 w-4" strokeWidth={1.75} />} label="Accent theme" hint="Preset palettes" />
-          <ProRow icon={<Newspaper className="h-4 w-4" strokeWidth={1.75} />} label="Featured editorials" hint="Pick 2" />
-          <ProRow icon={<Pin className="h-4 w-4" strokeWidth={1.75} />} label="Pinned review" hint="Feature one" />
-        </ul>
+        {isPro ? (
+          <ul className="space-y-2">
+            <WebsiteEditRow
+              field="business_slug"
+              label="Custom address"
+              preview={slug ? `${displayHost}/v/${slug}` : 'Set your web address'}
+              isOpen={open === 'slug'}
+              onToggle={() => toggle('slug')}
+              onSaved={close}
+            >
+              <SlugField slug={slug} displayHost={displayHost} />
+            </WebsiteEditRow>
+
+            <WebsiteEditRow
+              field="microsite_hero_photo"
+              label="Hero photo"
+              preview={heroPhotoKey ? 'Chosen photo' : 'Automatic (first photo)'}
+              isOpen={open === 'hero'}
+              onToggle={() => toggle('hero')}
+              onSaved={close}
+            >
+              <HeroPhotoField photos={portfolioPhotos} initial={heroPhotoKey} />
+            </WebsiteEditRow>
+
+            <WebsiteEditRow
+              field="microsite_accent"
+              label="Accent theme"
+              preview={accentLabel(accent)}
+              isOpen={open === 'accent'}
+              onToggle={() => toggle('accent')}
+              onSaved={close}
+            >
+              <AccentField initial={accent} />
+            </WebsiteEditRow>
+
+            <li className="list-none pt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Featured editorials and pinned review — coming soon.
+            </li>
+          </ul>
+        ) : (
+          <ul className="space-y-1.5">
+            <ProRow icon={<LinkIcon className="h-4 w-4" strokeWidth={1.75} />} label="Custom address" hint="/v/your-name" />
+            <ProRow icon={<ImageIcon className="h-4 w-4" strokeWidth={1.75} />} label="Hero photo" hint="Choose or upload" />
+            <ProRow icon={<Palette className="h-4 w-4" strokeWidth={1.75} />} label="Accent theme" hint="Preset palettes" />
+            <ProRow icon={<Newspaper className="h-4 w-4" strokeWidth={1.75} />} label="Featured editorials" hint="Pick 2" />
+            <ProRow icon={<Pin className="h-4 w-4" strokeWidth={1.75} />} label="Pinned review" hint="Feature one" />
+          </ul>
+        )}
       </div>
 
       {publicPath ? (
@@ -484,6 +542,146 @@ function FeaturedServicesField({
       </p>
     </fieldset>
   );
+}
+
+/* ─── Pro: custom address (slug) ────────────────────────────────────────── */
+function SlugField({
+  slug,
+  displayHost,
+}: {
+  slug: string | null;
+  displayHost: string;
+}) {
+  return (
+    <fieldset className="space-y-1.5">
+      <label
+        htmlFor="business_slug"
+        className="text-xs"
+        style={{ color: 'var(--m-slate-3)' }}
+      >
+        Your web address — lowercase letters, numbers, and hyphens (3–32).
+      </label>
+      <div
+        className="flex items-center rounded-lg border bg-white pl-2"
+        style={{ borderColor: 'var(--m-line)' }}
+      >
+        <span className="shrink-0 text-xs text-ink/45">{displayHost}/v/</span>
+        <input
+          id="business_slug"
+          name="business_slug"
+          defaultValue={slug ?? ''}
+          placeholder="your-studio"
+          pattern="[a-z0-9-]{3,32}"
+          className="w-full border-0 bg-transparent py-2 pr-2 text-sm text-ink focus:outline-none"
+        />
+      </div>
+    </fieldset>
+  );
+}
+
+/* ─── Pro: hero photo (pick from portfolio) ─────────────────────────────── */
+function HeroPhotoField({
+  photos,
+  initial,
+}: {
+  photos: MicrositePortfolioPhoto[];
+  initial: string | null;
+}) {
+  const [picked, setPicked] = useState<string>(
+    initial && photos.some((p) => p.key === initial) ? initial : '',
+  );
+
+  if (photos.length === 0) {
+    return (
+      <p className="text-sm text-ink/60">
+        Add portfolio photos in your profile first — then choose one to lead your
+        page here.
+      </p>
+    );
+  }
+
+  return (
+    <fieldset className="space-y-2">
+      <input type="hidden" name="microsite_hero_photo" value={picked} />
+      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+        Pick the photo that leads your page.
+      </p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => setPicked('')}
+          aria-pressed={picked === ''}
+          className="flex aspect-[4/3] items-center justify-center rounded-lg border-2 text-xs"
+          style={{
+            borderColor: picked === '' ? 'var(--m-orange)' : 'var(--m-line)',
+            color: 'var(--m-slate)',
+          }}
+        >
+          Automatic
+        </button>
+        {photos.map((p) => (
+          <button
+            type="button"
+            key={p.key}
+            onClick={() => setPicked(p.key)}
+            aria-pressed={picked === p.key}
+            className="relative aspect-[4/3] overflow-hidden rounded-lg border-2"
+            style={{
+              borderColor: picked === p.key ? 'var(--m-orange)' : 'transparent',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.url} alt="" className="h-full w-full object-cover" />
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/* ─── Pro: accent theme ─────────────────────────────────────────────────── */
+function AccentField({ initial }: { initial: string | null }) {
+  const [picked, setPicked] = useState<string>(
+    initial && MICROSITE_ACCENTS.some((a) => a.key === initial)
+      ? initial
+      : MICROSITE_DEFAULT_ACCENT_KEY,
+  );
+  return (
+    <fieldset className="space-y-2">
+      <input type="hidden" name="microsite_accent" value={picked} />
+      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+        Sets the accent color across your page.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {MICROSITE_ACCENTS.map((a) => (
+          <button
+            type="button"
+            key={a.key}
+            onClick={() => setPicked(a.key)}
+            aria-pressed={picked === a.key}
+            title={a.label}
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+            style={{
+              borderColor: picked === a.key ? 'var(--m-ink)' : 'var(--m-line)',
+              background: picked === a.key ? 'var(--m-paper)' : 'transparent',
+            }}
+          >
+            <span
+              aria-hidden
+              className="h-4 w-4 rounded-full"
+              style={{ background: a.swatch }}
+            />
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function accentLabel(key: string | null): string {
+  const a = MICROSITE_ACCENTS.find((x) => x.key === key);
+  return a ? a.label : 'Champagne (default)';
 }
 
 /* ─── One locked Pro row ────────────────────────────────────────────────── */

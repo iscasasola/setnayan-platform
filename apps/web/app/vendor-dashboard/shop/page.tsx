@@ -560,10 +560,7 @@ function HeroCard({
     .join(' · ');
 
   return (
-    <div
-      className="flex flex-col gap-5 rounded-2xl border p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6"
-      style={{ background: 'var(--m-orange-4)', borderColor: 'var(--m-orange-3)' }}
-    >
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
       <span
         aria-hidden
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold tracking-wide"

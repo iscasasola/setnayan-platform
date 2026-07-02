@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { getCoverageTaxonomy, type CoverageLeaf } from '@/lib/vendor-coverages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -18,8 +19,8 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 
 const BASE = '/vendor-dashboard/services';
 
-function back(kind: 'saved' | 'error', msg?: string): never {
-  redirect(kind === 'error' && msg ? `${BASE}?error=${encodeURIComponent(msg)}` : `${BASE}?saved=1`);
+function back(base: string, kind: 'saved' | 'error', msg?: string): never {
+  redirect(kind === 'error' && msg ? `${base}?error=${encodeURIComponent(msg)}` : `${base}?saved=1`);
 }
 
 async function requireVendor() {
@@ -107,9 +108,10 @@ async function syncProfileFromCoverages(
 
 export async function createCoverage(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  const base = await servicesReturnBase();
   const canonical = String(formData.get('canonical_service') ?? '').trim();
   const leaf = await findLeaf(canonical);
-  if (!leaf) back('error', 'That category is not available. Pick one from the list.');
+  if (!leaf) back(base, 'error', 'That category is not available. Pick one from the list.');
   const eventTypes = await parseEventTypes(
     formData.getAll('event_types').map(String),
     leaf.allowedEventTypes,
@@ -121,24 +123,26 @@ export async function createCoverage(formData: FormData): Promise<void> {
   });
   if (error) {
     // 23505 = unique_violation → the vendor already covers this leaf.
-    back('error', error.code === '23505' ? 'You already cover that category.' : error.message);
+    back(base, 'error', error.code === '23505' ? 'You already cover that category.' : error.message);
   }
   await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
   revalidatePath(BASE);
-  back('saved');
+  revalidatePath('/vendor-dashboard/shop');
+  back(base, 'saved');
 }
 
 export async function updateCoverageEventTypes(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  const base = await servicesReturnBase();
   const coverageId = Number(formData.get('coverage_id'));
-  if (!Number.isFinite(coverageId)) back('error', 'Missing coverage.');
+  if (!Number.isFinite(coverageId)) back(base, 'error', 'Missing coverage.');
   const { data: cov } = await supabase
     .from('vendor_coverages')
     .select('canonical_service')
     .eq('id', coverageId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  if (!cov) back('error', 'Coverage not found.');
+  if (!cov) back(base, 'error', 'Coverage not found.');
   const leaf = await findLeaf((cov as { canonical_service: string }).canonical_service);
   const eventTypes = await parseEventTypes(
     formData.getAll('event_types').map(String),
@@ -149,16 +153,18 @@ export async function updateCoverageEventTypes(formData: FormData): Promise<void
     .update({ event_types: eventTypes, updated_at: new Date().toISOString() })
     .eq('id', coverageId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (error) back('error', error.message);
+  if (error) back(base, 'error', error.message);
   await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
   revalidatePath(BASE);
-  back('saved');
+  revalidatePath('/vendor-dashboard/shop');
+  back(base, 'saved');
 }
 
 export async function deleteCoverage(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  const base = await servicesReturnBase();
   const coverageId = Number(formData.get('coverage_id'));
-  if (!Number.isFinite(coverageId)) back('error', 'Missing coverage.');
+  if (!Number.isFinite(coverageId)) back(base, 'error', 'Missing coverage.');
   // The coverage's service cards have coverage_id SET NULL by the FK; the UI
   // confirms this destructive step (and may delete the cards) before calling.
   const { error } = await supabase
@@ -166,8 +172,9 @@ export async function deleteCoverage(formData: FormData): Promise<void> {
     .delete()
     .eq('id', coverageId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (error) back('error', error.message);
+  if (error) back(base, 'error', error.message);
   await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
   revalidatePath(BASE);
-  back('saved');
+  revalidatePath('/vendor-dashboard/shop');
+  back(base, 'saved');
 }

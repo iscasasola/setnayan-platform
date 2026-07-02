@@ -99,7 +99,6 @@ import {
   CalendarCheck,
   CalendarDays,
   CalendarClock,
-  ClipboardList,
   FileSignature,
   FileText,
   HardHat,
@@ -249,12 +248,13 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // My Services — the offerings couples see + the specialist tools that
-    // configure them (Repertoire is music-only · gated in code + on the page).
+    // Service tools — the specialist tools that configure a vendor's offerings
+    // (Repertoire is music-only · gated in code + on the page). The Services
+    // editor itself was folded into My Shop (2026-07-02) — no 'services' item
+    // here; the group keeps its 'offerings' key so section open-state persists.
     key: 'offerings',
-    label: 'My Services',
+    label: 'Service tools',
     items: [
-      { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
       { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
       { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
@@ -303,7 +303,6 @@ const VENDOR_SIDEBAR_DESTINATIONS: NavItem[] = [
   { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
   { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
   { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: BarChart2, matchPrefix: '/vendor-dashboard/performance' },
-  { key: 'services', label: 'My Services', href: '/vendor-dashboard/services', icon: Briefcase, matchPrefix: '/vendor-dashboard/services' },
   { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day', badge: { count: 1, tone: 'amber' } },
 ];
 
@@ -462,11 +461,13 @@ export function VendorSidebar({
   isVerified: boolean;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
-  // Role-aware: owner/admin see all six destinations; agent/viewer see only the
-  // scoped subset (Overview + My Services per VENDOR_SCOPED_NAV_ITEM_KEYS). We
-  // reuse the same NavGroup-based filter by wrapping the flat list in a single
-  // group, then unwrapping — one source of truth in lib/vendor-role.ts. The
-  // filter drops the group if every item is scoped out; default to [] then.
+  // Role-aware: owner/admin see all five destinations; agent/viewer see only the
+  // scoped subset per VENDOR_SCOPED_NAV_ITEM_KEYS (of the flat destinations, just
+  // Overview — 'services' was retired 2026-07-02 when the Services editor folded
+  // into owner/admin-only My Shop). We reuse the NavGroup-based filter by
+  // wrapping the flat list in a single group, then unwrapping — one source of
+  // truth in lib/vendor-role.ts. The filter drops the group if every item is
+  // scoped out; default to [] then.
   const visibleItems =
     filterVendorNavGroups(
       [{ key: 'shell', label: '', items: VENDOR_SIDEBAR_DESTINATIONS }],

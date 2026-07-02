@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { servicesReturnBase } from '@/lib/vendor-services-return';
 
 /**
  * Service add-on write path (Vendor Services rework 2026-07-02). Replace-all,
@@ -14,8 +15,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 const BASE = '/vendor-dashboard/services';
 const MAX_ADDONS = 12;
 
-function back(kind: 'saved' | 'error', msg?: string): never {
-  redirect(kind === 'error' && msg ? `${BASE}?error=${encodeURIComponent(msg)}` : `${BASE}?saved=1`);
+function back(base: string, kind: 'saved' | 'error', msg?: string): never {
+  redirect(kind === 'error' && msg ? `${base}?error=${encodeURIComponent(msg)}` : `${base}?saved=1`);
 }
 
 export async function setServiceAddons(formData: FormData): Promise<void> {
@@ -26,9 +27,10 @@ export async function setServiceAddons(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+  const base = await servicesReturnBase();
 
   const serviceId = String(formData.get('vendor_service_id') ?? '').trim();
-  if (!serviceId) back('error', 'Missing service.');
+  if (!serviceId) back(base, 'error', 'Missing service.');
 
   // Ownership: the anchor service must belong to this vendor (RLS enforces the
   // same, but fail fast with a clear message).
@@ -38,7 +40,7 @@ export async function setServiceAddons(formData: FormData): Promise<void> {
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  if (!svc) back('error', 'Service not found.');
+  if (!svc) back(base, 'error', 'Service not found.');
 
   const labels = formData.getAll('addon_label').map((v) => String(v));
   const prices = formData.getAll('addon_price').map((v) => String(v));
@@ -69,11 +71,12 @@ export async function setServiceAddons(formData: FormData): Promise<void> {
     .delete()
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (del.error) back('error', del.error.message);
+  if (del.error) back(base, 'error', del.error.message);
   if (rows.length > 0) {
     const ins = await supabase.from('vendor_service_addons').insert(rows);
-    if (ins.error) back('error', ins.error.message);
+    if (ins.error) back(base, 'error', ins.error.message);
   }
   revalidatePath(BASE);
-  back('saved');
+  revalidatePath('/vendor-dashboard/shop');
+  back(base, 'saved');
 }

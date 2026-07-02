@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+import {
+  seatServiceKey,
+  vendorProfileIdFromSeatServiceKey,
+} from '@/lib/vendor-seats';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import {
@@ -289,6 +293,45 @@ const PREFIX_HOOKS: ReadonlyArray<{
         actor_user_id: ctx.actorUserId,
         actor_role: 'admin',
         metadata: { service_key: ctx.serviceKey, branch_id: branchId },
+      });
+    },
+  },
+  {
+    // 'vendor_extra_seat__{vendor_profile_id}' → recompute the vendor's paid
+    // extra-seat count (Enterprise ₱500/28d add-on, owner 2026-07-02). Unlike
+    // the branch flag, seats are a COUNT — so rather than a non-idempotent
+    // increment, RECOMPUTE extra_agent_seats = the number of PAID
+    // vendor_extra_seat orders for this vendor (the current order is already
+    // 'paid' before this runs). Idempotent + self-healing on re-approval and
+    // safe against a mid-hook crash (no double-count). The count folds into the
+    // Enterprise renewal amount in PR-B; here it just makes the seat usable.
+    match: (serviceKey) => vendorProfileIdFromSeatServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
+      if (!vendorProfileId) return;
+      const { count } = await ctx.admin
+        .from('orders')
+        .select('order_id', { count: 'exact', head: true })
+        .eq('service_key', seatServiceKey(vendorProfileId))
+        .eq('status', 'paid');
+      const paidSeats = Math.max(count ?? 0, 0);
+      const { error } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ extra_agent_seats: paidSeats })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (error) {
+        throw new Error(`vendor_extra_seat activation write failed: ${error.message}`);
+      }
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: vendorProfileId,
+          extra_agent_seats: paidSeats,
+        },
       });
     },
   },

@@ -1,7 +1,13 @@
 import { redirect } from 'next/navigation';
-import { Gavel, LogOut, Mail, Trash2, Users } from 'lucide-react';
+import { Gavel, LogOut, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  effectiveSeatCap,
+  fetchExtraAgentSeats,
+  fetchSeatFeePhp,
+} from '@/lib/vendor-seats';
 import {
   enrichTeamWithUsers,
   fetchAdminVendorContext,
@@ -21,6 +27,7 @@ import {
 } from '@/lib/vendor-team';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
+  buyExtraSeat,
   cancelAdminMotion,
   inviteVendorTeamMember,
   proposeAdminMotion,
@@ -40,6 +47,7 @@ type Props = {
     error?: string;
     motion?: string;
     voted?: string;
+    bought?: string;
   }>;
 };
 
@@ -85,6 +93,23 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   ]);
 
   const adminCount = enriched.filter((m) => isVendorAdminRole(m.role)).length;
+
+  // Team-seat math (owner 2026-07-02 ladder). Seats = members beyond the
+  // always-free founding admin. Effective cap = the tier's base agentAccounts +
+  // any paid extra seats (Enterprise ₱250/28d add-on). Only Enterprise can buy
+  // extra seats, so the "Add a seat" card is Enterprise-only.
+  const isEnterprise = ctx.tierState === 'enterprise';
+  const baseSeatCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  const [extraSeats, seatFeePhp] = await Promise.all([
+    fetchExtraAgentSeats(supabase, vendorProfileId),
+    isEnterprise ? fetchSeatFeePhp(supabase) : Promise.resolve(0),
+  ]);
+  const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);
+  const usedSeats = enriched.filter((m) => m.user_id !== ctx.founderUserId).length;
+  const seatsLeft = Number.isFinite(effectiveCap)
+    ? Math.max(effectiveCap - usedSeats, 0)
+    : Infinity;
+
   const { motions, votes } = motionData;
   const votesByMotion = new Map<string, VendorAdminMotionVote[]>();
   for (const v of votes) {
@@ -133,6 +158,13 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       {search.saved ? (
         <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
           Team updated.
+        </p>
+      ) : null}
+      {search.bought ? (
+        <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
+          Seat order started. Pay externally with reference{' '}
+          <strong className="font-mono">{decodeURIComponent(search.bought)}</strong> — your extra
+          seat unlocks once our team confirms the payment.
         </p>
       ) : null}
 
@@ -242,7 +274,54 @@ export default async function VendorTeamPage({ searchParams }: Props) {
             </SubmitButton>
           </div>
         </form>
+        <p className="text-xs text-ink/55">
+          {Number.isFinite(effectiveCap) ? (
+            <>
+              <strong>{usedSeats}</strong> of <strong>{effectiveCap}</strong> team seat
+              {effectiveCap === 1 ? '' : 's'} used
+              {extraSeats > 0 ? ` (${baseSeatCap} base + ${extraSeats} extra)` : ''} — the founding
+              admin is always free and doesn’t count.
+            </>
+          ) : (
+            <>The founding admin is always free and doesn’t count toward seats.</>
+          )}
+        </p>
       </section>
+
+      {/* ── Extra seats (Enterprise ₱250/28d add-on · owner 2026-07-02) ── */}
+      {isEnterprise ? (
+        <section className="space-y-3 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
+          <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <UserPlus className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden /> Extra
+            seats
+          </h2>
+          <p className="text-sm text-ink/70">
+            Enterprise includes <strong>{baseSeatCap}</strong> team seats. Need more? Add extra seats
+            at <strong>₱{seatFeePhp.toLocaleString('en-PH')}/28&nbsp;days</strong> each — they fold
+            into your Enterprise renewal. You currently have{' '}
+            <strong>{extraSeats}</strong> extra seat{extraSeats === 1 ? '' : 's'} (
+            {Number.isFinite(seatsLeft) ? `${seatsLeft} seat${seatsLeft === 1 ? '' : 's'} free` : 'seats free'}
+            ).
+          </p>
+          <form action={buyExtraSeat} className="flex flex-wrap items-end gap-3">
+            <label htmlFor="seat-channel" className="block space-y-1">
+              <span className="block text-xs font-medium text-ink/70">Pay via</span>
+              <select id="seat-channel" name="channel" defaultValue="bdo" className="input-field cursor-pointer">
+                <option value="bdo">BDO</option>
+                <option value="gcash">GCash</option>
+              </select>
+            </label>
+            <SubmitButton className="button-primary" pendingLabel="Starting…">
+              <UserPlus className="mr-1.5 h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Add a seat (₱{seatFeePhp.toLocaleString('en-PH')})
+            </SubmitButton>
+          </form>
+          <p className="text-xs text-ink/50">
+            Apply-then-pay: you’ll get a reference code to pay externally, and the seat unlocks once
+            our team confirms your payment.
+          </p>
+        </section>
+      ) : null}
 
       {/* ── Members ───────────────────────────────────────────────────── */}
       <section className="space-y-3">

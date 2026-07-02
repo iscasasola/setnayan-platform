@@ -53,12 +53,14 @@ export function PendingVendorInquiryDispatcher({ enabled }: { enabled: boolean }
         if (result.status === 'ok') {
           clearPendingVendorInquiry();
           router.push(`/dashboard/${result.eventId}/messages/${result.threadId}`);
-        } else if (result.status === 'error') {
-          // Terminal (stale/invalid stash) — won't succeed on retry, so drop it.
-          clearPendingVendorInquiry();
         }
-        // no_event (onboarding not finished) → keep the stash; a later load,
-        // once an event exists, retries and sends it.
+        // ANY non-ok (no_event before onboarding finishes, not_secured, or an
+        // 'error' status — which startServiceInquiry also returns for a TRANSIENT
+        // chat_threads upsert blip, not just a terminal bad stash) LEAVES the
+        // stash so a later dashboard load retries. The composed message is the
+        // only copy (no server-side anon lead), so we never clear on a failure we
+        // can't prove is terminal — a genuinely dead stash (e.g. a removed
+        // service) is instead reaped by the 48h TTL in readPendingVendorInquiry.
       } catch {
         // Non-fatal — the couple can always inquire again from the profile.
       }

@@ -1534,12 +1534,24 @@ export async function renderVendorBySlug({
                 contact-info section. */}
             {bookable ? (
               vendor.contact_email ? (
-                <>
-                  Already a Setnayan couple? Start a thread directly with{' '}
-                  <span className="font-medium text-ink">{displayLabel}</span> from
-                  your dashboard using the contact email above. Identity stays masked
-                  until you choose to share.
-                </>
+                showInquiryComposer || anonComposerServices.length > 0 ? (
+                  // A composer renders below — don't send them to a "dashboard"
+                  // an eventless visitor doesn't have (the contradiction the
+                  // review flagged). Speak to the composer instead.
+                  <>
+                    Send{' '}
+                    <span className="font-medium text-ink">{displayLabel}</span> an
+                    inquiry below — they&rsquo;ll reply in your Setnayan inbox.
+                    Identity stays masked until you choose to share.
+                  </>
+                ) : (
+                  <>
+                    Already a Setnayan couple? Start a thread directly with{' '}
+                    <span className="font-medium text-ink">{displayLabel}</span> from
+                    your dashboard using the contact email above. Identity stays masked
+                    until you choose to share.
+                  </>
+                )
               ) : (
                 <>
                   {displayLabel} is on Setnayan but hasn&rsquo;t published a contact

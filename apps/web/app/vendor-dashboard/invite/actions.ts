@@ -59,6 +59,17 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const eventTypes = await getCreatableEventTypes();
   const eventType = rawEt && eventTypes.some((t) => t.key === rawEt) ? rawEt : null;
 
+  // Owner 2026-07: a Locked QR must carry WHAT the couple availed + the AGREED
+  // wedding date. Both required at issue (legacy tokens predate them).
+  const serviceDescription = String(formData.get('service_description') ?? '').trim();
+  if (serviceDescription.length === 0) fail('description');
+  const rawDate = String(formData.get('event_date') ?? '').trim();
+  const eventDate =
+    /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !Number.isNaN(Date.parse(rawDate))
+      ? rawDate
+      : null;
+  if (!eventDate) fail('event_date');
+
   const totalPhp = toAmount(formData.get('total_php'));
   const initialPaid = toAmount(formData.get('initial_paid_php')) ?? 0;
   const proofRef = String(formData.get('proof_r2_ref') ?? '').trim() || null;
@@ -77,6 +88,8 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       created_by_user_id: user.id,
       event_type: eventType,
       category,
+      service_description: serviceDescription,
+      event_date: eventDate,
       total_php: totalPhp,
       initial_paid_php: initialPaid,
       schedule_json: schedule,

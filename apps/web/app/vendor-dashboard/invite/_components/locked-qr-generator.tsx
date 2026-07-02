@@ -137,6 +137,32 @@ export function LockedQrGenerator({
           </label>
           <input id="initial_paid_php" name="initial_paid_php" type="number" min="0" step="0.01" inputMode="decimal" className="input-field w-full" placeholder="e.g. 15000" />
         </div>
+        <div className="space-y-1.5">
+          <label htmlFor="event_date" className="block text-sm font-medium text-ink/80">
+            Wedding date <span className="text-terracotta">*</span>
+          </label>
+          <input id="event_date" name="event_date" type="date" required className="input-field w-full" />
+          <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
+        </div>
+      </div>
+
+      {/* What the couple availed — the scope of work frozen onto the couple's plan. */}
+      <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
+        <label htmlFor="service_description" className="block text-sm font-medium text-ink/80">
+          What the couple availed <span className="text-terracotta">*</span>
+        </label>
+        <textarea
+          id="service_description"
+          name="service_description"
+          required
+          rows={3}
+          maxLength={2000}
+          className="input-field w-full"
+          placeholder="e.g. 8 hours coverage · 2 photographers · 300+ edited photos · online gallery · 1 layflat album"
+        />
+        <p className="text-xs text-ink/50">
+          Frozen onto their plan — the couple sees this as their scope of work.
+        </p>
       </div>
 
       {/* Payment schedule */}

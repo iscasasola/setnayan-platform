@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X } from 'lucide-react';
+import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockScheduleRow } from '@/lib/vendor-locked-qr';
-import { issueLockedQr, checkVendorDateConflict } from '../actions';
+import { issueLockedQr } from '../actions';
+import { resolveVendorDateStatus } from '../date-status-actions';
 
 type Opt = { value: string; label: string };
 type Row = {
@@ -32,6 +33,39 @@ function prettyServiceLabel(label: string): string {
 /** Local-timezone today as YYYY-MM-DD (en-CA renders ISO order). */
 function todayIso(): string {
   return new Date().toLocaleDateString('en-CA');
+}
+
+type DateStatusTone = 'green' | 'sky' | 'amber' | 'red';
+const DATE_STATUS_TONE: Record<DateStatusTone, string> = {
+  green: 'bg-green-50 text-green-800',
+  sky: 'bg-sky-50 text-sky-800',
+  amber: 'bg-amber-50 text-amber-800',
+  red: 'bg-rose-50 text-rose-800',
+};
+
+/** Turn the advisory calendar read into a single headline chip. Precedence
+ *  mirrors the calendar: blocked > locked > booked > whitelist > available.
+ *  (Waitlist is an orthogonal signal rendered separately.) */
+function describeDateStatus(
+  s: Awaited<ReturnType<typeof resolveVendorDateStatus>>,
+): { tone: DateStatusTone; icon: typeof Check; text: string } {
+  if (s.blocked)
+    return {
+      tone: 'red',
+      icon: AlertTriangle,
+      text: `Blocked on your calendar${s.blockLabels.length ? ` — ${s.blockLabels.join(' · ')}` : ''}`,
+    };
+  if (s.locked)
+    return { tone: 'red', icon: AlertTriangle, text: 'You locked this date (closed on your calendar)' };
+  if (s.bookedCount > 0)
+    return {
+      tone: 'amber',
+      icon: AlertTriangle,
+      text: `Already booked on this date (${s.bookedCount})`,
+    };
+  if (s.whitelist)
+    return { tone: 'sky', icon: Info, text: 'Whitelisted — you’re keeping this date open' };
+  return { tone: 'green', icon: Check, text: 'This date looks available' };
 }
 
 /** Strip everything but digits + a single decimal point → a clean numeric string. */
@@ -146,28 +180,39 @@ export function LockedQrGenerator({
   const [initialPaid, setInitialPaid] = useState('');
   const proof = useUploadSlot();
   const remembrance = useUploadSlot();
-  // Date-collision advisory for the entered event date (soft — never blocks).
-  const [conflict, setConflict] = useState<{ loading: boolean; labels: string[] } | null>(null);
+  // Advisory calendar read for the entered event date (soft — never blocks):
+  // available / whitelist / booked / blocked / locked + a waitlist count.
+  const [dateStatus, setDateStatus] =
+    useState<Awaited<ReturnType<typeof resolveVendorDateStatus>> | null>(null);
+  const [dateStatusLoading, setDateStatusLoading] = useState(false);
 
   // Event-type-aware date label (there are many event types, not just weddings).
   const eventTypeLabel = eventTypes.find((t) => t.value === eventType)?.label ?? null;
   const eventDateLabel = eventTypeLabel ? `${eventTypeLabel} date` : 'Event date';
 
-  // Notify the vendor if they already have a calendar block / booking on the
-  // chosen event date. Advisory only.
+  // Read the vendor's own calendar for the chosen event date so they can see at
+  // a glance whether it's available / whitelisted / booked / blocked, and how
+  // many couples are waitlisted. Advisory only — never blocks issuing.
   useEffect(() => {
     if (!ISO_DATE_RE.test(eventDate)) {
-      setConflict(null);
+      setDateStatus(null);
+      setDateStatusLoading(false);
       return;
     }
     let cancelled = false;
-    setConflict({ loading: true, labels: [] });
-    checkVendorDateConflict(eventDate)
+    setDateStatusLoading(true);
+    resolveVendorDateStatus(eventDate)
       .then((res) => {
-        if (!cancelled) setConflict({ loading: false, labels: res.labels });
+        if (!cancelled) {
+          setDateStatus(res);
+          setDateStatusLoading(false);
+        }
       })
       .catch(() => {
-        if (!cancelled) setConflict(null);
+        if (!cancelled) {
+          setDateStatus(null);
+          setDateStatusLoading(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -321,15 +366,36 @@ export function LockedQrGenerator({
             onChange={(e) => setEventDate(e.target.value)}
           />
           <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
-          {conflict && !conflict.loading && conflict.labels.length > 0 && (
-            <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              <span>
-                You already have {conflict.labels.length} booking/block on this date:{' '}
-                {conflict.labels.join(' · ')}. Double-check before locking.
-              </span>
+          {dateStatusLoading && !dateStatus && (
+            <p className="flex items-center gap-1.5 text-xs text-ink/40">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+              Checking your calendar…
             </p>
           )}
+          {dateStatus &&
+            (() => {
+              const d = describeDateStatus(dateStatus);
+              const Icon = d.icon;
+              return (
+                <div className="space-y-1.5">
+                  <p
+                    className={`flex items-start gap-1.5 rounded-lg px-2.5 py-2 text-xs ${DATE_STATUS_TONE[d.tone]}`}
+                  >
+                    <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                    <span>{d.text}</span>
+                  </p>
+                  {dateStatus.waitlistCount > 0 && (
+                    <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                      <span>
+                        {dateStatus.waitlistCount} couple
+                        {dateStatus.waitlistCount === 1 ? '' : 's'} waitlisted for this date.
+                      </span>
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
         </div>
         <div className="space-y-1.5">
           <label htmlFor="total_php" className="block text-sm font-medium text-ink/80">

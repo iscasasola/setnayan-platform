@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -44,8 +44,6 @@ import {
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
 import { resolveLivePax } from '@/lib/pax';
-import { isFollowingVendor } from '@/lib/follow';
-import { FollowGate } from '@/app/_components/follow-gate';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
 import type {
@@ -53,7 +51,7 @@ import type {
   VendorPackageRow,
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
-import { SaveVendorButton } from '@/app/explore/_components/save-vendor-button';
+import { ShareButton } from './_components/share-button';
 import {
   InquiryComposer,
   type InquiryComposerService,
@@ -791,38 +789,26 @@ export async function renderVendorBySlug({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  let initialFollowing = false;
   let coupleEventId: string | null = null;
   /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
    *  Waitlist CTA when the vendor is unavailable on it. */
   let coupleEventDate: string | null = null;
-  let isAlreadySaved = false;
   /** Existing chat thread for this (coupleEvent, vendor) pair — non-null when
    *  the couple already sent an inquiry (any status except declined). Passed
    *  to the InquiryComposer so it can surface "View thread" instead of opening
    *  a new modal on re-visit. */
   let existingThreadId: string | null = null;
   if (user) {
-    initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
     const events = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = events[0]?.event_id ?? null;
     coupleEventDate = events[0]?.event_date ?? null;
     if (coupleEventId) {
-      const [savedResult, threadResult] = await Promise.all([
-        supabase
-          .from('event_vendors')
-          .select('vendor_id')
-          .eq('event_id', coupleEventId)
-          .eq('marketplace_vendor_id', vendor.vendor_profile_id)
-          .maybeSingle(),
-        supabase
-          .from('chat_threads')
-          .select('thread_id, inquiry_status')
-          .eq('event_id', coupleEventId)
-          .eq('vendor_profile_id', vendor.vendor_profile_id)
-          .maybeSingle(),
-      ]);
-      isAlreadySaved = Boolean(savedResult.data?.vendor_id);
+      const threadResult = await supabase
+        .from('chat_threads')
+        .select('thread_id, inquiry_status')
+        .eq('event_id', coupleEventId)
+        .eq('vendor_profile_id', vendor.vendor_profile_id)
+        .maybeSingle();
       // Only surface "View thread" for non-declined threads — a declined
       // thread has no active conversation to resume.
       const t = threadResult.data as
@@ -1237,7 +1223,7 @@ export async function renderVendorBySlug({
       </header>
 
       <article
-        className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
+        className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
         /* Pro accent (My Shop → Website) retints the accent ramp for THIS
            vendor's content only — scoped to the article so the Setnayan header
            chrome above keeps the site accent. undefined = default champagne. */
@@ -1275,6 +1261,10 @@ export async function renderVendorBySlug({
             />
           </div>
         ) : null}
+        {/* Premium 2-column (desktop): story content left, a sticky Inquire
+            rail right. Collapses to a single column on mobile. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-10">
+          <div className="min-w-0">
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
           <Logo logoUrl={vendor.logo_url} name={displayLabel} />
           <div className="min-w-0 space-y-2">
@@ -1418,31 +1408,16 @@ export async function renderVendorBySlug({
                 </a>
               ) : null}
             </div>
+            {/* Primary actions (2026-07-02): Inquire Now (scrolls to the
+                composer) + Share. Retires the old Follow / Save-to-picks row.
+                On desktop the sticky Inquire rail carries these too. */}
             {bookable ? (
-              <div className="flex flex-wrap items-center gap-3 pt-4">
-                <FollowGate
-                  vendorProfileId={vendor.vendor_profile_id}
-                  /* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30):
-                     FollowGate's "Follow {name}" copy uses the
-                     display label so hidden vendors surface as
-                     "Follow Manila Wedding Photographer · Manila"
-                     instead of leaking the real business_name. */
-                  vendorName={displayLabel}
-                  vendorEmail={vendor.contact_email}
-                  isAuthenticated={user !== null}
-                  initialFollowing={initialFollowing}
-                  eventId={coupleEventId}
-                  revalidatePath={`/${slug}`}
-                />
-                {/* Save-to-picks (2026-05-20). Only surfaced for logged-in
-                    couples with at least one event; the button hides
-                    itself otherwise via canSave. */}
-                <SaveVendorButton
-                  vendorProfileId={vendor.vendor_profile_id}
-                  initiallySaved={isAlreadySaved}
-                  canSave={user !== null && coupleEventId !== null}
-                  variant="profile"
-                />
+              <div className="flex flex-wrap items-center gap-2 pt-4 lg:hidden">
+                <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
+                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  Inquire Now
+                </a>
+                <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
               </div>
             ) : null}
             {/* Visual map (2026-06-28). The picture-of-the-map above the
@@ -1695,7 +1670,7 @@ export async function renderVendorBySlug({
           <TrustedBySection vendors={trustedBy} businessName={displayLabel} />
         ) : null}
 
-        <section className="space-y-4 py-8">
+        <section id="get-in-touch" className="scroll-mt-24 space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             {bookable ? 'Get in touch' : 'Not yet bookable'}
           </h2>
@@ -1863,6 +1838,69 @@ export async function renderVendorBySlug({
             </Link>
           </div>
         </section>
+          </div>
+
+          {/* Sticky Inquire rail — desktop only. Rating + the primary Inquire
+              Now / Share CTAs + at-a-glance, following the scroll. */}
+          {bookable ? (
+            <aside className="hidden lg:block">
+              <div className="sticky top-6 space-y-4 rounded-2xl border border-ink/10 bg-cream/50 p-5">
+                {viewerTierCaps.reviewStarsCounted &&
+                reviewStats.total_count > 0 &&
+                reviewStats.avg_rating_overall > 0 ? (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-semibold text-ink">
+                      {formatStarRating(reviewStats.avg_rating_overall)}
+                    </span>
+                    <Star aria-hidden className="h-4 w-4 fill-warn-400 text-warn-500" strokeWidth={1.75} />
+                    <span className="text-sm text-ink/60">
+                      {reviewStats.total_count} review{reviewStats.total_count === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                ) : null}
+
+                <a
+                  href="#get-in-touch"
+                  className="button-primary flex w-full items-center justify-center gap-2"
+                >
+                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  Inquire Now
+                </a>
+                <ShareButton
+                  title={displayLabel}
+                  className="button-secondary flex w-full items-center justify-center gap-2"
+                />
+                <p className="text-center text-xs text-ink/50">
+                  Starts a masked chat in your Setnayan inbox.
+                </p>
+
+                <dl className="space-y-2 border-t border-ink/10 pt-3 text-sm text-ink/70">
+                  {vendor.location_city ? (
+                    <div className="flex items-center gap-2">
+                      <MapPin aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+                      <dd>{vendor.location_city}</dd>
+                    </div>
+                  ) : null}
+                  {finalizedBookingCount && finalizedBookingCount > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <CalendarCheck aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+                      <dd>
+                        {finalizedBookingCount} event{finalizedBookingCount === 1 ? '' : 's'} through
+                        Setnayan
+                      </dd>
+                    </div>
+                  ) : null}
+                  {declaredExp?.years != null ? (
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+                      <dd>{declaredExp.years} years in business</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
+            </aside>
+          ) : null}
+        </div>
 
         <footer className="border-t border-ink/10 pt-6 text-xs text-ink/50">
           <p>Vendor ID · <span className="font-mono">{vendor.public_id}</span></p>

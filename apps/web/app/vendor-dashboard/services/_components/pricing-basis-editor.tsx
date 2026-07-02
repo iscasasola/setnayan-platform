@@ -42,9 +42,17 @@ const OPTIONS: { key: Basis; label: string; hint: string }[] = [
 export function PricingBasisEditor({
   idPrefix,
   defaults,
+  fixedExtra,
 }: {
   idPrefix: string;
   defaults: PricingDefaults;
+  /**
+   * Optional content rendered ONLY inside the Fixed branch (mounted only when
+   * basis === 'fixed', so its inputs cleanly drop from the form otherwise).
+   * Phase 3b threads the PriceBracketsEditor through here so pax brackets show
+   * exclusively for the Fixed basis.
+   */
+  fixedExtra?: ReactNode;
 }) {
   const [basis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
   return (
@@ -97,6 +105,7 @@ export function PricingBasisEditor({
               <input id={`${idPrefix}-addpax`} name="added_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.added_pax_price_php ?? ''} placeholder="e.g. 350" className="input-field" />
             </PField>
           </div>
+          {fixedExtra}
         </div>
       ) : basis === 'per_pax' ? (
         <div className="grid gap-3 sm:grid-cols-2">

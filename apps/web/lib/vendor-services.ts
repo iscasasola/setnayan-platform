@@ -175,6 +175,78 @@ export async function fetchDiscountsByService(
   return out;
 }
 
+// ── Inclusions (vendor_service_inclusions · migration 20270502342558) ───────
+export type VendorServiceInclusion = {
+  vendor_service_id: string;
+  /** 1–80 chars (DB-checked). */
+  label: string;
+  /** The item's stated peso worth ("₱X free"); null = no stated worth. Adds ₱0. */
+  worth_php: number | null;
+  sort_order: number;
+};
+
+/**
+ * FREE inclusions for a set of service ids, grouped by service (the value story:
+ * "Includes … · ₱X free", distinct from PAID add-ons). Fail-soft to an empty map
+ * so a missing table / RLS hiccup degrades to "no inclusions" rather than
+ * crashing. Mirrors fetchDiscountsByService.
+ */
+export async function fetchInclusionsByService(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<Map<string, VendorServiceInclusion[]>> {
+  const out = new Map<string, VendorServiceInclusion[]>();
+  if (serviceIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from('vendor_service_inclusions')
+    .select('vendor_service_id,label,worth_php,sort_order')
+    .in('vendor_service_id', serviceIds)
+    .order('sort_order', { ascending: true });
+  if (error) return out;
+  for (const row of (data ?? []) as VendorServiceInclusion[]) {
+    const list = out.get(row.vendor_service_id) ?? [];
+    list.push(row);
+    out.set(row.vendor_service_id, list);
+  }
+  return out;
+}
+
+// ── Price brackets (vendor_service_price_brackets · migration 20270502342558) ─
+export type VendorServicePriceBracket = {
+  vendor_service_id: string;
+  /** Guest-count band. null min = from 0; null max = "any size" (open = flat). */
+  min_pax: number | null;
+  max_pax: number | null;
+  /** The locked base price for the band. */
+  price_php: number;
+  sort_order: number;
+};
+
+/**
+ * Fixed-basis pax price brackets for a set of service ids, grouped by service
+ * (the card "from ₱X" anchor = the lowest bracket price). Fail-soft to an empty
+ * map. Mirrors fetchDiscountsByService.
+ */
+export async function fetchBracketsByService(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<Map<string, VendorServicePriceBracket[]>> {
+  const out = new Map<string, VendorServicePriceBracket[]>();
+  if (serviceIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from('vendor_service_price_brackets')
+    .select('vendor_service_id,min_pax,max_pax,price_php,sort_order')
+    .in('vendor_service_id', serviceIds)
+    .order('sort_order', { ascending: true });
+  if (error) return out;
+  for (const row of (data ?? []) as VendorServicePriceBracket[]) {
+    const list = out.get(row.vendor_service_id) ?? [];
+    list.push(row);
+    out.set(row.vendor_service_id, list);
+  }
+  return out;
+}
+
 export function isVendorCategory(value: string): value is VendorCategory {
   // Cheap structural check: lowercase + underscores, fits the enum shape.
   // Validated against VENDOR_CATEGORIES in the server action before write.

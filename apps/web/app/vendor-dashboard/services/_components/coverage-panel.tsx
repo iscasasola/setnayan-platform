@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Plus, X, Trash2, Check, Tag, Folder, Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Plus, X, Check, Tag, Folder, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createCoverage,
@@ -10,12 +10,13 @@ import {
 } from '../coverage-actions';
 
 /**
- * Coverage-first management (Vendor Services rework 2026-07-02 · Phase 2). A
- * coverage is a taxonomy leaf (canonical_service) a vendor serves + WHO they
- * serve it for: event types AND faiths ("Serves"). "Add coverage" is a
- * search-first, 3-per-row drill of the LIVE admin taxonomy (parent → branch →
- * leaf) with a breadcrumb that jumps to any level. Already-covered leaves lock
- * out; event types are constrained by the leaf; faiths default to "all welcome".
+ * Coverage tab (v20 prototype structure — owner: "we had a prototype. follow
+ * that"). The BROWSE IS THE SURFACE: search bar + a 3-per-row card drill of the
+ * LIVE admin taxonomy (parent → branch → leaf) with a breadcrumb, always
+ * visible — no "Add coverage" gate. Clicking a leaf opens the "Add this
+ * coverage?" confirm (event types + faiths). Below a divider, "Your coverage"
+ * lists leaves GROUPED BY PARENT as removable pills; clicking a pill opens its
+ * Serves editor.
  */
 
 export type CoverageLeaf = {
@@ -32,6 +33,10 @@ export type CoverageItem = {
   id: number;
   canonicalService: string;
   pathLabel: string;
+  /** Tier-1 parent label (first segment of the path) — the grouping key. */
+  parentLabel: string;
+  /** Leaf display label (last segment of the path). */
+  leafLabel: string;
   eventTypes: string[];
   faiths: string[];
   serviceCount: number;
@@ -53,15 +58,6 @@ export function CoveragePanel({
   faithOptions: FaithOption[];
   parentUsage: ParentUsage;
 }) {
-  const [adding, setAdding] = useState(false);
-  const eventLabel = useMemo(() => {
-    const m = new Map(eventTypeOptions.map((e) => [e.key, e.label]));
-    return (k: string) => m.get(k) ?? k;
-  }, [eventTypeOptions]);
-  const faithLabel = useMemo(() => {
-    const m = new Map(faithOptions.map((f) => [f.key, f.label]));
-    return (k: string) => m.get(k) ?? k;
-  }, [faithOptions]);
   const covered = useMemo(
     () => new Set(coverages.map((c) => c.canonicalService)),
     [coverages],
@@ -72,152 +68,179 @@ export function CoveragePanel({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2
-            className="font-mono text-[11px] font-medium uppercase tracking-[0.18em]"
-            style={{ color: 'var(--m-slate-3)' }}
-          >
-            Your coverage · categories you serve
-          </h2>
-          <p className="mt-0.5 text-[11px]" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-3)' }}>
-            Parent categories {parentUsage.used} of {capLabel}
-            {overCap ? ' · upgrade to add more' : ''}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          {adding ? <X className="h-4 w-4" strokeWidth={2} /> : <Plus className="h-4 w-4" strokeWidth={2} />}
-          {adding ? 'Cancel' : 'Add coverage'}
-        </button>
+        <span className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
+          Add what you serve
+        </span>
+        <span className="text-xs" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-3)' }}>
+          Parents{' '}
+          <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-orange-2)' }}>
+            {parentUsage.used} of {capLabel}
+          </b>
+          {overCap ? ' · upgrade to add more' : ''}
+        </span>
       </div>
 
-      {adding ? (
-        <AddCoverage
-          tree={tree}
-          covered={covered}
+      {/* The browse IS the surface (v20) — search + 3-per-row drill, always on. */}
+      <CoverageBrowse
+        tree={tree}
+        covered={covered}
+        eventTypeOptions={eventTypeOptions}
+        faithOptions={faithOptions}
+      />
+
+      <div className="border-t" style={{ borderColor: line }} />
+
+      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+        Your coverage
+      </p>
+      {coverages.length === 0 ? (
+        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+          Nothing yet — pick a category above and it lands here. Service cards
+          are built inside your coverage.
+        </p>
+      ) : (
+        <YourCoverage
+          coverages={coverages}
           eventTypeOptions={eventTypeOptions}
           faithOptions={faithOptions}
-          onDone={() => setAdding(false)}
         />
-      ) : null}
-
-      {coverages.length === 0 && !adding ? (
-        <div
-          className="rounded-2xl border border-dashed p-6 text-center text-sm"
-          style={{ borderColor: line, background: paper, color: 'var(--m-slate-2)' }}
-        >
-          No coverage yet. Add a category you serve — then build service cards inside it.
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {coverages.map((c) => (
-            <CoverageRow
-              key={c.id}
-              coverage={c}
-              eventTypeOptions={eventTypeOptions}
-              faithOptions={faithOptions}
-              eventLabel={eventLabel}
-              faithLabel={faithLabel}
-            />
-          ))}
-        </ul>
       )}
     </section>
   );
 }
 
-function CoverageRow({
-  coverage,
+// ── "Your coverage" — leaves grouped by parent (v20 pills) ──────────────────
+
+function YourCoverage({
+  coverages,
   eventTypeOptions,
   faithOptions,
-  eventLabel,
-  faithLabel,
 }: {
-  coverage: CoverageItem;
+  coverages: CoverageItem[];
   eventTypeOptions: EventTypeOption[];
   faithOptions: FaithOption[];
-  eventLabel: (k: string) => string;
-  faithLabel: (k: string) => string;
 }) {
-  const [editing, setEditing] = useState(false);
-  const faithSummary =
-    coverage.faiths.length === 0 ? 'All faiths' : coverage.faiths.map(faithLabel).join(', ');
-  return (
-    <li
-      className="overflow-hidden rounded-2xl border"
-      style={{ borderColor: line, background: paper }}
-    >
-      <div className="flex items-center gap-3 p-4">
-        <span
-          aria-hidden
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-          style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate)' }}
-        >
-          <Folder className="h-4 w-4" strokeWidth={1.75} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {coverage.pathLabel}
-          </p>
-          <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            {coverage.eventTypes.map(eventLabel).join(' · ') || 'No event types'}
-            {' · '}
-            {faithSummary}
-            {' · '}
-            {coverage.serviceCount} card{coverage.serviceCount === 1 ? '' : 's'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium"
-          style={{ borderColor: line, color: 'var(--m-slate)' }}
-        >
-          <Tag className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Serves
-        </button>
-        <form
-          action={deleteCoverage}
-          onSubmit={(e) => {
-            if (
-              !confirm(
-                `Remove "${coverage.pathLabel}"? This drops it from search` +
-                  (coverage.serviceCount > 0
-                    ? ` and unlinks its ${coverage.serviceCount} service card${coverage.serviceCount === 1 ? '' : 's'}.`
-                    : '.'),
-              )
-            )
-              e.preventDefault();
-          }}
-        >
-          <input type="hidden" name="coverage_id" value={coverage.id} />
-          <button
-            type="submit"
-            aria-label="Remove coverage"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border"
-            style={{ borderColor: line, color: 'var(--m-blush-deep)' }}
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
-        </form>
-      </div>
+  const [openId, setOpenId] = useState<number | null>(null);
+  const faithLabel = useMemo(() => {
+    const m = new Map(faithOptions.map((f) => [f.key, f.label]));
+    return (k: string) => m.get(k) ?? k;
+  }, [faithOptions]);
+  const eventLabel = useMemo(() => {
+    const m = new Map(eventTypeOptions.map((e) => [e.key, e.label]));
+    return (k: string) => m.get(k) ?? k;
+  }, [eventTypeOptions]);
 
-      {editing ? (
+  const groups = useMemo(() => {
+    const g = new Map<string, CoverageItem[]>();
+    for (const c of coverages) {
+      const arr = g.get(c.parentLabel) ?? [];
+      arr.push(c);
+      g.set(c.parentLabel, arr);
+    }
+    return Array.from(g.entries());
+  }, [coverages]);
+
+  const open = openId != null ? coverages.find((c) => c.id === openId) ?? null : null;
+
+  return (
+    <div className="space-y-3">
+      {groups.map(([parent, items]) => (
+        <div key={parent}>
+          <div className="mb-1.5 flex items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md"
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+            >
+              <Folder className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </span>
+            <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+              {parent}
+            </span>
+            <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              {items.length} {items.length === 1 ? 'leaf' : 'leaves'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 pl-8">
+            {items.map((c) => {
+              const on = openId === c.id;
+              return (
+                <span
+                  key={c.id}
+                  className="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1.5 text-xs"
+                  style={{
+                    borderColor: on ? 'var(--m-orange-3)' : line,
+                    background: on ? 'var(--m-orange-4)' : paper,
+                    color: on ? 'var(--m-orange-2)' : 'var(--m-slate)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(on ? null : c.id)}
+                    className="inline-flex items-center gap-1"
+                    aria-expanded={on}
+                    title="Edit who you serve this for"
+                  >
+                    {c.leafLabel}
+                    {c.serviceCount > 0 ? (
+                      <span style={{ color: 'var(--m-slate-3)' }}>· {c.serviceCount}</span>
+                    ) : null}
+                    <Tag className="h-3 w-3" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+                  </button>
+                  <form
+                    action={deleteCoverage}
+                    className="inline-flex"
+                    onSubmit={(e) => {
+                      if (
+                        !confirm(
+                          `Remove "${c.leafLabel}"? This drops it from search` +
+                            (c.serviceCount > 0
+                              ? ` and unlinks its ${c.serviceCount} service card${c.serviceCount === 1 ? '' : 's'}.`
+                              : '.'),
+                        )
+                      )
+                        e.preventDefault();
+                    }}
+                  >
+                    <input type="hidden" name="coverage_id" value={c.id} />
+                    <button
+                      type="submit"
+                      aria-label={`Remove ${c.leafLabel}`}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full"
+                      style={{ color: 'var(--m-slate-3)' }}
+                    >
+                      <X className="h-3 w-3" strokeWidth={2} />
+                    </button>
+                  </form>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {open ? (
         <form
           action={updateCoverageServes}
-          className="space-y-4 border-t px-4 pb-4 pt-3"
-          style={{ borderColor: line }}
+          className="space-y-4 rounded-2xl border p-4"
+          style={{ borderColor: 'var(--m-orange-3)', background: paper }}
         >
-          <input type="hidden" name="coverage_id" value={coverage.id} />
+          <input type="hidden" name="coverage_id" value={open.id} />
+          <div>
+            <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>{open.pathLabel}</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+              Who do you serve this for?
+            </p>
+            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              Now: {open.eventTypes.map(eventLabel).join(' · ') || 'no event types'} ·{' '}
+              {open.faiths.length === 0 ? 'all faiths' : open.faiths.map(faithLabel).join(', ')}
+            </p>
+          </div>
           <div className="space-y-2">
             <SubLabel>Event types you cater · couples planning these find you</SubLabel>
             <div className="flex flex-wrap gap-2">
               {eventTypeOptions.map((e) => (
-                <CheckChip key={e.key} name="event_types" value={e.key} defaultChecked={coverage.eventTypes.includes(e.key)}>
+                <CheckChip key={`${open.id}-${e.key}`} name="event_types" value={e.key} defaultChecked={open.eventTypes.includes(e.key)}>
                   {e.label}
                 </CheckChip>
               ))}
@@ -227,22 +250,27 @@ function CoverageRow({
             <SubLabel>Faiths you serve · leave all off = welcome every faith</SubLabel>
             <div className="flex flex-wrap gap-2">
               {faithOptions.map((f) => (
-                <CheckChip key={f.key} name="faiths" value={f.key} defaultChecked={coverage.faiths.includes(f.key)}>
+                <CheckChip key={`${open.id}-${f.key}`} name="faiths" value={f.key} defaultChecked={open.faiths.includes(f.key)}>
                   {f.label}
                 </CheckChip>
               ))}
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <button type="button" onClick={() => setOpenId(null)} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              Close
+            </button>
             <SubmitButton className="button-primary" pendingLabel="Saving…">
               Save
             </SubmitButton>
           </div>
         </form>
       ) : null}
-    </li>
+    </div>
   );
 }
+
+// ── The always-on browse (search + 3-per-row drill + confirm) ───────────────
 
 type LeafHit = {
   leaf: CoverageLeaf;
@@ -252,18 +280,16 @@ type LeafHit = {
   branchLabel: string;
 };
 
-function AddCoverage({
+function CoverageBrowse({
   tree,
   covered,
   eventTypeOptions,
   faithOptions,
-  onDone,
 }: {
   tree: CoverageParent[];
   covered: Set<string>;
   eventTypeOptions: EventTypeOption[];
   faithOptions: FaithOption[];
-  onDone: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [parentId, setParentId] = useState<string | null>(null);
@@ -328,7 +354,6 @@ function AddCoverage({
     return (
       <form
         action={createCoverage}
-        onSubmit={() => onDone()}
         className="space-y-4 rounded-2xl border p-4"
         style={{ borderColor: 'var(--m-orange-3)', background: paper }}
       >
@@ -387,10 +412,7 @@ function AddCoverage({
           </p>
         </div>
 
-        <div className="flex items-center justify-between pt-1">
-          <button type="button" onClick={onDone} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Cancel
-          </button>
+        <div className="flex items-center justify-end pt-1">
           <SubmitButton className="button-primary disabled:opacity-50" pendingLabel="Adding…" disabled={!canSave}>
             Add coverage
           </SubmitButton>
@@ -401,7 +423,7 @@ function AddCoverage({
 
   // ── Drill / search step (no leaf yet) ───────────────────────────────────
   return (
-    <div className="space-y-3 rounded-2xl border p-4" style={{ borderColor: 'var(--m-orange-3)', background: paper }}>
+    <div className="space-y-3">
       {/* Search */}
       <label className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: line, background: 'var(--m-paper-2)' }}>
         <Search className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
@@ -409,7 +431,7 @@ function AddCoverage({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search categories — e.g. photography, catering, lights"
+          placeholder="Search categories, or browse below"
           className="w-full bg-transparent text-sm outline-none"
           style={{ color: 'var(--m-ink)' }}
         />
@@ -434,7 +456,7 @@ function AddCoverage({
             })}
           </div>
         ) : (
-          <Muted>No categories match “{query}”. Try a broader word.</Muted>
+          <Muted>No categories match “{query}”. Try a broader word — or request it under Tools.</Muted>
         )
       ) : (
         <>
@@ -537,16 +559,18 @@ function GridCard({
           {label}
         </span>
         {added ? (
-          <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color: 'var(--m-slate-3)' }}>
-            Added
-          </span>
+          <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2} style={{ color: 'var(--m-slate-3)' }} />
         ) : drill ? (
           <ChevronRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} style={{ color: 'var(--m-slate-3)' }} />
         ) : (
           <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
         )}
       </span>
-      {sub ? (
+      {added ? (
+        <span className="truncate text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+          Already added
+        </span>
+      ) : sub ? (
         <span className="truncate text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
           {sub}
         </span>
@@ -570,8 +594,7 @@ function Crumb({ children, active, onClick }: { children: ReactNode; active?: bo
 
 function SelectChip({ children, on }: { children: ReactNode; on: boolean }) {
   // The controlled hidden checkbox (in children) is the single toggle source —
-  // clicking the label toggles it and fires its onChange. No label onClick (that
-  // would double-fire against the input and net to a no-op).
+  // clicking the label toggles it and fires its onChange.
   return (
     <label
       className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"

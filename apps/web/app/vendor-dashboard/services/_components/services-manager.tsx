@@ -31,14 +31,7 @@ import {
   formatLeanMonths,
   suggestPromoExpiry,
 } from '@/lib/vendor-lean-months';
-import {
-  tierCaps,
-  asVendorTier,
-  canPlotTimeSlots,
-  isTrueNameTier,
-  TIER_LABEL,
-  type VendorTier,
-} from '@/lib/vendor-tier-caps';
+import { tierCaps, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorTimeSlotsByService,
   formatSlotTime,
@@ -53,15 +46,9 @@ import {
   type VendorCategory,
   displayServiceLabel,
   formatPhp,
-  resolveVendorDisplayName,
-  isVendorNameRevealed,
 } from '@/lib/vendors';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
-import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
-import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
-import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
-import { displayLogoUrl } from '@/lib/uploads';
 import {
   iconForVendorCategory,
   specialistToolsForCategories,
@@ -74,7 +61,6 @@ import {
   rowToDraft,
 } from '@/lib/vendor-service-payment-schedules';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
-import { ExploreCardPreview } from './explore-card-preview';
 import { fetchAddonsByService } from '@/lib/vendor-service-addons';
 import { AddonsEditor } from './addons-editor';
 import {
@@ -96,6 +82,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
+import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -163,16 +150,23 @@ export async function VendorServicesManager({
     },
     {},
   );
-  const coverageItems = vendorCoverages.map((c) => ({
-    id: c.id,
-    canonicalService: c.canonical_service,
-    pathLabel: coverageLabels
+  const coverageItems = vendorCoverages.map((c) => {
+    const pathLabel = coverageLabels
       ? coverageLabels.pathLabel(c.canonical_service)
-      : c.canonical_service,
-    eventTypes: c.event_types,
-    faiths: c.faiths ?? [],
-    serviceCount: serviceCountByCoverage[c.id] ?? 0,
-  }));
+      : c.canonical_service;
+    // "Parent › Branch › Leaf" → grouping key + pill label for Your coverage.
+    const segments = pathLabel.split(' › ');
+    return {
+      id: c.id,
+      canonicalService: c.canonical_service,
+      pathLabel,
+      parentLabel: segments[0] ?? pathLabel,
+      leafLabel: segments[segments.length - 1] ?? pathLabel,
+      eventTypes: c.event_types,
+      faiths: c.faiths ?? [],
+      serviceCount: serviceCountByCoverage[c.id] ?? 0,
+    };
+  });
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
   const faithOptions = FAITH_REGISTRY.map((f) => ({ key: f.faithCol, label: f.label }));
   // Distinct tier-1 parent folders the vendor's coverages touch (for the "Parents
@@ -294,10 +288,6 @@ export async function VendorServicesManager({
     screen_name?: string | null;
   } | null;
   const tier: string | null = tierRow?.tier_state ?? null;
-  const verificationState: string | null = tierRow?.verification_state ?? null;
-  const nameRevealedAt: string | null = tierRow?.name_revealed_at ?? null;
-  const screenName: string | null = tierRow?.screen_name ?? null;
-  const tierKey: VendorTier = asVendorTier(tier);
   const caps = tierCaps(tier);
 
   // #2 daily booking capacity: the tier caps the max bookings/day a vendor can
@@ -316,97 +306,10 @@ export async function VendorServicesManager({
   const showBranchPicker = branches.length > 0;
   const branchLabelById = new Map(branches.map((b) => [b.branch_id, b.branch_label]));
 
-  // ── Explore service-card preview data (all LIVE) ────────────────────────
-  // Rating + review count, distinct couples who recommended the vendor, and one
-  // representative review quote — the same reads the marketplace + the vendor's
-  // Reviews page use. Fail-soft to empty on any read error.
-  const [reviewStats, recommendedByCount, reviewList, coverLogoUrl] =
-    await Promise.all([
-      fetchReviewStats(supabase, profile.vendor_profile_id).catch(() => null),
-      countVendorRecommendingCouples(supabase, profile.vendor_profile_id).catch(
-        () => 0,
-      ),
-      fetchReviewsForVendorWithCouple(supabase, profile.vendor_profile_id, {
-        limit: 5,
-      }).catch(() => []),
-      displayLogoUrl(profile).catch(() => null),
-    ]);
-  const rating = reviewStats?.avg_rating_overall ?? 0;
-  const reviewCount = reviewStats?.total_count ?? 0;
-  const reviewQuote =
-    reviewList.find((r) => (r.body ?? '').trim().length > 0)?.body?.trim() ?? null;
-
-  // Cover photo — the vendor's own hero service photo (lowest-created active
-  // service with a primary photo), falling back to their logo, then the bundled
-  // placeholder inside the preview. Soft-probe the column so a pre-migration DB
-  // degrades to the logo path.
-  let coverPhotoUrl: string | null = null;
-  try {
-    const { data: photoRows } = await supabase
-      .from('vendor_services')
-      .select('primary_photo_r2_key, is_active, created_at')
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .order('created_at', { ascending: true });
-    const withPhoto = (photoRows ?? []).find(
-      (r) =>
-        (r as { primary_photo_r2_key?: string | null }).primary_photo_r2_key,
-    ) as { primary_photo_r2_key?: string | null } | undefined;
-    coverPhotoUrl = withPhoto?.primary_photo_r2_key
-      ? r2PublicUrl(R2_BUCKETS.media, withPhoto.primary_photo_r2_key)
-      : null;
-  } catch {
-    coverPhotoUrl = null;
-  }
-
-  // Lowest active starting price → the card's "from ₱X" line.
-  const activePrices = services
-    .filter((s) => s.is_active && s.starting_price_php != null)
-    .map((s) => s.starting_price_php as number);
-  const cardStartingPrice = activePrices.length > 0 ? Math.min(...activePrices) : null;
-
-  // Card badges the vendor genuinely holds — VERIFIED (verification_state) and
-  // NEW (joined within 90 days). Peer-relative badges (Top Pick / Most Booked)
-  // need the whole verified pool and aren't computed on this single-vendor
-  // surface — the card renders the badges the vendor actually has.
-  const cardBadges: Array<'verified' | 'new'> = [];
-  const isVerified =
-    verificationState === 'verified' || profile.public_visibility === 'verified';
-  if (isVerified) {
-    cardBadges.push('verified');
-    const joinedMs = Date.parse(profile.created_at);
-    if (
-      Number.isFinite(joinedMs) &&
-      Date.now() - joinedMs <= 90 * 24 * 60 * 60 * 1000
-    ) {
-      cardBadges.push('new');
-    }
-  }
-
-  // Tier-resolved display name (hybrid-anonymity) — Free/Verified pre-reply show
-  // the anonymized "<Category> · <City>" label; Pro/Enterprise + venue-exempt +
-  // post-reply show the real business name.
-  const primaryService = profile.services?.[0] ?? distinctCategories[0] ?? null;
-  const isPaidTier = isTrueNameTier(tier);
-  const cardDisplayName = resolveVendorDisplayName({
-    business_name: profile.business_name,
-    name_revealed_at: nameRevealedAt,
-    primary_canonical_service: primaryService,
-    location_city: profile.location_city,
-    services: profile.services,
-    screen_name: screenName,
-    isPaidTier,
-  });
-  const cardNameRevealed = isVendorNameRevealed({
-    name_revealed_at: nameRevealedAt,
-    isPaidTier,
-    services: profile.services,
-  });
-  // The service label on the card — prefer the vendor's own listed service.
-  const cardServiceLabel = distinctCategories[0]
-    ? displayServiceLabel(distinctCategories[0])
-    : primaryService
-      ? displayServiceLabel(primaryService)
-      : null;
+  // (The standalone "Explore card preview" section — and its review/badge/
+  // display-name reads — was REMOVED per the owner's v20 prototype ("remove
+  // explore preview … when we create a service card, we want to see the exact
+  // card"). The WYSIWYG preview moves INTO the card form as a follow-up slice.)
 
   // ── Category requests (own rows only) ───────────────────────────────────
   const { data: requestRows } = await supabase
@@ -494,6 +397,16 @@ export async function VendorServicesManager({
       : `${basePath}?add=${cat}#add-${cat}`;
   const specialistTools = specialistToolsForCategories(distinctCategories);
 
+  // v20 tab landing: category-request confirmations land on Tools; any
+  // service-targeted param (open add form, off-peak prefill) or an existing
+  // service list lands on Service cards; a brand-new vendor starts on Coverage
+  // (coverage-first — pick what you serve, then build cards inside it).
+  const defaultTab = search.requested
+    ? 2
+    : addCategory !== null || offPeakPrefillId !== null || services.length > 0
+      ? 1
+      : 0;
+
   return (
     <div className="space-y-6">
       {search.error ? (
@@ -525,10 +438,28 @@ export async function VendorServicesManager({
         </p>
       ) : null}
 
-      <ManagerSection title={"Tier & coverage"} defaultOpen>
-      {/* ── 1 · TIER BANNER ─────────────────────────────────────────────── */}
-      <TierBanner tier={tierKey} />
-
+      {/* v20 prototype structure (owner-locked): ONE card, three tabs —
+          Coverage · Service cards · Tools. Tier banner + the standalone
+          Explore-preview section were REMOVED per the prototype. */}
+      <ManagerTabs
+        defaultTab={defaultTab}
+        tabs={[
+          {
+            label: 'Coverage',
+            panel: (
+              <CoveragePanel
+                tree={coverageTree}
+                coverages={coverageItems}
+                eventTypeOptions={eventTypeOptions}
+                faithOptions={faithOptions}
+                parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
+              />
+            ),
+          },
+          {
+            label: 'Service cards',
+            panel: (
+              <>
       {/* Off-Season Promos nudge (Wave 5). */}
       {showOffSeasonNudge && offPeakTargetId ? (
         <div
@@ -561,63 +492,7 @@ export async function VendorServicesManager({
         </div>
       ) : null}
 
-      {/* ── 3 · SERVICE COVERAGE (coverage-first: taxonomy leaf + who you serve) ── */}
-      <CoveragePanel
-        tree={coverageTree}
-        coverages={coverageItems}
-        eventTypeOptions={eventTypeOptions}
-        faithOptions={faithOptions}
-        parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
-      />
-      </ManagerSection>
-
-      <ManagerSection title={"Explore card preview"}>
-      {/* ── 2 · EXPLORE SERVICE-CARD PREVIEW ────────────────────────────── */}
-      <section className="space-y-3">
-        <SectionEyebrow>Your service card on Explore · preview</SectionEyebrow>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <ExploreCardPreview
-            coverUrl={coverPhotoUrl ?? coverLogoUrl}
-            displayName={cardDisplayName}
-            nameRevealed={cardNameRevealed}
-            businessName={profile.business_name}
-            serviceLabel={cardServiceLabel}
-            badges={cardBadges}
-            rating={rating}
-            reviewCount={reviewCount}
-            startingPricePhp={cardStartingPrice}
-            locationCity={profile.location_city}
-            coverageRadiusKm={caps.serviceRadiusKm}
-            recommendedByCount={recommendedByCount}
-            reviewQuote={reviewQuote}
-          />
-          <div
-            className="max-w-md rounded-xl border p-4 text-xs leading-relaxed lg:mt-1"
-            style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-slate)' }}
-          >
-            <p className="mb-1.5 font-semibold" style={{ color: 'var(--m-ink)' }}>
-              This is exactly what couples see.
-            </p>
-            <p>
-              Cover photo, badges, service by your name, rating, starting price,
-              coverage, and a review quote come straight from your live profile —
-              nothing here is a mock-up.
-            </p>
-            {cardNameRevealed ? null : (
-              <p className="mt-2">
-                Your business name stays hidden until you reply to a couple&rsquo;s
-                first message
-                {isPaidTier ? '' : ' — or you upgrade to a paid tier, which reveals it day one'}.
-                Until then couples see the anonymized label above.
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-      </ManagerSection>
-
-      <ManagerSection title={"Your services"} defaultOpen={addCategory !== null || offPeakPrefillId !== null}>
-      {/* ── 4 · YOUR SERVICES ───────────────────────────────────────────── */}
+      {/* ── YOUR SERVICE CARDS ──────────────────────────────────────────── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionEyebrow>Your services</SectionEyebrow>
@@ -1100,9 +975,13 @@ export async function VendorServicesManager({
           </ul>
         )}
       </section>
-      </ManagerSection>
-
-      <ManagerSection title={"Specialist tools & requests"}>
+              </>
+            ),
+          },
+          {
+            label: 'Tools',
+            panel: (
+              <>
       {/* ── 5 · SPECIALIST TOOLS ────────────────────────────────────────── */}
       {specialistTools.length > 0 ? (
         <section className="space-y-3">
@@ -1196,52 +1075,12 @@ export async function VendorServicesManager({
           </ul>
         ) : null}
       </section>
-      </ManagerSection>
-
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
-  );
-}
-
-/**
- * Collapsible sub-section for the consolidated Services manager. Native
- * <details> so the whole block is server-rendered (no client JS) — matches the
- * page's existing per-service <details> idiom. Rendered on My Shop under one
- * outer disclosure and standalone on the Services page.
- */
-function ManagerSection({
-  title,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  return (
-    <details
-      className="group rounded-2xl border"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-      open={defaultOpen}
-    >
-      <summary
-        className="flex cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        <span>{title}</span>
-        <ChevronDown
-          aria-hidden
-          className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180"
-          strokeWidth={1.75}
-          style={{ color: 'var(--m-slate-3)' }}
-        />
-      </summary>
-      <div
-        className="space-y-4 border-t px-4 pb-5 pt-4"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
-        {children}
-      </div>
-    </details>
   );
 }
 
@@ -1254,53 +1093,6 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
     >
       {children}
     </h2>
-  );
-}
-
-/**
- * ── 1 · Amber tier banner ──────────────────────────────────────────────────
- * Reads the tier's caps from TIER_CAPS (via tierCaps) so every number is the
- * live capability grid, never hardcoded. Formats each axis into the prototype's
- * one-line summary.
- */
-function TierBanner({ tier }: { tier: VendorTier }) {
-  const caps = tierCaps(tier);
-  const cat = (n: number) => (Number.isFinite(n) ? String(n) : 'all');
-  const seats = caps.agentAccounts === 0 ? '0' : Number.isFinite(caps.agentAccounts) ? String(caps.agentAccounts) : 'unlimited';
-  const boost = Number.isFinite(caps.serviceRadiusKm) ? `${caps.serviceRadiusKm} km` : 'nationwide';
-  const answering = Number.isFinite(caps.inAppCustomersPerWeek)
-    ? `${caps.inAppCustomersPerWeek}/week`
-    : 'unlimited';
-  const bookings = caps.slotsPerDay === 0 ? 'none' : Number.isFinite(caps.slotsPerDay) ? `${caps.slotsPerDay}/day` : 'unlimited';
-  return (
-    <div
-      className="flex flex-col gap-2 rounded-2xl border p-4 sm:flex-row sm:items-center sm:gap-4"
-      style={{ background: 'var(--m-orange-4)', borderColor: 'var(--m-orange-3)' }}
-    >
-      <span
-        className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em]"
-        style={{ background: 'var(--m-paper)', color: 'var(--m-orange-2)', border: '1px solid var(--m-orange-3)' }}
-      >
-        Your tier · {TIER_LABEL[tier]}
-      </span>
-      <p className="text-sm" style={{ color: 'var(--m-ink)' }}>
-        <TierStat>categories {cat(caps.parentCategories)}</TierStat>
-        <TierStat>team seats {seats}</TierStat>
-        <TierStat>branches {tier === 'enterprise' ? 'Yes' : 'No'}</TierStat>
-        <TierStat>boost {boost}</TierStat>
-        <TierStat>answering {answering}</TierStat>
-        <TierStat last>bookings/day {bookings}</TierStat>
-      </p>
-    </div>
-  );
-}
-
-function TierStat({ children, last }: { children: React.ReactNode; last?: boolean }) {
-  return (
-    <>
-      <span className="font-medium">{children}</span>
-      {last ? null : <span style={{ color: 'var(--m-orange-2)' }}> · </span>}
-    </>
   );
 }
 

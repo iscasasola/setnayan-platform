@@ -233,6 +233,7 @@ export async function createVendorService(formData: FormData) {
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
   let base_pax: number | null = null;
+  let coverage_id: number | null = null;
   let crew_size: number | null;
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
@@ -250,6 +251,10 @@ export async function createVendorService(formData: FormData) {
     // Base pax the starting price covers (CHECK > 0 or NULL); pairs with above.
     const basePaxParsed = parseInt0OrNull(formData.get('base_pax'));
     base_pax = basePaxParsed && basePaxParsed > 0 ? basePaxParsed : null;
+    // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
+    // only the vendor's own coverages). Simple parse; strict ownership check is
+    // a follow-up (founder-only marketplace, low harm).
+    coverage_id = Number(formData.get('coverage_id')) || null;
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
     recommended_lead_time_months = parseLeadTimeMonthsOrNull(
@@ -354,6 +359,7 @@ export async function createVendorService(formData: FormData) {
     starting_price_php,
     added_pax_price_php,
     base_pax,
+    coverage_id,
     crew_size,
     crew_meal_required,
     branch_id,
@@ -425,6 +431,7 @@ export async function updateVendorService(formData: FormData) {
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
   let base_pax: number | null = null;
+  let coverage_id: number | null = null;
   let crew_size: number | null;
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
@@ -440,6 +447,10 @@ export async function updateVendorService(formData: FormData) {
     // Base pax the starting price covers (CHECK > 0 or NULL); pairs with above.
     const basePaxParsed = parseInt0OrNull(formData.get('base_pax'));
     base_pax = basePaxParsed && basePaxParsed > 0 ? basePaxParsed : null;
+    // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
+    // only the vendor's own coverages). Simple parse; strict ownership check is
+    // a follow-up (founder-only marketplace, low harm).
+    coverage_id = Number(formData.get('coverage_id')) || null;
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
     recommended_lead_time_months = parseLeadTimeMonthsOrNull(
@@ -489,6 +500,7 @@ export async function updateVendorService(formData: FormData) {
       starting_price_php,
       added_pax_price_php,
       base_pax,
+      coverage_id,
       crew_size,
       crew_meal_required,
       branch_id,
@@ -898,6 +910,7 @@ export async function commitVendorService(formData: FormData) {
       starting_price_php: parseInt0OrNull(formData.get('starting_price_php')),
       added_pax_price_php: parseInt0OrNull(formData.get('added_pax_price_php')),
       base_pax: parseInt0OrNull(formData.get('base_pax')) || null,
+      coverage_id: Number(formData.get('coverage_id')) || null,
       crew_size: parseInt0OrNull(formData.get('crew_size')),
       crew_meal_required: formData.get('crew_meal_required') === 'on',
       branch_id,

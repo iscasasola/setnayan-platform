@@ -154,6 +154,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
     serviceCount: serviceCountByCoverage[c.id] ?? 0,
   }));
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
+  const coverageLabelById = new Map(coverageItems.map((c) => [c.id, c.pathLabel]));
   const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
@@ -693,6 +694,9 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                       </p>
                       <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
                         {priceLabel} · {paxLabel} · assigned to {branchLabel}
+                        {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
+                          ? ` · ${coverageLabelById.get(svc.coverage_id)}`
+                          : ''}
                         {svc.is_active ? '' : ' · hidden'}
                       </p>
                     </div>
@@ -747,6 +751,27 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     <div className="space-y-3 border-t px-4 pb-4 pt-4" style={{ borderColor: 'var(--m-line)' }}>
                       <form action={updateVendorService} className="space-y-3">
                         <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
+                        {coverageItems.length > 0 ? (
+                          <Field
+                            label="Coverage"
+                            htmlFor={`cov-${svc.vendor_service_id}`}
+                            help="Which of your coverages this card belongs to."
+                          >
+                            <select
+                              id={`cov-${svc.vendor_service_id}`}
+                              name="coverage_id"
+                              defaultValue={svc.coverage_id ?? ''}
+                              className="input-field cursor-pointer"
+                            >
+                              <option value="">— not assigned —</option>
+                              {coverageItems.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.pathLabel}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                        ) : null}
                         <div className="grid gap-3 sm:grid-cols-2">
                           <Field label="Starting price (PHP)" htmlFor={`price-${svc.vendor_service_id}`}>
                             <input

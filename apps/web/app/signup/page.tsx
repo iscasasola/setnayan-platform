@@ -60,6 +60,7 @@ import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { signUp } from './actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 
 export const metadata: Metadata = {
   title: 'Create account · Setnayan',
@@ -427,6 +428,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             className="[&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
           >
             <input type="hidden" name="next" value={next} />
+            <TurnstileField action="signup" />
             {/* Guest → host growth-loop attribution (no PII) — carried from the
                 guest-page CTA so signUp can fire `guest_to_host_signup`. */}
             {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}

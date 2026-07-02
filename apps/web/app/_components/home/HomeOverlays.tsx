@@ -35,6 +35,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
@@ -477,6 +478,7 @@ function SignInOverlay({
 
       <form action={signInWithPassword} className="hr-si-form">
         <input type="hidden" name="next" value={next} />
+        <TurnstileField action="login" />
         <div className="hr-si-field">
           <label htmlFor="hr-si-email" className="hr-si-label">
             Email

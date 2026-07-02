@@ -8,6 +8,7 @@ import { stampLastLogin } from '@/lib/login-activity';
 import { accountHomePath } from '@/lib/account-security';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { captureEvent } from '@/lib/analytics';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 /**
  * "Stay signed in" cookie downgrade.
@@ -72,7 +73,14 @@ export async function signInWithPassword(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+  // Turnstile token (present only once captcha is configured + enabled). Empty
+  // → captchaOptions() yields {} → identical to the pre-captcha call.
+  const captchaToken = captchaTokenFromForm(formData);
+  const { error, data } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+    options: captchaOptions(captchaToken),
+  });
 
   if (error) {
     return redirect(

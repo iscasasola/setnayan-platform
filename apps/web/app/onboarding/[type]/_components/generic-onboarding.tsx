@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
+import { mintTurnstileToken } from '@/lib/turnstile-client';
 import type { GenericOnboardingPayload } from '@/lib/onboarding/types';
 import {
   derivePackPlanFrom,
@@ -256,6 +257,9 @@ export function GenericOnboarding(props: Props) {
       inquiriesPerCategory: 3,
       role: 'host',
     };
+    // Anon-draft commit mints a Supabase anonymous session that global captcha
+    // gates — mint a Turnstile token (no-op/undefined when unconfigured).
+    payload.captchaToken = await mintTurnstileToken('onboarding');
     const res = await commitOnboardingEvent(payload);
     if (res.ok) {
       try {

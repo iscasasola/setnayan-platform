@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { panoodCameraAnonEnabled } from '@/lib/panood-camera-seats';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 // Panood · camera-operator (claimer) actions — the public camera-join surface.
 //
@@ -83,7 +84,11 @@ export async function claimPanoodCamera(formData: FormData) {
         redirect(`/panood/cam/${token}?state=invalid`);
       }
       const { data: anon, error: anonError } =
-        await supabase.auth.signInAnonymously();
+        await supabase.auth.signInAnonymously({
+          // Global Supabase captcha gates anonymous sign-in too. The claim form
+          // carries a <TurnstileField> once captcha is on; empty → {} → no-op.
+          options: captchaOptions(captchaTokenFromForm(formData)),
+        });
       if (anonError || !anon.user) {
         console.error(
           '[claimPanoodCamera] anon sign-in failed:',

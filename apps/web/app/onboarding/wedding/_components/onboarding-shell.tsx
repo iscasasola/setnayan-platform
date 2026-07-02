@@ -53,6 +53,8 @@ import {
 } from '../actions';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { mintTurnstileToken } from '@/lib/turnstile-client';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
@@ -2970,6 +2972,10 @@ export function OnboardingShell({
       // Purchase Now carries the couple's selected paid services into the commit (persisted to
       // events.style_preferences.interested_services); "continue with the free plan" drops them.
       if (!purchase) payload.interestedServices = [];
+      // Anon-draft commit mints a Supabase anonymous session, which global
+      // Supabase captcha gates. Mint a Turnstile token so the commit succeeds
+      // under captcha. No-op (undefined, instant) when Turnstile is unconfigured.
+      payload.captchaToken = await mintTurnstileToken('onboarding');
       const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
@@ -4200,6 +4206,7 @@ export function OnboardingShell({
                 <input type="hidden" name="next" value={RESUME_NEXT} />
                 <input type="hidden" name="account_type" value="customer" />
                 <input type="hidden" name="public_summary_consent" value="yes" />
+                <TurnstileField action="signup" />
                 <input
                   className="field"
                   name="email"

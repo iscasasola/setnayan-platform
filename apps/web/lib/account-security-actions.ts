@@ -41,6 +41,7 @@ import {
   safeSecurityReturnPath,
   validateNewPassword,
 } from '@/lib/account-security';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 export async function changePassword(formData: FormData) {
   const returnTo = safeSecurityReturnPath(formData.get('return_to'));
@@ -88,9 +89,14 @@ export async function changePassword(formData: FormData) {
       },
     },
   );
+  // The current-password verification is itself a password sign-in, so global
+  // Supabase captcha gates it too — thread the token from the change-password
+  // form. Empty → {} → unchanged.
+  const captchaToken = captchaTokenFromForm(formData);
   const { error: verifyError } = await stateless.auth.signInWithPassword({
     email: user.email,
     password: currentPassword,
+    options: captchaOptions(captchaToken),
   });
   if (verifyError) {
     return redirect(

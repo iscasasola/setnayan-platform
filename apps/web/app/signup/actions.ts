@@ -12,6 +12,7 @@ import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { applyReferralAtSignup } from '@/lib/referral-actions';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -198,6 +199,7 @@ export async function signUp(formData: FormData) {
     }
   }
 
+  const captchaToken = captchaTokenFromForm(formData);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -206,6 +208,8 @@ export async function signUp(formData: FormData) {
       // The trigger reads raw_user_meta_data->>'account_type' to pick the
       // public.account_type enum value for the new public.users row.
       data: { account_type: accountType },
+      // Empty token → {} → identical to the pre-captcha call.
+      ...captchaOptions(captchaToken),
     },
   });
 

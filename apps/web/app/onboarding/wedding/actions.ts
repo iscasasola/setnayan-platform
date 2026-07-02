@@ -24,6 +24,7 @@ import { regionForCity } from '@/lib/regions';
 import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
+import { captchaOptions } from '@/lib/turnstile';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -301,6 +302,13 @@ export type OnboardingCommitPayload = {
   experiencePersona: string | null;
   experienceForWhom: 'couple' | 'guests' | 'both' | null;
   experienceAxes: Record<string, string>;
+  /**
+   * Cloudflare Turnstile token minted client-side when global Supabase captcha
+   * is enabled — anon-draft commit mints a Supabase anonymous session, which
+   * captcha gates. Optional/undefined until the funnel supplies it; empty → {}
+   * → no-op (see lib/turnstile.ts).
+   */
+  captchaToken?: string;
 };
 
 export type OnboardingCommitResult =
@@ -327,7 +335,11 @@ export async function commitOnboardingWedding(
     // trigger migration — both owner go-live steps; until then the flag stays
     // OFF and we fall through to the unchanged not_authenticated contract.
     if (anonOnboardingEnabled()) {
-      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
+        // Global Supabase captcha also gates anonymous sign-in. Token comes from
+        // the funnel client (mintTurnstileToken); empty → {} → no-op.
+        options: captchaOptions(payload.captchaToken),
+      });
       if (anonError || !anon.user) {
         console.error('[commitOnboardingWedding] anon sign-in failed:', anonError?.message);
         return { ok: false, error: 'not_authenticated' };

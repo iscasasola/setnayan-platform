@@ -33,6 +33,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 
 /**
  * Shell-gated OAuth visibility. `show` mirrors /login's `showOAuth` (a provider
@@ -208,6 +209,7 @@ export function SignInModal({
 
         <form action={signInWithPassword} style={{ display: 'grid', gap: 12 }}>
           <input type="hidden" name="next" value={next} />
+          <TurnstileField action="login" />
           <ModalField
             label="Email"
             id="sign-in-modal-email"

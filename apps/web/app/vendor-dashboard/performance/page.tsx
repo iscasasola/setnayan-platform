@@ -57,6 +57,7 @@ import { ReputationCard } from './_components/reputation-card';
 import { CapacityCard } from './_components/capacity-card';
 import { SourceBreakdown } from '../_components/source-breakdown';
 import { PerformanceControls } from './_components/performance-controls';
+import { Reanimate } from './_components/reanimate';
 
 export const metadata = { title: 'My Performance · Vendor · Setnayan' };
 
@@ -461,47 +462,58 @@ export default async function VendorPerformancePage({
     const label = WINDOW_LABEL[mode];
     return (
       <div className="space-y-6">
+        {/* Each block is wrapped in <Reanimate> so it animates the first time it
+            scrolls into view (and replays on toggle via the key={mode} remount). */}
+
         {/* Your booking funnel — the four-stage bars, opening the acquisition →
             conversion → revenue story. Only the BOOKED stage can segment; when a
             service is selected we show its booked count for this window as a
             callout and note the other stages are shop-wide. */}
-        {serviceId ? (
-          <div className="text-sm">
-            <p style={{ color: 'var(--m-ink)' }}>
-              <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
-              <span className="tabular-nums">{serviceBooked ?? 0}</span> — {label}.
-            </p>
-            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
-              tracked per service.
-            </p>
-          </div>
-        ) : null}
-        <FunnelPreviewCard steps={steps} windowLabel={label} />
+        <Reanimate className="space-y-6">
+          {serviceId ? (
+            <div className="text-sm">
+              <p style={{ color: 'var(--m-ink)' }}>
+                <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
+                <span className="tabular-nums">{serviceBooked ?? 0}</span> — {label}.
+              </p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
+                tracked per service.
+              </p>
+            </div>
+          ) : null}
+          <FunnelPreviewCard steps={steps} windowLabel={label} />
+        </Reanimate>
 
         {/* Setnayan vs your own book — app-vs-import ROI for this window. */}
-        <RoiAttributionCard
-          attribution={attribution}
-          annualPlanPhp={mode === 'year' ? annualPlanPhp : null}
-          windowLabel={label}
-          scopeLabel={scopeLabel}
-          nullServiceExcluded={nullExcluded}
-        />
+        <Reanimate>
+          <RoiAttributionCard
+            attribution={attribution}
+            annualPlanPhp={mode === 'year' ? annualPlanPhp : null}
+            windowLabel={label}
+            scopeLabel={scopeLabel}
+            nullServiceExcluded={nullExcluded}
+          />
+        </Reanimate>
 
         {/* Where they came from — sliced breakdown folded in from the retired
             /funnel page. Shop-level (not per-service). */}
-        <SourceBreakdown
-          title="Where your bookings come from"
-          blurb={`Where your booked couples first found you (${label}). Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
-          slices={booked}
-          emptyText="No bookings in this window yet."
-        />
-        <SourceBreakdown
-          title="Where your profile views come from"
-          blurb={`Where your top-of-funnel traffic comes from (${label}). Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
-          slices={views}
-          emptyText="No profile views in this window yet."
-        />
+        <Reanimate>
+          <SourceBreakdown
+            title="Where your bookings come from"
+            blurb={`Where your booked couples first found you (${label}). Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
+            slices={booked}
+            emptyText="No bookings in this window yet."
+          />
+        </Reanimate>
+        <Reanimate>
+          <SourceBreakdown
+            title="Where your profile views come from"
+            blurb={`Where your top-of-funnel traffic comes from (${label}). Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
+            slices={views}
+            emptyText="No profile views in this window yet."
+          />
+        </Reanimate>
       </div>
     );
   };

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { MomentumCard, type MomentumWindow, type MomentumMode } from './momentum-card';
 import { MomentumWindowToggle } from './momentum-window-toggle';
 import { buildPerformanceHref } from './perf-links';
+import { Reanimate } from './reanimate';
 
 /**
  * The shared filter row (Daily/Monthly/Annual + service scope) plus everything
@@ -83,21 +84,24 @@ export function PerformanceControls({
       </div>
 
       {/* key={mode} REMOUNTS this block on every Daily/Monthly/Annual switch, so
-          the mount-only re-animations replay: the section fades up (.perf-reanim),
-          the graph bars grow (.perf-bar-grow), and the numbers count up (CountUp).
-          The filter row above stays mounted so the toggle itself doesn't flicker. */}
-      <div key={mode} className="perf-reanim space-y-6">
-        <MomentumCard
-          mode={mode}
-          variant={isFull ? 'full' : 'basic'}
-          day={day}
-          month={month}
-          year={year}
-          monthlySeries={monthlySeries}
-          dailySeries={dailySeries}
-          scopeLabel={scopeLabel}
-          nullServiceExcluded={nullServiceExcluded}
-        />
+          each <Reanimate> section re-observes and REPLAYS its in-view animation
+          (count-up + bar-grow + fade). The filter row above stays mounted so the
+          toggle itself doesn't flicker. Momentum is its own reveal section;
+          the windowed cards below carry their own <Reanimate> wrappers. */}
+      <div key={mode} className="space-y-6">
+        <Reanimate>
+          <MomentumCard
+            mode={mode}
+            variant={isFull ? 'full' : 'basic'}
+            day={day}
+            month={month}
+            year={year}
+            monthlySeries={monthlySeries}
+            dailySeries={dailySeries}
+            scopeLabel={scopeLabel}
+            nullServiceExcluded={nullServiceExcluded}
+          />
+        </Reanimate>
 
         {activeWindowed}
       </div>

@@ -113,10 +113,7 @@ export function MomentumCard({
       </h2>
 
       <div className={`grid grid-cols-1 gap-3 ${isFull ? 'sm:grid-cols-2' : ''}`}>
-        <div
-          className="rounded-lg border bg-white p-5"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
+        <div>
           <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
             <Briefcase className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
@@ -136,10 +133,7 @@ export function MomentumCard({
 
         {/* Earnings panel — FULL (Pro+) only. Basic/Solo shows count alone. */}
         {isFull && (
-          <div
-            className="rounded-lg border bg-white p-5"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
+          <div>
             <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
               <Wallet className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               <span className="font-mono text-[11px] uppercase tracking-[0.15em]">

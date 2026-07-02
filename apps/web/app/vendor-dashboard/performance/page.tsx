@@ -459,10 +459,7 @@ export default async function VendorPerformancePage({
             segment; when a service is selected we show its booked count for this
             window as a callout and note the other stages are shop-wide. */}
         {serviceId ? (
-          <div
-            className="rounded-lg border p-4 text-sm"
-            style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-          >
+          <div className="text-sm">
             <p style={{ color: 'var(--m-ink)' }}>
               <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
               <span className="tabular-nums">{serviceBooked ?? 0}</span> — {label}.

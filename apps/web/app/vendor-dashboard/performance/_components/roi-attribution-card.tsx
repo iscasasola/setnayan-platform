@@ -129,10 +129,7 @@ export function RoiAttributionCard({
       </h2>
 
       {!hasAnything ? (
-        <div
-          className="rounded-lg border border-dashed p-6 text-center"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-        >
+        <div className="py-6 text-center">
           <Sparkles className="mx-auto mb-2 h-6 w-6" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />
           <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
             {scopeLabel ? `No bookings for ${scopeLabel} yet` : 'No booked business yet'}
@@ -143,10 +140,7 @@ export function RoiAttributionCard({
           </p>
         </div>
       ) : (
-        <div
-          className="rounded-lg border bg-white p-5 sm:p-6"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
+        <div>
           {/* Headline */}
           <p className="text-3xl font-semibold tabular-nums sm:text-4xl" style={{ color: 'var(--m-ink)' }}>
             {setnayanPriced > 0 ? formatPhp(setnayanRevenue) : `${setnayan?.bookingCount ?? 0} bookings`}
@@ -185,10 +179,7 @@ export function RoiAttributionCard({
 
           {/* Honesty footer — the peso ROI is partial. */}
           {attribution.totalPriced < attribution.totalBookings ? (
-            <div
-              className="mt-5 flex items-start gap-2 rounded-xl border p-3"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-            >
+            <div className="mt-5 flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden style={{ color: 'var(--m-slate-3)' }} />
               <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
                 Peso figures cover the{' '}

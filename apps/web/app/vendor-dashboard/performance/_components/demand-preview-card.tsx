@@ -31,7 +31,7 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
         </span>
       </h2>
 
-      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div>
         {!radar.hasData ? (
           <div className="flex items-center gap-3 py-2" style={{ color: 'var(--m-slate)' }}>
             <Radar className="h-5 w-5" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />

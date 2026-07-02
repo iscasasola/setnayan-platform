@@ -36,10 +36,7 @@ export function SourceBreakdown({
         </p>
       </header>
 
-      <div
-        className="rounded-lg border bg-white p-5"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
+      <div>
         {slices.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
             {emptyText}

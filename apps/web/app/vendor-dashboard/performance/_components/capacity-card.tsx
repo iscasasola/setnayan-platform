@@ -35,7 +35,7 @@ function Tile({
   sub: string;
 }) {
   return (
-    <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+    <div>
       <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
@@ -94,7 +94,7 @@ export function CapacityCard({ data }: { data: CapacityAnalytics }) {
       </div>
 
       {/* Waitlist detail — the dates couples wanted but you weren't available. */}
-      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div>
         <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate)' }}>
           Dates in demand
         </div>

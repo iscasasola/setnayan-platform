@@ -41,10 +41,19 @@ export async function fetchTrustedByVendors(
     .select('recommending_vendor_id, relationship_type')
     .eq('recommended_vendor_id', recommendedVendorProfileId)
     .eq('status', 'accepted')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    // Deterministic tie-break: a directed pair (A→B) can hold two accepted+active
+    // rows of DIFFERENT types (the UNIQUE is keyed with relationship_type), so
+    // without an explicit order PostgREST could flip which badge wins between
+    // renders. Order by relationship_type (alphabetical puts 'accredited' — the
+    // strongest endorsement — first) then vendor id, so the first-wins dedupe
+    // below is stable.
+    .order('relationship_type', { ascending: true })
+    .order('recommending_vendor_id', { ascending: true });
   if (error || !rows || rows.length === 0) return [];
 
   // One badge per endorsing vendor — dedupe if a vendor has multiple types.
+  // Deterministic thanks to the ORDER BY above (accredited wins ties).
   const relByVendor = new Map<string, TrustedByRelationship>();
   for (const r of rows) {
     const vid = r.recommending_vendor_id as string;

@@ -337,8 +337,20 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
           initialMonth={month}
           todayIso={todayIso}
           pools={pools}
-          bookings={bookings}
-          blocks={blocks}
+          // Ship only the fields the client-side rebuild reads — raw block
+          // client-contact fields (clientName/clientContact/clientNote) never
+          // cross the wire.
+          bookings={bookings.map((b) => ({
+            poolId: b.poolId,
+            bookedDate: b.bookedDate,
+            eventName: b.eventName,
+          }))}
+          blocks={blocks.map((k) => ({
+            poolId: k.poolId,
+            source: k.source,
+            startDate: k.startDate,
+            endDate: k.endDate,
+          }))}
           dayHrefBase={dayHrefBase}
           types={eventTypeOptions}
           services={serviceOptions}

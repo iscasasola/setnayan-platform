@@ -117,9 +117,25 @@ jobs:
             echo "::notice title=Auto-apply dormant::Scaffolded but OFF — set SUPABASE_ACCESS_TOKEN + SUPABASE_DB_PASSWORD (secrets) and the SUPABASE_PROJECT_REF variable to enable (header has the steps). No migrations were applied."
           fi
 
-      - name: Checkout
+      # Full history + all origin branches so that, if the apply fails on an
+      # orphan, the migration doctor can name the still-open branch that carries
+      # the orphan's file — turning a cryptic "Remote migration versions not
+      # found" into an actionable diagnosis.
+      - name: Checkout (full history)
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all origin branches (for orphan diagnosis)
+        if: steps.gate.outputs.enabled == 'true'
+        run: git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*' || true
+
+      - name: Setup Node (for the migration doctor)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Install Supabase CLI
         if: steps.gate.outputs.enabled == 'true'
@@ -150,7 +166,19 @@ jobs:
         # only matters for the out-of-order tail, where skipping a real migration
         # is the worse failure. (2026-06-28: this is what unblocked the auto-apply
         # after the phantom-ledger reconciliation.)
-        run: supabase db push --include-all --yes
+        #
+        # On failure — almost always a "Remote migration versions not found in
+        # local migrations directory" orphan jam — run the migration doctor so
+        # the run EXPLAINS which orphan is blocking it and the exact fix, instead
+        # of leaving the next person to re-derive the diagnosis by hand. The
+        # doctor's non-zero exit is swallowed with `|| true`; we then re-`exit 1`
+        # so the workflow still fails (a jammed apply must stay red).
+        run: |
+          if ! supabase db push --include-all --yes; then
+            echo "::error title=Migration apply failed::db push was rejected — running the migration doctor for diagnosis."
+            node scripts/migration-doctor.mjs --linked | tee -a "$GITHUB_STEP_SUMMARY" || true
+            exit 1
+          fi
 
       - name: Show migration history after apply
         if: always() && steps.gate.outputs.enabled == 'true'

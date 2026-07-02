@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Filter, ChevronDown } from 'lucide-react';
 import type { FunnelStep } from '@/lib/vendor-funnel';
+import { CountUp } from './count-up';
 
 /**
  * Your booking funnel on My Performance — the four-stage
@@ -101,7 +102,7 @@ export function FunnelPreviewCard({
                           </span>
                         )}
                         <span className="font-mono text-sm tabular-nums" style={{ color: 'var(--m-ink)' }}>
-                          {s.count.toLocaleString('en-PH')}
+                          <CountUp value={s.count} />
                         </span>
                       </span>
                     </div>
@@ -110,7 +111,7 @@ export function FunnelPreviewCard({
                       style={{ background: 'color-mix(in srgb, var(--m-ink) 5%, transparent)' }}
                     >
                       <div
-                        className="h-full rounded-full"
+                        className="perf-bar-grow h-full rounded-full"
                         style={{ width: `${widthPct}%`, background: 'var(--m-orange)' }}
                       />
                     </div>

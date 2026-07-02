@@ -82,19 +82,25 @@ export function PerformanceControls({
         {serviceSelector}
       </div>
 
-      <MomentumCard
-        mode={mode}
-        variant={isFull ? 'full' : 'basic'}
-        day={day}
-        month={month}
-        year={year}
-        monthlySeries={monthlySeries}
-        dailySeries={dailySeries}
-        scopeLabel={scopeLabel}
-        nullServiceExcluded={nullServiceExcluded}
-      />
+      {/* key={mode} REMOUNTS this block on every Daily/Monthly/Annual switch, so
+          the mount-only re-animations replay: the section fades up (.perf-reanim),
+          the graph bars grow (.perf-bar-grow), and the numbers count up (CountUp).
+          The filter row above stays mounted so the toggle itself doesn't flicker. */}
+      <div key={mode} className="perf-reanim space-y-6">
+        <MomentumCard
+          mode={mode}
+          variant={isFull ? 'full' : 'basic'}
+          day={day}
+          month={month}
+          year={year}
+          monthlySeries={monthlySeries}
+          dailySeries={dailySeries}
+          scopeLabel={scopeLabel}
+          nullServiceExcluded={nullServiceExcluded}
+        />
 
-      {activeWindowed}
+        {activeWindowed}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Sparkles, Store, Info } from 'lucide-react';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import { formatPhp } from '@/lib/vendors';
+import { CountUp } from './count-up';
 
 /**
  * "Setnayan vs your own book · what the app added" — the app-vs-import ROI
@@ -54,7 +55,7 @@ function AttributionBar({
           style={{ background: 'color-mix(in srgb, var(--m-ink) 5%, transparent)' }}
         >
           <div
-            className="h-full rounded-lg"
+            className="perf-bar-grow h-full rounded-lg"
             style={{ width: `${Math.max(widthPct, bookingCount > 0 ? 6 : 0)}%`, background: barColor }}
           />
         </div>
@@ -143,7 +144,13 @@ export function RoiAttributionCard({
         <div>
           {/* Headline */}
           <p className="text-3xl font-semibold tabular-nums sm:text-4xl" style={{ color: 'var(--m-ink)' }}>
-            {setnayanPriced > 0 ? formatPhp(setnayanRevenue) : `${setnayan?.bookingCount ?? 0} bookings`}
+            {setnayanPriced > 0 ? (
+              <CountUp value={setnayanRevenue} format={formatPhp} />
+            ) : (
+              <>
+                <CountUp value={setnayan?.bookingCount ?? 0} /> bookings
+              </>
+            )}
           </p>
           <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
             {setnayanPriced > 0 ? 'in bookings' : ''} Setnayan sourced for you {windowLabel}

@@ -1,4 +1,5 @@
 import type { SourceSlice } from '@/lib/vendor-funnel';
+import { CountUp } from '../performance/_components/count-up';
 
 /**
  * SourceBreakdown — a titled "by source" table for the vendor's OWN attribution
@@ -67,7 +68,7 @@ export function SourceBreakdown({
                     style={{ color: 'var(--m-ink)' }}
                   >
                     {s.shown ? (
-                      s.count.toLocaleString('en-PH')
+                      <CountUp value={s.count} />
                     ) : (
                       <span style={{ color: 'var(--m-slate-4)' }}>—</span>
                     )}

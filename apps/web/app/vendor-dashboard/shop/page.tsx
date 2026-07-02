@@ -139,7 +139,11 @@ type ShopData = {
   storiesTagged: number;
   recapClips: number;
   teamMembers: number;
+  /** Sub-line for the Team tile — how many more seats the plan allows. */
+  teamSub: string;
   branchLocations: number;
+  /** Sub-line for the Branch tile — whether more locations can be added. */
+  branchSub: string;
   hqLat: number | null;
   hqLng: number | null;
   /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped. */
@@ -229,6 +233,26 @@ async function loadShopData(): Promise<ShopData | null> {
       : Math.round((completion.done / completion.total) * 100);
 
   const activeBranches = branches.filter((b) => b.status === 'active').length;
+
+  // Team seat headroom for the Team tile sub-line. Mirrors the seat-cap contract
+  // enforced in team/actions.ts: the plan's `agentAccounts` counts only members
+  // BEYOND the founding admin (vendor_profiles.user_id), so exclude the founder
+  // from the used count. Infinity = unlimited.
+  const teamSeatCap = tierCaps(asVendorTier(tier)).agentAccounts;
+  const teamSeatsUsed = team.filter((m) => m.user_id !== profile.user_id).length;
+  const teamSeatsLeft =
+    teamSeatCap === Infinity ? Infinity : Math.max(0, teamSeatCap - teamSeatsUsed);
+  const teamSub =
+    teamSeatCap === Infinity
+      ? 'Unlimited seats'
+      : teamSeatCap === 0
+        ? 'Upgrade to add'
+        : teamSeatsLeft > 0
+          ? `Add up to ${teamSeatsLeft}`
+          : 'Seats full';
+  // Branch headroom: only Enterprise may add locations (each is a paid add-on,
+  // no hard cap), everyone else upgrades to unlock.
+  const branchSub = tier === 'enterprise' ? 'Add locations' : 'Upgrade to add';
 
   // Branch add/manage data — only Enterprise renders the inline manager, so the
   // fee + payout accounts are only fetched for that tier (skips two reads for
@@ -364,7 +388,9 @@ async function loadShopData(): Promise<ShopData | null> {
     storiesTagged,
     recapClips: recapCount,
     teamMembers: team.length,
+    teamSub,
     branchLocations: 1 + activeBranches,
+    branchSub,
     hqLat: profile.hq_latitude ?? null,
     hqLng: profile.hq_longitude ?? null,
     reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
@@ -439,9 +465,10 @@ export default async function VendorShopPage({
       <ManageTiles
         completionPct={data.completionPct}
         verifyLabel={data.hasDocuments ? 'Documents in' : '1 doc to verify'}
-        websiteLive={data.websiteLive}
         teamLabel={nf.format(data.teamMembers)}
+        teamSub={data.teamSub}
         branchLabel={nf.format(data.branchLocations)}
+        branchSub={data.branchSub}
         profilePanel={
           <ProfileChecklistEditor
             items={data.checklist}

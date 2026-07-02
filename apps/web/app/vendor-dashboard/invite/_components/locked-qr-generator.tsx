@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Upload, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, Upload, Check, Loader2, AlertTriangle } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockScheduleRow } from '@/lib/vendor-locked-qr';
@@ -183,6 +183,37 @@ export function LockedQrGenerator({
   const futureRows = rows.slice(1);
   const sumFuture = round2(futureRows.reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const remaining = round2(totalNum - paidNum - sumFuture);
+
+  // Auto-grow the schedule: keep exactly ONE open (empty-amount) installment row
+  // whenever a balance is left to schedule, and NONE once it reaches ₱0 — so the
+  // vendor never presses an "add" button. Keyed on the money inputs only (not
+  // names/dates), so editing a row's name/date never disturbs it; only ADDS when
+  // there is no open row, so a half-typed open row is preserved.
+  const futureAmountsKey = futureRows.map((r) => r.amount).join('|');
+  useEffect(() => {
+    setRows((prev) => {
+      const sumF = round2(prev.slice(1).reduce((s, r) => s + (Number(r.amount) || 0), 0));
+      const rem = round2(totalNum - paidNum - sumF);
+      let trailingEmpty = 0;
+      for (let i = prev.length - 1; i > 0; i--) {
+        const row = prev[i];
+        if (row && String(row.amount).trim() === '') trailingEmpty++;
+        else break;
+      }
+      if (rem > 0) {
+        if (trailingEmpty === 0 && prev.length < MAX_SCHEDULE_ITEMS) {
+          return [...prev, blankRow(prev.length)];
+        }
+        if (trailingEmpty > 1) {
+          return prev.slice(0, prev.length - (trailingEmpty - 1));
+        }
+        return prev;
+      }
+      // Balance settled (or over-scheduled) — drop any leftover open rows.
+      return trailingEmpty > 0 ? prev.slice(0, prev.length - trailingEmpty) : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalNum, paidNum, futureAmountsKey]);
 
   // Each payment date must sit between today and the event date (inclusive).
   const dateInRange = (d: string) =>
@@ -435,14 +466,10 @@ export function LockedQrGenerator({
           })}
         </div>
 
-        {rows.length < MAX_SCHEDULE_ITEMS && (
-          <button
-            type="button"
-            onClick={() => setRows((prev) => [...prev, blankRow(prev.length)])}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.75} /> Add an installment
-          </button>
+        {rows.length >= MAX_SCHEDULE_ITEMS && remaining > 0 && (
+          <p className="mt-3 text-xs text-ink/45">
+            Maximum installments reached — adjust the amounts so the balance reaches ₱0.
+          </p>
         )}
 
         {/* Balance guide — must reach ₱0 before the QR can be issued. */}

@@ -21,6 +21,10 @@ Second Locked-QR pass (owner iteration), on top of the Name·Date·Amount rework
   remembrance keepsake photo.
 - **Contract pick (REQUIRED)** — choose one of the vendor's saved contracts;
   empty state points to Contracts when the vendor has none.
+- **Auto-growing schedule** — the "Add an installment" button is gone; a fresh
+  open installment row appears automatically whenever a balance remains, and the
+  trailing open row disappears once the balance reaches ₱0 (capped at
+  `MAX_SCHEDULE_ITEMS`).
 - **Generate** unlocks only when service(s), event date, scope, total,
   downpayment (≤ total), the full schedule (₱0 remaining, all dates in range), a
   contract, and the payment proof are all present.

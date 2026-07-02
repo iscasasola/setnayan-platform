@@ -2199,14 +2199,15 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
   }
 }
 
-/* ── My Performance re-animation (Daily / Monthly / Annual toggle) ───────────
-   The windowed block remounts on each toggle (key={mode} in PerformanceControls);
-   these mount-only animations replay so the section fades up and the graph bars
-   "grow" on every switch. Numeric count-up is handled by <CountUp>.
-   `.perf-bar-grow`   → horizontal bars (ROI · funnel), scale from the left.
-   `.perf-bar-grow-y` → vertical bars + the earnings sparkline, scale from the base.
-   Owner 2026-07-02 ("always play it"): NOT gated behind prefers-reduced-motion —
-   the effect plays for everyone, every switch. */
+/* ── My Performance re-animation ─────────────────────────────────────────────
+   Sections animate the FIRST time they scroll into view (owner 2026-07-02:
+   "we always want their first animation to show") and REPLAY on the
+   Daily/Monthly/Annual toggle (the block is re-keyed → remounts → re-observes).
+   The <Reanimate> wrapper adds `.perf-play` when its section enters the viewport;
+   until then the section + its bars sit in their pre-animation state (hidden /
+   scaled to 0) so the growth is always seen, never finished off-screen.
+   <CountUp> ticks off the same in-view signal via context.
+   Owner "always play it": NOT gated behind prefers-reduced-motion. */
 @keyframes perf-fade-rise {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
@@ -2219,12 +2220,12 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
   from { transform: scaleY(0); }
   to   { transform: scaleY(1); }
 }
-.perf-reanim { animation: perf-fade-rise 0.4s ease-out both; }
-.perf-bar-grow {
-  transform-origin: left center;
-  animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.perf-bar-grow-y {
-  transform-origin: bottom center;
-  animation: perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
+/* Pre-animation (armed) state — held until the section is scrolled into view. */
+.perf-reanim { opacity: 0; }
+.perf-bar-grow { transform: scaleX(0); transform-origin: left center; }
+.perf-bar-grow-y { transform: scaleY(0); transform-origin: bottom center; }
+/* Play state — `.perf-play` is added by <Reanimate> the moment the section
+   enters the viewport (and re-added after a toggle remount). */
+.perf-reanim.perf-play { animation: perf-fade-rise 0.4s ease-out both; }
+.perf-play .perf-bar-grow { animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.perf-play .perf-bar-grow-y { animation: perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }

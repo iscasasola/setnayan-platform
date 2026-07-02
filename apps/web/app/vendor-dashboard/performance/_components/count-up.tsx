@@ -1,18 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useReanimate } from './reanimate';
 
 /**
- * Count-up number for My Performance — ticks 0 → `value` on mount so the figures
- * re-animate every time the Daily/Monthly/Annual toggle remounts the windowed
- * block (key={mode} in PerformanceControls). Pairs with the CSS `.perf-bar-grow`
- * bar animation so graphs + numbers re-animate together on each switch.
+ * Count-up number for My Performance — ticks 0 → `value` so the figures animate
+ * alongside the graphs. It fires off the same in-view signal as the bars: when
+ * wrapped in <Reanimate>, it holds at 0 until the section scrolls into view, then
+ * ticks (owner 2026-07-02: "always show their first animation"). It also re-ticks
+ * on the Daily/Monthly/Annual toggle, which remounts the block.
  *
- * Starts at 0 (so the tick is clean — no value→0→up flash) and animates to
- * `value` on mount; the block remounts per toggle, so it re-ticks each switch.
- * Owner 2026-07-02 ("always play it"): the tick is NOT gated behind
- * prefers-reduced-motion — it plays for everyone. (value===0 still skips the
- * pointless 0→0 tick.) `format` renders each frame (e.g. formatPhp for ₱).
+ * In-view flag via context: `null` = no wrapper → tick on mount (fallback);
+ * `false` = armed, not yet in view → hold 0; `true` = in view → tick.
+ * Starts at 0 (clean tick, no value→0 flash). value===0 skips the pointless
+ * tick. Owner "always play it": NOT gated behind prefers-reduced-motion.
+ * `format` renders each frame (e.g. formatPhp for ₱).
  */
 export function CountUp({
   value,
@@ -23,10 +25,17 @@ export function CountUp({
   durationMs?: number;
   format?: (n: number) => string;
 }) {
+  const played = useReanimate();
   const [display, setDisplay] = useState(0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Wrapped in <Reanimate> but the section hasn't scrolled into view yet —
+    // hold at 0 so the tick coincides with the section's reveal.
+    if (played === false) {
+      setDisplay(0);
+      return;
+    }
     if (value === 0) {
       setDisplay(value);
       return;
@@ -43,7 +52,7 @@ export function CountUp({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [value, durationMs]);
+  }, [value, durationMs, played]);
 
   const n = Math.round(display);
   return <>{format ? format(n) : n.toLocaleString('en-PH')}</>;

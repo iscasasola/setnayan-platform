@@ -346,6 +346,36 @@ export function WebsiteEditor({
           Reviews always show — they&rsquo;re what couples trust most.
         </p>
       </Row>
+
+      {/* Accent theme (Solo+) */}
+      <Row title="Accent theme">
+        <div className="flex flex-wrap gap-2">
+          {MICROSITE_ACCENTS.map((a) => {
+            const on = acc === a.key;
+            return (
+              <button
+                key={a.key}
+                type="button"
+                aria-pressed={on}
+                title={a.label}
+                onClick={() => pickAccent(a.key)}
+                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                style={{
+                  borderColor: on ? 'var(--m-ink)' : 'var(--m-line)',
+                  background: on ? 'var(--m-paper)' : 'transparent',
+                }}
+              >
+                <span
+                  aria-hidden
+                  className="h-4 w-4 rounded-full"
+                  style={{ background: a.swatch }}
+                />
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+      </Row>
         </>
       ) : (
         <SoloUpsell />
@@ -424,7 +454,7 @@ export function WebsiteEditor({
                 className="flex items-center rounded-lg border bg-white pl-2"
                 style={{ borderColor: 'var(--m-line)' }}
               >
-                <span className="shrink-0 text-xs text-ink/45">{displayHost}/v/</span>
+                <span className="shrink-0 text-xs text-ink/45">{displayHost}/</span>
                 <input
                   value={slugVal}
                   onChange={(e) => setSlugVal(e.target.value)}
@@ -475,36 +505,6 @@ export function WebsiteEditor({
                   ))}
                 </div>
               )}
-            </Row>
-
-            {/* Accent */}
-            <Row title="Accent theme" tight>
-              <div className="flex flex-wrap gap-2">
-                {MICROSITE_ACCENTS.map((a) => {
-                  const on = acc === a.key;
-                  return (
-                    <button
-                      key={a.key}
-                      type="button"
-                      aria-pressed={on}
-                      title={a.label}
-                      onClick={() => pickAccent(a.key)}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-                      style={{
-                        borderColor: on ? 'var(--m-ink)' : 'var(--m-line)',
-                        background: on ? 'var(--m-paper)' : 'transparent',
-                      }}
-                    >
-                      <span
-                        aria-hidden
-                        className="h-4 w-4 rounded-full"
-                        style={{ background: a.swatch }}
-                      />
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
             </Row>
 
             {/* Pinned review */}

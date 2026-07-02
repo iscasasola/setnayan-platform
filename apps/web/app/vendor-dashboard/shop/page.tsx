@@ -527,7 +527,9 @@ export default async function VendorShopPage({
     );
   }
 
-  const publicPath = data.slug ? `/v/${data.slug}` : null;
+  // Canonical vendor URL is the bare-root alias (www.setnayan.com/{slug}); the
+  // /v/{slug} route still resolves but the editor surfaces the clean address.
+  const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
   return (

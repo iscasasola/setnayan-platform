@@ -372,6 +372,10 @@ export function HomeReskin({
           <SetnayanMark className="h-5 w-5" aria-hidden="true" />
         </button>
         <div className="hr-links hr-glass-dark">
+          {/* Setnayan AI — the flagship planner, promoted into the homepage glass
+              nav 2026-07-02 (owner). A link to /setnayan-ai (the product story);
+              the .hr-links `a` styling matches the sibling overlay buttons. */}
+          <Link href="/setnayan-ai">Setnayan AI</Link>
           <button onClick={() => setOverlay('prices')}>Prices</button>
           <button onClick={() => setOverlay('download')}>Download</button>
           <button onClick={() => setOverlay('vendors')}>Vendors</button>

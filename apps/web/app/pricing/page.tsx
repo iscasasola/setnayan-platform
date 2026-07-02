@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins, Radio, Users } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchV2CustomerCatalog,
   fetchV2VendorCatalog,
@@ -146,6 +147,26 @@ export default async function PricingPage() {
     fetchV2CustomerCatalog(),
     fetchV2VendorCatalog(),
   ]);
+
+  // Setnayan AI renewal price (owner-locked 2026-07-02: ₱499 first 28 days per
+  // event, then ₱799 / 28 days). SETNAYAN_AI_RENEW is a DORMANT catalog row
+  // (is_active=false) so it isn't in the active customer catalog above — read it
+  // directly so the ₱799 stays admin-managed (never hardcoded); the ₱799 fallback
+  // only renders if the row is missing, matching this page's ??-fallback pattern.
+  let aiRenewalPhp = 799; // owner-locked fallback; the catalog wins when readable
+  try {
+    const { data: aiRenewRow } = await createAdminClient()
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', 'SETNAYAN_AI_RENEW')
+      .maybeSingle();
+    const p = Number((aiRenewRow as { retail_price_php?: number | null } | null)?.retail_price_php);
+    if (Number.isFinite(p) && p > 0) aiRenewalPhp = p;
+  } catch {
+    // Admin client unavailable (e.g. missing env at build) → keep the ₱799
+    // fallback, mirroring lib/v2-catalog's resilient createAdminClient handling.
+  }
+  const aiRenewalLabel = `₱${formatPeso(aiRenewalPhp)}`;
 
   // Collapse the two per-camera Papic rate SKUs into ONE à-la-carte entry
   // ("Papic Cameras · from ₱30/camera") — owner 2026-06-26. Two raw rows (Ltd
@@ -512,11 +533,14 @@ export default async function PricingPage() {
                   ? `₱${formatPeso(setnayanAi.retail_price_php)}${formatBillingPeriodSuffix(setnayanAi.billing_period)}`
                   : 'See catalog'}
               </p>
+              <p className="text-sm font-medium text-ink/70">
+                First 28 days — then {aiRenewalLabel} / 28 days after.
+              </p>
               <p className="text-sm leading-relaxed text-ink/65">
                 The full matchmaking engine — date, availability, budget,
                 venue, guest count, religion, and reviews cross-referenced —
-                plus the guided planning workspace. A ₱499 / 28-day subscription
-                that stays active until your wedding day, then ends.
+                plus the guided planning workspace. Active until your wedding
+                day, then it ends.
               </p>
             </article>
           </RevealBand>

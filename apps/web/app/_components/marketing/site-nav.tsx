@@ -85,6 +85,9 @@ export function Nav({
   // (or the map didn't resolve at all).
   const navLinks: Array<{ label: string; href: string; slot: string }> = [
     { label: 'Explore', href: '/explore', slot: 'public.site-nav.explore' },
+    // Setnayan AI — the flagship planner, promoted into the top nav 2026-07-02
+    // (owner). Links to /setnayan-ai (the price-free product explainer).
+    { label: 'Setnayan AI', href: '/setnayan-ai', slot: 'public.site-nav.setnayan-ai' },
     { label: 'For vendors', href: '/for-vendors', slot: 'public.site-nav.for-vendors' },
     { label: 'Our story', href: '/our-story', slot: 'public.site-nav.our-story' },
     { label: 'Journal', href: '/blog', slot: 'public.site-nav.journal' },

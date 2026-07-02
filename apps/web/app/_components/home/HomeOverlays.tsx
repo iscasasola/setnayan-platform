@@ -32,7 +32,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import type { PricingData, PriceRow } from './pricing-data';
@@ -41,13 +41,50 @@ import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | null;
 
 /**
- * Shell-gated OAuth visibility, resolved server-side (getClientShell) in
- * page.tsx and threaded down — the overlay is a client component so it can't
- * read headers()/cookies() itself. `show` mirrors /login's `showOAuth`
- * (provider enabled AND not the mobile WebView shell); `desktop` picks the
- * Tauri loopback variant over the web server-action row.
+ * Shell-gated OAuth visibility. `show` mirrors /login's `showOAuth` (provider
+ * enabled AND not the mobile WebView shell); `desktop` picks the Tauri loopback
+ * variant over the web server-action row.
+ *
+ * Resolved CLIENT-SIDE now (was threaded from page.tsx's getClientShell). This
+ * overlay is client-only (mounted via next/dynamic ssr:false), so it can read
+ * navigator.userAgent + the client-type cookie directly — which lets page.tsx
+ * drop its headers()/cookies() read and become edge-cacheable/ISR'd.
+ * (Perf sweep 2026-07-02, homepage ISR.)
  */
 export type SignInOAuth = { show: boolean; desktop: boolean };
+
+/**
+ * Client-side mirror of lib/request-platform.ts#getClientShell → OAuth gate.
+ * Same rules: `SetnayanApp/desktop` UA → desktop; any other SetnayanApp UA or a
+ * capacitor/tauri client-type cookie or a live Capacitor bridge → mobile
+ * (WebView, OAuth hidden); else web. Safe before mount (returns hidden).
+ */
+function detectSignInOAuth(): SignInOAuth {
+  if (typeof navigator === 'undefined' || typeof document === 'undefined') {
+    return { show: false, desktop: false };
+  }
+  const ua = navigator.userAgent || '';
+  let shell: 'web' | 'desktop' | 'mobile';
+  if (/SetnayanApp\/desktop/i.test(ua)) {
+    shell = 'desktop';
+  } else {
+    const clientType =
+      document.cookie
+        .split('; ')
+        .find((c) => c.startsWith('setnayan-client-type='))
+        ?.split('=')[1] ?? '';
+    const capacitor = Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+        ?.isNativePlatform?.(),
+    );
+    shell =
+      /SetnayanApp/i.test(ua) || clientType === 'capacitor' || clientType === 'tauri' || capacitor
+        ? 'mobile'
+        : 'web';
+  }
+  const show = ANY_OAUTH_ENABLED && shell !== 'mobile';
+  return { show, desktop: show && shell === 'desktop' };
+}
 
 function OverlayShell({
   id,
@@ -496,13 +533,15 @@ export function HomeOverlays({
   current,
   onClose,
   pricing,
-  oauth,
 }: {
   current: OverlayId;
   onClose: () => void;
   pricing: PricingData;
-  oauth: SignInOAuth;
 }) {
+  // OAuth visibility, resolved client-side (this overlay is ssr:false). Computed
+  // once on mount so the Sign-in overlay shows the right OAuth variant without
+  // page.tsx having to read headers()/cookies(). (Perf sweep 2026-07-02.)
+  const [oauth] = useState<SignInOAuth>(detectSignInOAuth);
   // Device-detect for the Download overlay (client-only).
   const [detected, setDetected] = useState('your device');
   const [match, setMatch] = useState<'mac' | 'win' | null>(null);

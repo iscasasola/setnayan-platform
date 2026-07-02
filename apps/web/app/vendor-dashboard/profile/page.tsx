@@ -94,6 +94,7 @@ type Props = {
     password_changed?: string;
     signed_out_others?: string;
     publish_blocked?: string;
+    identity_locked?: string;
   }>;
 };
 
@@ -475,8 +476,15 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       {search.error ? (
         <FormFlash tone="error">{search.error}</FormFlash>
       ) : null}
-      {search.saved && !search.publish_blocked ? (
+      {search.saved && !search.publish_blocked && !search.identity_locked ? (
         <FormFlash tone="success">Profile saved.</FormFlash>
+      ) : null}
+      {search.identity_locked ? (
+        <FormFlash tone="success">
+          Saved — but your shop is verified, so its identity details (name,
+          owner, address, contacts, services, year, logo) are locked and were
+          kept as-is. Request a correction to change them.
+        </FormFlash>
       ) : null}
       {search.publish_blocked ? (
         <FormFlash tone="error">

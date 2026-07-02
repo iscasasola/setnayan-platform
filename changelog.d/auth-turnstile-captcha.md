@@ -18,9 +18,10 @@ them so activating captcha keeps every flow working.
   widget renders nothing and every `captchaOptions()` returns `{}` — a strict
   no-op identical to today. Feature is inert until the key is set AND Supabase
   captcha is enabled. Safe activation order documented in OWNER_ACTIONS.md.
-- Anon programmatic flows (Papic/Panood/onboarding) accept the token server-side;
-  their client mint lands with the Inquire-funnel build. All three anon flags are
-  OFF in prod today, so enabling captcha is safe and fully blocks the bot vector.
+- **Anon-draft onboarding is LIVE in prod**, so its client mint is wired NOW: the
+  onboarding "finish" button (wedding + generic) mints a token via
+  `mintTurnstileToken()` and passes it into the commit — captcha-safe. Papic/Panood
+  claim-screen client mints land later (server side already accepts the token).
 
 SPEC IMPACT: None (auth-hardening; no schema/pricing/SKU change). The null-email
 anon trigger migration (`20270205204166`) already exists. Logged in DECISION_LOG.md.

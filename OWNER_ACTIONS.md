@@ -1287,15 +1287,20 @@ everyone (including yourself) out of sign-in for a few minutes.
    normally (the challenge stays invisible for you). If any fails with a "captcha"
    error, re-check that step 2's redeploy finished before step 3.
 
-**One guardrail on the anonymous flows.** The Papic seat-claim, Panood camera-claim,
-and anon-draft onboarding sign-ins are behind their own feature flags
-(`papicSeatAnonEnabled`, `panoodCameraAnonEnabled`, `NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`),
-all currently OFF. Their server actions already accept a captcha token, but the
-client widget that mints it for those specific flows lands with the Inquire-funnel
-build. **Practical effect:** with those flags OFF (today), enabling captcha is
-completely safe and fully blocks the bot vector. Don't turn those three flags ON
-while captcha is enabled until the funnel build ships their token mint — I'll flag
-that when it's ready.
+**The anonymous flows — what's covered.** There are three anonymous sign-in paths:
+
+- **Anon-draft onboarding** (`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`) — this one is
+  **LIVE in prod**, so it matters most. It is **fully wired**: the onboarding
+  "finish" button now mints a Turnstile token client-side and passes it into the
+  commit, so it keeps working under captcha. Test it after activating (start a
+  fresh event in an incognito window without signing in — it should land you in
+  the dashboard as it does today).
+- **Papic seat-claim + Panood camera-claim** (`papicSeatAnonEnabled`,
+  `panoodCameraAnonEnabled`) — their server actions accept a token, but the client
+  widget that mints it for those two claim screens lands with a later build. If
+  those flags are ON in prod and you enable captcha, test a Papic/Panood
+  guest-claim; if it errors, tell me and I'll ship their client mint same-day
+  (small change). If they're OFF, there's nothing to worry about.
 
 ---
 

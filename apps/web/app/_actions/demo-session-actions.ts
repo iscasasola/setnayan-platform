@@ -2,6 +2,7 @@
 
 import { after } from 'next/server';
 import {
+  claimDemoCamSlot,
   createDemoSession,
   incrementDemoShot,
   markDemoSessionJoined,
@@ -69,4 +70,25 @@ export async function recordDemoShot(token: string): Promise<DemoShotResult> {
   const result = clean ? await incrementDemoShot(clean) : ({ ok: false, reason: 'expired_or_invalid' } as const);
   after(() => purgeExpiredDemoSessions());
   return result;
+}
+
+export type ClaimCamResult =
+  | { ok: true; sessionId: string; slot: DemoRole }
+  | { ok: false; reason: 'expired_or_invalid' | 'full' };
+
+/**
+ * Live Studio demo: both phones scan the SAME QR, so the camera slot is
+ * assigned by claim order, not by which token was scanned (owner spec,
+ * DECISION_LOG 2026-07-03). Called from the phone page right before it starts
+ * publishing — after the visitor granted the camera, so a scan that never
+ * gets that far doesn't burn a slot.
+ */
+export async function claimPanoodDemoCamera(token: string): Promise<ClaimCamResult> {
+  const clean = token?.trim();
+  const resolved = clean ? await resolveDemoToken(clean) : null;
+  after(() => purgeExpiredDemoSessions());
+  if (!resolved || resolved.demoKind !== 'panood') return { ok: false, reason: 'expired_or_invalid' };
+  const slot = await claimDemoCamSlot(resolved.sessionId);
+  if (!slot) return { ok: false, reason: 'full' };
+  return { ok: true, sessionId: resolved.sessionId, slot };
 }

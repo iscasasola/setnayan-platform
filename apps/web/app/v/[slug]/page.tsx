@@ -88,6 +88,7 @@ import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
 import {
   fetchVendorMicrosite,
   isSectionVisible,
+  micrositeAccentVars,
   orderFeaturedFirst,
 } from '@/lib/vendor-microsite';
 import {
@@ -710,6 +711,12 @@ export async function renderVendorBySlug({
     vendor.services,
     microsite.featuredServiceIds,
   );
+  // Pro hero override — a chosen portfolio photo leads the page as a banner.
+  const heroPhotoUrl = microsite.heroPhotoKey
+    ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
+    : null;
+  // Pro accent — retint the microsite's accent ramp (undefined = default).
+  const accentVars = micrositeAccentVars(microsite.accent);
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Get in touch" copy,
@@ -1191,19 +1198,35 @@ export async function renderVendorBySlug({
         </div>
       </header>
 
-      <article className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      <article
+        className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
+        /* Pro accent (My Shop → Website) retints the accent ramp for THIS
+           vendor's content only — scoped to the article so the Setnayan header
+           chrome above keeps the site accent. undefined = default champagne. */
+        style={accentVars as React.CSSProperties | undefined}
+      >
         {isDemoVendor ? <DemoVendorBanner /> : null}
         {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): pass the
             resolved display label so the ComingSoon banner copy + Logo
             initial fallback + alt text all surface the safe placeholder
             while the vendor's name is hidden. */}
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
-        {/* Owner directive: a vendor with no photo for their service still
-            shows at least a generic placeholder photo. With no portfolio, a
-            hero banner renders the bundled placeholder so the page never looks
-            empty. Vendors WITH portfolio photos show those in the gallery
-            below (no banner needed). */}
-        {portfolioUrls.length === 0 ? (
+        {/* Hero banner. A Pro vendor's chosen hero photo (My Shop → Website)
+            leads the page; otherwise, a vendor with NO portfolio still shows a
+            generic placeholder so the page never looks empty (owner directive).
+            Vendors with portfolio photos but no chosen hero show them in the
+            gallery below (no banner needed). */}
+        {heroPhotoUrl ? (
+          <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl bg-ink/5 sm:h-56 lg:h-64">
+            <Image
+              src={heroPhotoUrl}
+              alt={displayLabel}
+              fill
+              sizes="(max-width: 1024px) 100vw, 768px"
+              className="object-cover"
+            />
+          </div>
+        ) : portfolioUrls.length === 0 ? (
           <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl bg-ink/5 sm:h-56 lg:h-64">
             <Image
               src={VENDOR_PLACEHOLDER_PHOTO}

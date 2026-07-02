@@ -21,6 +21,7 @@
  */
 
 import {
+  Activity,
   BarChart3,
   LineChart,
   Radar,
@@ -45,10 +46,19 @@ import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landi
 
 export const metadata = { title: 'More · Admin' };
 
-// Insights group — demoted from its dedicated bottom-nav tab in the 2026-06-21
-// ≤5 reroster, and (2026-06-21 "More" redesign) expanded into its own labeled
-// section here, mirroring the desktop sidebar Insights group (key 'funnels') 1:1.
+// App Performance group (renamed from "Insights" 2026-07-03 — owner: "1 of the
+// 6 menus") — demoted from its dedicated bottom-nav tab in the 2026-06-21 ≤5
+// reroster, expanded into its own labeled section here, mirroring the desktop
+// sidebar group (key 'funnels') 1:1. The cockpit leads.
 const INSIGHTS_ITEMS: LandingItem[] = [
+  {
+    key: 'app-performance',
+    label: 'App Performance',
+    href: '/admin/app-performance',
+    icon: Activity,
+    description:
+      'The operator cockpit — growth, stability, and money in on one page.',
+  },
   {
     key: 'insights-pulse',
     label: 'Insights',
@@ -243,7 +253,7 @@ export default function AdminMoreLanding() {
       subtitle="Insights, data structure, content, and settings."
       searchable
       groups={[
-        { label: 'Insights', items: INSIGHTS_ITEMS },
+        { label: 'App Performance', items: INSIGHTS_ITEMS },
         { label: 'Data Structure', items: DATA_STRUCTURE_ITEMS },
         { label: 'Content & Media', items: CONTENT_MEDIA_ITEMS },
         { label: 'Settings', items: SETTINGS_ITEMS },

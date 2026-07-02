@@ -146,9 +146,12 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // [[feedback_setnayan_orphan_prevention]].
     activeMatch: [
       '/admin/more',
-      // Insights group (demoted from its dedicated tab in the 2026-06-21 <=5
-      // reroster; folded into More on mobile — /admin/insights is the landing,
-      // also reached via the More overflow card).
+      // App Performance group (renamed from "Insights" 2026-07-03 — owner: "1
+      // of the 6 menus"; the desktop group leads with the cockpit. Mobile keeps
+      // it under More per the 2026-06-21 <=5 reroster — re-promoting it to a
+      // dedicated tab needs an explicit owner call on that ruleset, flagged in
+      // the PR). /admin/insights stays the mobile landing.
+      '/admin/app-performance',
       '/admin/insights',
       '/admin/growth',
       '/admin/intelligence',

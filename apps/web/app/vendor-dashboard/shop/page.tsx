@@ -41,6 +41,7 @@ import {
 } from '@/lib/vendor-couple-invite';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchVendorContracts } from '@/lib/contracts';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -122,6 +123,7 @@ type ShopData = {
   recommendedByShops: number;
   coverage: VendorCategory[];
   serviceOptions: { value: string; label: string }[];
+  contractOptions: { value: string; label: string }[];
   team: TeamMember[];
 };
 
@@ -224,6 +226,9 @@ async function loadShopData(): Promise<ShopData | null> {
         label: s.title ?? VENDOR_CATEGORY_LABEL[s.category as VendorCategory] ?? s.category,
       }))
     : coverage.map((c) => ({ value: c as string, label: VENDOR_CATEGORY_LABEL[c] ?? c }));
+  const contractOptions = (await fetchVendorContracts(supabase, vendorId))
+    .filter((c) => c.status !== 'cancelled')
+    .map((c) => ({ value: c.contract_id, label: c.title }));
 
   return {
     businessName,
@@ -249,6 +254,7 @@ async function loadShopData(): Promise<ShopData | null> {
     recommendedByShops: partnershipsRes,
     coverage,
     serviceOptions,
+    contractOptions,
     team: enrichedTeam,
   };
 }
@@ -344,6 +350,7 @@ export default async function VendorShopPage({
       <LockedBody
         eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))}
         services={data.serviceOptions}
+        contracts={data.contractOptions}
       />
     );
   } else {
@@ -898,9 +905,11 @@ function ShortlistBody({
 function LockedBody({
   eventTypes,
   services,
+  contracts,
 }: {
   eventTypes: { value: string; label: string }[];
   services: { value: string; label: string }[];
+  contracts: { value: string; label: string }[];
 }) {
   return (
     <div className="space-y-3">
@@ -908,7 +917,7 @@ function LockedBody({
         Lock one customer to a plan and downpayment. Scanning freezes the deal
         onto their event.
       </p>
-      <LockedQrGenerator eventTypes={eventTypes} services={services} />
+      <LockedQrGenerator eventTypes={eventTypes} services={services} contracts={contracts} />
       <Link
         href="/vendor-dashboard/locked-qr"
         className="inline-block text-sm font-medium text-terracotta hover:underline"

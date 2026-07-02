@@ -88,6 +88,7 @@ import {
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
 
 export type ServicesManagerSearch = {
@@ -153,9 +154,22 @@ export async function VendorServicesManager({
       ? coverageLabels.pathLabel(c.canonical_service)
       : c.canonical_service,
     eventTypes: c.event_types,
+    faiths: c.faiths ?? [],
     serviceCount: serviceCountByCoverage[c.id] ?? 0,
   }));
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
+  const faithOptions = FAITH_REGISTRY.map((f) => ({ key: f.faithCol, label: f.label }));
+  // Distinct tier-1 parent folders the vendor's coverages touch (for the "Parents
+  // N of M" counter). Maps each covered leaf → its parent folder via the live tree.
+  const leafToParentFolder = new Map<string, string>();
+  for (const p of coverageTree)
+    for (const b of p.branches)
+      for (const l of b.leaves) leafToParentFolder.set(l.canonicalService, p.folderId);
+  const coveredParentCount = new Set(
+    vendorCoverages
+      .map((c) => leafToParentFolder.get(c.canonical_service))
+      .filter((f): f is string => Boolean(f)),
+  ).size;
   const coverageLabelById = new Map(coverageItems.map((c) => [c.id, c.pathLabel]));
   // Group the service list by coverage (in the coverage panel's order; unassigned
   // cards last). A stable sort keeps each group's created_at order; the render
@@ -498,11 +512,13 @@ export async function VendorServicesManager({
         </div>
       ) : null}
 
-      {/* ── 3 · SERVICE COVERAGE (coverage-first: taxonomy leaf + event types) ── */}
+      {/* ── 3 · SERVICE COVERAGE (coverage-first: taxonomy leaf + who you serve) ── */}
       <CoveragePanel
         tree={coverageTree}
         coverages={coverageItems}
         eventTypeOptions={eventTypeOptions}
+        faithOptions={faithOptions}
+        parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
       />
       </ManagerSection>
 

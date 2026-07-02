@@ -9,6 +9,18 @@ import { getCoverageTaxonomy, type CoverageLeaf } from '@/lib/vendor-coverages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
+
+/** Valid marketplace faith keys (Title-Case faithCol) — the app-side validation
+ *  set for vendor_coverages.faiths (no DB FK; the vocab is a stable registry). */
+const FAITH_COL_SET = new Set(FAITH_REGISTRY.map((f) => f.faithCol));
+
+/** Validate a faiths[] submission. Unlike event_types, faiths MAY be empty —
+ *  empty means "all faiths welcomed" (the couple religion filter treats an empty
+ *  coverage.faiths as compatible-with-all). */
+function parseFaiths(raw: string[]): string[] {
+  return Array.from(new Set(raw)).filter((f) => FAITH_COL_SET.has(f));
+}
 
 /**
  * Coverage CRUD (Vendor Services rework 2026-07-02). A coverage is a first-class
@@ -116,10 +128,12 @@ export async function createCoverage(formData: FormData): Promise<void> {
     formData.getAll('event_types').map(String),
     leaf.allowedEventTypes,
   );
+  const faiths = parseFaiths(formData.getAll('faiths').map(String));
   const { error } = await supabase.from('vendor_coverages').insert({
     vendor_profile_id: profile.vendor_profile_id,
     canonical_service: canonical,
     event_types: eventTypes,
+    faiths,
   });
   if (error) {
     // 23505 = unique_violation → the vendor already covers this leaf.
@@ -131,7 +145,7 @@ export async function createCoverage(formData: FormData): Promise<void> {
   back(base, 'saved');
 }
 
-export async function updateCoverageEventTypes(formData: FormData): Promise<void> {
+export async function updateCoverageServes(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const base = await servicesReturnBase();
   const coverageId = Number(formData.get('coverage_id'));
@@ -148,9 +162,10 @@ export async function updateCoverageEventTypes(formData: FormData): Promise<void
     formData.getAll('event_types').map(String),
     leaf?.allowedEventTypes ?? null,
   );
+  const faiths = parseFaiths(formData.getAll('faiths').map(String));
   const { error } = await supabase
     .from('vendor_coverages')
-    .update({ event_types: eventTypes, updated_at: new Date().toISOString() })
+    .update({ event_types: eventTypes, faiths, updated_at: new Date().toISOString() })
     .eq('id', coverageId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) back(base, 'error', error.message);

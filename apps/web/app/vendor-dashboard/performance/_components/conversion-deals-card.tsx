@@ -24,7 +24,7 @@ function Tile({
   sub: string;
 }) {
   return (
-    <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+    <div>
       <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
@@ -97,7 +97,7 @@ export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
       </div>
 
       {/* Deals & wins detail */}
-      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div>
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
             <Trophy className="h-4 w-4" strokeWidth={1.75} aria-hidden />

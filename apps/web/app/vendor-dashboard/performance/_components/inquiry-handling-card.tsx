@@ -60,7 +60,7 @@ function Tile({
   sub: string;
 }) {
   return (
-    <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+    <div>
       <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
@@ -131,7 +131,7 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
       </div>
 
       {/* Slipped leads — honest floor, not a census. */}
-      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div>
         <div className="mb-3 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
           <Inbox className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
@@ -158,7 +158,7 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
       </div>
 
       {/* When couples message — weekday × time-of-day heatmap. */}
-      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div>
         <div className="mb-3 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
           <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
             When couples message you

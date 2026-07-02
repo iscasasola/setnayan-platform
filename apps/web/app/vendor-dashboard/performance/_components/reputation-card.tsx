@@ -24,7 +24,7 @@ function Tile({
   sub: string;
 }) {
   return (
-    <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+    <div>
       <div className="mb-2 flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
@@ -87,7 +87,7 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
 
       {/* Star distribution */}
       {total > 0 && (
-        <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+        <div>
           <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate)' }}>
             Rating breakdown
           </div>
@@ -116,7 +116,7 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
       )}
 
       {/* Review velocity — reviews per month, last 12 months */}
-      <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
+      <div>
         <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate)' }}>
           Reviews per month
         </div>

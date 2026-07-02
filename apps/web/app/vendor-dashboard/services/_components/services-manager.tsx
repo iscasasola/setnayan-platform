@@ -96,6 +96,8 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
+import { ShowcaseMediaFields } from './showcase-media-fields';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   InclusionsEditor,
   DiscountsEditor,
@@ -204,6 +206,33 @@ export async function VendorServicesManager({
       fetchInclusionsByService(supabase, serviceIdList),
       fetchBracketsByService(supabase, serviceIdList),
     ]);
+
+  // Presigned display URLs for existing showcase media (Phase 3c) so the edit
+  // forms render thumbnails of what's already uploaded. Only refs that exist;
+  // resolved in parallel; fail-soft per ref (a signing hiccup degrades to a
+  // filename chip in FileUpload, never a broken page).
+  const showcaseRefs = Array.from(
+    new Set(
+      services.flatMap((s) => [
+        ...(s.showcase_video_r2_key ? [s.showcase_video_r2_key] : []),
+        ...(s.showcase_photo_r2_keys ?? []),
+      ]),
+    ),
+  );
+  const showcaseDisplayUrls: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(
+        showcaseRefs.map(async (ref) => {
+          try {
+            const url = await displayUrlForStoredAsset(ref);
+            return url ? ([ref, url] as const) : null;
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((e): e is readonly [string, string] => e !== null),
+  );
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
   // former serial chain (2026-07-01 perf):
@@ -681,6 +710,7 @@ export async function VendorServicesManager({
               showBranchPicker={showBranchPicker}
               branches={branches}
               basePath={basePath}
+              vendorProfileId={profile.vendor_profile_id}
             />
           </div>
         ) : null}
@@ -945,6 +975,12 @@ export async function VendorServicesManager({
                           seedConditions={suggestedConditions || undefined}
                         />
                         <InclusionsEditor initial={inclusionsToDrafts(svcInclusions)} />
+                        <ShowcaseMediaFields
+                          vendorProfileId={profile.vendor_profile_id}
+                          videoCurrent={svc.showcase_video_r2_key}
+                          photosCurrent={svc.showcase_photo_r2_keys}
+                          displayUrls={showcaseDisplayUrls}
+                        />
                         <ExclusivePerkField
                           idPrefix={svc.vendor_service_id}
                           perkDefault={svc.exclusive_perk_text ?? undefined}
@@ -1296,6 +1332,7 @@ function AddServiceForm({
   showBranchPicker,
   branches,
   basePath,
+  vendorProfileId,
 }: {
   addCategory: VendorCategory;
   labelFor: (cat: VendorCategory) => string;
@@ -1304,6 +1341,7 @@ function AddServiceForm({
   showBranchPicker: boolean;
   branches: { branch_id: string; branch_label: string }[];
   basePath: string;
+  vendorProfileId: string;
 }) {
   return (
     <form action={createVendorService} className="space-y-4">
@@ -1376,6 +1414,7 @@ function AddServiceForm({
       ) : null}
       <DiscountsEditor initial={[]} />
       <InclusionsEditor initial={[]} />
+      <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
       <ExclusivePerkField idPrefix={`new-${addCategory}`} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>

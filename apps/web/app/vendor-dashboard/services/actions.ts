@@ -298,6 +298,27 @@ function parsePrimaryPhoto(formData: FormData): string | null {
 }
 
 /**
+ * Showcase media (service-card redesign · Phase 3c): one ≤30s clip ref + up to
+ * 5 photo refs (FileUpload emits one hidden input per photo → getAll). The
+ * photos column carries a cardinality ≤5 CHECK — slice defensively even though
+ * the picker also caps at 5.
+ */
+function parseShowcaseMedia(formData: FormData): {
+  showcase_video_r2_key: string | null;
+  showcase_photo_r2_keys: string[];
+} {
+  const videoRaw = formData.get('showcase_video_r2_key');
+  const showcase_video_r2_key =
+    typeof videoRaw === 'string' && videoRaw.trim().length > 0 ? videoRaw.trim() : null;
+  const showcase_photo_r2_keys = formData
+    .getAll('showcase_photo_r2_keys')
+    .map((v) => String(v).trim())
+    .filter((v) => v.length > 0)
+    .slice(0, 5);
+  return { showcase_video_r2_key, showcase_photo_r2_keys };
+}
+
+/**
  * Recommended lead time in months (Setnayan AI §4, vendor-owned 2026-06-16): a
  * non-negative number, fractional allowed (0.5 ≈ 2 weeks). Blank → null = no
  * recommended lead → no last-minute range → always bookable. The START of this
@@ -550,11 +571,13 @@ export async function createVendorService(formData: FormData) {
   let inclusionRows: InclusionDraft[];
   let bracketRows: BracketDraft[];
   let exclusive_perk_text: string | null;
+  let showcase: ReturnType<typeof parseShowcaseMedia>;
   try {
     category = parseCategory(formData.get('category'));
     // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
     pricing = parsePricingFields(formData);
     transport_flat_fee_php = parseInt0OrNull(formData.get('transport_flat_fee_php'));
+    showcase = parseShowcaseMedia(formData);
     // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
     // only the vendor's own coverages). Simple parse; strict ownership check is
     // a follow-up (founder-only marketplace, low harm).
@@ -697,6 +720,8 @@ export async function createVendorService(formData: FormData) {
       crew_meal_included,
       transport_included,
       transport_flat_fee_php,
+      showcase_video_r2_key: showcase.showcase_video_r2_key,
+      showcase_photo_r2_keys: showcase.showcase_photo_r2_keys,
       branch_id,
       recommended_lead_time_months,
       last_minute_end_months,
@@ -785,10 +810,12 @@ export async function updateVendorService(formData: FormData) {
   let inclusionRows: InclusionDraft[];
   let bracketRows: BracketDraft[];
   let exclusive_perk_text: string | null;
+  let showcase: ReturnType<typeof parseShowcaseMedia>;
   try {
     // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
     pricing = parsePricingFields(formData);
     transport_flat_fee_php = parseInt0OrNull(formData.get('transport_flat_fee_php'));
+    showcase = parseShowcaseMedia(formData);
     // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
     // only the vendor's own coverages). Simple parse; strict ownership check is
     // a follow-up (founder-only marketplace, low harm).
@@ -871,6 +898,8 @@ export async function updateVendorService(formData: FormData) {
       crew_meal_included,
       transport_included,
       transport_flat_fee_php,
+      showcase_video_r2_key: showcase.showcase_video_r2_key,
+      showcase_photo_r2_keys: showcase.showcase_photo_r2_keys,
       branch_id,
       recommended_lead_time_months,
       last_minute_end_months,

@@ -33,6 +33,10 @@ export type VendorServiceRow = {
   transport_included: boolean;
   /** Flat transport fee (PHP) when transport not included; null = quote-by-distance. */
   transport_flat_fee_php: number | null;
+  /** Showcase clip (≤30s) r2 ref; null = none. primary_photo_r2_key stays the cover. */
+  showcase_video_r2_key: string | null;
+  /** Showcase gallery r2 refs (DB CHECK cardinality ≤5). */
+  showcase_photo_r2_keys: string[];
   is_active: boolean;
   /** Branch this service belongs to (Branches V1.x); null = main/unassigned. */
   branch_id: string | null;
@@ -69,7 +73,7 @@ export type VendorServiceRow = {
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const PRICING_COLS =
-  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php';
+  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
 const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,base_pax,coverage_id,${PRICING_COLS}`;
 
 export async function fetchVendorServices(
@@ -112,6 +116,8 @@ export async function fetchVendorServices(
         | 'crew_meal_included'
         | 'transport_included'
         | 'transport_flat_fee_php'
+        | 'showcase_video_r2_key'
+        | 'showcase_photo_r2_keys'
       >),
       title: null,
       branch_id: null,
@@ -131,6 +137,8 @@ export async function fetchVendorServices(
       crew_meal_included: false,
       transport_included: false,
       transport_flat_fee_php: null,
+      showcase_video_r2_key: null,
+      showcase_photo_r2_keys: [],
     }));
   }
   return (data ?? []) as VendorServiceRow[];

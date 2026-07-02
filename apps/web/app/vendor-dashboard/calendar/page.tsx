@@ -21,9 +21,11 @@ import {
   editCalendar,
   importExternalClient,
   notifyWaitlistSlot,
+  pickWaitlistCouple,
   removeBlock,
   reassignCategoryPool,
   updatePoolCapacity,
+  updateWaitlistSettings,
 } from './actions';
 import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { BellRing } from 'lucide-react';
@@ -66,6 +68,10 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   capacity_clamped: { tone: 'warn', text: 'Saved at your plan’s maximum bookings-per-day. Upgrade to raise the ceiling.' },
   pool_saved: { tone: 'ok', text: 'Schedule assignment saved.' },
   waitlist_notified: { tone: 'ok', text: 'Waitlisted couples emailed — they know the date is open again.' },
+  waitlist_settings_saved: { tone: 'ok', text: 'Waitlist settings saved.' },
+  waitlist_picked: { tone: 'ok', text: 'Couple picked for the waitlist.' },
+  waitlist_full: { tone: 'warn', text: 'Waitlist is full for that date — raise your cap to pick more.' },
+  waitlist_none: { tone: 'warn', text: 'No one is waiting on that date yet.' },
   day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
   day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
   calendar_created: { tone: 'ok', text: 'Calendar created. Assign services + set its limit any time.' },
@@ -213,6 +219,34 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
       `${month}-31`,
     ),
   ]);
+
+  // Waitlist settings + per-date picked counts (owner 2026-07). Soft-probed so a
+  // pre-migration DB degrades to "disabled" rather than throwing.
+  let waitlistEnabled = false;
+  let waitlistCap = 1;
+  const pickedByDate = new Map<string, number>();
+  try {
+    const { data: ws } = await supabase
+      .from('vendor_profiles')
+      .select('waitlist_enabled, max_waitlist_acceptances')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    waitlistEnabled = Boolean((ws as { waitlist_enabled?: boolean } | null)?.waitlist_enabled);
+    waitlistCap =
+      Number((ws as { max_waitlist_acceptances?: number } | null)?.max_waitlist_acceptances) || 1;
+    const { data: picked } = await supabase
+      .from('vendor_date_waitlist')
+      .select('requested_date')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .gte('requested_date', todayIso)
+      .not('accepted_at', 'is', null);
+    for (const r of (picked ?? []) as { requested_date: string }[]) {
+      pickedByDate.set(r.requested_date, (pickedByDate.get(r.requested_date) ?? 0) + 1);
+    }
+  } catch {
+    /* columns predate the migration — safe defaults */
+  }
+
   // Universal "All schedules" is the default view for multi-schedule vendors;
   // single-schedule vendors land straight on their one pool.
   const requestedPool = search.pool ?? (pools.length > 1 ? 'all' : pools[0]?.poolId);
@@ -338,6 +372,12 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
       >
         {monthLabel(shiftMonth(month, 1)).split(' ')[0]} →
       </Link>
+      <a
+        href="#block-dates"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink/90"
+      >
+        <Lock aria-hidden className="h-4 w-4" /> Block dates
+      </a>
     </div>
   );
 
@@ -367,6 +407,45 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
         Couples who wanted a date you were full on. When a slot frees up, let them know — a
         notify emails everyone waiting on that day. (Removing a block does this automatically.)
       </p>
+
+      {/* Waitlist settings (owner 2026-07): switch the waitlist on + pick how many
+          couples you'll hold per booked date (1-3). Off = booked dates read simply
+          "unavailable" to couples. */}
+      <form
+        action={updateWaitlistSettings}
+        className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink/10 bg-white/60 p-3"
+      >
+        {returnFields}
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="waitlist_enabled"
+            defaultChecked={waitlistEnabled}
+            className="h-4 w-4 accent-terracotta"
+          />
+          Accept a waitlist on booked dates
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink/70">
+          Hold up to
+          <select
+            name="max_waitlist_acceptances"
+            defaultValue={String(waitlistCap)}
+            className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm"
+          >
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+          per date
+        </label>
+        <SubmitButton
+          pendingLabel="Saving…"
+          className="rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-medium hover:bg-ink/5"
+        >
+          Save
+        </SubmitButton>
+      </form>
+
       {waitlistSection.length === 0 ? (
         <p className="mt-3 text-sm text-ink/55">No one is waiting on a date right now.</p>
       ) : (
@@ -384,16 +463,30 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                     : `${w.pendingCount} couples waiting`}
                 </p>
               </div>
-              <form action={notifyWaitlistSlot}>
-                {returnFields}
-                <input type="hidden" name="requested_date" value={w.requestedDate} />
-                <SubmitButton
-                  pendingLabel="Notifying…"
-                  className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta hover:bg-terracotta/5"
-                >
-                  A slot opened — notify them
-                </SubmitButton>
-              </form>
+              <div className="flex flex-col items-end gap-1.5">
+                {waitlistEnabled ? (
+                  <form action={pickWaitlistCouple}>
+                    {returnFields}
+                    <input type="hidden" name="requested_date" value={w.requestedDate} />
+                    <SubmitButton
+                      pendingLabel="Picking…"
+                      className="rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink/90"
+                    >
+                      Pick for waitlist ({pickedByDate.get(w.requestedDate) ?? 0}/{waitlistCap})
+                    </SubmitButton>
+                  </form>
+                ) : null}
+                <form action={notifyWaitlistSlot}>
+                  {returnFields}
+                  <input type="hidden" name="requested_date" value={w.requestedDate} />
+                  <SubmitButton
+                    pendingLabel="Notifying…"
+                    className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta hover:bg-terracotta/5"
+                  >
+                    A slot opened — notify them
+                  </SubmitButton>
+                </form>
+              </div>
             </li>
           ))}
         </ul>
@@ -767,7 +860,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
 
           {/* Add block + import client — pool select adapts to the view */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <details id="block-dates" className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
               <summary className="cursor-pointer text-base font-semibold">
                 <Lock aria-hidden className="mr-1 inline h-4 w-4" /> Block dates
               </summary>

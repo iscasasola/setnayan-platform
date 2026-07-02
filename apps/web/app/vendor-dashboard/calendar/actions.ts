@@ -293,6 +293,79 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
 }
 
 /**
+ * Waitlist settings (owner 2026-07). Toggle the Booked-Out Waitlist on/off and
+ * set how many couples the vendor may PICK per date (1-3). Stored on
+ * vendor_profiles; consumed by the couple-side CTA gate + the pick action.
+ */
+export async function updateWaitlistSettings(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const enabled = str(formData, 'waitlist_enabled') === 'on';
+  const capRaw = Number(str(formData, 'max_waitlist_acceptances'));
+  const cap =
+    Number.isFinite(capRaw) && capRaw >= 1 && capRaw <= 3 ? Math.round(capRaw) : 1;
+  const { error } = await supabase
+    .from('vendor_profiles')
+    .update({ waitlist_enabled: enabled, max_waitlist_acceptances: cap })
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (error) backToCalendar(formData, 'save_failed');
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'waitlist_settings_saved');
+}
+
+/**
+ * The vendor's "pick this couple" for the waitlist (the owner's "whitelist"
+ * pick). Stamps accepted_at on one vendor_date_waitlist row, capped at the
+ * vendor's max_waitlist_acceptances per (vendor, date). Once the cap is reached
+ * the date's waitlist is full (the couple-side CTA + join action both stop).
+ */
+export async function pickWaitlistCouple(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const requestedDate = str(formData, 'requested_date');
+  if (!DATE_RE.test(requestedDate)) backToCalendar(formData, 'save_failed');
+  const vp = profile.vendor_profile_id;
+
+  const { data: prow } = await supabase
+    .from('vendor_profiles')
+    .select('max_waitlist_acceptances')
+    .eq('vendor_profile_id', vp)
+    .maybeSingle();
+  const cap =
+    Number((prow as { max_waitlist_acceptances?: number } | null)?.max_waitlist_acceptances) || 1;
+
+  // Cap: how many already picked (accepted) for this date.
+  const { count } = await supabase
+    .from('vendor_date_waitlist')
+    .select('waitlist_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vp)
+    .eq('requested_date', requestedDate)
+    .not('accepted_at', 'is', null);
+  if ((count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
+
+  // Pick the next couple in line (oldest interest) that isn't picked yet.
+  const { data: next } = await supabase
+    .from('vendor_date_waitlist')
+    .select('waitlist_id')
+    .eq('vendor_profile_id', vp)
+    .eq('requested_date', requestedDate)
+    .is('accepted_at', null)
+    .in('status', ['pending', 'notified'])
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!next) backToCalendar(formData, 'waitlist_none');
+
+  const { error } = await supabase
+    .from('vendor_date_waitlist')
+    .update({ accepted_at: new Date().toISOString() })
+    .eq('waitlist_id', (next as { waitlist_id: string }).waitlist_id)
+    .eq('vendor_profile_id', vp)
+    .is('accepted_at', null);
+  if (error) backToCalendar(formData, 'save_failed');
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'waitlist_picked');
+}
+
+/**
  * PHASE 5 — set / clear an explicit day state (locked | whitelist) on a date.
  *
  * The 6-state taxonomy's two vendor-set states. `locked` = a hard hold (gates

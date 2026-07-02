@@ -22,7 +22,7 @@ import { cloneElement, isValidElement, useCallback, useEffect, useRef, useState 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
-import type { OverlayId, SignInOAuth } from './HomeOverlays';
+import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { openConsentManager } from '@/lib/cookie-consent';
@@ -90,11 +90,9 @@ export type HomeBgVideos = { main: string | null; pillars: (string | null)[] };
 export function HomeReskin({
   pricing,
   bgVideos,
-  oauth,
 }: {
   pricing: PricingData;
   bgVideos?: HomeBgVideos;
-  oauth: SignInOAuth;
 }) {
   const mainVideo = bgVideos?.main ?? null;
   const pillarVideos = bgVideos?.pillars ?? [];
@@ -614,7 +612,7 @@ export function HomeReskin({
         <HomeFooter />
       </main>
 
-      <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} oauth={oauth} />
+      <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} />
     </div>
   );
 }

@@ -43,6 +43,17 @@ import type { NextResponse } from 'next/server';
 export const DEMO_MODE_COOKIE_NAME = 'setnayan_demo_mode';
 
 /**
+ * Non-httpOnly "presence hint" companion to DEMO_MODE_COOKIE_NAME. Carries NO
+ * security value — it only lets the client-side <DemoModeBanner> know that demo
+ * mode *might* be on, so it fetches the (authoritative, server-side) status only
+ * then. The real admin check stays server-side in /api/demo-mode/status. Set /
+ * cleared in lockstep with the httpOnly cookie. This is what lets the root layout
+ * stop reading cookies() during SSR, so the marketing pages can be edge-cached.
+ * (Perf sweep 2026-07-02, homepage ISR.)
+ */
+export const DEMO_MODE_HINT_COOKIE_NAME = 'setnayan_demo_mode_hint';
+
+/**
  * Canonical query-param name. When present with value '1' (or 'on'),
  * the URL bootstrap in `apps/web/middleware.ts` writes the cookie and
  * strips the param. `?demo=0` clears the cookie. Anything else is a
@@ -238,11 +249,30 @@ export function setDemoModeCookie(response: NextResponse, on: boolean): void {
       path: '/',
       maxAge: DEMO_MODE_COOKIE_MAX_AGE_S,
     });
+    // Non-httpOnly presence hint so the client banner knows to ask the server.
+    response.cookies.set({
+      name: DEMO_MODE_HINT_COOKIE_NAME,
+      value: '1',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: DEMO_MODE_COOKIE_MAX_AGE_S,
+    });
   } else {
     response.cookies.set({
       name: DEMO_MODE_COOKIE_NAME,
       value: '',
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+    response.cookies.set({
+      name: DEMO_MODE_HINT_COOKIE_NAME,
+      value: '',
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',

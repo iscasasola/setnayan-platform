@@ -18,7 +18,6 @@ import {
 } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
-import { Suspense } from 'react';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { NativeBridge } from './_components/native-bridge';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
@@ -556,16 +555,14 @@ export default async function RootLayout({
         <NavSlideController />
         <PilotModeBanner />
         {/*
-          DemoModeBanner is admin-only (the server component itself
-          short-circuits to null for non-admin sessions, even if a stale
-          cookie is present). Wrapped in Suspense so anonymous + non-admin
-          visitors don't wait on the cookie + auth lookup — the public
-          marketing surface stays as fast as before; only admin sessions
-          actually hit the banner-render path.
+          DemoModeBanner is admin-only and now a CLIENT component: it reads a
+          non-httpOnly presence-hint cookie and, only when present, fetches the
+          authoritative /api/demo-mode/status (which does the httpOnly-cookie +
+          admin check server-side). This keeps cookies() OUT of the root layout's
+          SSR path so the marketing pages can be edge-cached/ISR'd. Normal
+          visitors make no request and see nothing. (Perf sweep 2026-07-02.)
         */}
-        <Suspense fallback={null}>
-          <DemoModeBanner />
-        </Suspense>
+        <DemoModeBanner />
         {/* SiteChrome = the ONE persistent marketing top nav, mounted once
             here so it survives page navigations (the body swaps, the nav
             stays). It self-gates to public marketing routes and renders null

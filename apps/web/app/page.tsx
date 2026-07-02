@@ -32,8 +32,6 @@ import { getHomePricingData } from './_components/home/pricing-data';
 import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
-import { ANY_OAUTH_ENABLED } from './_components/oauth-button-row';
-import { getClientShell } from '@/lib/request-platform';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
@@ -67,10 +65,19 @@ export const metadata = {
   },
 };
 
-// Per-request rendering: getHomePricingData() reads the live catalog via
-// createAdminClient. force-dynamic keeps the CI build from hitting the
-// "missing service key" throw and keeps prices fresh without a redeploy.
-export const dynamic = 'force-dynamic';
+// ISR, not per-request (was force-dynamic). The homepage is the highest-traffic
+// public URL; edge-caching it removes the per-visit function invocation + the
+// cold-start spikes. It's now cacheable because (a) getClientShell()'s
+// headers()/cookies() read moved client-side into HomeOverlays, and (b) the root
+// layout's DemoModeBanner stopped reading cookies() during SSR. Every data read
+// on this page degrades to a safe fallback when the service-role key is absent
+// (fetchV2CustomerCatalog / fetchPublishedBackgroundVideos / fetchHomepageSpotlight
+// all try/catch → []/null), so the build-time prerender no longer throws.
+// revalidate=300 refreshes catalog/video/spotlight edits within 5 min; admin
+// edits can also bust the relevant unstable_cache tags for instant propagation.
+// The after() digest flush still fires on each revalidation render.
+// (Perf sweep 2026-07-02, homepage ISR.)
+export const revalidate = 300;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -139,34 +146,25 @@ const softwareAppJsonLd = {
 };
 
 export default async function HomePage() {
-  // These four reads are fully independent — none consumes another's output —
-  // so run them CONCURRENTLY. Previously they were four serial top-level awaits,
-  // which on this force-dynamic (never-edge-cached) page stacked ~4 sequential
-  // PH→function→Supabase-Singapore round-trips onto TTFB. Promise.all collapses
-  // them to a single wall-clock round-trip. (Perf sweep 2026-07-02.)
+  // These three reads are fully independent — none consumes another's output —
+  // so run them CONCURRENTLY. Each degrades to a safe fallback ([]/null) when the
+  // service-role key is absent, so this is safe at build-time prerender under ISR.
+  // (OAuth-button visibility is now resolved client-side in HomeOverlays, so this
+  // page no longer reads headers()/cookies() — that's what makes it cacheable.)
   //
   //   • getHomePricingData        — catalog-driven pricing for the Prices overlay
-  //   • getClientShell            — OAuth-button visibility for the Sign-in overlay
-  //                                 (web + rebuilt desktop show OAuth; mobile /
-  //                                 older-native WebView hides it — Google refuses
-  //                                 OAuth in an embedded WebView). Header/cookie
-  //                                 read only; threaded down because the overlay is
-  //                                 a client component that can't read headers().
   //   • fetchPublishedBackgroundVideos — admin homepage videos: slot 0 = hero
   //                                 backdrop, slots 1-5 = pillar dock videos, in
   //                                 PILLAR_HEROES order (each null until published,
   //                                 falling back to the gradient scene).
   //   • fetchHomepageSpotlight    — public Spotlight strip; DOUBLE-GATED + inert by
   //                                 default (returns []).
-  const [pricing, shell, bg, spotlightVendors] = await Promise.all([
+  const [pricing, bg, spotlightVendors] = await Promise.all([
     getHomePricingData(),
-    getClientShell(),
     fetchPublishedBackgroundVideos(),
     fetchHomepageSpotlight(),
   ]);
 
-  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
-  const oauth = { show: showOAuth, desktop: showOAuth && shell === 'desktop' };
   const bgVideos = {
     main: bg.main?.url ?? null,
     pillars: [1, 2, 3, 4, 5].map((slot) => bg.pillars.find((p) => p.slot === slot)?.url ?? null),
@@ -189,7 +187,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <HomeReskin pricing={pricing} bgVideos={bgVideos} oauth={oauth} />
+      <HomeReskin pricing={pricing} bgVideos={bgVideos} />
       <HomeSpotlightStrip vendors={spotlightVendors} />
     </>
   );

@@ -57,10 +57,15 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const matchedService = activeServices.find((s) => s.vendor_service_id === serviceRef) ?? null;
   const category = matchedService ? matchedService.category : serviceRef;
   const vendorServiceId = matchedService ? matchedService.vendor_service_id : null;
-  if (
-    !VENDOR_CATEGORIES.includes(category as VendorCategory) ||
-    !coverage.includes(category as VendorCategory)
-  ) {
+  // event_vendors.category is the vendor_category enum, so it must be a real
+  // category either way. A matched leaf is the vendor's OWN vendor_services row
+  // (fetchVendorServices is vendor-scoped) so it's trusted even if its category
+  // isn't in the coarse coverage list; only the fallback category-key path is
+  // re-checked against coverage.
+  if (!VENDOR_CATEGORIES.includes(category as VendorCategory)) {
+    fail('category');
+  }
+  if (!matchedService && !coverage.includes(category as VendorCategory)) {
     fail('category');
   }
 

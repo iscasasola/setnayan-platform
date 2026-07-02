@@ -47,8 +47,12 @@ import {
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { fetchVendorMicrosite, type VendorMicrosite } from '@/lib/vendor-microsite';
+
 import { ManageTiles } from './_components/manage-tiles';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
+import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
 import { ServicesDisclosure } from './_components/services-disclosure';
 
@@ -112,6 +116,9 @@ type ShopData = {
   tier: string | null;
   isVerified: boolean;
   websiteLive: boolean;
+  isProWebsite: boolean;
+  yearsLabel: string | null;
+  microsite: VendorMicrosite;
   completionPct: number;
   hasDocuments: boolean;
   checklist: BusinessProfileItem[];
@@ -253,6 +260,15 @@ async function loadShopData(): Promise<ShopData | null> {
     vendorProfileId: vendorId,
   };
 
+  // Microsite customization (My Shop → Website editor). Soft/defensive read —
+  // decoupled from the shared profile select so a not-yet-applied migration
+  // never blanks My Shop.
+  const microsite = await fetchVendorMicrosite(supabase, vendorId);
+  const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
+  const yearsLabel = profile.in_business_since_year
+    ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
+    : null;
+
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -264,6 +280,9 @@ async function loadShopData(): Promise<ShopData | null> {
     websiteLive:
       Boolean(profile.business_slug) &&
       isPubliclyVisible(profile.public_visibility),
+    isProWebsite,
+    yearsLabel,
+    microsite,
     completionPct,
     hasDocuments,
     checklist: completion.items,
@@ -360,7 +379,19 @@ export default async function VendorShopPage({
           />
         }
         websitePanel={
-          <WebsitePanel publicPath={publicPath} websiteLive={data.websiteLive} />
+          <WebsiteEditor
+            publicPath={publicPath}
+            displayHost={DISPLAY_HOST}
+            websiteLive={data.websiteLive}
+            isPro={data.isProWebsite}
+            about={data.microsite.about}
+            sections={data.microsite.sections}
+            featuredServiceIds={data.microsite.featuredServiceIds}
+            services={data.profileFields.services}
+            serviceLabels={data.profileFields.serviceLabels}
+            isVerified={data.isVerified}
+            yearsLabel={data.yearsLabel}
+          />
         }
         teamPanel={<TeamPanel members={data.team} />}
         branchPanel={
@@ -611,79 +642,6 @@ function StatTile({
 }
 
 /* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
-
-function WebsitePanel({
-  publicPath,
-  websiteLive,
-}: {
-  publicPath: string | null;
-  websiteLive: boolean;
-}) {
-  if (!publicPath) {
-    return (
-      <div className="text-sm text-ink/70">
-        No public address yet.{' '}
-        <Link
-          href="/vendor-dashboard/profile"
-          className="font-medium text-terracotta hover:underline"
-        >
-          Set one in Profile
-        </Link>{' '}
-        and your microsite goes live.
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-          style={
-            websiteLive
-              ? {
-                  background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
-                  color: 'var(--m-sage-deep)',
-                }
-              : { background: 'var(--m-paper)', color: 'var(--m-slate-3)' }
-          }
-        >
-          {websiteLive ? 'Live' : 'Draft'}
-        </span>
-        <span className="text-xs text-ink/55">Your page is built from your profile.</span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <code
-          className="min-w-0 flex-1 truncate rounded-lg border bg-white px-3 py-2 text-xs"
-          style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-        >
-          {DISPLAY_HOST}
-          {publicPath}
-        </code>
-        <CopyButton value={`${DISPLAY_HOST}${publicPath}`} label="Copy link" />
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        <a
-          href={publicPath}
-          target="_blank"
-          rel="noreferrer"
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <Globe className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Open live
-        </a>
-        <Link
-          href="/vendor-dashboard/profile"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          Edit content on your profile
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        </Link>
-      </div>
-    </div>
-  );
-}
 
 function TeamPanel({ members }: { members: TeamMember[] }) {
   return (

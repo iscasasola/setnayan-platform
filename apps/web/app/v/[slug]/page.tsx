@@ -86,6 +86,11 @@ import {
 } from '@/lib/reviews';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
 import {
+  fetchVendorMicrosite,
+  isSectionVisible,
+  orderFeaturedFirst,
+} from '@/lib/vendor-microsite';
+import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
 } from '@/lib/demo-mode';
@@ -691,10 +696,20 @@ export async function renderVendorBySlug({
   }));
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioUrls] = await Promise.all([
+  const [attributeDetails, portfolioUrls, microsite] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
     resolvePortfolioUrls(vendor.portfolio_r2_keys),
+    // Microsite curation (My Shop → Website editor). Defensive read — an
+    // un-curated vendor / not-yet-applied migration degrades to the
+    // auto-composed baseline.
+    fetchVendorMicrosite(admin, vendor.vendor_profile_id),
   ]);
+  const showPortfolio = isSectionVisible(microsite.sections, 'portfolio');
+  const showTrustedBy = isSectionVisible(microsite.sections, 'trusted_by');
+  const orderedServices = orderFeaturedFirst(
+    vendor.services,
+    microsite.featuredServiceIds,
+  );
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Get in touch" copy,
@@ -1390,7 +1405,21 @@ export async function renderVendorBySlug({
           </div>
         </section>
 
-        {portfolioUrls.length > 0 ? (
+        {/* About — the vendor's own intro (My Shop → Website editor). Optional
+            override; hidden when unset so the page keeps its auto-composed
+            baseline. */}
+        {microsite.about ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              About
+            </h2>
+            <p className="max-w-2xl whitespace-pre-line text-base leading-relaxed text-ink/75">
+              {microsite.about}
+            </p>
+          </section>
+        ) : null}
+
+        {showPortfolio && portfolioUrls.length > 0 ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
@@ -1420,7 +1449,7 @@ export async function renderVendorBySlug({
               Services offered
             </h2>
             <ul className="flex flex-wrap gap-2">
-              {vendor.services.map((s) => (
+              {orderedServices.map((s) => (
                 <li
                   key={s}
                   className="rounded-full bg-terracotta/10 px-3 py-1 text-sm text-terracotta-700"
@@ -1559,7 +1588,9 @@ export async function renderVendorBySlug({
           completedEvents={completedEvents}
         />
 
-        <TrustedBySection vendors={trustedBy} businessName={displayLabel} />
+        {showTrustedBy ? (
+          <TrustedBySection vendors={trustedBy} businessName={displayLabel} />
+        ) : null}
 
         <section className="space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

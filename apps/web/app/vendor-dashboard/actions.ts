@@ -16,6 +16,11 @@ import {
 } from '@/lib/vendor-profile';
 import { geocodeNominatim } from '@/lib/geo';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import {
+  MICROSITE_ABOUT_MAX,
+  MICROSITE_FEATURED_SERVICES_MAX,
+  MICROSITE_TOGGLEABLE_SECTIONS,
+} from '@/lib/vendor-microsite';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -771,4 +776,96 @@ export async function getShortlistRadar(): Promise<ShortlistRadar> {
     console.error('[getShortlistRadar] failed', err);
     return empty;
   }
+}
+
+/* ─── My Shop → Website editor ──────────────────────────────────────────── */
+
+/**
+ * The FREE microsite controls a vendor can edit inline in My Shop → Website.
+ * (Pro controls — slug / hero photo / accent / featured editorials / pinned
+ * review — are gated on tierCaps.customWebsiteName and land in a follow-up PR.)
+ */
+const INLINE_WEBSITE_FIELDS = new Set([
+  'microsite_about',
+  'microsite_sections',
+  'microsite_featured_services',
+]);
+
+/**
+ * Save one FREE microsite field from the My Shop → Website editor. Mirrors
+ * updateVendorProfileField (no redirect — the panel stays mounted so the client
+ * can toast), and additionally revalidates the public microsite so the change
+ * shows immediately on /v/[slug] (and its bare-root alias).
+ */
+export async function updateVendorWebsiteField(
+  _prevState: FieldSaveResult | null,
+  formData: FormData,
+): Promise<FieldSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  const field = String(formData.get('field') ?? '');
+  if (!INLINE_WEBSITE_FIELDS.has(field)) {
+    return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // Current services (to constrain featured picks to owned leaves) + slug (to
+  // revalidate the public page). One read, reused below.
+  const { data: row } = await supabase
+    .from('vendor_profiles')
+    .select('business_slug, services')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const rowTyped = row as
+    | { business_slug?: string | null; services?: string[] | null }
+    | null;
+  const currentServices = (rowTyped?.services ?? []) as string[];
+  const slug = rowTyped?.business_slug ?? null;
+
+  let patch: Record<string, unknown> = {};
+  switch (field) {
+    case 'microsite_about': {
+      const raw = nullIfBlank(formData.get('microsite_about'));
+      patch = { microsite_about: raw ? raw.slice(0, MICROSITE_ABOUT_MAX) : null };
+      break;
+    }
+    case 'microsite_sections': {
+      // Only the toggleable keys are honored. A present checkbox = visible;
+      // absent = hidden. Reviews are intentionally not toggleable.
+      const sections: Record<string, boolean> = {};
+      for (const s of MICROSITE_TOGGLEABLE_SECTIONS) {
+        sections[s.key] = formData.get(`section_${s.key}`) === 'on';
+      }
+      patch = { microsite_sections: sections };
+      break;
+    }
+    case 'microsite_featured_services': {
+      const allowed = new Set(currentServices);
+      const featured = formData
+        .getAll('microsite_featured_services')
+        .map(String)
+        .filter((s) => allowed.has(s))
+        .slice(0, MICROSITE_FEATURED_SERVICES_MAX);
+      patch = { microsite_featured_service_ids: featured };
+      break;
+    }
+    default:
+      return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  const { error } = await supabase
+    .from('vendor_profiles')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/vendor-dashboard/shop');
+  if (slug) {
+    revalidatePath(`/v/${slug}`);
+    revalidatePath(`/${slug}`);
+  }
+  return { ok: true };
 }

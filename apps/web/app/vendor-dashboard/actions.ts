@@ -22,6 +22,7 @@ import {
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
   isValidAccentKey,
+  micrositeCan,
 } from '@/lib/vendor-microsite';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -799,6 +800,14 @@ const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_featured_editorials',
 ]);
 
+/** SOLO+-gated website fields — personalizing the page (tier ladder 2026-07-03).
+ *  Free/Verified get the auto-composed page; Solo unlocks these. */
+const SOLO_WEBSITE_FIELDS = new Set([
+  'microsite_about',
+  'microsite_sections',
+  'microsite_featured_services',
+]);
+
 /** PRO-gated website fields. Reuses the same cap the custom slug already uses. */
 const PRO_WEBSITE_FIELDS = new Set([
   'business_slug',
@@ -849,6 +858,18 @@ export async function updateVendorWebsiteField(
   const currentSlug = rowTyped?.business_slug ?? null;
   const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
   const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
+
+  // SOLO gate — personalizing the page (About / sections / featured services)
+  // is a Solo+ benefit. Free/Verified are auto-composed. Server-side backstop.
+  if (
+    SOLO_WEBSITE_FIELDS.has(field) &&
+    !micrositeCan(rowTyped?.tier_state).canPersonalize
+  ) {
+    return {
+      ok: false,
+      error: 'Personalizing your page is a Solo feature — upgrade to customize.',
+    };
+  }
 
   // PRO gate — the premium customization controls reuse the same cap as the
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is

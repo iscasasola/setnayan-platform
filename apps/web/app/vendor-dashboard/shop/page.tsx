@@ -56,7 +56,7 @@ import {
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
-import { fetchVendorMicrosite, type VendorMicrosite } from '@/lib/vendor-microsite';
+import { fetchVendorMicrosite, micrositeCan, type VendorMicrosite } from '@/lib/vendor-microsite';
 
 import { ManageTiles } from './_components/manage-tiles';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
@@ -119,6 +119,7 @@ type ShopData = {
   isVerified: boolean;
   websiteLive: boolean;
   isProWebsite: boolean;
+  canPersonalize: boolean;
   yearsLabel: string | null;
   microsite: VendorMicrosite;
   portfolioPhotos: { key: string; url: string }[];
@@ -330,6 +331,7 @@ async function loadShopData(): Promise<ShopData | null> {
   // never blanks My Shop.
   const microsite = await fetchVendorMicrosite(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
+  const canPersonalize = micrositeCan(tier).canPersonalize;
   const yearsLabel = profile.in_business_since_year
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
     : null;
@@ -381,6 +383,7 @@ async function loadShopData(): Promise<ShopData | null> {
       Boolean(profile.business_slug) &&
       isPubliclyVisible(profile.public_visibility),
     isProWebsite,
+    canPersonalize,
     yearsLabel,
     microsite,
     portfolioPhotos,
@@ -538,6 +541,7 @@ export default async function VendorShopPage({
             displayHost={DISPLAY_HOST}
             websiteLive={data.websiteLive}
             isPro={data.isProWebsite}
+            canPersonalize={data.canPersonalize}
             about={data.microsite.about}
             sections={data.microsite.sections}
             featuredServiceIds={data.microsite.featuredServiceIds}

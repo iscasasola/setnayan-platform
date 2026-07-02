@@ -11,7 +11,6 @@ import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchHasBusinessDocuments, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { geocodeNominatim } from '@/lib/geo';
-import { getEventTypeVocab } from '@/lib/event-types-db';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -121,33 +120,6 @@ const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([
   'outdoor_tent',
   'civil_registrar',
 ]);
-
-/**
- * Parse the repeated checkbox values for `event_types` into a clean array.
- *
- * DB-driven roster (2026-06-13 cutover): the allowlist is every ACTIVE
- * `event_type_vocab` row — vendors may serve any active type regardless of
- * its couple-side `enabled` flag (pre-tagging coverage before a public
- * unlock). The validate_event_types_vendor_profiles trigger (migration
- * 20261204000000) is the DB backstop.
- *
- * Always returns a non-empty array — the column keeps the never-empty
- * CHECK, so if a vendor unchecks every box we default to `['wedding']`
- * rather than letting the update fail.
- */
-async function parseEventTypesArray(raw: FormDataEntryValue[]): Promise<string[]> {
-  const vocab = await getEventTypeVocab();
-  const allowed = new Set(vocab.map((t) => t.key));
-  const out: string[] = [];
-  for (const item of raw) {
-    if (typeof item !== 'string') continue;
-    const trimmed = item.trim();
-    if (!allowed.has(trimmed)) continue;
-    if (out.includes(trimmed)) continue;
-    out.push(trimmed);
-  }
-  return out.length > 0 ? out : ['wedding'];
-}
 
 /**
  * Parse a repeated set of checkbox values into a clean compatibility array.
@@ -371,7 +343,9 @@ export async function saveVendorProfile(formData: FormData) {
       formData.getAll('compatible_venue_settings'),
       ALLOWED_VENUE_SETTINGS,
     ),
-    event_types: await parseEventTypesArray(formData.getAll('event_types')),
+    // event_types is NOT written here anymore — coverage is the source
+    // (owner-locked 2026-07-02). It's recomputed as the union across the
+    // vendor's coverages by syncProfileEventTypes in services/coverage-actions.ts.
     // Social Sharing Program (20261203000000) — opt OUT of the verification
     // celebration post on Setnayan's Facebook page (unticked = featured;
     // Free unnamed · Pro+ named per the hybrid-anonymity doctrine).

@@ -17,6 +17,7 @@ import { fetchVendorServices } from '@/lib/vendor-services';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
+import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
   // Tolerate thousands separators — the generator submits clean numbers, but a
@@ -134,6 +135,19 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       ? rawDate
       : null;
   if (!eventDate) fail('event_date');
+
+  // Owner rule #4 (2026-07): a Locked QR is the PRIMARY booking of its date, so
+  // it cannot be issued for a date the vendor is no longer free on (already
+  // booked -> auto-blocked, or manually blocked). Reuse the exact availability
+  // source couples see; fail-open on a query error (matches getVendorAvailableDays).
+  const bookDate = new Date(`${eventDate}T00:00:00`);
+  const freeDays = await getVendorAvailableDays(
+    supabase,
+    vendorProfileId,
+    bookDate,
+    bookDate,
+  ).catch(() => null);
+  if (freeDays && !freeDays.has(formatDayKey(bookDate))) fail('date_unavailable');
 
   const totalPhp = toAmount(formData.get('total_php'));
   const initialPaid = toAmount(formData.get('initial_paid_php')) ?? 0;

@@ -53,6 +53,9 @@ export function SetnayanAiHeroStory({ pricing }: { pricing: PricingData }) {
   // per-cycle ₱50k would overstate the team by ~8% (13 cycles/yr vs 12 months).
   const team = (TEAM_PHP_PER_CAL_MONTH * (months * CYCLE_DAYS)) / 30;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
+  // The payoff line (owner 2026-07-03: "show the total savings by having
+  // setnayan AI against hiring") — the gap between the two window totals.
+  const savings = Math.max(0, team - mine);
 
   return (
     <div className="hr-ai-story">
@@ -103,6 +106,9 @@ export function SetnayanAiHeroStory({ pricing }: { pricing: PricingData }) {
             <i style={{ width: `${Math.max((mine / team) * 100, 1.4)}%`, transition: 'width .3s ease' }} />
           </span>
         </div>
+        <p className="hr-ai-cmp-save">
+          You save <b>≈ {peso(savings)}</b> over {months} {months === 1 ? 'month' : 'months'}
+        </p>
         <p className="hr-ai-cmp-foot">
           Typical PH rates, illustrative — bars drawn to scale · a month = 28 days (13 ≈ 1 year).
         </p>

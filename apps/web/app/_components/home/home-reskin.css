@@ -2784,6 +2784,19 @@ html.hr-snap {
 .home-reskin .hr-ai-cmp-us .hr-ai-cmp-bar i {
   background: #fff;
 }
+.home-reskin .hr-ai-cmp-save {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.home-reskin .hr-ai-cmp-save b {
+  font-family: var(--hr-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 22px;
+  color: #cfe8bf;
+  margin-left: 4px;
+}
 .home-reskin .hr-ai-cmp-foot {
   margin: 7px 0 0;
   font-size: 10.5px;

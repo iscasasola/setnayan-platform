@@ -9,7 +9,6 @@ import {
   Handshake,
   Heart,
   Images,
-  ShieldCheck,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -35,11 +34,15 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { inviteVendorTeamMember } from '@/app/vendor-dashboard/team/actions';
 
 import { ManageTiles } from './_components/manage-tiles';
+import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
+import type { ProfileFieldData } from './_components/editable-row';
 
 /**
  * /vendor-dashboard/shop — "My Shop".
@@ -104,6 +107,7 @@ type ShopData = {
   completionPct: number;
   hasDocuments: boolean;
   checklist: BusinessProfileItem[];
+  profileFields: ProfileFieldData;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -203,6 +207,40 @@ async function loadShopData(): Promise<ShopData | null> {
     enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
   }
 
+  // Live field values + editor vocabulary for the inline Business-Profile editor
+  // (the My Shop Profile panel). Degrade-safe: a logo-presign or taxonomy hiccup
+  // must not blank the whole My Shop page, so failures collapse to neutral
+  // defaults (no thumbnail · in-code service labels · no extra leaves) exactly
+  // like a vendor who hasn't set those yet.
+  let logoDisplayMap: Record<string, string> = {};
+  try {
+    const logoDisplayUrl = profile.logo_url
+      ? await displayUrlForStoredAsset(profile.logo_url)
+      : null;
+    if (profile.logo_url && logoDisplayUrl) {
+      logoDisplayMap = { [profile.logo_url]: logoDisplayUrl };
+    }
+  } catch {
+    logoDisplayMap = {};
+  }
+  const { serviceLabels, extraServiceLeaves } = await fetchVendorServicePickerVocab();
+  const profileFields: ProfileFieldData = {
+    business_name: profile.business_name ?? '',
+    business_owner_name: profile.business_owner_name ?? '',
+    hq_address: profile.hq_address ?? '',
+    contact_phone: profile.contact_phone ?? '',
+    contact_email: profile.contact_email ?? '',
+    in_business_since_year: profile.in_business_since_year
+      ? String(profile.in_business_since_year)
+      : '',
+    logo_url: profile.logo_url ?? null,
+    logoDisplayMap,
+    services: (profile.services ?? []) as string[],
+    serviceLabels,
+    extraServiceLeaves,
+    vendorProfileId: vendorId,
+  };
+
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -217,6 +255,7 @@ async function loadShopData(): Promise<ShopData | null> {
     completionPct,
     hasDocuments,
     checklist: completion.items,
+    profileFields,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -294,9 +333,9 @@ export default async function VendorShopPage() {
         teamLabel={nf.format(data.teamMembers)}
         branchLabel={nf.format(data.branchLocations)}
         profilePanel={
-          <ProfilePanel
-            checklist={data.checklist}
-            completionPct={data.completionPct}
+          <ProfileChecklistEditor
+            items={data.checklist}
+            data={data.profileFields}
             isVerified={data.isVerified}
           />
         }
@@ -537,117 +576,6 @@ function StatTile({
 }
 
 /* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
-function ProfilePanel({
-  checklist,
-  completionPct,
-  isVerified,
-}: {
-  checklist: BusinessProfileItem[];
-  completionPct: number;
-  isVerified: boolean;
-}) {
-  const done = checklist.filter((i) => i.ok).length;
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {isVerified ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{
-              background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
-              color: 'var(--m-sage-deep)',
-            }}
-          >
-            <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-            Verified
-          </span>
-        ) : (
-          <span
-            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{ background: 'var(--m-paper)', color: 'var(--m-slate-3)' }}
-          >
-            Unverified
-          </span>
-        )}
-        <span className="text-xs text-ink/55">
-          {done} of {checklist.length} complete · {completionPct}%
-        </span>
-      </div>
-
-      <ul className="space-y-2">
-        {checklist.map((item) => {
-          const href =
-            item.surface === 'documents'
-              ? '/vendor-dashboard/verify'
-              : '/vendor-dashboard/profile';
-          return (
-            <li
-              key={item.key}
-              className="flex items-center gap-3 rounded-lg border bg-white p-3"
-              style={{ borderColor: 'var(--m-line)' }}
-            >
-              <span
-                aria-hidden
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-                style={
-                  item.ok
-                    ? {
-                        background: 'color-mix(in srgb, var(--m-sage-deep) 14%, transparent)',
-                        color: 'var(--m-sage-deep)',
-                      }
-                    : { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }
-                }
-              >
-                {item.ok ? (
-                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                ) : (
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: 'currentColor' }}
-                  />
-                )}
-              </span>
-              <span
-                className="min-w-0 flex-1 truncate text-sm"
-                style={{ color: item.ok ? 'var(--m-slate)' : 'var(--m-ink)' }}
-              >
-                {item.label}
-              </span>
-              {item.ok ? (
-                <span className="text-xs text-ink/45">Done</span>
-              ) : (
-                <Link
-                  href={href}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
-                >
-                  Add
-                  <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden />
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/vendor-dashboard/profile"
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Edit profile
-        </Link>
-        <Link
-          href="/vendor-dashboard/verify"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          Verify documents
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        </Link>
-      </div>
-    </div>
-  );
-}
 
 function WebsitePanel({
   publicPath,

@@ -13,6 +13,7 @@
  */
 
 import { useState } from 'react';
+import { BadgePercent, Check, Info } from 'lucide-react';
 
 export type ServiceCard = {
   id: string;
@@ -20,6 +21,19 @@ export type ServiceCard = {
   priceLabel: string;
   /** Crew / meal line, pre-joined server-side. null → no second line. */
   meta: string | null;
+  // ── Service-card redesign · Phase 4 (couple-facing enrichment) ────────────
+  /** Best applicable discount badge copy (e.g. "20% off · early booking"),
+   *  chosen server-side by pickBestDiscount. null → no discount to show. */
+  discountLabel: string | null;
+  /** FREE inclusions with a stated worth, pre-formatted server-side
+   *  ("Photo booth · ₱8,000 free"). Trimmed to a few; `inclusionsMore` counts
+   *  the overflow. Empty → the Includes row is hidden. */
+  inclusions: string[];
+  /** How many inclusions were trimmed off `inclusions` (drives "+N more"). */
+  inclusionsMore: number;
+  /** "Not included" expectation flags, pre-formatted server-side
+   *  ("Crew meal not included", "Transport: ₱1,500"). Empty → row hidden. */
+  notIncluded: string[];
 };
 
 export type ServiceGroup = {
@@ -73,21 +87,76 @@ export function ServicesGallery({ groups }: { groups: ServiceGroup[] }) {
             <ul className="grid gap-2 sm:grid-cols-2">
               {g.cards.map((c) => (
                 <li key={c.id}>
-                  <div className="rounded-xl border border-ink/10 bg-cream p-4">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-medium text-ink">{c.label}</p>
-                      <p className="font-mono text-sm text-ink/80">{c.priceLabel}</p>
-                    </div>
-                    {c.meta ? (
-                      <p className="mt-1 text-[12px] text-ink/55">{c.meta}</p>
-                    ) : null}
-                  </div>
+                  <ServiceCardView card={c} />
                 </li>
               ))}
             </ul>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * One service card on the public vendor profile. Renders the base "from ₱X"
+ * anchor + (when present) the best-discount badge, FREE inclusions with their
+ * stated worth, the crew/meal meta line, and the "not included" expectation
+ * flags. All copy is pre-formatted server-side; this stays a dumb view.
+ *
+ * Layout order top→bottom: title + price · discount badge · inclusions ·
+ * crew/meal meta · not-included flags — value story first, caveats last.
+ */
+function ServiceCardView({ card: c }: { card: ServiceCard }) {
+  return (
+    <div className="flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-medium text-ink">{c.label}</p>
+        <p className="font-mono text-sm text-ink/80">{c.priceLabel}</p>
+      </div>
+
+      {c.discountLabel ? (
+        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-terracotta/30 bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
+          <BadgePercent className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+          {c.discountLabel}
+        </span>
+      ) : null}
+
+      {c.inclusions.length > 0 ? (
+        <ul className="mt-2 space-y-0.5">
+          {c.inclusions.map((line) => (
+            <li key={line} className="flex items-start gap-1.5 text-[12px] text-ink/70">
+              <Check
+                className="mt-0.5 h-3 w-3 shrink-0 text-mulberry"
+                strokeWidth={2.25}
+                aria-hidden
+              />
+              <span>{line}</span>
+            </li>
+          ))}
+          {c.inclusionsMore > 0 ? (
+            <li className="pl-[18px] text-[12px] text-ink/45">
+              +{c.inclusionsMore} more included
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+
+      {c.meta ? <p className="mt-2 text-[12px] text-ink/55">{c.meta}</p> : null}
+
+      {c.notIncluded.length > 0 ? (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {c.notIncluded.map((line) => (
+            <li
+              key={line}
+              className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink/55"
+            >
+              <Info className="h-3 w-3 shrink-0 text-ink/40" strokeWidth={2} aria-hidden />
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

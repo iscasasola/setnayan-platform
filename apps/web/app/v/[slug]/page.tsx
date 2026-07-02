@@ -27,7 +27,17 @@ import {
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
-import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
+import {
+  fetchVendorServices,
+  type VendorServiceRow,
+  type VendorServiceDiscount,
+} from '@/lib/vendor-services';
+import {
+  fetchInclusionsByService,
+  fetchDiscountsByServicePublic,
+  pickBestDiscount,
+  type VendorServiceInclusion,
+} from '@/lib/vendor-service-public';
 import {
   fetchTrustedByVendors,
   type TrustedByVendor,
@@ -653,6 +663,18 @@ export async function renderVendorBySlug({
 
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
+
+  // Service-card enrichment (redesign · Phase 4) — FREE inclusions + the
+  // multi-discount set for the active services, surfaced to couples on the
+  // profile's Services & pricing gallery. Both fetchers fail-soft to empty maps
+  // (missing table / unapplied migration → the cards render without them). The
+  // vendor is already resolved as published + these ids are all active, so the
+  // read is correctly scoped even under the server-role admin client.
+  const activeServiceIds = activeServices.map((s) => s.vendor_service_id);
+  const [inclusionsByService, discountsByService] = await Promise.all([
+    fetchInclusionsByService(admin, activeServiceIds),
+    fetchDiscountsByServicePublic(admin, activeServiceIds),
+  ]);
 
   // Linked services per anchor service (owner-locked 2026-06-12 "multi-service
   // inquiry mapping") — the price-included "comes with" set shown as read-only
@@ -1653,6 +1675,8 @@ export async function renderVendorBySlug({
           <ServicesPricingSection
             services={activeServices}
             businessName={displayLabel}
+            inclusionsByService={inclusionsByService}
+            discountsByService={discountsByService}
           />
         ) : null}
 
@@ -1963,9 +1987,13 @@ function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
 function ServicesPricingSection({
   services,
   businessName,
+  inclusionsByService,
+  discountsByService,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
+  inclusionsByService: Map<string, VendorServiceInclusion[]>;
+  discountsByService: Map<string, VendorServiceDiscount[]>;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -1987,7 +2015,13 @@ function ServicesPricingSection({
     groups.push({
       key: group.key,
       label: group.label,
-      cards: rows.map(toServiceCard),
+      cards: rows.map((row) =>
+        toServiceCard(
+          row,
+          inclusionsByService.get(row.vendor_service_id),
+          discountsByService.get(row.vendor_service_id),
+        ),
+      ),
     });
   }
 
@@ -2006,8 +2040,20 @@ function ServicesPricingSection({
   );
 }
 
-/** Format one service row into the serializable card the client gallery renders. */
-function toServiceCard(row: VendorServiceRow): ServiceCard {
+/** Max inclusions listed before we collapse the rest into "+N more included". */
+const SERVICE_CARD_INCLUSION_LIMIT = 3;
+
+/**
+ * Format one service row into the serializable card the client gallery renders.
+ * Service-card redesign · Phase 4 enriches the card with the best applicable
+ * discount, FREE inclusions (with their stated worth), and "not included"
+ * expectation flags so couples see the value + the caveats before quoting.
+ */
+function toServiceCard(
+  row: VendorServiceRow,
+  inclusions: VendorServiceInclusion[] | undefined,
+  discounts: VendorServiceDiscount[] | undefined,
+): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
@@ -2015,6 +2061,22 @@ function toServiceCard(row: VendorServiceRow): ServiceCard {
     row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`
       : 'Inquire';
+
+  // Best applicable discount → a single badge (pickBestDiscount ranks by peso
+  // savings on the anchor, dropping expired offers).
+  const best = pickBestDiscount(discounts, row.starting_price_php);
+
+  // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
+  // it blank). Trim to a few; the overflow surfaces as "+N more".
+  const allInclusions = (inclusions ?? []).map((inc) =>
+    inc.worth_php !== null && inc.worth_php > 0
+      ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
+      : inc.label,
+  );
+  const shownInclusions = allInclusions.slice(0, SERVICE_CARD_INCLUSION_LIMIT);
+  const inclusionsMore = Math.max(0, allInclusions.length - shownInclusions.length);
+
+  // Crew / meta line (unchanged behaviour).
   const crewParts: string[] = [];
   if (row.crew_size !== null && row.crew_size > 0) {
     crewParts.push(`${row.crew_size} crew on-site`);
@@ -2022,11 +2084,28 @@ function toServiceCard(row: VendorServiceRow): ServiceCard {
   if (row.crew_meal_required) {
     crewParts.push('crew meal required');
   }
+
+  // "Not included" expectation flags — feed the couple's budget + set
+  // expectations before the quote (0007 budget line items).
+  const notIncluded: string[] = [];
+  if (!row.crew_meal_included) notIncluded.push('Crew meal not included');
+  if (!row.transport_included) {
+    notIncluded.push(
+      row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
+        ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
+        : 'Transport not included',
+    );
+  }
+
   return {
     id: row.vendor_service_id,
     label,
     priceLabel,
     meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
+    discountLabel: best?.label ?? null,
+    inclusions: shownInclusions,
+    inclusionsMore,
+    notIncluded,
   };
 }
 

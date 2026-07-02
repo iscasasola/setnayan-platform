@@ -18,7 +18,9 @@ import { Filter, Info, Flame } from 'lucide-react';
  *     for vendors whose tier includes agents; disabled with a hint below that
  *     (a downgrade below Pro switches it off). When on, it narrows the calendar
  *     to the service categories the chosen agent is assigned to.
- * The Heat map toggle dims non-booked days so busy stretches jump out.
+ * The Heat map toggle tints each day by booking intensity so busy stretches
+ * glow. The ⓘ popover is help-only — the day-colour key lives under the grid
+ * (one legend, not two).
  */
 
 export type FilterOption = { value: string; label: string };
@@ -117,7 +119,7 @@ export function CustomersFilterBar({
           onClick={() => setShowInfo((v) => !v)}
           aria-expanded={showInfo}
           aria-controls={infoId}
-          aria-label="What the day colours mean"
+          aria-label="How to read this calendar"
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border"
           style={{ borderColor: 'var(--m-line)', background: '#fff', color: 'var(--m-slate)' }}
         >
@@ -135,18 +137,25 @@ export function CustomersFilterBar({
             }}
           >
             <p className="mb-2 font-medium" style={{ color: 'var(--m-ink)' }}>
-              What the day colours mean
+              How to read this calendar
             </p>
-            <ul className="space-y-1.5">
-              <LegendRow tone="full" label="Full — every schedule at capacity" />
-              <LegendRow tone="booked" label="Booked — a date you've taken work on" />
-              <LegendRow tone="locked" label="Locked — a hold you placed" />
-              <LegendRow tone="whitelist" label="Whitelist — approve any booking first" />
-              <LegendRow tone="blocked" label="Blocked — closed (holiday / rest day)" />
-              <LegendRow tone="waitlist" label="Waitlist — couples waiting on this date" />
-            </ul>
+            <p>
+              Each day shows its status — the colour key is under the grid.
+            </p>
+            <p className="mt-2">
+              <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+                Locked
+              </span>{' '}
+              and{' '}
+              <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+                Whitelist
+              </span>{' '}
+              are holds you set: Locked blocks new bookings; Whitelist asks you to
+              approve each one first.
+            </p>
             <p className="mt-2" style={{ color: 'var(--m-slate-2)' }}>
-              Turn on Heat map to dim the quiet days so your busy stretches stand out.
+              Turn on Heat map to tint each day by how booked it is — your busiest
+              dates glow warmest.
             </p>
           </div>
         ) : null}
@@ -191,27 +200,5 @@ function FilterSelect({
         </option>
       ))}
     </select>
-  );
-}
-
-const LEGEND_DOT: Record<string, string> = {
-  full: 'var(--m-ink)',
-  booked: 'var(--m-sage-deep)',
-  locked: 'var(--m-orange-2)',
-  whitelist: '#8B7BB8',
-  blocked: 'var(--m-slate-3)',
-  waitlist: '#B8862F',
-};
-
-function LegendRow({ tone, label }: { tone: string; label: string }) {
-  return (
-    <li className="flex items-center gap-2">
-      <span
-        aria-hidden
-        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ background: LEGEND_DOT[tone] ?? 'var(--m-slate-3)' }}
-      />
-      <span>{label}</span>
-    </li>
   );
 }

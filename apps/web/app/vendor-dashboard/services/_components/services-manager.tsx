@@ -986,31 +986,44 @@ export async function VendorServicesManager({
                           perkDefault={svc.exclusive_perk_text ?? undefined}
                         />
                         <div className="flex items-center justify-between">
-                          <ConfirmForm
-                            action={deleteVendorService}
-                            title="Delete this service?"
-                            confirmLabel="Delete service"
-                            message={`Deleting "${
-                              svc.title?.trim() || displayServiceLabel(svc.category)
-                            }" removes it from your listings, along with any "comes with" bundle links${
-                              hasSlots ? ' and all its time slots' : ''
-                            }. This can't be undone.`}
+                          {/* Trigger only — the delete ConfirmForm is a SIBLING
+                              of this update form (below) and this button reaches
+                              it via the HTML form attribute. Nesting the
+                              ConfirmForm here (its own <form>) was invalid HTML:
+                              the browser hoisted its $ACTION_ID_ input into THIS
+                              form, so a no-JS / pre-hydration "Save changes"
+                              dispatched deleteVendorService instead of update. */}
+                          <button
+                            type="submit"
+                            form={`svc-delete-${svc.vendor_service_id}`}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium"
+                            style={{ borderColor: 'var(--m-line)', color: 'var(--m-blush-deep)' }}
                           >
-                            <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium"
-                              style={{ borderColor: 'var(--m-line)', color: 'var(--m-blush-deep)' }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                              Delete
-                            </button>
-                          </ConfirmForm>
+                            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            Delete
+                          </button>
                           <SubmitButton className="button-primary" pendingLabel="Saving…">
                             Save changes
                           </SubmitButton>
                         </div>
                       </form>
+
+                      {/* Delete confirm — MUST stay a sibling of the update form
+                          (never nested); triggered by the footer button above. */}
+                      <ConfirmForm
+                        formId={`svc-delete-${svc.vendor_service_id}`}
+                        className="hidden"
+                        action={deleteVendorService}
+                        title="Delete this service?"
+                        confirmLabel="Delete service"
+                        message={`Deleting "${
+                          svc.title?.trim() || displayServiceLabel(svc.category)
+                        }" removes it from your listings, along with any "comes with" bundle links${
+                          hasSlots ? ' and all its time slots' : ''
+                        }. This can't be undone.`}
+                      >
+                        <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
+                      </ConfirmForm>
 
                       {/* Comes-with links — own action, sibling of the form. */}
                       {distinctCategories.filter((c) => c !== svc.category).length > 0 ? (

@@ -258,6 +258,27 @@ jobs:
       - name: Lint radius tokens
         run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
+  lint-nested-forms:
+    name: lint nested forms
+    runs-on: ubuntu-latest
+    # Fails on a <form> (or <ConfirmForm>, which renders its own <form>)
+    # nested inside another form element under apps/web/app. Nested form tags
+    # are invalid HTML — the browser hoists the inner form's $ACTION_ID_ input
+    # into the outer form, so a no-JS / pre-hydration submit of the outer form
+    # dispatches the INNER action (a real bug: no-JS "Save changes" deleted a
+    # vendor's service — 2026-07-03). Tree is clean at landing; this blocks
+    # regressions. Not yet a required check — owner promotes via branch
+    # protection once proven quiet. See apps/web/scripts/lint-nested-forms.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint nested forms
+        run: node apps/web/scripts/lint-nested-forms.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

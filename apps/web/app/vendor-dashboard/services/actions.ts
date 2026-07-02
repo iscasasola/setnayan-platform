@@ -170,6 +170,76 @@ function parseLeadTimeMonthsOrNull(raw: FormDataEntryValue | null): number | nul
   return n;
 }
 
+/** Positive number, fractional allowed (for min_hours; DB CHECK is > 0). Blank → null. */
+function parsePosNumOrNull(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  if (t.length === 0) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error('Minimum hours must be a positive number.');
+  }
+  return n;
+}
+
+type PricingBasis = 'fixed' | 'per_pax' | 'per_hour';
+
+/**
+ * Parse the pricing-basis fields (service-card redesign · Phase 3a). Only the
+ * active basis's inputs are submitted (the client unmounts the others); this
+ * nulls the inactive columns and recomputes starting_price_php as the synced
+ * "from ₱X" anchor Explore + the couple budget read.
+ *   • fixed    → the entered flat price (+ adaptive-pax base/surcharge).
+ *   • per_pax  → anchor = per-guest rate × minimum pax.
+ *   • per_hour → anchor = the base (which covers the minimum block).
+ */
+function parsePricingFields(formData: FormData): {
+  pricing_basis: PricingBasis;
+  starting_price_php: number | null;
+  base_pax: number | null;
+  added_pax_price_php: number | null;
+  per_pax_price_php: number | null;
+  min_pax: number | null;
+  hour_base_php: number | null;
+  min_hours: number | null;
+  extra_hour_php: number | null;
+} {
+  const rawBasis = String(formData.get('pricing_basis') ?? 'fixed');
+  const pricing_basis: PricingBasis =
+    rawBasis === 'per_pax' || rawBasis === 'per_hour' ? rawBasis : 'fixed';
+
+  const out = {
+    pricing_basis,
+    starting_price_php: null as number | null,
+    base_pax: null as number | null,
+    added_pax_price_php: null as number | null,
+    per_pax_price_php: null as number | null,
+    min_pax: null as number | null,
+    hour_base_php: null as number | null,
+    min_hours: null as number | null,
+    extra_hour_php: null as number | null,
+  };
+
+  if (pricing_basis === 'fixed') {
+    out.starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
+    const bp = parseInt0OrNull(formData.get('base_pax'));
+    out.base_pax = bp && bp > 0 ? bp : null;
+    out.added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
+  } else if (pricing_basis === 'per_pax') {
+    out.per_pax_price_php = parseInt0OrNull(formData.get('per_pax_price_php'));
+    const mp = parseInt0OrNull(formData.get('min_pax'));
+    out.min_pax = mp && mp > 0 ? mp : null;
+    out.starting_price_php =
+      out.per_pax_price_php != null ? out.per_pax_price_php * (out.min_pax ?? 1) : null;
+  } else {
+    out.hour_base_php = parseInt0OrNull(formData.get('hour_base_php'));
+    out.min_hours = parsePosNumOrNull(formData.get('min_hours'));
+    out.extra_hour_php = parseInt0OrNull(formData.get('extra_hour_php'));
+    out.starting_price_php = out.hour_base_php;
+  }
+  return out;
+}
+
 async function ensureProfile() {
   const supabase = await createClient();
   const {
@@ -251,9 +321,8 @@ export async function createVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
   let category: VendorCategory;
-  let starting_price_php: number | null;
-  let added_pax_price_php: number | null;
-  let base_pax: number | null = null;
+  let pricing: ReturnType<typeof parsePricingFields>;
+  let transport_flat_fee_php: number | null = null;
   let coverage_id: number | null = null;
   let crew_size: number | null;
   let recommended_lead_time_months: number | null;
@@ -266,12 +335,9 @@ export async function createVendorService(formData: FormData) {
   let exclusive_perk_text: string | null;
   try {
     category = parseCategory(formData.get('category'));
-    starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
-    // Optional per-added-guest surcharge (Adaptive Pax Pricing); blank = none.
-    added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
-    // Base pax the starting price covers (CHECK > 0 or NULL); pairs with above.
-    const basePaxParsed = parseInt0OrNull(formData.get('base_pax'));
-    base_pax = basePaxParsed && basePaxParsed > 0 ? basePaxParsed : null;
+    // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
+    pricing = parsePricingFields(formData);
+    transport_flat_fee_php = parseInt0OrNull(formData.get('transport_flat_fee_php'));
     // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
     // only the vendor's own coverages). Simple parse; strict ownership check is
     // a follow-up (founder-only marketplace, low harm).
@@ -297,7 +363,13 @@ export async function createVendorService(formData: FormData) {
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
-  const crew_meal_required = formData.get('crew_meal_required') === 'on';
+  // What's-included flags (service-card redesign). crew_meal_required is kept as
+  // the inverse of crew_meal_included so the 0007 budget's Crew-Meal line still
+  // triggers; transport fee only applies when transport is NOT included.
+  const crew_meal_included = formData.get('crew_meal_included') === 'on';
+  const transport_included = formData.get('transport_included') === 'on';
+  const crew_meal_required = !crew_meal_included;
+  if (transport_included) transport_flat_fee_php = null;
   const titleRaw = formData.get('title');
   const title =
     typeof titleRaw === 'string' && titleRaw.trim().length > 0
@@ -383,12 +455,21 @@ export async function createVendorService(formData: FormData) {
       vendor_profile_id: profile.vendor_profile_id,
       category,
       title,
-      starting_price_php,
-      added_pax_price_php,
-      base_pax,
+      starting_price_php: pricing.starting_price_php,
+      added_pax_price_php: pricing.added_pax_price_php,
+      base_pax: pricing.base_pax,
+      pricing_basis: pricing.pricing_basis,
+      per_pax_price_php: pricing.per_pax_price_php,
+      min_pax: pricing.min_pax,
+      hour_base_php: pricing.hour_base_php,
+      min_hours: pricing.min_hours,
+      extra_hour_php: pricing.extra_hour_php,
       coverage_id,
       crew_size,
       crew_meal_required,
+      crew_meal_included,
+      transport_included,
+      transport_flat_fee_php,
       branch_id,
       recommended_lead_time_months,
       last_minute_end_months,
@@ -472,9 +553,8 @@ export async function updateVendorService(formData: FormData) {
     return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
-  let starting_price_php: number | null;
-  let added_pax_price_php: number | null;
-  let base_pax: number | null = null;
+  let pricing: ReturnType<typeof parsePricingFields>;
+  let transport_flat_fee_php: number | null = null;
   let coverage_id: number | null = null;
   let crew_size: number | null;
   let recommended_lead_time_months: number | null;
@@ -486,11 +566,9 @@ export async function updateVendorService(formData: FormData) {
   let discount_conditions_md: string | null;
   let exclusive_perk_text: string | null;
   try {
-    starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
-    added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
-    // Base pax the starting price covers (CHECK > 0 or NULL); pairs with above.
-    const basePaxParsed = parseInt0OrNull(formData.get('base_pax'));
-    base_pax = basePaxParsed && basePaxParsed > 0 ? basePaxParsed : null;
+    // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
+    pricing = parsePricingFields(formData);
+    transport_flat_fee_php = parseInt0OrNull(formData.get('transport_flat_fee_php'));
     // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
     // only the vendor's own coverages). Simple parse; strict ownership check is
     // a follow-up (founder-only marketplace, low harm).
@@ -516,7 +594,11 @@ export async function updateVendorService(formData: FormData) {
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
-  const crew_meal_required = formData.get('crew_meal_required') === 'on';
+  // What's-included flags (crew_meal_required kept = NOT included for the budget).
+  const crew_meal_included = formData.get('crew_meal_included') === 'on';
+  const transport_included = formData.get('transport_included') === 'on';
+  const crew_meal_required = !crew_meal_included;
+  if (transport_included) transport_flat_fee_php = null;
   const branch_id = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
@@ -545,12 +627,21 @@ export async function updateVendorService(formData: FormData) {
   const { error } = await supabase
     .from('vendor_services')
     .update({
-      starting_price_php,
-      added_pax_price_php,
-      base_pax,
+      starting_price_php: pricing.starting_price_php,
+      added_pax_price_php: pricing.added_pax_price_php,
+      base_pax: pricing.base_pax,
+      pricing_basis: pricing.pricing_basis,
+      per_pax_price_php: pricing.per_pax_price_php,
+      min_pax: pricing.min_pax,
+      hour_base_php: pricing.hour_base_php,
+      min_hours: pricing.min_hours,
+      extra_hour_php: pricing.extra_hour_php,
       coverage_id,
       crew_size,
       crew_meal_required,
+      crew_meal_included,
+      transport_included,
+      transport_flat_fee_php,
       branch_id,
       recommended_lead_time_months,
       last_minute_end_months,

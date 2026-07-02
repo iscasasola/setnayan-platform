@@ -12,8 +12,27 @@ export type VendorServiceRow = {
   /** Optional surcharge (PHP) per guest above the quoted count; null/blank =
    *  no extra charge for added pax (Adaptive Pax Pricing, 2026-06-13). */
   added_pax_price_php: number | null;
+  // ── Pricing basis (service-card redesign · migration 20270502342558) ────
+  /** How the "from ₱X" anchor is computed. starting_price_php stays the synced
+   *  anchor for ALL bases (Explore/budget read it). */
+  pricing_basis: 'fixed' | 'per_pax' | 'per_hour';
+  /** Per-pax basis: rate per guest + the minimum pax floor (anchor = rate×min). */
+  per_pax_price_php: number | null;
+  min_pax: number | null;
+  /** Per-hour basis: base covers min_hours; extra hours bill per extra_hour_php. */
+  hour_base_php: number | null;
+  min_hours: number | null;
+  extra_hour_php: number | null;
   crew_size: number | null;
+  /** Legacy: TRUE = couple provides the crew meal. Kept in sync as the inverse of
+   *  crew_meal_included so the 0007 budget's Crew-Meal line still triggers. */
   crew_meal_required: boolean;
+  /** TRUE = crew meal is in the price. FALSE = not included (the card flags it). */
+  crew_meal_included: boolean;
+  /** TRUE = transport included within coverage. FALSE = not included. */
+  transport_included: boolean;
+  /** Flat transport fee (PHP) when transport not included; null = quote-by-distance. */
+  transport_flat_fee_php: number | null;
   is_active: boolean;
   /** Branch this service belongs to (Branches V1.x); null = main/unassigned. */
   branch_id: string | null;
@@ -49,7 +68,9 @@ export type VendorServiceRow = {
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,base_pax,coverage_id`;
+const PRICING_COLS =
+  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php';
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,base_pax,coverage_id,${PRICING_COLS}`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -82,6 +103,15 @@ export async function fetchVendorServices(
         | 'exclusive_perk_text'
         | 'base_pax'
         | 'coverage_id'
+        | 'pricing_basis'
+        | 'per_pax_price_php'
+        | 'min_pax'
+        | 'hour_base_php'
+        | 'min_hours'
+        | 'extra_hour_php'
+        | 'crew_meal_included'
+        | 'transport_included'
+        | 'transport_flat_fee_php'
       >),
       title: null,
       branch_id: null,
@@ -92,6 +122,15 @@ export async function fetchVendorServices(
       exclusive_perk_text: null,
       base_pax: null,
       coverage_id: null,
+      pricing_basis: 'fixed',
+      per_pax_price_php: null,
+      min_pax: null,
+      hour_base_php: null,
+      min_hours: null,
+      extra_hour_php: null,
+      crew_meal_included: false,
+      transport_included: false,
+      transport_flat_fee_php: null,
     }));
   }
   return (data ?? []) as VendorServiceRow[];

@@ -90,6 +90,7 @@ import {
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
+import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 
 export type ServicesManagerSearch = {
   saved?: string;
@@ -830,60 +831,29 @@ export async function VendorServicesManager({
                             </select>
                           </Field>
                         ) : null}
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="Starting price (PHP)" htmlFor={`price-${svc.vendor_service_id}`}>
-                            <input
-                              id={`price-${svc.vendor_service_id}`}
-                              name="starting_price_php"
-                              type="number"
-                              min={0}
-                              step={1}
-                              defaultValue={svc.starting_price_php ?? ''}
-                              placeholder="e.g. 25000"
-                              className="input-field"
-                            />
-                          </Field>
-                          <Field label="Crew size" htmlFor={`crew-${svc.vendor_service_id}`}>
-                            <input
-                              id={`crew-${svc.vendor_service_id}`}
-                              name="crew_size"
-                              type="number"
-                              min={0}
-                              step={1}
-                              defaultValue={svc.crew_size ?? ''}
-                              placeholder="e.g. 4"
-                              className="input-field"
-                            />
-                          </Field>
-                        </div>
-                        <Field
-                          label="Base covers (guests)"
-                          htmlFor={`basepax-${svc.vendor_service_id}`}
-                          help="Guests the starting price covers. Blank = flat price. Pairs with the per-guest surcharge below."
-                        >
+                        <PricingBasisEditor
+                          idPrefix={svc.vendor_service_id}
+                          defaults={{
+                            pricing_basis: svc.pricing_basis,
+                            starting_price_php: svc.starting_price_php,
+                            base_pax: svc.base_pax,
+                            added_pax_price_php: svc.added_pax_price_php,
+                            per_pax_price_php: svc.per_pax_price_php,
+                            min_pax: svc.min_pax,
+                            hour_base_php: svc.hour_base_php,
+                            min_hours: svc.min_hours,
+                            extra_hour_php: svc.extra_hour_php,
+                          }}
+                        />
+                        <Field label="Crew size" htmlFor={`crew-${svc.vendor_service_id}`}>
                           <input
-                            id={`basepax-${svc.vendor_service_id}`}
-                            name="base_pax"
-                            type="number"
-                            min={1}
-                            step={1}
-                            defaultValue={svc.base_pax ?? ''}
-                            placeholder="e.g. 100"
-                            className="input-field"
-                          />
-                        </Field>
-                        <Field
-                          label="Additional cost per added guest (PHP)"
-                          htmlFor={`addpax-${svc.vendor_service_id}`}
-                        >
-                          <input
-                            id={`addpax-${svc.vendor_service_id}`}
-                            name="added_pax_price_php"
+                            id={`crew-${svc.vendor_service_id}`}
+                            name="crew_size"
                             type="number"
                             min={0}
                             step={1}
-                            defaultValue={svc.added_pax_price_php ?? ''}
-                            placeholder="Optional — blank = no extra charge"
+                            defaultValue={svc.crew_size ?? ''}
+                            placeholder="e.g. 4"
                             className="input-field"
                           />
                         </Field>
@@ -911,15 +881,14 @@ export async function VendorServicesManager({
                             />
                           </Field>
                         ) : null}
-                        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
-                          <input
-                            type="checkbox"
-                            name="crew_meal_required"
-                            defaultChecked={svc.crew_meal_required}
-                            className="h-4 w-4 cursor-pointer accent-[var(--m-ink)]"
-                          />
-                          <span>Crew meal required (feeds couple&rsquo;s budget)</span>
-                        </label>
+                        <IncludedFlags
+                          idPrefix={svc.vendor_service_id}
+                          defaults={{
+                            crew_meal_included: svc.crew_meal_included,
+                            transport_included: svc.transport_included,
+                            transport_flat_fee_php: svc.transport_flat_fee_php,
+                          }}
+                        />
                         <LastMinuteFields
                           idPrefix={svc.vendor_service_id}
                           leadDefault={svc.recommended_lead_time_months}
@@ -1332,46 +1301,28 @@ function AddServiceForm({
           className="input-field"
         />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Starting price (PHP)"
-          htmlFor={`new-price-${addCategory}`}
-          help="Whole pesos. Leave blank for 'quote on request'."
-        >
-          <input
-            id={`new-price-${addCategory}`}
-            name="starting_price_php"
-            type="number"
-            min={0}
-            step={1}
-            placeholder="e.g. 25000"
-            className="input-field"
-          />
-        </Field>
-        <Field label="Crew size" htmlFor={`new-crew-${addCategory}`} help="How many people you bring on the day.">
-          <input
-            id={`new-crew-${addCategory}`}
-            name="crew_size"
-            type="number"
-            min={0}
-            step={1}
-            placeholder="e.g. 4"
-            className="input-field"
-          />
-        </Field>
-      </div>
-      <Field
-        label="Additional cost per added guest (PHP)"
-        htmlFor={`new-addpax-${addCategory}`}
-        help="Optional. Charged per guest above the count you quote. Leave blank for no extra charge for added guests."
-      >
+      <PricingBasisEditor
+        idPrefix={`new-${addCategory}`}
+        defaults={{
+          pricing_basis: 'fixed',
+          starting_price_php: null,
+          base_pax: null,
+          added_pax_price_php: null,
+          per_pax_price_php: null,
+          min_pax: null,
+          hour_base_php: null,
+          min_hours: null,
+          extra_hour_php: null,
+        }}
+      />
+      <Field label="Crew size" htmlFor={`new-crew-${addCategory}`} help="How many people you bring on the day.">
         <input
-          id={`new-addpax-${addCategory}`}
-          name="added_pax_price_php"
+          id={`new-crew-${addCategory}`}
+          name="crew_size"
           type="number"
           min={0}
           step={1}
-          placeholder="e.g. 350"
+          placeholder="e.g. 4"
           className="input-field"
         />
       </Field>
@@ -1393,24 +1344,10 @@ function AddServiceForm({
           />
         </Field>
       ) : null}
-      <label
-        className="flex items-start gap-3 rounded-xl border p-3"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-      >
-        <input
-          type="checkbox"
-          name="crew_meal_required"
-          className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--m-ink)]"
-        />
-        <span>
-          <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-            Crew meal required
-          </span>
-          <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Feeds the couple&rsquo;s budget automatically.
-          </span>
-        </span>
-      </label>
+      <IncludedFlags
+        idPrefix={`new-${addCategory}`}
+        defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
+      />
       <LastMinuteFields idPrefix={`new-${addCategory}`} />
       {showBranchPicker ? (
         <BranchSelect id={`new-branch-${addCategory}`} branches={branches} defaultValue="" />

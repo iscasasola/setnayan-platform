@@ -34,6 +34,10 @@ import {
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
 import {
+  AnonInquiryComposer,
+  type AnonComposerService,
+} from './_components/anon-inquiry-composer';
+import {
   ServicesGallery,
   type ServiceCard,
   type ServiceGroup,
@@ -762,6 +766,25 @@ export async function renderVendorBySlug({
   // vendor that has ≥1 active service.
   const showInquiryComposer =
     bookable && coupleEventId !== null && composerInitial !== null;
+
+  // Compose-first Inquire (owner 2026-07-02) — a bookable vendor with ≥1 service
+  // viewed by someone WITHOUT an event yet (signed-out, or signed-in with no
+  // event). They compose here, then convert (signup + onboarding) and the
+  // dashboard dispatcher replays the inquiry. Same guards as showInquiryComposer
+  // minus the coupleEventId requirement.
+  const anonComposerServices: AnonComposerService[] =
+    bookable && coupleEventId === null && composerInitial !== null
+      ? activeServices.map((s) => ({
+          vendorServiceId: s.vendor_service_id,
+          label: serviceLabel(s),
+          priceLabel: servicePriceLabel(s),
+          categoryKey: s.category,
+        }))
+      : [];
+  // Signed-in (non-anonymous) but eventless → skip signup, go straight to
+  // onboarding. Signed-out / anonymous → route through signup for a real account.
+  const signedInNoEvent =
+    user !== null && !(user.is_anonymous ?? false) && coupleEventId === null;
 
   // Pre-quote blindside #2 (Adaptive Pax Pricing Phase 3): startServiceInquiry
   // silently snapshots this live pax onto chat_threads.pax_at_inquiry, but the
@@ -1575,6 +1598,20 @@ export async function renderVendorBySlug({
               // bouncing on the server `not_secured` guard. Secured users and
               // signed-out visitors are unaffected.
               viewerIsAnonymous={user?.is_anonymous ?? false}
+            />
+          ) : null}
+
+          {/* Compose-first Inquire (owner 2026-07-02) — for a visitor without an
+              event yet: they write the inquiry now, then convert (signup + event
+              onboarding) and the dashboard dispatcher sends it. Replaces the old
+              "from your dashboard" dead-end for eventless viewers. */}
+          {anonComposerServices.length > 0 ? (
+            <AnonInquiryComposer
+              vendorProfileId={vendor.vendor_profile_id}
+              vendorSlug={vendor.business_slug ?? slug}
+              vendorLabel={displayLabel}
+              services={anonComposerServices}
+              signedInNoEvent={signedInNoEvent}
             />
           ) : null}
 

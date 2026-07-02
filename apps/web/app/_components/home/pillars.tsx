@@ -13,8 +13,16 @@
 import type { ReactNode } from 'react';
 
 export type PillarHero = {
-  /** anchor id of the pillar's full section (the Learn-more jump target) */
+  /** stable tile id (also the admin background-video slot key) */
   id: string;
+  /**
+   * Anchor id of the below-fold section this tile's "Learn more" jumps to —
+   * or null when the tile's product has no matching section yet (the queued
+   * product stories, owner 2026-07-03): Learn-more then falls back to the top
+   * of the content. Decoupled from `id` because the below-fold sections still
+   * render the original five pillar suites (see PILLAR_SECTION_IDS).
+   */
+  sectionId: string | null;
   name: string;
   role: string;
   /** hero headline shown when this dock item is selected */
@@ -28,10 +36,18 @@ export type PillarHero = {
 export const HOME_SCENE =
   'radial-gradient(120% 80% at 50% 18%, #9DA2A8 0%, #7E838A 38%, #595D64 70%, #3C3F45 100%)';
 
+// Dock assignment (owner 2026-07-03): the five dock tiles are the flagship
+// PRODUCTS — Ala ala (Memory Hub) · Suri (Setnayan AI) · Papic · Panood · 3D
+// Plan. Suri opens the one-page Setnayan AI story takeover; the other product
+// stories are QUEUED (their tiles keep the hero-scene swap until each story
+// ships). Slot gradients + anchor ids retained from the prior pillar dock (the
+// admin background-video slots are positional — /admin/background-videos labels
+// may want a refresh, flagged in the PR).
 export const PILLAR_HEROES: PillarHero[] = [
   {
     id: 'hr-p1',
-    name: 'Ala Ala',
+    sectionId: 'hr-p1',
+    name: 'Ala ala',
     role: 'Memory Hub',
     head: 'A photo album is a record. This is a memory.',
     desc: 'Where your celebrations live on — every event you hold and every event you attend, kept for life.',
@@ -40,37 +56,46 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p2',
-    name: 'Likha',
-    role: 'Creative Studio',
-    head: 'Your event has a look. Give it a voice.',
-    desc: 'A free studio that turns your plan into the invite, the page, the monogram, the capture — one look across it all.',
-    photo: 'radial-gradient(90% 80% at 50% 40%, #B6ADBA 0%, #837b8a 42%, #463f4d 82%)',
-  },
-  {
-    id: 'hr-p3',
-    name: 'Plano',
-    role: 'Planner',
-    head: 'The planner that does the work.',
-    desc: 'Guest list, seating, budget, schedule, mood board — one connected suite, free, for any event.',
-    photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
-  },
-  {
-    id: 'hr-p4',
+    sectionId: 'hr-p4',
     name: 'Suri',
     role: 'Setnayan AI',
-    head: 'Twelve tabs. No decision.',
-    desc: 'The quiet planning brain — the attention of a full coordination team, checking every option against your plan instantly.',
+    head: 'It doesn’t chat. It watches your event for you.',
+    desc: 'The planning brain — it keeps an eye on the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.',
     photo: 'radial-gradient(100% 85% at 50% 35%, #A6AEB6 0%, #757d86 44%, #383f47 100%)',
   },
   {
+    id: 'hr-p3',
+    sectionId: null,
+    name: 'Papic',
+    role: 'Candid capture',
+    head: 'Every guest is a photographer.',
+    desc: 'Your crew and your guests shoot the day — every photo and clip lands in one live gallery, tagged to the people in it, delivered in real time.',
+    photo: 'radial-gradient(90% 80% at 50% 40%, #B6ADBA 0%, #837b8a 42%, #463f4d 82%)',
+  },
+  {
+    id: 'hr-p4',
+    sectionId: null,
+    name: 'Panood',
+    role: 'Live Studio',
+    head: 'For everyone who couldn’t be there.',
+    desc: 'Go live to your event page in one tap — free with a single camera. Add the multicam control room when you want the full broadcast.',
+    photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
+  },
+  {
     id: 'hr-p5',
-    name: 'Tiangge',
-    role: 'Marketplace',
-    head: 'Vendors, verified. 0% commission.',
-    desc: 'When you want vendors, they are here — verified reviews and a track record, the right price, and zero commission.',
+    sectionId: null,
+    name: '3D Plan',
+    role: 'Seating in 3D',
+    head: 'Walk the room before the day.',
+    desc: 'Build your seat plan, then step inside it — place the tables, check the sightlines, and see the room your guests will walk into.',
     photo: 'linear-gradient(160deg, #BBB4AC 0%, #8a8077 46%, #524a40 100%)',
   },
 ];
+
+/** Anchor ids for the below-fold pillar sections, in PILLARS order (the
+ *  original five suites: Ala Ala · Likha · Plano · Suri · Tiangge). Kept as
+ *  the historical hr-p1..p5 so PillarHero.sectionId can target them. */
+export const PILLAR_SECTION_IDS = ['hr-p1', 'hr-p2', 'hr-p3', 'hr-p4', 'hr-p5'];
 
 export type FeatureCard = {
   ic: string;

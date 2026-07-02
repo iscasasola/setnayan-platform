@@ -21,10 +21,11 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { PILLARS, PILLAR_HEROES, HOME_SCENE } from './pillars';
+import { PILLARS, PILLAR_HEROES, PILLAR_SECTION_IDS, HOME_SCENE } from './pillars';
 import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import { SetnayanAiStory } from './setnayan-ai-story';
 import { openConsentManager } from '@/lib/cookie-consent';
 import dynamic from 'next/dynamic';
 
@@ -81,7 +82,9 @@ function reduceMotion() {
  * Admin-uploaded homepage background videos (/admin/background-videos):
  *   • main      — the cinematic hero backdrop (slot 0), shown on the home scene.
  *   • pillars[] — the five dock "icon" videos in PILLAR_HEROES order
- *                 (Ala Ala · Likha · Plano · Suri · Tiangge). Each entry
+ *                 (Ala ala · Suri · Papic · Panood · 3D Plan — owner 2026-07-03;
+ *                 slots are positional, so previously-uploaded videos keep
+ *                 their slot and may need re-uploading to match). Each entry
  *                 is a URL or null (null → that tile / hero swap keeps its
  *                 gradient). A selected pillar's video also takes over the hero.
  */
@@ -161,7 +164,9 @@ export function HomeReskin({
 
   const heroLearn = useCallback(() => {
     if (activePillar === null) openGate();
-    else openGate(PILLAR_HEROES[activePillar]?.id);
+    // Jump to the tile's MATCHING below-fold section; queued products
+    // (sectionId null) fall back to the top of the content.
+    else openGate(PILLAR_HEROES[activePillar]?.sectionId ?? undefined);
   }, [activePillar, openGate]);
 
   // ── Hero scene (cross-fade between two gradient layers, with optional video) ──
@@ -231,12 +236,25 @@ export function HomeReskin({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The one-page, no-scroll Setnayan AI story takeover (owner 2026-07-03: the
+  // Suri · Setnayan AI dock tile opens the story INSIDE the new homepage —
+  // never a bounce to the old-chrome /setnayan-ai route).
+  const [storyOpen, setStoryOpen] = useState(false);
+  const closeStory = useCallback(() => setStoryOpen(false), []);
+  const openStory = useCallback(() => {
+    setOverlay(null); // the nav pop-up may be open (its "full story" action)
+    setStoryOpen(true);
+  }, []);
+
   const selectPillar = useCallback(
     (i: number) => {
       const p = PILLAR_HEROES[i];
       if (!p) return;
       setActivePillar(i);
       paintScene(i);
+      // The Setnayan AI tile ALSO opens the story takeover (scene still paints
+      // underneath, so closing the story lands on the matching hero).
+      if (p.role === 'Setnayan AI') setStoryOpen(true);
     },
     [paintScene],
   );
@@ -493,7 +511,7 @@ export function HomeReskin({
         </section>
 
         {PILLARS.map((pillar, pi) => (
-          <section className="hr-pillar" id={PILLAR_HEROES[pi]?.id} key={pillar.widgetId}>
+          <section className="hr-pillar" id={PILLAR_SECTION_IDS[pi]} key={pillar.widgetId}>
             <div className="hr-pnum">{pillar.num}</div>
             <h2 className="hr-pname">{pillar.name}</h2>
             <p className="hr-pdef">{pillar.def}</p>
@@ -617,7 +635,8 @@ export function HomeReskin({
         <HomeFooter />
       </main>
 
-      <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} />
+      <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} onOpenStory={openStory} />
+      <SetnayanAiStory open={storyOpen} onClose={closeStory} pricing={pricing} />
     </div>
   );
 }

@@ -982,13 +982,13 @@ const SOLO_WEBSITE_FIELDS = new Set([
   'microsite_about',
   'microsite_sections',
   'microsite_featured_services',
+  'microsite_accent',
 ]);
 
 /** PRO-gated website fields. Reuses the same cap the custom slug already uses. */
 const PRO_WEBSITE_FIELDS = new Set([
   'business_slug',
   'microsite_hero_photo',
-  'microsite_accent',
   'microsite_pinned_review',
   'microsite_featured_editorials',
 ]);

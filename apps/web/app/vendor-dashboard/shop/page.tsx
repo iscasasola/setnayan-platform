@@ -10,6 +10,7 @@ import {
   Handshake,
   Heart,
   Images,
+  ShieldCheck,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import {
   fetchOwnVendorProfile,
   fetchHasBusinessDocuments,
   businessProfileChecklist,
+  type BusinessProfileItem,
 } from '@/lib/vendor-profile';
 import { fetchReviewStats } from '@/lib/reviews';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
@@ -55,9 +57,10 @@ import { QrCard } from './_components/qr-card';
  * /vendor-dashboard/shop — "My Shop".
  *
  * The storefront home of the vendor doorway. Reworked 2026-07 (owner):
- * everything acts INLINE — only Profile navigates. Website / Team / Branch
- * expand their function in place (ManageTiles + Collapsible); the QR row card
- * toggles Shortlist ↔ Locked, both rendering a real QR; the metrics strip is a
+ * everything acts INLINE. Profile / Website / Team / Branch each expand their
+ * function in place (ManageTiles + Collapsible) — Profile joined the inline
+ * set 2026-07-02 (was the lone navigate-out tile); the QR row card toggles
+ * Shortlist ↔ Locked, both rendering a real QR; the metrics strip is a
  * read-only pulse (its detail pages live in the sidebar).
  *
  * DATA — every number is LIVE (owner rule: never fabricate). The whole loader
@@ -112,6 +115,7 @@ type ShopData = {
   websiteLive: boolean;
   completionPct: number;
   hasDocuments: boolean;
+  checklist: BusinessProfileItem[];
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -243,6 +247,7 @@ async function loadShopData(): Promise<ShopData | null> {
       isPubliclyVisible(profile.public_visibility),
     completionPct,
     hasDocuments,
+    checklist: completion.items,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -380,6 +385,13 @@ export default async function VendorShopPage({
         websiteLive={data.websiteLive}
         teamLabel={nf.format(data.teamMembers)}
         branchLabel={nf.format(data.branchLocations)}
+        profilePanel={
+          <ProfilePanel
+            checklist={data.checklist}
+            completionPct={data.completionPct}
+            isVerified={data.isVerified}
+          />
+        }
         websitePanel={
           <WebsitePanel publicPath={publicPath} websiteLive={data.websiteLive} />
         }
@@ -619,6 +631,118 @@ function StatTile({
 }
 
 /* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
+function ProfilePanel({
+  checklist,
+  completionPct,
+  isVerified,
+}: {
+  checklist: BusinessProfileItem[];
+  completionPct: number;
+  isVerified: boolean;
+}) {
+  const done = checklist.filter((i) => i.ok).length;
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {isVerified ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{
+              background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
+              color: 'var(--m-sage-deep)',
+            }}
+          >
+            <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+            Verified
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{ background: 'var(--m-paper)', color: 'var(--m-slate-3)' }}
+          >
+            Unverified
+          </span>
+        )}
+        <span className="text-xs text-ink/55">
+          {done} of {checklist.length} complete · {completionPct}%
+        </span>
+      </div>
+
+      <ul className="space-y-2">
+        {checklist.map((item) => {
+          const href =
+            item.surface === 'documents'
+              ? '/vendor-dashboard/verify'
+              : '/vendor-dashboard/profile';
+          return (
+            <li
+              key={item.key}
+              className="flex items-center gap-3 rounded-lg border bg-white p-3"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              <span
+                aria-hidden
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                style={
+                  item.ok
+                    ? {
+                        background: 'color-mix(in srgb, var(--m-sage-deep) 14%, transparent)',
+                        color: 'var(--m-sage-deep)',
+                      }
+                    : { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }
+                }
+              >
+                {item.ok ? (
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                ) : (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: 'currentColor' }}
+                  />
+                )}
+              </span>
+              <span
+                className="min-w-0 flex-1 truncate text-sm"
+                style={{ color: item.ok ? 'var(--m-slate)' : 'var(--m-ink)' }}
+              >
+                {item.label}
+              </span>
+              {item.ok ? (
+                <span className="text-xs text-ink/45">Done</span>
+              ) : (
+                <Link
+                  href={href}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
+                >
+                  Add
+                  <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden />
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/vendor-dashboard/profile"
+          className="button-secondary inline-flex items-center gap-2"
+        >
+          <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Edit profile
+        </Link>
+        <Link
+          href="/vendor-dashboard/verify"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+        >
+          Verify documents
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function WebsitePanel({
   publicPath,
   websiteLive,

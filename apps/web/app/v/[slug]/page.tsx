@@ -1187,6 +1187,30 @@ export async function renderVendorBySlug({
             >
               {expTier.longLabel}
             </p>
+            {/* Rating trust chip (2026-07-02 vendor-website redesign) — surfaces
+                the star average + review count up in the hero beside the
+                experience badge, so the two headline trust signals cluster at the
+                top (per the approved profile mockup; rating previously lived only
+                in the Reviews section far below). Respects the Free-tier star gate
+                (viewerTierCaps.reviewStarsCounted) and hides when there are no
+                reviews yet — an honest empty state, never a fake 0.0. */}
+            {viewerTierCaps.reviewStarsCounted &&
+            reviewStats.total_count > 0 &&
+            reviewStats.avg_rating_overall > 0 ? (
+              <p
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
+                title={`${formatStarRating(reviewStats.avg_rating_overall)} average from ${reviewStats.total_count} review${reviewStats.total_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
+              >
+                <Star aria-hidden className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
+                <span className="font-medium text-ink">
+                  {formatStarRating(reviewStats.avg_rating_overall)}
+                </span>
+                <span aria-hidden>·</span>
+                <span>
+                  {reviewStats.total_count} review{reviewStats.total_count === 1 ? '' : 's'}
+                </span>
+              </p>
+            ) : null}
             {declaredExp ? (
               <p
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"

@@ -20,6 +20,8 @@ export type VendorMicrosite = {
   featuredServiceIds: string[];
   heroPhotoKey: string | null;
   accent: string | null;
+  /** A review_id pinned to the top of the Reviews section (PRO). */
+  pinnedReviewId: string | null;
 };
 
 export const MICROSITE_ABOUT_MAX = 600;
@@ -45,6 +47,7 @@ export const DEFAULT_MICROSITE: VendorMicrosite = {
   featuredServiceIds: [],
   heroPhotoKey: null,
   accent: null,
+  pinnedReviewId: null,
 };
 
 /** A section renders unless it has been explicitly turned off. */
@@ -134,6 +137,7 @@ type MicrositeRow = {
   microsite_featured_service_ids?: unknown;
   microsite_hero_photo_key?: string | null;
   microsite_accent?: string | null;
+  microsite_pinned_review_id?: string | null;
 };
 
 function coerceSections(raw: unknown): Record<string, boolean> {
@@ -164,7 +168,7 @@ export async function fetchVendorMicrosite(
     const { data, error } = await client
       .from('vendor_profiles')
       .select(
-        'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent',
+        'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent,microsite_pinned_review_id',
       )
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
@@ -177,6 +181,7 @@ export async function fetchVendorMicrosite(
       featuredServiceIds: coerceStringArray(row.microsite_featured_service_ids),
       heroPhotoKey: row.microsite_hero_photo_key ?? null,
       accent: row.microsite_accent ?? null,
+      pinnedReviewId: row.microsite_pinned_review_id ?? null,
     };
   } catch {
     return DEFAULT_MICROSITE;

@@ -33,9 +33,17 @@ import {
 import { Collapsible } from '../../_components/collapsible';
 import { updateVendorWebsiteField, type FieldSaveResult } from '../../actions';
 
-type RowKey = 'about' | 'featured' | 'sections' | 'slug' | 'hero' | 'accent';
+type RowKey =
+  | 'about'
+  | 'featured'
+  | 'sections'
+  | 'slug'
+  | 'hero'
+  | 'accent'
+  | 'pinned';
 
 export type MicrositePortfolioPhoto = { key: string; url: string };
+export type MicrositeReviewOption = { id: string; label: string };
 
 /**
  * My Shop → Website. The passive "Live" card reworked into an inline content
@@ -63,6 +71,8 @@ export function WebsiteEditor({
   heroPhotoKey,
   accent,
   portfolioPhotos,
+  reviews,
+  pinnedReviewId,
 }: {
   publicPath: string | null;
   displayHost: string;
@@ -79,6 +89,8 @@ export function WebsiteEditor({
   heroPhotoKey: string | null;
   accent: string | null;
   portfolioPhotos: MicrositePortfolioPhoto[];
+  reviews: MicrositeReviewOption[];
+  pinnedReviewId: string | null;
 }) {
   const [open, setOpen] = useState<RowKey | null>(null);
   const toggle = (k: RowKey) => setOpen((cur) => (cur === k ? null : k));
@@ -338,8 +350,20 @@ export function WebsiteEditor({
               <AccentField initial={accent} />
             </WebsiteEditRow>
 
+            <WebsiteEditRow
+              field="microsite_pinned_review"
+              label="Pinned review"
+              preview={pinnedReviewLabel(reviews, pinnedReviewId)}
+              isOpen={open === 'pinned'}
+              onToggle={() => toggle('pinned')}
+              onSaved={close}
+            >
+              <PinnedReviewField reviews={reviews} initial={pinnedReviewId} />
+            </WebsiteEditRow>
+
             <li className="list-none pt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Featured editorials and pinned review — coming soon.
+              Featured editorials — appears here once a couple you worked with
+              publishes their story.
             </li>
           </ul>
         ) : (
@@ -682,6 +706,72 @@ function AccentField({ initial }: { initial: string | null }) {
 function accentLabel(key: string | null): string {
   const a = MICROSITE_ACCENTS.find((x) => x.key === key);
   return a ? a.label : 'Champagne (default)';
+}
+
+/* ─── Pro: pinned review ────────────────────────────────────────────────── */
+function PinnedReviewField({
+  reviews,
+  initial,
+}: {
+  reviews: MicrositeReviewOption[];
+  initial: string | null;
+}) {
+  const [picked, setPicked] = useState<string>(
+    initial && reviews.some((r) => r.id === initial) ? initial : '',
+  );
+
+  if (reviews.length === 0) {
+    return (
+      <p className="text-sm text-ink/60">
+        No reviews yet — once couples review you, pick one to feature up top.
+      </p>
+    );
+  }
+
+  return (
+    <fieldset className="space-y-1">
+      <input type="hidden" name="microsite_pinned_review" value={picked} />
+      <legend className="mb-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+        Feature one review at the top of your Reviews section.
+      </legend>
+      <label className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[color:var(--m-orange-4)]">
+        <input
+          type="radio"
+          name="pinned_review_choice"
+          checked={picked === ''}
+          onChange={() => setPicked('')}
+          className="h-4 w-4 accent-[color:var(--m-orange)]"
+        />
+        <span style={{ color: 'var(--m-slate)' }}>None (newest first)</span>
+      </label>
+      <div className="max-h-[40vh] space-y-0.5 overflow-y-auto">
+        {reviews.map((r) => (
+          <label
+            key={r.id}
+            className="flex items-start gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[color:var(--m-orange-4)]"
+          >
+            <input
+              type="radio"
+              name="pinned_review_choice"
+              checked={picked === r.id}
+              onChange={() => setPicked(r.id)}
+              className="mt-0.5 h-4 w-4 accent-[color:var(--m-orange)]"
+            />
+            <span className="min-w-0">{r.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function pinnedReviewLabel(
+  reviews: MicrositeReviewOption[],
+  pinnedReviewId: string | null,
+): string {
+  if (!pinnedReviewId) return 'Newest first';
+  const r = reviews.find((x) => x.id === pinnedReviewId);
+  return r ? `Pinned: ${r.label}` : 'Newest first';
 }
 
 /* ─── One locked Pro row ────────────────────────────────────────────────── */

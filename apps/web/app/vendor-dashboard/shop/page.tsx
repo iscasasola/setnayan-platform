@@ -21,7 +21,7 @@ import {
   businessProfileChecklist,
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
-import { fetchReviewStats } from '@/lib/reviews';
+import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
@@ -119,6 +119,7 @@ type ShopData = {
   yearsLabel: string | null;
   microsite: VendorMicrosite;
   portfolioPhotos: { key: string; url: string }[];
+  reviewOptions: { id: string; label: string }[];
   completionPct: number;
   hasDocuments: boolean;
   checklist: BusinessProfileItem[];
@@ -284,6 +285,25 @@ async function loadShopData(): Promise<ShopData | null> {
     )
   ).filter((p): p is { key: string; url: string } => p !== null);
 
+  // Review options for the Pro pinned-review picker. Best-effort — a fetch
+  // hiccup just yields an empty picker ("no reviews yet"), never a crash.
+  let reviewOptions: { id: string; label: string }[] = [];
+  try {
+    const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, {
+      limit: 20,
+      offset: 0,
+    });
+    reviewOptions = rows.map((r) => {
+      const name = r.couple_display_name ?? 'A couple';
+      const snippet = r.body
+        ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”`
+        : `${r.rating_overall}★`;
+      return { id: r.review_id, label: `${name} · ${snippet}` };
+    });
+  } catch {
+    reviewOptions = [];
+  }
+
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -299,6 +319,7 @@ async function loadShopData(): Promise<ShopData | null> {
     yearsLabel,
     microsite,
     portfolioPhotos,
+    reviewOptions,
     completionPct,
     hasDocuments,
     checklist: completion.items,
@@ -411,6 +432,8 @@ export default async function VendorShopPage({
             heroPhotoKey={data.microsite.heroPhotoKey}
             accent={data.microsite.accent}
             portfolioPhotos={data.portfolioPhotos}
+            reviews={data.reviewOptions}
+            pinnedReviewId={data.microsite.pinnedReviewId}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}

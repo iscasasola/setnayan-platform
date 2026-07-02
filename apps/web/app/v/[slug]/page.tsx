@@ -717,6 +717,15 @@ export async function renderVendorBySlug({
     : null;
   // Pro accent — retint the microsite's accent ramp (undefined = default).
   const accentVars = micrositeAccentVars(microsite.accent);
+  // Pro pinned review — float the chosen review to the top of the loaded set.
+  // Best-effort: if it's older than the loaded window it simply isn't surfaced
+  // (no extra fetch); a stale/foreign id no-ops.
+  const orderedReviews = microsite.pinnedReviewId
+    ? [
+        ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
+        ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
+      ]
+    : reviews;
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Get in touch" copy,
@@ -1597,7 +1606,7 @@ export async function renderVendorBySlug({
           slug={slug}
           businessName={displayLabel}
           reviewStats={reviewStats}
-          reviews={reviews}
+          reviews={orderedReviews}
           hasMore={hasMore}
           nextPage={reviewsPage + 1}
           /* Phase C review-display gate (vendor-tier-caps · surface layer).

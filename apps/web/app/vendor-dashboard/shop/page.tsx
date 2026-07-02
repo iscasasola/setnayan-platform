@@ -47,7 +47,6 @@ import {
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchVendorMicrosite, type VendorMicrosite } from '@/lib/vendor-microsite';
 
 import { ManageTiles } from './_components/manage-tiles';

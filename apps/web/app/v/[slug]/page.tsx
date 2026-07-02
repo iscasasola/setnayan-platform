@@ -787,6 +787,14 @@ export async function renderVendorBySlug({
   // Phase C tier caps for this vendor — drives the day-1 name reveal +
   // the review-display gate (stars / comments) further down the page.
   const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
+  // Tier-conditional website LOOK (owner 2026-07-03: "adjust their website design
+  // depending on their tier"). The premium 2-column layout + sticky Inquire rail
+  // is a Pro/Enterprise benefit (reuses the `customWebsiteName` cap — true for
+  // Pro+); Free/Solo render the clean single column. (Enterprise's cinematic
+  // layer is a follow-up slice.) Content overrides a vendor already set (About /
+  // accent / featured) still render for whoever set them — the gate is on the
+  // LAYOUT here, not the content.
+  const premiumLayout = viewerTierCaps.customWebsiteName;
   const displayLabel = resolveVendorDisplayName({
     business_name: vendor.business_name,
     name_revealed_at: vendor.name_revealed_at ?? null,
@@ -1283,9 +1291,16 @@ export async function renderVendorBySlug({
             />
           </div>
         ) : null}
-        {/* Premium 2-column (desktop): story content left, a sticky Inquire
-            rail right. Collapses to a single column on mobile. */}
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-10">
+        {/* Premium 2-column (Pro/Enterprise): story content left, a sticky
+            Inquire rail right. Free/Solo get the clean single column (no grid,
+            no rail). Collapses to one column on mobile for every tier. */}
+        <div
+          className={
+            premiumLayout
+              ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-10'
+              : ''
+          }
+        >
           <div className="min-w-0">
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
           <Logo logoUrl={vendor.logo_url} name={displayLabel} />
@@ -1434,7 +1449,11 @@ export async function renderVendorBySlug({
                 composer) + Share. Retires the old Follow / Save-to-picks row.
                 On desktop the sticky Inquire rail carries these too. */}
             {bookable ? (
-              <div className="flex flex-wrap items-center gap-2 pt-4 lg:hidden">
+              <div
+                className={`flex flex-wrap items-center gap-2 pt-4 ${
+                  premiumLayout ? 'lg:hidden' : ''
+                }`}
+              >
                 <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
                   <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                   Inquire Now
@@ -1864,9 +1883,10 @@ export async function renderVendorBySlug({
         </section>
           </div>
 
-          {/* Sticky Inquire rail — desktop only. Rating + the primary Inquire
-              Now / Share CTAs + at-a-glance, following the scroll. */}
-          {bookable ? (
+          {/* Sticky Inquire rail — Pro/Enterprise, desktop only. Rating + the
+              primary Inquire Now / Share CTAs + at-a-glance, following the
+              scroll. (Free/Solo use the inline Inquire actions above.) */}
+          {premiumLayout && bookable ? (
             <aside className="hidden lg:block">
               <div className="sticky top-6 space-y-4 rounded-2xl border border-ink/10 bg-cream/50 p-5">
                 {viewerTierCaps.reviewStarsCounted &&
@@ -1926,8 +1946,17 @@ export async function renderVendorBySlug({
           ) : null}
         </div>
 
-        <footer className="border-t border-ink/10 pt-6 text-xs text-ink/50">
-          <p>Vendor ID · <span className="font-mono">{vendor.public_id}</span></p>
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-6 text-xs text-ink/50">
+          {/* Setnayan brand mark — visible on every vendor site, every tier
+              (owner 2026-07-03), incl. Enterprise custom domains. */}
+          <p>
+            Powered by{' '}
+            <span className="font-semibold tracking-wide text-ink/70">SETNAYAN</span>{' '}
+            <span className="italic">· Set na &lsquo;yan</span>
+          </p>
+          <p>
+            Vendor ID · <span className="font-mono">{vendor.public_id}</span>
+          </p>
         </footer>
       </article>
     </main>

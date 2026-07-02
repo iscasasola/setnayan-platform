@@ -1,21 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition, useCallback } from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 import type {
-  CustomerCalendarMonth,
-  CustomerDayStateKind,
+  CalendarBlockEntry,
+  PoolBookingEntry,
+  SchedulePool,
+} from '@/lib/vendor-schedule';
+import {
+  buildCustomerCalendarMonth,
+  type CustomerCalendarMonth,
+  type CustomerDayStateKind,
 } from '@/lib/vendor-customers';
 import { CustomersFilterBar, type FilterOption } from './customers-filter-bar';
+import { fetchCustomerCalendarMonth } from '../actions';
 
 /**
  * The centrepiece month calendar. Each day cell shows the date + a small status
  * chip drawn from the 6-state day taxonomy (Full · Booked · Locked · Whitelist
  * · Blocked · Waitlist) plus up to two event labels for that day. Colours map to
- * the editorial palette. Month nav is server-driven (?m= links) so the data for
- * the visible month is fetched fresh; the filter bar + Heat map toggle live here
- * as client state (Heat map dims the open/past days so busy stretches pop).
+ * the editorial palette.
+ *
+ * Month nav is CLIENT-DRIVEN. The month-independent inputs (pools / bookings /
+ * blocks) are shipped once on first paint; paging to another month fetches only
+ * the two datasets that actually change — the vendor's day states + the couple
+ * waitlist for that month (see `fetchCustomerCalendarMonth`) — then rebuilds the
+ * grid in the browser with the pure `buildCustomerCalendarMonth`. So an arrow
+ * click is one lightweight query, not a full-page reload of ~12 queries. The
+ * filter bar + Heat map toggle live here as client state (Heat map dims the
+ * open/past days so busy stretches pop).
  */
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -57,20 +71,44 @@ const CHIP: Record<
   },
 };
 
+/** Shift a 'YYYY-MM' key by whole months. Pure — safe on the client. */
+function shiftMonth(ym: string, delta: number): string {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y ?? 2026, (m ?? 1) - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** 'YYYY-MM' → "July 2026". */
+function monthLabelOf(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y ?? 2026, (m ?? 1) - 1, 1).toLocaleDateString('en-PH', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function CustomersCalendar({
-  data,
-  monthLabel,
-  prevHref,
-  nextHref,
+  initialData,
+  initialMonth,
+  todayIso,
+  pools,
+  bookings,
+  blocks,
   dayHrefBase,
   types,
   services,
   agents,
 }: {
-  data: CustomerCalendarMonth;
-  monthLabel: string;
-  prevHref: string;
-  nextHref: string;
+  /** The visible month's grid, built on the server for first paint. */
+  initialData: CustomerCalendarMonth;
+  /** 'YYYY-MM' key of the first-painted month. */
+  initialMonth: string;
+  /** PH civil "today" (YYYY-MM-DD) — passed to the client-side rebuild. */
+  todayIso: string;
+  /** Month-independent inputs the client keeps to rebuild any month locally. */
+  pools: SchedulePool[];
+  bookings: PoolBookingEntry[];
+  blocks: CalendarBlockEntry[];
   /** Base path a day cell links to (e.g. the calendar day-manage route). */
   dayHrefBase: string;
   types: FilterOption[];
@@ -78,6 +116,39 @@ export function CustomersCalendar({
   agents: FilterOption[];
 }) {
   const [heatmap, setHeatmap] = useState(false);
+  const [month, setMonth] = useState(initialMonth);
+  const [data, setData] = useState(initialData);
+  const [pending, startTransition] = useTransition();
+
+  const goToMonth = useCallback(
+    (delta: number) => {
+      const nextMonth = shiftMonth(month, delta);
+      startTransition(async () => {
+        const res = await fetchCustomerCalendarMonth(nextMonth);
+        if (!res) {
+          // Session gone / not a vendor — fall back to a full server navigation
+          // so the user still lands on the month rather than getting stuck.
+          window.location.href = `${window.location.pathname}?m=${nextMonth}`;
+          return;
+        }
+        setData(
+          buildCustomerCalendarMonth(
+            pools,
+            bookings,
+            blocks,
+            res.dayStates,
+            res.waitlist,
+            nextMonth,
+            todayIso,
+          ),
+        );
+        setMonth(nextMonth);
+        // Keep the URL shareable/refreshable without a router round-trip.
+        window.history.replaceState(null, '', `${window.location.pathname}?m=${nextMonth}`);
+      });
+    },
+    [month, pools, bookings, blocks, todayIso],
+  );
 
   return (
     <div className="space-y-4">
@@ -92,28 +163,44 @@ export function CustomersCalendar({
       <div
         className="rounded-xl border p-4 sm:p-5"
         style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+        aria-busy={pending}
       >
         {/* Month nav */}
         <div className="mb-4 flex items-center justify-between">
-          <Link
-            href={prevHref}
+          <button
+            type="button"
+            onClick={() => goToMonth(-1)}
+            disabled={pending}
             aria-label="Previous month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-opacity disabled:opacity-50"
             style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
           >
             <ChevronRight className="h-4 w-4 rotate-180" strokeWidth={1.75} aria-hidden />
-          </Link>
-          <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {monthLabel}
+          </button>
+          <h2
+            className="flex items-center gap-2 text-base font-semibold"
+            style={{ color: 'var(--m-ink)' }}
+          >
+            {monthLabelOf(month)}
+            {pending ? (
+              <Loader2
+                className="h-3.5 w-3.5 animate-spin"
+                strokeWidth={2}
+                style={{ color: 'var(--m-slate-3)' }}
+                aria-hidden
+              />
+            ) : null}
           </h2>
-          <Link
-            href={nextHref}
+          <button
+            type="button"
+            onClick={() => goToMonth(1)}
+            disabled={pending}
             aria-label="Next month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-opacity disabled:opacity-50"
             style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
           >
             <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          </Link>
+          </button>
         </div>
 
         {/* Weekday header */}
@@ -128,8 +215,11 @@ export function CustomersCalendar({
           ))}
         </div>
 
-        {/* Day grid */}
-        <div className="grid grid-cols-7 gap-1">
+        {/* Day grid — dimmed while a month swap is in flight. */}
+        <div
+          className="grid grid-cols-7 gap-1 transition-opacity"
+          style={{ opacity: pending ? 0.55 : 1 }}
+        >
           {Array.from({ length: data.firstWeekday }).map((_, i) => (
             <div key={`pad-${i}`} />
           ))}

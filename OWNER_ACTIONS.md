@@ -1228,6 +1228,32 @@ Until step 3, every embed call is a clean no-op and enrollment stays image-only.
 
 ---
 
+## Enable "log in last" for the Inquire Now flow (anonymous-draft onboarding)
+
+The new **Inquire Now → guided onboarding** flow — tap through *event type → date /
+guest-count / location → services*, then **log in at the very end** — needs
+**anonymous-draft onboarding** turned on. With it on, a visitor finishes onboarding
+under a real-but-anonymous account, and a one-tap login at the end converts that
+same account into a permanent one (their event is never lost — no claim/merge).
+This is the *only* thing gating the exact **"fill everything first, log in last"**
+order. Three steps, all in dashboards the code can't reach:
+
+1. **Supabase → Authentication → Providers → Anonymous** — turn on **"Allow
+   anonymous sign-ins."**
+2. **Null-email-tolerant auth-user trigger** — anonymous users have no email, so
+   the current `handle_new_auth_user` trigger would crash the `NOT NULL` insert
+   into `public.users`. *I'll ship this migration as part of the Inquire-flow
+   build; you just confirm it's applied to prod (`supabase db push`).*
+3. **Vercel → Settings → Environment Variables** — set
+   **`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED=true`** (Production) and redeploy.
+
+Until all three are done the Inquire flow **still works** — it just moves the free
+login one step earlier (event → quick signup → onboarding → services → chat)
+instead of last. Flipping these three snaps it to the exact "log in last" order
+with **no code change** (the flow reads the flag). See `lib/anon-onboarding.ts`.
+
+---
+
 ## If something breaks
 
 1. Check `/admin/help` first — useful for reproducing issues users report

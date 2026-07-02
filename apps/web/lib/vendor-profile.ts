@@ -323,9 +323,10 @@ export async function fetchHasBusinessDocuments(
 }
 
 /**
- * The required Business Profile (vendor onboarding · owner 2026-06-28).
+ * The required Business Profile (vendor onboarding · owner 2026-06-28;
+ * relabelled + Logo added 2026-07-02).
  *
- * A vendor "must have their Business Profile" — these 8 fields — before they
+ * A vendor "must have their Business Profile" — these 9 fields — before they
  * can be published / listed / take inquiries. Each item maps to a concrete
  * column (or the verification-docs flow). `complete` gates publication; the
  * checklist drives the dashboard onboarding card + the profile completion UI.
@@ -341,31 +342,56 @@ export type BusinessProfileItem = {
   surface: 'profile' | 'documents';
 };
 
+/**
+ * Canonical Business-Profile field labels (owner-relabel 2026-07-02).
+ *
+ * ONE source of truth for the checklist wording, shared by the completion card
+ * (`businessProfileChecklist`) and the save-time publish gate in
+ * `app/vendor-dashboard/actions.ts`. Both surfaces used to hard-code the same
+ * strings and drifted apart on every rename — importing this constant keeps
+ * them locked together. Keyed by the checklist item `key`.
+ */
+export const BUSINESS_PROFILE_LABELS = {
+  logo: 'Logo',
+  business_name: 'Shop name',
+  business_owner_name: 'Business owner',
+  maps_pin: 'Company address',
+  contact_phone: 'Contact number',
+  contact_email: 'Company email',
+  services: 'Services covered',
+  in_business_since_year: 'EST',
+  business_documents: 'Documents needed',
+} as const;
+
 export function businessProfileChecklist(
   profile: VendorProfileRow | null,
   opts: { hasDocuments: boolean },
 ): { items: BusinessProfileItem[]; done: number; total: number; complete: boolean; missing: string[] } {
+  const L = BUSINESS_PROFILE_LABELS;
   const items: BusinessProfileItem[] = [
-    { key: 'business_name', label: 'Business name', surface: 'profile', ok: !!profile?.business_name?.trim() },
-    { key: 'business_owner_name', label: 'Business owner', surface: 'profile', ok: !!profile?.business_owner_name?.trim() },
-    { key: 'contact_phone', label: 'Contact number', surface: 'profile', ok: !!profile?.contact_phone?.trim() },
-    { key: 'contact_email', label: 'Business email', surface: 'profile', ok: !!profile?.contact_email?.trim() },
+    { key: 'logo', label: L.logo, surface: 'profile', ok: !!profile?.logo_url?.trim() },
+    { key: 'business_name', label: L.business_name, surface: 'profile', ok: !!profile?.business_name?.trim() },
+    { key: 'business_owner_name', label: L.business_owner_name, surface: 'profile', ok: !!profile?.business_owner_name?.trim() },
     {
       key: 'maps_pin',
-      label: 'Maps pin',
+      label: L.maps_pin,
       surface: 'profile',
-      // The pin is the geocoded HQ — require the address AND a resolved lat/lng
-      // so a typo that fails geocoding doesn't pass as "located".
-      ok: !!profile?.hq_address?.trim() && profile?.hq_latitude != null && profile?.hq_longitude != null,
+      // Address text is enough — matches the save-time publish gate in
+      // actions.ts (which only checks hq_address), since the lat/lng geocode
+      // runs asynchronously AFTER save and may legitimately be null on a fresh
+      // address. The distance chip still renders once geocoding resolves.
+      ok: !!profile?.hq_address?.trim(),
     },
-    { key: 'services', label: 'Services covered', surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
+    { key: 'contact_phone', label: L.contact_phone, surface: 'profile', ok: !!profile?.contact_phone?.trim() },
+    { key: 'contact_email', label: L.contact_email, surface: 'profile', ok: !!profile?.contact_email?.trim() },
+    { key: 'services', label: L.services, surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
     {
       key: 'in_business_since_year',
-      label: 'Year started',
+      label: L.in_business_since_year,
       surface: 'profile',
       ok: !!profile?.in_business_since_year && profile.in_business_since_year > 1900,
     },
-    { key: 'business_documents', label: 'Updated business documents', surface: 'documents', ok: opts.hasDocuments },
+    { key: 'business_documents', label: L.business_documents, surface: 'documents', ok: opts.hasDocuments },
   ];
   const done = items.filter((i) => i.ok).length;
   return {
@@ -381,7 +407,7 @@ export function businessProfileChecklist(
  * Backward-compatible profile-fields-only gauge (excludes the documents item,
  * which lives in a separate table + flow). Kept sync for callers that only have
  * the profile row (e.g. the vendor-activity soft score). The full publish gate
- * is `businessProfileChecklist` (8 items incl. documents).
+ * is `businessProfileChecklist` (9 items incl. documents).
  */
 export function profileCompletion(profile: VendorProfileRow | null): {
   done: number;

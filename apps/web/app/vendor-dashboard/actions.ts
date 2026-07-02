@@ -9,7 +9,11 @@ import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
-import { fetchHasBusinessDocuments, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  BUSINESS_PROFILE_LABELS,
+  fetchHasBusinessDocuments,
+  fetchOwnVendorProfile,
+} from '@/lib/vendor-profile';
 import { geocodeNominatim } from '@/lib/geo';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 
@@ -358,11 +362,13 @@ export async function saveVendorProfile(formData: FormData) {
     updated_at: new Date().toISOString(),
   };
 
-  // Business Profile publish gate (vendor onboarding · owner 2026-06-28): a
-  // vendor can only go LIVE once their Business Profile is complete (the 8
-  // required fields incl. uploaded documents). If they tick "publish" while
-  // incomplete, we still save their edits but keep them unpublished and tell
-  // them what's missing — never silently publish a half-built profile.
+  // Business Profile publish gate (vendor onboarding · owner 2026-06-28; Logo
+  // added + relabelled 2026-07-02): a vendor can only go LIVE once their
+  // Business Profile is complete (the 9 required fields incl. logo + uploaded
+  // documents). If they tick "publish" while incomplete, we still save their
+  // edits but keep them unpublished and tell them what's missing — never
+  // silently publish a half-built profile. Labels come from the shared
+  // BUSINESS_PROFILE_LABELS so this gate and the completion card never drift.
   let publishBlockedMissing: string[] = [];
   if (payload.is_published) {
     const { data: idRow } = await supabase
@@ -375,14 +381,15 @@ export async function saveVendorProfile(formData: FormData) {
       ? await fetchHasBusinessDocuments(supabase, vendorProfileId)
       : false;
     const missing: string[] = [];
-    if (!payload.business_name) missing.push('Business name');
-    if (!business_owner_name) missing.push('Business owner');
-    if (!payload.contact_phone) missing.push('Contact number');
-    if (!payload.contact_email) missing.push('Business email');
-    if (!hq_address) missing.push('Maps pin');
-    if (payload.services.length === 0) missing.push('Services covered');
-    if (!in_business_since_year) missing.push('Year started');
-    if (!hasDocuments) missing.push('Updated business documents');
+    if (!payload.logo_url) missing.push(BUSINESS_PROFILE_LABELS.logo);
+    if (!payload.business_name) missing.push(BUSINESS_PROFILE_LABELS.business_name);
+    if (!business_owner_name) missing.push(BUSINESS_PROFILE_LABELS.business_owner_name);
+    if (!hq_address) missing.push(BUSINESS_PROFILE_LABELS.maps_pin);
+    if (!payload.contact_phone) missing.push(BUSINESS_PROFILE_LABELS.contact_phone);
+    if (!payload.contact_email) missing.push(BUSINESS_PROFILE_LABELS.contact_email);
+    if (payload.services.length === 0) missing.push(BUSINESS_PROFILE_LABELS.services);
+    if (!in_business_since_year) missing.push(BUSINESS_PROFILE_LABELS.in_business_since_year);
+    if (!hasDocuments) missing.push(BUSINESS_PROFILE_LABELS.business_documents);
     if (missing.length > 0) {
       payload.is_published = false;
       publishBlockedMissing = missing;

@@ -29,6 +29,23 @@ import type {
 import type { PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 
 /**
+ * The exact slices of bookings / blocks the month builder actually reads. The
+ * client-side "My Customers" calendar ships these (not the full rows) so raw
+ * client-contact fields on a block (`clientName` / `clientContact` /
+ * `clientNote`) never reach the browser payload. A full `PoolBookingEntry` /
+ * `CalendarBlockEntry` is still assignable here (structural typing), so the
+ * server caller passes its rows unchanged.
+ */
+export type CalendarBookingInput = Pick<
+  PoolBookingEntry,
+  'poolId' | 'bookedDate' | 'eventName'
+>;
+export type CalendarBlockInput = Pick<
+  CalendarBlockEntry,
+  'poolId' | 'source' | 'startDate' | 'endDate'
+>;
+
+/**
  * The six day states, precedence order (highest first). Mirrors the taxonomy
  * in migration 20270403356945_vendor_calendar_day_states_6_state_taxonomy.sql.
  * `open` is the absence of any of these (no chip rendered).
@@ -93,8 +110,8 @@ function daysInMonthOf(month: string): number {
  */
 export function buildCustomerCalendarMonth(
   pools: SchedulePool[],
-  bookings: PoolBookingEntry[],
-  blocks: CalendarBlockEntry[],
+  bookings: CalendarBookingInput[],
+  blocks: CalendarBlockInput[],
   dayStates: VendorCalendarDayState[],
   waitlist: { requestedDate: string; pendingCount: number }[],
   month: string,

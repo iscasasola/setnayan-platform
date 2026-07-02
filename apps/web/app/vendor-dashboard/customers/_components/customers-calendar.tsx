@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useTransition, useCallback } from 'react';
+import { useState, useTransition, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Loader2 } from 'lucide-react';
-import type {
-  CalendarBlockEntry,
-  PoolBookingEntry,
-  SchedulePool,
-} from '@/lib/vendor-schedule';
+import type { SchedulePool } from '@/lib/vendor-schedule';
 import {
   buildCustomerCalendarMonth,
+  type CalendarBookingInput,
+  type CalendarBlockInput,
   type CustomerCalendarMonth,
   type CustomerDayStateKind,
 } from '@/lib/vendor-customers';
@@ -105,10 +103,12 @@ export function CustomersCalendar({
   initialMonth: string;
   /** PH civil "today" (YYYY-MM-DD) — passed to the client-side rebuild. */
   todayIso: string;
-  /** Month-independent inputs the client keeps to rebuild any month locally. */
+  /** Month-independent inputs the client keeps to rebuild any month locally.
+   *  Bookings/blocks are trimmed to the fields the builder reads (no raw
+   *  client-contact fields cross the wire). */
   pools: SchedulePool[];
-  bookings: PoolBookingEntry[];
-  blocks: CalendarBlockEntry[];
+  bookings: CalendarBookingInput[];
+  blocks: CalendarBlockInput[];
   /** Base path a day cell links to (e.g. the calendar day-manage route). */
   dayHrefBase: string;
   types: FilterOption[];
@@ -120,9 +120,32 @@ export function CustomersCalendar({
   const [data, setData] = useState(initialData);
   const [pending, startTransition] = useTransition();
 
+  // Per-mount cache of built months so paging back to an already-seen month is
+  // instant (no re-fetch). Seeded with the server's first-paint month. Lifetime
+  // is this mount: any action that mutates bookings navigates away (to the
+  // day-manage route) and remounts here with a fresh cache, so staleness within
+  // a single session is a non-issue.
+  const cacheRef = useRef<Map<string, CustomerCalendarMonth> | null>(null);
+  if (cacheRef.current === null) {
+    cacheRef.current = new Map([[initialMonth, initialData]]);
+  }
+
+  const applyMonth = useCallback((nextMonth: string, built: CustomerCalendarMonth) => {
+    setData(built);
+    setMonth(nextMonth);
+    // Keep the URL shareable/refreshable without a router round-trip.
+    window.history.replaceState(null, '', `${window.location.pathname}?m=${nextMonth}`);
+  }, []);
+
   const goToMonth = useCallback(
     (delta: number) => {
       const nextMonth = shiftMonth(month, delta);
+      const cache = cacheRef.current!;
+      const cached = cache.get(nextMonth);
+      if (cached) {
+        applyMonth(nextMonth, cached); // instant — no network, no spinner
+        return;
+      }
       startTransition(async () => {
         const res = await fetchCustomerCalendarMonth(nextMonth);
         if (!res) {
@@ -131,23 +154,20 @@ export function CustomersCalendar({
           window.location.href = `${window.location.pathname}?m=${nextMonth}`;
           return;
         }
-        setData(
-          buildCustomerCalendarMonth(
-            pools,
-            bookings,
-            blocks,
-            res.dayStates,
-            res.waitlist,
-            nextMonth,
-            todayIso,
-          ),
+        const built = buildCustomerCalendarMonth(
+          pools,
+          bookings,
+          blocks,
+          res.dayStates,
+          res.waitlist,
+          nextMonth,
+          todayIso,
         );
-        setMonth(nextMonth);
-        // Keep the URL shareable/refreshable without a router round-trip.
-        window.history.replaceState(null, '', `${window.location.pathname}?m=${nextMonth}`);
+        cache.set(nextMonth, built);
+        applyMonth(nextMonth, built);
       });
     },
-    [month, pools, bookings, blocks, todayIso],
+    [month, pools, bookings, blocks, todayIso, applyMonth],
   );
 
   return (

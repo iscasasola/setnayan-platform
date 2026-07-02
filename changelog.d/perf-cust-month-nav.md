@@ -32,7 +32,24 @@ state), which is what the "why is changing the month so slow" report was.
 Net: an arrow click goes from ~12 round-trips + the payday RPC + two sequential
 admin queries down to two lightweight month-scoped reads, and the
 payments/messages/services cards + customer list no longer re-fetch when paging
-months. Typecheck + lint + prod build all clean.
+months.
+
+Two follow-on refinements:
+
+- **Per-mount month cache.** `CustomersCalendar` memoizes each built month in a
+  `useRef<Map>` (seeded with the first-paint month), so paging back to an
+  already-seen month is instant — no re-fetch, no spinner. Cache lifetime is the
+  mount; any booking mutation navigates away to the day-manage route and
+  remounts with a fresh cache, so intra-session staleness is a non-issue.
+- **Trimmed client payload.** The builder only reads `poolId` / `bookedDate` /
+  `eventName` from bookings and `poolId` / `source` / `startDate` / `endDate`
+  from blocks, so `buildCustomerCalendarMonth` now takes narrow `CalendarBookingInput`
+  / `CalendarBlockInput` (`Pick<>`) types and `page.tsx` ships only those fields.
+  Raw block client-contact fields (`clientName` / `clientContact` / `clientNote`)
+  no longer cross the wire into the client payload. A full row is still
+  structurally assignable, so the server's own builder call is unchanged.
+
+Typecheck + lint + prod build all clean.
 
 SPEC IMPACT: None. Pure performance refactor of shipped vendor-dashboard code;
 no schema, pricing, SKU, product-behavior, or copy change. The calendar renders

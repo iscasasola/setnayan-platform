@@ -52,6 +52,11 @@ import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
 import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
+import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
+import {
+  SETNAYAN_AI_SKU,
+  resolveSetnayanAiEventChargeCentavos,
+} from '@/lib/setnayan-ai-event-pricing';
 import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
@@ -365,6 +370,24 @@ export async function submitOrderAction(
     const bundleCentavos = await resolveBundleChargeCentavos(serviceKey);
     if (bundleCentavos != null) {
       originalCentavos = BigInt(bundleCentavos);
+    }
+  }
+
+  // Per-EVENT Setnayan AI (owner 2026-07-02): ₱499 on an event's FIRST cycle,
+  // ₱799 on every cycle after. When the per-event pricing flag is on, the
+  // authoritative charge for a SETNAYAN_AI order is intro-vs-renewal by the
+  // event's STORED state (server re-resolved, so a tampered client can't force
+  // the intro price on a renewal). Inert while the flag is off — the helper is
+  // never called and the flat ₱499 catalog resolve above stands, byte-identical.
+  if (serviceKey === SETNAYAN_AI_SKU && eventIdClean) {
+    if (await resolveSetnayanAiPerEventPricingEnabled()) {
+      const perEventCentavos = await resolveSetnayanAiEventChargeCentavos(
+        createAdminClient(),
+        eventIdClean,
+      );
+      if (perEventCentavos != null) {
+        originalCentavos = BigInt(perEventCentavos);
+      }
     }
   }
 

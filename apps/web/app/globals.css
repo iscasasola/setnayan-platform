@@ -2202,8 +2202,11 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
 /* ── My Performance re-animation (Daily / Monthly / Annual toggle) ───────────
    The windowed block remounts on each toggle (key={mode} in PerformanceControls);
    these mount-only animations replay so the section fades up and the graph bars
-   "grow" on every switch. Numeric count-up is handled by <CountUp>. All motion
-   is disabled under prefers-reduced-motion. */
+   "grow" on every switch. Numeric count-up is handled by <CountUp>.
+   `.perf-bar-grow`   → horizontal bars (ROI · funnel), scale from the left.
+   `.perf-bar-grow-y` → vertical bars + the earnings sparkline, scale from the base.
+   Owner 2026-07-02 ("always play it"): NOT gated behind prefers-reduced-motion —
+   the effect plays for everyone, every switch. */
 @keyframes perf-fade-rise {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
@@ -2212,12 +2215,16 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }
 }
+@keyframes perf-bar-grow-y {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
 .perf-reanim { animation: perf-fade-rise 0.4s ease-out both; }
 .perf-bar-grow {
   transform-origin: left center;
   animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .perf-reanim,
-  .perf-bar-grow { animation: none; }
+.perf-bar-grow-y {
+  transform-origin: bottom center;
+  animation: perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

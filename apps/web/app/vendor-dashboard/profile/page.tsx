@@ -660,7 +660,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       </section>
 
       <form action={saveVendorProfile} className="space-y-5">
-        <Field label="Business name" htmlFor="business_name" required>
+        <Field label="Shop name" htmlFor="business_name" required>
           <input
             id="business_name"
             name="business_name"
@@ -684,10 +684,10 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         </Field>
 
         <Field
-          label="Year started"
+          label="EST"
           htmlFor="in_business_since_year"
           required
-          help="The year your business began operating. Shown to couples as “X years in business.”"
+          help="The year your business was established. Shown to couples as “X years in business.”"
         >
           <input
             id="in_business_since_year"
@@ -772,6 +772,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         <Field
           label="Logo"
           htmlFor="logo_url"
+          required
           help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every vendor card."
         >
           <FileUpload
@@ -910,7 +911,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
-          <Field label="HQ address (for distance to couples)" htmlFor="hq_address">
+          <Field label="Company address" htmlFor="hq_address" required>
             <input
               id="hq_address"
               name="hq_address"
@@ -934,7 +935,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
-          <Field label="Contact email" htmlFor="contact_email">
+          <Field label="Company email" htmlFor="contact_email" required>
             <input
               id="contact_email"
               name="contact_email"
@@ -944,7 +945,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
-          <Field label="Contact phone" htmlFor="contact_phone">
+          <Field label="Contact number" htmlFor="contact_phone" required>
             <input
               id="contact_phone"
               name="contact_phone"

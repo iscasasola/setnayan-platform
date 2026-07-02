@@ -4,20 +4,18 @@ import {
   ArrowRight,
   Building2,
   Check,
+  Download,
   Eye,
   Globe,
   Handshake,
   Heart,
   Images,
-  Lock,
-  QrCode,
-  ShieldCheck,
   Sparkles,
   Star,
-  Users,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
   fetchHasBusinessDocuments,
@@ -25,36 +23,43 @@ import {
 } from '@/lib/vendor-profile';
 import { fetchReviewStats } from '@/lib/reviews';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
-import { fetchVendorTeam } from '@/lib/vendor-team';
+import {
+  fetchVendorTeam,
+  enrichTeamWithUsers,
+  VENDOR_TEAM_ROLE_LABEL,
+  type VendorTeamMemberRow,
+  type VendorTeamMemberWithUser,
+} from '@/lib/vendor-team';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
+import { renderUrlQrSvg } from '@/lib/qr';
+import {
+  buildVendorInviteUrl,
+  vendorCoverageCategories,
+} from '@/lib/vendor-couple-invite';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { CopyButton } from '@/app/_components/copy-button';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
+import { inviteVendorTeamMember } from '@/app/vendor-dashboard/team/actions';
+
+import { ManageTiles } from './_components/manage-tiles';
+import { QrCard } from './_components/qr-card';
 
 /**
- * /vendor-dashboard/shop — "My Shop" (proto-shell 6-menu destination).
+ * /vendor-dashboard/shop — "My Shop".
  *
- * Replaces the stub. This is the storefront home of the vendor doorway:
- * everything that defines the shop (identity + reach) and links out to the
- * sub-surfaces (Profile · Verify · Website · Team · Branches · Reviews · Real
- * Stories · Recaps · Partnerships) that own the detail.
+ * The storefront home of the vendor doorway. Reworked 2026-07 (owner):
+ * everything acts INLINE — only Profile navigates. Website / Team / Branch
+ * expand their function in place (ManageTiles + Collapsible); the QR row card
+ * toggles Shortlist ↔ Locked, both rendering a real QR; the metrics strip is a
+ * read-only pulse (its detail pages live in the sidebar).
  *
- * DATA — every number is LIVE (mockup figures are illustrative only):
- *   - completeness ring     → businessProfileChecklist (8-item publish gate)
- *   - "N doc to verify"     → fetchHasBusinessDocuments (verification docs flag)
- *   - Profile views (week)  → vendor_profile_views · viewed_at ≥ start-of-week
- *   - Rating · N reviews    → fetchReviewStats (avg_rating_overall · total_count)
- *   - Saved by couples      → count_saves_for_vendor RPC (distinct savers)
- *   - Stories tagged        → loadVendorFeaturedStories ∩ own bookings
- *   - Recaps day-of clips   → loadVendorRecaps ∩ own bookings (published recaps)
- *   - Team members          → fetchVendorTeam length
- *   - Branch locations      → 1 (HQ) + active branches
- *   - Website live state    → business_slug + isPubliclyVisible
- *   - Recommend (shops)     → accepted, active vendor_partnerships
- *
- * Every metric that has no source yet renders a plain zero/empty state — we
- * never fabricate a number (owner rule). Fail-soft: the whole loader is wrapped
- * so a single query error degrades to zeros rather than crashing the tab.
+ * DATA — every number is LIVE (owner rule: never fabricate). The whole loader
+ * is wrapped so a single query error degrades to zeros rather than crashing.
  */
 
 export const metadata = { title: 'My Shop · Vendor · Setnayan' };
@@ -84,6 +89,16 @@ function startOfWeekIso(): string {
   return d.toISOString();
 }
 
+function titleCase(s: string): string {
+  return s
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+type TeamMember = VendorTeamMemberWithUser;
+
 type ShopData = {
   businessName: string;
   initials: string;
@@ -104,15 +119,9 @@ type ShopData = {
   teamMembers: number;
   branchLocations: number;
   recommendedByShops: number;
+  coverage: VendorCategory[];
+  team: TeamMember[];
 };
-
-function titleCase(s: string): string {
-  return s
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
 
 async function loadShopData(): Promise<ShopData | null> {
   const supabase = await createClient();
@@ -157,12 +166,9 @@ async function loadShopData(): Promise<ShopData | null> {
       avg_rating_overall: 0,
       total_count: 0,
     })),
-    // Distinct couples who saved/followed this vendor — the same RPC the
-    // Shortlist Radar card uses. Fail-soft to 0.
     supabase
       .rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId })
       .then((r) => (typeof r.data === 'number' ? r.data : 0), () => 0),
-    // Profile views this week — head/count-only on vendor_profile_views.
     supabase
       .from('vendor_profile_views')
       .select('view_id', { count: 'exact', head: true })
@@ -170,10 +176,8 @@ async function loadShopData(): Promise<ShopData | null> {
       .gte('viewed_at', weekStart)
       .then((r) => r.count ?? 0, () => 0),
     fetchVendorBranches(supabase, vendorId).catch(() => []),
-    fetchVendorTeam(supabase, vendorId).catch(() => []),
+    fetchVendorTeam(supabase, vendorId).catch(() => [] as VendorTeamMemberRow[]),
     fetchVendorPoolBookings(supabase, vendorId).catch(() => []),
-    // "N shops recommend you" — accepted, active partnerships where this vendor
-    // is the recommended party.
     supabase
       .from('vendor_partnerships')
       .select('id', { count: 'exact', head: true })
@@ -183,9 +187,6 @@ async function loadShopData(): Promise<ShopData | null> {
       .then((r) => r.count ?? 0, () => 0),
   ]);
 
-  // Featured Real Stories + published Recaps for this vendor's own booked
-  // events — reuse the SAME helpers the Real Stories + Recaps pages use, so the
-  // counts here match those surfaces exactly.
   const eventIds = bookings.map((b) => b.eventId);
   const [storiesTagged, recapCount] = await Promise.all([
     loadVendorFeaturedStories(eventIds).then((s) => s.length, () => 0),
@@ -199,6 +200,15 @@ async function loadShopData(): Promise<ShopData | null> {
       : Math.round((completion.done / completion.total) * 100);
 
   const activeBranches = branches.filter((b) => b.status === 'active').length;
+
+  // Attach email/display_name (Pattern A — other users' identity needs the
+  // admin client). Fail-soft: keep the rows nameless rather than crash.
+  let enrichedTeam: TeamMember[];
+  try {
+    enrichedTeam = await enrichTeamWithUsers(createAdminClient(), team);
+  } catch {
+    enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
+  }
 
   return {
     businessName,
@@ -218,12 +228,12 @@ async function loadShopData(): Promise<ShopData | null> {
     reviewCount: Number(reviewStats.total_count) || 0,
     savedByCouples: savesRes,
     storiesTagged,
-    // Published Recaps for this vendor's events (day-of recap pages). Same
-    // helper the Recaps page uses; 0 = none published yet (honest empty state).
     recapClips: recapCount,
     teamMembers: team.length,
     branchLocations: 1 + activeBranches,
     recommendedByShops: partnershipsRes,
+    coverage: vendorCoverageCategories((profile.services ?? []) as string[]),
+    team: enrichedTeam,
   };
 }
 
@@ -239,7 +249,11 @@ function tierLabel(tier: string | null): string {
   return TIER_LABEL[tier] ?? titleCase(tier);
 }
 
-export default async function VendorShopPage() {
+export default async function VendorShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ et?: string; cat?: string }>;
+}) {
   let data: ShopData | null;
   try {
     data = await loadShopData();
@@ -249,8 +263,6 @@ export default async function VendorShopPage() {
     data = null;
   }
 
-  // No profile (team-member view or brand-new account with no profile) → a
-  // simple set-up prompt rather than a broken storefront.
   if (!data) {
     return (
       <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -282,152 +294,136 @@ export default async function VendorShopPage() {
 
   const publicPath = data.slug ? `/v/${data.slug}` : null;
 
+  // QR data — Shortlist (standing slug QR, optionally scoped) is rendered here
+  // on the server so the couple sees a real code; Locked reuses the existing
+  // generator. Only computable once the vendor has a public slug.
+  const sp = await searchParams;
+  const eventTypes = await getCreatableEventTypes().catch(() => []);
+  const selectedCat =
+    sp.cat && data.coverage.includes(sp.cat as VendorCategory)
+      ? (sp.cat as VendorCategory)
+      : null;
+  const selectedEt =
+    sp.et && eventTypes.some((t) => t.key === sp.et) ? sp.et : null;
+
+  let shortlistBody: React.ReactNode;
+  let lockedBody: React.ReactNode;
+  if (data.slug) {
+    const inviteUrl = buildVendorInviteUrl(data.slug, {
+      eventType: selectedEt,
+      category: selectedCat,
+    });
+    const qrSvg = await renderUrlQrSvg(inviteUrl, 200);
+    shortlistBody = (
+      <ShortlistBody
+        inviteUrl={inviteUrl}
+        qrSvg={qrSvg}
+        eventTypes={eventTypes}
+        coverage={data.coverage}
+        selectedEt={selectedEt}
+        selectedCat={selectedCat}
+      />
+    );
+    lockedBody = (
+      <LockedBody
+        eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))}
+        coverage={data.coverage.map((c) => ({
+          value: c,
+          label: VENDOR_CATEGORY_LABEL[c] ?? c,
+        }))}
+      />
+    );
+  } else {
+    const publishPrompt = (
+      <div className="text-sm text-ink/70">
+        Publish your business profile first — your QR is built from your public
+        page.{' '}
+        <Link
+          href="/vendor-dashboard/profile"
+          className="font-medium text-terracotta hover:underline"
+        >
+          Set up my page
+        </Link>
+      </div>
+    );
+    shortlistBody = publishPrompt;
+    lockedBody = publishPrompt;
+  }
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <HeroCard data={data} publicPath={publicPath} />
 
-      {/* ── STAT CARDS ───────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}
-          value={nf.format(data.profileViewsWeek)}
-          label="Profile views"
-          sub="this week"
-          href="/vendor-dashboard/performance"
-        />
-        <StatCard
-          icon={<Star className="h-4 w-4" strokeWidth={1.75} />}
-          value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
-          label="Rating"
-          sub={`${nf.format(data.reviewCount)} review${data.reviewCount === 1 ? '' : 's'}`}
-          href="/vendor-dashboard/reviews"
-        />
-        <StatCard
-          icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
-          value={nf.format(data.savedByCouples)}
-          label="Saved by couples"
-          sub={
-            data.savedByCouples === 1
-              ? 'one couple saved you'
-              : 'couples who saved you'
-          }
-          href="/vendor-dashboard/performance"
-        />
-        <StatCard
-          icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
-          value={nf.format(data.storiesTagged)}
-          label="Stories"
-          sub="tagged"
-          href="/vendor-dashboard/real-stories"
-        />
+      <ManageTiles
+        completionPct={data.completionPct}
+        verifyLabel={data.hasDocuments ? 'Documents in' : '1 doc to verify'}
+        websiteLive={data.websiteLive}
+        teamLabel={nf.format(data.teamMembers)}
+        branchLabel={nf.format(data.branchLocations)}
+        websitePanel={
+          <WebsitePanel publicPath={publicPath} websiteLive={data.websiteLive} />
+        }
+        teamPanel={<TeamPanel members={data.team} />}
+        branchPanel={
+          <BranchPanel
+            city={data.city}
+            branchLocations={data.branchLocations}
+            tier={data.tier}
+          />
+        }
+      />
+
+      <QrCard shortlist={shortlistBody} locked={lockedBody} />
+
+      {/* ── HOW YOU'RE DOING — read-only pulse (detail pages live in the sidebar) */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
+          How you&rsquo;re doing
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <StatTile
+            icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.profileViewsWeek)}
+            label="Profile views"
+            sub="this week"
+          />
+          <StatTile
+            icon={<Star className="h-4 w-4" strokeWidth={1.75} />}
+            value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
+            label="Reviews"
+            sub={`${nf.format(data.reviewCount)} review${data.reviewCount === 1 ? '' : 's'}`}
+          />
+          <StatTile
+            icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.savedByCouples)}
+            label="Saved"
+            sub="couples saved you"
+          />
+          <StatTile
+            icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.storiesTagged)}
+            label="Stories"
+            sub="editorials tagged"
+          />
+          <StatTile
+            icon={<Images className="h-4 w-4" strokeWidth={1.75} />}
+            value={data.recapClips > 0 ? nf.format(data.recapClips) : '—'}
+            label="Recap"
+            sub="day-of clips"
+          />
+          <StatTile
+            icon={<Handshake className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.recommendedByShops)}
+            label="Recommend"
+            sub={`${data.recommendedByShops === 1 ? 'shop recommends' : 'shops recommend'} you`}
+          />
+        </div>
       </section>
-
-      {/* ── YOUR SHOP ────────────────────────────────────────────────────── */}
-      <ClusterSection title="Your shop">
-        <ClusterCard
-          icon={<ShieldCheck className="h-5 w-5" strokeWidth={1.75} />}
-          value={`${data.completionPct}%`}
-          label="Profile"
-          sub={data.hasDocuments ? 'Documents in' : '1 doc to verify'}
-          href="/vendor-dashboard/profile"
-        />
-        <ClusterCard
-          icon={<Globe className="h-5 w-5" strokeWidth={1.75} />}
-          value={data.websiteLive ? 'Live' : 'Draft'}
-          label="Website"
-          sub={
-            publicPath
-              ? `${DISPLAY_HOST}${publicPath}`
-              : 'Set your public address'
-          }
-          href="/vendor-dashboard/website"
-        />
-        <ClusterCard
-          icon={<Users className="h-5 w-5" strokeWidth={1.75} />}
-          value={nf.format(data.teamMembers)}
-          label="Team"
-          sub={`${data.teamMembers} member${data.teamMembers === 1 ? '' : 's'}`}
-          href="/vendor-dashboard/team"
-        />
-        <ClusterCard
-          icon={<Building2 className="h-5 w-5" strokeWidth={1.75} />}
-          value={nf.format(data.branchLocations)}
-          label="Branch"
-          sub={`1 of ${data.branchLocations} location${data.branchLocations === 1 ? '' : 's'}`}
-          href="/vendor-dashboard/branches"
-        />
-      </ClusterSection>
-
-      {/* ── GET DISCOVERED ───────────────────────────────────────────────── */}
-      <ClusterSection title="Get discovered">
-        <ClusterCard
-          icon={<QrCode className="h-5 w-5" strokeWidth={1.75} />}
-          value="QR"
-          label="Shortlist QR"
-          sub="Show & share"
-          href="/vendor-dashboard/invite"
-        />
-        <ClusterCard
-          icon={<Lock className="h-5 w-5" strokeWidth={1.75} />}
-          value="QR"
-          label="Locked QR"
-          sub="Per customer · lock + downpayment"
-          href="/vendor-dashboard/invite?mode=locked"
-        />
-      </ClusterSection>
-
-      {/* ── PROOF & REPUTATION ───────────────────────────────────────────── */}
-      <ClusterSection title="Proof & reputation">
-        <ClusterCard
-          icon={<Sparkles className="h-5 w-5" strokeWidth={1.75} />}
-          value={nf.format(data.storiesTagged)}
-          label="Stories"
-          sub={`${data.storiesTagged} editorial${data.storiesTagged === 1 ? '' : 's'} tagged`}
-          href="/vendor-dashboard/real-stories"
-        />
-        <ClusterCard
-          icon={<Star className="h-5 w-5" strokeWidth={1.75} />}
-          value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
-          label="Reviews"
-          sub={`★ ${data.reviewCount > 0 ? data.rating.toFixed(1) : '—'} · ${nf.format(data.reviewCount)}`}
-          href="/vendor-dashboard/reviews"
-        />
-        <ClusterCard
-          icon={<Images className="h-5 w-5" strokeWidth={1.75} />}
-          value={data.recapClips > 0 ? nf.format(data.recapClips) : '—'}
-          label="Recap"
-          sub={`${data.recapClips > 0 ? nf.format(data.recapClips) : 'No'} day-of clips`}
-          href="/vendor-dashboard/recaps"
-        />
-      </ClusterSection>
-
-      {/* ── YOUR AUDIENCE ────────────────────────────────────────────────── */}
-      <ClusterSection title="Your audience">
-        <ClusterCard
-          icon={<Heart className="h-5 w-5" strokeWidth={1.75} />}
-          value={nf.format(data.savedByCouples)}
-          label="Saved by couples"
-          sub={`${nf.format(data.savedByCouples)} saved you`}
-          href="/vendor-dashboard/performance"
-        />
-        <ClusterCard
-          icon={<Handshake className="h-5 w-5" strokeWidth={1.75} />}
-          value={nf.format(data.recommendedByShops)}
-          label="Recommend"
-          sub={`${nf.format(data.recommendedByShops)} shop${data.recommendedByShops === 1 ? '' : 's'} recommend you`}
-          href="/vendor-dashboard/partnerships"
-        />
-      </ClusterSection>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
- * Hero card — cream (--m-orange-4 tint) identity block with the completeness
- * ring. Obsidian initials avatar + verified line + tier/service/city + public
- * URL + "View as couple" out to the live page.
- * ───────────────────────────────────────────────────────────────────────── */
+/* ─── Hero ──────────────────────────────────────────────────────────────── */
 function HeroCard({
   data,
   publicPath,
@@ -444,7 +440,6 @@ function HeroCard({
       className="flex flex-col gap-5 rounded-2xl border p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6"
       style={{ background: 'var(--m-orange-4)', borderColor: 'var(--m-orange-3)' }}
     >
-      {/* Avatar */}
       <span
         aria-hidden
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold tracking-wide"
@@ -453,7 +448,6 @@ function HeroCard({
         {data.initials}
       </span>
 
-      {/* Identity */}
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="truncate text-xl font-semibold" style={{ color: 'var(--m-ink)' }}>
@@ -485,16 +479,24 @@ function HeroCard({
           </p>
         ) : null}
         {publicPath ? (
-          <p
-            className="inline-flex items-center gap-1.5 font-mono text-xs"
-            style={{ color: 'var(--m-orange-2)' }}
-          >
-            <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-            <span className="truncate">
-              {DISPLAY_HOST}
-              {publicPath}
-            </span>
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p
+              className="inline-flex items-center gap-1.5 font-mono text-xs"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+              <span className="truncate">
+                {DISPLAY_HOST}
+                {publicPath}
+              </span>
+            </p>
+            <CopyButton
+              value={`${DISPLAY_HOST}${publicPath}`}
+              label="Copy link"
+              copiedLabel="Copied"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-[color:var(--m-orange-2)] hover:bg-[color:var(--m-orange-3)]"
+            />
+          </div>
         ) : (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
             No public address yet — set one in Profile.
@@ -502,10 +504,8 @@ function HeroCard({
         )}
       </div>
 
-      {/* Completeness ring */}
       <CompletenessRing pct={data.completionPct} />
 
-      {/* View as couple */}
       {publicPath ? (
         <a
           href={publicPath}
@@ -531,7 +531,6 @@ function HeroCard({
   );
 }
 
-/** Gold conic-gradient progress ring with the percent inside. */
 function CompletenessRing({ pct }: { pct: number }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
@@ -546,11 +545,7 @@ function CompletenessRing({ pct }: { pct: number }) {
       >
         <div
           className="flex items-center justify-center rounded-full"
-          style={{
-            width: '3.75rem',
-            height: '3.75rem',
-            background: 'var(--m-orange-4)',
-          }}
+          style={{ width: '3.75rem', height: '3.75rem', background: 'var(--m-orange-4)' }}
         >
           <span
             className="text-base font-semibold tabular-nums"
@@ -570,123 +565,343 @@ function CompletenessRing({ pct }: { pct: number }) {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
- * Stat card — the four top-row metrics (white card, big value + label + sub).
- * ───────────────────────────────────────────────────────────────────────── */
-function StatCard({
+/* ─── Read-only metric tile ─────────────────────────────────────────────── */
+function StatTile({
   icon,
   value,
   label,
   sub,
-  href,
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
   sub: string;
-  href: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="block rounded-xl border bg-white p-4 transition-colors hover:border-[color:var(--m-orange-3)]"
-      style={{ borderColor: 'var(--m-line)' }}
-    >
+    <div className="rounded-xl p-4" style={{ background: 'var(--m-orange-4)' }}>
       <span
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-        style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-        aria-hidden
+        className="inline-flex items-center gap-1.5 text-xs"
+        style={{ color: 'var(--m-slate-3)' }}
       >
-        {icon}
-      </span>
-      <p
-        className="mt-3 text-2xl font-semibold tabular-nums"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        {value}
-      </p>
-      <p className="mt-0.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+        <span aria-hidden style={{ color: 'var(--m-orange-2)' }}>
+          {icon}
+        </span>
         {label}
+      </span>
+      <p className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+        {value}
       </p>
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
         {sub}
       </p>
-    </Link>
+    </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
- * Cluster section — an uppercase eyebrow heading + a responsive card grid.
- * ───────────────────────────────────────────────────────────────────────── */
-function ClusterSection({
-  title,
-  children,
+/* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
+function WebsitePanel({
+  publicPath,
+  websiteLive,
 }: {
-  title: string;
-  children: React.ReactNode;
+  publicPath: string | null;
+  websiteLive: boolean;
 }) {
+  if (!publicPath) {
+    return (
+      <div className="text-sm text-ink/70">
+        No public address yet.{' '}
+        <Link
+          href="/vendor-dashboard/profile"
+          className="font-medium text-terracotta hover:underline"
+        >
+          Set one in Profile
+        </Link>{' '}
+        and your microsite goes live.
+      </div>
+    );
+  }
   return (
-    <section className="space-y-3">
-      <h2
-        className="font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate)' }}
-      >
-        {title}
-      </h2>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>
-    </section>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
- * Cluster card — icon + big value + label + sub, linking to a sub-route.
- * ───────────────────────────────────────────────────────────────────────── */
-function ClusterCard({
-  icon,
-  value,
-  label,
-  sub,
-  href,
-}: {
-  icon: React.ReactNode;
-  value: React.ReactNode;
-  label: string;
-  sub: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex flex-col rounded-xl border bg-white p-4 transition-colors hover:border-[color:var(--m-orange-3)]"
-      style={{ borderColor: 'var(--m-line)' }}
-    >
-      <div className="mb-3 flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
         <span
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+          style={
+            websiteLive
+              ? {
+                  background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
+                  color: 'var(--m-sage-deep)',
+                }
+              : { background: 'var(--m-paper)', color: 'var(--m-slate-3)' }
+          }
+        >
+          {websiteLive ? 'Live' : 'Draft'}
+        </span>
+        <span className="text-xs text-ink/55">Your page is built from your profile.</span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <code
+          className="min-w-0 flex-1 truncate rounded-lg border bg-white px-3 py-2 text-xs"
+          style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+        >
+          {DISPLAY_HOST}
+          {publicPath}
+        </code>
+        <CopyButton value={`${DISPLAY_HOST}${publicPath}`} label="Copy link" />
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <a
+          href={publicPath}
+          target="_blank"
+          rel="noreferrer"
+          className="button-secondary inline-flex items-center gap-2"
+        >
+          <Globe className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Open live
+        </a>
+        <Link
+          href="/vendor-dashboard/profile"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+        >
+          Edit content on your profile
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function TeamPanel({ members }: { members: TeamMember[] }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-ink/55">Any admin can manage the team.</p>
+
+      <ul className="space-y-2">
+        {members.length === 0 ? (
+          <li className="text-sm text-ink/60">No team members yet.</li>
+        ) : (
+          members.map((m) => (
+            <li
+              key={m.vendor_team_member_id}
+              className="flex items-center gap-3 rounded-lg border bg-white p-3"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              <span
+                aria-hidden
+                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold"
+                style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+              >
+                {deriveInitials(m.display_name ?? m.email ?? 'SN')}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">
+                  {m.display_name ?? m.email ?? 'Member'}
+                </p>
+                <p className="text-xs text-ink/55">
+                  {VENDOR_TEAM_ROLE_LABEL[m.role]}
+                  {m.team_label ? ` · ${m.team_label}` : ''}
+                </p>
+              </div>
+            </li>
+          ))
+        )}
+      </ul>
+
+      <form
+        action={inviteVendorTeamMember}
+        className="grid gap-2 sm:grid-cols-[1fr_auto_auto]"
+      >
+        <input type="hidden" name="returnTo" value="shop" />
+        <input
+          name="email"
+          type="email"
+          required
+          placeholder="colleague@example.com"
+          className="input-field"
+          aria-label="Team member email"
+        />
+        <select
+          name="role"
+          defaultValue="viewer"
+          className="input-field cursor-pointer"
+          aria-label="Role"
+        >
+          <option value="admin">Admin</option>
+          <option value="agent">Agent</option>
+          <option value="viewer">Viewer</option>
+        </select>
+        <SubmitButton className="button-primary" pendingLabel="Adding…">
+          Add
+        </SubmitButton>
+      </form>
+    </div>
+  );
+}
+
+function BranchPanel({
+  city,
+  branchLocations,
+  tier,
+}: {
+  city: string | null;
+  branchLocations: number;
+  tier: string | null;
+}) {
+  const isEnterprise = tier === 'enterprise';
+  return (
+    <div className="space-y-3">
+      <div
+        className="flex items-center gap-3 rounded-lg border bg-white p-3"
+        style={{ borderColor: 'var(--m-line)' }}
+      >
+        <span
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
           style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
           aria-hidden
         >
-          {icon}
+          <Building2 className="h-4 w-4" strokeWidth={1.75} />
         </span>
-        <ArrowRight
-          aria-hidden
-          className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5"
-          strokeWidth={1.75}
-          style={{ color: 'var(--m-slate-4)' }}
-        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-ink">
+            {city ?? 'Headquarters'}
+          </p>
+          <p className="text-xs text-ink/55">
+            {branchLocations === 1
+              ? 'Headquarters'
+              : `1 of ${branchLocations} locations`}
+          </p>
+        </div>
       </div>
-      <p
-        className="text-xl font-semibold tabular-nums"
-        style={{ color: 'var(--m-ink)' }}
+
+      {isEnterprise ? (
+        <Link
+          href="/vendor-dashboard/branches"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+        >
+          Add or manage branches
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        </Link>
+      ) : (
+        <p
+          className="rounded-lg p-3 text-xs"
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-slate)' }}
+        >
+          Extra branches are an Enterprise feature — each gets its own team and
+          calendar.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── QR bodies ─────────────────────────────────────────────────────────── */
+function ShortlistBody({
+  inviteUrl,
+  qrSvg,
+  eventTypes,
+  coverage,
+  selectedEt,
+  selectedCat,
+}: {
+  inviteUrl: string;
+  qrSvg: string;
+  eventTypes: { key: string; label: string }[];
+  coverage: VendorCategory[];
+  selectedEt: string | null;
+  selectedCat: VendorCategory | null;
+}) {
+  const qrDataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`;
+  return (
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+      <div className="shrink-0 text-center">
+        <div
+          className="rounded-2xl border bg-white p-3 [&_svg]:h-[160px] [&_svg]:w-[160px]"
+          style={{ borderColor: 'var(--m-line)' }}
+          dangerouslySetInnerHTML={{ __html: qrSvg }}
+        />
+        <p className="mt-1 text-[11px] text-ink/45">Reusable · scan anytime</p>
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-4">
+        <p className="text-sm text-ink/70">
+          Couples scan to save your shop to their shortlist — same code every
+          time.
+        </p>
+
+        <form method="GET" className="grid gap-2 sm:grid-cols-2" aria-label="Scope the shortlist QR">
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink/70">Event</span>
+            <select name="et" defaultValue={selectedEt ?? ''} className="input-field w-full">
+              <option value="">Any event type</option>
+              {eventTypes.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink/70">Service</span>
+            <select name="cat" defaultValue={selectedCat ?? ''} className="input-field w-full">
+              <option value="">All my services</option>
+              {coverage.map((c) => (
+                <option key={c} value={c}>
+                  {VENDOR_CATEGORY_LABEL[c] ?? c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="sm:col-span-2">
+            <SubmitButton className="button-secondary" pendingLabel="Updating…">
+              Update QR
+            </SubmitButton>
+          </div>
+        </form>
+
+        <div className="flex items-center gap-2">
+          <code
+            className="min-w-0 flex-1 truncate rounded-lg border bg-white px-3 py-2 text-xs"
+            style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+          >
+            {inviteUrl}
+          </code>
+          <CopyButton value={inviteUrl} label="Copy link" />
+        </div>
+
+        <a
+          href={qrDataUri}
+          download="setnayan-shortlist-qr.svg"
+          className="button-secondary inline-flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Download QR
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function LockedBody({
+  eventTypes,
+  coverage,
+}: {
+  eventTypes: { value: string; label: string }[];
+  coverage: { value: string; label: string }[];
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink/70">
+        Lock one customer to a plan and downpayment. Scanning freezes the deal
+        onto their event.
+      </p>
+      <LockedQrGenerator eventTypes={eventTypes} coverage={coverage} />
+      <Link
+        href="/vendor-dashboard/locked-qr"
+        className="inline-block text-sm font-medium text-terracotta hover:underline"
       >
-        {value}
-      </p>
-      <p className="mt-0.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-        {label}
-      </p>
-      <p className="truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        {sub}
-      </p>
-    </Link>
+        View your issued Locked QRs →
+      </Link>
+    </div>
   );
 }

@@ -29,6 +29,11 @@ import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import {
+  fetchTrustedByVendors,
+  type TrustedByVendor,
+  type TrustedByRelationship,
+} from '@/lib/vendor-trusted-by';
+import {
   ServicesGallery,
   type ServiceCard,
   type ServiceGroup,
@@ -587,6 +592,12 @@ export async function renderVendorBySlug({
     // view (stale deploy) returns [] and the Track Record section is omitted.
     fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }),
   ]);
+
+  // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
+  // mutual-accept handshake (accepted + active vendor_partnerships pointing at
+  // this vendor). Founder-only marketplace → [] today; the section hides itself.
+  const trustedBy = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
   const expTier = experienceTier(finalizedBookingCount);
@@ -1486,6 +1497,8 @@ export async function renderVendorBySlug({
           completedEvents={completedEvents}
         />
 
+        <TrustedBySection vendors={trustedBy} businessName={displayLabel} />
+
         <section className="space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             {bookable ? 'Get in touch' : 'Not yet bookable'}
@@ -1791,6 +1804,72 @@ function toServiceCard(row: VendorServiceRow): ServiceCard {
     priceLabel,
     meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
   };
+}
+
+const TRUSTED_BY_RELATIONSHIP_LABEL: Record<TrustedByRelationship, string> = {
+  accredited: 'Accredited',
+  sponsored_included: 'Preferred partner',
+  sponsored_discounted: 'Preferred partner',
+  general: 'Works with',
+};
+
+/**
+ * "Trusted by" — vendors who endorsed this one through the vendor↔vendor
+ * mutual-accept handshake (both sides agreed: the other vendor proposed, this
+ * vendor accepted). Hidden when empty — founder-only marketplace means no peer
+ * endorsements yet, an honest empty state rather than a blank shell. Names run
+ * through the shared hybrid-anonymity resolver; still-hidden endorsers show a
+ * placeholder and are not linked (their slug would leak the withheld name).
+ */
+function TrustedBySection({
+  vendors,
+  businessName,
+}: {
+  vendors: ReadonlyArray<TrustedByVendor>;
+  businessName: string;
+}) {
+  if (vendors.length === 0) return null;
+  return (
+    <section className="space-y-4 border-b border-ink/10 py-8">
+      <header className="space-y-1">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Trusted by
+        </h2>
+        <p className="text-sm text-ink/65">
+          Fellow vendors who endorsed {businessName} — each one confirmed it.
+        </p>
+      </header>
+      <ul className="flex flex-wrap gap-2">
+        {vendors.map((v) => {
+          const body = (
+            <>
+              <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
+              <span className="font-medium text-ink">{v.displayName}</span>
+              <span className="text-ink/45">
+                · {TRUSTED_BY_RELATIONSHIP_LABEL[v.relationshipType]}
+              </span>
+            </>
+          );
+          return (
+            <li key={v.vendorProfileId}>
+              {v.href ? (
+                <a
+                  href={v.href}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[12px] text-ink/70 transition-colors hover:border-success-300/60 hover:text-ink"
+                >
+                  {body}
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[12px] text-ink/70">
+                  {body}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function ReviewsSection({

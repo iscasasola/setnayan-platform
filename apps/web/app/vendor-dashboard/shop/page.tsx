@@ -22,9 +22,17 @@ import {
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
-import { fetchVendorBranches } from '@/lib/vendor-branches';
+import {
+  fetchVendorBranches,
+  fetchBranchFeePhp,
+  branchAutoRadiusKm,
+  BRANCH_FEE_PHP,
+  type VendorBranchView,
+} from '@/lib/vendor-branches';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
+import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
   fetchVendorTeam,
   enrichTeamWithUsers,
@@ -136,6 +144,10 @@ type ShopData = {
   hqLng: number | null;
   /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped. */
   reachKm: number;
+  branchViews: VendorBranchView[];
+  branchFeePhp: number;
+  branchAutoRadius: number;
+  branchPay: PayInfo;
   recommendedByShops: number;
   team: TeamMember[];
 };
@@ -217,6 +229,27 @@ async function loadShopData(): Promise<ShopData | null> {
       : Math.round((completion.done / completion.total) * 100);
 
   const activeBranches = branches.filter((b) => b.status === 'active').length;
+
+  // Branch add/manage data — only Enterprise renders the inline manager, so the
+  // fee + payout accounts are only fetched for that tier (skips two reads for
+  // everyone else).
+  let branchFeePhp = BRANCH_FEE_PHP;
+  let branchPay: PayInfo = { bdoName: null, bdoNumber: null, gcashName: null, gcashNumber: null };
+  if (tier === 'enterprise') {
+    const [fee, settings] = await Promise.all([
+      fetchBranchFeePhp(supabase).catch(() => BRANCH_FEE_PHP),
+      fetchPlatformSettings(supabase).catch(() => null),
+    ]);
+    branchFeePhp = fee;
+    if (settings) {
+      branchPay = {
+        bdoName: settings.bdo_account_name ?? null,
+        bdoNumber: settings.bdo_account_number ?? null,
+        gcashName: settings.gcash_account_name ?? null,
+        gcashNumber: settings.gcash_number ?? null,
+      };
+    }
+  }
 
   // Attach email/display_name (Pattern A — other users' identity needs the
   // admin client). Fail-soft: keep the rows nameless rather than crash.
@@ -335,6 +368,10 @@ async function loadShopData(): Promise<ShopData | null> {
     hqLat: profile.hq_latitude ?? null,
     hqLng: profile.hq_longitude ?? null,
     reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
+    branchViews: branches,
+    branchFeePhp,
+    branchAutoRadius: branchAutoRadiusKm(),
+    branchPay,
     recommendedByShops: partnershipsRes,
     team: enrichedTeam,
   };
@@ -445,6 +482,10 @@ export default async function VendorShopPage({
             hqLat={data.hqLat}
             hqLng={data.hqLng}
             reachKm={data.reachKm}
+            branches={data.branchViews}
+            branchFeePhp={data.branchFeePhp}
+            branchAutoRadius={data.branchAutoRadius}
+            branchPay={data.branchPay}
           />
         }
       />
@@ -760,6 +801,10 @@ function BranchPanel({
   hqLat,
   hqLng,
   reachKm,
+  branches,
+  branchFeePhp,
+  branchAutoRadius,
+  branchPay,
 }: {
   city: string | null;
   branchLocations: number;
@@ -767,11 +812,21 @@ function BranchPanel({
   hqLat: number | null;
   hqLng: number | null;
   reachKm: number;
+  branches: VendorBranchView[];
+  branchFeePhp: number;
+  branchAutoRadius: number;
+  branchPay: PayInfo;
 }) {
   const isEnterprise = tier === 'enterprise';
   const hasCoords = hqLat !== null && hqLng !== null;
   const hasRing = Number.isFinite(reachKm) && reachKm > 0;
   const from = city ?? 'your headquarters';
+  // Where the branch pin map opens: the vendor's HQ, or Metro Manila as a
+  // sensible national fallback when the HQ hasn't been geocoded yet.
+  const branchMapCenter =
+    hqLat !== null && hqLng !== null
+      ? { lat: hqLat, lng: hqLng }
+      : { lat: 14.5995, lng: 120.9842 };
   return (
     <div className="space-y-3">
       <div
@@ -828,13 +883,13 @@ function BranchPanel({
       )}
 
       {isEnterprise ? (
-        <Link
-          href="/vendor-dashboard/branches"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          Add or manage branches
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        </Link>
+        <BranchManager
+          branches={branches}
+          feePhp={branchFeePhp}
+          autoRadiusKm={branchAutoRadius}
+          initialCenter={branchMapCenter}
+          pay={branchPay}
+        />
       ) : (
         <p
           className="rounded-lg p-3 text-xs"

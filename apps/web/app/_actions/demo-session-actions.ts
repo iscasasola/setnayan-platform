@@ -92,3 +92,36 @@ export async function claimPanoodDemoCamera(token: string): Promise<ClaimCamResu
   if (!slot) return { ok: false, reason: 'full' };
   return { ok: true, sessionId: resolved.sessionId, slot };
 }
+
+// ── 3D Plan demo (owner spec, DECISION_LOG 2026-07-03) ──────────────────────
+
+export type Plan3dDemoStart = { sessionId: string; token: string; expiresAt: string };
+
+/** Mint the 3D Plan demo session (fresh on every overlay open; QR renders per guest click). */
+export async function startPlan3dDemo(): Promise<Plan3dDemoStart> {
+  const session = await createDemoSession('3d_plan');
+  after(() => purgeExpiredDemoSessions());
+  return { sessionId: session.id, token: session.tokenA, expiresAt: session.expiresAt };
+}
+
+export type Plan3dGuestQrResult = { ok: true; svg: string } | { ok: false };
+
+/**
+ * Render the QR for one clicked guest — the join URL carries the guest id, so
+ * the phone opens the room AS that person ("the click on a person shows qr",
+ * owner). Token-validated; the guest id is allowlisted against the fictional
+ * demo roster (it's cosmetic — every guest is sample data).
+ */
+export async function renderPlan3dGuestQr(
+  appUrl: string,
+  token: string,
+  guestId: string,
+): Promise<Plan3dGuestQrResult> {
+  const clean = token?.trim();
+  const resolved = clean ? await resolveDemoToken(clean) : null;
+  if (!resolved || resolved.demoKind !== '3d_plan') return { ok: false };
+  const { plan3dGuestById } = await import('@/app/_components/home/plan3d-demo-scene');
+  if (!plan3dGuestById(guestId)) return { ok: false };
+  const svg = await renderUrlQrSvg(`${appUrl}/3d_plan/demo/${clean}?g=${encodeURIComponent(guestId)}`, 200);
+  return { ok: true, svg };
+}

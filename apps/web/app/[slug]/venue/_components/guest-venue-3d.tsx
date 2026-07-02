@@ -61,12 +61,15 @@ function GuestTable({
   palette,
   occupied,
   yourSeat,
+  onSeatClick,
 }: {
   table: Lab3DTable;
   room: { w: number; d: number };
   palette: Lab3DPalette;
   occupied: Set<number> | undefined;
   yourSeat: number | null;
+  /** Optional (3D Plan homepage demo): occupied seats become clickable. */
+  onSeatClick?: (seatNumber: number) => void;
 }) {
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   const chairs = useMemo(() => chairLocalPositions(table.shape, table.capacity), [table.shape, table.capacity]);
@@ -98,7 +101,27 @@ function GuestTable({
               <meshStandardMaterial color={palette.wall} roughness={0.75} />
             </mesh>
             {taken ? (
-              <mesh geometry={TOKEN_GEO} position={[0, 0.75, -0.04]}>
+              <mesh
+                geometry={TOKEN_GEO}
+                position={[0, 0.75, -0.04]}
+                onClick={
+                  onSeatClick
+                    ? (e: ThreeEvent<MouseEvent>) => {
+                        e.stopPropagation();
+                        onSeatClick(i);
+                      }
+                    : undefined
+                }
+                onPointerOver={
+                  onSeatClick
+                    ? (e: ThreeEvent<PointerEvent>) => {
+                        e.stopPropagation();
+                        document.body.style.cursor = 'pointer';
+                      }
+                    : undefined
+                }
+                onPointerOut={onSeatClick ? () => { document.body.style.cursor = 'default'; } : undefined}
+              >
                 <meshStandardMaterial color={mine ? palette.accent : palette.table} roughness={0.5} emissive={mine ? palette.accent : '#000'} emissiveIntensity={mine ? 0.5 : 0} />
               </mesh>
             ) : null}
@@ -181,7 +204,20 @@ function GuestAvatar({
   );
 }
 
-export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
+export default function GuestVenue3D({
+  scene,
+  onSeatClick,
+  heightClass = 'h-[82vh]',
+  emptyHudText,
+}: {
+  scene: VenueScene;
+  /** Optional (3D Plan homepage demo): occupied seats become clickable. */
+  onSeatClick?: (tableId: string, seatNumber: number) => void;
+  /** Optional container height override (default = the venue page's 82vh). */
+  heightClass?: string;
+  /** Optional HUD copy when `scene.you` is null (the demo's "click a guest"). */
+  emptyHudText?: string;
+}) {
   const floor: Lab3DFloor = useMemo(
     () => ({
       venueWidthM: scene.floor.venueWidthM,
@@ -241,7 +277,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   const stageD = Math.max(1, (floor.stage.hPct / 100) * room.d);
 
   return (
-    <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl bg-[#0c0e14]">
+    <div className={`relative ${heightClass} w-full overflow-hidden rounded-2xl bg-[#0c0e14]`}>
       <Canvas shadows={false} dpr={[1, 1.5]} camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}>
         <color attach="background" args={['#0c0e14']} />
         <fog attach="fog" args={['#0c0e14', room.d * 1.4, room.d * 3.2]} />
@@ -277,6 +313,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             palette={palette}
             occupied={occByTable.get(t.id)}
             yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
+            onSeatClick={onSeatClick ? (seat) => onSeatClick(t.id, seat) : undefined}
           />
         ))}
 
@@ -308,7 +345,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
               <p className="mt-1 text-xs text-white/75">Tap the floor to walk around · drag to look · pinch to zoom</p>
             </>
           ) : (
-            <p className="text-[12px] text-white/75">Open your personal invite link to find your seat · tap the floor to explore</p>
+            <p className="text-[12px] text-white/75">{emptyHudText ?? 'Open your personal invite link to find your seat · tap the floor to explore'}</p>
           )}
         </div>
       </div>

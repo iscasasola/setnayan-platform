@@ -49,12 +49,15 @@
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
+import { accountHomePath } from '@/lib/account-security';
+import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { signUp } from './actions';
 
@@ -99,6 +102,36 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const confirmationSent = params.sent === '1';
   const next = safeNext(params.next);
   const preselectVendor = params.as === 'vendor';
+
+  // Already-authenticated bypass. /signup has no session check today, so a
+  // logged-in user clicking a "Register your business" CTA (?as=vendor) —
+  // e.g. an admin/couple account testing the vendor side — lands on a full
+  // account-creation form instead of vendor onboarding, and submitting it
+  // with their own email just errors ("user already exists"). Mirrors the
+  // rawNext==='/' shortcut in login/actions.ts: an explicit `next` wins,
+  // otherwise `as=vendor` sends straight to /vendor-dashboard (which already
+  // renders a fresh intake form when the user has no vendor_profiles row)
+  // rather than accountHomePath, which would bounce an admin to /admin.
+  {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      if (next !== '/') {
+        redirect(next);
+      }
+      if (preselectVendor) {
+        redirect('/vendor-dashboard');
+      }
+      const { data: profile } = await supabase
+        .from('users')
+        .select('account_type')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      redirect(accountHomePath(profile?.account_type));
+    }
+  }
 
   // OAuth visibility by shell (mirrors /login): web + the rebuilt desktop app
   // (system-browser loopback OAuth) show the buttons; mobile / older-native stay

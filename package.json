@@ -20,6 +20,8 @@
     "tauri:build": "pnpm tauri:icons && cargo tauri build",
     "migration:new": "node scripts/new-migration.mjs",
     "migration:check": "node scripts/check-migration-timestamps.mjs",
+    "migration:doctor": "node scripts/migration-doctor.mjs",
+    "db:push": "node scripts/db-push-guard.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs"
   },
   "devDependencies": {

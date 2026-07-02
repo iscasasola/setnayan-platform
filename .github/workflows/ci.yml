@@ -291,6 +291,9 @@ jobs:
       - name: Unit-test the guard rules
         run: node --test scripts/check-migration-timestamps.test.mjs
 
+      - name: Unit-test the migration doctor classifier
+        run: node --test scripts/migration-doctor.test.mjs
+
   lint-vendor-layout-revalidate:
     name: lint vendor layout revalidate
     runs-on: ubuntu-latest

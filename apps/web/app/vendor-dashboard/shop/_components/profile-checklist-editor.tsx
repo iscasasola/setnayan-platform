@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { EditableRow, type ProfileFieldData } from './editable-row';
@@ -106,17 +105,6 @@ export function ProfileChecklistEditor({
           />
         ))}
       </ul>
-
-      <div className="flex flex-wrap items-center gap-3 pt-1">
-        <Link
-          href="/vendor-dashboard/profile"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Open the full profile editor
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        </Link>
-      </div>
     </div>
   );
 }

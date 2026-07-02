@@ -11,7 +11,6 @@ import {
   Loader2,
   Mail,
   Smartphone,
-  Video,
 } from 'lucide-react';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -27,20 +26,25 @@ import { DocsBody } from './docs-body';
 
 /**
  * "Get verified" — the always-visible verification stage on My Shop (owner-
- * approved redesign 2026-07-03). Verification used to be buried four levels
- * deep inside the Profile tile; it now leads with the reward and renders a
- * FLAT 3-step stepper, each step one Collapsible deep, one open at a time:
+ * approved redesign 2026-07-03; final flow settled the same day — "or it
+ * should show both?" → SHOW BOTH):
  *
- *   1 · Your documents        — required + optional uploads (DocsBody, lazy)
- *   2 · Confirm your contacts — the vendor emails + texts Setnayan the token
- *                               "VALIDATE <shop name>" from their own
- *                               email/number; an admin stamps each received
- *   3 · Meet the team         — the 15-min Google Meet (identity check)
+ *   The two vendor steps are visible + usable from day one (documents are the
+ *   slow, offline part — vendors start gathering early). While the profile is
+ *   incomplete, a "First step: finish your business profile — N fields left"
+ *   banner leads the card. The moment the profile hits 100% in-session, the
+ *   Documents step auto-opens and the section scrolls into view (the "pop up"
+ *   moment); it also starts open whenever profile-complete + no required docs.
  *
- * SOFT-GATE: steps can start anytime; only "Submit for review" is gated
- * (profile-100% + required docs + both contacts) — the reasons come from the
- * SERVER (`verificationSubmitMissing` via loadShopData) so the copy here can
- * never drift from what `submitInlineForReview` enforces.
+ *   Steps (each one Collapsible deep, one open at a time):
+ *     1 · Your documents        — required + optional uploads (DocsBody, lazy)
+ *     2 · Confirm your contacts — the vendor emails + texts Setnayan the token
+ *                                 "VALIDATE <shop name>"; we stamp each as it
+ *                                 lands (doesn't block submit)
+ *
+ *   Submit (gated on profile-100% + the 4 required docs — ONE shared server
+ *   helper so copy never drifts from enforcement) → "Submitted — we'll contact
+ *   you to schedule your final confirmation, a 15-min Google Meet."
  */
 export type VerifySummary = {
   /** Latest application status, or null when the vendor has none yet. */
@@ -66,15 +70,40 @@ export function VerifySection({
   businessName,
   vendorProfileId,
   isVerified,
+  profileComplete,
+  profileFieldsLeft,
   verify,
 }: {
   businessName: string;
   vendorProfileId: string;
   isVerified: boolean;
+  /** All 8 Business-Profile fields in — the prerequisite that unlocks this. */
+  profileComplete: boolean;
+  profileFieldsLeft: number;
   verify: VerifySummary;
 }) {
-  const [openStep, setOpenStep] = useState<1 | 2 | 3 | null>(null);
-  const toggle = (s: 1 | 2 | 3) => setOpenStep((cur) => (cur === s ? null : s));
+  const submitted = verify.status === 'pending_review' || verify.status === 'in_review';
+  // The "pop up": when the section renders already-unlocked with no required
+  // docs in yet, the Documents step starts OPEN — the vendor lands on exactly
+  // what to do next.
+  const [openStep, setOpenStep] = useState<1 | 2 | null>(() =>
+    profileComplete && !verify.requiredDocsIn && !submitted ? 1 : null,
+  );
+  const toggle = (s: 1 | 2) => setOpenStep((cur) => (cur === s ? null : s));
+
+  // Live in-session unlock: the vendor finishes their last profile field, the
+  // save revalidates this page, and profileComplete flips true on the SAME
+  // mounted component — open the Documents step and bring the section into
+  // view so the reveal is unmissable.
+  const sectionRef = useRef<HTMLElement>(null);
+  const wasComplete = useRef(profileComplete);
+  useEffect(() => {
+    if (profileComplete && !wasComplete.current && !submitted && !isVerified) {
+      setOpenStep(1);
+      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    wasComplete.current = profileComplete;
+  }, [profileComplete, submitted, isVerified]);
 
   // Verified → the section collapses to its terminal reward state.
   if (isVerified) {
@@ -105,14 +134,12 @@ export function VerifySection({
     );
   }
 
-  const submitted = verify.status === 'pending_review' || verify.status === 'in_review';
   const step1Done = verify.requiredDocsIn;
   const step2Done = Boolean(verify.emailConfirmedAt && verify.phoneConfirmedAt);
-  const step3Done = Boolean(verify.meetScheduledAt);
-  const stepsDone = (step1Done ? 1 : 0) + (step2Done ? 1 : 0) + (step3Done ? 1 : 0);
+  const stepsDone = (step1Done ? 1 : 0) + (step2Done ? 1 : 0);
 
   return (
-    <section id="get-verified" className="space-y-3">
+    <section ref={sectionRef} id="get-verified" className="space-y-3">
       <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
         Get verified
       </h2>
@@ -135,10 +162,32 @@ export function VerifySection({
               Get the Verified badge
             </p>
             <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-              Couples trust and message verified shops first. Three steps — we handle the checks.
+              Couples trust and message verified shops first. Two steps — then we contact you for your final confirmation.
             </p>
           </div>
         </div>
+
+        {!profileComplete && !submitted ? (
+          // Owner 2026-07-03 ("or it should show both?"): the documents stay
+          // visible + uploadable while the profile is unfinished — docs are the
+          // slow, offline part, so vendors start gathering early. The profile
+          // is framed as the FIRST step, and Submit stays gated on it.
+          <a
+            href="#top"
+            onClick={(e) => {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="mb-4 flex items-center gap-2 rounded-lg border p-3 text-xs transition-colors hover:border-[color:var(--m-orange-3)]"
+            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)', background: 'var(--m-orange-4)' }}
+          >
+            <BadgeCheck aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
+            <span>
+              First step: finish your business profile — {profileFieldsLeft} field
+              {profileFieldsLeft === 1 ? '' : 's'} left. You can upload documents in the meantime.
+            </span>
+          </a>
+        ) : null}
 
         {submitted ? (
           <div
@@ -146,7 +195,25 @@ export function VerifySection({
             style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
           >
             <Clock aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-            Submitted — our team reviews within 5 business days. We&rsquo;ll email you either way.
+            <span>
+              Submitted — we&rsquo;ll contact you to schedule your{' '}
+              <strong>final confirmation</strong>, a 15-min Google Meet, within 5 business days.
+              {verify.meetScheduledAt ? (
+                <>
+                  {' '}
+                  <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-sage-deep)' }}>
+                    <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                    Booked ·{' '}
+                    {new Date(verify.meetScheduledAt).toLocaleString('en-PH', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </>
+              ) : null}
+            </span>
           </div>
         ) : null}
         {verify.status === 'rejected' && verify.decisionReason ? (
@@ -160,7 +227,7 @@ export function VerifySection({
 
         {/* One quiet progress readout for the whole journey. */}
         <p className="text-xs tabular-nums" style={{ color: 'var(--m-slate)' }} aria-live="polite">
-          {stepsDone} of 3 steps done
+          {stepsDone} of 2 steps done
         </p>
         <div
           className="mb-4 mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
@@ -168,7 +235,7 @@ export function VerifySection({
         >
           <span
             className="block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-            style={{ width: `${Math.round((stepsDone / 3) * 100)}%`, background: 'var(--m-orange)' }}
+            style={{ width: `${Math.round((stepsDone / 2) * 100)}%`, background: 'var(--m-orange)' }}
           />
         </div>
 
@@ -192,14 +259,6 @@ export function VerifySection({
             phoneConfirmedAt={verify.phoneConfirmedAt}
             validateEmail={verify.validateEmail}
             validatePhone={verify.validatePhone}
-          />
-          <MeetStep
-            n={3}
-            done={step3Done}
-            open={openStep === 3}
-            onToggle={() => toggle(3)}
-            docsIn={step1Done}
-            meetScheduledAt={verify.meetScheduledAt}
           />
         </div>
 
@@ -491,71 +550,6 @@ function ReceiptLine({ label, at }: { label: string; at: string | null }) {
   );
 }
 
-/* ─── Step 3 · Meet the team ────────────────────────────────────────────── */
-
-function MeetStep({
-  n,
-  done,
-  open,
-  onToggle,
-  docsIn,
-  meetScheduledAt,
-}: {
-  n: number;
-  done: boolean;
-  open: boolean;
-  onToggle: () => void;
-  docsIn: boolean;
-  meetScheduledAt: string | null;
-}) {
-  const pill = done ? (
-    <StepPill tone="done">Booked</StepPill>
-  ) : docsIn ? (
-    <StepPill tone="checking">We&rsquo;ll email you</StepPill>
-  ) : (
-    <StepPill tone="wait">After docs</StepPill>
-  );
-  return (
-    <StepShell
-      n={n}
-      title="Meet the team"
-      sub="A 15-min Google Meet — where we confirm your identity"
-      pill={pill}
-      done={done}
-      open={open}
-      onToggle={onToggle}
-    >
-      <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-          style={{ background: 'var(--m-paper)', color: 'var(--m-slate)' }}
-        >
-          <Video className="h-4 w-4" strokeWidth={1.75} />
-        </span>
-        {meetScheduledAt ? (
-          <p className="inline-flex items-center gap-1.5 text-sm" style={{ color: 'var(--m-sage-deep)' }}>
-            <Calendar className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            Meet booked ·{' '}
-            {new Date(meetScheduledAt).toLocaleString('en-PH', {
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
-          </p>
-        ) : (
-          <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-            {docsIn
-              ? 'Your documents are in — we’ll email you a scheduling link to pick a time that fits.'
-              : 'Available once your documents are in. We’ll email you a scheduling link.'}
-          </p>
-        )}
-      </div>
-    </StepShell>
-  );
-}
-
 /* ─── Submit ────────────────────────────────────────────────────────────── */
 
 function SubmitBlock({ missing }: { missing: string[] }) {
@@ -585,7 +579,7 @@ function SubmitBlock({ missing }: { missing: string[] }) {
       </SubmitButton>
       <p className="text-center text-xs" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
         {ready
-          ? 'All set — an admin reviews and books your Google Meet.'
+          ? 'All set — after you submit, we contact you to schedule your final confirmation.'
           : `To submit: ${missing.join(' · ').toLowerCase()}.`}
       </p>
     </form>

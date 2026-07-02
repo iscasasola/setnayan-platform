@@ -339,7 +339,7 @@ export async function readContactStamps(
  * Submit the vendor's draft application for review, INLINE (owner 2026-07-03:
  * the whole verification flow lives on My Shop — no /verify page). The
  * non-redirecting twin of `verify/actions.ts:submitApplication`, enforcing the
- * ONE shared soft-gate (`verificationSubmitMissing`): complete profile + the 4
+ * ONE shared gate (`verificationSubmitMissing`): complete profile + the 4
  * required documents + both VALIDATE contact confirmations. Flips
  * draft → pending_review, stamps submitted_at + the 5-business-day SLA, bumps
  * `vendor_profiles.verification_state`, writes the audit row, and fans out the
@@ -358,12 +358,9 @@ export async function submitInlineForReview(
   }
 
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
-  const stamps = await readContactStamps(auth.supabase, app.application_id);
   const missing = verificationSubmitMissing({
     profileComplete: businessProfileChecklist(auth.profile).complete,
     uploads,
-    emailConfirmedAt: stamps.emailConfirmedAt,
-    phoneConfirmedAt: stamps.phoneConfirmedAt,
   });
   if (missing.length > 0) {
     return { ok: false, error: `Not quite ready: ${missing.join(' · ').toLowerCase()}.` };

@@ -19,7 +19,9 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
-  const s = String(v ?? '').trim();
+  // Tolerate thousands separators — the generator submits clean numbers, but a
+  // stray comma-formatted value must not silently coerce to NaN → null.
+  const s = String(v ?? '').replace(/,/g, '').trim();
   if (s === '') return null;
   const n = Number(s);
   return Number.isFinite(n) && n >= 0 ? n : null;

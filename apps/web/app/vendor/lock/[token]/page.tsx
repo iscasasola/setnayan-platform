@@ -40,6 +40,8 @@ type ScheduleRow = {
   label?: string;
   amount_kind?: string;
   amount_value?: number;
+  /** Absolute due date (new tokens) — preferred over the legacy anchor. */
+  due_date?: string | null;
   due_anchor?: string;
 };
 
@@ -180,7 +182,10 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
                   <span className="min-w-0 truncate text-ink/80">
                     {r.label || `Payment ${i + 1}`}
                     <span className="ml-1 text-ink/40">
-                      · {DUE_ANCHOR_LABELS[(r.due_anchor as DueAnchor)] ?? ''}
+                      ·{' '}
+                      {r.due_date
+                        ? formatEventDate(r.due_date, 'en-PH')
+                        : (DUE_ANCHOR_LABELS[(r.due_anchor as DueAnchor)] ?? '')}
                     </span>
                   </span>
                   <span className="shrink-0 font-medium text-ink">{rowAmount(r)}</span>

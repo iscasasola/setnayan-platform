@@ -8,24 +8,25 @@
  * (read verbatim by the claim RPC to freeze the payment plan).
  */
 
-import type { AmountKind, DueAnchor } from '@/lib/vendor-service-payment-schedules';
-
 /**
- * One installment template row stored on the token. The claim RPC computes each
- * `amount_php` (percent-of-total or fixed) and `due_date` (on_lock / before_event
- * ± offset) from these at claim time — so the shape here MUST match what
- * vendor_claim_locked_qr() reads: seq, label, amount_kind, amount_value,
- * due_anchor, due_offset_days.
+ * One installment row stored on the token, in the "Name · Date · Amount" shape.
+ * Every installment is a FIXED peso `amount_value` due on an ABSOLUTE calendar
+ * `due_date` the vendor picks. Row 1 (seq 1) is the downpayment. The claim RPC
+ * (20270427212060) reads these verbatim to freeze the payment plan; it still
+ * falls back to the legacy on_lock/before_event anchor fields for tokens issued
+ * before this shape, so older tokens keep resolving.
  */
 export type LockScheduleRow = {
   seq: number;
   label: string;
-  amount_kind: AmountKind;
-  /** Whole-number percent (0–100) for 'percent'; whole pesos for 'fixed'. */
+  /** Whole pesos owed for this installment. */
   amount_value: number;
-  due_anchor: DueAnchor;
-  due_offset_days: number;
+  /** Absolute due date, ISO YYYY-MM-DD, or null when unset. */
+  due_date: string | null;
 };
+
+/** Matches an ISO calendar date (YYYY-MM-DD). */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The single-use, couple-facing URL the Locked QR encodes. */
 export function buildVendorLockUrl(token: string): string {
@@ -47,18 +48,14 @@ export function sanitizeLockSchedule(
   for (const r of raw) {
     if (!r || typeof r !== 'object') continue;
     const o = r as Record<string, unknown>;
-    const kind: AmountKind = o.amount_kind === 'fixed' ? 'fixed' : 'percent';
-    const anchor: DueAnchor = o.due_anchor === 'before_event' ? 'before_event' : 'on_lock';
     const value = Number(o.amount_value);
     if (!Number.isFinite(value) || value < 0) continue;
-    const offset = Number(o.due_offset_days);
+    const rawDate = typeof o.due_date === 'string' ? o.due_date : '';
     out.push({
       seq: out.length + 1,
       label: String(o.label ?? '').trim().slice(0, 80) || `Payment ${out.length + 1}`,
-      amount_kind: kind,
-      amount_value: kind === 'percent' ? Math.min(value, 100) : value,
-      due_anchor: anchor,
-      due_offset_days: Number.isFinite(offset) && offset >= 0 ? Math.min(offset, 3650) : 0,
+      amount_value: value,
+      due_date: ISO_DATE_RE.test(rawDate) ? rawDate : null,
     });
     if (out.length >= max) break;
   }

@@ -2727,7 +2727,8 @@ html.hr-snap {
   font-weight: 500;
 }
 /* Price-as-comparison (owner 2026-07-03): the hero's price row is the
-   vs-hired-team comparison — static text + bars drawn to scale, no controls. */
+   vs-hired-team comparison — bars drawn to scale, with the draggable months
+   line (a month = 28 days · 13 ≈ 1 year) recomputing both window totals. */
 .home-reskin .hr-ai-compare {
   max-width: 540px;
   margin: 16px auto 0;
@@ -2736,6 +2737,16 @@ html.hr-snap {
 }
 .home-reskin .hr-ai-cmp-row {
   margin-top: 9px;
+}
+.home-reskin .hr-ai-cmp-slider {
+  margin-top: 2px;
+}
+.home-reskin .hr-ai-cmp-slider input[type='range'] {
+  width: 100%;
+  margin-top: 2px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--hr-pop2);
 }
 .home-reskin .hr-ai-cmp-head {
   display: flex;

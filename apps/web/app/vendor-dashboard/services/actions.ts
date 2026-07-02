@@ -7,6 +7,8 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
+import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
+import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import {
   VENDOR_CATEGORIES,
   displayServiceLabel,
@@ -699,6 +701,19 @@ export async function createVendorService(formData: FormData) {
     }
   }
 
+  // QR-in-media guard (owner-locked 2026-07-03): showcase photos render on the
+  // public service card — they may not embed the vendor's invite/lock QR. All
+  // refs are new on create. Fails OPEN on scanner trouble (never blocks an
+  // honest save); the video is checked client-side at pick time.
+  if (
+    showcase.showcase_photo_r2_keys.length > 0 &&
+    (await vendorQrGuardRejects(showcase.showcase_photo_r2_keys))
+  ) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(VENDOR_QR_MEDIA_ERROR)}`,
+    );
+  }
+
   const { data: created, error } = await supabase
     .from('vendor_services')
     .insert({
@@ -878,6 +893,27 @@ export async function updateVendorService(formData: FormData) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
+  }
+
+  // QR-in-media guard (owner-locked 2026-07-03): scan only showcase photos NOT
+  // already stored on this row (an unchanged gallery re-save costs nothing).
+  if (showcase.showcase_photo_r2_keys.length > 0) {
+    const { data: curRow } = await supabase
+      .from('vendor_services')
+      .select('showcase_photo_r2_keys')
+      .eq('vendor_service_id', idRaw)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const stored = new Set(
+      ((curRow as { showcase_photo_r2_keys?: string[] | null } | null)
+        ?.showcase_photo_r2_keys ?? []).filter(Boolean),
+    );
+    const fresh = showcase.showcase_photo_r2_keys.filter((r) => !stored.has(r));
+    if (fresh.length > 0 && (await vendorQrGuardRejects(fresh))) {
+      return redirect(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(VENDOR_QR_MEDIA_ERROR)}`,
+      );
+    }
   }
 
   const { error } = await supabase
@@ -1347,6 +1383,16 @@ export async function commitVendorService(formData: FormData) {
   // gate is re-checked inside the RPC; the photo gate lives here in TS.
   if (publish && !fields.primary_photo_r2_key) {
     return back('Add a cover photo before publishing — drafts can save without one.');
+  }
+
+  // QR-in-media guard (owner-locked 2026-07-03): the cover photo leads the
+  // public service card — it may not embed the vendor's invite/lock QR.
+  // Fails OPEN on scanner trouble so an honest save is never blocked.
+  {
+    const coverRef = fields.primary_photo_r2_key as string | null;
+    if (coverRef && (await vendorQrGuardRejects([coverRef]))) {
+      return back(VENDOR_QR_MEDIA_ERROR);
+    }
   }
 
   // ---- Tier caps on CREATE only (a new row can introduce a new leaf/parent) ----

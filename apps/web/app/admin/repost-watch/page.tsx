@@ -1,9 +1,22 @@
-import { ScanSearch, ArrowUpRight, Check, X, ShieldAlert, RefreshCw } from 'lucide-react';
+import {
+  ScanSearch,
+  ArrowUpRight,
+  Check,
+  X,
+  ShieldAlert,
+  RefreshCw,
+  QrCode,
+} from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolveRepostFlag, rescanAllRepostWatch } from './actions';
+import {
+  resolveRepostFlag,
+  rescanAllRepostWatch,
+  scanQrMediaGuard,
+  resolveQrMediaFlag,
+} from './actions';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -39,6 +52,28 @@ type FlagRow = {
   resolution_notes: string | null;
   reviewed_at: string | null;
   created_at: string;
+};
+
+type QrFlagRow = {
+  id: number;
+  public_id: string;
+  vendor_profile_id: string;
+  r2_ref: string;
+  surface: 'portfolio' | 'logo' | 'microsite_hero' | 'service_primary' | 'service_showcase';
+  decoded_payload: string;
+  resolved_url: string | null;
+  status: 'open' | 'cleared' | 'removed';
+  resolution_notes: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+const QR_SURFACE_LABEL: Record<QrFlagRow['surface'], string> = {
+  portfolio: 'Portfolio',
+  logo: 'Logo',
+  microsite_hero: 'Website hero',
+  service_primary: 'Service cover',
+  service_showcase: 'Service showcase',
 };
 
 type StatusFilter = 'all' | 'open' | 'confirmed_theft' | 'dismissed' | 'escalated';
@@ -93,6 +128,10 @@ export default async function AdminRepostWatchPage({
     refs?: string;
     rematched?: string;
     flagged?: string;
+    qr_vendors?: string;
+    qr_refs?: string;
+    qr_flagged?: string;
+    qr_videos?: string;
   }>;
 }) {
   const search = await searchParams;
@@ -146,6 +185,46 @@ export default async function AdminRepostWatchPage({
 
   const openCount = rows.filter((r) => r.status === 'open').length;
 
+  // QR-in-media guard queue (owner-locked 2026-07-03) — retro-scan hits on
+  // already-uploaded website media containing a vendor-funnel QR. Open flags
+  // lead; the latest resolved few give resolution context.
+  const { data: qrData, error: qrError } = await admin
+    .from('vendor_qr_media_flags')
+    .select(
+      'id, public_id, vendor_profile_id, r2_ref, surface, decoded_payload, resolved_url, status, resolution_notes, reviewed_at, created_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (qrError) logQueryError('AdminRepostWatchPage (vendor_qr_media_flags)', qrError);
+  const qrRowsAll = ((qrData ?? []) as QrFlagRow[]).sort(
+    (a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1),
+  );
+  const qrOpen = qrRowsAll.filter((r) => r.status === 'open');
+  const qrResolvedRecent = qrRowsAll.filter((r) => r.status !== 'open').slice(0, 5);
+  const qrRows = [...qrOpen, ...qrResolvedRecent];
+
+  const qrVendorIds = Array.from(new Set(qrRows.map((r) => r.vendor_profile_id)));
+  const { data: qrVendorData } = qrVendorIds.length
+    ? await admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, business_name')
+        .in('vendor_profile_id', qrVendorIds)
+    : { data: [] as { vendor_profile_id: string; business_name: string | null }[] };
+  const qrVendorName = new Map<string, string>();
+  for (const v of qrVendorData ?? []) {
+    qrVendorName.set(
+      v.vendor_profile_id,
+      ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
+    );
+  }
+  const qrImageEntries = await Promise.all(
+    qrRows.map(
+      async (r) => [r.id, await displayUrlForStoredAsset(r.r2_ref)] as const,
+    ),
+  );
+  const qrImageUrl = new Map<number, string | null>();
+  for (const [id, url] of qrImageEntries) qrImageUrl.set(id, url);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
@@ -180,6 +259,17 @@ export default async function AdminRepostWatchPage({
             {search.refs ?? '0'} image(s) considered;{' '}
             {search.rematched ?? '0'} hashed image(s) re-matched at the current
             threshold. New matches (if any) appear below.
+          </FormFlash>
+        </div>
+      )}
+
+      {(search.qr_vendors !== undefined) && (
+        <div className="mb-4">
+          <FormFlash tone="success">
+            QR scan complete — {search.qr_vendors ?? '0'} real vendor(s),{' '}
+            {search.qr_refs ?? '0'} image(s) scanned, {search.qr_flagged ?? '0'}{' '}
+            new flag(s). {search.qr_videos ?? '0'} showcase video(s) skipped
+            (videos are checked at upload time, not in the sweep).
           </FormFlash>
         </div>
       )}
@@ -362,10 +452,179 @@ export default async function AdminRepostWatchPage({
         </ul>
       )}
 
+      {/* ── QR-in-media guard (owner-locked 2026-07-03) ─────────────────── */}
+      <section className="mt-10">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <QrCode className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            <h2 className="text-lg font-semibold tracking-tight">QR-in-media guard</h2>
+            {qrOpen.length > 0 && (
+              <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[11px] font-medium text-warn-900">
+                {qrOpen.length} open
+              </span>
+            )}
+          </div>
+          <form action={scanQrMediaGuard}>
+            <SubmitButton
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+              pendingLabel="Scanning…"
+            >
+              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Scan QR
+              codes
+            </SubmitButton>
+          </form>
+        </div>
+        <p className="mb-4 text-sm text-ink/65">
+          Vendor-website media (portfolio, logo, hero, service photos) containing a
+          QR that targets the vendor&apos;s invite / lock funnel — directly or via a
+          link shortener. New uploads are rejected at save time; this sweep covers
+          media uploaded before the guard shipped. Review-only: resolving a flag
+          never touches the image.
+        </p>
+
+        {qrError && (
+          <FormFlash tone="error">
+            QR flags couldn&apos;t load right now. We&apos;ve logged the issue —
+            refresh in a moment.
+          </FormFlash>
+        )}
+
+        {qrRows.length === 0 ? (
+          <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+            No QR flags. Run “Scan QR codes” to sweep already-uploaded vendor
+            media.
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {qrRows.map((r) => {
+              const url = qrImageUrl.get(r.id) ?? null;
+              const vendorLabel = qrVendorName.get(r.vendor_profile_id) ?? 'Vendor';
+              return (
+                <li
+                  key={`qr-${r.id}`}
+                  className="rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm"
+                >
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        r.status === 'open'
+                          ? 'bg-warn-100 text-warn-900'
+                          : r.status === 'removed'
+                            ? 'bg-terracotta/10 text-terracotta-700'
+                            : 'bg-ink/10 text-ink/60'
+                      }`}
+                    >
+                      {r.status === 'open'
+                        ? 'Open'
+                        : r.status === 'removed'
+                          ? 'Removed'
+                          : 'Cleared'}
+                    </span>
+                    <span className="font-mono text-[10px] text-ink/45">
+                      {r.public_id}
+                    </span>
+                    <span className="text-[11px] text-ink/50">
+                      {relativeTime(r.created_at)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-[10rem_1fr]">
+                    <div className="aspect-square w-full max-w-[10rem] overflow-hidden rounded-xl bg-ink/[0.04]">
+                      {url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={url}
+                          alt="Flagged vendor media"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink/40">
+                          image unavailable
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 space-y-1.5">
+                      <p className="text-sm text-ink/80">
+                        <span className="font-medium">{vendorLabel}</span>
+                        {' · '}
+                        <span className="text-ink/55">{QR_SURFACE_LABEL[r.surface]}</span>
+                      </p>
+                      <p className="break-all font-mono text-xs text-ink/60">
+                        QR → {r.decoded_payload}
+                      </p>
+                      {r.resolved_url && (
+                        <p className="break-all font-mono text-xs text-terracotta-700">
+                          resolves to → {r.resolved_url}
+                        </p>
+                      )}
+                      {r.status !== 'open' && r.resolution_notes && (
+                        <p className="text-xs text-ink/55">
+                          {r.resolution_notes}
+                          {r.reviewed_at ? ` · ${relativeTime(r.reviewed_at)}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {r.status === 'open' && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <form
+                        action={resolveQrMediaFlag}
+                        className="flex flex-wrap items-center gap-2"
+                      >
+                        <input type="hidden" name="flag_id" value={r.id} />
+                        <input
+                          type="text"
+                          name="note"
+                          placeholder="Optional note…"
+                          maxLength={500}
+                          className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
+                        />
+                        <button
+                          type="submit"
+                          name="action"
+                          value="mark_removed"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
+                        >
+                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                          Media removed
+                        </button>
+                        <button
+                          type="submit"
+                          name="action"
+                          value="clear"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
+                        >
+                          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                          Clear
+                        </button>
+                      </form>
+                      <a
+                        href={`/admin/vendors/${r.vendor_profile_id}`}
+                        className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
+                      >
+                        Open vendor →
+                      </a>
+                    </div>
+                  )}
+                  {r.status !== 'open' && (
+                    <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
+                      <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Resolved
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · reverse-image repost-watch · tables <code>vendor_image_hashes</code>{' '}
         + <code>vendor_image_flags</code> (migration 20270330665855) · 64-bit DCT
-        pHash · detect-and-review only
+        pHash · detect-and-review only · QR-in-media guard ·{' '}
+        <code>vendor_qr_media_flags</code> (migration 20270504200000) ·
+        reject-at-save + retro-scan
       </p>
     </div>
   );

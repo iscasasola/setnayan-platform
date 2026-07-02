@@ -124,6 +124,17 @@ export type FileUploadProps = {
    * Non-video files are untouched. Off by default — existing callers unaffected.
    */
   compressVideo?: boolean;
+  /**
+   * QR-in-media integrity guard (owner-locked 2026-07-03): reject a picked
+   * image/video that contains a QR code targeting a vendor-funnel URL
+   * (/vendor-invite/, /vendor/lock/ — directly or via a shortener resolved
+   * server-side). Set on VENDOR-WEBSITE media uploads (portfolio, logo,
+   * service showcase). A serializable boolean so server components can enable
+   * it; the validator itself is lazy-loaded client code. Composes with
+   * `validateFile` (runs after it). Fail-open like every validator here — the
+   * authoritative gate for images is the save-time server scan.
+   */
+  qrGuard?: boolean;
 };
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -234,6 +245,7 @@ export function FileUpload({
   variant = 'square',
   watermark = false,
   compressVideo = false,
+  qrGuard = false,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -355,11 +367,20 @@ export function FileUpload({
         // BEFORE anything lands in inFlight, so surface the existing
         // `optimizing` strip while it awaits — without it the dropzone sits
         // idle-looking (and re-clickable) for up to the validator's timeout.
-        if (validateFile) {
+        if (validateFile || qrGuard) {
           let problem: string | null = null;
           setOptimizing({ label: `Checking ${file.name}…`, pct: 0 });
           try {
-            problem = await validateFile(file);
+            if (validateFile) problem = await validateFile(file);
+            // QR-in-media guard composes AFTER the caller's validator: reject
+            // vendor-funnel QR codes embedded in website media. Lazy import so
+            // jsQR never loads for the (majority) uploads without the guard.
+            if (!problem && qrGuard) {
+              const { validateNoVendorQrInFile } = await import(
+                '@/lib/vendor-qr-guard-client'
+              );
+              problem = await validateNoVendorQrInFile(file);
+            }
           } catch {
             problem = null;
           } finally {
@@ -397,6 +418,7 @@ export function FileUpload({
       maxSizeMB,
       multiple,
       validateFile,
+      qrGuard,
     ],
   );
 

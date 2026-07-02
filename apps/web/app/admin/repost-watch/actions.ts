@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rescanAllVendorImages } from '@/lib/vendor-image-repost-watch';
+import { scanAllVendorMediaForQr } from '@/lib/vendor-qr-media-guard';
 
 // /admin/repost-watch actions — moderator resolution path for the cross-vendor
 // reverse-image repost-detection queue. A flag can be:
@@ -110,4 +111,78 @@ export async function rescanAllRepostWatch() {
   redirect(
     `/admin/repost-watch?rescanned=${summary.vendorsScanned}&refs=${summary.refsConsidered}&rematched=${summary.refsRematched}&flagged=${summary.flagsUpserted}`,
   );
+}
+
+/* ─── QR-in-media guard (owner-locked 2026-07-03) ────────────────────────── */
+
+/**
+ * Retro-scan every real vendor's CURRENT website media (portfolio + logo +
+ * microsite hero + service cover/showcase photos) for embedded vendor-funnel
+ * QR codes. New uploads are rejected at save time; this sweeps what was
+ * uploaded BEFORE the guard shipped. Flag-and-review — never auto-deletes.
+ * Showcase videos are outside the sweep (no server-side frame extraction);
+ * the summary reports how many were skipped.
+ */
+export async function scanQrMediaGuard() {
+  await requireAdmin();
+  const summary = await scanAllVendorMediaForQr();
+  revalidatePath('/admin/repost-watch');
+  redirect(
+    `/admin/repost-watch?qr_vendors=${summary.vendorsScanned}&qr_refs=${summary.refsScanned}&qr_flagged=${summary.flagsUpserted}&qr_videos=${summary.videosSkipped}`,
+  );
+}
+
+const QR_ACTIONS = ['clear', 'mark_removed'] as const;
+type QrAction = (typeof QR_ACTIONS)[number];
+
+const QR_ACTION_STATUS: Record<QrAction, 'cleared' | 'removed'> = {
+  clear: 'cleared',
+  mark_removed: 'removed',
+};
+
+const QR_ACTION_NOTE: Record<QrAction, string> = {
+  clear: 'Cleared — reviewed, not a funnel QR / acceptable.',
+  mark_removed:
+    'Vendor removed / replaced the media. Removal itself is a separate, deliberate step with the vendor — this records the outcome.',
+};
+
+/**
+ * Resolve a QR-media flag — records the verdict. Like the repost queue, this
+ * NEVER touches the underlying media: an admin clears the flag or records
+ * that the offending media was removed after contacting the vendor.
+ */
+export async function resolveQrMediaFlag(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const flagId = formData.get('flag_id');
+  const action = formData.get('action');
+  const note = formData.get('note');
+
+  if (typeof flagId !== 'string' || flagId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  if (
+    typeof action !== 'string' ||
+    !(QR_ACTIONS as readonly string[]).includes(action)
+  ) {
+    throw new Error('Pick an action');
+  }
+
+  const admin = createAdminClient();
+  const extraNote =
+    typeof note === 'string' && note.trim().length > 0
+      ? ` — ${note.trim().slice(0, 500)}`
+      : '';
+
+  const { error } = await admin
+    .from('vendor_qr_media_flags')
+    .update({
+      status: QR_ACTION_STATUS[action as QrAction],
+      resolution_notes: QR_ACTION_NOTE[action as QrAction] + extraNote,
+      reviewed_by: userId,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('id', Number(flagId));
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/repost-watch');
 }

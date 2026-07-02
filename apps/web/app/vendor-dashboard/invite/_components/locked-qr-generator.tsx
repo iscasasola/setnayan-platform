@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trash2, Upload, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockScheduleRow } from '@/lib/vendor-locked-qr';
@@ -18,6 +18,16 @@ type Row = {
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Humanize a service label for display. Raw taxonomy leaf keys are snake_case
+ *  (e.g. "arcade_retro_games"); title-case them. Labels that already read as
+ *  names (a space, slash, or capital → e.g. "Catering", "Host / Emcee") pass
+ *  through untouched. Display-only — the submitted value is unchanged. */
+function prettyServiceLabel(label: string): string {
+  return /^[a-z0-9_]+$/.test(label)
+    ? label.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : label;
+}
 
 /** Local-timezone today as YYYY-MM-DD (en-CA renders ISO order). */
 function todayIso(): string {
@@ -127,6 +137,7 @@ export function LockedQrGenerator({
   const [rows, setRows] = useState<Row[]>(() => [downpaymentRow()]);
   const [eventType, setEventType] = useState('');
   const [serviceRefs, setServiceRefs] = useState<string[]>([]);
+  const [serviceQuery, setServiceQuery] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
   const [contractId, setContractId] = useState('');
@@ -251,6 +262,20 @@ export function LockedQrGenerator({
 
   const remainingLabel = `₱${withThousands(String(Math.abs(remaining)))}`;
 
+  // Service picker — selected pinned on top (removable); the rest live in a
+  // searchable, height-capped list so a vendor with many offerings isn't
+  // bombarded with every chip at once.
+  const svcQuery = serviceQuery.trim().toLowerCase();
+  const selectedServices = services.filter((s) => serviceRefs.includes(s.value));
+  const availableServices = services.filter((s) => !serviceRefs.includes(s.value));
+  const shownServices = svcQuery
+    ? availableServices.filter(
+        (s) =>
+          prettyServiceLabel(s.label).toLowerCase().includes(svcQuery) ||
+          s.label.toLowerCase().includes(svcQuery),
+      )
+    : availableServices;
+
   return (
     <form action={issueLockedQr} className="mt-6 space-y-5">
       <input type="hidden" name="schedule_json" value={JSON.stringify(scheduleJson)} />
@@ -340,33 +365,81 @@ export function LockedQrGenerator({
         </div>
       </div>
 
-      {/* Services — one or more of the vendor's own offerings (multi-select). */}
-      <div className="space-y-2 rounded-2xl border border-ink/10 bg-white/60 p-5">
+      {/* Services — searchable multi-select of the vendor's own offerings.
+          Selected picks pin to the top (tap to remove); the rest live in a
+          searchable, height-capped list so a vendor offering many services
+          isn't bombarded with every chip at once. */}
+      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white/60 p-5">
         <p className="text-sm font-medium text-ink/80">
           Service(s) <span className="text-terracotta">*</span>
           <span className="ml-1 font-normal text-ink/45">— pick every service this deal covers</span>
         </p>
-        <div className="flex flex-wrap gap-2">
-          {services.map((s) => {
-            const on = serviceRefs.includes(s.value);
-            return (
+
+        {/* Selected — always visible; tap to remove. */}
+        {selectedServices.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {selectedServices.map((s) => (
               <button
                 key={s.value}
                 type="button"
                 onClick={() => toggleService(s.value)}
-                aria-pressed={on}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
-                  on
-                    ? 'border-terracotta bg-terracotta/10 text-terracotta'
-                    : 'border-ink/15 bg-white text-ink/70 hover:border-ink/30'
-                }`}
+                aria-label={`Remove ${prettyServiceLabel(s.label)}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-terracotta bg-terracotta/10 px-3 py-1.5 text-sm text-terracotta transition hover:bg-terracotta/15"
               >
-                {on && <Check className="h-3.5 w-3.5" strokeWidth={2} />}
-                {s.label}
+                <Check className="h-3.5 w-3.5" strokeWidth={2} />
+                {prettyServiceLabel(s.label)}
+                <X className="h-3.5 w-3.5 opacity-60" strokeWidth={2} aria-hidden />
               </button>
-            );
-          })}
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-ink/45">None picked yet — search below and tap to add.</p>
+        )}
+
+        {/* Search the rest. */}
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          <input
+            type="text"
+            value={serviceQuery}
+            onChange={(e) => setServiceQuery(e.target.value)}
+            placeholder={`Search ${services.length} services…`}
+            aria-label="Search services"
+            className="input-field w-full pl-9"
+          />
         </div>
+
+        {/* Height-capped list of the remaining (unselected) services. */}
+        {availableServices.length > 0 ? (
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-ink/10 bg-white p-2">
+            {shownServices.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {shownServices.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => toggleService(s.value)}
+                    className="inline-flex items-center rounded-full border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink/70 transition hover:border-ink/30"
+                  >
+                    {prettyServiceLabel(s.label)}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="px-1 py-2 text-sm text-ink/45">No services match that search.</p>
+            )}
+          </div>
+        ) : serviceRefs.length > 0 ? (
+          <p className="text-xs text-ink/45">All your services are selected.</p>
+        ) : null}
+
+        <p className="text-xs text-ink/45">
+          {serviceRefs.length} selected · {services.length} total
+        </p>
       </div>
 
       {/* What the couple availed — the scope of work frozen onto the couple's plan. */}

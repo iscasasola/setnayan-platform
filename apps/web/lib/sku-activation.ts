@@ -91,14 +91,39 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   SETNAYAN_AI: async (ctx) => {
     if (!ctx.eventId) return;
     const update: Record<string, unknown> = { setnayan_ai_active: true };
-    // Per-EVENT pricing (owner 2026-07-02): also mark the ₱499 intro consumed so
-    // this event's NEXT purchase is charged the ₱799 renewal, not a second intro.
-    // Idempotent + re-approval-safe (setting the boolean/flag again is a no-op).
+    // Per-EVENT pricing (owner 2026-07-02): mark the ₱499 intro consumed + stamp
+    // the 28-day access window, so this event's NEXT purchase is a ₱799 renewal.
     // Flag-gated → inert (just the setnayan_ai_active boolean, exactly as today)
-    // while per-event pricing is off. The 28-day window (setnayan_ai_active_until)
-    // + lapse enforcement land in the next slice.
+    // while per-event pricing is off.
+    let stampedUntil: string | null = null;
     if (await resolveSetnayanAiPerEventPricingEnabled()) {
       update.setnayan_ai_intro_used = true;
+      // Idempotency: extend the window only ONCE per order (a re-approval must not
+      // add another 28 days). A prior 'service_activated' ledger row for this order
+      // means the window was already stamped — keep intro_used true (a no-op) but
+      // skip the extension. Mirrors the SETNAYAN_AI_SUB guard.
+      const { data: prior } = await ctx.admin
+        .from('order_ledger')
+        .select('order_id')
+        .eq('order_id', ctx.orderId)
+        .eq('event_type', 'service_activated')
+        .limit(1)
+        .maybeSingle();
+      if (!prior) {
+        const { data: ev } = await ctx.admin
+          .from('events')
+          .select('setnayan_ai_active_until')
+          .eq('event_id', ctx.eventId)
+          .maybeSingle();
+        // Stacks from the later of now / current expiry (early re-up keeps the
+        // remaining time). One 28-day cycle per SETNAYAN_AI order.
+        stampedUntil = extendUserAiSubscription(
+          (ev as { setnayan_ai_active_until?: string | null } | null)?.setnayan_ai_active_until ?? null,
+          1,
+          new Date(),
+        ).toISOString();
+        update.setnayan_ai_active_until = stampedUntil;
+      }
     }
     const { error } = await ctx.admin
       .from('events')
@@ -109,6 +134,19 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     // Throwing is safe: the order is already 'paid', the dispatcher swallows +
     // logs and never rolls back the approval.
     if (error) throw new Error(`SETNAYAN_AI activation write failed: ${error.message}`);
+    // Record the activation so a re-approval doesn't re-extend the window (mirrors
+    // the SETNAYAN_AI_SUB idempotency guard). Best-effort — the window is already
+    // written; a missed ledger row only risks a re-extend on a rare re-approval,
+    // never a lost grant. Only when per-event pricing stamped a fresh window.
+    if (stampedUntil) {
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, active_until: stampedUntil },
+      });
+    }
   },
 
   // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,

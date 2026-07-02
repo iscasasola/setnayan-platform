@@ -123,6 +123,32 @@ export function userAiSubscriptionActive(
 }
 
 /**
+ * Per-EVENT window-aware entitlement (owner 2026-07-02 · inert until
+ * setnayan_ai_per_event_pricing_enabled). Under per-event pricing an event owns
+ * Setnayan AI only while its 28-day window (`setnayan_ai_active_until`) is
+ * unexpired; a NULL window is a grandfathered PERMANENT unlock (pre-per-event
+ * buyers, whose access never lapses). When `perEventPricingEnabled` is OFF this
+ * is a drop-in for `setnayan_ai_active === true` — byte-identical, so it changes
+ * nothing until the flag flips. Lazily evaluated (no cron): the read IS the
+ * expiry check, mirroring `userAiSubscriptionActive`.
+ */
+export function eventOwnsSetnayanAi(
+  event:
+    | { setnayan_ai_active?: boolean | null; setnayan_ai_active_until?: string | Date | null }
+    | null
+    | undefined,
+  opts: { perEventPricingEnabled?: boolean; now?: Date } = {},
+): boolean {
+  if (event?.setnayan_ai_active !== true) return false;
+  if (!opts.perEventPricingEnabled) return true; // off → raw boolean, unchanged
+  const until = event?.setnayan_ai_active_until;
+  if (!until) return true; // grandfathered permanent unlock (no window)
+  const d = until instanceof Date ? until : new Date(until);
+  if (Number.isNaN(d.getTime())) return true; // unparseable → don't lock the couple out
+  return d.getTime() > (opts.now ?? new Date()).getTime();
+}
+
+/**
  * The per-USER-aware governing gate. Mirrors `isSetnayanAiActive` and falls back
  * to it exactly when the per-user flag is off.
  *
@@ -135,12 +161,18 @@ export function userAiSubscriptionActive(
  */
 export function isSetnayanAiActiveForUser(
   event:
-    | { planning_mode?: string | null; setnayan_ai_active?: boolean | null }
+    | {
+        planning_mode?: string | null;
+        setnayan_ai_active?: boolean | null;
+        setnayan_ai_active_until?: string | Date | null;
+      }
     | null
     | undefined,
   opts: {
     paywallEnabled?: boolean;
     perUserEnabled?: boolean;
+    /** Per-EVENT ₱499/₱799 window enforcement (owner 2026-07-02). Default OFF. */
+    perEventPricingEnabled?: boolean;
     subscription?: UserAiSubscription;
     now?: Date;
   } = {},
@@ -148,15 +180,23 @@ export function isSetnayanAiActiveForUser(
   const {
     paywallEnabled = isSetnayanAiPaywallEnabled(),
     perUserEnabled = false,
+    perEventPricingEnabled = false,
     subscription = null,
     now,
   } = opts;
 
-  if (!perUserEnabled) return isSetnayanAiActive(event, paywallEnabled);
-
   const notManuallyOff = event?.planning_mode !== PLANNING_MODE_MANUAL;
-  const entitled =
-    event?.setnayan_ai_active === true || userAiSubscriptionActive(subscription, now);
+  // Per-event ownership is window-aware when perEventPricingEnabled is on; when
+  // off it's exactly `setnayan_ai_active === true`, so both branches below stay
+  // byte-identical to before.
+  const ownsPerEvent = eventOwnsSetnayanAi(event, { perEventPricingEnabled, now });
+
+  if (!perUserEnabled) {
+    if (!paywallEnabled) return notManuallyOff;
+    return notManuallyOff && ownsPerEvent;
+  }
+
+  const entitled = ownsPerEvent || userAiSubscriptionActive(subscription, now);
   return notManuallyOff && entitled;
 }
 
@@ -174,10 +214,15 @@ export function isSetnayanAiActiveForUser(
  *   form excludes an event that already owns `setnayan_ai_active`.
  */
 export function shouldOfferSetnayanAiPurchaseForUser(
-  event: { setnayan_ai_active?: boolean | null } | null | undefined,
+  event:
+    | { setnayan_ai_active?: boolean | null; setnayan_ai_active_until?: string | Date | null }
+    | null
+    | undefined,
   opts: {
     paywallEnabled?: boolean;
     perUserEnabled?: boolean;
+    /** Per-EVENT ₱499/₱799 window enforcement (owner 2026-07-02). Default OFF. */
+    perEventPricingEnabled?: boolean;
     subscription?: UserAiSubscription;
     now?: Date;
   } = {},
@@ -185,15 +230,20 @@ export function shouldOfferSetnayanAiPurchaseForUser(
   const {
     paywallEnabled = isSetnayanAiPaywallEnabled(),
     perUserEnabled = false,
+    perEventPricingEnabled = false,
     subscription = null,
     now,
   } = opts;
 
-  if (!perUserEnabled) return shouldOfferSetnayanAiPurchase(event, paywallEnabled);
+  // Re-offer once the per-event window lapses (owner 2026-07-02): the event no
+  // longer OWNS AI, so the ₱799 renewal CTA returns. Byte-identical to the old
+  // `setnayan_ai_active !== true` check while per-event pricing is off.
+  const ownsPerEvent = eventOwnsSetnayanAi(event, { perEventPricingEnabled, now });
 
-  return (
-    paywallEnabled &&
-    event?.setnayan_ai_active !== true &&
-    !userAiSubscriptionActive(subscription, now)
-  );
+  if (!perUserEnabled) {
+    if (!paywallEnabled) return false;
+    return !ownsPerEvent;
+  }
+
+  return paywallEnabled && !ownsPerEvent && !userAiSubscriptionActive(subscription, now);
 }

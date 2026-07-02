@@ -43,14 +43,35 @@ export function SetnayanAiHeroStory({ pricing }: { pricing: PricingData }) {
       <p className="hr-ai-quiet">
         One calm weekly digest — loud only when it can&rsquo;t wait. No spam, no fake countdowns.
       </p>
-      <div className="hr-ai-price">
-        <em>{pricing.aiPrice}</em>
-        <span className="hr-ai-per">{pricing.aiPeriod}</span>
-        <span className="hr-ai-intro">{pricing.aiIntroPrice} your first 28 days</span>
+      {/* The price row IS the comparison (owner 2026-07-03: "replace the row of
+          the pricing. See how it compares against hiring a team to do the same
+          tasks"). Static text + bars drawn to scale — no controls in the hero.
+          Setnayan's number stays catalog-driven; the team figure is a labeled
+          illustrative PH estimate, category-level (GTM guardrails). */}
+      <div className="hr-ai-compare">
+        <div className="hr-ai-cmp-row">
+          <span className="hr-ai-cmp-head">
+            A team doing these tasks <b>₱50,000+<i>/month</i></b>
+          </span>
+          <span className="hr-ai-cmp-bar">
+            <i style={{ width: '100%' }} />
+          </span>
+        </div>
+        <div className="hr-ai-cmp-row hr-ai-cmp-us">
+          <span className="hr-ai-cmp-head">
+            Setnayan AI <b>{pricing.aiPrice}<i>{pricing.aiPeriod}</i></b>
+            <span className="hr-ai-intro">{pricing.aiIntroPrice} your first 28 days</span>
+          </span>
+          <span className="hr-ai-cmp-bar">
+            <i
+              style={{
+                width: `${Math.max((pricing.aiRegularPhp / 50000) * 100, 1.6)}%`,
+              }}
+            />
+          </span>
+        </div>
+        <p className="hr-ai-cmp-foot">Typical PH rates, illustrative — bars drawn to scale.</p>
       </div>
-      {/* No trailer line under the price (owner 2026-07-03: "covers all your
-          events / 0% commission" are marketplace facts, not Setnayan AI — and
-          the events claim contradicted the per-event ₱499-intro pricing). */}
     </div>
   );
 }

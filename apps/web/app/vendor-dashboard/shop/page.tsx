@@ -23,6 +23,8 @@ import {
 } from '@/lib/vendor-profile';
 import { fetchReviewStats } from '@/lib/reviews';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { ReachMap } from './_components/reach-map';
 import {
   fetchVendorTeam,
   enrichTeamWithUsers,
@@ -122,6 +124,10 @@ type ShopData = {
   recapClips: number;
   teamMembers: number;
   branchLocations: number;
+  hqLat: number | null;
+  hqLng: number | null;
+  /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped. */
+  reachKm: number;
   recommendedByShops: number;
   team: TeamMember[];
 };
@@ -270,6 +276,9 @@ async function loadShopData(): Promise<ShopData | null> {
     recapClips: recapCount,
     teamMembers: team.length,
     branchLocations: 1 + activeBranches,
+    hqLat: profile.hq_latitude ?? null,
+    hqLng: profile.hq_longitude ?? null,
+    reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
     recommendedByShops: partnershipsRes,
     team: enrichedTeam,
   };
@@ -359,6 +368,9 @@ export default async function VendorShopPage({
             city={data.city}
             branchLocations={data.branchLocations}
             tier={data.tier}
+            hqLat={data.hqLat}
+            hqLng={data.hqLng}
+            reachKm={data.reachKm}
           />
         }
       />
@@ -744,12 +756,21 @@ function BranchPanel({
   city,
   branchLocations,
   tier,
+  hqLat,
+  hqLng,
+  reachKm,
 }: {
   city: string | null;
   branchLocations: number;
   tier: string | null;
+  hqLat: number | null;
+  hqLng: number | null;
+  reachKm: number;
 }) {
   const isEnterprise = tier === 'enterprise';
+  const hasCoords = hqLat !== null && hqLng !== null;
+  const hasRing = Number.isFinite(reachKm) && reachKm > 0;
+  const from = city ?? 'your headquarters';
   return (
     <div className="space-y-3">
       <div
@@ -774,6 +795,36 @@ function BranchPanel({
           </p>
         </div>
       </div>
+
+      {/* ── Coverage reach — the radius couples' Services search gates on. */}
+      {hasCoords ? (
+        <div className="space-y-2">
+          <ReachMap lat={hqLat} lng={hqLng} radiusKm={reachKm} />
+          <p className="text-xs text-ink/55">
+            {hasRing ? (
+              <>
+                You cover about{' '}
+                <span className="font-medium text-ink">{reachKm} km</span> from{' '}
+                {from}. Couples searching farther still find you under
+                {' '}&ldquo;Show farther,&rdquo; flagged &ldquo;travel fee
+                likely.&rdquo;
+              </>
+            ) : (
+              <>
+                Your shop isn&rsquo;t shown in couples&rsquo; searches yet.
+                Upgrade to appear on the map and set your coverage radius.
+              </>
+            )}
+          </p>
+        </div>
+      ) : (
+        <p
+          className="rounded-lg p-3 text-xs"
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-slate)' }}
+        >
+          Add your HQ address in Profile above to see how far you cover on a map.
+        </p>
+      )}
 
       {isEnterprise ? (
         <Link

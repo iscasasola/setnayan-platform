@@ -81,6 +81,7 @@ import {
   LifeBuoy,
   Flag,
   MessageSquareWarning,
+  PencilRuler,
   ScanSearch,
   ShieldCheck,
   Landmark,
@@ -305,6 +306,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/repost-watch',
         icon: ScanSearch,
         matchPrefix: '/admin/repost-watch',
+      },
+      {
+        // Request-a-correction queue (verified-profile lock, owner 2026-07-02).
+        // Verified shops can't edit their 8 identity fields directly; they file
+        // a correction request that an admin applies or declines here.
+        key: 'corrections',
+        label: 'Profile corrections',
+        href: '/admin/corrections',
+        icon: PencilRuler,
+        matchPrefix: '/admin/corrections',
       },
       {
         // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost

@@ -13,6 +13,12 @@ import {
   BUSINESS_PROFILE_LABELS,
   fetchOwnVendorProfile,
 } from '@/lib/vendor-profile';
+import {
+  LOCKED_IDENTITY_FIELD_KEYS,
+  VERIFIED_LOCK_ERROR,
+  fetchVerifiedLock,
+  isLockedIdentityFieldKey,
+} from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -281,6 +287,14 @@ export async function saveVendorProfile(formData: FormData) {
     );
   }
 
+  // Verified-lock (owner 2026-07-02): once a shop is VERIFIED its 8 identity
+  // fields lock server-side — the vendor files a correction request instead
+  // (vendor_correction_requests → /admin/corrections). Probed here so the
+  // experience-reset + publish gate + payload strip below can all honor it.
+  // fetchVerifiedLock is defensive: any read hiccup = NOT locked (never brick
+  // an ordinary save on a probe failure).
+  const identityLocked = await fetchVerifiedLock(supabase, user.id);
+
   // Business owner / representative name — a required Business Profile field.
   const business_owner_name = nullIfBlank(formData.get('business_owner_name'));
 
@@ -316,7 +330,9 @@ export async function saveVendorProfile(formData: FormData) {
     const priorYear = (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
     experienceFields = {
       weddings_done_approx,
-      ...(priorYear !== in_business_since_year
+      // When identity is verified-locked the year is NOT written below, so a
+      // differing form value must not clear the admin's DTI verification.
+      ...(priorYear !== in_business_since_year && !identityLocked
         ? { experience_verified_at: null, experience_verified_by: null }
         : {}),
     };
@@ -369,6 +385,64 @@ export async function saveVendorProfile(formData: FormData) {
     updated_at: new Date().toISOString(),
   };
 
+  // Verified-lock strip (owner 2026-07-02): remove the 8 locked identity keys
+  // from the write so the full form's OTHER writes (is_published, tagline,
+  // portfolio, opt-outs, compatibility arrays, slug) keep working — a verified
+  // vendor's identity edits are preserved-as-current, never applied, and the
+  // redirect below surfaces the "Request a correction" notice. The current DB
+  // values are read first so the publish gate can still evaluate completeness.
+  type LockedIdentitySnapshot = {
+    business_name: string | null;
+    business_owner_name: string | null;
+    hq_address: string | null;
+    contact_phone: string | null;
+    contact_email: string | null;
+    services: string[] | null;
+    in_business_since_year: number | null;
+    logo_url: string | null;
+  };
+  let lockedCurrent: LockedIdentitySnapshot | null = null;
+  if (identityLocked) {
+    try {
+      const { data: cur } = await supabase
+        .from('vendor_profiles')
+        .select(
+          'business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url',
+        )
+        .eq('user_id', user.id)
+        .maybeSingle();
+      lockedCurrent = (cur as LockedIdentitySnapshot | null) ?? null;
+    } catch {
+      lockedCurrent = null;
+    }
+    const strip = payload as unknown as Record<string, unknown>;
+    for (const key of LOCKED_IDENTITY_FIELD_KEYS) delete strip[key];
+  }
+
+  // Effective identity values for the publish gate — the CURRENT DB values
+  // when locked (they're what stays written), the form payload otherwise.
+  const eff = identityLocked
+    ? {
+        logo_url: lockedCurrent?.logo_url ?? null,
+        business_name: lockedCurrent?.business_name ?? '',
+        business_owner_name: lockedCurrent?.business_owner_name ?? null,
+        hq_address: lockedCurrent?.hq_address ?? null,
+        contact_phone: lockedCurrent?.contact_phone ?? null,
+        contact_email: lockedCurrent?.contact_email ?? null,
+        services: lockedCurrent?.services ?? [],
+        in_business_since_year: lockedCurrent?.in_business_since_year ?? null,
+      }
+    : {
+        logo_url: payload.logo_url,
+        business_name: payload.business_name,
+        business_owner_name,
+        hq_address,
+        contact_phone: payload.contact_phone,
+        contact_email: payload.contact_email,
+        services: payload.services,
+        in_business_since_year,
+      };
+
   // Business Profile publish gate (vendor onboarding · owner 2026-06-28; Logo
   // added + relabelled 2026-07-02; documents REMOVED 2026-07-03): a vendor can
   // go LIVE once the 8 identity fields are complete. Verification documents no
@@ -382,14 +456,18 @@ export async function saveVendorProfile(formData: FormData) {
   let publishBlockedMissing: string[] = [];
   if (payload.is_published) {
     const missing: string[] = [];
-    if (!payload.logo_url) missing.push(BUSINESS_PROFILE_LABELS.logo);
-    if (!payload.business_name) missing.push(BUSINESS_PROFILE_LABELS.business_name);
-    if (!business_owner_name) missing.push(BUSINESS_PROFILE_LABELS.business_owner_name);
-    if (!hq_address) missing.push(BUSINESS_PROFILE_LABELS.maps_pin);
-    if (!payload.contact_phone) missing.push(BUSINESS_PROFILE_LABELS.contact_phone);
-    if (!payload.contact_email) missing.push(BUSINESS_PROFILE_LABELS.contact_email);
-    if (payload.services.length === 0) missing.push(BUSINESS_PROFILE_LABELS.services);
-    if (!in_business_since_year) missing.push(BUSINESS_PROFILE_LABELS.in_business_since_year);
+    // Lock-aware effective values (B2): when identity is locked the gate
+    // evaluates the CURRENT DB values, not the stripped form payload.
+    // Documents deliberately absent (2026-07-03): verification gates only the
+    // badge, never publication.
+    if (!eff.logo_url) missing.push(BUSINESS_PROFILE_LABELS.logo);
+    if (!eff.business_name) missing.push(BUSINESS_PROFILE_LABELS.business_name);
+    if (!eff.business_owner_name) missing.push(BUSINESS_PROFILE_LABELS.business_owner_name);
+    if (!eff.hq_address) missing.push(BUSINESS_PROFILE_LABELS.maps_pin);
+    if (!eff.contact_phone) missing.push(BUSINESS_PROFILE_LABELS.contact_phone);
+    if (!eff.contact_email) missing.push(BUSINESS_PROFILE_LABELS.contact_email);
+    if (eff.services.length === 0) missing.push(BUSINESS_PROFILE_LABELS.services);
+    if (!eff.in_business_since_year) missing.push(BUSINESS_PROFILE_LABELS.in_business_since_year);
     if (missing.length > 0) {
       payload.is_published = false;
       publishBlockedMissing = missing;
@@ -413,7 +491,10 @@ export async function saveVendorProfile(formData: FormData) {
   // hq_address (street-level) over location_city (city-level) for better
   // resolution. Admin-supplied coords (if any) are NOT clobbered here —
   // this UPDATE only fires when the geocoder actually returns something.
-  const geocodeQuery = hq_address ?? location_city;
+  // When identity is verified-locked the form's hq_address was NOT written, so
+  // it must not drive the geocode either (coords would drift from the stored
+  // address). City-level geocode stays available.
+  const geocodeQuery = identityLocked ? location_city : hq_address ?? location_city;
   if (geocodeQuery) {
     const geo = await geocodeNominatim(geocodeQuery);
     if (geo) {
@@ -461,6 +542,10 @@ export async function saveVendorProfile(formData: FormData) {
         publishBlockedMissing.join(', '),
       )}`,
     );
+  }
+  if (identityLocked) {
+    // Other edits saved; identity fields were preserved — surface the notice.
+    redirect('/vendor-dashboard/profile?saved=1&identity_locked=1');
   }
   redirect('/vendor-dashboard/profile?saved=1');
 }
@@ -521,6 +606,13 @@ export async function updateVendorProfileField(
   const field = String(formData.get('field') ?? '');
   if (!INLINE_PROFILE_FIELDS.has(field)) {
     return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // Verified-lock (owner 2026-07-02): every inline field IS one of the 8
+  // locked identity fields, so a verified shop can't patch any of them —
+  // corrections go through requestProfileCorrection → /admin/corrections.
+  if (await fetchVerifiedLock(supabase, user.id)) {
+    return { ok: false, error: VERIFIED_LOCK_ERROR };
   }
 
   // Build a SINGLE-column patch. `geocodeAddress` / `yearChanged` capture the
@@ -640,6 +732,79 @@ export async function updateVendorProfileField(
         .update({ hq_latitude: geo.latitude, hq_longitude: geo.longitude })
         .eq('user_id', user.id);
     }
+  }
+
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard/profile');
+  return { ok: true };
+}
+
+/**
+ * Request-a-correction for a VERIFIED (identity-locked) shop (owner
+ * 2026-07-02). Instead of editing one of the 8 locked identity fields, the
+ * vendor files a vendor_correction_requests row ("change <field> from
+ * <current> to <requested>"); an admin applies or declines it on
+ * /admin/corrections. `(prevState, formData)` signature for useActionState —
+ * returns a VALUE, never redirects, so the panel can toast in place.
+ *
+ * Defensive: a pre-migration database (missing table) returns a friendly
+ * error instead of crashing.
+ */
+export type CorrectionRequestResult = { ok: true } | { ok: false; error: string };
+
+export async function requestProfileCorrection(
+  _prevState: CorrectionRequestResult | null,
+  formData: FormData,
+): Promise<CorrectionRequestResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  const fieldKey = formData.get('field_key');
+  if (!isLockedIdentityFieldKey(fieldKey)) {
+    return { ok: false, error: 'That field can’t be corrected here.' };
+  }
+  const requestedValue = nullIfBlank(formData.get('requested_value'));
+  const note = nullIfBlank(formData.get('note'));
+  if (!requestedValue && !note) {
+    return { ok: false, error: 'Tell us what the value should be.' };
+  }
+
+  // Own profile + a display snapshot of the current value for the admin queue.
+  const { data: profRow, error: profErr } = await supabase
+    .from('vendor_profiles')
+    .select(
+      'vendor_profile_id,business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url',
+    )
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (profErr || !profRow) {
+    return { ok: false, error: 'Vendor profile not found.' };
+  }
+  const prof = profRow as Record<string, unknown> & { vendor_profile_id: string };
+  const rawCurrent = prof[fieldKey];
+  const currentValue = Array.isArray(rawCurrent)
+    ? rawCurrent.join(', ')
+    : rawCurrent == null
+      ? null
+      : String(rawCurrent);
+
+  const { error } = await supabase.from('vendor_correction_requests').insert({
+    vendor_profile_id: prof.vendor_profile_id,
+    field_key: fieldKey,
+    current_value: currentValue,
+    requested_value: requestedValue ? requestedValue.slice(0, 2000) : null,
+    note: note ? note.slice(0, 1000) : null,
+  });
+  if (error) {
+    // Pre-migration table-missing lands here too — friendly, non-technical.
+    return {
+      ok: false,
+      error:
+        'Your correction request couldn’t be filed right now — please try again shortly.',
+    };
   }
 
   revalidatePath('/vendor-dashboard/shop');

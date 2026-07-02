@@ -822,26 +822,19 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         <Field
           label="Event types you serve"
           htmlFor="event_types"
-          help="Tick every event type you take bookings for. Couples browsing each marketplace see only vendors who serve their event. Wedding is checked by default for every vendor; tick others to expand your reach as those marketplaces open."
+          help="Set per coverage on your Services page — your event types are the union across the categories you cover."
         >
           <div className="flex flex-wrap gap-2">
-            {eventTypesServed.map((et) => {
-              const checked = profile?.event_types?.includes(et.key) ?? et.key === 'wedding';
+            {(profile?.event_types?.length ? profile.event_types : ['wedding']).map((k) => {
+              const et = eventTypesServed.find((e) => e.key === k);
               return (
-                <label
-                  key={et.key}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
+                <span
+                  key={k}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75"
                 >
-                  <input
-                    type="checkbox"
-                    name="event_types"
-                    value={et.key}
-                    defaultChecked={checked}
-                    className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                  />
-                  <span aria-hidden>{et.emoji}</span>
-                  <span>{et.label}</span>
-                </label>
+                  {et?.emoji ? <span aria-hidden>{et.emoji}</span> : null}
+                  <span>{et?.label ?? k}</span>
+                </span>
               );
             })}
           </div>

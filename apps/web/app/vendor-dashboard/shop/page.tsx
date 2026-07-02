@@ -476,9 +476,9 @@ export default async function VendorShopPage({
           Sits above "Manage your shop" (owner 2026-07-02): see your numbers first,
           then act on them. */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-          How you&rsquo;re doing
-        </h2>
+        {/* Heading kept for the a11y outline but visually removed (owner
+            2026-07-02: "remove the How you're doing text"). */}
+        <h2 className="sr-only">How you&rsquo;re doing</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile
             icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}

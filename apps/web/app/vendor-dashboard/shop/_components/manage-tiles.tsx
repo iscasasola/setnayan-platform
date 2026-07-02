@@ -50,9 +50,9 @@ export function ManageTiles({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-        Manage your shop
-      </h2>
+      {/* Heading kept for the a11y outline but visually removed (owner
+          2026-07-02: "remove the Manage your shop text"). */}
+      <h2 className="sr-only">Manage your shop</h2>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <ToolTile

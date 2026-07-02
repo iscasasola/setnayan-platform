@@ -2198,3 +2198,26 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
     transition: opacity 0.2s ease;
   }
 }
+
+/* ── My Performance re-animation (Daily / Monthly / Annual toggle) ───────────
+   The windowed block remounts on each toggle (key={mode} in PerformanceControls);
+   these mount-only animations replay so the section fades up and the graph bars
+   "grow" on every switch. Numeric count-up is handled by <CountUp>. All motion
+   is disabled under prefers-reduced-motion. */
+@keyframes perf-fade-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes perf-bar-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.perf-reanim { animation: perf-fade-rise 0.4s ease-out both; }
+.perf-bar-grow {
+  transform-origin: left center;
+  animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .perf-reanim,
+  .perf-bar-grow { animation: none; }
+}

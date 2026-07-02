@@ -2,6 +2,7 @@ import { Briefcase, Wallet } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
 import { BookingsBars, EarningsSparkline, type ChartPoint } from './momentum-chart';
+import { CountUp } from './count-up';
 
 /**
  * "Momentum" — a windowed view over the vendor's booked business, tiered:
@@ -121,7 +122,7 @@ export function MomentumCard({
             </span>
           </div>
           <p className="text-3xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
-            {active.bookings}
+            <CountUp value={active.bookings} />
           </p>
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             {scopeLabel && active.bookings === 0
@@ -141,7 +142,11 @@ export function MomentumCard({
               </span>
             </div>
             <p className="text-3xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
-              {active.pricedCount > 0 ? formatPhp(active.earningsPhp) : '—'}
+              {active.pricedCount > 0 ? (
+                <CountUp value={active.earningsPhp} format={formatPhp} />
+              ) : (
+                '—'
+              )}
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
               {active.pricedCount > 0

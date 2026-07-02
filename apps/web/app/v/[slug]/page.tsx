@@ -895,6 +895,7 @@ export async function renderVendorBySlug({
   const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
   const phToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   let waitlistDate: string | null = null;
+  let waitlistEnabled = false;
   let alreadyWaitlisted = false;
   if (
     user &&
@@ -918,6 +919,16 @@ export async function renderVendorBySlug({
     const isUnavailable = Array.isArray(covering) && covering.length > 0;
     if (isUnavailable) {
       waitlistDate = coupleEventDate;
+      // Owner 2026-07: only offer the waitlist when the vendor switched it on;
+      // otherwise the date is simply "unavailable" (no CTA).
+      const { data: wlp } = await admin
+        .from('vendor_profiles')
+        .select('waitlist_enabled')
+        .eq('vendor_profile_id', vendor.vendor_profile_id)
+        .maybeSingle();
+      waitlistEnabled = Boolean(
+        (wlp as { waitlist_enabled?: boolean } | null)?.waitlist_enabled,
+      );
       // Has this couple already joined (pending/notified)?
       const { data: existing } = await admin
         .from('vendor_date_waitlist')
@@ -1672,7 +1683,9 @@ export async function renderVendorBySlug({
                 })}
                 .
               </p>
-              {alreadyWaitlisted || waitlistNotice === 'joined' ? (
+              {!waitlistEnabled ? (
+                <p className="mt-1 text-sm text-ink/70">This date is unavailable.</p>
+              ) : alreadyWaitlisted || waitlistNotice === 'joined' ? (
                 <p className="mt-1 text-sm text-ink/70">
                   You&rsquo;re on the waitlist for this date — we&rsquo;ll email you the moment it
                   opens up.

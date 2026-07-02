@@ -18,6 +18,8 @@ export type VendorCoverageRow = {
   public_id: string;
   canonical_service: string;
   event_types: string[];
+  /** Faiths served (TITLE-CASE FaithKey / faithCol; empty = all faiths welcomed). */
+  faiths: string[];
   created_at: string;
 };
 
@@ -27,7 +29,7 @@ export async function fetchVendorCoverages(
 ): Promise<VendorCoverageRow[]> {
   const { data, error } = await supabase
     .from('vendor_coverages')
-    .select('id,public_id,canonical_service,event_types,created_at')
+    .select('id,public_id,canonical_service,event_types,faiths,created_at')
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchVendorCoverages failed: ${error.message}`);

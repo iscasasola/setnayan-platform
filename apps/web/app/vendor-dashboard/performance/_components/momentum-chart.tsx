@@ -72,7 +72,7 @@ export function BookingsBars({
             <div key={p.key} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex w-full flex-1 items-end">
                 <div
-                  className="w-full rounded-t-sm"
+                  className="perf-bar-grow-y w-full rounded-t-sm"
                   style={{
                     height: `${pct}%`,
                     minHeight: p.bookings > 0 ? 2 : 0,
@@ -133,7 +133,7 @@ export function EarningsSparkline({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
-        className="h-16 w-full"
+        className="perf-bar-grow-y h-16 w-full"
         role="img"
         aria-label={`Confirmed booked revenue trend over ${n} ${unitWord}s; peak ${unitWord} ${peak}.`}
       >

@@ -10,8 +10,9 @@ import { useEffect, useRef, useState } from 'react';
  *
  * Starts at 0 (so the tick is clean — no value→0→up flash) and animates to
  * `value` on mount; the block remounts per toggle, so it re-ticks each switch.
- * Honors prefers-reduced-motion (and value===0): final value shown immediately,
- * no tick. `format` renders each frame (e.g. formatPhp for ₱).
+ * Owner 2026-07-02 ("always play it"): the tick is NOT gated behind
+ * prefers-reduced-motion — it plays for everyone. (value===0 still skips the
+ * pointless 0→0 tick.) `format` renders each frame (e.g. formatPhp for ₱).
  */
 export function CountUp({
   value,
@@ -26,10 +27,7 @@ export function CountUp({
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const reduce =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || value === 0) {
+    if (value === 0) {
       setDisplay(value);
       return;
     }

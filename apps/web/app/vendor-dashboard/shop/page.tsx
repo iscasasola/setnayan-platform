@@ -312,6 +312,8 @@ async function loadShopData(): Promise<ShopData | null> {
     business_name: profile.business_name ?? '',
     business_owner_name: profile.business_owner_name ?? '',
     hq_address: profile.hq_address ?? '',
+    hq_latitude: profile.hq_latitude ?? null,
+    hq_longitude: profile.hq_longitude ?? null,
     contact_phone: profile.contact_phone ?? '',
     contact_email: profile.contact_email ?? '',
     in_business_since_year: profile.in_business_since_year

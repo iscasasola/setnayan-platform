@@ -17,12 +17,18 @@ export type PillarHero = {
   id: string;
   /**
    * Anchor id of the below-fold section this tile's "Learn more" jumps to —
-   * or null when the tile's product has no matching section yet (the queued
-   * product stories, owner 2026-07-03): Learn-more then falls back to the top
-   * of the content. Decoupled from `id` because the below-fold sections still
-   * render the original five pillar suites (see PILLAR_SECTION_IDS).
+   * Decoupled from `id` because the below-fold sections still render the
+   * original five pillar suites (see PILLAR_SECTION_IDS).
    */
   sectionId: string | null;
+  /**
+   * When set, jumping ALSO pre-selects this feature card in the target
+   * pillar's interactive widget (pillar = index into PILLARS, card = index
+   * into that pillar's mocks/features) and centers it in the carousel — so
+   * the product tiles (Papic · Panood · 3D Plan) land on the Likha section
+   * with their own preview already showing.
+   */
+  feat?: { pillar: number; card: number };
   name: string;
   role: string;
   /** hero headline shown when this dock item is selected */
@@ -38,11 +44,12 @@ export const HOME_SCENE =
 
 // Dock assignment (owner 2026-07-03): the five dock tiles are the flagship
 // PRODUCTS — Ala ala (Memory Hub) · Suri (Setnayan AI) · Papic · Panood · 3D
-// Plan. Suri opens the one-page Setnayan AI story takeover; the other product
-// stories are QUEUED (their tiles keep the hero-scene swap until each story
-// ships). Slot gradients + anchor ids retained from the prior pillar dock (the
-// admin background-video slots are positional — /admin/background-videos labels
-// may want a refresh, flagged in the PR).
+// Plan. Suri opens the one-page Setnayan AI story takeover. Every tile has a
+// jump target on the page (owner 2026-07-03): Ala ala → its own section,
+// Suri → the Suri section, and Papic / Panood / 3D Plan → the Likha section
+// with their feature card pre-selected (`feat`). Slot gradients + anchor ids
+// retained from the prior pillar dock (the admin background-video slots are
+// positional — /admin/background-videos labels may want a refresh).
 export const PILLAR_HEROES: PillarHero[] = [
   {
     id: 'hr-p1',
@@ -65,7 +72,8 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p3',
-    sectionId: null,
+    sectionId: 'hr-p2',
+    feat: { pillar: 1, card: 2 }, // Likha → Papic preview
     name: 'Papic',
     role: 'Candid capture',
     head: 'Every guest is a photographer.',
@@ -74,7 +82,8 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p4',
-    sectionId: null,
+    sectionId: 'hr-p2',
+    feat: { pillar: 1, card: 3 }, // Likha → Live Studio preview
     name: 'Panood',
     role: 'Live Studio',
     head: 'For everyone who couldn’t be there.',
@@ -83,7 +92,8 @@ export const PILLAR_HEROES: PillarHero[] = [
   },
   {
     id: 'hr-p5',
-    sectionId: null,
+    sectionId: 'hr-p2',
+    feat: { pillar: 1, card: 4 }, // Likha → 3D Plan preview
     name: '3D Plan',
     role: 'Seating in 3D',
     head: 'Walk the room before the day.',
@@ -105,8 +115,10 @@ export type FeatureCard = {
 };
 
 export type Pillar = {
-  num: string; // "01 — Ala Ala · …"
-  name: string; // headline
+  num: string; // '01' — section numeral (serif, gold)
+  tag: string; // Filipino pillar name — 'Ala Ala'
+  role: string; // English role — 'Memory Hub' (per <name> · <role> convention)
+  name: string; // headline — the owner-authored hook line
   def: ReactNode; // sub-copy (may contain <em>)
   widgetId: string; // dom id of the .hr-pwidget (also used by selFeat)
   barUrl: string; // address-bar text
@@ -1031,14 +1043,16 @@ const TiCommission = (
 
 export const PILLARS: Pillar[] = [
   {
-    num: '01 — Ala Ala · Your collection of memories, kept for life',
-    name: 'A photo album is a record. This is a memory.',
+    num: '01',
+    tag: 'Ala Ala',
+    role: 'Memory Hub',
+    name: 'A photo album is just a record. This is the memory itself.',
     def: (
       <>
-        This is the heart of it. The plan ends when the day ends; the memory doesn’t have to. Every
-        event you <em>hold</em> and every event you <em>attend</em> lands here — your growing
-        collection of memories, kept safe, accumulating year over year in one place that belongs to
-        you. Not a tool you close after the day. A home you keep coming back to.
+        The heart of it all. Planning ends when the day is over — your memories shouldn’t have to.
+        Every event you <em>hold</em> and every event you <em>attend</em> lives on here, one
+        continuous archive that grows richer year after year. Not a tool you close after the guests
+        leave. A home you keep coming back to.
       </>
     ),
     widgetId: 'hr-awAla',
@@ -1070,13 +1084,16 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '02 — Likha · Creative Studio',
+    num: '02',
+    tag: 'Likha',
+    role: 'Creative Studio',
     name: 'Your event has a look. Give it a voice.',
     def: (
       <>
-        <em>Likha</em> means “to create.” A free studio that turns your plan into something
-        guests can see and feel — an adaptive website that stays alive, your own monogram, Papic
-        candid capture, Live Studio, and the 3D Plan. And it keeps growing.
+        <em>Likha</em> means “to create.” Your free creative studio — the whole look and feel of
+        your celebration in one workspace: an adaptive website that stays alive, your own monogram,
+        Papic candid capture, Live Studio for the ones who couldn’t make the trip, and the 3D Plan.
+        And it keeps growing.
       </>
     ),
     widgetId: 'hr-awLikhaan',
@@ -1133,13 +1150,16 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '03 — Plano · Planner',
+    num: '03',
+    tag: 'Plano',
+    role: 'The Ultimate Planner',
     name: 'Your spreadsheet doesn’t know your day.',
     def: (
       <>
-        <em>Plano</em> means “to plan.” A free, connected suite where every piece talks to
-        the others — guest list, seat plan, budget, date picker, checklist, scheduler. Change one
-        thing and the whole plan stays honest. The reason to open the app on a Tuesday night.
+        <em>Plano</em> means “to plan.” Gone are the days of scattered documents. One free,
+        connected suite where every detail intertwines — change a single thing and the guest list,
+        seat plan, budget, checklist, and schedule all stay honest, automatically. The reason to
+        open the app on a Tuesday night.
       </>
     ),
     widgetId: 'hr-awPlanuhan',
@@ -1214,14 +1234,16 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '04 — Suri · Setnayan AI',
-    name: 'Twelve tabs, and you’ve decided nothing.',
+    num: '04',
+    tag: 'Suri',
+    role: 'Setnayan AI',
+    name: 'You are the host, not the coordinator.',
     def: (
       <>
-        <em>Suri</em> means “to analyze closely.” The quiet planning brain — the
-        attention of a full coordination team, checking every option against your plan instantly. It
-        narrows the field to a few good options, reshapes your checklist, and guides your budget, so
-        you choose instead of drown. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
+        <em>Suri</em> means “to analyze closely.” The quiet planning brain — it checks every option
+        against your budget, date, and venue in an instant, hands you a short list worth choosing
+        from, reshapes your checklist, and watches for hidden risks before they happen. You choose
+        instead of drown. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
       </>
     ),
     widgetId: 'hr-awSurian',
@@ -1257,14 +1279,16 @@ export const PILLARS: Pillar[] = [
     ],
   },
   {
-    num: '05 — Tiangge · Marketplace',
-    name: 'And when you want vendors — verified, 0% commission.',
+    num: '05',
+    tag: 'Tiangge',
+    role: 'The Marketplace',
+    name: 'Supporting cast — there when you’re ready, invisible when you’re not.',
     def: (
       <>
-        <em>Tiangge</em> — the marketplace, when you want it. You don’t need it to get full value:
-        Plano, Likha, and Ala Ala stand on their own. But when you’re ready for vendors, they’re
-        verified, with real reviews and a track record, the right price, and 0% commission.
-        Supporting cast — there when you’re ready, invisible when you’re not.
+        <em>Tiangge</em> — the marketplace, on your terms. Plano, Likha, and Ala Ala stand on their
+        own; when you’re ready for vendors, they arrive verified, with real reviews and a real
+        track record, matched to what you actually need. Talking to them is free — and commission
+        is 0%. What the vendor charges is what you pay.
       </>
     ),
     widgetId: 'hr-awTiangge',

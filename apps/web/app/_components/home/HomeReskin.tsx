@@ -18,8 +18,8 @@
  * away never leaves the rest of the site scroll-locked.
  */
 
-import { cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { Fragment, cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { PILLARS, PILLAR_HEROES, PILLAR_SECTION_IDS, HOME_SCENE } from './pillars';
 import type { OverlayId } from './HomeOverlays';
@@ -50,6 +50,24 @@ const HOME_HERO = {
   ),
   sub: 'The independent hub to keep a lifetime of memories — and plan any event, free.',
 };
+
+/**
+ * The manifesto, split into segments for the word-cascade ink reveal: each
+ * word starts faint and rises to full ink, staggered left-to-right, when the
+ * section scrolls into view. `b` = the bolded anchor words; `fin` = the
+ * serif-italic finale that gets the gold underline sweep. The copy itself is
+ * the owner-locked positioning statement — presentation only changes here.
+ */
+const MANIFESTO: Array<{ t: string; b?: boolean; fin?: boolean }> = [
+  { t: 'Setnayan is where the memories of every event in your life are kept — the ones you' },
+  { t: 'hold', b: true },
+  { t: 'and the ones you' },
+  { t: 'attend.', b: true },
+  {
+    t: 'Most tools you open for one event and close. This is the place your celebrations live, so you come back for the next one. Plan it, run it, remember it — and',
+  },
+  { t: 'keep it, for life.', fin: true },
+];
 
 const TICKER_WORDS = [
   'Joy',
@@ -163,10 +181,36 @@ export function HomeReskin({
   }, []);
 
   const heroLearn = useCallback(() => {
-    if (activePillar === null) openGate();
-    // Jump to the tile's MATCHING below-fold section; queued products
-    // (sectionId null) fall back to the top of the content.
-    else openGate(PILLAR_HEROES[activePillar]?.sectionId ?? undefined);
+    if (activePillar === null) {
+      openGate();
+      return;
+    }
+    // Jump to the tile's MATCHING below-fold section. Product tiles (Papic ·
+    // Panood · 3D Plan) carry a `feat` target: pre-select their feature card
+    // in the Likha widget so the landing shows their preview, then center the
+    // card in the carousel once the smooth scroll has settled.
+    const hero = PILLAR_HEROES[activePillar];
+    const feat = hero?.feat;
+    if (feat) {
+      setSelFeat((prev) => {
+        const next = [...prev];
+        next[feat.pillar] = feat.card;
+        return next;
+      });
+      window.setTimeout(
+        () => {
+          const sec = document.getElementById(PILLAR_SECTION_IDS[feat.pillar] ?? '');
+          const track = sec?.querySelector<HTMLElement>('.hr-pfeats');
+          const card = track?.children[feat.card] as HTMLElement | undefined;
+          if (track && card) {
+            const target = card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2;
+            track.scrollTo({ left: Math.max(0, target), behavior: reduceMotion() ? 'auto' : 'smooth' });
+          }
+        },
+        reduceMotion() ? 120 : 700,
+      );
+    }
+    openGate(hero?.sectionId ?? undefined);
   }, [activePillar, openGate]);
 
   // ── Hero scene (cross-fade between two gradient layers, with optional video) ──
@@ -304,6 +348,26 @@ export function HomeReskin({
       window.removeEventListener('resize', update);
     };
   }, [opened]);
+
+  // ── Section entrance reveal ──
+  // Toggles `hr-in` on each content section as it scrolls into view; the CSS
+  // (gated behind prefers-reduced-motion: no-preference) staggers a rise-in
+  // per direct child, and drives the manifesto's word cascade. Toggling BOTH
+  // ways lets the choreography replay when a section re-enters.
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    const sections = Array.from(main.querySelectorAll<HTMLElement>(':scope > section'));
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) e.target.classList.toggle('hr-in', e.isIntersecting);
+      },
+      { threshold: 0.18 },
+    );
+    sections.forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  }, []);
 
   // ── Drag-to-scroll for the feature carousels (native swipe on touch) ──
   const onCarouselPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -491,14 +555,9 @@ export function HomeReskin({
       </section>
 
       {/* ── CONTENT — revealed when the gate opens ── */}
-      <main className="hr-content" id="hr-content">
+      <main className="hr-content" id="hr-content" ref={mainRef}>
         <section className="hr-manifesto">
-          <p>
-            Setnayan is where the memories of every event in your life are kept — the ones you{' '}
-            <b>hold</b> and the ones you <b>attend</b>. Most tools you open for one event and close.
-            This is the place your celebrations live, so you come back for the next one. Plan it, run
-            it, remember it — and <b>keep it, for life.</b>
-          </p>
+          <ManifestoReveal />
         </section>
 
         <section className="hr-ticker" ref={tickerRef}>
@@ -512,9 +571,19 @@ export function HomeReskin({
 
         {PILLARS.map((pillar, pi) => (
           <section className="hr-pillar" id={PILLAR_SECTION_IDS[pi]} key={pillar.widgetId}>
-            <div className="hr-pnum">{pillar.num}</div>
-            <h2 className="hr-pname">{pillar.name}</h2>
-            <p className="hr-pdef">{pillar.def}</p>
+            {/* Editorial pillar header: serif numeral · hairline · Filipino
+                name · small-caps English role, then the owner-authored hook
+                as the headline. */}
+            <header className="hr-phead">
+              <div className="hr-pid">
+                <span className="hr-pn2">{pillar.num}</span>
+                <span className="hr-psep" aria-hidden="true" />
+                <span className="hr-ptag">{pillar.tag}</span>
+                <span className="hr-prole">{pillar.role}</span>
+              </div>
+              <h2 className="hr-pname">{pillar.name}</h2>
+              <p className="hr-pdef">{pillar.def}</p>
+            </header>
             <div className="hr-pwidget" id={pillar.widgetId}>
               <div className="hr-pw-frame">
                 <div className="hr-pw-bar">
@@ -638,6 +707,43 @@ export function HomeReskin({
       <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} onOpenStory={openStory} />
       <SetnayanAiStory open={storyOpen} onClose={closeStory} pricing={pricing} />
     </div>
+  );
+}
+
+/**
+ * The manifesto paragraph, split word-by-word so each word can cascade from
+ * faint grey to full ink (CSS transition-delay keyed off `--wi`). The words
+ * remain plain inline text to assistive tech — only the presentation is
+ * staggered. The `fin` segment renders as a serif-italic <em> that carries
+ * the gold underline sweep.
+ */
+function ManifestoReveal() {
+  let wi = 0;
+  return (
+    <p>
+      {MANIFESTO.map((seg, si) => {
+        const words = seg.t.split(' ').map((w) => {
+          const idx = wi++;
+          return (
+            <Fragment key={idx}>
+              <span
+                className={`hr-mw${seg.b ? ' hr-mw-b' : ''}`}
+                style={{ '--wi': idx } as CSSProperties}
+              >
+                {w}
+              </span>{' '}
+            </Fragment>
+          );
+        });
+        return seg.fin ? (
+          <em className="hr-mfin" key={si}>
+            {words}
+          </em>
+        ) : (
+          <Fragment key={si}>{words}</Fragment>
+        );
+      })}
+    </p>
   );
 }
 

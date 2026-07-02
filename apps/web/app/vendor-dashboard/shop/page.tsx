@@ -462,6 +462,53 @@ export default async function VendorShopPage({
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <HeroCard data={data} publicPath={publicPath} />
 
+      {/* ── HOW YOU'RE DOING — read-only pulse (detail pages live in the sidebar).
+          Sits above "Manage your shop" (owner 2026-07-02): see your numbers first,
+          then act on them. */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
+          How you&rsquo;re doing
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <StatTile
+            icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.profileViewsWeek)}
+            label="Profile views"
+            sub="this week"
+          />
+          <StatTile
+            icon={<Star className="h-4 w-4" strokeWidth={1.75} />}
+            value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
+            label="Reviews"
+            sub={`${nf.format(data.reviewCount)} review${data.reviewCount === 1 ? '' : 's'}`}
+          />
+          <StatTile
+            icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.savedByCouples)}
+            label="Saved"
+            sub="couples saved you"
+          />
+          <StatTile
+            icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.storiesTagged)}
+            label="Stories"
+            sub="editorials tagged"
+          />
+          <StatTile
+            icon={<Images className="h-4 w-4" strokeWidth={1.75} />}
+            value={data.recapClips > 0 ? nf.format(data.recapClips) : '—'}
+            label="Recap"
+            sub="day-of clips"
+          />
+          <StatTile
+            icon={<Handshake className="h-4 w-4" strokeWidth={1.75} />}
+            value={nf.format(data.recommendedByShops)}
+            label="Recommend"
+            sub={`${data.recommendedByShops === 1 ? 'shop recommends' : 'shops recommend'} you`}
+          />
+        </div>
+      </section>
+
       <ManageTiles
         completionPct={data.completionPct}
         verifyLabel={data.hasDocuments ? 'Documents in' : '1 doc to verify'}
@@ -513,51 +560,6 @@ export default async function VendorShopPage({
           />
         }
       />
-
-      {/* ── HOW YOU'RE DOING — read-only pulse (detail pages live in the sidebar) */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-          How you&rsquo;re doing
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <StatTile
-            icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.profileViewsWeek)}
-            label="Profile views"
-            sub="this week"
-          />
-          <StatTile
-            icon={<Star className="h-4 w-4" strokeWidth={1.75} />}
-            value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
-            label="Reviews"
-            sub={`${nf.format(data.reviewCount)} review${data.reviewCount === 1 ? '' : 's'}`}
-          />
-          <StatTile
-            icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.savedByCouples)}
-            label="Saved"
-            sub="couples saved you"
-          />
-          <StatTile
-            icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.storiesTagged)}
-            label="Stories"
-            sub="editorials tagged"
-          />
-          <StatTile
-            icon={<Images className="h-4 w-4" strokeWidth={1.75} />}
-            value={data.recapClips > 0 ? nf.format(data.recapClips) : '—'}
-            label="Recap"
-            sub="day-of clips"
-          />
-          <StatTile
-            icon={<Handshake className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.recommendedByShops)}
-            label="Recommend"
-            sub={`${data.recommendedByShops === 1 ? 'shop recommends' : 'shops recommend'} you`}
-          />
-        </div>
-      </section>
 
       {/* ── YOUR SERVICES — the full Services manager, fully consolidated onto
           My Shop (owner 2026-07-02: "My Services" retired everywhere). The
@@ -726,9 +728,9 @@ function StatTile({
   sub: string;
 }) {
   return (
-    <div>
+    <div className="flex flex-col items-center text-center">
       <span
-        className="inline-flex items-center gap-1.5 text-xs"
+        className="inline-flex items-center justify-center gap-1.5 text-xs"
         style={{ color: 'var(--m-slate-3)' }}
       >
         <span aria-hidden style={{ color: 'var(--m-orange-2)' }}>

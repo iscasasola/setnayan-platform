@@ -9,7 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 
-import { Collapsible } from './collapsible';
+import { Collapsible } from '../../_components/collapsible';
 
 type ToolKey = 'profile' | 'website' | 'team' | 'branch';
 

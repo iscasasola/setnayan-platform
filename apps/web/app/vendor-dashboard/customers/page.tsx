@@ -30,6 +30,7 @@ import {
 } from '@/lib/vendor-customers';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
+import { VendorQrSection } from '../_components/qr-section';
 
 export const metadata = { title: 'My Customers · Vendor · Setnayan' };
 
@@ -52,7 +53,7 @@ export const metadata = { title: 'My Customers · Vendor · Setnayan' };
  * clearly-empty state rather than inventing a value.
  */
 
-type Props = { searchParams: Promise<{ m?: string }> };
+type Props = { searchParams: Promise<{ m?: string; et?: string; cat?: string }> };
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Date not set';
@@ -568,6 +569,16 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
             </Link>
           </article>
         </div>
+
+        {/* QR codes — Shortlist ↔ Locked (relocated from My Shop 2026-07-02). */}
+        <VendorQrSection
+          vendorProfileId={vendorProfileId}
+          slug={profile.business_slug ?? null}
+          profileServices={(profile.services ?? []) as string[]}
+          rawEt={search.et}
+          rawCat={search.cat}
+          month={month}
+        />
 
         {/* Section 4 — customers list. */}
         <div

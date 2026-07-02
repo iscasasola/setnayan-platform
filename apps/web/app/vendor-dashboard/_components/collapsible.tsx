@@ -3,11 +3,12 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Collapsible — the ONE shared animated expand/collapse primitive for My Shop.
+ * Collapsible — the ONE shared animated expand/collapse primitive for the
+ * vendor dashboard.
  *
- * Everything on this surface that grows or shrinks (the Manage panels, the QR
- * card's Shortlist↔Locked swap) routes its height change through here so the
- * motion is identical everywhere and tuned in one place. Uses the Web
+ * Everything that grows or shrinks (My Shop's Manage panels, the QR card's
+ * Shortlist↔Locked swap on My Customers) routes its height change through here
+ * so the motion is identical everywhere and tuned in one place. Uses the Web
  * Animations API (measure → animate `height` → settle to `auto`/`0`), and
  * honors `prefers-reduced-motion` by snapping with no animation.
  *

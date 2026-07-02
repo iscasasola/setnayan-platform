@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  Download,
   Eye,
   Globe,
   Handshake,
@@ -36,22 +35,11 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
-import { renderUrlQrSvg } from '@/lib/qr';
-import {
-  buildVendorInviteUrl,
-  vendorCoverageCategories,
-} from '@/lib/vendor-couple-invite';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { fetchVendorServices } from '@/lib/vendor-services';
-import { fetchVendorContracts } from '@/lib/contracts';
-import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { inviteVendorTeamMember } from '@/app/vendor-dashboard/team/actions';
 
 import { ManageTiles } from './_components/manage-tiles';
-import { QrCard } from './_components/qr-card';
 
 /**
  * /vendor-dashboard/shop — "My Shop".
@@ -125,9 +113,6 @@ type ShopData = {
   teamMembers: number;
   branchLocations: number;
   recommendedByShops: number;
-  coverage: VendorCategory[];
-  serviceOptions: { value: string; label: string }[];
-  contractOptions: { value: string; label: string }[];
   team: TeamMember[];
 };
 
@@ -218,22 +203,6 @@ async function loadShopData(): Promise<ShopData | null> {
     enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
   }
 
-  // Locked-QR service picker = the vendor's own leaf offerings (DB-driven), with
-  // a coverage-category fallback for vendors who haven't published services yet.
-  const coverage = vendorCoverageCategories((profile.services ?? []) as string[]);
-  const activeServices = (
-    await fetchVendorServices(supabase, vendorId).catch(() => [])
-  ).filter((s) => s.is_active);
-  const serviceOptions = activeServices.length
-    ? activeServices.map((s) => ({
-        value: s.vendor_service_id,
-        label: s.title ?? VENDOR_CATEGORY_LABEL[s.category as VendorCategory] ?? s.category,
-      }))
-    : coverage.map((c) => ({ value: c as string, label: VENDOR_CATEGORY_LABEL[c] ?? c }));
-  const contractOptions = (await fetchVendorContracts(supabase, vendorId))
-    .filter((c) => c.status !== 'cancelled')
-    .map((c) => ({ value: c.contract_id, label: c.title }));
-
   return {
     businessName,
     initials: deriveInitials(businessName),
@@ -257,9 +226,6 @@ async function loadShopData(): Promise<ShopData | null> {
     teamMembers: team.length,
     branchLocations: 1 + activeBranches,
     recommendedByShops: partnershipsRes,
-    coverage,
-    serviceOptions,
-    contractOptions,
     team: enrichedTeam,
   };
 }
@@ -276,11 +242,7 @@ function tierLabel(tier: string | null): string {
   return TIER_LABEL[tier] ?? titleCase(tier);
 }
 
-export default async function VendorShopPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ et?: string; cat?: string }>;
-}) {
+export default async function VendorShopPage() {
   let data: ShopData | null;
   try {
     data = await loadShopData();
@@ -321,60 +283,6 @@ export default async function VendorShopPage({
 
   const publicPath = data.slug ? `/v/${data.slug}` : null;
 
-  // QR data — Shortlist (standing slug QR, optionally scoped) is rendered here
-  // on the server so the couple sees a real code; Locked reuses the existing
-  // generator. Only computable once the vendor has a public slug.
-  const sp = await searchParams;
-  const eventTypes = await getCreatableEventTypes().catch(() => []);
-  const selectedCat =
-    sp.cat && data.coverage.includes(sp.cat as VendorCategory)
-      ? (sp.cat as VendorCategory)
-      : null;
-  const selectedEt =
-    sp.et && eventTypes.some((t) => t.key === sp.et) ? sp.et : null;
-
-  let shortlistBody: React.ReactNode;
-  let lockedBody: React.ReactNode;
-  if (data.slug) {
-    const inviteUrl = buildVendorInviteUrl(data.slug, {
-      eventType: selectedEt,
-      category: selectedCat,
-    });
-    const qrSvg = await renderUrlQrSvg(inviteUrl, 200);
-    shortlistBody = (
-      <ShortlistBody
-        inviteUrl={inviteUrl}
-        qrSvg={qrSvg}
-        eventTypes={eventTypes}
-        coverage={data.coverage}
-        selectedEt={selectedEt}
-        selectedCat={selectedCat}
-      />
-    );
-    lockedBody = (
-      <LockedBody
-        eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))}
-        services={data.serviceOptions}
-        contracts={data.contractOptions}
-      />
-    );
-  } else {
-    const publishPrompt = (
-      <div className="text-sm text-ink/70">
-        Publish your business profile first — your QR is built from your public
-        page.{' '}
-        <Link
-          href="/vendor-dashboard/profile"
-          className="font-medium text-terracotta hover:underline"
-        >
-          Set up my page
-        </Link>
-      </div>
-    );
-    shortlistBody = publishPrompt;
-    lockedBody = publishPrompt;
-  }
-
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <HeroCard data={data} publicPath={publicPath} />
@@ -404,8 +312,6 @@ export default async function VendorShopPage({
           />
         }
       />
-
-      <QrCard shortlist={shortlistBody} locked={lockedBody} />
 
       {/* ── HOW YOU'RE DOING — read-only pulse (detail pages live in the sidebar) */}
       <section className="space-y-3">
@@ -935,119 +841,6 @@ function BranchPanel({
           calendar.
         </p>
       )}
-    </div>
-  );
-}
-
-/* ─── QR bodies ─────────────────────────────────────────────────────────── */
-function ShortlistBody({
-  inviteUrl,
-  qrSvg,
-  eventTypes,
-  coverage,
-  selectedEt,
-  selectedCat,
-}: {
-  inviteUrl: string;
-  qrSvg: string;
-  eventTypes: { key: string; label: string }[];
-  coverage: VendorCategory[];
-  selectedEt: string | null;
-  selectedCat: VendorCategory | null;
-}) {
-  const qrDataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`;
-  return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-      <div className="shrink-0 text-center">
-        <div
-          className="rounded-2xl border bg-white p-3 [&_svg]:h-[160px] [&_svg]:w-[160px]"
-          style={{ borderColor: 'var(--m-line)' }}
-          dangerouslySetInnerHTML={{ __html: qrSvg }}
-        />
-        <p className="mt-1 text-[11px] text-ink/45">Reusable · scan anytime</p>
-      </div>
-
-      <div className="min-w-0 flex-1 space-y-4">
-        <p className="text-sm text-ink/70">
-          Couples scan to save your shop to their shortlist — same code every
-          time.
-        </p>
-
-        <form method="GET" className="grid gap-2 sm:grid-cols-2" aria-label="Scope the shortlist QR">
-          <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink/70">Event</span>
-            <select name="et" defaultValue={selectedEt ?? ''} className="input-field w-full">
-              <option value="">Any event type</option>
-              {eventTypes.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="block text-xs font-medium text-ink/70">Service</span>
-            <select name="cat" defaultValue={selectedCat ?? ''} className="input-field w-full">
-              <option value="">All my services</option>
-              {coverage.map((c) => (
-                <option key={c} value={c}>
-                  {VENDOR_CATEGORY_LABEL[c] ?? c}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="sm:col-span-2">
-            <SubmitButton className="button-secondary" pendingLabel="Updating…">
-              Update QR
-            </SubmitButton>
-          </div>
-        </form>
-
-        <div className="flex items-center gap-2">
-          <code
-            className="min-w-0 flex-1 truncate rounded-lg border bg-white px-3 py-2 text-xs"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-          >
-            {inviteUrl}
-          </code>
-          <CopyButton value={inviteUrl} label="Copy link" />
-        </div>
-
-        <a
-          href={qrDataUri}
-          download="setnayan-shortlist-qr.svg"
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Download QR
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function LockedBody({
-  eventTypes,
-  services,
-  contracts,
-}: {
-  eventTypes: { value: string; label: string }[];
-  services: { value: string; label: string }[];
-  contracts: { value: string; label: string }[];
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-ink/70">
-        Lock one customer to a plan and downpayment. Scanning freezes the deal
-        onto their event.
-      </p>
-      <LockedQrGenerator eventTypes={eventTypes} services={services} contracts={contracts} />
-      <Link
-        href="/vendor-dashboard/locked-qr"
-        className="inline-block text-sm font-medium text-terracotta hover:underline"
-      >
-        View your issued Locked QRs →
-      </Link>
     </div>
   );
 }

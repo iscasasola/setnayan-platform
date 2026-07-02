@@ -61,6 +61,57 @@ export function classifyDrift(localVersions, ledgerRows) {
   return { orphans, stranded, okCount };
 }
 
+/**
+ * Pull ledger rows out of `supabase db query` output, robustly across
+ * connection modes. `--db-url` prints ONE envelope object ({boundary, rows,
+ * warning}); `--linked` (Management API) prints the boundary and the rows as
+ * SEPARATE top-level JSON values; both are preceded by a CLI upgrade notice.
+ * So: scan for every balanced top-level JSON value (brace/bracket depth,
+ * string-aware), parse each, and collect any `{version,...}` rows from an array
+ * or an object's `.rows`. Format-agnostic → survives single-object, multi-object,
+ * and NDJSON output alike.
+ * @param {string} raw
+ * @returns {{version:string,name:string}[]}
+ */
+export function extractLedgerRows(raw) {
+  const values = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{' || c === '[') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === '}' || c === ']') {
+      if (depth > 0 && --depth === 0 && start >= 0) {
+        try {
+          values.push(JSON.parse(raw.slice(start, i + 1)));
+        } catch {
+          /* not a complete JSON value — skip */
+        }
+        start = -1;
+      }
+    }
+  }
+  const rows = [];
+  for (const v of values) {
+    // An array of rows, an envelope with `.rows`, or a single bare row object.
+    const arr = Array.isArray(v) ? v : Array.isArray(v?.rows) ? v.rows : v?.version != null ? [v] : null;
+    if (arr) {
+      for (const r of arr) {
+        if (r && r.version != null) rows.push({ version: String(r.version), name: String(r.name ?? '') });
+      }
+    }
+  }
+  return rows;
+}
+
 // ── IO helpers (not unit-tested) ──────────────────────────────────────────
 function sh(cmd, opts = {}) {
   return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'], timeout: 30000, ...opts })
@@ -108,10 +159,13 @@ function readLedger(args) {
     console.error(String(e.stderr || e.message || e).split('\n').slice(-3).join('\n'));
     process.exit(2);
   }
-  // The CLI prints an upgrade notice before the JSON; slice from the first "{".
-  const jsonStart = raw.indexOf('{');
-  const parsed = JSON.parse(raw.slice(jsonStart));
-  return (parsed.rows || []).map((r) => ({ version: String(r.version), name: String(r.name ?? '') }));
+  const rows = extractLedgerRows(raw);
+  if (rows.length === 0) {
+    console.error('✗ Read the ledger but parsed 0 rows — unexpected CLI output shape. Raw tail:');
+    console.error(raw.split('\n').slice(-5).join('\n'));
+    process.exit(2);
+  }
+  return rows;
 }
 
 /** Local migration versions — origin/main (default) or the working tree. */

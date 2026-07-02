@@ -21,6 +21,7 @@ import { readdirSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractLedgerRows } from './migration-doctor.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION_RE = /^(\d{14})_.+\.sql$/;
@@ -62,8 +63,7 @@ try {
       JSON.stringify('select version from supabase_migrations.schema_migrations'),
     { stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000, env: { ...process.env, DO_NOT_TRACK: '1' } },
   ).toString();
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{')));
-  ledgerVersions = new Set((parsed.rows || []).map((r) => String(r.version)));
+  ledgerVersions = new Set(extractLedgerRows(raw).map((r) => r.version));
 } catch (e) {
   console.error('✗ Could not read the prod ledger to verify safety. Aborting.');
   console.error(String(e.stderr || e.message || e).split('\n').slice(-2).join('\n'));

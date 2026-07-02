@@ -1,5 +1,6 @@
 import { Radar } from 'lucide-react';
 import type { DemandRadar } from '@/lib/demand-radar';
+import { CountUp } from './count-up';
 
 /**
  * Inline demand preview for My Performance — the top "looks" couples in the
@@ -67,7 +68,7 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
                           style={{ background: 'color-mix(in srgb, var(--m-ink) 5%, transparent)' }}
                         >
                           <span
-                            className="block h-full rounded-full"
+                            className="perf-bar-grow block h-full rounded-full"
                             style={{ width: `${widthPct}%`, background: 'var(--m-orange)' }}
                           />
                         </span>
@@ -75,7 +76,7 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
                           className="w-8 shrink-0 text-right font-mono text-xs tabular-nums"
                           style={{ color: 'var(--m-slate)' }}
                         >
-                          {l.total}
+                          <CountUp value={l.total} />
                         </span>
                       </li>
                     );
@@ -99,7 +100,7 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
                       <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
                         <div className="flex w-full flex-1 items-end">
                           <div
-                            className="w-full rounded-t-sm"
+                            className="perf-bar-grow-y w-full rounded-t-sm"
                             style={{ height: `${pct}%`, background: 'var(--m-orange-3)' }}
                             title={`${m.label}: ${m.total} signal`}
                           />

@@ -1,6 +1,7 @@
 import { CheckCircle2, Banknote, CalendarClock, Trophy } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
 import { formatDuration, type ConversionAnalytics } from '@/lib/vendor-conversion-analytics';
+import { CountUp } from './count-up';
 
 /**
  * "Conversion & deals" — My Performance · Phase B family 2 (Pro tier). Four
@@ -115,7 +116,7 @@ export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
           {winItems.map((w) => (
             <div key={w.label}>
               <p className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
-                {w.value}
+                <CountUp value={w.value} />
               </p>
               <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 {w.label}

@@ -3,6 +3,7 @@ import {
   formatReplyLatency,
   type ReputationAnalytics,
 } from '@/lib/vendor-reputation-analytics';
+import { CountUp } from './count-up';
 
 /**
  * "Reputation" — My Performance · Phase B family 3 (Pro tier). Own-business
@@ -101,12 +102,12 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
                   </span>
                   <div className="h-3 flex-1 overflow-hidden rounded-sm" style={{ background: 'var(--m-paper)' }}>
                     <div
-                      className="h-full rounded-sm"
+                      className="perf-bar-grow h-full rounded-sm"
                       style={{ width: `${pct}%`, background: 'var(--m-orange-2)', minWidth: d.n > 0 ? 3 : 0 }}
                     />
                   </div>
                   <span className="w-8 text-right text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
-                    {d.n}
+                    <CountUp value={d.n} />
                   </span>
                 </div>
               );
@@ -130,7 +131,7 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
                   <div key={p.month} className="flex flex-1 flex-col items-center gap-1">
                     <div className="flex w-full flex-1 items-end">
                       <div
-                        className="w-full rounded-t-sm"
+                        className="perf-bar-grow-y w-full rounded-t-sm"
                         style={{
                           height: `${h}%`,
                           minHeight: p.count > 0 ? 2 : 0,

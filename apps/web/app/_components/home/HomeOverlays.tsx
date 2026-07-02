@@ -38,7 +38,7 @@ import { signInWithPassword } from '@/app/login/actions';
 import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 
-export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | null;
+export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | 'setnayan-ai' | null;
 
 /**
  * Shell-gated OAuth visibility. `show` mirrors /login's `showOAuth` (provider
@@ -532,6 +532,81 @@ function SignInOverlay({
   );
 }
 
+/**
+ * SetnayanAiOverlay — the glass-nav pop-up for Setnayan AI (owner 2026-07-02).
+ * Relief-forward, SHIPPED-ONLY per the GTM content framework
+ * (Setnayan_AI_GTM_Content_2026-07-02.md §4): does-the-legwork / stands-guard /
+ * reassures — no personalization ("learns your taste") or cohort ("couples like
+ * you") teasers (those are dormant pending privacy sign-off). Price reads live
+ * from the catalog via `pricing` (₱799/28d, ₱499 first). Cadence stated so
+ * turning it on never reads as inviting spam.
+ */
+function SetnayanAiOverlay({
+  current,
+  onClose,
+  pricing,
+}: {
+  current: OverlayId;
+  onClose: () => void;
+  pricing: PricingData;
+}) {
+  const jobs: Array<[string, string]> = [
+    ['Does the legwork', 'Finds and ranks your best-fit verified vendors, chases the quiet ones, and lines up their quotes.'],
+    ['Stands guard', 'Flags a deposit due, a price change, a double-booking, or a deadline before it slips — while there’s still time.'],
+    ['Reassures you', '“Great pick — 47 reviews, 4.8★,” with the evidence. So you can stop second-guessing.'],
+  ];
+  return (
+    <OverlayShell id="setnayan-ai" current={current} onClose={onClose} label="Setnayan AI">
+      <div className="hr-ov-eyebrow">Setnayan AI · your planning brain</div>
+      <h2 className="hr-ov-title">Stop remembering to check on everything.</h2>
+      <p style={{ marginTop: 10, maxWidth: 520, fontSize: 15, lineHeight: 1.55, color: '#2a2925' }}>
+        It watches the vendors you’re eyeing and the ones you’ve booked — and taps you only when something needs you.
+        Most weeks, it stays quiet.
+      </p>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 16, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
+        <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
+        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 20 }}>
+          {pricing.aiIntroPrice} your first 28 days
+        </span>
+      </div>
+      <p style={{ fontSize: 13, color: '#6c675e', marginTop: 3 }}>
+        Covers all your events · 0% vendor commission · every planning tool stays free.
+      </p>
+
+      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {jobs.map(([t, d]) => (
+          <div key={t} style={{ display: 'flex', gap: 11 }}>
+            <span aria-hidden="true" style={{ flex: '0 0 auto', width: 7, height: 7, marginTop: 7, borderRadius: '50%', background: '#a67c3d' }} />
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 15, color: '#2a2925' }}>{t}</div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#57534b' }}>{d}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ marginTop: 16, fontSize: 13, lineHeight: 1.5, color: '#6c675e' }}>
+        One calm weekly digest — loud only when it can’t wait. No spam, no fake countdowns.
+      </p>
+
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+        <Link
+          href="/onboarding/wedding?from=setnayan-ai"
+          onClick={onClose}
+          style={{ background: '#211f1b', color: '#f4f1ea', fontSize: 14, fontWeight: 500, padding: '11px 20px', borderRadius: 22, textDecoration: 'none' }}
+        >
+          Turn on Setnayan AI
+        </Link>
+        <Link href="/setnayan-ai" onClick={onClose} style={{ fontSize: 14, color: '#57534b', textDecoration: 'none' }}>
+          See the full story →
+        </Link>
+      </div>
+    </OverlayShell>
+  );
+}
+
 export function HomeOverlays({
   current,
   onClose,
@@ -559,6 +634,7 @@ export function HomeOverlays({
   return (
     <>
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
+      <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} />
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
       <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />

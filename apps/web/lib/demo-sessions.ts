@@ -177,6 +177,36 @@ export async function incrementDemoShot(token: string): Promise<DemoShotResult> 
 }
 
 /**
+ * Atomically claims a camera slot for the Live Studio (panood) demo. Unlike
+ * Papic (two QRs, one per side), the Live Studio demo shows ONE QR that both
+ * phones scan (owner spec, DECISION_LOG 2026-07-03) — so the side isn't
+ * decided by which token was scanned but by CLAIM ORDER: first phone in is
+ * camera 1 ('a'), second is camera 2 ('b'), a third gets null (demo full).
+ * Reuses the joined_a/joined_b columns as the claim record; each conditional
+ * UPDATE is atomic (Postgres row locking serializes two racing phones — the
+ * loser's WHERE re-evaluates to false and falls through to the next slot).
+ */
+export async function claimDemoCamSlot(sessionId: string): Promise<DemoRole | null> {
+  try {
+    const admin = createAdminClient();
+    for (const role of ['a', 'b'] as const) {
+      const col = role === 'a' ? 'joined_a' : 'joined_b';
+      const { data } = await admin
+        .from('demo_sessions')
+        .update({ [col]: true })
+        .eq('id', sessionId)
+        .eq(col, false)
+        .gt('expires_at', new Date().toISOString())
+        .select('id');
+      if (data && data.length > 0) return role;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Best-effort hard-delete of rows past their grace window. Called via
  * `after()` from the pages that mint/resolve sessions (no polling cron, per
  * project convention) — so cleanup piggybacks on real traffic instead of a

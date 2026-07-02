@@ -39,8 +39,17 @@ import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
+import { PanoodDemoOverlay } from './panood-demo-overlay';
 
-export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | 'setnayan-ai' | 'papic-demo' | null;
+export type OverlayId =
+  | 'prices'
+  | 'download'
+  | 'vendors'
+  | 'signin'
+  | 'setnayan-ai'
+  | 'papic-demo'
+  | 'panood-demo'
+  | null;
 
 /**
  * Shell-gated OAuth visibility. `show` mirrors /login's `showOAuth` (provider
@@ -758,6 +767,7 @@ export function HomeOverlays({
       <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
       <PapicDemoOverlay current={current} onClose={onClose} />
+      <PanoodDemoOverlay current={current} onClose={onClose} />
     </>
   );
 }

@@ -1,25 +1,10 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  ChevronDown,
-  Globe,
-  Image as ImageIcon,
-  Link as LinkIcon,
-  Lock,
-  Newspaper,
-  Palette,
-  Pencil,
-  Pin,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowUpRight, Check, Globe, Lock, Sparkles } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
   MICROSITE_ABOUT_MAX,
@@ -30,30 +15,22 @@ import {
   isSectionVisible,
 } from '@/lib/vendor-microsite';
 
-import { Collapsible } from '../../_components/collapsible';
-import { updateVendorWebsiteField, type FieldSaveResult } from '../../actions';
-
-type RowKey =
-  | 'about'
-  | 'featured'
-  | 'sections'
-  | 'slug'
-  | 'hero'
-  | 'accent'
-  | 'pinned';
+import { updateVendorWebsiteField } from '../../actions';
 
 export type MicrositePortfolioPhoto = { key: string; url: string };
 export type MicrositeReviewOption = { id: string; label: string };
 
 /**
- * My Shop → Website. The passive "Live" card reworked into an inline content
- * editor (2026-07-02, owner). FREE controls (About · Featured services ·
- * Sections) edit in place and save without leaving the panel — mirroring the
- * Profile panel's one-open-at-a-time discipline. The PRO controls (custom
- * address · hero photo · accent · featured editorials · pinned review) render
- * as an always-visible locked list so Free vendors see the ceiling — the
- * "paywall + free tastes" pattern. Every free control is an OPTIONAL override:
- * an un-curated page still renders its auto-composed baseline.
+ * My Shop → Website. Direct, on-surface editor (2026-07-02 redesign, owner:
+ * "actual place for the photo, tap to replace · actual editable text box").
+ *
+ * Every control IS the surface — the text box, the photo grid, the toggles, the
+ * chips, the swatches are all live in place. Instant controls save optimistically
+ * on change (revert + toast on error); the two text fields (About, address) save
+ * with an inline button that appears when they're dirty. Flat + hairline-divided
+ * (no boxed cards). PRO controls are real for Pro/Enterprise; Free sees a quiet
+ * locked list + Upgrade — "paywall + free tastes". Curation is OPTIONAL: an
+ * un-touched page still renders its auto-composed baseline.
  */
 export function WebsiteEditor({
   publicPath,
@@ -92,172 +69,262 @@ export function WebsiteEditor({
   reviews: MicrositeReviewOption[];
   pinnedReviewId: string | null;
 }) {
-  const [open, setOpen] = useState<RowKey | null>(null);
-  const toggle = (k: RowKey) => setOpen((cur) => (cur === k ? null : k));
-  const close = () => setOpen(null);
-
+  const toast = useToast();
+  const [, startTransition] = useTransition();
   const label = (leaf: string) => serviceLabels?.[leaf] ?? titleCase(leaf);
 
-  const hiddenCount = MICROSITE_TOGGLEABLE_SECTIONS.filter(
-    (s) => !isSectionVisible(sections, s.key),
-  ).length;
+  /** Fire one field save. Optimistic callers pass onError to revert. */
+  function dispatch(
+    field: string,
+    entries: [string, string][],
+    opts?: { onError?: () => void; successToast?: string },
+  ) {
+    const fd = new FormData();
+    fd.set('field', field);
+    for (const [k, v] of entries) fd.append(k, v);
+    startTransition(async () => {
+      const res = await updateVendorWebsiteField(null, fd);
+      if (!res.ok) {
+        toast.error(res.error);
+        opts?.onError?.();
+      } else if (opts?.successToast) {
+        toast.success(opts.successToast);
+      }
+    });
+  }
+
+  // ── About (text + inline Save) ───────────────────────────────────────────
+  const [aboutVal, setAboutVal] = useState(about ?? '');
+  const aboutDirty = aboutVal.trim() !== (about ?? '').trim();
+
+  // ── Featured services (chips · instant) ──────────────────────────────────
+  const [picked, setPicked] = useState<string[]>(
+    featuredServiceIds.filter((s) => services.includes(s)),
+  );
+  function toggleService(leaf: string) {
+    const was = picked;
+    const next = picked.includes(leaf)
+      ? picked.filter((x) => x !== leaf)
+      : picked.length >= MICROSITE_FEATURED_SERVICES_MAX
+        ? picked
+        : [...picked, leaf];
+    if (next === was) return;
+    setPicked(next);
+    dispatch(
+      'microsite_featured_services',
+      next.map((k) => ['microsite_featured_services', k]),
+      { onError: () => setPicked(was) },
+    );
+  }
+
+  // ── Sections (toggles · instant) ─────────────────────────────────────────
+  const [sec, setSec] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      MICROSITE_TOGGLEABLE_SECTIONS.map((s) => [s.key, isSectionVisible(sections, s.key)]),
+    ),
+  );
+  function toggleSection(key: string) {
+    const was = sec;
+    const next = { ...sec, [key]: !sec[key] };
+    setSec(next);
+    dispatch(
+      'microsite_sections',
+      MICROSITE_TOGGLEABLE_SECTIONS.filter((s) => next[s.key]).map((s) => [
+        `section_${s.key}`,
+        'on',
+      ]),
+      { onError: () => setSec(was) },
+    );
+  }
+
+  // ── Pro: custom address (text + inline Save) ─────────────────────────────
+  const [slugVal, setSlugVal] = useState(slug ?? '');
+  const slugDirty = slugVal.trim() !== (slug ?? '').trim();
+
+  // ── Pro: hero photo (grid · instant) ─────────────────────────────────────
+  const [hero, setHero] = useState<string>(
+    heroPhotoKey && portfolioPhotos.some((p) => p.key === heroPhotoKey) ? heroPhotoKey : '',
+  );
+  function pickHero(key: string) {
+    const was = hero;
+    setHero(key);
+    dispatch('microsite_hero_photo', [['microsite_hero_photo', key]], {
+      onError: () => setHero(was),
+    });
+  }
+
+  // ── Pro: accent (swatches · instant) ─────────────────────────────────────
+  const [acc, setAcc] = useState<string>(
+    accent && MICROSITE_ACCENTS.some((a) => a.key === accent)
+      ? accent
+      : MICROSITE_DEFAULT_ACCENT_KEY,
+  );
+  function pickAccent(key: string) {
+    const was = acc;
+    setAcc(key);
+    dispatch('microsite_accent', [['microsite_accent', key]], {
+      onError: () => setAcc(was),
+    });
+  }
+
+  // ── Pro: pinned review (list · instant) ──────────────────────────────────
+  const [pin, setPin] = useState<string>(
+    pinnedReviewId && reviews.some((r) => r.id === pinnedReviewId) ? pinnedReviewId : '',
+  );
+  function pickPin(id: string) {
+    const was = pin;
+    setPin(id);
+    dispatch('microsite_pinned_review', [['microsite_pinned_review', id]], {
+      onError: () => setPin(was),
+    });
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* ── Status + address ─────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-          style={
-            websiteLive
-              ? {
-                  background:
-                    'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
-                  color: 'var(--m-sage-deep)',
-                }
-              : { background: 'var(--m-paper)', color: 'var(--m-slate-3)' }
-          }
-        >
-          {websiteLive ? 'Live' : 'Draft'}
-        </span>
-        <span className="text-xs text-ink/55">
-          Curate what couples see — your page fills in the rest from your profile.
-        </span>
-      </div>
-
-      {publicPath ? (
-        <div className="flex items-center gap-2">
-          <code
-            className="min-w-0 flex-1 truncate rounded-lg border bg-white px-3 py-2 text-xs"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-          >
-            {displayHost}
-            {publicPath}
-          </code>
-          <CopyButton value={`${displayHost}${publicPath}`} label="Copy link" />
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+          <span
+            aria-hidden
+            className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+            style={{ background: websiteLive ? 'var(--m-sage-deep)' : 'var(--m-slate-4)' }}
+          />
+          {websiteLive ? 'Live' : 'Draft'} · curate what couples see — the rest fills
+          in from your profile.
+        </p>
+        {publicPath ? (
           <a
             href={publicPath}
             target="_blank"
             rel="noreferrer"
-            className="button-secondary inline-flex items-center gap-1.5 whitespace-nowrap"
+            className="inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
           >
-            <Globe className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            View page
+            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+          </a>
+        ) : null}
+      </div>
+
+      {publicPath ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-mono text-xs" style={{ color: 'var(--m-slate)' }}>
+            {displayHost}
+            {publicPath}
+          </span>
+          <CopyButton value={`${displayHost}${publicPath}`} label="Copy" />
+          <a
+            href={publicPath}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
+          >
+            <Globe className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Open live
           </a>
         </div>
       ) : (
-        <p
-          className="rounded-lg p-3 text-xs"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-slate)' }}
-        >
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
           Your page goes live once you set an address in{' '}
-          <Link
-            href="/vendor-dashboard/profile"
-            className="font-medium text-terracotta hover:underline"
-          >
+          <Link href="/vendor-dashboard/profile" className="font-medium text-terracotta hover:underline">
             Profile
           </Link>
-          . You can set everything below now — it applies the moment your page is
-          live.
+          . Everything below applies the moment it&rsquo;s live.
         </p>
       )}
 
-      {/* ── FREE controls ────────────────────────────────────────────────── */}
-      <ul className="space-y-2">
-        <WebsiteEditRow
-          field="microsite_about"
-          label="About"
-          preview={about ? about : 'Add a short intro'}
-          isOpen={open === 'about'}
-          onToggle={() => toggle('about')}
-          onSaved={close}
-        >
-          <label htmlFor="microsite_about" className="sr-only">
-            About
-          </label>
-          <textarea
-            id="microsite_about"
-            name="microsite_about"
-            maxLength={MICROSITE_ABOUT_MAX}
-            defaultValue={about ?? ''}
-            rows={4}
-            placeholder="Two or three sentences on who you are and the couples you shoot for."
-            className="input-field w-full"
-          />
-          <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Shown under your name on your page. Up to {MICROSITE_ABOUT_MAX}{' '}
-            characters.
+      {/* ── About ────────────────────────────────────────────────────────── */}
+      <Row title="About">
+        <textarea
+          value={aboutVal}
+          onChange={(e) => setAboutVal(e.target.value)}
+          maxLength={MICROSITE_ABOUT_MAX}
+          rows={3}
+          placeholder="Two or three sentences on who you are and the couples you shoot for."
+          className="input-field w-full"
+          aria-label="About"
+        />
+        <div className="mt-1.5 flex items-center justify-between">
+          <span className="text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
+            {aboutVal.length}/{MICROSITE_ABOUT_MAX}
+          </span>
+          <button
+            type="button"
+            disabled={!aboutDirty}
+            onClick={() =>
+              dispatch('microsite_about', [['microsite_about', aboutVal]], {
+                successToast: 'About saved.',
+              })
+            }
+            className="rounded-md px-3 py-1 text-xs font-medium transition-opacity disabled:opacity-40"
+            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+          >
+            Save
+          </button>
+        </div>
+      </Row>
+
+      {/* ── Featured services ────────────────────────────────────────────── */}
+      <Row title="Featured services" hint={`${picked.length}/${MICROSITE_FEATURED_SERVICES_MAX} shown first`}>
+        {services.length === 0 ? (
+          <p className="text-sm text-ink/60">
+            Add services in your profile first — then tap to highlight up to{' '}
+            {MICROSITE_FEATURED_SERVICES_MAX}.
           </p>
-        </WebsiteEditRow>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {services.map((leaf) => {
+              const on = picked.includes(leaf);
+              const disabled = !on && picked.length >= MICROSITE_FEATURED_SERVICES_MAX;
+              return (
+                <button
+                  key={leaf}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={disabled}
+                  onClick={() => toggleService(leaf)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-40"
+                  style={{
+                    borderColor: on ? 'var(--m-orange)' : 'var(--m-line)',
+                    background: on ? 'var(--m-orange-4)' : 'transparent',
+                    color: on ? 'var(--m-orange-2)' : 'var(--m-slate)',
+                  }}
+                >
+                  {on ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> : null}
+                  {label(leaf)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Row>
 
-        <WebsiteEditRow
-          field="microsite_featured_services"
-          label="Featured services"
-          preview={
-            featuredServiceIds.length > 0
-              ? `${featuredServiceIds.length} highlighted`
-              : `Highlight up to ${MICROSITE_FEATURED_SERVICES_MAX}`
-          }
-          isOpen={open === 'featured'}
-          onToggle={() => toggle('featured')}
-          onSaved={close}
-        >
-          {services.length === 0 ? (
-            <p className="text-sm text-ink/60">
-              Add services in your profile first — then pick which to headline.
-            </p>
-          ) : (
-            <FeaturedServicesField
-              services={services}
-              initial={featuredServiceIds}
-              label={label}
-            />
-          )}
-        </WebsiteEditRow>
-
-        <WebsiteEditRow
-          field="microsite_sections"
-          label="Sections"
-          preview={hiddenCount > 0 ? `${hiddenCount} hidden` : 'All shown'}
-          isOpen={open === 'sections'}
-          onToggle={() => toggle('sections')}
-          onSaved={close}
-        >
-          <fieldset className="space-y-1">
-            <legend className="mb-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Turn sections off to hide them from your page.
-            </legend>
-            {MICROSITE_TOGGLEABLE_SECTIONS.map((s) => (
-              <label
-                key={s.key}
-                className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[color:var(--m-orange-4)]"
-              >
-                {s.label}
-                <input
-                  type="checkbox"
-                  name={`section_${s.key}`}
-                  defaultChecked={isSectionVisible(sections, s.key)}
-                  className="h-4 w-4 accent-[color:var(--m-orange)]"
-                />
-              </label>
-            ))}
-            <p className="pt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Reviews always show — they&rsquo;re what couples trust most.
-            </p>
-          </fieldset>
-        </WebsiteEditRow>
-      </ul>
+      {/* ── Sections ─────────────────────────────────────────────────────── */}
+      <Row title="Sections">
+        <ul>
+          {MICROSITE_TOGGLEABLE_SECTIONS.map((s) => (
+            <li key={s.key} className="flex items-center justify-between py-1.5 text-sm">
+              <span style={{ color: 'var(--m-ink)' }}>{s.label}</span>
+              <Switch
+                on={!!sec[s.key]}
+                onClick={() => toggleSection(s.key)}
+                label={`Show ${s.label}`}
+              />
+            </li>
+          ))}
+        </ul>
+        <p className="pt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          Reviews always show — they&rsquo;re what couples trust most.
+        </p>
+      </Row>
 
       {/* ── Awards (read-only) ───────────────────────────────────────────── */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-ink/70">Awards and badges</p>
+      <Row title="Awards and badges">
         <div className="flex flex-wrap items-center gap-2">
           {isVerified ? (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
               style={{
-                background:
-                  'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
+                background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
                 color: 'var(--m-sage-deep)',
               }}
             >
@@ -277,14 +344,14 @@ export function WebsiteEditor({
             Badges you earn show on your page automatically.
           </span>
         </div>
-      </div>
+      </Row>
 
-      {/* ── PRO controls — editable for Pro, locked teaser for Free ───────── */}
-      <div
-        className="space-y-3 rounded-xl border p-4"
+      {/* ── Pro customization ────────────────────────────────────────────── */}
+      <section
+        className="rounded-xl border p-4"
         style={{
-          borderColor: 'color-mix(in srgb, var(--m-plum, #6b4d8a) 30%, transparent)',
-          background: 'color-mix(in srgb, var(--m-plum, #6b4d8a) 6%, transparent)',
+          borderColor: 'color-mix(in srgb, var(--m-plum, #6b4d8a) 25%, transparent)',
+          background: 'color-mix(in srgb, var(--m-plum, #6b4d8a) 5%, transparent)',
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -310,488 +377,281 @@ export function WebsiteEditor({
               style={{ color: 'var(--m-plum, #6b4d8a)' }}
             >
               Upgrade
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             </Link>
           )}
         </div>
 
         {isPro ? (
-          <ul className="space-y-2">
-            <WebsiteEditRow
-              field="business_slug"
-              label="Custom address"
-              preview={slug ? `${displayHost}/v/${slug}` : 'Set your web address'}
-              isOpen={open === 'slug'}
-              onToggle={() => toggle('slug')}
-              onSaved={close}
-            >
-              <SlugField slug={slug} displayHost={displayHost} />
-            </WebsiteEditRow>
+          <div className="mt-3 space-y-5">
+            {/* Custom address */}
+            <Row title="Custom address" tight>
+              <div
+                className="flex items-center rounded-lg border bg-white pl-2"
+                style={{ borderColor: 'var(--m-line)' }}
+              >
+                <span className="shrink-0 text-xs text-ink/45">{displayHost}/v/</span>
+                <input
+                  value={slugVal}
+                  onChange={(e) => setSlugVal(e.target.value)}
+                  placeholder="your-studio"
+                  pattern="[a-z0-9-]{3,32}"
+                  aria-label="Custom address"
+                  className="w-full border-0 bg-transparent py-2 pr-2 text-sm text-ink focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={!slugDirty}
+                  onClick={() =>
+                    dispatch('business_slug', [['business_slug', slugVal]], {
+                      successToast: 'Address saved.',
+                    })
+                  }
+                  className="my-1 mr-1 shrink-0 rounded-md px-3 py-1 text-xs font-medium transition-opacity disabled:opacity-40"
+                  style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+                >
+                  Save
+                </button>
+              </div>
+              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Lowercase letters, numbers, and hyphens (3–32).
+              </p>
+            </Row>
 
-            <WebsiteEditRow
-              field="microsite_hero_photo"
-              label="Hero photo"
-              preview={heroPhotoKey ? 'Chosen photo' : 'Automatic (first photo)'}
-              isOpen={open === 'hero'}
-              onToggle={() => toggle('hero')}
-              onSaved={close}
-            >
-              <HeroPhotoField photos={portfolioPhotos} initial={heroPhotoKey} />
-            </WebsiteEditRow>
+            {/* Hero photo */}
+            <Row title="Hero photo" hint="tap to choose" tight>
+              {portfolioPhotos.length === 0 ? (
+                <p className="text-sm text-ink/60">
+                  Add portfolio photos in your profile — then tap one to lead your page.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  <PickTile selected={hero === ''} onClick={() => pickHero('')}>
+                    <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                      Automatic
+                    </span>
+                  </PickTile>
+                  {portfolioPhotos.map((p) => (
+                    <PickTile
+                      key={p.key}
+                      selected={hero === p.key}
+                      onClick={() => pickHero(p.key)}
+                      photo={p.url}
+                    />
+                  ))}
+                </div>
+              )}
+            </Row>
 
-            <WebsiteEditRow
-              field="microsite_accent"
-              label="Accent theme"
-              preview={accentLabel(accent)}
-              isOpen={open === 'accent'}
-              onToggle={() => toggle('accent')}
-              onSaved={close}
-            >
-              <AccentField initial={accent} />
-            </WebsiteEditRow>
+            {/* Accent */}
+            <Row title="Accent theme" tight>
+              <div className="flex flex-wrap gap-2">
+                {MICROSITE_ACCENTS.map((a) => {
+                  const on = acc === a.key;
+                  return (
+                    <button
+                      key={a.key}
+                      type="button"
+                      aria-pressed={on}
+                      title={a.label}
+                      onClick={() => pickAccent(a.key)}
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                      style={{
+                        borderColor: on ? 'var(--m-ink)' : 'var(--m-line)',
+                        background: on ? 'var(--m-paper)' : 'transparent',
+                      }}
+                    >
+                      <span
+                        aria-hidden
+                        className="h-4 w-4 rounded-full"
+                        style={{ background: a.swatch }}
+                      />
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Row>
 
-            <WebsiteEditRow
-              field="microsite_pinned_review"
-              label="Pinned review"
-              preview={pinnedReviewLabel(reviews, pinnedReviewId)}
-              isOpen={open === 'pinned'}
-              onToggle={() => toggle('pinned')}
-              onSaved={close}
-            >
-              <PinnedReviewField reviews={reviews} initial={pinnedReviewId} />
-            </WebsiteEditRow>
+            {/* Pinned review */}
+            <Row title="Pinned review" tight>
+              {reviews.length === 0 ? (
+                <p className="text-sm text-ink/60">
+                  No reviews yet — once couples review you, tap one to feature up top.
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  <PinRow selected={pin === ''} onClick={() => pickPin('')}>
+                    None (newest first)
+                  </PinRow>
+                  {reviews.map((r) => (
+                    <PinRow key={r.id} selected={pin === r.id} onClick={() => pickPin(r.id)}>
+                      {r.label}
+                    </PinRow>
+                  ))}
+                </div>
+              )}
+            </Row>
 
-            <li className="list-none pt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Featured editorials — appears here once a couple you worked with
-              publishes their story.
-            </li>
-          </ul>
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Featured editorials — appears here once a couple you worked with publishes
+              their story.
+            </p>
+          </div>
         ) : (
-          <ul className="space-y-1.5">
-            <ProRow icon={<LinkIcon className="h-4 w-4" strokeWidth={1.75} />} label="Custom address" hint="/v/your-name" />
-            <ProRow icon={<ImageIcon className="h-4 w-4" strokeWidth={1.75} />} label="Hero photo" hint="Choose or upload" />
-            <ProRow icon={<Palette className="h-4 w-4" strokeWidth={1.75} />} label="Accent theme" hint="Preset palettes" />
-            <ProRow icon={<Newspaper className="h-4 w-4" strokeWidth={1.75} />} label="Featured editorials" hint="Pick 2" />
-            <ProRow icon={<Pin className="h-4 w-4" strokeWidth={1.75} />} label="Pinned review" hint="Feature one" />
+          <ul className="mt-3 space-y-2">
+            {['Custom address', 'Hero photo', 'Accent theme', 'Pinned review', 'Featured editorials'].map(
+              (t) => (
+                <li
+                  key={t}
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: 'var(--m-slate-3)' }}
+                >
+                  <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                  {t}
+                </li>
+              ),
+            )}
           </ul>
         )}
-      </div>
-
-      {publicPath ? (
-        <a
-          href={publicPath}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          View your page
-          <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        </a>
-      ) : null}
+      </section>
     </div>
   );
 }
 
-/* ─── One inline-editable free row ──────────────────────────────────────── */
-function WebsiteEditRow({
-  field,
-  label,
-  preview,
-  isOpen,
-  onToggle,
-  onSaved,
+/* ─── Flat, hairline-divided section ────────────────────────────────────── */
+function Row({
+  title,
+  hint,
+  tight,
   children,
 }: {
-  field: string;
-  label: string;
-  preview: string | null;
-  isOpen: boolean;
-  onToggle: () => void;
-  onSaved: () => void;
+  title: string;
+  hint?: string;
+  tight?: boolean;
   children: React.ReactNode;
 }) {
-  const toast = useToast();
-  const [state, formAction] = useActionState<FieldSaveResult | null, FormData>(
-    updateVendorWebsiteField,
-    null,
-  );
-  const handledRef = useRef<FieldSaveResult | null>(null);
-
-  useEffect(() => {
-    if (!state || state === handledRef.current) return;
-    handledRef.current = state;
-    if (state.ok) {
-      toast.success(`${label} saved.`);
-      onSaved();
-    } else {
-      toast.error(state.error);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
-
   return (
-    <li
-      className="overflow-hidden rounded-lg border bg-white"
-      style={{ borderColor: isOpen ? 'var(--m-orange-3)' : 'var(--m-line)' }}
+    <section
+      className={tight ? '' : 'border-t pt-4'}
+      style={tight ? undefined : { borderColor: 'var(--m-line)' }}
     >
-      <div className="flex items-center gap-3 p-3">
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm text-ink">{label}</span>
-          {preview ? (
-            <span
-              className="block truncate text-xs"
-              style={{ color: 'var(--m-slate-3)' }}
-            >
-              {preview}
-            </span>
-          ) : null}
-        </span>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={isOpen}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-[color:var(--m-orange-4)]"
-        >
-          {isOpen ? (
-            <>
-              Close
-              <ChevronDown
-                className="h-3.5 w-3.5 rotate-180"
-                strokeWidth={2}
-                aria-hidden
-              />
-            </>
-          ) : (
-            <>
-              <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Edit
-            </>
-          )}
-        </button>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+          {title}
+        </h3>
+        {hint ? (
+          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            {hint}
+          </span>
+        ) : null}
       </div>
-
-      <Collapsible open={isOpen}>
-        <div
-          className="border-t px-3 pb-3 pt-3"
-          style={{ borderColor: 'var(--m-line)' }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              onToggle();
-            }
-          }}
-        >
-          <form action={formAction} className="space-y-3">
-            <input type="hidden" name="field" value={field} />
-            {children}
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onToggle}
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-ink/60 hover:bg-ink/5"
-              >
-                Cancel
-              </button>
-              <SubmitButton
-                className="button-primary px-4 py-1.5 text-sm"
-                pendingLabel="Saving…"
-              >
-                Save
-              </SubmitButton>
-            </div>
-          </form>
-        </div>
-      </Collapsible>
-    </li>
+      {children}
+    </section>
   );
 }
 
-/* ─── Featured-services picker (client, caps selection at the max) ───────── */
-function FeaturedServicesField({
-  services,
-  initial,
+/* ─── Toggle switch ─────────────────────────────────────────────────────── */
+function Switch({
+  on,
+  onClick,
   label,
 }: {
-  services: string[];
-  initial: string[];
-  label: (leaf: string) => string;
-}) {
-  const [picked, setPicked] = useState<string[]>(
-    initial.filter((s) => services.includes(s)),
-  );
-  const atMax = picked.length >= MICROSITE_FEATURED_SERVICES_MAX;
-
-  const togglePick = (leaf: string, checked: boolean) => {
-    setPicked((cur) => {
-      if (checked) {
-        if (cur.includes(leaf) || cur.length >= MICROSITE_FEATURED_SERVICES_MAX)
-          return cur;
-        return [...cur, leaf];
-      }
-      return cur.filter((s) => s !== leaf);
-    });
-  };
-
-  return (
-    <fieldset className="space-y-1">
-      <legend className="mb-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Pick up to {MICROSITE_FEATURED_SERVICES_MAX} to show first on your page.
-      </legend>
-      <div className="max-h-[40vh] space-y-0.5 overflow-y-auto">
-        {services.map((leaf) => {
-          const isPicked = picked.includes(leaf);
-          const disabled = !isPicked && atMax;
-          return (
-            <label
-              key={leaf}
-              className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[color:var(--m-orange-4)]"
-              style={disabled ? { opacity: 0.5 } : undefined}
-            >
-              <span className="min-w-0 truncate">{label(leaf)}</span>
-              <input
-                type="checkbox"
-                name="microsite_featured_services"
-                value={leaf}
-                checked={isPicked}
-                disabled={disabled}
-                onChange={(e) => togglePick(leaf, e.target.checked)}
-                className="h-4 w-4 accent-[color:var(--m-orange)]"
-              />
-            </label>
-          );
-        })}
-      </div>
-      <p className="pt-1 text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
-        {picked.length} of {MICROSITE_FEATURED_SERVICES_MAX} selected
-      </p>
-    </fieldset>
-  );
-}
-
-/* ─── Pro: custom address (slug) ────────────────────────────────────────── */
-function SlugField({
-  slug,
-  displayHost,
-}: {
-  slug: string | null;
-  displayHost: string;
-}) {
-  return (
-    <fieldset className="space-y-1.5">
-      <label
-        htmlFor="business_slug"
-        className="text-xs"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        Your web address — lowercase letters, numbers, and hyphens (3–32).
-      </label>
-      <div
-        className="flex items-center rounded-lg border bg-white pl-2"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
-        <span className="shrink-0 text-xs text-ink/45">{displayHost}/v/</span>
-        <input
-          id="business_slug"
-          name="business_slug"
-          defaultValue={slug ?? ''}
-          placeholder="your-studio"
-          pattern="[a-z0-9-]{3,32}"
-          className="w-full border-0 bg-transparent py-2 pr-2 text-sm text-ink focus:outline-none"
-        />
-      </div>
-    </fieldset>
-  );
-}
-
-/* ─── Pro: hero photo (pick from portfolio) ─────────────────────────────── */
-function HeroPhotoField({
-  photos,
-  initial,
-}: {
-  photos: MicrositePortfolioPhoto[];
-  initial: string | null;
-}) {
-  const [picked, setPicked] = useState<string>(
-    initial && photos.some((p) => p.key === initial) ? initial : '',
-  );
-
-  if (photos.length === 0) {
-    return (
-      <p className="text-sm text-ink/60">
-        Add portfolio photos in your profile first — then choose one to lead your
-        page here.
-      </p>
-    );
-  }
-
-  return (
-    <fieldset className="space-y-2">
-      <input type="hidden" name="microsite_hero_photo" value={picked} />
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Pick the photo that leads your page.
-      </p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-        <button
-          type="button"
-          onClick={() => setPicked('')}
-          aria-pressed={picked === ''}
-          className="flex aspect-[4/3] items-center justify-center rounded-lg border-2 text-xs"
-          style={{
-            borderColor: picked === '' ? 'var(--m-orange)' : 'var(--m-line)',
-            color: 'var(--m-slate)',
-          }}
-        >
-          Automatic
-        </button>
-        {photos.map((p) => (
-          <button
-            type="button"
-            key={p.key}
-            onClick={() => setPicked(p.key)}
-            aria-pressed={picked === p.key}
-            className="relative aspect-[4/3] overflow-hidden rounded-lg border-2"
-            style={{
-              borderColor: picked === p.key ? 'var(--m-orange)' : 'transparent',
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt="" className="h-full w-full object-cover" />
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-/* ─── Pro: accent theme ─────────────────────────────────────────────────── */
-function AccentField({ initial }: { initial: string | null }) {
-  const [picked, setPicked] = useState<string>(
-    initial && MICROSITE_ACCENTS.some((a) => a.key === initial)
-      ? initial
-      : MICROSITE_DEFAULT_ACCENT_KEY,
-  );
-  return (
-    <fieldset className="space-y-2">
-      <input type="hidden" name="microsite_accent" value={picked} />
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Sets the accent color across your page.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {MICROSITE_ACCENTS.map((a) => (
-          <button
-            type="button"
-            key={a.key}
-            onClick={() => setPicked(a.key)}
-            aria-pressed={picked === a.key}
-            title={a.label}
-            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-            style={{
-              borderColor: picked === a.key ? 'var(--m-ink)' : 'var(--m-line)',
-              background: picked === a.key ? 'var(--m-paper)' : 'transparent',
-            }}
-          >
-            <span
-              aria-hidden
-              className="h-4 w-4 rounded-full"
-              style={{ background: a.swatch }}
-            />
-            {a.label}
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function accentLabel(key: string | null): string {
-  const a = MICROSITE_ACCENTS.find((x) => x.key === key);
-  return a ? a.label : 'Champagne (default)';
-}
-
-/* ─── Pro: pinned review ────────────────────────────────────────────────── */
-function PinnedReviewField({
-  reviews,
-  initial,
-}: {
-  reviews: MicrositeReviewOption[];
-  initial: string | null;
-}) {
-  const [picked, setPicked] = useState<string>(
-    initial && reviews.some((r) => r.id === initial) ? initial : '',
-  );
-
-  if (reviews.length === 0) {
-    return (
-      <p className="text-sm text-ink/60">
-        No reviews yet — once couples review you, pick one to feature up top.
-      </p>
-    );
-  }
-
-  return (
-    <fieldset className="space-y-1">
-      <input type="hidden" name="microsite_pinned_review" value={picked} />
-      <legend className="mb-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Feature one review at the top of your Reviews section.
-      </legend>
-      <label className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[color:var(--m-orange-4)]">
-        <input
-          type="radio"
-          name="pinned_review_choice"
-          checked={picked === ''}
-          onChange={() => setPicked('')}
-          className="h-4 w-4 accent-[color:var(--m-orange)]"
-        />
-        <span style={{ color: 'var(--m-slate)' }}>None (newest first)</span>
-      </label>
-      <div className="max-h-[40vh] space-y-0.5 overflow-y-auto">
-        {reviews.map((r) => (
-          <label
-            key={r.id}
-            className="flex items-start gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[color:var(--m-orange-4)]"
-          >
-            <input
-              type="radio"
-              name="pinned_review_choice"
-              checked={picked === r.id}
-              onChange={() => setPicked(r.id)}
-              className="mt-0.5 h-4 w-4 accent-[color:var(--m-orange)]"
-            />
-            <span className="min-w-0">{r.label}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function pinnedReviewLabel(
-  reviews: MicrositeReviewOption[],
-  pinnedReviewId: string | null,
-): string {
-  if (!pinnedReviewId) return 'Newest first';
-  const r = reviews.find((x) => x.id === pinnedReviewId);
-  return r ? `Pinned: ${r.label}` : 'Newest first';
-}
-
-/* ─── One locked Pro row ────────────────────────────────────────────────── */
-function ProRow({
-  icon,
-  label,
-  hint,
-}: {
-  icon: React.ReactNode;
+  on: boolean;
+  onClick: () => void;
   label: string;
-  hint: string;
 }) {
   return (
-    <li className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--m-slate-3)' }}>
-      <span aria-hidden style={{ color: 'var(--m-plum, #6b4d8a)' }}>
-        {icon}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onClick}
+      className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
+      style={{ background: on ? 'var(--m-orange)' : 'var(--m-line)' }}
+    >
+      <span
+        aria-hidden
+        className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
+        style={{ transform: on ? 'translateX(18px)' : 'translateX(2px)' }}
+      />
+    </button>
+  );
+}
+
+/* ─── Tap-to-choose photo tile ──────────────────────────────────────────── */
+function PickTile({
+  selected,
+  onClick,
+  photo,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  photo?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border-2"
+      style={{ borderColor: selected ? 'var(--m-orange)' : 'var(--m-line)' }}
+    >
+      {photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photo} alt="" className="h-full w-full object-cover" />
+      ) : (
+        children
+      )}
+      {selected ? (
+        <span
+          aria-hidden
+          className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full"
+          style={{ background: 'var(--m-orange)', color: 'var(--m-paper)' }}
+        >
+          <Check className="h-3 w-3" strokeWidth={3} />
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+/* ─── Pinned-review radio row ───────────────────────────────────────────── */
+function PinRow({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-sm hover:bg-[color:var(--m-orange-4)]"
+    >
+      <span
+        aria-hidden
+        className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2"
+        style={{
+          borderColor: selected ? 'var(--m-orange)' : 'var(--m-line)',
+          background: selected ? 'var(--m-orange)' : 'transparent',
+        }}
+      >
+        {selected ? (
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--m-paper)' }} />
+        ) : null}
       </span>
-      <span className="text-ink/70">{label}</span>
-      <span className="ml-auto text-xs">{hint}</span>
-    </li>
+      <span className="min-w-0" style={{ color: 'var(--m-slate)' }}>
+        {children}
+      </span>
+    </button>
   );
 }
 

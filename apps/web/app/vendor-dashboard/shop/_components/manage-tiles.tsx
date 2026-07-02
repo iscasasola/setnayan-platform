@@ -63,8 +63,10 @@ export function ManageTiles({
         />
         <ToolTile
           icon={<Globe className="h-5 w-5" strokeWidth={1.75} />}
-          value={websiteLive ? 'Live' : 'Draft'}
-          label="Website"
+          value="Website"
+          statusPill={websiteLive ? 'Live' : 'Draft'}
+          statusLive={websiteLive}
+          label="Your page"
           sub="Customize here"
           isOpen={open === 'website'}
           onToggle={() => toggle('website')}
@@ -110,6 +112,8 @@ function ToolTile({
   label,
   sub,
   subEmphasis = false,
+  statusPill,
+  statusLive = false,
   isOpen,
   onToggle,
 }: {
@@ -119,6 +123,10 @@ function ToolTile({
   sub: string;
   /** Render the sub-line as an orange status (e.g. "1 doc to verify"). */
   subEmphasis?: boolean;
+  /** Optional small status pill in the header (e.g. "Live") — de-emphasized so
+   *  it never becomes the tile's headline (the big value stays the identity). */
+  statusPill?: string;
+  statusLive?: boolean;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -132,15 +140,39 @@ function ToolTile({
     >
       <div className="mb-3 flex items-center justify-between">
         <ChipIcon>{icon}</ChipIcon>
-        <ChevronDown
-          aria-hidden
-          className="h-4 w-4 shrink-0 transition-transform"
-          strokeWidth={1.75}
-          style={{
-            color: 'var(--m-slate-4)',
-            transform: isOpen ? 'rotate(180deg)' : 'none',
-          }}
-        />
+        <div className="flex items-center gap-2">
+          {statusPill ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+              style={
+                statusLive
+                  ? {
+                      background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
+                      color: 'var(--m-sage-deep)',
+                    }
+                  : { background: 'var(--m-paper)', color: 'var(--m-slate-3)' }
+              }
+            >
+              {statusLive ? (
+                <span
+                  aria-hidden
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ background: 'var(--m-sage-deep)' }}
+                />
+              ) : null}
+              {statusPill}
+            </span>
+          ) : null}
+          <ChevronDown
+            aria-hidden
+            className="h-4 w-4 shrink-0 transition-transform"
+            strokeWidth={1.75}
+            style={{
+              color: 'var(--m-slate-4)',
+              transform: isOpen ? 'rotate(180deg)' : 'none',
+            }}
+          />
+        </div>
       </div>
       <p className="text-xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
         {value}

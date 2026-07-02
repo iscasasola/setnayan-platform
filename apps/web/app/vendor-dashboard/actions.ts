@@ -466,6 +466,162 @@ export async function saveVendorProfile(formData: FormData) {
 }
 
 /**
+ * The inline single-field patch behind the My Shop → Business Profile editor
+ * (2026-07-02). Each checklist row edits ONE field in place instead of deep-
+ * linking to the full /profile form.
+ *
+ * WHY a separate action (not saveVendorProfile): `saveVendorProfile` is a FULL-
+ * FORM action — it reads every column from FormData and writes a complete
+ * payload, so submitting a single field would null the other eight. This action
+ * writes ONLY the one target column (+ updated_at), and re-runs ONLY that
+ * field's side-effects, mirroring `saveVendorProfile` EXACTLY and nothing more:
+ *   - maps_pin (hq_address) → best-effort Nominatim geocode of hq_latitude/longitude
+ *   - in_business_since_year → clear DTI experience-verification if the year
+ *     actually changed, flag-gated (same as the full form)
+ *   - services → write services[] ONLY. Deliberately does NOT touch event_types
+ *     (coverage-owned, owner-locked 2026-07-02 — the full form doesn't sync it
+ *     here either).
+ *   - logo → NO repost-hash: the repost-watch scope excludes logos (only
+ *     portfolio + service covers are hashed, per the 2026-07-01 lock), and the
+ *     full form doesn't hash the logo either.
+ * It never sets `is_published`, so it can't accidentally publish/unpublish. It
+ * returns a VALUE (never redirects) so the client toasts + collapses in place.
+ * `saveVendorProfile` stays the untouched full-form escape hatch.
+ *
+ * Signature is `(prevState, formData)` for `useActionState`. `field` + the value
+ * arrive as form inputs; value input names match the /profile form so the exact
+ * same parse helpers apply.
+ */
+export type FieldSaveResult = { ok: true } | { ok: false; error: string };
+
+const INLINE_PROFILE_FIELDS = new Set([
+  'logo',
+  'business_name',
+  'business_owner_name',
+  'maps_pin',
+  'contact_phone',
+  'contact_email',
+  'services',
+  'in_business_since_year',
+]);
+
+export async function updateVendorProfileField(
+  _prevState: FieldSaveResult | null,
+  formData: FormData,
+): Promise<FieldSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // Do NOT redirect — the panel must stay mounted so the client can toast.
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  const field = String(formData.get('field') ?? '');
+  if (!INLINE_PROFILE_FIELDS.has(field)) {
+    return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // Build a SINGLE-column patch. `geocodeAddress` / `yearChanged` capture the
+  // per-field side-effects to run after the base write.
+  let patch: Record<string, unknown> = {};
+  let geocodeAddress: string | null = null;
+  let newYear: number | null = null;
+  let runYearExperienceReset = false;
+
+  switch (field) {
+    case 'logo': {
+      patch = { logo_url: parseLogoValue(formData.get('logo_url')) };
+      break;
+    }
+    case 'business_name': {
+      const v = nonBlank(formData.get('business_name'), 128);
+      // Required field — never let an inline edit blank it (the publish gate
+      // depends on it). Reject rather than write ''.
+      if (!v) return { ok: false, error: 'Shop name is required.' };
+      patch = { business_name: v };
+      break;
+    }
+    case 'business_owner_name': {
+      patch = { business_owner_name: nullIfBlank(formData.get('business_owner_name')) };
+      break;
+    }
+    case 'maps_pin': {
+      const v = nullIfBlank(formData.get('hq_address'));
+      patch = { hq_address: v };
+      geocodeAddress = v; // best-effort geocode below, same as the full form
+      break;
+    }
+    case 'contact_phone': {
+      patch = { contact_phone: nullIfBlank(formData.get('contact_phone')) };
+      break;
+    }
+    case 'contact_email': {
+      patch = { contact_email: nullIfBlank(formData.get('contact_email')) };
+      break;
+    }
+    case 'services': {
+      const extraCanonicalSet = await resolveExtraCanonicalSet();
+      patch = { services: parseServices(formData.get('services'), extraCanonicalSet) };
+      break;
+    }
+    case 'in_business_since_year': {
+      const raw = formData.get('in_business_since_year');
+      if (typeof raw === 'string' && raw.trim()) {
+        const y = Number(raw.trim());
+        if (!Number.isInteger(y) || y < 1900 || y > 2100) {
+          return { ok: false, error: 'Enter a valid year.' };
+        }
+        newYear = y;
+      }
+      patch = { in_business_since_year: newYear };
+      runYearExperienceReset = true;
+      break;
+    }
+    default:
+      return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // Year change invalidates any admin DTI experience-verification — clear it in
+  // the SAME patch when the value actually changed (flag-gated, mirrors
+  // saveVendorProfile's experienceFields logic).
+  if (runYearExperienceReset && vendorExperienceEnabled()) {
+    const { data: prior } = await supabase
+      .from('vendor_profiles')
+      .select('in_business_since_year')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const priorYear =
+      (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
+    if (priorYear !== newYear) {
+      patch = { ...patch, experience_verified_at: null, experience_verified_by: null };
+    }
+  }
+
+  const { error } = await supabase
+    .from('vendor_profiles')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+  if (error) return { ok: false, error: error.message };
+
+  // Best-effort geocode for a changed address (async, non-fatal — same contract
+  // as saveVendorProfile). Admin-supplied coords aren't clobbered on a miss.
+  if (geocodeAddress) {
+    const geo = await geocodeNominatim(geocodeAddress);
+    if (geo) {
+      const admin = createAdminClient();
+      await admin
+        .from('vendor_profiles')
+        .update({ hq_latitude: geo.latitude, hq_longitude: geo.longitude })
+        .eq('user_id', user.id);
+    }
+  }
+
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard/profile');
+  return { ok: true };
+}
+
+/**
  * Flips the "Include team bookings" toggle on the Completed-events backend
  * card (iteration 0022 § 2.4a). The public count is NEVER affected by this
  * toggle — only the vendor's own backend display switches between the

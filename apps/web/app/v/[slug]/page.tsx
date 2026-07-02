@@ -28,6 +28,11 @@ import {
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
+import {
+  ServicesGallery,
+  type ServiceCard,
+  type ServiceGroup,
+} from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
 import { resolveLivePax } from '@/lib/pax';
 import { isFollowingVendor } from '@/lib/follow';
@@ -1711,6 +1716,20 @@ function ServicesPricingSection({
     else byGroup.set(key, [s]);
   }
 
+  // Build serializable coverage groups for the client gallery, preserving the
+  // canonical SERVICE_GROUPS order + which groups render (behaviour-identical to
+  // the old static loop). All label/price/meta formatting stays server-side.
+  const groups: ServiceGroup[] = [];
+  for (const group of SERVICE_GROUPS) {
+    const rows = byGroup.get(group.key);
+    if (!rows || rows.length === 0) continue;
+    groups.push({
+      key: group.key,
+      label: group.label,
+      cards: rows.map(toServiceCard),
+    });
+  }
+
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -1721,31 +1740,13 @@ function ServicesPricingSection({
           Starting prices set by {businessName}. Final quotes happen in chat.
         </p>
       </header>
-      <div className="space-y-5">
-        {SERVICE_GROUPS.map((group) => {
-          const rows = byGroup.get(group.key);
-          if (!rows || rows.length === 0) return null;
-          return (
-            <div key={group.key} className="space-y-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-                {group.label}
-              </p>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {rows.map((s) => (
-                  <li key={s.vendor_service_id}>
-                    <ServiceRow row={s} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
+      <ServicesGallery groups={groups} />
     </section>
   );
 }
 
-function ServiceRow({ row }: { row: VendorServiceRow }) {
+/** Format one service row into the serializable card the client gallery renders. */
+function toServiceCard(row: VendorServiceRow): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
@@ -1760,17 +1761,12 @@ function ServiceRow({ row }: { row: VendorServiceRow }) {
   if (row.crew_meal_required) {
     crewParts.push('crew meal required');
   }
-  return (
-    <div className="rounded-xl border border-ink/10 bg-cream p-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="font-medium text-ink">{label}</p>
-        <p className="font-mono text-sm text-ink/80">{priceLabel}</p>
-      </div>
-      {crewParts.length > 0 ? (
-        <p className="mt-1 text-[12px] text-ink/55">{crewParts.join(' · ')}</p>
-      ) : null}
-    </div>
-  );
+  return {
+    id: row.vendor_service_id,
+    label,
+    priceLabel,
+    meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
+  };
 }
 
 function ReviewsSection({

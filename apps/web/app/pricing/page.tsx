@@ -539,8 +539,8 @@ export default async function PricingPage() {
               <p className="text-sm leading-relaxed text-ink/65">
                 The paid brain that watches your vendors so you don&rsquo;t have to —
                 it finds your best-fit matches, then flags a deposit due, a price
-                change, or a clash before it costs you. Covers all your events,
-                0% vendor commission. Active until your wedding day, then it ends.
+                change, or a clash before it costs you. Active until your wedding
+                day, then it ends.
               </p>
             </article>
           </RevealBand>

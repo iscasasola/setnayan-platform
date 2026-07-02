@@ -32,11 +32,22 @@ type ConciergeChoice = 'diy';
  * wedding-type-picker.tsx component was deleted 2026-06-15 — the tailored
  * /onboarding/wedding flow is the one and only wedding onboarding now.
  */
-export function EventTypePicker({ types, next }: { types: EventTypeRow[]; next?: string }) {
+export function EventTypePicker({
+  types,
+  next,
+  preselect,
+}: {
+  types: EventTypeRow[];
+  next?: string;
+  /** A QR-provided event type (Locked/Shortlist fast-lane): auto-advance past
+   *  the type carousel so the couple never re-picks what the QR already knows. */
+  preselect?: string;
+}) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const conciergeChoice: ConciergeChoice = 'diy';
   const formRef = useRef<HTMLFormElement | null>(null);
+  const autoAdvanced = useRef(false);
 
   const selected = selectedKey
     ? (types.find((t) => t.key === selectedKey) ?? null)
@@ -84,6 +95,18 @@ export function EventTypePicker({ types, next }: { types: EventTypeRow[]; next?:
     }
     setSelectedKey(type.key);
   }
+
+  // QR fast-lane: once, on mount, jump straight to the pre-selected type's flow
+  // (wedding → its onboarding, non-wedding → inline / experience) so the carousel
+  // is skipped. handleSelect is hoisted; safe to call from the effect.
+  useEffect(() => {
+    if (autoAdvanced.current || !preselect) return;
+    const type = types.find((t) => t.key === preselect);
+    if (!type || !type.enabled) return;
+    autoAdvanced.current = true;
+    handleSelect(type);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselect]);
 
   return (
     <>

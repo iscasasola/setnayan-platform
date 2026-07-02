@@ -18,7 +18,7 @@ const ERROR_COPY: Record<string, string> = {
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
 };
 
-type SearchParams = Promise<{ error?: string; next?: string }>;
+type SearchParams = Promise<{ error?: string; next?: string; event_type?: string }>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
@@ -28,6 +28,13 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // DB-driven roster (2026-06-13): status='active' AND enabled=TRUE vocab
   // rows, ordered. Falls back to the pre-cutover constant on DB hiccups.
   const eventTypes = await getCreatableEventTypes();
+  // QR fast-lane (owner 2026-07): a Locked/Shortlist QR already carries the
+  // event type, so pre-select it and let the picker auto-advance — the couple
+  // never re-picks the type they already agreed to with the vendor.
+  const preselect =
+    params.event_type && eventTypes.some((t) => t.key === params.event_type)
+      ? params.event_type
+      : undefined;
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
 
@@ -57,7 +64,11 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      <EventTypePicker types={eventTypes} next={next !== '/' ? next : undefined} />
+      <EventTypePicker
+        types={eventTypes}
+        next={next !== '/' ? next : undefined}
+        preselect={preselect}
+      />
     </div>
   );
 }

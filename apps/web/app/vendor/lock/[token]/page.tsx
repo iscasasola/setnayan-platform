@@ -70,6 +70,10 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
   const paid = Number(tok.initial_paid_php ?? 0);
   const agreedDate = (tok.event_date as string | null) ?? null;
   const scope = (tok.service_description as string | null) ?? null;
+  // QR fast-lane: the type the QR already carries (default wedding when the
+  // vendor left it "Any"). Pre-seeds create-event so the couple skips the
+  // type step.
+  const eventTypeKey = (tok.event_type as string | null) || 'wedding';
 
   const eventTypes = tok.event_type ? await getEventTypeVocab() : [];
   const eventTypeLabel = tok.event_type
@@ -232,6 +236,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
             nextPath={nextPath}
             adminClient={admin}
             agreedDate={agreedDate}
+            eventTypeKey={eventTypeKey}
           />
         )}
       </div>
@@ -292,12 +297,14 @@ async function ClaimForm({
   nextPath,
   adminClient,
   agreedDate,
+  eventTypeKey,
 }: {
   token: string;
   userId: string;
   nextPath: string;
   adminClient: ReturnType<typeof createAdminClient>;
   agreedDate: string | null;
+  eventTypeKey: string;
 }) {
   const hostEvents = await listHostEvents(adminClient, userId);
 
@@ -308,10 +315,10 @@ async function ClaimForm({
           Create your event first, then we’ll lock the vendor into it.
         </p>
         <Link
-          href={`/dashboard/create-event?next=${encodeURIComponent(nextPath)}`}
+          href={`/dashboard/create-event?event_type=${encodeURIComponent(eventTypeKey)}&next=${encodeURIComponent(nextPath)}`}
           className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
         >
-          Create your event
+          Set up your event
         </Link>
       </div>
     );

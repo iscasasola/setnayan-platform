@@ -636,7 +636,7 @@ type Pin = {
 function pinIcon(L: LeafletModule) {
   return L.divIcon({
     className: '',
-    html: '<div style="width:16px;height:16px;border-radius:9999px;background:var(--m-orange-2,#b45309);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 1px 4px rgba(0,0,0,.35)"></div>',
+    html: '<div style="width:16px;height:16px;border-radius:50%;background:var(--m-orange-2,#b45309);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 1px 4px rgba(0,0,0,.35)"></div>',
     iconSize: [16, 16],
     iconAnchor: [8, 8],
   });

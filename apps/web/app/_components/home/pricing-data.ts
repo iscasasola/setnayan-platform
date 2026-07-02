@@ -56,6 +56,10 @@ export type PricingData = {
   aiPrice: string;
   /** Setnayan AI INTRO price string — the first 28 days (e.g. "₱499"). */
   aiIntroPrice: string;
+  /** Raw catalog numbers for client-side math — the pop-up savings comparator
+   *  computes intro + regular × cycles off THESE (never re-hardcoded client-side). */
+  aiRegularPhp: number;
+  aiIntroPhp: number;
   /** recurrence suffix for the AI tier (e.g. "/28 days" or "/mo") */
   aiPeriod: string;
   freeChips: string[];
@@ -109,7 +113,9 @@ export async function getHomePricingData(): Promise<PricingData> {
   // stays admin-managed. Fallbacks (₱799 / ₱499) render only if a row is
   // unreadable (CI / missing env) — never a fresh hardcode.
   const ai = catalog.find((s) => s.service_code === 'SETNAYAN_AI');
-  const aiIntroPrice = ai ? peso(Number(ai.retail_price_php)) : '₱499';
+  const aiIntroRaw = Number(ai?.retail_price_php);
+  const aiIntroPhp = Number.isFinite(aiIntroRaw) && aiIntroRaw > 0 ? aiIntroRaw : 499;
+  const aiIntroPrice = peso(aiIntroPhp);
   let aiRegularPhp = 799;
   try {
     const { data: renew } = await createAdminClient()
@@ -230,6 +236,8 @@ export async function getHomePricingData(): Promise<PricingData> {
   return {
     aiPrice,
     aiIntroPrice,
+    aiRegularPhp,
+    aiIntroPhp,
     aiPeriod: aiPeriodSuffix(),
     vendor,
     freeChips: [

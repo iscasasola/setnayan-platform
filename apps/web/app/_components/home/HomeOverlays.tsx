@@ -37,8 +37,9 @@ import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
+import { PapicDemoOverlay } from './papic-demo-overlay';
 
-export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | 'setnayan-ai' | null;
+export type OverlayId = 'prices' | 'download' | 'vendors' | 'signin' | 'setnayan-ai' | 'papic-demo' | null;
 
 /**
  * Shell-gated OAuth visibility. `show` mirrors /login's `showOAuth` (provider
@@ -86,7 +87,7 @@ function detectSignInOAuth(): SignInOAuth {
   return { show, desktop: show && shell === 'desktop' };
 }
 
-function OverlayShell({
+export function OverlayShell({
   id,
   current,
   onClose,
@@ -749,6 +750,7 @@ export function HomeOverlays({
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
       <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
+      <PapicDemoOverlay current={current} onClose={onClose} />
     </>
   );
 }

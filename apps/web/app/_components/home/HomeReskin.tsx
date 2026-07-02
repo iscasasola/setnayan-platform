@@ -518,6 +518,16 @@ export function HomeReskin({
               Learn more{' '}
               <span className="hr-arr">{hero ? '→' : '↓'}</span>
             </button>
+            {/* Live product demo (owner 2026-07-03, PR-1 of the demos program):
+                only the Papic hero has a working demo so far — Panood + 3D
+                Plan reuse the same demo_sessions scaffold once their demos
+                land, per the standing "no silent caps" rule this button
+                simply doesn't render for them yet rather than pretending. */}
+            {hero?.name === 'Papic' && (
+              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('papic-demo')}>
+                Try the live demo
+              </button>
+            )}
           </div>
         </div>
 

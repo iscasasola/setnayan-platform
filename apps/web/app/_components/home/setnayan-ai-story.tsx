@@ -48,9 +48,9 @@ export function SetnayanAiHeroStory({ pricing }: { pricing: PricingData }) {
         <span className="hr-ai-per">{pricing.aiPeriod}</span>
         <span className="hr-ai-intro">{pricing.aiIntroPrice} your first 28 days</span>
       </div>
-      <p className="hr-ai-note">
-        Covers all your events · 0% vendor commission · every planning tool stays free.
-      </p>
+      {/* No trailer line under the price (owner 2026-07-03: "covers all your
+          events / 0% commission" are marketplace facts, not Setnayan AI — and
+          the events claim contradicted the per-event ₱499-intro pricing). */}
     </div>
   );
 }

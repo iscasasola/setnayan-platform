@@ -575,9 +575,8 @@ function SetnayanAiOverlay({
           {pricing.aiIntroPrice} your first 28 days
         </span>
       </div>
-      <p style={{ fontSize: 13, color: '#6c675e', marginTop: 3 }}>
-        Covers all your events · 0% vendor commission · every planning tool stays free.
-      </p>
+      {/* No trailer line under the price (owner 2026-07-03 — marketplace facts,
+          not Setnayan AI; "covers all your events" contradicted per-event pricing). */}
 
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {jobs.map(([t, d]) => (

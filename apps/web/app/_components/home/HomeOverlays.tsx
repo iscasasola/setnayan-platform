@@ -617,10 +617,19 @@ function SetnayanAiOverlay({
           };
 
   return (
-    <OverlayShell id="setnayan-ai" current={current} onClose={onClose} label="Setnayan AI">
+    <OverlayShell
+      id="setnayan-ai"
+      current={current}
+      onClose={onClose}
+      label="Setnayan AI"
+      // Fitted card (owner 2026-07-03 "does not stretch on popup well"): the
+      // comparator is a single-column story — cap the card at its content
+      // width instead of the 880px default that left a dead right half.
+      cardStyle={{ maxWidth: 620 }}
+    >
       <div className="hr-ov-eyebrow">Setnayan AI · your planning brain</div>
       <h2 className="hr-ov-title">Stop remembering to check on everything.</h2>
-      <p style={{ marginTop: 10, maxWidth: 520, fontSize: 15, lineHeight: 1.55, color: '#2a2925' }}>
+      <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.55, color: '#2a2925' }}>
         It watches the vendors you’re eyeing and the ones you’ve booked — and taps you only when something needs you.
         Most weeks, it stays quiet.
       </p>
@@ -634,7 +643,7 @@ function SetnayanAiOverlay({
       </div>
 
       {/* ── the savings comparator ── */}
-      <div style={{ maxWidth: 460, marginTop: 18 }}>
+      <div style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
           <span>My wedding is in</span>
           <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
@@ -678,7 +687,7 @@ function SetnayanAiOverlay({
         ))}
       </div>
 
-      <div style={{ maxWidth: 460 }}>
+      <div>
         <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
         <p style={{ margin: '2px 0 0', fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 26, color: '#3f6b3f' }}>
           {compare.save}

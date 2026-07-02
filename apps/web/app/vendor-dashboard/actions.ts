@@ -482,7 +482,9 @@ export async function saveVendorProfile(formData: FormData) {
  * payload, so submitting a single field would null the other eight. This action
  * writes ONLY the one target column (+ updated_at), and re-runs ONLY that
  * field's side-effects, mirroring `saveVendorProfile` EXACTLY and nothing more:
- *   - maps_pin (hq_address) → best-effort Nominatim geocode of hq_latitude/longitude
+ *   - maps_pin (hq_address) → best-effort Nominatim geocode of hq_latitude/longitude,
+ *     UNLESS the form posts a vendor-pinned hq_latitude/hq_longitude (the My Shop
+ *     map picker) — those save directly and the server geocode is skipped
  *   - in_business_since_year → clear DTI experience-verification if the year
  *     actually changed, flag-gated (same as the full form)
  *   - services → write services[] ONLY. Deliberately does NOT touch event_types
@@ -555,7 +557,24 @@ export async function updateVendorProfileField(
     case 'maps_pin': {
       const v = nullIfBlank(formData.get('hq_address'));
       patch = { hq_address: v };
-      geocodeAddress = v; // best-effort geocode below, same as the full form
+      // Vendor-placed map pin (My Shop's inline editor posts hidden
+      // hq_latitude/hq_longitude when the vendor dragged the pin, clicked the
+      // map, or accepted a client-side geocode of THIS text): more precise than
+      // any server re-geocode of the address — save it directly and skip the
+      // Nominatim round-trip. Absent/malformed coords fall through to today's
+      // geocode path unchanged.
+      const parseCoord = (raw: FormDataEntryValue | null, absMax: number): number | null => {
+        if (typeof raw !== 'string' || raw.trim() === '') return null;
+        const n = Number(raw.trim());
+        return Number.isFinite(n) && Math.abs(n) <= absMax ? n : null;
+      };
+      const lat = parseCoord(formData.get('hq_latitude'), 90);
+      const lng = parseCoord(formData.get('hq_longitude'), 180);
+      if (v && lat !== null && lng !== null) {
+        patch = { ...patch, hq_latitude: lat, hq_longitude: lng };
+      } else {
+        geocodeAddress = v; // best-effort geocode below, same as the full form
+      }
       break;
     }
     case 'contact_phone': {

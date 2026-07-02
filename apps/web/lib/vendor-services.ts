@@ -42,13 +42,20 @@ export type VendorServiceRow = {
   /** Never shown publicly. Revealed in-thread when the vendor token-pursues.
    *  Required to publish (is_active=true). Drafts may be null. */
   exclusive_perk_text: string | null;
+  // ── Coverage-first rework (migration 20270426250948) ────────────────────
+  /** Guests the starting_price_php covers; pairs with added_pax_price_php
+   *  (per-guest surcharge above this count). null = flat / not pax-priced. */
+  base_pax: number | null;
+  /** The vendor_coverages row this card belongs to; null on legacy rows,
+   *  which still resolve via the coarse `category` column. */
+  coverage_id: number | null;
   created_at: string;
   updated_at: string;
 };
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,discount_type,discount_value,discount_expires_at,discount_conditions_md,exclusive_perk_text`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,discount_type,discount_value,discount_expires_at,discount_conditions_md,exclusive_perk_text,base_pax,coverage_id`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -83,6 +90,8 @@ export async function fetchVendorServices(
         | 'discount_expires_at'
         | 'discount_conditions_md'
         | 'exclusive_perk_text'
+        | 'base_pax'
+        | 'coverage_id'
       >),
       title: null,
       branch_id: null,
@@ -95,6 +104,8 @@ export async function fetchVendorServices(
       discount_expires_at: null,
       discount_conditions_md: null,
       exclusive_perk_text: null,
+      base_pax: null,
+      coverage_id: null,
     }));
   }
   return (data ?? []) as VendorServiceRow[];

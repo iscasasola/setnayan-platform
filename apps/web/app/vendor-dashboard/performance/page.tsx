@@ -593,8 +593,16 @@ export default async function VendorPerformancePage({
         <div>
           <SectionEyebrow label="Conversion & responsiveness · last 12 months" />
           <div className="space-y-6">
-            {inquiryAnalytics && <InquiryHandlingCard data={inquiryAnalytics} />}
-            {conversionAnalytics && <ConversionDealsCard data={conversionAnalytics} />}
+            {inquiryAnalytics && (
+              <Reanimate>
+                <InquiryHandlingCard data={inquiryAnalytics} />
+              </Reanimate>
+            )}
+            {conversionAnalytics && (
+              <Reanimate>
+                <ConversionDealsCard data={conversionAnalytics} />
+              </Reanimate>
+            )}
           </div>
         </div>
       )}
@@ -604,9 +612,15 @@ export default async function VendorPerformancePage({
       <div>
         <SectionEyebrow label="Looking ahead & the market · not affected by the period filter" />
         <div className="space-y-6">
-          {canAdvanced && capacityAnalytics && <CapacityCard data={capacityAnalytics} />}
+          {canAdvanced && capacityAnalytics && (
+            <Reanimate>
+              <CapacityCard data={capacityAnalytics} />
+            </Reanimate>
+          )}
           {canMarket ? (
-            <DemandPreviewCard radar={demandRadar} />
+            <Reanimate>
+              <DemandPreviewCard radar={demandRadar} />
+            </Reanimate>
           ) : (
             <VendorTierTeaser
               feature="Demand Radar & Price-Position"
@@ -623,7 +637,9 @@ export default async function VendorPerformancePage({
         <div>
           <SectionEyebrow label="Reputation · all-time" />
           <div className="space-y-6">
-            <ReputationCard data={reputationAnalytics} />
+            <Reanimate>
+              <ReputationCard data={reputationAnalytics} />
+            </Reanimate>
           </div>
         </div>
       )}

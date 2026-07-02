@@ -4,6 +4,7 @@ import {
   type InquiryAnalytics,
   type InquiryHeatCell,
 } from '@/lib/vendor-inquiry-analytics';
+import { CountUp } from './count-up';
 
 /**
  * "Inquiry handling" — My Performance · Phase B family 1 (Pro tier). Four
@@ -142,7 +143,7 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
           {missedItems.map((m) => (
             <div key={m.label}>
               <p className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
-                {m.value}
+                <CountUp value={m.value} />
               </p>
               <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 {m.label}

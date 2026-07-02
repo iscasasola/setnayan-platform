@@ -794,6 +794,7 @@ const INLINE_WEBSITE_FIELDS = new Set([
   'business_slug',
   'microsite_hero_photo',
   'microsite_accent',
+  'microsite_pinned_review',
 ]);
 
 /** PRO-gated website fields. Reuses the same cap the custom slug already uses. */
@@ -801,6 +802,7 @@ const PRO_WEBSITE_FIELDS = new Set([
   'business_slug',
   'microsite_hero_photo',
   'microsite_accent',
+  'microsite_pinned_review',
 ]);
 
 /**
@@ -908,6 +910,14 @@ export async function updateVendorWebsiteField(
         return { ok: false, error: 'Pick an accent from the palette.' };
       }
       patch = { microsite_accent: raw };
+      break;
+    }
+    case 'microsite_pinned_review': {
+      // Store the chosen review_id (or clear). The public render only pins it
+      // when it matches one of THIS vendor's fetched reviews, so a stale/foreign
+      // id simply doesn't pin — no cross-vendor leak. Cap length defensively.
+      const raw = nullIfBlank(formData.get('microsite_pinned_review'));
+      patch = { microsite_pinned_review_id: raw ? raw.slice(0, 64) : null };
       break;
     }
     default:

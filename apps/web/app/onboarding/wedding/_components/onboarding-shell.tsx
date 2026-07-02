@@ -53,6 +53,7 @@ import {
 } from '../actions';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
@@ -4200,6 +4201,7 @@ export function OnboardingShell({
                 <input type="hidden" name="next" value={RESUME_NEXT} />
                 <input type="hidden" name="account_type" value="customer" />
                 <input type="hidden" name="public_summary_consent" value="yes" />
+                <TurnstileField action="signup" />
                 <input
                   className="field"
                   name="email"

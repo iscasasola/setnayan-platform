@@ -12,6 +12,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { captchaOptions } from '@/lib/turnstile';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -36,7 +37,11 @@ export async function commitOnboardingEvent(
     // so the events + event_members insert + all RLS work unchanged. Same contract
     // as the wedding commit; OFF → unchanged not_authenticated.
     if (anonOnboardingEnabled()) {
-      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
+        // Global Supabase captcha gates anonymous sign-in. Token comes from the
+        // funnel client (mintTurnstileToken); empty → {} → no-op.
+        options: captchaOptions(payload.captchaToken),
+      });
       if (anonError || !anon.user) {
         console.error('[commitOnboardingEvent] anon sign-in failed:', anonError?.message);
         return { ok: false, error: 'not_authenticated' };

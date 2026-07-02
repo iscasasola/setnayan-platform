@@ -47,6 +47,13 @@ export type GenericOnboardingPayload = {
   inquiriesPerCategory: number;
   /** The organizer's role key from the event's role set (e.g. 'host'). Reserved for PR3 host seeding. */
   role: string | null;
+  /**
+   * Cloudflare Turnstile token minted client-side (via mintTurnstileToken) when
+   * global Supabase captcha is enabled. Anon-draft commit mints a Supabase
+   * anonymous session, which captcha gates. Optional/undefined until the
+   * Inquire-funnel build supplies it; empty → {} → no-op (see lib/turnstile.ts).
+   */
+  captchaToken?: string;
 };
 
 export type GenericCommitResult =

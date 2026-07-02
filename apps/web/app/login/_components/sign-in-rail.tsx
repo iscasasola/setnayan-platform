@@ -24,6 +24,7 @@ import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { LoginLoadingBridge } from './login-loading-bridge';
 import { PasswordField } from './password-field';
 import { signInWithPassword } from '../actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import type { LoginView } from './login-data';
 
 export function SignInRail({
@@ -87,6 +88,7 @@ export function SignInRail({
         {/* Brand "thinking" overlay during sign-in (boot moment). */}
         <LoginLoadingBridge />
         <input type="hidden" name="next" value={next} />
+        <TurnstileField action="login" />
 
         <div className="sn-login-field">
           <label htmlFor="email" className="sn-login-label">

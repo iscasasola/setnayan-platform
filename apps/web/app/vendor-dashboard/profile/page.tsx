@@ -19,6 +19,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { FileUpload } from '@/app/_components/file-upload';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import {
   changePassword,
   signOutOtherDevices,
@@ -1003,6 +1004,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           }}
         >
           <input type="hidden" name="return_to" value="/vendor-dashboard/profile" />
+          <TurnstileField action="reauth" />
           <Field label="Current password" htmlFor="current_password">
             <input
               id="current_password"

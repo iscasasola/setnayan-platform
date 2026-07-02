@@ -1254,6 +1254,51 @@ with **no code change** (the flow reads the flag). See `lib/anon-onboarding.ts`.
 
 ---
 
+## Turn on captcha for auth (Cloudflare Turnstile) — do this WITH anonymous sign-ins
+
+When you enabled "Allow anonymous sign-ins", Supabase warned (correctly) that the
+anonymous endpoint is now a bot-abuse target — a bot can spam it to bloat the
+database and drive up Monthly-Active-User billing. The fix is Supabase's built-in
+captcha. **The code to support it is already shipped** (Cloudflare Turnstile is
+wired into every auth form — login, signup, change-password, and the anonymous
+sign-in paths). It's currently a **strict no-op**: with no site key set, no widget
+renders and auth works exactly as before. You activate it with the steps below.
+
+**IMPORTANT — Supabase captcha is GLOBAL.** Once enabled it gates login, signup,
+password re-auth AND anonymous sign-in. So the activation ORDER matters: get tokens
+flowing in the app FIRST, then flip enforcement on. Do it out of order and you lock
+everyone (including yourself) out of sign-in for a few minutes.
+
+1. **Cloudflare dashboard → Turnstile → Add widget.** Name it "Setnayan Auth",
+   add your domains (`setnayan.com`, `www.setnayan.com`, and the Vercel preview
+   domain if you want previews protected). Widget mode: **Managed** (invisible for
+   real people, challenge only when a visitor looks suspicious). Save. Cloudflare
+   gives you a **Site key** (public) and a **Secret key** (private).
+2. **Vercel → Settings → Environment Variables (Production).** Add
+   **`NEXT_PUBLIC_TURNSTILE_SITE_KEY`** = the Site key from step 1. **Redeploy.**
+   → Now the app mints tokens on every auth form, but Supabase still ignores them
+   (captcha not enabled yet), so nothing changes for users. This is the safe order.
+3. **Supabase → Authentication → Attack Protection (or Auth → Settings) → CAPTCHA.**
+   Turn it **on**, provider **Turnstile (by Cloudflare)**, paste the **Secret key**
+   from step 1. Save. → Enforcement is now live; the tokens from step 2 satisfy it.
+4. **Test before walking away** (use the test accounts in memory
+   `project_setnayan_test_accounts`): sign in on `/login`, create a throwaway
+   account on `/signup`, and change a password in Settings. All three should work
+   normally (the challenge stays invisible for you). If any fails with a "captcha"
+   error, re-check that step 2's redeploy finished before step 3.
+
+**One guardrail on the anonymous flows.** The Papic seat-claim, Panood camera-claim,
+and anon-draft onboarding sign-ins are behind their own feature flags
+(`papicSeatAnonEnabled`, `panoodCameraAnonEnabled`, `NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`),
+all currently OFF. Their server actions already accept a captcha token, but the
+client widget that mints it for those specific flows lands with the Inquire-funnel
+build. **Practical effect:** with those flags OFF (today), enabling captcha is
+completely safe and fully blocks the bot vector. Don't turn those three flags ON
+while captcha is enabled until the funnel build ships their token mint — I'll flag
+that when it's ready.
+
+---
+
 ## If something breaks
 
 1. Check `/admin/help` first — useful for reproducing issues users report

@@ -20,6 +20,7 @@ import {
   eventUnliFreeViaUnlock,
 } from '@/lib/papic-cameras';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 // Server-side 5-second clip cap (corpus constraint · not configurable). The
 // client enforces 5s with a recorder timer; this tolerance (5.5s) absorbs
@@ -102,7 +103,11 @@ export async function claimPapicSeat(formData: FormData) {
         redirect(`/papic/claim/${token}?state=invalid`);
       }
       const { data: anon, error: anonError } =
-        await supabase.auth.signInAnonymously();
+        await supabase.auth.signInAnonymously({
+          // Global Supabase captcha gates anonymous sign-in too. The claim form
+          // carries a <TurnstileField> once captcha is on; empty → {} → no-op.
+          options: captchaOptions(captchaTokenFromForm(formData)),
+        });
       if (anonError || !anon.user) {
         console.error('[claimPapicSeat] anon sign-in failed:', anonError?.message);
         redirect(`/papic/claim/${token}?state=error`);

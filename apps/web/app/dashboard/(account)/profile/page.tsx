@@ -22,6 +22,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import {
   changePassword,
   signOutOtherDevices,
@@ -391,6 +392,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         </div>
         <form action={changePassword} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
           <input type="hidden" name="return_to" value="/dashboard/profile" />
+          <TurnstileField action="reauth" />
           <Field label="Current password" htmlFor="current_password">
             <input
               id="current_password"

@@ -25,7 +25,7 @@ import { PILLARS, PILLAR_HEROES, PILLAR_SECTION_IDS, HOME_SCENE } from './pillar
 import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
-import { SetnayanAiStory } from './setnayan-ai-story';
+import { SetnayanAiHeroStory } from './setnayan-ai-story';
 import { openConsentManager } from '@/lib/cookie-consent';
 import dynamic from 'next/dynamic';
 
@@ -236,28 +236,28 @@ export function HomeReskin({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The one-page, no-scroll Setnayan AI story takeover (owner 2026-07-03: the
-  // Suri · Setnayan AI dock tile opens the story INSIDE the new homepage —
-  // never a bounce to the old-chrome /setnayan-ai route).
-  const [storyOpen, setStoryOpen] = useState(false);
-  const closeStory = useCallback(() => setStoryOpen(false), []);
-  const openStory = useCallback(() => {
-    setOverlay(null); // the nav pop-up may be open (its "full story" action)
-    setStoryOpen(true);
-  }, []);
-
   const selectPillar = useCallback(
     (i: number) => {
       const p = PILLAR_HEROES[i];
       if (!p) return;
       setActivePillar(i);
       paintScene(i);
-      // The Setnayan AI tile ALSO opens the story takeover (scene still paints
-      // underneath, so closing the story lands on the matching hero).
-      if (p.role === 'Setnayan AI') setStoryOpen(true);
     },
     [paintScene],
   );
+
+  // The Setnayan AI story IS the hero (owner 2026-07-03: "we want that to be
+  // the new background" — no takeover, no extra buttons; supersedes the PR
+  // #2652 modal). Selecting the Suri tile paints its scene like every tile,
+  // and the hero-mid renders the story text on top of the background; only
+  // the original hero CTAs (Start planning · free + Learn more) remain. The
+  // nav pop-up's "full story" action selects the tile + returns to the hero.
+  const openStory = useCallback(() => {
+    setOverlay(null); // the nav pop-up is open when this fires
+    const i = PILLAR_HEROES.findIndex((p) => p.role === 'Setnayan AI');
+    if (i >= 0) selectPillar(i);
+    window.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' });
+  }, [selectPillar]);
   useEffect(() => {
     if (activePillar === null) paintScene(null);
   }, [activePillar, paintScene]);
@@ -443,6 +443,10 @@ export function HomeReskin({
           <div className="hr-kick">{hero ? `0${activePillar! + 1} · ${hero.name} — ${hero.role}` : HOME_HERO.kick}</div>
           <h1 className="hr-htitle">{hero ? hero.head : HOME_HERO.title}</h1>
           <p className="hr-hsub">{hero ? hero.desc : HOME_HERO.sub}</p>
+          {/* Setnayan AI story-as-hero (owner 2026-07-03): pure TEXT on top of
+              the background — no extra buttons; the original two CTAs below
+              stay exactly as on every scene. */}
+          {hero?.role === 'Setnayan AI' && <SetnayanAiHeroStory pricing={pricing} />}
           <div className="hr-hctas">
             <Link className="hr-pill-cta hr-glass-dark" href="/onboarding/wedding">
               Start planning&nbsp;·&nbsp;free
@@ -636,7 +640,6 @@ export function HomeReskin({
       </main>
 
       <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} onOpenStory={openStory} />
-      <SetnayanAiStory open={storyOpen} onClose={closeStory} pricing={pricing} />
     </div>
   );
 }

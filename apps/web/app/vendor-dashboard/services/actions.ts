@@ -134,6 +134,150 @@ function parseDiscountFields(formData: FormData): {
   return { discount_type, discount_value, discount_expires_at, discount_conditions_md };
 }
 
+// ── List editors (service-card redesign · Phase 3b) ─────────────────────────
+// Three repeatable child-table lists submitted as parallel, index-aligned
+// arrays of HIDDEN inputs (formData.getAll). Each parses into validated draft
+// rows; the caller replace-alls them into the matching child table. Fully-blank
+// rows are ignored so an empty repeater cleanly clears the list.
+
+type DiscountUnit = 'pct' | 'php';
+type DiscountDraft = {
+  discount_type: DiscountType;
+  rate: number;
+  unit: DiscountUnit;
+  expires_at: string | null;
+  conditions_md: string | null;
+};
+
+/**
+ * Parse the multi-discount rows (Phase 3b). Field arrays (index-aligned):
+ *   discount_type[] · discount_rate[] · discount_unit[] ·
+ *   discount_expires_at[] · discount_conditions_md[]
+ * A row with a blank type AND blank rate is skipped. Validates: rate>0, type in
+ * the enum, unit in (pct,php), and promo requires an expiry.
+ */
+function parseDiscountRows(formData: FormData): DiscountDraft[] {
+  const types = formData.getAll('discount_type');
+  const rates = formData.getAll('discount_rate');
+  const units = formData.getAll('discount_unit');
+  const expiries = formData.getAll('discount_expires_at');
+  const conditions = formData.getAll('discount_conditions_md');
+  const out: DiscountDraft[] = [];
+  const n = types.length;
+  for (let i = 0; i < n; i++) {
+    const typeRaw = typeof types[i] === 'string' ? (types[i] as string).trim() : '';
+    const rateRaw = typeof rates[i] === 'string' ? (rates[i] as string).trim() : '';
+    if (typeRaw.length === 0 && rateRaw.length === 0) continue; // blank row → skip
+    if (!(DISCOUNT_TYPES as readonly string[]).includes(typeRaw)) {
+      throw new Error('Pick a discount type for each discount you add.');
+    }
+    const discount_type = typeRaw as DiscountType;
+    const rate = Number(rateRaw);
+    if (rateRaw.length === 0 || !Number.isFinite(rate) || rate <= 0) {
+      throw new Error('Each discount needs a positive amount.');
+    }
+    const unitRaw = typeof units[i] === 'string' ? (units[i] as string) : 'pct';
+    const unit: DiscountUnit = unitRaw === 'php' ? 'php' : 'pct';
+
+    const expRaw = typeof expiries[i] === 'string' ? (expiries[i] as string).trim() : '';
+    let expires_at: string | null = null;
+    if (expRaw.length > 0) {
+      const d = new Date(expRaw);
+      if (isNaN(d.getTime())) throw new Error('Discount expiry must be a valid date.');
+      expires_at = d.toISOString();
+    }
+    if (discount_type === 'promo' && expires_at === null) {
+      throw new Error('Limited-Time Promo discounts require an expiry date.');
+    }
+
+    const condRaw =
+      typeof conditions[i] === 'string' ? (conditions[i] as string).trim() : '';
+    const conditions_md = condRaw.length > 0 ? condRaw.slice(0, 1000) : null;
+
+    out.push({ discount_type, rate, unit, expires_at, conditions_md });
+  }
+  return out;
+}
+
+type InclusionDraft = { label: string; worth_php: number | null };
+
+/**
+ * Parse the inclusion rows (Phase 3b). Field arrays: inclusion_label[] ·
+ * inclusion_worth[]. A row with a blank label is skipped. Validates: label 1–80,
+ * worth ≥ 0 (or null).
+ */
+function parseInclusionRows(formData: FormData): InclusionDraft[] {
+  const labels = formData.getAll('inclusion_label');
+  const worths = formData.getAll('inclusion_worth');
+  const out: InclusionDraft[] = [];
+  const n = labels.length;
+  for (let i = 0; i < n; i++) {
+    const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
+    if (label.length === 0) continue; // blank row → skip
+    if (label.length > 80) {
+      throw new Error('An inclusion label can be up to 80 characters.');
+    }
+    const worthRaw = typeof worths[i] === 'string' ? (worths[i] as string).trim() : '';
+    let worth_php: number | null = null;
+    if (worthRaw.length > 0) {
+      const w = Number(worthRaw);
+      if (!Number.isFinite(w) || w < 0 || !Number.isInteger(w)) {
+        throw new Error('Inclusion worth must be a non-negative whole number of pesos.');
+      }
+      worth_php = w;
+    }
+    out.push({ label: label.slice(0, 80), worth_php });
+  }
+  return out;
+}
+
+type BracketDraft = { min_pax: number | null; max_pax: number | null; price_php: number };
+
+/**
+ * Parse the price-bracket rows (Phase 3b · Fixed basis only). Field arrays:
+ * bracket_min_pax[] · bracket_max_pax[] · bracket_price[]. A row with a blank
+ * price is skipped. Validates: price ≥ 0, min/max ≥ 0 whole, max ≥ min when both
+ * set. Returns [] for non-Fixed callers (they don't render the editor).
+ */
+function parseBracketRows(formData: FormData): BracketDraft[] {
+  const mins = formData.getAll('bracket_min_pax');
+  const maxes = formData.getAll('bracket_max_pax');
+  const prices = formData.getAll('bracket_price');
+  const out: BracketDraft[] = [];
+  const n = prices.length;
+  for (let i = 0; i < n; i++) {
+    const priceRaw = typeof prices[i] === 'string' ? (prices[i] as string).trim() : '';
+    if (priceRaw.length === 0) continue; // blank row → skip
+    const price = Number(priceRaw);
+    if (!Number.isFinite(price) || price < 0 || !Number.isInteger(price)) {
+      throw new Error('Each price bracket needs a non-negative whole-peso price.');
+    }
+    const minRaw = typeof mins[i] === 'string' ? (mins[i] as string).trim() : '';
+    const maxRaw = typeof maxes[i] === 'string' ? (maxes[i] as string).trim() : '';
+    let min_pax: number | null = null;
+    let max_pax: number | null = null;
+    if (minRaw.length > 0) {
+      const m = Number(minRaw);
+      if (!Number.isFinite(m) || m < 0 || !Number.isInteger(m)) {
+        throw new Error('Bracket guest counts must be non-negative whole numbers.');
+      }
+      min_pax = m;
+    }
+    if (maxRaw.length > 0) {
+      const m = Number(maxRaw);
+      if (!Number.isFinite(m) || m < 1 || !Number.isInteger(m)) {
+        throw new Error('Bracket guest counts must be non-negative whole numbers.');
+      }
+      max_pax = m;
+    }
+    if (min_pax !== null && max_pax !== null && max_pax < min_pax) {
+      throw new Error('A bracket’s "up to" guests must be at least its "from" guests.');
+    }
+    out.push({ min_pax, max_pax, price_php: price });
+  }
+  return out;
+}
+
 /** Parse exclusive_perk_text. Returns null when blank (allowed for drafts). */
 function parseExclusivePerk(formData: FormData): string | null {
   const raw = formData.get('exclusive_perk_text');
@@ -317,6 +461,80 @@ async function resolveOwnedCoverageId(
   return data ? n : null;
 }
 
+/**
+ * Replace-all the three service-card child lists (Phase 3b): discounts,
+ * inclusions, price brackets. Mirrors the single-discount replace-all pattern —
+ * DELETE by (service, profile) then INSERT the parsed rows. Both writes are
+ * owner-scoped (RLS + explicit vendor_profile_id filter). sort_order is the
+ * array index (submitted order IS the order). Called from create + update after
+ * the parent row is written; the drafts are parsed/validated by the caller
+ * inside its try block so a bad row bounces with a friendly error.
+ */
+async function replaceServiceLists(
+  supabase: SupabaseClient,
+  vendorServiceId: string,
+  vendorProfileId: string,
+  lists: {
+    discounts: DiscountDraft[];
+    inclusions: InclusionDraft[];
+    brackets: BracketDraft[];
+  },
+): Promise<void> {
+  const scope = { vendor_service_id: vendorServiceId, vendor_profile_id: vendorProfileId };
+
+  await supabase
+    .from('vendor_service_discounts')
+    .delete()
+    .eq('vendor_service_id', vendorServiceId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (lists.discounts.length > 0) {
+    await supabase.from('vendor_service_discounts').insert(
+      lists.discounts.map((d, i) => ({
+        ...scope,
+        discount_type: d.discount_type,
+        rate: d.rate,
+        unit: d.unit,
+        expires_at: d.expires_at,
+        conditions_md: d.conditions_md,
+        sort_order: i,
+      })),
+    );
+  }
+
+  await supabase
+    .from('vendor_service_inclusions')
+    .delete()
+    .eq('vendor_service_id', vendorServiceId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (lists.inclusions.length > 0) {
+    await supabase.from('vendor_service_inclusions').insert(
+      lists.inclusions.map((n, i) => ({
+        ...scope,
+        label: n.label,
+        worth_php: n.worth_php,
+        sort_order: i,
+      })),
+    );
+  }
+
+  await supabase
+    .from('vendor_service_price_brackets')
+    .delete()
+    .eq('vendor_service_id', vendorServiceId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (lists.brackets.length > 0) {
+    await supabase.from('vendor_service_price_brackets').insert(
+      lists.brackets.map((b, i) => ({
+        ...scope,
+        min_pax: b.min_pax,
+        max_pax: b.max_pax,
+        price_php: b.price_php,
+        sort_order: i,
+      })),
+    );
+  }
+}
+
 export async function createVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
@@ -328,10 +546,9 @@ export async function createVendorService(formData: FormData) {
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
-  let discount_type: ReturnType<typeof parseDiscountFields>['discount_type'];
-  let discount_value: number | null;
-  let discount_expires_at: string | null;
-  let discount_conditions_md: string | null;
+  let discountRows: DiscountDraft[];
+  let inclusionRows: InclusionDraft[];
+  let bracketRows: BracketDraft[];
   let exclusive_perk_text: string | null;
   try {
     category = parseCategory(formData.get('category'));
@@ -355,13 +572,23 @@ export async function createVendorService(formData: FormData) {
     last_minute_surcharge_pct = parseSurchargePctOrNull(
       formData.get('last_minute_surcharge_pct'),
     );
-    ({ discount_type, discount_value, discount_expires_at, discount_conditions_md } =
-      parseDiscountFields(formData));
+    // Phase 3b list editors — multi-discount + free inclusions + Fixed pax
+    // brackets. Brackets only apply to the Fixed basis (the editor is mounted
+    // only there); drop them otherwise so a stale hidden row can't sneak in.
+    discountRows = parseDiscountRows(formData);
+    inclusionRows = parseInclusionRows(formData);
+    bracketRows =
+      pricing.pricing_basis === 'fixed' ? parseBracketRows(formData) : [];
     exclusive_perk_text = parseExclusivePerk(formData);
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
+  }
+  // Fixed basis WITH brackets → the "from ₱X" anchor is the lowest bracket price
+  // (so Explore/budget reflect the tiers); otherwise keep parsePricingFields'.
+  if (pricing.pricing_basis === 'fixed' && bracketRows.length > 0) {
+    pricing.starting_price_php = Math.min(...bracketRows.map((b) => b.price_php));
   }
   // What's-included flags (service-card redesign). crew_meal_required is kept as
   // the inverse of crew_meal_included so the 0007 budget's Crew-Meal line still
@@ -489,21 +716,15 @@ export async function createVendorService(formData: FormData) {
     );
   }
 
-  // Discount → the multi-discount table (migration 20270502342558). The current
-  // single-discount form carries no unit; derive it with the migration's backfill
-  // heuristic (rate <= 100 ⇒ %, else ₱). The list editor + unit toggle land in
-  // Phase 3; this keeps the existing form writing to the new table.
-  if (discount_type && discount_value != null && created) {
-    await supabase.from('vendor_service_discounts').insert({
-      vendor_service_id: created.vendor_service_id,
-      vendor_profile_id: profile.vendor_profile_id,
-      discount_type,
-      rate: discount_value,
-      unit: discount_value <= 100 ? 'pct' : 'php',
-      expires_at: discount_expires_at,
-      conditions_md: discount_conditions_md,
-      sort_order: 0,
-    });
+  // Phase 3b — replace-all the three child lists (multi-discount + free
+  // inclusions + Fixed pax brackets) into their tables (migration 20270502342558).
+  if (created) {
+    await replaceServiceLists(
+      supabase,
+      created.vendor_service_id,
+      profile.vendor_profile_id,
+      { discounts: discountRows, inclusions: inclusionRows, brackets: bracketRows },
+    );
   }
 
   revalidatePath('/vendor-dashboard/services');
@@ -560,10 +781,9 @@ export async function updateVendorService(formData: FormData) {
   let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
-  let discount_type: ReturnType<typeof parseDiscountFields>['discount_type'];
-  let discount_value: number | null;
-  let discount_expires_at: string | null;
-  let discount_conditions_md: string | null;
+  let discountRows: DiscountDraft[];
+  let inclusionRows: InclusionDraft[];
+  let bracketRows: BracketDraft[];
   let exclusive_perk_text: string | null;
   try {
     // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
@@ -586,13 +806,22 @@ export async function updateVendorService(formData: FormData) {
     last_minute_surcharge_pct = parseSurchargePctOrNull(
       formData.get('last_minute_surcharge_pct'),
     );
-    ({ discount_type, discount_value, discount_expires_at, discount_conditions_md } =
-      parseDiscountFields(formData));
+    // Phase 3b list editors — multi-discount + free inclusions + Fixed pax
+    // brackets (brackets only for the Fixed basis; dropped otherwise).
+    discountRows = parseDiscountRows(formData);
+    inclusionRows = parseInclusionRows(formData);
+    bracketRows =
+      pricing.pricing_basis === 'fixed' ? parseBracketRows(formData) : [];
     exclusive_perk_text = parseExclusivePerk(formData);
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
+  }
+  // Fixed basis WITH brackets → anchor = lowest bracket price (Explore/budget
+  // read starting_price_php); otherwise keep parsePricingFields' anchor.
+  if (pricing.pricing_basis === 'fixed' && bracketRows.length > 0) {
+    pricing.starting_price_php = Math.min(...bracketRows.map((b) => b.price_php));
   }
   // What's-included flags (crew_meal_required kept = NOT included for the budget).
   const crew_meal_included = formData.get('crew_meal_included') === 'on';
@@ -659,26 +888,13 @@ export async function updateVendorService(formData: FormData) {
     );
   }
 
-  // Discount → the multi-discount table (replace-all for this service · migration
-  // 20270502342558). The single-discount form carries no unit; derive it with the
-  // migration's backfill heuristic (rate <= 100 ⇒ %, else ₱).
-  await supabase
-    .from('vendor_service_discounts')
-    .delete()
-    .eq('vendor_service_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (discount_type && discount_value != null) {
-    await supabase.from('vendor_service_discounts').insert({
-      vendor_service_id: idRaw,
-      vendor_profile_id: profile.vendor_profile_id,
-      discount_type,
-      rate: discount_value,
-      unit: discount_value <= 100 ? 'pct' : 'php',
-      expires_at: discount_expires_at,
-      conditions_md: discount_conditions_md,
-      sort_order: 0,
-    });
-  }
+  // Phase 3b — replace-all the three child lists (multi-discount + free
+  // inclusions + Fixed pax brackets) for this service (migration 20270502342558).
+  await replaceServiceLists(supabase, idRaw, profile.vendor_profile_id, {
+    discounts: discountRows,
+    inclusions: inclusionRows,
+    brackets: bracketRows,
+  });
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');

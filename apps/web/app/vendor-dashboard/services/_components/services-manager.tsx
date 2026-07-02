@@ -15,7 +15,12 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorServices, fetchDiscountsByService } from '@/lib/vendor-services';
+import {
+  fetchVendorServices,
+  fetchDiscountsByService,
+  fetchInclusionsByService,
+  fetchBracketsByService,
+} from '@/lib/vendor-services';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
 import {
   fetchVendorPoolBookings,
@@ -91,6 +96,14 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
+import {
+  InclusionsEditor,
+  DiscountsEditor,
+  PriceBracketsEditor,
+  type DiscountDraft,
+  type InclusionDraft,
+  type BracketDraft,
+} from './service-list-editors';
 
 export type ServicesManagerSearch = {
   saved?: string;
@@ -182,9 +195,15 @@ export async function VendorServicesManager({
     return ra - rb;
   });
   const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
-  // Discounts moved to their own table (multi-discount · migration 20270502342558);
-  // fetch them grouped by service for the off-peak nudge, row badge, and edit form.
-  const discountsByService = await fetchDiscountsByService(supabase, serviceIdList);
+  // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
+  // migration 20270502342558), grouped by service for the off-peak nudge, row
+  // badge, and the Phase 3b list editors on each form. Batched into one round-trip.
+  const [discountsByService, inclusionsByService, bracketsByService] =
+    await Promise.all([
+      fetchDiscountsByService(supabase, serviceIdList),
+      fetchInclusionsByService(supabase, serviceIdList),
+      fetchBracketsByService(supabase, serviceIdList),
+    ]);
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
   // former serial chain (2026-07-01 perf):
@@ -710,10 +729,16 @@ export async function VendorServicesManager({
                   : 'You';
               const hasSlots =
                 (slotsByService.get(svc.vendor_service_id)?.length ?? 0) > 0;
-              // Multi-discount: the single-discount UI shows/edits the first row
-              // (the list editor lands in Phase 3 · migration 20270502342558).
-              const svcDiscount =
-                discountsByService.get(svc.vendor_service_id)?.[0] ?? null;
+              // Multi-discount (Phase 3b · migration 20270502342558). The row
+              // badge shows the FIRST discount + a "+N" when there are more; the
+              // full list is edited in the DiscountsEditor below.
+              const svcDiscountList =
+                discountsByService.get(svc.vendor_service_id) ?? [];
+              const svcDiscount = svcDiscountList[0] ?? null;
+              const svcInclusions =
+                inclusionsByService.get(svc.vendor_service_id) ?? [];
+              const svcBrackets =
+                bracketsByService.get(svc.vendor_service_id) ?? [];
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
@@ -763,7 +788,9 @@ export async function VendorServicesManager({
                       <DiscountBadge
                         type={svcDiscount.discount_type}
                         value={svcDiscount.rate}
+                        unit={svcDiscount.unit}
                         expiresAt={svcDiscount.expires_at}
+                        extraCount={svcDiscountList.length - 1}
                       />
                     ) : null}
                     {/* on/off toggle (is_active) */}
@@ -844,6 +871,9 @@ export async function VendorServicesManager({
                             min_hours: svc.min_hours,
                             extra_hour_php: svc.extra_hour_php,
                           }}
+                          fixedExtra={
+                            <PriceBracketsEditor initial={bracketsToDrafts(svcBrackets)} />
+                          }
                         />
                         <Field label="Crew size" htmlFor={`crew-${svc.vendor_service_id}`}>
                           <input
@@ -902,28 +932,19 @@ export async function VendorServicesManager({
                             defaultValue={svc.branch_id ?? ''}
                           />
                         ) : null}
-                        {(() => {
-                          const isPrefillTarget =
-                            offPeakPrefillId === svc.vendor_service_id && !svcDiscount;
-                          return (
-                            <DiscountFields
-                              idPrefix={svc.vendor_service_id}
-                              typeDefault={
-                                svcDiscount?.discount_type ?? (isPrefillTarget ? 'off_peak' : undefined)
-                              }
-                              valueDefault={svcDiscount?.rate ?? undefined}
-                              expiresDefault={
-                                svcDiscount?.expires_at ??
-                                (isPrefillTarget && suggestedExpiry ? suggestedExpiry : undefined)
-                              }
-                              conditionsDefault={
-                                svcDiscount?.conditions_md ??
-                                (isPrefillTarget ? suggestedConditions : undefined)
-                              }
-                              forceOpen={isPrefillTarget}
-                            />
-                          );
-                        })()}
+                        {/* Multi-discount list (Phase 3b). Preserves the
+                            Off-Season nudge: when arrived via ?offpeak and the
+                            service has no discounts yet, seed one off_peak row. */}
+                        <DiscountsEditor
+                          initial={discountsToDrafts(svcDiscountList)}
+                          seedOffPeak={
+                            offPeakPrefillId === svc.vendor_service_id &&
+                            svcDiscountList.length === 0
+                          }
+                          seedExpiry={suggestedExpiry?.slice(0, 10)}
+                          seedConditions={suggestedConditions || undefined}
+                        />
+                        <InclusionsEditor initial={inclusionsToDrafts(svcInclusions)} />
                         <ExclusivePerkField
                           idPrefix={svc.vendor_service_id}
                           perkDefault={svc.exclusive_perk_text ?? undefined}
@@ -1314,6 +1335,7 @@ function AddServiceForm({
           min_hours: null,
           extra_hour_php: null,
         }}
+        fixedExtra={<PriceBracketsEditor initial={[]} />}
       />
       <Field label="Crew size" htmlFor={`new-crew-${addCategory}`} help="How many people you bring on the day.">
         <input
@@ -1352,7 +1374,8 @@ function AddServiceForm({
       {showBranchPicker ? (
         <BranchSelect id={`new-branch-${addCategory}`} branches={branches} defaultValue="" />
       ) : null}
-      <DiscountFields idPrefix={`new-${addCategory}`} />
+      <DiscountsEditor initial={[]} />
+      <InclusionsEditor initial={[]} />
       <ExclusivePerkField idPrefix={`new-${addCategory}`} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
@@ -1481,123 +1504,36 @@ const DISCOUNT_TYPE_LABELS: Record<string, string> = {
   returning: 'Returning Couple',
 };
 
-const DISCOUNT_TYPE_HELPS: Record<string, string> = {
-  early_booking: '% or flat off for bookings placed well before the event date.',
-  off_peak: 'Lower rate for non-peak months (specify in Conditions).',
-  bundle: 'Reduced price when ≥2 services from your profile are purchased by the same couple.',
-  promo: 'Expiry-gated discount — requires an end date.',
-  returning: 'Loyalty rate for couples who have completed a prior booking with you.',
-};
-
-/** Collapsible "Discount" section for the service editor. */
-function DiscountFields({
-  idPrefix,
-  typeDefault,
-  valueDefault,
-  expiresDefault,
-  conditionsDefault,
-  forceOpen = false,
-}: {
-  idPrefix: string;
-  typeDefault?: string;
-  valueDefault?: number;
-  expiresDefault?: string;
-  conditionsDefault?: string;
-  forceOpen?: boolean;
-}) {
-  const hasDiscount = Boolean(typeDefault) || forceOpen;
-  let expiresDateVal = '';
-  if (expiresDefault) {
-    try {
-      expiresDateVal = expiresDefault.slice(0, 10);
-    } catch {
-      expiresDateVal = '';
-    }
-  }
-  return (
-    <details className="rounded-xl border" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }} open={hasDiscount}>
-      <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-3 py-2.5">
-        <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-          <Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
-          Discount
-          {hasDiscount ? (
-            <span
-              className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-            >
-              Active
-            </span>
-          ) : null}
-        </span>
-        <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
-      </summary>
-      <div className="space-y-3 border-t px-3 pb-3 pt-3" style={{ borderColor: 'var(--m-line)' }}>
-        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-          Optional. When set, the discount type and value appear on your service card.
-          Leave the type as &ldquo;None&rdquo; to remove any active discount.
-        </p>
-        <Field
-          label="Discount type"
-          htmlFor={`${idPrefix}-disc-type`}
-          help={typeDefault ? DISCOUNT_TYPE_HELPS[typeDefault] : undefined}
-        >
-          <select
-            id={`${idPrefix}-disc-type`}
-            name="discount_type"
-            defaultValue={typeDefault ?? ''}
-            className="input-field cursor-pointer"
-          >
-            <option value="">None — no discount</option>
-            {Object.entries(DISCOUNT_TYPE_LABELS).map(([val, label]) => (
-              <option key={val} value={val}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field
-          label="Discount amount"
-          htmlFor={`${idPrefix}-disc-val`}
-          help="Positive number. Use a whole number for % (e.g. 10 = 10%) or PHP flat (e.g. 5000)."
-        >
-          <input
-            id={`${idPrefix}-disc-val`}
-            name="discount_value"
-            type="number"
-            min={0.01}
-            step="any"
-            placeholder="e.g. 10 or 5000"
-            defaultValue={valueDefault ?? ''}
-            className="input-field"
-          />
-        </Field>
-        <Field label="Promo expiry date (required for Limited-Time Promo)" htmlFor={`${idPrefix}-disc-exp`}>
-          <input
-            id={`${idPrefix}-disc-exp`}
-            name="discount_expires_at"
-            type="date"
-            defaultValue={expiresDateVal}
-            className="input-field"
-          />
-        </Field>
-        <Field
-          label="Conditions (optional)"
-          htmlFor={`${idPrefix}-disc-cond`}
-          help="Markdown supported. E.g. 'Valid for bookings ≥ 6 months before the event.'"
-        >
-          <textarea
-            id={`${idPrefix}-disc-cond`}
-            name="discount_conditions_md"
-            rows={3}
-            maxLength={1000}
-            placeholder="Describe any conditions, inclusions, or fine print…"
-            defaultValue={conditionsDefault ?? ''}
-            className="input-field resize-none"
-          />
-        </Field>
-      </div>
-    </details>
-  );
+// ── Child-list DB rows → editor drafts (Phase 3b) ────────────────────────────
+// The fetched rows carry ISO/number values; the editors take string-typed draft
+// rows. These map one to the other (dates → YYYY-MM-DD for <input type="date">).
+function discountsToDrafts(
+  rows: import('@/lib/vendor-services').VendorServiceDiscount[],
+): DiscountDraft[] {
+  return rows.map((d) => ({
+    discount_type: d.discount_type,
+    rate: String(d.rate),
+    unit: d.unit,
+    expires_at: d.expires_at ? d.expires_at.slice(0, 10) : '',
+    conditions_md: d.conditions_md ?? '',
+  }));
+}
+function inclusionsToDrafts(
+  rows: import('@/lib/vendor-services').VendorServiceInclusion[],
+): InclusionDraft[] {
+  return rows.map((n) => ({
+    label: n.label,
+    worth: n.worth_php != null ? String(n.worth_php) : '',
+  }));
+}
+function bracketsToDrafts(
+  rows: import('@/lib/vendor-services').VendorServicePriceBracket[],
+): BracketDraft[] {
+  return rows.map((b) => ({
+    min_pax: b.min_pax != null ? String(b.min_pax) : '',
+    max_pax: b.max_pax != null ? String(b.max_pax) : '',
+    price: String(b.price_php),
+  }));
 }
 
 /** "Setnayan Exclusive" perk field. Required to publish; optional for drafts. */
@@ -1646,19 +1582,29 @@ function ExclusivePerkField({
   );
 }
 
-/** Inline discount badge shown on the service row when a discount is active. */
+/**
+ * Inline discount badge shown on the service row for the FIRST (best-ordered)
+ * discount, with a "+N" suffix when the service carries more (multi-discount ·
+ * Phase 3b). Renders the first row's value with its unit (% or ₱).
+ */
 function DiscountBadge({
   type,
   value,
+  unit,
   expiresAt,
+  extraCount = 0,
 }: {
   type: string;
   value: number | null;
+  unit?: 'pct' | 'php';
   expiresAt: string | null;
+  extraCount?: number;
 }) {
   const label = DISCOUNT_TYPE_LABELS[type] ?? type;
   const expired = expiresAt ? new Date(expiresAt) < new Date() : false;
   if (expired) return null;
+  const valueLabel =
+    value != null ? (unit === 'php' ? ` · ₱${value}` : ` · ${value}%`) : '';
   return (
     <span
       className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] sm:inline-flex"
@@ -1666,7 +1612,8 @@ function DiscountBadge({
     >
       <Tag className="h-3 w-3" strokeWidth={2} />
       {label}
-      {value != null ? ` · ${value}` : ''}
+      {valueLabel}
+      {extraCount > 0 ? ` +${extraCount}` : ''}
     </span>
   );
 }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { tierCaps } from './vendor-tier-caps';
 
 /**
  * Vendor Branches — Enterprise sub-location accounts ("multiple accounts
@@ -91,6 +92,20 @@ export const BRANCH_RADIUS_MIN_KM = 1;
 export const BRANCH_RADIUS_MAX_KM = 200;
 export const BRANCH_LABEL_MAX = 120;
 export const BRANCH_CITY_MAX = 120;
+export const BRANCH_ADDRESS_MAX = 300;
+
+/**
+ * Automatic branch service radius (km). Range is no longer a manual input
+ * (owner 2026-07-02 "range is automatic") — a branch inherits the Enterprise
+ * tier reach (vendor-tier-caps · serviceRadiusKm), clamped to the column's
+ * stored max. Branches are Enterprise-only, so this resolves to the Enterprise
+ * ceiling; the clamp is a defensive floor/ceiling if that cap ever changes.
+ */
+export function branchAutoRadiusKm(): number {
+  const reach = tierCaps('enterprise').serviceRadiusKm;
+  if (!Number.isFinite(reach) || reach <= 0) return BRANCH_RADIUS_MAX_KM;
+  return Math.min(Math.max(BRANCH_RADIUS_MIN_KM, Math.round(reach)), BRANCH_RADIUS_MAX_KM);
+}
 
 export type BranchStatus = 'active' | 'pending_payment' | 'expired' | 'cancelled';
 
@@ -100,6 +115,9 @@ export type VendorBranchRow = {
   branch_label: string;
   branch_city: string;
   branch_radius_km: number;
+  branch_latitude: number | null;
+  branch_longitude: number | null;
+  branch_address: string | null;
   branch_subscription_active: boolean;
   created_at: string;
   cancelled_at: string | null;
@@ -152,7 +170,7 @@ export async function fetchVendorBranches(
   const { data, error } = await supabase
     .from('vendor_branches')
     .select(
-      'branch_id,parent_vendor_profile_id,branch_label,branch_city,branch_radius_km,branch_subscription_active,created_at,cancelled_at',
+      'branch_id,parent_vendor_profile_id,branch_label,branch_city,branch_radius_km,branch_latitude,branch_longitude,branch_address,branch_subscription_active,created_at,cancelled_at',
     )
     .eq('parent_vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });

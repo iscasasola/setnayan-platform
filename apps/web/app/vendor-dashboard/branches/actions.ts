@@ -8,12 +8,18 @@ import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
   BRANCH_LABEL_MAX,
   BRANCH_CITY_MAX,
-  BRANCH_RADIUS_MIN_KM,
-  BRANCH_RADIUS_MAX_KM,
+  BRANCH_ADDRESS_MAX,
   branchServiceKey,
+  branchAutoRadiusKm,
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
+import { reverseGeocodeNominatim } from '@/lib/geo';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { BranchActionState } from './branch-types';
+
+function err(message: string): BranchActionState {
+  return { status: 'error', message };
+}
 
 /** 'SN' + 8 uppercase hex — matches the couple checkout reference format. */
 function generateReferenceCode(): string {
@@ -28,17 +34,22 @@ function generateReferenceCode(): string {
   );
 }
 
-function fail(message: string): never {
-  redirect(`/vendor-dashboard/branches?error=${encodeURIComponent(message)}`);
-}
+type BranchManager = {
+  supabase: SupabaseClient;
+  userId: string;
+  vendorProfileId: string;
+};
 
 /**
  * Resolve the caller's vendor + assert they may manage branches:
- * authenticated · owner/admin role · Enterprise tier. Returns the
- * vendor_profile_id + the authed client. Server-side guard — the UI also gates,
- * but this is the load-bearing check.
+ * authenticated · owner/admin role · Enterprise tier. Hard auth failures
+ * redirect (defense in depth — the UI also gates); recoverable states return
+ * an error string so the inline form can show it. Returns the manager context
+ * or an error result.
  */
-async function requireBranchManager() {
+async function requireBranchManager(): Promise<
+  BranchManager | { error: BranchActionState }
+> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -46,10 +57,12 @@ async function requireBranchManager() {
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) fail('No vendor profile found.');
+  if (!profile) return { error: err('No vendor profile found.') };
 
   const role = await resolveVendorRole(supabase, user.id);
-  if (!canManageVendor(role)) fail('Only the owner or an admin can manage branches.');
+  if (!canManageVendor(role)) {
+    return { error: err('Only the owner or an admin can manage branches.') };
+  }
 
   // Soft-probe tier_state (not in FULL_VENDOR_PROFILE_SELECT). Branches are
   // Enterprise-only (owner-locked 2026-06-05).
@@ -64,7 +77,9 @@ async function requireBranchManager() {
   } catch {
     tier = null;
   }
-  if (tier !== 'enterprise') fail('Branches are an Enterprise plan feature.');
+  if (tier !== 'enterprise') {
+    return { error: err('Branches are an Enterprise plan feature.') };
+  }
 
   return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id };
 }
@@ -124,39 +139,88 @@ function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
   return v === 'gcash' ? 'gcash' : 'bdo';
 }
 
-export async function createBranch(formData: FormData) {
-  const { supabase, userId, vendorProfileId } = await requireBranchManager();
+/** Parse an optional finite coordinate from a form field. */
+function parseCoord(
+  raw: FormDataEntryValue | null,
+  lo: number,
+  hi: number,
+): number | null {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < lo || n > hi) return null;
+  return n;
+}
+
+function revalidateBranchSurfaces() {
+  revalidatePath('/vendor-dashboard/branches');
+  revalidatePath('/vendor-dashboard/shop');
+}
+
+/**
+ * Reverse-geocode a dropped pin to a city + address line for the branch form.
+ * Plain server action called directly from the client (args, not FormData) so
+ * the "detect city automatically" chip updates as the vendor moves the pin.
+ * Best-effort: returns nulls on a geocode miss and the vendor can type the city.
+ * Gated to a branch manager so it isn't an open geocoding proxy.
+ */
+export async function detectBranchLocation(
+  lat: number,
+  lng: number,
+): Promise<{ city: string; address: string }> {
+  const ctx = await requireBranchManager();
+  if ('error' in ctx) return { city: '', address: '' };
+  const r = await reverseGeocodeNominatim(lat, lng);
+  return { city: r?.city ?? '', address: r?.displayName ?? '' };
+}
+
+export async function createBranch(
+  _prev: BranchActionState,
+  formData: FormData,
+): Promise<BranchActionState> {
+  const ctx = await requireBranchManager();
+  if ('error' in ctx) return ctx.error;
+  const { supabase, userId, vendorProfileId } = ctx;
 
   const label = String(formData.get('branch_label') ?? '').trim();
   const city = String(formData.get('branch_city') ?? '').trim();
-  const radiusRaw = Number(formData.get('branch_radius_km'));
+  const address = String(formData.get('branch_address') ?? '')
+    .trim()
+    .slice(0, BRANCH_ADDRESS_MAX);
+  const lat = parseCoord(formData.get('branch_latitude'), -90, 90);
+  const lng = parseCoord(formData.get('branch_longitude'), -180, 180);
   const channelRaw = String(formData.get('channel') ?? '').trim();
 
-  if (!label || label.length > BRANCH_LABEL_MAX) fail('Enter a branch name (1–120 characters).');
-  if (!city || city.length > BRANCH_CITY_MAX) fail('Enter the branch city (1–120 characters).');
-  if (
-    !Number.isFinite(radiusRaw) ||
-    radiusRaw < BRANCH_RADIUS_MIN_KM ||
-    radiusRaw > BRANCH_RADIUS_MAX_KM
-  ) {
-    fail(`Service radius must be ${BRANCH_RADIUS_MIN_KM}–${BRANCH_RADIUS_MAX_KM} km.`);
+  if (!label || label.length > BRANCH_LABEL_MAX) {
+    return err('Enter a branch name (1–120 characters).');
   }
-  if (channelRaw !== 'bdo' && channelRaw !== 'gcash') fail('Choose how you will pay (BDO or GCash).');
+  if (!city || city.length > BRANCH_CITY_MAX) {
+    return err('Drop a pin on the map (or type the branch city).');
+  }
+  if (channelRaw !== 'bdo' && channelRaw !== 'gcash') {
+    return err('Choose how you will pay (BDO or GCash).');
+  }
   const channel = channelRaw as 'bdo' | 'gcash';
+  // Coords are stored as a pair or not at all (a lone axis is meaningless).
+  const hasCoords = lat !== null && lng !== null;
 
   // 1) Branch row — starts INACTIVE; activates when the admin approves the fee.
+  //    Range is automatic (inherits the Enterprise tier reach).
   const { data: branchRow, error: bErr } = await supabase
     .from('vendor_branches')
     .insert({
       parent_vendor_profile_id: vendorProfileId,
       branch_label: label,
       branch_city: city,
-      branch_radius_km: Math.round(radiusRaw),
+      branch_radius_km: branchAutoRadiusKm(),
+      branch_latitude: hasCoords ? lat : null,
+      branch_longitude: hasCoords ? lng : null,
+      branch_address: address || null,
       branch_subscription_active: false,
     })
     .select('branch_id')
     .maybeSingle();
-  if (bErr || !branchRow) fail('Could not create the branch. Please try again.');
+  if (bErr || !branchRow) return err('Could not create the branch. Please try again.');
   const branchId = (branchRow as { branch_id: string }).branch_id;
 
   // 2) Apply-then-pay charge. Price comes from the admin-managed catalog
@@ -174,34 +238,44 @@ export async function createBranch(formData: FormData) {
   if ('error' in res) {
     // Roll back the branch so we don't leave an orphan with no order.
     await supabase.from('vendor_branches').delete().eq('branch_id', branchId);
-    fail('Could not start the branch payment. Please try again.');
+    return err('Could not start the branch payment. Please try again.');
   }
 
-  revalidatePath('/vendor-dashboard/branches');
-  redirect(`/vendor-dashboard/branches?created=${encodeURIComponent(res.referenceCode)}`);
+  revalidateBranchSurfaces();
+  return {
+    status: 'success',
+    kind: 'created',
+    referenceCode: res.referenceCode,
+    message: `Branch added. Pay ₱${feePhp.toLocaleString('en-PH')} with reference ${res.referenceCode} — it activates once our team confirms your payment (within 24 hours).`,
+  };
 }
 
 /**
- * Renew an expired (or pending) branch — a fresh ₱999 apply-then-pay charge for
- * the SAME branch. On admin approval the activation hook re-activates it with a
- * new 28-day window. No new branch row; reuses the existing one.
+ * Renew an expired (or pending) branch — a fresh apply-then-pay charge for the
+ * SAME branch. On admin approval the activation hook re-activates it with a new
+ * 28-day window. No new branch row; reuses the existing one.
  */
-export async function renewBranch(formData: FormData) {
-  const { supabase, userId, vendorProfileId } = await requireBranchManager();
+export async function renewBranch(
+  _prev: BranchActionState,
+  formData: FormData,
+): Promise<BranchActionState> {
+  const ctx = await requireBranchManager();
+  if ('error' in ctx) return ctx.error;
+  const { supabase, userId, vendorProfileId } = ctx;
+
   const branchId = String(formData.get('branch_id') ?? '').trim();
-  if (!branchId) fail('Missing branch.');
+  if (!branchId) return err('Missing branch.');
   const channel = parseChannel(formData.get('channel'));
 
-  // Confirm the branch belongs to this vendor + isn't cancelled.
   const { data: branch } = await supabase
     .from('vendor_branches')
     .select('branch_id,branch_label,cancelled_at')
     .eq('branch_id', branchId)
     .eq('parent_vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!branch) fail('Branch not found.');
+  if (!branch) return err('Branch not found.');
   if ((branch as { cancelled_at: string | null }).cancelled_at) {
-    fail('This branch is cancelled — add a new branch instead.');
+    return err('This branch is cancelled — add a new branch instead.');
   }
   const label = (branch as { branch_label: string }).branch_label;
 
@@ -215,24 +289,35 @@ export async function renewBranch(formData: FormData) {
     channel,
     feePhp,
   );
-  if ('error' in res) fail('Could not start the renewal payment. Please try again.');
+  if ('error' in res) return err('Could not start the renewal payment. Please try again.');
 
-  revalidatePath('/vendor-dashboard/branches');
-  redirect(`/vendor-dashboard/branches?renewed=${encodeURIComponent(res.referenceCode)}`);
+  revalidateBranchSurfaces();
+  return {
+    status: 'success',
+    kind: 'renewed',
+    referenceCode: res.referenceCode,
+    message: `Renewal started. Pay ₱${feePhp.toLocaleString('en-PH')} with reference ${res.referenceCode} — the branch reactivates for another 28 days once our team confirms.`,
+  };
 }
 
-export async function cancelBranch(formData: FormData) {
-  const { supabase, vendorProfileId } = await requireBranchManager();
-  const branchId = String(formData.get('branch_id') ?? '').trim();
-  if (!branchId) fail('Missing branch.');
+export async function cancelBranch(
+  _prev: BranchActionState,
+  formData: FormData,
+): Promise<BranchActionState> {
+  const ctx = await requireBranchManager();
+  if ('error' in ctx) return ctx.error;
+  const { supabase, vendorProfileId } = ctx;
 
-  const { error } = await supabase
+  const branchId = String(formData.get('branch_id') ?? '').trim();
+  if (!branchId) return err('Missing branch.');
+
+  const { error: uErr } = await supabase
     .from('vendor_branches')
     .update({ cancelled_at: new Date().toISOString(), branch_subscription_active: false })
     .eq('branch_id', branchId)
     .eq('parent_vendor_profile_id', vendorProfileId);
-  if (error) fail('Could not cancel the branch.');
+  if (uErr) return err('Could not cancel the branch.');
 
-  revalidatePath('/vendor-dashboard/branches');
-  redirect('/vendor-dashboard/branches?cancelled=1');
+  revalidateBranchSurfaces();
+  return { status: 'success', kind: 'cancelled', message: 'Branch cancelled.' };
 }

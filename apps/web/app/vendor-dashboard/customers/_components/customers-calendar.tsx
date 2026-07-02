@@ -110,6 +110,8 @@ export function CustomersCalendar({
   types,
   services,
   agents,
+  agentsEnabled,
+  agentCategories,
 }: {
   /** The first-painted month's raw day states + waitlist (server-fetched). */
   initialDayStates: VendorCalendarDayState[];
@@ -130,11 +132,19 @@ export function CustomersCalendar({
   types: FilterOption[];
   services: FilterOption[];
   agents: FilterOption[];
+  /** Whether the vendor's subscription tier includes agents (Pro+; agentAccounts
+   *  > 0). When false the Agent filter is disabled — it's a tier feature, so a
+   *  vendor who drops below Pro loses it. */
+  agentsEnabled: boolean;
+  /** vendor_team_member_id → the service categories that agent is assigned to.
+   *  Filtering by an agent narrows the calendar to those categories' schedules. */
+  agentCategories: Record<string, string[]>;
 }) {
   const [heatmap, setHeatmap] = useState(false);
   const [month, setMonth] = useState(initialMonth);
   const [serviceFilter, setServiceFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
   const [pending, startTransition] = useTransition();
 
   // Per-mount cache of RAW month inputs (day states + waitlist), filter-agnostic
@@ -146,12 +156,19 @@ export function CustomersCalendar({
     () => new Map([[initialMonth, { dayStates: initialDayStates, waitlist: initialWaitlist }]]),
   );
 
-  // Filter narrowing (pure). Service → the pools that carry the category; Type →
-  // the bookings of that event type. Both feed the day builder.
-  const filteredPools = useMemo(
-    () => (serviceFilter ? pools.filter((p) => p.categories.includes(serviceFilter)) : pools),
-    [pools, serviceFilter],
-  );
+  // Filter narrowing (pure). Service → the pools that carry the category; Agent
+  // → the pools whose category the agent is assigned to (agents "see only their
+  // own work"); Type → the bookings of that event type. Pools narrow for Service
+  // + Agent; bookings narrow for Type. All feed the day builder.
+  const filteredPools = useMemo(() => {
+    let ps = pools;
+    if (serviceFilter) ps = ps.filter((p) => p.categories.includes(serviceFilter));
+    if (agentFilter) {
+      const cats = agentCategories[agentFilter] ?? [];
+      ps = ps.filter((p) => p.categories.some((c) => cats.includes(c)));
+    }
+    return ps;
+  }, [pools, serviceFilter, agentFilter, agentCategories]);
   const filteredBookings = useMemo(
     () => (typeFilter ? bookings.filter((b) => (b.eventType ?? '') === typeFilter) : bookings),
     [bookings, typeFilter],
@@ -202,10 +219,11 @@ export function CustomersCalendar({
     [month, monthInputs],
   );
 
-  const filtersActive = serviceFilter !== '' || typeFilter !== '';
+  const filtersActive = serviceFilter !== '' || typeFilter !== '' || agentFilter !== '';
   const hasAnyChip = data.days.some((d) => d.state !== null);
   const serviceLabel = services.find((o) => o.value === serviceFilter)?.label;
   const typeLabel = types.find((o) => o.value === typeFilter)?.label;
+  const agentLabel = agents.find((o) => o.value === agentFilter)?.label;
 
   return (
     <div className="space-y-4">
@@ -217,6 +235,10 @@ export function CustomersCalendar({
         onTypeFilterChange={setTypeFilter}
         serviceFilter={serviceFilter}
         onServiceFilterChange={setServiceFilter}
+        agentFilter={agentFilter}
+        onAgentFilterChange={setAgentFilter}
+        agentDisabled={!agentsEnabled}
+        agentDisabledHint="Team agents come with Pro — filter by them once you add agents"
         heatmap={heatmap}
         onHeatmapChange={setHeatmap}
       />
@@ -270,6 +292,7 @@ export function CustomersCalendar({
           <p className="mb-3 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
             Showing{typeLabel ? ` ${typeLabel}` : ''}
             {serviceLabel ? ` · ${serviceLabel}` : ''}
+            {agentLabel ? ` · ${agentLabel}` : ''}
             {!hasAnyChip ? ' — no matching activity this month.' : ''}
           </p>
         ) : null}

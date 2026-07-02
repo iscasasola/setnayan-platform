@@ -14,9 +14,10 @@ import { Filter, Info, Flame } from 'lucide-react';
  *   • Service — filters the calendar to the schedule(s) that carry the chosen
  *     service category.
  *   • Type — filters which booked events count toward booked/full days.
- *   • Agent — per-agent scheduling isn't tracked in the booking schema yet, so
- *     this select is honestly DISABLED (with a hint) rather than shipped as a
- *     dead dropdown. It lights up once booking→team-member assignment exists.
+ *   • Agent — a SUBSCRIPTION feature (Pro+, where agentAccounts > 0). Enabled
+ *     for vendors whose tier includes agents; disabled with a hint below that
+ *     (a downgrade below Pro switches it off). When on, it narrows the calendar
+ *     to the service categories the chosen agent is assigned to.
  * The Heat map toggle dims non-booked days so busy stretches jump out.
  */
 
@@ -30,8 +31,10 @@ export function CustomersFilterBar({
   onTypeFilterChange,
   serviceFilter,
   onServiceFilterChange,
+  agentFilter,
+  onAgentFilterChange,
   agentDisabled = true,
-  agentDisabledHint = 'Per-agent scheduling isn’t tracked yet',
+  agentDisabledHint = 'Team agents come with Pro',
   heatmap,
   onHeatmapChange,
 }: {
@@ -42,7 +45,10 @@ export function CustomersFilterBar({
   onTypeFilterChange: (next: string) => void;
   serviceFilter: string;
   onServiceFilterChange: (next: string) => void;
-  /** Agent filtering is unwireable until booking→agent assignment exists. */
+  agentFilter: string;
+  onAgentFilterChange: (next: string) => void;
+  /** Agent filtering is a subscription feature (Pro+ — agentAccounts > 0).
+   *  Disabled for tiers without agents; a downgrade below Pro switches it off. */
   agentDisabled?: boolean;
   agentDisabledHint?: string;
   heatmap: boolean;
@@ -76,7 +82,8 @@ export function CustomersFilterBar({
       <FilterSelect
         label="All agents"
         options={agents}
-        value=""
+        value={agentDisabled ? '' : agentFilter}
+        onChange={agentDisabled ? undefined : onAgentFilterChange}
         disabled={agentDisabled}
         title={agentDisabled ? agentDisabledHint : undefined}
       />

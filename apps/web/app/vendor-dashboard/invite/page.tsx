@@ -277,7 +277,9 @@ async function LockedMode({
                     ? 'Describe what the couple availed.'
                     : error === 'event_date'
                       ? 'Set the agreed event date.'
-                      : 'Could not create the Locked QR. Please try again.'}
+                      : error === 'date_unavailable'
+                        ? 'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.'
+                        : 'Could not create the Locked QR. Please try again.'}
         </p>
       ) : null}
       <LockedQrGenerator

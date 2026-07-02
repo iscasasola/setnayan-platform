@@ -69,6 +69,8 @@ import {
 } from '@/lib/vendor-service-payment-schedules';
 import { PaymentScheduleEditor } from './_components/payment-schedule-editor';
 import { ExploreCardPreview } from './_components/explore-card-preview';
+import { fetchAddonsByService } from '@/lib/vendor-service-addons';
+import { AddonsEditor } from './_components/addons-editor';
 import {
   createVendorService,
   proposeCategory,
@@ -79,6 +81,13 @@ import {
   deleteServiceTimeSlot,
   setServiceLinks,
 } from './actions';
+import {
+  fetchVendorCoverages,
+  getCoverageTaxonomy,
+  resolveCoverageLabels,
+} from '@/lib/vendor-coverages';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { CoveragePanel } from './_components/coverage-panel';
 
 export const metadata = { title: 'My Services · Vendor · Setnayan' };
 
@@ -117,6 +126,35 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
 
   const serviceIdList = services.map((s) => s.vendor_service_id);
+
+  // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
+  // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
+  // through with no deploy). Each read fails soft to empty so the page renders.
+  const [vendorCoverages, coverageTree, coverageLabels, eventVocab] =
+    await Promise.all([
+      fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
+      getCoverageTaxonomy().catch(() => []),
+      resolveCoverageLabels().catch(() => null),
+      getEventTypeVocab().catch(() => []),
+    ]);
+  const serviceCountByCoverage = services.reduce<Record<number, number>>(
+    (m, s) => {
+      if (s.coverage_id != null) m[s.coverage_id] = (m[s.coverage_id] ?? 0) + 1;
+      return m;
+    },
+    {},
+  );
+  const coverageItems = vendorCoverages.map((c) => ({
+    id: c.id,
+    canonicalService: c.canonical_service,
+    pathLabel: coverageLabels
+      ? coverageLabels.pathLabel(c.canonical_service)
+      : c.canonical_service,
+    eventTypes: c.event_types,
+    serviceCount: serviceCountByCoverage[c.id] ?? 0,
+  }));
+  const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
+  const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
   // former serial chain (2026-07-01 perf):
@@ -485,52 +523,12 @@ export default async function VendorServicesPage({ searchParams }: Props) {
         </div>
       </section>
 
-      {/* ── 3 · SERVICE COVERAGE ────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <SectionEyebrow>Service coverage</SectionEyebrow>
-        <div className="flex flex-wrap items-center gap-2">
-          {distinctCategories.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              No coverage yet — add a service to appear in that category&rsquo;s search.
-            </p>
-          ) : (
-            distinctCategories.map((cat) => {
-              const Icon = iconForVendorCategory(cat);
-              const count = serviceCountByCategory[cat] ?? 0;
-              return (
-                <span
-                  key={cat}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm"
-                  style={{
-                    borderColor: 'var(--m-line)',
-                    background: 'var(--m-paper)',
-                    color: 'var(--m-ink)',
-                  }}
-                >
-                  <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
-                  {displayServiceLabel(cat)}
-                  {count > 1 ? (
-                    <span
-                      className="rounded-full px-1.5 text-[11px] font-medium"
-                      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-                    >
-                      {count}
-                    </span>
-                  ) : null}
-                </span>
-              );
-            })
-          )}
-          <Link
-            href="#add-service-picker"
-            className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{ borderColor: 'var(--m-orange-3)', color: 'var(--m-orange-2)' }}
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Add coverage
-          </Link>
-        </div>
-      </section>
+      {/* ── 3 · SERVICE COVERAGE (coverage-first: taxonomy leaf + event types) ── */}
+      <CoveragePanel
+        tree={coverageTree}
+        coverages={coverageItems}
+        eventTypeOptions={eventTypeOptions}
+      />
 
       {/* ── 4 · YOUR SERVICES ───────────────────────────────────────────── */}
       <section className="space-y-3">
@@ -947,6 +945,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         initial={(scheduleRowsByService.get(svc.vendor_service_id) ?? []).map(
                           rowToDraft,
                         )}
+                      />
+                      <AddonsEditor
+                        serviceId={svc.vendor_service_id}
+                        initial={(addonsByService.get(svc.vendor_service_id) ?? []).map((a) => ({
+                          label: a.label,
+                          price: a.from_price_php != null ? String(a.from_price_php) : '',
+                        }))}
                       />
                     </div>
                   </details>

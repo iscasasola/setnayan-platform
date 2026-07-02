@@ -545,10 +545,14 @@ function SetnayanAiOverlay({
   current,
   onClose,
   pricing,
+  onOpenStory,
 }: {
   current: OverlayId;
   onClose: () => void;
   pricing: PricingData;
+  /** Opens the one-page Setnayan AI story takeover (owner 2026-07-03) — the
+   *  in-world replacement for the old-chrome /setnayan-ai bounce. */
+  onOpenStory?: () => void;
 }) {
   const jobs: Array<[string, string]> = [
     ['Does the legwork', 'Finds and ranks your best-fit verified vendors, chases the quiet ones, and lines up their quotes.'],
@@ -599,9 +603,19 @@ function SetnayanAiOverlay({
         >
           Turn on Setnayan AI
         </Link>
-        <Link href="/setnayan-ai" onClick={onClose} style={{ fontSize: 14, color: '#57534b', textDecoration: 'none' }}>
-          See the full story →
-        </Link>
+        {onOpenStory ? (
+          // In-world story takeover — never bounce to the old-chrome route.
+          <button
+            onClick={onOpenStory}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 14, color: '#57534b' }}
+          >
+            See the full story →
+          </button>
+        ) : (
+          <Link href="/setnayan-ai" onClick={onClose} style={{ fontSize: 14, color: '#57534b', textDecoration: 'none' }}>
+            See the full story →
+          </Link>
+        )}
       </div>
     </OverlayShell>
   );
@@ -611,10 +625,12 @@ export function HomeOverlays({
   current,
   onClose,
   pricing,
+  onOpenStory,
 }: {
   current: OverlayId;
   onClose: () => void;
   pricing: PricingData;
+  onOpenStory?: () => void;
 }) {
   // OAuth visibility, resolved client-side (this overlay is ssr:false). Computed
   // once on mount so the Sign-in overlay shows the right OAuth variant without
@@ -634,7 +650,7 @@ export function HomeOverlays({
   return (
     <>
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
-      <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} />
+      <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
       <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />

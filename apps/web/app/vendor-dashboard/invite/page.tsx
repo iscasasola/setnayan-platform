@@ -11,6 +11,7 @@ import {
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
+import { fetchVendorServices } from '@/lib/vendor-services';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
@@ -234,6 +235,18 @@ async function LockedMode({
     }
   }
 
+  // DB-driven leaf service list (owner 2026-07): the vendor's own vendor_services
+  // offerings, with a coverage-category fallback for vendors with none published.
+  const activeServices = (
+    await fetchVendorServices(supabase, vendorProfileId).catch(() => [])
+  ).filter((s) => s.is_active);
+  const serviceOptions = activeServices.length
+    ? activeServices.map((s) => ({
+        value: s.vendor_service_id,
+        label: s.title ?? VENDOR_CATEGORY_LABEL[s.category as VendorCategory] ?? s.category,
+      }))
+    : coverage;
+
   return (
     <>
       {error ? (
@@ -246,7 +259,7 @@ async function LockedMode({
             : 'Could not create the Locked QR. Please try again.'}
         </p>
       ) : null}
-      <LockedQrGenerator eventTypes={eventTypes} coverage={coverage} />
+      <LockedQrGenerator eventTypes={eventTypes} services={serviceOptions} />
       <Link
         href="/vendor-dashboard/locked-qr"
         className="mt-4 inline-block text-sm font-medium text-terracotta hover:underline"

@@ -37,10 +37,13 @@ const blankRow = (n: number): Row => ({
  */
 export function LockedQrGenerator({
   eventTypes,
-  coverage,
+  services,
 }: {
   eventTypes: Opt[];
-  coverage: Opt[];
+  /** The vendor's own leaf offerings (vendor_services), DB-driven — value is a
+   *  vendor_service_id, or a VendorCategory key for the no-published-services
+   *  fallback. issueLockedQr resolves either back to a category. */
+  services: Opt[];
 }) {
   const [rows, setRows] = useState<Row[]>([blankRow(0)]);
   const [proofRef, setProofRef] = useState('');
@@ -115,12 +118,12 @@ export function LockedQrGenerator({
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="category" className="block text-sm font-medium text-ink/80">
+          <label htmlFor="service_ref" className="block text-sm font-medium text-ink/80">
             Service <span className="text-terracotta">*</span>
           </label>
-          <select id="category" name="category" required className="input-field w-full" defaultValue="">
+          <select id="service_ref" name="service_ref" required className="input-field w-full" defaultValue="">
             <option value="" disabled>Pick a service</option>
-            {coverage.map((c) => (
+            {services.map((c) => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>

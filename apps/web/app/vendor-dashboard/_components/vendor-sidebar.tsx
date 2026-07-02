@@ -127,6 +127,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
@@ -345,10 +346,12 @@ function applyVendorRegistry(
 function VendorIdentityCard({
   displayName,
   initials,
+  logoUrl,
   isVerified,
 }: {
   displayName: string;
   initials: string;
+  logoUrl: string | null;
   isVerified: boolean;
 }) {
   return (
@@ -356,13 +359,11 @@ function VendorIdentityCard({
       className="mx-2 mb-2 flex items-center gap-3 rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
       style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
     >
-      <span
-        aria-hidden
+      <VendorAvatar
+        logoUrl={logoUrl}
+        initials={initials}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
-        style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-      >
-        {initials}
-      </span>
+      />
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {displayName}
@@ -449,6 +450,7 @@ export function VendorSidebar({
   navSlots,
   displayName,
   initials,
+  logoUrl = null,
   isVerified,
 }: {
   role: VendorTeamRole | null;
@@ -458,6 +460,8 @@ export function VendorSidebar({
   navSlots?: Record<string, NavSlotLite>;
   displayName: string;
   initials: string;
+  /** Presigned display URL of the uploaded logo — replaces the initials tile. */
+  logoUrl?: string | null;
   isVerified: boolean;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
@@ -480,6 +484,7 @@ export function VendorSidebar({
       <VendorIdentityCard
         displayName={displayName}
         initials={initials}
+        logoUrl={logoUrl}
         isVerified={isVerified}
       />
       <nav aria-label="Vendor menu" className="px-2">

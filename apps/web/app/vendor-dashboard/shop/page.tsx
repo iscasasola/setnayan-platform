@@ -47,6 +47,7 @@ import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { CopyButton } from '@/app/_components/copy-button';
+import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { inviteVendorTeamMember } from '@/app/vendor-dashboard/team/actions';
 
@@ -86,14 +87,6 @@ const DISPLAY_HOST = SITE_URL.replace(/^https?:\/\//, '');
 
 const nf = new Intl.NumberFormat('en-PH');
 
-/** Two uppercase initials from a business name (mirrors the sidebar identity card). */
-function deriveInitials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'SN';
-  if (words.length === 1) return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
-  return (words[0]![0]! + words[1]![0]!).toUpperCase();
-}
-
 /** Start of the current ISO-ish week (Mon 00:00 local), as an ISO string. */
 function startOfWeekIso(): string {
   const d = new Date();
@@ -117,6 +110,8 @@ type TeamMember = VendorTeamMemberWithUser;
 type ShopData = {
   businessName: string;
   initials: string;
+  /** Presigned display URL of the uploaded logo (Hero avatar), or null → initials. */
+  logoUrl: string | null;
   slug: string | null;
   city: string | null;
   primaryService: string | null;
@@ -309,6 +304,9 @@ async function loadShopData(): Promise<ShopData | null> {
   } catch {
     logoDisplayMap = {};
   }
+  // The Hero avatar shows the uploaded logo when present (owner 2026-07-02),
+  // falling back to initials. Same presigned URL the Profile row's thumbnail uses.
+  const logoUrl = profile.logo_url ? (logoDisplayMap[profile.logo_url] ?? null) : null;
   const { serviceLabels, extraServiceLeaves } = await fetchVendorServicePickerVocab();
   const profileFields: ProfileFieldData = {
     business_name: profile.business_name ?? '',
@@ -373,6 +371,7 @@ async function loadShopData(): Promise<ShopData | null> {
   return {
     businessName,
     initials: deriveInitials(businessName),
+    logoUrl,
     slug: profile.business_slug ?? null,
     city: profile.location_city ?? null,
     primaryService: profile.services?.[0] ? titleCase(profile.services[0]) : null,
@@ -602,13 +601,11 @@ function HeroCard({
 
   return (
     <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-      <span
-        aria-hidden
+      <VendorAvatar
+        logoUrl={data.logoUrl}
+        initials={data.initials}
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold tracking-wide"
-        style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-      >
-        {data.initials}
-      </span>
+      />
 
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">

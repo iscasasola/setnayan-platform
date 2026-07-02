@@ -660,17 +660,19 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       </section>
 
       <form action={saveVendorProfile} className="space-y-5">
-        <Field label="Business name" htmlFor="business_name" required>
-          <input
-            id="business_name"
-            name="business_name"
-            required
-            maxLength={128}
-            defaultValue={profile?.business_name ?? ''}
-            placeholder="Your studio / company name"
-            className="input-field"
-          />
-        </Field>
+        <div id="edit-details" className="scroll-mt-24">
+          <Field label="Business name" htmlFor="business_name" required>
+            <input
+              id="business_name"
+              name="business_name"
+              required
+              maxLength={128}
+              defaultValue={profile?.business_name ?? ''}
+              placeholder="Your studio / company name"
+              className="input-field"
+            />
+          </Field>
+        </div>
 
         <Field label="Business owner" htmlFor="business_owner_name" required>
           <input
@@ -721,16 +723,18 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           />
         </Field>
 
-        <Field label="Tagline" htmlFor="tagline">
-          <input
-            id="tagline"
-            name="tagline"
-            maxLength={140}
-            defaultValue={profile?.tagline ?? ''}
-            placeholder="A short one-line description"
-            className="input-field"
-          />
-        </Field>
+        <div id="edit-tagline" className="scroll-mt-24">
+          <Field label="Tagline" htmlFor="tagline">
+            <input
+              id="tagline"
+              name="tagline"
+              maxLength={140}
+              defaultValue={profile?.tagline ?? ''}
+              placeholder="A short one-line description"
+              className="input-field"
+            />
+          </Field>
+        </div>
 
         {vendorExperienceEnabled() ? (
           <div className="space-y-3 rounded-lg border border-ink/10 p-4">
@@ -769,42 +773,46 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           </div>
         ) : null}
 
-        <Field
-          label="Logo"
-          htmlFor="logo_url"
-          help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every vendor card."
-        >
-          <FileUpload
-            bucket="media"
-            pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/logo`}
-            name="logo_url"
-            currentValue={profile?.logo_url ?? null}
-            initialDisplayUrls={logoDisplayMap}
-            maxSizeMB={2}
-            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-            variant="square"
-          />
-        </Field>
+        <div id="edit-logo" className="scroll-mt-24">
+          <Field
+            label="Logo"
+            htmlFor="logo_url"
+            help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every vendor card."
+          >
+            <FileUpload
+              bucket="media"
+              pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/logo`}
+              name="logo_url"
+              currentValue={profile?.logo_url ?? null}
+              initialDisplayUrls={logoDisplayMap}
+              maxSizeMB={2}
+              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+              variant="square"
+            />
+          </Field>
+        </div>
 
-        <Field
-          label="Portfolio"
-          htmlFor="portfolio_r2_keys"
-          help={`Show off recent work. Up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax} images, 5 MB each. Couples browse this on your public page.`}
-        >
-          <FileUpload
-            bucket="media"
-            pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/portfolio`}
-            name="portfolio_r2_keys"
-            currentValue={profile?.portfolio_r2_keys ?? []}
-            initialDisplayUrls={portfolioDisplayMap}
-            multiple
-            maxFiles={portfolioMax}
-            maxSizeMB={5}
-            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-            variant="wide"
-            watermark
-          />
-        </Field>
+        <div id="edit-portfolio" className="scroll-mt-24">
+          <Field
+            label="Portfolio"
+            htmlFor="portfolio_r2_keys"
+            help={`Show off recent work. Up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax} images, 5 MB each. Couples browse this on your public page.`}
+          >
+            <FileUpload
+              bucket="media"
+              pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/portfolio`}
+              name="portfolio_r2_keys"
+              currentValue={profile?.portfolio_r2_keys ?? []}
+              initialDisplayUrls={portfolioDisplayMap}
+              multiple
+              maxFiles={portfolioMax}
+              maxSizeMB={5}
+              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+              variant="wide"
+              watermark
+            />
+          </Field>
+        </div>
 
         <Field
           label="Services"

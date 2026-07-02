@@ -9,9 +9,12 @@ import {
   Globe,
   Handshake,
   Heart,
+  Image as ImageIcon,
   Images,
+  SlidersHorizontal,
   Sparkles,
   Star,
+  Type,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
@@ -619,6 +622,50 @@ function StatTile({
 }
 
 /* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
+
+/**
+ * What actually shapes the public microsite. Each row deep-links to the exact
+ * editor field/surface that owns it. The link + "Open live" live in the Hero
+ * above, so this panel is personalization only — no duplicate address/preview.
+ */
+const PERSONALIZE_ROWS: {
+  icon: React.ReactNode;
+  label: string;
+  sub: string;
+  href: string;
+}[] = [
+  {
+    icon: <ImageIcon className="h-4 w-4" strokeWidth={1.75} />,
+    label: 'Logo',
+    sub: 'Your mark on every card',
+    href: '/vendor-dashboard/profile#edit-logo',
+  },
+  {
+    icon: <Type className="h-4 w-4" strokeWidth={1.75} />,
+    label: 'Headline',
+    sub: 'The one-line tagline couples read first',
+    href: '/vendor-dashboard/profile#edit-tagline',
+  },
+  {
+    icon: <Images className="h-4 w-4" strokeWidth={1.75} />,
+    label: 'Portfolio',
+    sub: 'The gallery of your recent work',
+    href: '/vendor-dashboard/profile#edit-portfolio',
+  },
+  {
+    icon: <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />,
+    label: 'Services & pricing',
+    sub: 'What you offer, and from how much',
+    href: '/vendor-dashboard/services',
+  },
+  {
+    icon: <Building2 className="h-4 w-4" strokeWidth={1.75} />,
+    label: 'Business details',
+    sub: 'Name, owner, and years in business',
+    href: '/vendor-dashboard/profile#edit-details',
+  },
+];
+
 function WebsitePanel({
   publicPath,
   websiteLive,
@@ -656,38 +703,50 @@ function WebsitePanel({
         >
           {websiteLive ? 'Live' : 'Draft'}
         </span>
-        <span className="text-xs text-ink/55">Your page is built from your profile.</span>
+        <span className="text-xs text-ink/55">
+          Your page is built from your profile — personalize it here.
+        </span>
       </div>
 
-      <div className="flex items-center gap-2">
-        <code
-          className="min-w-0 flex-1 truncate rounded-lg border bg-white px-3 py-2 text-xs"
-          style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-        >
-          {DISPLAY_HOST}
-          {publicPath}
-        </code>
-        <CopyButton value={`${DISPLAY_HOST}${publicPath}`} label="Copy link" />
-      </div>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {PERSONALIZE_ROWS.map((row) => (
+          <li key={row.label}>
+            <Link
+              href={row.href}
+              className="group flex items-center gap-3 rounded-lg border bg-white p-3 transition-colors hover:border-[color:var(--m-orange-3)]"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              <span
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                aria-hidden
+              >
+                {row.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ink">
+                  {row.label}
+                </span>
+                <span className="block truncate text-xs text-ink/55">{row.sub}</span>
+              </span>
+              <ArrowRight
+                aria-hidden
+                className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={1.75}
+                style={{ color: 'var(--m-slate-4)' }}
+              />
+            </Link>
+          </li>
+        ))}
+      </ul>
 
-      <div className="flex flex-wrap gap-3">
-        <a
-          href={publicPath}
-          target="_blank"
-          rel="noreferrer"
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <Globe className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Open live
-        </a>
-        <Link
-          href="/vendor-dashboard/profile"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          Edit content on your profile
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        </Link>
-      </div>
+      <Link
+        href="/vendor-dashboard/profile"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+      >
+        Edit everything on your profile
+        <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      </Link>
     </div>
   );
 }

@@ -263,7 +263,11 @@ async function LockedMode({
         >
           {error === 'category'
             ? 'Pick at least one service you actually offer.'
-            : error === 'overpaid'
+            : error === 'total'
+              ? 'Set a total value greater than ₱0.'
+              : error === 'downpayment'
+                ? 'Record the downpayment you received.'
+                : error === 'overpaid'
               ? 'The downpayment can’t be more than the total value.'
               : error === 'proof'
                 ? 'Upload the payment proof before generating the QR.'

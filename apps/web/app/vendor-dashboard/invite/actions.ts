@@ -137,8 +137,13 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
 
   const totalPhp = toAmount(formData.get('total_php'));
   const initialPaid = toAmount(formData.get('initial_paid_php')) ?? 0;
-  // The downpayment can never exceed the total value.
-  if (totalPhp != null && initialPaid > totalPhp) fail('overpaid');
+  // Money validation, independent of the client gate (never trust the client):
+  // a real total, a real downpayment, and the downpayment never exceeds the
+  // total. Without the total>0 guard a blanked total_php (null) would skip the
+  // overpaid check and persist a null-total token with an oversized downpayment.
+  if (totalPhp == null || totalPhp <= 0) fail('total');
+  if (initialPaid <= 0) fail('downpayment');
+  if (initialPaid > totalPhp) fail('overpaid');
   // Proof of the received downpayment is required; a remembrance photo optional.
   const proofRef = String(formData.get('proof_r2_ref') ?? '').trim() || null;
   if (!proofRef) fail('proof');

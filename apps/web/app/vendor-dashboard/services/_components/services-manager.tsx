@@ -84,6 +84,8 @@ import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
+import { ServiceCardLivePreview } from './service-card-live-preview';
+import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   InclusionsEditor,
@@ -208,6 +210,7 @@ export async function VendorServicesManager({
   const showcaseRefs = Array.from(
     new Set(
       services.flatMap((s) => [
+        ...(s.primary_photo_r2_key ? [s.primary_photo_r2_key] : []),
         ...(s.showcase_video_r2_key ? [s.showcase_video_r2_key] : []),
         ...(s.showcase_photo_r2_keys ?? []),
       ]),
@@ -742,6 +745,44 @@ export async function VendorServicesManager({
                     <div className="space-y-3 border-t px-4 pb-4 pt-4" style={{ borderColor: 'var(--m-line)' }}>
                       <form action={updateVendorService} className="space-y-3">
                         <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
+                        {/* v20: the live card preview — mirrors this form as you type. */}
+                        <ServiceCardLivePreview
+                          leafPathLabel={
+                            (svc.coverage_id != null
+                              ? coverageLabelById.get(svc.coverage_id)
+                              : null) ?? displayServiceLabel(svc.category)
+                          }
+                          addonsFromPhp={(() => {
+                            const prices = (addonsByService.get(svc.vendor_service_id) ?? [])
+                              .map((a) => a.from_price_php)
+                              .filter((p): p is number => p != null && p > 0);
+                            return prices.length ? Math.min(...prices) : null;
+                          })()}
+                          initialCoverUrl={
+                            svc.primary_photo_r2_key
+                              ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null
+                              : null
+                          }
+                        />
+                        <Field
+                          label="Cover photo"
+                          htmlFor={`cover-${svc.vendor_service_id}`}
+                          help="The first thing couples see on this card. Required to publish."
+                        >
+                          {/* No watermark — matches the wizard's cover upload
+                              (covers are unwatermarked today; showcase photos
+                              are watermarked). Flagged for owner alignment. */}
+                          <FileUpload
+                            bucket="media"
+                            pathPrefix={`vendors/${profile.vendor_profile_id}/services`}
+                            name="primary_photo_r2_key"
+                            maxSizeMB={5}
+                            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                            variant="square"
+                            currentValue={svc.primary_photo_r2_key}
+                            initialDisplayUrls={showcaseDisplayUrls}
+                          />
+                        </Field>
                         {coverageItems.length > 0 ? (
                           <Field
                             label="Coverage"
@@ -1151,6 +1192,23 @@ function AddServiceForm({
   return (
     <form action={createVendorService} className="space-y-4">
       <input type="hidden" name="category" value={addCategory} />
+      {/* v20: the live card preview — mirrors this form as you type. */}
+      <ServiceCardLivePreview leafPathLabel={labelFor(addCategory)} />
+      <Field
+        label="Cover photo"
+        htmlFor={`new-cover-${addCategory}`}
+        help="The first thing couples see on this card. Required to publish."
+      >
+        {/* No watermark — matches the wizard's cover upload. */}
+        <FileUpload
+          bucket="media"
+          pathPrefix={`vendors/${vendorProfileId}/services`}
+          name="primary_photo_r2_key"
+          maxSizeMB={5}
+          acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+          variant="square"
+        />
+      </Field>
       <Field
         label="Service name (optional)"
         htmlFor={`new-title-${addCategory}`}

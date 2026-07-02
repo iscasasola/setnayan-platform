@@ -737,6 +737,7 @@ export async function createVendorService(formData: FormData) {
       transport_flat_fee_php,
       showcase_video_r2_key: showcase.showcase_video_r2_key,
       showcase_photo_r2_keys: showcase.showcase_photo_r2_keys,
+      primary_photo_r2_key: parsePrimaryPhoto(formData),
       branch_id,
       recommended_lead_time_months,
       last_minute_end_months,
@@ -764,6 +765,19 @@ export async function createVendorService(formData: FormData) {
       created.vendor_service_id,
       profile.vendor_profile_id,
       { discounts: discountRows, inclusions: inclusionRows, brackets: bracketRows },
+    );
+  }
+
+  // Repost-watch/NSFW hash-scan on a new cover — same post-response hook the
+  // wizard path schedules (cron-free; self-swallowing; skips already-hashed).
+  const createdCover = parsePrimaryPhoto(formData);
+  if (createdCover) {
+    after(() =>
+      hashAndScanVendorImages({
+        vendorProfileId: profile.vendor_profile_id,
+        refs: [createdCover],
+        surface: 'service_primary',
+      }),
     );
   }
 
@@ -936,6 +950,7 @@ export async function updateVendorService(formData: FormData) {
       transport_flat_fee_php,
       showcase_video_r2_key: showcase.showcase_video_r2_key,
       showcase_photo_r2_keys: showcase.showcase_photo_r2_keys,
+      primary_photo_r2_key: parsePrimaryPhoto(formData),
       branch_id,
       recommended_lead_time_months,
       last_minute_end_months,
@@ -960,6 +975,19 @@ export async function updateVendorService(formData: FormData) {
     inclusions: inclusionRows,
     brackets: bracketRows,
   });
+
+  // Repost-watch/NSFW hash-scan on the (possibly new) cover — parity with the
+  // wizard path; already-hashed refs are a cheap no-op.
+  const updatedCover = parsePrimaryPhoto(formData);
+  if (updatedCover) {
+    after(() =>
+      hashAndScanVendorImages({
+        vendorProfileId: profile.vendor_profile_id,
+        refs: [updatedCover],
+        surface: 'service_primary',
+      }),
+    );
+  }
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');

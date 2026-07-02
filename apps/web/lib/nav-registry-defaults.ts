@@ -34,6 +34,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    key: "public.site-nav.setnayan-ai",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/setnayan-ai",
+    label: "Setnayan AI",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
     key: "public.site-nav.for-vendors",
     scope: "public",
     area: "marketing-site-nav",

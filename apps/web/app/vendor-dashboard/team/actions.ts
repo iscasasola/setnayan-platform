@@ -57,6 +57,15 @@ async function ensureAdmin() {
 export async function inviteVendorTeamMember(formData: FormData) {
   const { supabase, ctx } = await ensureAdmin();
 
+  // When invoked from the My Shop inline Team panel, stay on My Shop instead of
+  // bouncing to the Team page (owner rule 2026-07 — no navigation off My Shop
+  // except Profile). A local `err` shadows the module helper so every early
+  // return here honours the same destination.
+  const back =
+    formData.get('returnTo') === 'shop' ? '/vendor-dashboard/shop' : TEAM;
+  const err = (msg: string): never =>
+    redirect(`${back}?error=${encodeURIComponent(msg)}`);
+
   const emailRaw = formData.get('email');
   const labelRaw = formData.get('team_label');
   let role: VendorTeamRole;
@@ -121,8 +130,8 @@ export async function inviteVendorTeamMember(formData: FormData) {
     );
   }
 
-  revalidatePath(TEAM);
-  redirect(`${TEAM}?invited=1`);
+  revalidatePath(back);
+  redirect(`${back}?invited=1`);
 }
 
 /**

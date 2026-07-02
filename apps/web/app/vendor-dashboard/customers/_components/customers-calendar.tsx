@@ -9,6 +9,7 @@ import {
   buildCustomerCalendarMonth,
   type CalendarBookingInput,
   type CalendarBlockInput,
+  type CustomerCalendarDay,
   type CustomerCalendarMonth,
   type CustomerDayStateKind,
 } from '@/lib/vendor-customers';
@@ -37,7 +38,8 @@ import { fetchCustomerCalendarMonth } from '../actions';
  *     in the booking schema yet.)
  * Vendor-level marks (blocked / locked / whitelist / waitlist) aren't event- or
  * service-scoped, so they stay visible under any filter. The Heat map toggle
- * dims non-booked days so busy stretches pop.
+ * tints each day by its booking intensity (occupancy = consumed / capacity), so
+ * the busiest dates glow warmest and quiet ones stay neutral.
  */
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -67,9 +69,9 @@ const CHIP: Record<
   },
   blocked: {
     label: 'Blocked',
-    bg: 'var(--m-paper-2)',
-    fg: 'var(--m-slate-2)',
-    border: 'var(--m-line)',
+    bg: 'var(--m-ink)',
+    fg: '#fff',
+    border: 'var(--m-ink)',
   },
   waitlist: {
     label: 'Waitlist',
@@ -87,6 +89,18 @@ function shiftMonth(ym: string, delta: number): string {
   const [y, m] = ym.split('-').map(Number);
   const d = new Date(y ?? 2026, (m ?? 1) - 1 + delta, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Booking intensity in [0,1] for the heat map — occupancy (consumed / capacity),
+ * clamped. A day with reservations but no known capacity reads as fully hot;
+ * an open day is 0 (no tint). This is what makes the heat map an actual
+ * intensity field rather than a blanket dimmer.
+ */
+function heatOf(day: CustomerCalendarDay): number {
+  if (day.consumed <= 0) return 0;
+  if (day.capacity <= 0) return 1;
+  return Math.min(1, day.consumed / day.capacity);
 }
 
 /** 'YYYY-MM' → "July 2026". */
@@ -221,6 +235,10 @@ export function CustomersCalendar({
 
   const filtersActive = serviceFilter !== '' || typeFilter !== '' || agentFilter !== '';
   const hasAnyChip = data.days.some((d) => d.state !== null);
+  // Whether the visible month has any booking intensity to map. Drives the
+  // heat-map empty state — an honest "nothing to map yet" beats a silent,
+  // uniformly-faded grid that reads as broken.
+  const hasHeat = data.days.some((d) => heatOf(d) > 0);
   const serviceLabel = services.find((o) => o.value === serviceFilter)?.label;
   const typeLabel = types.find((o) => o.value === typeFilter)?.label;
   const agentLabel = agents.find((o) => o.value === agentFilter)?.label;
@@ -297,6 +315,15 @@ export function CustomersCalendar({
           </p>
         ) : null}
 
+        {/* Heat map is on but this month has no bookings to map — say so, rather
+            than leaving a grid that looks unchanged. */}
+        {heatmap && !hasHeat ? (
+          <p className="mb-3 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
+            No booked dates this month to map yet — the heat map warms up as
+            bookings come in.
+          </p>
+        ) : null}
+
         {/* Weekday header */}
         <div
           className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium"
@@ -319,29 +346,64 @@ export function CustomersCalendar({
           ))}
           {data.days.map((day) => {
             const chip = day.state ? CHIP[day.state] : null;
-            // Heat map: dim any day that isn't an active-work day (booked/full),
-            // so the calendar reads as an intensity map of committed work.
-            const heatDim =
-              heatmap && day.state !== 'booked' && day.state !== 'full';
-            const muted = day.past || heatDim;
+            // A blocked day is a hard closure — it can't be booked. Paint the
+            // WHOLE cell black with a white "BLOCKED" stamp so it's unmistakable,
+            // and let it win over the heat tint (a closure isn't "intensity").
+            const isBlocked = day.state === 'blocked';
+            // Heat map: tint the cell by booking intensity (warm gold, alpha
+            // scaled by occupancy) so busy stretches glow and open days stay
+            // neutral — a real intensity field, not a blanket dim.
+            const heat = heatmap && !isBlocked ? heatOf(day) : 0;
+            const heated = heat > 0;
+            const heatBg = `rgba(184,134,47,${(0.12 + heat * 0.45).toFixed(3)})`;
+            const heatBorder = `rgba(184,134,47,${(0.3 + heat * 0.4).toFixed(3)})`;
             return (
               <Link
                 key={day.date}
                 href={`${dayHrefBase}/${day.date}`}
                 className="flex min-h-[64px] flex-col rounded-lg border p-1.5 text-left transition-colors sm:min-h-[76px]"
                 style={{
-                  borderColor: day.isToday ? 'var(--m-orange-2)' : 'var(--m-line)',
-                  background: day.isToday ? 'var(--m-orange-4)' : '#fff',
-                  opacity: muted ? 0.45 : 1,
+                  borderColor: isBlocked
+                    ? 'var(--m-ink)'
+                    : day.isToday
+                      ? 'var(--m-orange-2)'
+                      : heated
+                        ? heatBorder
+                        : 'var(--m-line)',
+                  background: isBlocked
+                    ? 'var(--m-ink)'
+                    : heated
+                      ? heatBg
+                      : day.isToday
+                        ? 'var(--m-orange-4)'
+                        : '#fff',
+                  opacity: day.past ? 0.45 : 1,
                 }}
               >
                 <span
                   className="text-[11px] font-semibold tabular-nums"
-                  style={{ color: day.isToday ? 'var(--m-orange-2)' : 'var(--m-ink)' }}
+                  style={{
+                    color: isBlocked
+                      ? '#fff'
+                      : day.isToday
+                        ? 'var(--m-orange-2)'
+                        : 'var(--m-ink)',
+                  }}
                 >
                   {day.day}
                 </span>
-                {chip ? (
+                {isBlocked ? (
+                  <span
+                    className="mt-1 inline-flex items-center self-start rounded px-1 py-px text-[10px] font-bold uppercase leading-tight tracking-wide"
+                    style={{
+                      color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.45)',
+                    }}
+                    title="Blocked — closed, can't be booked"
+                  >
+                    Blocked
+                  </span>
+                ) : chip ? (
                   <span
                     className="mt-1 inline-flex items-center gap-1 self-start rounded px-1 py-px text-[10px] font-semibold leading-tight"
                     style={{
@@ -370,7 +432,7 @@ export function CustomersCalendar({
                   <span
                     key={label}
                     className="mt-0.5 block truncate text-[10px] leading-tight"
-                    style={{ color: 'var(--m-slate-2)' }}
+                    style={{ color: isBlocked ? 'rgba(255,255,255,0.75)' : 'var(--m-slate-2)' }}
                     title={label}
                   >
                     {label}
@@ -379,7 +441,7 @@ export function CustomersCalendar({
                 {day.eventLabels.length > 2 ? (
                   <span
                     className="mt-0.5 block text-[10px] leading-tight"
-                    style={{ color: 'var(--m-slate-3)' }}
+                    style={{ color: isBlocked ? 'rgba(255,255,255,0.6)' : 'var(--m-slate-3)' }}
                   >
                     +{day.eventLabels.length - 2} more
                   </span>

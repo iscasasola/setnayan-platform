@@ -21,6 +21,7 @@ import {
   formatPeso,
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export type PriceModel = 'flat' | 'perDay' | 'perGuestDay';
 
@@ -51,8 +52,10 @@ export type PriceGroup = {
 };
 
 export type PricingData = {
-  /** Setnayan AI price string, from catalog (e.g. "₱499") */
+  /** Setnayan AI REGULAR price string (owner 2026-07-02: "₱799" / 28 days). */
   aiPrice: string;
+  /** Setnayan AI INTRO price string — the first 28 days (e.g. "₱499"). */
+  aiIntroPrice: string;
   /** recurrence suffix for the AI tier (e.g. "/28 days" or "/mo") */
   aiPeriod: string;
   freeChips: string[];
@@ -99,8 +102,27 @@ export async function getHomePricingData(): Promise<PricingData> {
     getVendorPrices(),
   ]);
 
+  // Setnayan AI two-tier pricing (owner 2026-07-02): ₱799 / 28 days, with the
+  // first 28 days at ₱499. The active SETNAYAN_AI row is the ₱499 INTRO (the price
+  // charged today); the ₱799 REGULAR lives in the dormant SETNAYAN_AI_RENEW row
+  // (is_active=false → not in the active catalog above), read directly here so it
+  // stays admin-managed. Fallbacks (₱799 / ₱499) render only if a row is
+  // unreadable (CI / missing env) — never a fresh hardcode.
   const ai = catalog.find((s) => s.service_code === 'SETNAYAN_AI');
-  const aiPrice = ai ? peso(Number(ai.retail_price_php)) : '₱499';
+  const aiIntroPrice = ai ? peso(Number(ai.retail_price_php)) : '₱499';
+  let aiRegularPhp = 799;
+  try {
+    const { data: renew } = await createAdminClient()
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', 'SETNAYAN_AI_RENEW')
+      .maybeSingle();
+    const p = Number((renew as { retail_price_php?: number | null } | null)?.retail_price_php);
+    if (Number.isFinite(p) && p > 0) aiRegularPhp = p;
+  } catch {
+    // admin client unavailable → keep the ₱799 fallback.
+  }
+  const aiPrice = peso(aiRegularPhp);
 
   // ── Papic group (per-camera / per-day, all from catalog) ──
   const papicRoll = priceOf(catalog, 'PAPIC_CAMERA_ROLL_DAY', 30);
@@ -207,6 +229,7 @@ export async function getHomePricingData(): Promise<PricingData> {
 
   return {
     aiPrice,
+    aiIntroPrice,
     aiPeriod: aiPeriodSuffix(),
     vendor,
     freeChips: [

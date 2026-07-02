@@ -181,6 +181,9 @@ function PricesOverlay({
             {pricing.aiPrice}
             <span className="hr-per">{pricing.aiPeriod}</span>
           </div>
+          <div style={{ fontSize: '13px', fontWeight: 500, opacity: 0.72, marginTop: '2px' }}>
+            {pricing.aiIntroPrice} on your first 28 days
+          </div>
           <div className="hr-d">
             Adds Suri — the planning brain that filters the vendors that fit you, paces your
             checklist, and guides your budget.

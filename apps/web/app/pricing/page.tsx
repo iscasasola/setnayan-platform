@@ -529,12 +529,12 @@ export default async function PricingPage() {
                 Setnayan AI
               </p>
               <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {setnayanAi
-                  ? `₱${formatPeso(setnayanAi.retail_price_php)}${formatBillingPeriodSuffix(setnayanAi.billing_period)}`
-                  : 'See catalog'}
+                {aiRenewalLabel}
+                {setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : ' / 28 days'}
               </p>
               <p className="text-sm font-medium text-ink/70">
-                First 28 days — then {aiRenewalLabel} / 28 days after.
+                {setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : '₱499'} on your first
+                28 days.
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
                 The full matchmaking engine — date, availability, budget,

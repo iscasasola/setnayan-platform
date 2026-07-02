@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
   SERVICE_GROUPS,
@@ -34,15 +34,36 @@ type Props = {
    * here.
    */
   extraCanonicals?: { key: string; label: string }[];
+  /**
+   * Fired with the new selection whenever it changes (toggle / add / remove
+   * custom) — NOT on mount. Optional; lets a parent detect "dirty" for the
+   * auto-save inline editor. The hidden input stays the source of truth for
+   * plain <form> submissions, so omitting this keeps every prior caller
+   * byte-identical.
+   */
+  onChange?: (services: string[]) => void;
 };
 
 const MAX_SERVICES = 24;
 const MAX_CUSTOM_LEN = 48;
 
-export function ServicesPicker({ name, initial, labels, extraCanonicals }: Props) {
+export function ServicesPicker({ name, initial, labels, extraCanonicals, onChange }: Props) {
   const [selected, setSelected] = useState<string[]>(() => initial);
   const [customDraft, setCustomDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Notify the parent of selection changes (never on mount) so an inline
+  // auto-save editor can mark itself dirty on any toggle/add/remove.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    onChangeRef.current?.(selected);
+  }, [selected]);
 
   // The set of EXTRA canonical leaf keys offered in this render. These count as
   // canonical (NOT custom) for the chip-vs-checkbox split below, so a ticked

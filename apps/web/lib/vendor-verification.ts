@@ -126,9 +126,9 @@ export const DOC_SLOTS: readonly DocSlot[] = [
   {
     key: 'dti_certificate',
     number: 1,
-    label: 'DTI Business Name Certificate',
+    label: 'DTI or SEC Registration',
     kind: 'upload',
-    hint: 'PDF / JPG / PNG up to 15 MB. Auto-validated via DTI lookup once owner integration ships.',
+    hint: 'DTI Business Name Certificate (sole proprietor) or SEC Registration (corporation / partnership). PDF / JPG / PNG up to 15 MB.',
   },
   {
     key: 'bir_2303',

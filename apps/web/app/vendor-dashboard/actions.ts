@@ -556,7 +556,14 @@ export async function updateVendorProfileField(
       break;
     }
     case 'contact_email': {
-      patch = { contact_email: nullIfBlank(formData.get('contact_email')) };
+      const email = nullIfBlank(formData.get('contact_email'));
+      // The inline editor submits with noValidate (so the on-collapse
+      // requestSubmit always reaches the server), so the browser's type="email"
+      // check no longer guards this — validate the format here instead.
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { ok: false, error: 'Enter a valid email address.' };
+      }
+      patch = { contact_email: email };
       break;
     }
     case 'services': {

@@ -110,6 +110,30 @@ export async function saveBusinessIdentity(formData: FormData) {
     return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
   }
 
+  // Vendor VALIDATE destinations (migration 20270503417266) — saved in a
+  // SEPARATE update so a pre-migration database (columns missing) fails only
+  // this pair with a specific message instead of bricking the whole
+  // business-identity save above.
+  const validateEmail =
+    nullIfBlank(formData.get('vendor_validate_email')) ??
+    'verify@setnayan.com';
+  const validatePhone = nullIfBlank(formData.get('vendor_validate_phone'));
+  const { error: validateErr } = await admin
+    .from('platform_settings')
+    .update({
+      vendor_validate_email: validateEmail,
+      vendor_validate_phone: validatePhone,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  if (validateErr) {
+    return redirect(
+      `/admin/settings?error=${encodeURIComponent(
+        `Business identity saved, but the VALIDATE contact fields couldn't save (is migration 20270503417266 applied?): ${validateErr.message}`,
+      )}`,
+    );
+  }
+
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
   redirect('/admin/settings?saved=1');

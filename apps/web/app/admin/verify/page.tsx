@@ -12,17 +12,25 @@ import {
 import {
   APPLICATION_TYPE_LABEL,
   DOC_SLOTS,
+  EMPTY_CONTACT_CONFIRMATION,
   computeSlaTone,
   countCompleteSlots,
+  expectedValidateToken,
+  fetchContactConfirmations,
   formatPhpCentavos,
   formatSlaCountdown,
   parseApplicationStatus,
   parseVerificationState,
   type ApplicationStatus,
+  type ContactConfirmation,
   type DocUploadMap,
   type SlaTone,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import {
+  fetchVendorValidateContacts,
+  type VendorValidateContacts,
+} from '@/lib/platform-settings';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -32,6 +40,7 @@ import {
   approveVendor,
   archiveVendor,
   demoteVendor,
+  markVendorContactConfirmed,
   rejectApplication,
   rejectVendor,
   setApplicationInReview,
@@ -52,6 +61,7 @@ type Props = {
     app_rejected?: string;
     demoted?: string;
     in_review?: string;
+    contact_marked?: string;
     error?: string;
   }>;
 };
@@ -227,6 +237,13 @@ function FlashBanner({
       </p>
     );
   }
+  if (search.contact_marked === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        VALIDATE message marked as received.
+      </p>
+    );
+  }
   if (search.approved === '1') {
     return (
       <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
@@ -283,6 +300,16 @@ async function ApplicationsSurface({
 
   const apps = (appData ?? []) as Omit<ApplicationRow, 'vendor'>[];
   const vendorIds = Array.from(new Set(apps.map((a) => a.vendor_profile_id)));
+
+  // VALIDATE contact confirmations (migration 20270503417266) — both are soft
+  // probes that degrade to "unconfirmed" / defaults on a pre-migration DB.
+  const [contactConfirmations, validateContacts] = await Promise.all([
+    fetchContactConfirmations(
+      admin,
+      apps.map((a) => a.application_id),
+    ),
+    fetchVendorValidateContacts(admin),
+  ]);
   // Declared experience (flag + schema gated; soft-probe degrades on 42703 so a
   // pre-migration DB never breaks the queue). Keyed by vendor_profile_id.
   const expMap: Record<string, { year: number | null; verifiedAt: string | null }> = {};
@@ -393,7 +420,14 @@ async function ApplicationsSurface({
           <ul className="grid gap-3">
             {fullRows.map((r) => (
               <li key={r.application_id}>
-                <ApplicationCard application={r} />
+                <ApplicationCard
+                  application={r}
+                  confirmation={
+                    contactConfirmations[r.application_id] ??
+                    EMPTY_CONTACT_CONFIRMATION
+                  }
+                  validateContacts={validateContacts}
+                />
               </li>
             ))}
           </ul>
@@ -500,7 +534,15 @@ function ApplicationsTabs({ current }: { current: string }) {
   );
 }
 
-function ApplicationCard({ application }: { application: ApplicationRow }) {
+function ApplicationCard({
+  application,
+  confirmation,
+  validateContacts,
+}: {
+  application: ApplicationRow;
+  confirmation: ContactConfirmation;
+  validateContacts: VendorValidateContacts;
+}) {
   const completeCount = countCompleteSlots(application.doc_uploads);
   const slaTone = computeSlaTone(
     application.submitted_at,
@@ -636,8 +678,102 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
         </div>
       ) : null}
 
+      <ContactConfirmationBlock
+        application={application}
+        confirmation={confirmation}
+        validateContacts={validateContacts}
+      />
+
       <ActionRow application={application} />
     </article>
+  );
+}
+
+/**
+ * Contact confirmation — the vendor sends a literal "VALIDATE <shop name>"
+ * EMAIL and TEXT to the Setnayan-owned validate inbox/number; the reviewing
+ * admin marks each one as received here. Stamps land on the application row
+ * via the admin-only mark_vendor_contact_confirmed RPC (20270503417266).
+ */
+function ContactConfirmationBlock({
+  application,
+  confirmation,
+  validateContacts,
+}: {
+  application: ApplicationRow;
+  confirmation: ContactConfirmation;
+  validateContacts: VendorValidateContacts;
+}) {
+  const token = expectedValidateToken(application.vendor.business_name);
+  return (
+    <div className="space-y-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        Contact confirmation
+      </p>
+      <p className="text-xs text-ink/65">
+        The vendor sends{' '}
+        <span className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px] text-ink">
+          {token}
+        </span>{' '}
+        by email to{' '}
+        <span className="font-medium text-ink">
+          {validateContacts.vendor_validate_email}
+        </span>{' '}
+        and by text to{' '}
+        <span className="font-medium text-ink">
+          {validateContacts.vendor_validate_phone ?? 'number coming soon'}
+        </span>
+        . Mark each one once it lands.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <ContactChannelMark
+          applicationId={application.application_id}
+          channel="email"
+          label="Mark email received"
+          confirmedAt={confirmation.contact_email_confirmed_at}
+        />
+        <ContactChannelMark
+          applicationId={application.application_id}
+          channel="phone"
+          label="Mark text received"
+          confirmedAt={confirmation.contact_phone_confirmed_at}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContactChannelMark({
+  applicationId,
+  channel,
+  label,
+  confirmedAt,
+}: {
+  applicationId: string;
+  channel: 'email' | 'phone';
+  label: string;
+  confirmedAt: string | null;
+}) {
+  if (confirmedAt) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md border border-success-200 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
+        <BadgeCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        {channel === 'email' ? 'Email' : 'Text'} received{' '}
+        {new Date(confirmedAt).toLocaleString('en-PH')}
+      </span>
+    );
+  }
+  return (
+    <form action={markVendorContactConfirmed}>
+      <input type="hidden" name="application_id" value={applicationId} />
+      <input type="hidden" name="channel" value={channel} />
+      <SubmitButton
+        pendingLabel="Marking…"
+        className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+      >
+        {label}
+      </SubmitButton>
+    </form>
   );
 }
 

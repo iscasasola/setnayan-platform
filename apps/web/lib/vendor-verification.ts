@@ -243,7 +243,72 @@ export type VendorVerificationApplicationRow = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // ── Contact confirmation (migration 20270503417266) ──────────────────────
+  // Stamped by an admin when the vendor's "VALIDATE <shop name>" email/text
+  // lands. Selected via a separate soft probe in fetchLatestApplication so a
+  // pre-migration database degrades to null instead of crashing the read.
+  contact_email_confirmed_at: string | null;
+  contact_email_confirmed_by: string | null;
+  contact_phone_confirmed_at: string | null;
+  contact_phone_confirmed_by: string | null;
 };
+
+/** The four contact-confirmation stamp columns (migration 20270503417266). */
+export type ContactConfirmation = Pick<
+  VendorVerificationApplicationRow,
+  | 'contact_email_confirmed_at'
+  | 'contact_email_confirmed_by'
+  | 'contact_phone_confirmed_at'
+  | 'contact_phone_confirmed_by'
+>;
+
+export const EMPTY_CONTACT_CONFIRMATION: ContactConfirmation = {
+  contact_email_confirmed_at: null,
+  contact_email_confirmed_by: null,
+  contact_phone_confirmed_at: null,
+  contact_phone_confirmed_by: null,
+};
+
+/** The literal token the vendor must send by email AND text to Setnayan. */
+export function expectedValidateToken(businessName: string | null): string {
+  return `VALIDATE ${businessName?.trim() || 'your shop name'}`;
+}
+
+/**
+ * Soft probe for the contact-confirmation stamps of a set of applications.
+ * Returns a map keyed by application_id; on ANY error (e.g. 42703 on a
+ * pre-migration database) returns an empty map so callers render the
+ * unconfirmed state instead of crashing.
+ */
+export async function fetchContactConfirmations(
+  supabase: SupabaseClient,
+  applicationIds: string[],
+): Promise<Record<string, ContactConfirmation>> {
+  if (applicationIds.length === 0) return {};
+  try {
+    const { data, error } = await supabase
+      .from('vendor_verification_applications')
+      .select(
+        'application_id,contact_email_confirmed_at,contact_email_confirmed_by,contact_phone_confirmed_at,contact_phone_confirmed_by',
+      )
+      .in('application_id', applicationIds);
+    if (error || !data) return {};
+    const out: Record<string, ContactConfirmation> = {};
+    for (const row of data as Array<
+      { application_id: string } & Partial<ContactConfirmation>
+    >) {
+      out[row.application_id] = {
+        contact_email_confirmed_at: row.contact_email_confirmed_at ?? null,
+        contact_email_confirmed_by: row.contact_email_confirmed_by ?? null,
+        contact_phone_confirmed_at: row.contact_phone_confirmed_at ?? null,
+        contact_phone_confirmed_by: row.contact_phone_confirmed_by ?? null,
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Returns the count of completed slots in a doc_uploads map.
@@ -396,7 +461,20 @@ export async function fetchLatestApplication(
     .maybeSingle();
   if (error) throw new Error(`fetchLatestApplication: ${error.message}`);
   if (!data) return null;
-  return data as VendorVerificationApplicationRow;
+  // The contact-confirmation columns are newer (20270503417266) than this
+  // table's original select — merged via a soft probe so a pre-migration
+  // database still serves the row (stamps degrade to null).
+  const base = data as Omit<
+    VendorVerificationApplicationRow,
+    keyof ContactConfirmation
+  >;
+  const confirmations = await fetchContactConfirmations(supabase, [
+    base.application_id,
+  ]);
+  return {
+    ...base,
+    ...(confirmations[base.application_id] ?? EMPTY_CONTACT_CONFIRMATION),
+  };
 }
 
 /**

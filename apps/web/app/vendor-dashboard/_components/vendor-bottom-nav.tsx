@@ -63,7 +63,7 @@
  * trips Next.js serialization. Symmetric pattern.
  */
 
-import { Home, ShoppingBag, Users, BarChart2, Briefcase, CalendarCheck } from 'lucide-react';
+import { Home, ShoppingBag, Users, BarChart2, CalendarCheck } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -117,6 +117,13 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // Tax docs RETIRED 2026-05-29 (page redirects to /vendor-dashboard) —
       // kept for bookmark continuity so a stale hit still lights a tab.
       '/vendor-dashboard/tax-documents',
+      // My Services was folded into My Shop (2026-07-02) — the retired services
+      // routes light this tab so bookmarks/deep-links never go unlit.
+      '/vendor-dashboard/services',
+      '/vendor-dashboard/attributes',
+      '/vendor-dashboard/repertoire',
+      '/vendor-dashboard/manpower',
+      '/vendor-dashboard/moodboard-library',
     ],
   },
   {
@@ -156,21 +163,6 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     ],
   },
   {
-    // My Services — the offerings destination + the specialist tools that set
-    // them (attributes · repertoire · manpower · moodboard-library).
-    key: 'services',
-    label: 'Services',
-    href: '/vendor-dashboard/services',
-    icon: Briefcase,
-    activeMatch: [
-      '/vendor-dashboard/services',
-      '/vendor-dashboard/attributes',
-      '/vendor-dashboard/repertoire',
-      '/vendor-dashboard/manpower',
-      '/vendor-dashboard/moodboard-library',
-    ],
-  },
-  {
     // On the Day — the free, category-conditional day-of console (Phase 7).
     key: 'onday',
     label: 'On the Day',
@@ -196,6 +188,10 @@ export function VendorBottomNav({
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
   // per-service data scoping lands.
+  // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
+  // scoped subset. "My Services" was retired 2026-07-02 (folded into
+  // owner/admin-only My Shop); its routes now light the Shop tab (see that tab's
+  // activeMatch).
   const base = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
     : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));

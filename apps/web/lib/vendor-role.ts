@@ -72,13 +72,14 @@ export const resolveVendorRole = cache(async (
 
 /**
  * Nav item keys an agent/viewer may see. Owner/admin always see the full nav.
- * Phase 2b opened the agent's operational surfaces (Services / Bookings /
- * Messages) now that per-service + per-customer RLS scoping is live — an agent
- * sees only their assigned services and the customers tied to them.
+ * Phase 2b opened the agent's operational surfaces (Bookings / Messages) now
+ * that per-customer RLS scoping is live. NOTE (2026-07-02): 'services' was
+ * removed here when the Services editor was fully folded into My Shop (which is
+ * owner/admin-only) — staff have no scoped services surface until My Shop, or a
+ * dedicated staff services view, is opened to them.
  */
 export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
   'overview',
-  'services',
   'bookings',
   'messages',
 ]);
@@ -92,7 +93,7 @@ export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
  */
 export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
   'profile', // the Overview tab (key kept as 'profile' for localStorage continuity)
-  'services',
+  // 'services' retired 2026-07-02 — folded into owner/admin-only My Shop.
 ]);
 
 /** Filter a vendor NavGroup[] down to what `role` may see; drops empty groups. */

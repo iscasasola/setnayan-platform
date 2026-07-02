@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -293,7 +294,7 @@ export async function createVendorService(formData: FormData) {
     exclusive_perk_text = parseExclusivePerk(formData);
   } catch (e) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
   const crew_meal_required = formData.get('crew_meal_required') === 'on';
@@ -337,7 +338,7 @@ export async function createVendorService(formData: FormData) {
     );
   } catch (e) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
 
@@ -353,7 +354,7 @@ export async function createVendorService(formData: FormData) {
     const inLeaf = existing.filter((r) => r.category === category).length;
     if (inLeaf >= caps.servicesPerLeaf) {
       const msg = `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`;
-      return redirect(`/vendor-dashboard/services?error=${encodeURIComponent(msg)}`);
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(msg)}`);
     }
   }
 
@@ -371,7 +372,7 @@ export async function createVendorService(formData: FormData) {
     if (introducesNew && wouldBe.size > caps.parentCategories) {
       const msg = `Your plan covers ${caps.parentCategories} categor${caps.parentCategories === 1 ? 'y' : 'ies'}. Upgrade to list under more.`;
       return redirect(
-        `/vendor-dashboard/services?error=${encodeURIComponent(msg)}`,
+        `${await servicesReturnBase()}?error=${encodeURIComponent(msg)}`,
       );
     }
   }
@@ -403,12 +404,13 @@ export async function createVendorService(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 /**
@@ -425,7 +427,7 @@ export async function proposeCategory(formData: FormData) {
   const note = String(formData.get('proposed_note') ?? '').trim() || null;
   if (label.length < 2 || label.length > 80) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent('Category name must be 2–80 characters.')}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent('Category name must be 2–80 characters.')}`,
     );
   }
 
@@ -436,12 +438,13 @@ export async function proposeCategory(formData: FormData) {
   });
   if (error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?requested=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?requested=1`);
 }
 
 export async function updateVendorService(formData: FormData) {
@@ -449,7 +452,7 @@ export async function updateVendorService(formData: FormData) {
 
   const idRaw = formData.get('vendor_service_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
-    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+    return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
   let starting_price_php: number | null;
@@ -493,7 +496,7 @@ export async function updateVendorService(formData: FormData) {
     exclusive_perk_text = parseExclusivePerk(formData);
   } catch (e) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
   const crew_meal_required = formData.get('crew_meal_required') === 'on';
@@ -518,7 +521,7 @@ export async function updateVendorService(formData: FormData) {
     );
   } catch (e) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
 
@@ -548,12 +551,13 @@ export async function updateVendorService(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 /**
@@ -570,7 +574,7 @@ export async function setServiceLinks(formData: FormData) {
 
   const anchorId = formData.get('vendor_service_id');
   if (typeof anchorId !== 'string' || anchorId.length === 0) {
-    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+    return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
   // The vendor's own services: validates the anchor + bounds the link choices
@@ -583,7 +587,7 @@ export async function setServiceLinks(formData: FormData) {
   const own = (ownRows ?? []) as { vendor_service_id: string; category: string }[];
   const anchor = own.find((r) => r.vendor_service_id === anchorId);
   if (!anchor) {
-    return redirect('/vendor-dashboard/services?error=Service+not+found');
+    return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
   const offeredCategories = new Set(
     own.map((r) => r.category).filter((c) => c !== anchor.category),
@@ -609,7 +613,7 @@ export async function setServiceLinks(formData: FormData) {
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (del.error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(del.error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(del.error.message)}`,
     );
   }
 
@@ -624,13 +628,14 @@ export async function setServiceLinks(formData: FormData) {
     const ins = await supabase.from('vendor_service_links').insert(rows);
     if (ins.error) {
       return redirect(
-        `/vendor-dashboard/services?error=${encodeURIComponent(ins.error.message)}`,
+        `${await servicesReturnBase()}?error=${encodeURIComponent(ins.error.message)}`,
       );
     }
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 /**
@@ -654,7 +659,7 @@ export async function setServicePaymentSchedule(formData: FormData) {
 
   const serviceId = formData.get('vendor_service_id');
   if (typeof serviceId !== 'string' || serviceId.length === 0) {
-    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+    return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
   // Ownership: the service must belong to THIS vendor profile.
@@ -665,7 +670,7 @@ export async function setServicePaymentSchedule(formData: FormData) {
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (!svc) {
-    return redirect('/vendor-dashboard/services?error=Service+not+found');
+    return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
 
   // Parse the parallel arrays into validated draft rows. Any malformed row
@@ -801,7 +806,7 @@ export async function setServicePaymentSchedule(formData: FormData) {
     }
   } catch (e) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
 
@@ -814,7 +819,7 @@ export async function setServicePaymentSchedule(formData: FormData) {
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (del.error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(del.error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(del.error.message)}`,
     );
   }
 
@@ -822,13 +827,14 @@ export async function setServicePaymentSchedule(formData: FormData) {
     const ins = await supabase.from('vendor_service_payment_schedules').insert(rows);
     if (ins.error) {
       return redirect(
-        `/vendor-dashboard/services?error=${encodeURIComponent(ins.error.message)}`,
+        `${await servicesReturnBase()}?error=${encodeURIComponent(ins.error.message)}`,
       );
     }
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 /**
@@ -857,7 +863,7 @@ export async function commitVendorService(formData: FormData) {
 
   // PR-C — preserve claim context across a validation bounce. When a claim-
   // driven first-service CREATE fails validation, the plain
-  // `/vendor-dashboard/services?error=…` redirect would drop the claim_token and
+  // `${await servicesReturnBase()}?error=…` redirect would drop the claim_token and
   // strand the vendor on the generic list (no banner, no registration on retry).
   // So on the claim-driven CREATE path we route failures back to the guided
   // /services/new/<category>?claim=<token>&error=… page instead, keeping the
@@ -874,7 +880,7 @@ export async function commitVendorService(formData: FormData) {
     typeof formCategoryRaw === 'string' && CATEGORY_SET.has(formCategoryRaw)
       ? formCategoryRaw
       : null;
-  const back = (msg: string) => {
+  const back = async (msg: string) => {
     if (isCreate && claimToken && formCategory) {
       return redirect(
         `/vendor-dashboard/services/new/${formCategory}?claim=${encodeURIComponent(
@@ -882,7 +888,7 @@ export async function commitVendorService(formData: FormData) {
         )}&error=${encodeURIComponent(msg)}`,
       );
     }
-    return redirect(`/vendor-dashboard/services?error=${encodeURIComponent(msg)}`);
+    return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(msg)}`);
   };
 
   // ---- Tier + caps (read once) ----
@@ -1098,6 +1104,7 @@ export async function commitVendorService(formData: FormData) {
   }
 
   revalidatePath('/vendor-dashboard/services');
+  revalidatePath('/vendor-dashboard/shop');
   // PR-C — after a claim-driven first service, send the vendor on to their
   // dashboard to "continue from there" (the new client is in their pipeline).
   // The normal flow stays on the Services page with the saved anchor.
@@ -1105,7 +1112,7 @@ export async function commitVendorService(formData: FormData) {
     revalidatePath('/vendor-dashboard');
     redirect('/vendor-dashboard?claimed=1&service=1');
   }
-  redirect(`/vendor-dashboard/services?saved=1#service-${savedId ?? ''}`);
+  redirect(`${await servicesReturnBase()}?saved=1#service-${savedId ?? ''}`);
 }
 
 /**
@@ -1187,7 +1194,7 @@ export async function toggleVendorServiceActive(formData: FormData) {
   const idRaw = formData.get('vendor_service_id');
   const nextRaw = formData.get('is_active');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
-    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+    return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
   const is_active = nextRaw === 'true' || nextRaw === 'on' || nextRaw === '1';
 
@@ -1204,7 +1211,7 @@ export async function toggleVendorServiceActive(formData: FormData) {
       ?.exclusive_perk_text;
     if (!perk || perk.trim().length === 0) {
       return redirect(
-        `/vendor-dashboard/services?error=${encodeURIComponent(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(
           'A Setnayan Exclusive perk is required to publish this service.',
         )}`,
       );
@@ -1219,12 +1226,13 @@ export async function toggleVendorServiceActive(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 // ============================================================================
@@ -1312,12 +1320,13 @@ export async function addServiceTimeSlot(formData: FormData) {
     if (error) throw new Error(error.message);
   } catch (e) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 export async function deleteServiceTimeSlot(formData: FormData) {
@@ -1327,7 +1336,7 @@ export async function deleteServiceTimeSlot(formData: FormData) {
   // are otherwise still enforcing against their bookings (verifier C8).
   const slotId = String(formData.get('slot_id') ?? '');
   if (!slotId) {
-    return redirect('/vendor-dashboard/services?error=Missing+slot+id');
+    return redirect(`${await servicesReturnBase()}?error=Missing+slot+id`);
   }
 
   const { error } = await supabase
@@ -1338,12 +1347,13 @@ export async function deleteServiceTimeSlot(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }
 
 export async function deleteVendorService(formData: FormData) {
@@ -1351,7 +1361,7 @@ export async function deleteVendorService(formData: FormData) {
 
   const idRaw = formData.get('vendor_service_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
-    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+    return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
   const { error } = await supabase
@@ -1362,10 +1372,11 @@ export async function deleteVendorService(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath('/vendor-dashboard/services');
-  redirect('/vendor-dashboard/services?saved=1');
+  revalidatePath('/vendor-dashboard/shop');
+  redirect(`${await servicesReturnBase()}?saved=1`);
 }

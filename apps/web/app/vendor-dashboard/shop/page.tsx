@@ -40,9 +40,15 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { inviteVendorTeamMember } from '@/app/vendor-dashboard/team/actions';
 
+import {
+  VendorServicesManager,
+  type ServicesManagerSearch,
+} from '@/app/vendor-dashboard/services/_components/services-manager';
+
 import { ManageTiles } from './_components/manage-tiles';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
 import type { ProfileFieldData } from './_components/editable-row';
+import { ServicesDisclosure } from './_components/services-disclosure';
 
 /**
  * /vendor-dashboard/shop — "My Shop".
@@ -281,7 +287,11 @@ function tierLabel(tier: string | null): string {
   return TIER_LABEL[tier] ?? titleCase(tier);
 }
 
-export default async function VendorShopPage() {
+export default async function VendorShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<ServicesManagerSearch>;
+}) {
   let data: ShopData | null;
   try {
     data = await loadShopData();
@@ -321,6 +331,7 @@ export default async function VendorShopPage() {
   }
 
   const publicPath = data.slug ? `/v/${data.slug}` : null;
+  const sp = await searchParams;
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -396,6 +407,18 @@ export default async function VendorShopPage() {
           />
         </div>
       </section>
+
+      {/* ── YOUR SERVICES — the full Services manager, fully consolidated onto
+          My Shop (owner 2026-07-02: "My Services" retired everywhere). The
+          standalone /vendor-dashboard/services route now redirects here; the
+          guided-wizard child route still renders separately. Deep-links open it. */}
+      <ServicesDisclosure
+        defaultOpen={Boolean(
+          sp.offpeak || sp.add || sp.saved || sp.error || sp.requested,
+        )}
+      >
+        <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
+      </ServicesDisclosure>
     </section>
   );
 }

@@ -121,6 +121,16 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
       setResolvedUserId(userId);
       return;
     }
+    // Don't touch Supabase auth until analytics consent is granted. PostHog is
+    // only initialized (and only ever identifies a user) once `consentReady`,
+    // so resolving the user_id on every anonymous, pre-consent visit — which
+    // spins up a Supabase browser client, an `auth.getUser()` call, and an
+    // `onAuthStateChange` subscription — was pure wasted work on the homepage
+    // first-paint path for visitors who never load analytics at all. Gating on
+    // consentReady means the (already logged-in) user is resolved the moment
+    // they accept analytics, and skipped entirely otherwise.
+    // (Perf sweep 2026-07-02, finding #19.)
+    if (!consentReady) return;
     let cancelled = false;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -134,7 +144,7 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [userId]);
+  }, [userId, consentReady]);
 
   // Identify/reset whenever the resolved user_id changes. Wait for the
   // SDK chunk to land before issuing the call — if it hasn't yet, the

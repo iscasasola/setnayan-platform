@@ -1264,7 +1264,11 @@ export async function renderVendorBySlug({
       </header>
 
       <article
-        className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
+        className={`mx-auto w-full px-4 py-12 sm:px-6 sm:py-16 lg:px-8 ${
+          /* Pro/Enterprise maximize the screen width (owner 2026-07-03); Free/Solo
+             stay at a comfortable single-column reading width. */
+          premiumLayout ? 'max-w-screen-2xl' : 'max-w-3xl'
+        }`}
         /* Pro accent (My Shop → Website) retints the accent ramp for THIS
            vendor's content only — scoped to the article so the Setnayan header
            chrome above keeps the site accent. undefined = default champagne. */

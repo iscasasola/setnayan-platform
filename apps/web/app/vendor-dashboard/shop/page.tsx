@@ -412,10 +412,7 @@ export default async function VendorShopPage({
             Everything that defines your shop and your reach.
           </p>
         </header>
-        <div
-          className="rounded-2xl border p-6"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-        >
+        <div>
           <p className="text-sm text-ink/70">
             Set up your business profile first — once it&rsquo;s created, your
             storefront, reach, and reputation all live here.
@@ -563,10 +560,7 @@ function HeroCard({
     .join(' · ');
 
   return (
-    <div
-      className="flex flex-col gap-5 rounded-2xl border p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6"
-      style={{ background: 'var(--m-orange-4)', borderColor: 'var(--m-orange-3)' }}
-    >
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
       <span
         aria-hidden
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold tracking-wide"
@@ -705,7 +699,7 @@ function StatTile({
   sub: string;
 }) {
   return (
-    <div className="rounded-xl p-4" style={{ background: 'var(--m-orange-4)' }}>
+    <div>
       <span
         className="inline-flex items-center gap-1.5 text-xs"
         style={{ color: 'var(--m-slate-3)' }}
@@ -739,8 +733,7 @@ function TeamPanel({ members }: { members: TeamMember[] }) {
           members.map((m) => (
             <li
               key={m.vendor_team_member_id}
-              className="flex items-center gap-3 rounded-lg border bg-white p-3"
-              style={{ borderColor: 'var(--m-line)' }}
+              className="flex items-center gap-3"
             >
               <span
                 aria-hidden
@@ -829,10 +822,7 @@ function BranchPanel({
       : { lat: 14.5995, lng: 120.9842 };
   return (
     <div className="space-y-3">
-      <div
-        className="flex items-center gap-3 rounded-lg border bg-white p-3"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
+      <div className="flex items-center gap-3">
         <span
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
           style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
@@ -874,10 +864,7 @@ function BranchPanel({
           </p>
         </div>
       ) : (
-        <p
-          className="rounded-lg p-3 text-xs"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-slate)' }}
-        >
+        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
           Add your HQ address in Profile above to see how far you cover on a map.
         </p>
       )}
@@ -891,10 +878,7 @@ function BranchPanel({
           pay={branchPay}
         />
       ) : (
-        <p
-          className="rounded-lg p-3 text-xs"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-slate)' }}
-        >
+        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
           Extra branches are an Enterprise feature — each gets its own team and
           calendar.
         </p>

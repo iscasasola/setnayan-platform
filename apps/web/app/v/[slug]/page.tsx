@@ -602,6 +602,19 @@ export async function renderVendorBySlug({
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
   const trustedBy = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
 
+  // Favorites count (owner 2026-07-02: favorites PUBLIC / viewers vendor-only) —
+  // distinct couples who follow OR saved this vendor (count_saves_for_vendor
+  // combines vendor_follows + guest_saved_vendors). Read via the service-role
+  // client server-side (the RPC's EXECUTE grant is authenticated-only, but a
+  // public render needs it), then min-N floored in-app (FAVORITES_MIN_DISPLAY)
+  // so a tiny count never publishes as vanity or de-anonymizes. Fail-soft → 0.
+  const favoritesCount = await (async () => {
+    const { data, error } = await admin.rpc('count_saves_for_vendor', {
+      p_vendor_profile_id: vendor.vendor_profile_id,
+    });
+    return !error && typeof data === 'number' ? data : 0;
+  })();
+
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
   const expTier = experienceTier(finalizedBookingCount);
@@ -1245,6 +1258,21 @@ export async function renderVendorBySlug({
                 </span>
               </p>
             ) : null}
+            {/* Favorites chip (owner 2026-07-02: favorites public / viewers
+                vendor-only) — distinct couples who follow or saved this vendor,
+                min-N floored (FAVORITES_MIN_DISPLAY) so a tiny count never shows.
+                Hidden below the floor — honest empty state (founder-only market
+                → usually hidden until saves accrue). */}
+            {favoritesCount >= FAVORITES_MIN_DISPLAY ? (
+              <p
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
+                title={`Saved by ${favoritesCount} couples on Setnayan.`}
+              >
+                <Heart aria-hidden className="h-3.5 w-3.5 fill-mulberry/70 text-mulberry" strokeWidth={1.75} />
+                <span className="font-medium text-ink">{favoritesCount}</span>
+                <span>saved</span>
+              </p>
+            ) : null}
             {declaredExp ? (
               <p
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
@@ -1854,6 +1882,11 @@ function toServiceCard(row: VendorServiceRow): ServiceCard {
     meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
   };
 }
+
+// Min-N floor for the public "saved by N" chip — a count below this stays
+// hidden so a tiny number never de-anonymizes or reads as vanity (owner default
+// 2026-07-02: favorites public / viewers vendor-only; behavioral-data min-N lock).
+const FAVORITES_MIN_DISPLAY = 3;
 
 const TRUSTED_BY_RELATIONSHIP_LABEL: Record<TrustedByRelationship, string> = {
   accredited: 'Accredited',

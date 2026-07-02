@@ -1,11 +1,13 @@
-import Link from 'next/link';
-import { Radar, ArrowRight } from 'lucide-react';
+import { Radar } from 'lucide-react';
 import type { DemandRadar } from '@/lib/demand-radar';
 
 /**
  * Inline demand preview for My Performance — the top "looks" couples in the
  * vendor's area are asking for, as scaled bars, plus a compact month-heat strip.
- * Links through to the full /vendor-dashboard/demand radar.
+ * The full radar (privacy note + own-bookings-by-source strip) lives at
+ * /vendor-dashboard/demand, reached from the sidebar's "Demand Radar" item — no
+ * inline "Details →" drill-link here, to match the folded-in booking funnel
+ * (owner 2026-07-02, "this [Details link] is still here on demand radar").
  *
  * Server component (no client JS). Data comes from getVendorDemandRadar(), which
  * is min-N suppressed in SQL, so this preview never exposes a single couple.
@@ -19,29 +21,15 @@ export function DemandPreviewCard({ radar }: { radar: DemandRadar }) {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Demand radar
-          <span
-            className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]"
-            style={{ color: 'var(--m-slate-3)' }}
-          >
-            who&apos;s looking for you
-          </span>
-        </h2>
-        <Link
-          href="/vendor-dashboard/demand"
-          className="group inline-flex items-center gap-1 text-sm font-medium"
-          style={{ color: 'var(--m-orange-2)' }}
+      <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+        Demand radar
+        <span
+          className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]"
+          style={{ color: 'var(--m-slate-3)' }}
         >
-          Details
-          <ArrowRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={1.75}
-            aria-hidden
-          />
-        </Link>
-      </div>
+          who&apos;s looking for you
+        </span>
+      </h2>
 
       <div className="rounded-lg border bg-white p-5" style={{ borderColor: 'var(--m-line)' }}>
         {!radar.hasData ? (

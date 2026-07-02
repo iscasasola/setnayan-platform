@@ -35,6 +35,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
+import { createClient } from '@/lib/supabase/client';
 import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
@@ -360,10 +361,12 @@ function VendorsOverlay({
   current,
   onClose,
   pricing,
+  signedIn,
 }: {
   current: OverlayId;
   onClose: () => void;
   pricing: PricingData;
+  signedIn: boolean;
 }) {
   return (
     <OverlayShell id="vendors" current={current} onClose={onClose} label="For vendors">
@@ -423,7 +426,11 @@ function VendorsOverlay({
       </div>
 
       <div className="hr-vd-cta">
-        <Link className="hr-vd-btn" href="/for-vendors" onClick={onClose}>
+        <Link
+          className="hr-vd-btn"
+          href={signedIn ? '/vendor-dashboard' : '/for-vendors'}
+          onClick={onClose}
+        >
           Register your business · free
         </Link>
         <button className="hr-vd-link" onClick={onClose}>
@@ -748,12 +755,33 @@ export function HomeOverlays({
     setMatch(mac ? 'mac' : win ? 'win' : null);
   }, [current]);
 
+  // Signed-in state for the Vendors overlay's CTA, resolved client-side for the
+  // same reason as `oauth` above — this overlay is ssr:false, so a session
+  // check here never forces page.tsx off ISR. An already-authenticated visitor
+  // who opens "Vendors" and taps "Register your business" doesn't need the
+  // /for-vendors sales pitch; send them straight to /vendor-dashboard, which
+  // already renders a fresh intake form when they have no vendor_profiles row.
+  // Signed-out visitors keep the existing /for-vendors funnel.
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (!cancelled) setSignedIn(Boolean(data.user));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
       <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
-      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
+      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} signedIn={signedIn} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
       <PapicDemoOverlay current={current} onClose={onClose} />
     </>

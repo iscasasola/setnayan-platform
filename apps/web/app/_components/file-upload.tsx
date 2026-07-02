@@ -91,6 +91,14 @@ export type FileUploadProps = {
    * existing callers are unaffected.
    */
   onFilePicked?: (file: File) => void;
+  /**
+   * Optional async validator run AFTER the size/MIME checks and BEFORE the
+   * upload starts. Return an error string to reject the file (shown to the
+   * user, upload skipped) or null to accept. Fail-open: if the validator
+   * itself throws, the upload proceeds — validators gate content rules (e.g.
+   * a video duration cap), they must never brick the upload path.
+   */
+  validateFile?: (file: File) => Promise<string | null>;
   /** Optional label rendered above the dropzone. */
   label?: string;
   /** Optional help text shown under the dropzone. */
@@ -196,6 +204,12 @@ function contentTypeFromRef(value: string): string {
   if (lower.endsWith('.gif')) return 'image/gif';
   if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic';
   if (lower.endsWith('.avif')) return 'image/avif';
+  // Video refs must NOT fall through to the image default — an <img> can't
+  // decode MP4, so a seeded video currentValue would render a broken glyph.
+  // video/* routes the Thumbnail to its icon fallback instead.
+  if (lower.endsWith('.mp4')) return 'video/mp4';
+  if (lower.endsWith('.mov')) return 'video/quicktime';
+  if (lower.endsWith('.webm')) return 'video/webm';
   // Default to JPEG — most legacy logos are JPEG/PNG; misclassifying lets
   // the thumbnail still render through the <img> tag.
   return 'image/jpeg';
@@ -213,6 +227,7 @@ export function FileUpload({
   initialDisplayUrls,
   onChange,
   onFilePicked,
+  validateFile,
   label,
   help,
   disabled = false,
@@ -334,6 +349,28 @@ export function FileUpload({
           continue;
         }
 
+        // Optional content-rule validator (e.g. a video duration cap). An
+        // error string rejects the file; a validator crash fails OPEN so a
+        // broken metadata read can never brick the upload path. The check runs
+        // BEFORE anything lands in inFlight, so surface the existing
+        // `optimizing` strip while it awaits — without it the dropzone sits
+        // idle-looking (and re-clickable) for up to the validator's timeout.
+        if (validateFile) {
+          let problem: string | null = null;
+          setOptimizing({ label: `Checking ${file.name}…`, pct: 0 });
+          try {
+            problem = await validateFile(file);
+          } catch {
+            problem = null;
+          } finally {
+            setOptimizing(null);
+          }
+          if (problem) {
+            setError(problem);
+            continue;
+          }
+        }
+
         // Hand the raw, validated File to the parent before the upload begins
         // (e.g. for client-side video poster extraction). Best-effort.
         try {
@@ -359,6 +396,7 @@ export function FileUpload({
       maxBytes,
       maxSizeMB,
       multiple,
+      validateFile,
     ],
   );
 

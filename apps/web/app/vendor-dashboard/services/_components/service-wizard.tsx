@@ -167,6 +167,9 @@ export function ServiceWizard({
             <p className="text-xs text-ink/55">
               Starting points the platform uses — the real numbers are set in each couple&rsquo;s inquiry. Skip these and you can still publish.
             </p>
+            <Field label="Base covers (guests)" htmlFor="base_pax">
+              <input id="base_pax" name="base_pax" type="number" min={1} step={1} placeholder="e.g. 100 — blank = flat price" className="input-field" />
+            </Field>
             <Field label="Per extra guest (₱)" htmlFor="added_pax_price_php">
               <input id="added_pax_price_php" name="added_pax_price_php" type="number" min={0} step={1} className="input-field" />
             </Field>

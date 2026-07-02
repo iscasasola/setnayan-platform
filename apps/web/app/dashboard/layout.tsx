@@ -7,6 +7,7 @@ import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';
+import { PendingVendorInquiryDispatcher } from './_components/pending-vendor-inquiry-dispatcher';
 import { AnonGateProvider } from '@/app/_components/anon-gate/anon-gate-context';
 import { dispatchPendingInquiries } from '@/lib/pending-inquiries';
 
@@ -138,6 +139,11 @@ export default async function DashboardLayout({
       {/* Anon-draft safety net: only renders for a Supabase anonymous principal
           (their plan isn't yet tied to an email). Vanishes on convert. */}
       {user.is_anonymous ? <SecureAccountBanner /> : null}
+      {/* Compose-first Inquire replay (owner 2026-07-02): if this couple composed
+          an inquiry on a vendor profile before signing up, fire it now that
+          they're a secured couple with an event. No-op when nothing is stashed
+          or the viewer is still anonymous. */}
+      <PendingVendorInquiryDispatcher enabled={!user.is_anonymous} />
       {/* Seed the anon-state once so deep gated actions (unlock a category,
           checkout) can show the pre-emptive "save your plan" prompt without
           re-fetching the user. Reads `false` for every secured user. */}

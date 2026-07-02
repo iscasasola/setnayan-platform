@@ -567,7 +567,7 @@ function SetnayanAiOverlay({
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 16, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
         <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
-        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 20 }}>
+        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
           {pricing.aiIntroPrice} your first 28 days
         </span>
       </div>
@@ -595,7 +595,7 @@ function SetnayanAiOverlay({
         <Link
           href="/onboarding/wedding?from=setnayan-ai"
           onClick={onClose}
-          style={{ background: '#211f1b', color: '#f4f1ea', fontSize: 14, fontWeight: 500, padding: '11px 20px', borderRadius: 22, textDecoration: 'none' }}
+          style={{ background: '#211f1b', color: '#f4f1ea', fontSize: 14, fontWeight: 500, padding: '11px 20px', borderRadius: 'var(--m-r-full)', textDecoration: 'none' }}
         >
           Turn on Setnayan AI
         </Link>

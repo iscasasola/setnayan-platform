@@ -4,19 +4,20 @@ import { useId, useState } from 'react';
 import { Filter, Info, Flame } from 'lucide-react';
 
 /**
- * Filter row for My Customers — All types / All services / All agents selects
- * plus a Heat map toggle + an info tooltip. Client component because the Heat
- * map toggle is a live view switch (it dims non-booked days so the vendor's
- * busiest stretches jump out) and the info tooltip is disclosure-on-tap.
+ * Filter row for My Customers — Type / Service / Agent selects plus a Heat map
+ * toggle + an info tooltip. Client component: every control is a live view
+ * switch over the calendar (rebuilt in-browser by the parent, no re-fetch).
  *
  * The three selects reflect the vendor's REAL option sets (their event types,
- * their service categories, their team agents). Cross-cutting server-side
- * filtering of the calendar + customer list by these dimensions isn't wired
- * yet — there's no per-booking type/service/agent index to filter on — so the
- * selects are presentational for now and default to "All …". They never show a
- * fabricated option: an empty option set collapses the select to just "All".
- * The Heat map toggle, by contrast, is fully live (it drives `data-heatmap` on
- * the calendar via a shared parent, below).
+ * their service categories, their team agents) and never show a fabricated
+ * option — an empty set collapses to just "All …". Wiring by dimension:
+ *   • Service — filters the calendar to the schedule(s) that carry the chosen
+ *     service category.
+ *   • Type — filters which booked events count toward booked/full days.
+ *   • Agent — per-agent scheduling isn't tracked in the booking schema yet, so
+ *     this select is honestly DISABLED (with a hint) rather than shipped as a
+ *     dead dropdown. It lights up once booking→team-member assignment exists.
+ * The Heat map toggle dims non-booked days so busy stretches jump out.
  */
 
 export type FilterOption = { value: string; label: string };
@@ -25,12 +26,25 @@ export function CustomersFilterBar({
   types,
   services,
   agents,
+  typeFilter,
+  onTypeFilterChange,
+  serviceFilter,
+  onServiceFilterChange,
+  agentDisabled = true,
+  agentDisabledHint = 'Per-agent scheduling isn’t tracked yet',
   heatmap,
   onHeatmapChange,
 }: {
   types: FilterOption[];
   services: FilterOption[];
   agents: FilterOption[];
+  typeFilter: string;
+  onTypeFilterChange: (next: string) => void;
+  serviceFilter: string;
+  onServiceFilterChange: (next: string) => void;
+  /** Agent filtering is unwireable until booking→agent assignment exists. */
+  agentDisabled?: boolean;
+  agentDisabledHint?: string;
   heatmap: boolean;
   onHeatmapChange: (next: boolean) => void;
 }) {
@@ -47,9 +61,25 @@ export function CustomersFilterBar({
         <Filter className="h-4 w-4" strokeWidth={1.75} />
       </span>
 
-      <FilterSelect label="All types" options={types} />
-      <FilterSelect label="All services" options={services} />
-      <FilterSelect label="All agents" options={agents} />
+      <FilterSelect
+        label="All types"
+        options={types}
+        value={typeFilter}
+        onChange={onTypeFilterChange}
+      />
+      <FilterSelect
+        label="All services"
+        options={services}
+        value={serviceFilter}
+        onChange={onServiceFilterChange}
+      />
+      <FilterSelect
+        label="All agents"
+        options={agents}
+        value=""
+        disabled={agentDisabled}
+        title={agentDisabled ? agentDisabledHint : undefined}
+      />
 
       <button
         type="button"
@@ -118,13 +148,34 @@ export function CustomersFilterBar({
   );
 }
 
-function FilterSelect({ label, options }: { label: string; options: FilterOption[] }) {
+function FilterSelect({
+  label,
+  options,
+  value,
+  onChange,
+  disabled = false,
+  title,
+}: {
+  label: string;
+  options: FilterOption[];
+  value: string;
+  onChange?: (next: string) => void;
+  disabled?: boolean;
+  title?: string;
+}) {
   return (
     <select
-      defaultValue=""
+      value={value}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      disabled={disabled}
       aria-label={label}
-      className="h-9 rounded-lg border px-3 text-sm"
-      style={{ borderColor: 'var(--m-line)', background: '#fff', color: 'var(--m-slate)' }}
+      title={title}
+      className="h-9 rounded-lg border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+      style={{
+        borderColor: value ? 'var(--m-orange-2)' : 'var(--m-line)',
+        background: value ? 'var(--m-orange-4)' : '#fff',
+        color: value ? 'var(--m-orange-2)' : 'var(--m-slate)',
+      }}
     >
       <option value="">{label}</option>
       {options.map((o) => (

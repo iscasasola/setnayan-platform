@@ -237,21 +237,26 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
   // fetchVendorPoolBookings' name lookup). Request-local map (never module
   // state) so concurrent requests never bleed venues into each other.
   const venueByEvent = new Map<string, string | null>();
+  // event_type per booked event — feeds the calendar's Type filter (bookings
+  // themselves carry no event_type). Same admin lookup, one extra column.
+  const eventTypeByEvent = new Map<string, string | null>();
   const bookedEventIds = [...bookedByEvent.keys()];
   if (bookedEventIds.length > 0) {
     const admin = createAdminClient();
     const { data: eventRows } = await admin
       .from('events')
-      .select('event_id, event_date, venue_name')
+      .select('event_id, event_date, venue_name, event_type')
       .in('event_id', bookedEventIds);
     for (const e of (eventRows ?? []) as {
       event_id: string;
       event_date: string | null;
       venue_name: string | null;
+      event_type: string | null;
     }[]) {
       const g = bookedByEvent.get(e.event_id);
       if (g) g.eventDate = e.event_date;
       venueByEvent.set(e.event_id, e.venue_name);
+      eventTypeByEvent.set(e.event_id, e.event_type);
     }
   }
 
@@ -333,17 +338,20 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
         <CustomersCalendar
-          initialData={calendar}
+          initialDayStates={dayStates}
+          initialWaitlist={waitlist}
           initialMonth={month}
           todayIso={todayIso}
           pools={pools}
           // Ship only the fields the client-side rebuild reads — raw block
           // client-contact fields (clientName/clientContact/clientNote) never
-          // cross the wire.
+          // cross the wire. Bookings also carry event_type (for the Type
+          // filter), resolved via the admin events lookup above.
           bookings={bookings.map((b) => ({
             poolId: b.poolId,
             bookedDate: b.bookedDate,
             eventName: b.eventName,
+            eventType: eventTypeByEvent.get(b.eventId) ?? null,
           }))}
           blocks={blocks.map((k) => ({
             poolId: k.poolId,

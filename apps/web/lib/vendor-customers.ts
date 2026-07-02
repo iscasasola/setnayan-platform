@@ -39,7 +39,15 @@ import type { PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 export type CalendarBookingInput = Pick<
   PoolBookingEntry,
   'poolId' | 'bookedDate' | 'eventName'
->;
+> & {
+  /**
+   * The booked event's type (e.g. 'wedding' | 'debut'), for the calendar's
+   * event-type filter. Optional and IGNORED by the day builder — it's threaded
+   * purely so the client can narrow bookings by type without a re-fetch. Null
+   * when the event's type couldn't be resolved.
+   */
+  eventType?: string | null;
+};
 export type CalendarBlockInput = Pick<
   CalendarBlockEntry,
   'poolId' | 'source' | 'startDate' | 'endDate'

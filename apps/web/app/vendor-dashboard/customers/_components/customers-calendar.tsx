@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useTransition, useCallback, useRef } from 'react';
+import { useState, useTransition, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Loader2 } from 'lucide-react';
-import type { SchedulePool } from '@/lib/vendor-schedule';
+import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
+import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import {
   buildCustomerCalendarMonth,
   type CalendarBookingInput,
@@ -23,11 +24,20 @@ import { fetchCustomerCalendarMonth } from '../actions';
  * Month nav is CLIENT-DRIVEN. The month-independent inputs (pools / bookings /
  * blocks) are shipped once on first paint; paging to another month fetches only
  * the two datasets that actually change — the vendor's day states + the couple
- * waitlist for that month (see `fetchCustomerCalendarMonth`) — then rebuilds the
- * grid in the browser with the pure `buildCustomerCalendarMonth`. So an arrow
- * click is one lightweight query, not a full-page reload of ~12 queries. The
- * filter bar + Heat map toggle live here as client state (Heat map dims the
- * open/past days so busy stretches pop).
+ * waitlist for that month (see `fetchCustomerCalendarMonth`). Those RAW inputs
+ * are cached per month (filter-agnostic); the visible grid is derived from them
+ * with the pure `buildCustomerCalendarMonth`. So an arrow click is one
+ * lightweight query (or instant on a revisit), not a full-page reload.
+ *
+ * Filtering is a pure re-derive — no re-fetch:
+ *   • Service — narrows the schedule pool(s) fed to the builder to those that
+ *     carry the chosen service category.
+ *   • Type — narrows which booked events count toward booked/full days.
+ *   • (Agent is disabled in the filter bar — per-agent scheduling isn't tracked
+ *     in the booking schema yet.)
+ * Vendor-level marks (blocked / locked / whitelist / waitlist) aren't event- or
+ * service-scoped, so they stay visible under any filter. The Heat map toggle
+ * dims non-booked days so busy stretches pop.
  */
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -69,6 +79,9 @@ const CHIP: Record<
   },
 };
 
+/** Raw, filter-agnostic month inputs cached per month for instant re-derive. */
+type MonthInputs = { dayStates: VendorCalendarDayState[]; waitlist: WaitlistDateGroup[] };
+
 /** Shift a 'YYYY-MM' key by whole months. Pure — safe on the client. */
 function shiftMonth(ym: string, delta: number): string {
   const [y, m] = ym.split('-').map(Number);
@@ -86,7 +99,8 @@ function monthLabelOf(ym: string): string {
 }
 
 export function CustomersCalendar({
-  initialData,
+  initialDayStates,
+  initialWaitlist,
   initialMonth,
   todayIso,
   pools,
@@ -97,15 +111,17 @@ export function CustomersCalendar({
   services,
   agents,
 }: {
-  /** The visible month's grid, built on the server for first paint. */
-  initialData: CustomerCalendarMonth;
+  /** The first-painted month's raw day states + waitlist (server-fetched). */
+  initialDayStates: VendorCalendarDayState[];
+  initialWaitlist: WaitlistDateGroup[];
   /** 'YYYY-MM' key of the first-painted month. */
   initialMonth: string;
   /** PH civil "today" (YYYY-MM-DD) — passed to the client-side rebuild. */
   todayIso: string;
   /** Month-independent inputs the client keeps to rebuild any month locally.
    *  Bookings/blocks are trimmed to the fields the builder reads (no raw
-   *  client-contact fields cross the wire). */
+   *  client-contact fields cross the wire); bookings also carry `eventType`
+   *  for the type filter. */
   pools: SchedulePool[];
   bookings: CalendarBookingInput[];
   blocks: CalendarBlockInput[];
@@ -117,33 +133,53 @@ export function CustomersCalendar({
 }) {
   const [heatmap, setHeatmap] = useState(false);
   const [month, setMonth] = useState(initialMonth);
-  const [data, setData] = useState(initialData);
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [pending, startTransition] = useTransition();
 
-  // Per-mount cache of built months so paging back to an already-seen month is
-  // instant (no re-fetch). Seeded with the server's first-paint month. Lifetime
-  // is this mount: any action that mutates bookings navigates away (to the
-  // day-manage route) and remounts here with a fresh cache, so staleness within
-  // a single session is a non-issue.
-  const cacheRef = useRef<Map<string, CustomerCalendarMonth> | null>(null);
-  if (cacheRef.current === null) {
-    cacheRef.current = new Map([[initialMonth, initialData]]);
-  }
+  // Per-mount cache of RAW month inputs (day states + waitlist), filter-agnostic
+  // so switching a filter is a pure re-derive with no re-fetch. Seeded with the
+  // server's first-paint month. Lifetime is this mount: any action that mutates
+  // bookings navigates away (to the day-manage route) and remounts with a fresh
+  // cache, so intra-session staleness is a non-issue.
+  const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
+    () => new Map([[initialMonth, { dayStates: initialDayStates, waitlist: initialWaitlist }]]),
+  );
 
-  const applyMonth = useCallback((nextMonth: string, built: CustomerCalendarMonth) => {
-    setData(built);
-    setMonth(nextMonth);
-    // Keep the URL shareable/refreshable without a router round-trip.
-    window.history.replaceState(null, '', `${window.location.pathname}?m=${nextMonth}`);
-  }, []);
+  // Filter narrowing (pure). Service → the pools that carry the category; Type →
+  // the bookings of that event type. Both feed the day builder.
+  const filteredPools = useMemo(
+    () => (serviceFilter ? pools.filter((p) => p.categories.includes(serviceFilter)) : pools),
+    [pools, serviceFilter],
+  );
+  const filteredBookings = useMemo(
+    () => (typeFilter ? bookings.filter((b) => (b.eventType ?? '') === typeFilter) : bookings),
+    [bookings, typeFilter],
+  );
+
+  // The visible grid — derived from the current month's raw inputs + active
+  // filters. Current-month inputs are always present (seeded + stored on nav).
+  const data = useMemo<CustomerCalendarMonth>(() => {
+    const inputs = monthInputs.get(month);
+    return buildCustomerCalendarMonth(
+      filteredPools,
+      filteredBookings,
+      blocks,
+      inputs?.dayStates ?? [],
+      inputs?.waitlist ?? [],
+      month,
+      todayIso,
+    );
+  }, [month, monthInputs, filteredPools, filteredBookings, blocks, todayIso]);
 
   const goToMonth = useCallback(
     (delta: number) => {
       const nextMonth = shiftMonth(month, delta);
-      const cache = cacheRef.current!;
-      const cached = cache.get(nextMonth);
-      if (cached) {
-        applyMonth(nextMonth, cached); // instant — no network, no spinner
+      const syncUrl = () =>
+        window.history.replaceState(null, '', `${window.location.pathname}?m=${nextMonth}`);
+      if (monthInputs.has(nextMonth)) {
+        setMonth(nextMonth); // instant — inputs cached, grid re-derives
+        syncUrl();
         return;
       }
       startTransition(async () => {
@@ -154,21 +190,22 @@ export function CustomersCalendar({
           window.location.href = `${window.location.pathname}?m=${nextMonth}`;
           return;
         }
-        const built = buildCustomerCalendarMonth(
-          pools,
-          bookings,
-          blocks,
-          res.dayStates,
-          res.waitlist,
-          nextMonth,
-          todayIso,
-        );
-        cache.set(nextMonth, built);
-        applyMonth(nextMonth, built);
+        setMonthInputs((prev) => {
+          const next = new Map(prev);
+          next.set(nextMonth, { dayStates: res.dayStates, waitlist: res.waitlist });
+          return next;
+        });
+        setMonth(nextMonth);
+        syncUrl();
       });
     },
-    [month, pools, bookings, blocks, todayIso, applyMonth],
+    [month, monthInputs],
   );
+
+  const filtersActive = serviceFilter !== '' || typeFilter !== '';
+  const hasAnyChip = data.days.some((d) => d.state !== null);
+  const serviceLabel = services.find((o) => o.value === serviceFilter)?.label;
+  const typeLabel = types.find((o) => o.value === typeFilter)?.label;
 
   return (
     <div className="space-y-4">
@@ -176,6 +213,10 @@ export function CustomersCalendar({
         types={types}
         services={services}
         agents={agents}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        serviceFilter={serviceFilter}
+        onServiceFilterChange={setServiceFilter}
         heatmap={heatmap}
         onHeatmapChange={setHeatmap}
       />
@@ -222,6 +263,16 @@ export function CustomersCalendar({
             <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           </button>
         </div>
+
+        {/* Active-filter context line — makes a narrowed (possibly empty) grid
+            self-explanatory. */}
+        {filtersActive ? (
+          <p className="mb-3 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
+            Showing{typeLabel ? ` ${typeLabel}` : ''}
+            {serviceLabel ? ` · ${serviceLabel}` : ''}
+            {!hasAnyChip ? ' — no matching activity this month.' : ''}
+          </p>
+        ) : null}
 
         {/* Weekday header */}
         <div

@@ -99,6 +99,20 @@ function safeRead<T>(p: PromiseLike<T>, fallback: T, label: string): Promise<T> 
   });
 }
 
+/** Small mono eyebrow that labels a page section — used to make the
+ *  windowed-vs-not-windowed boundary legible at a glance (owner 2026-07-02
+ *  arrangement pass). */
+function SectionEyebrow({ label }: { label: string }) {
+  return (
+    <p
+      className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
+      style={{ color: 'var(--m-slate-3)' }}
+    >
+      {label}
+    </p>
+  );
+}
+
 /**
  * /vendor-dashboard/performance — the "My Performance" cockpit.
  *
@@ -447,17 +461,10 @@ export default async function VendorPerformancePage({
     const label = WINDOW_LABEL[mode];
     return (
       <div className="space-y-6">
-        {/* Setnayan vs your own book — app-vs-import ROI for this window. */}
-        <RoiAttributionCard
-          attribution={attribution}
-          annualPlanPhp={mode === 'year' ? annualPlanPhp : null}
-          windowLabel={label}
-          scopeLabel={scopeLabel}
-          nullServiceExcluded={nullExcluded}
-        />
-        {/* Your booking funnel — the four-stage bars. Only the BOOKED stage can
-            segment; when a service is selected we show its booked count for this
-            window as a callout and note the other stages are shop-wide. */}
+        {/* Your booking funnel — the four-stage bars, opening the acquisition →
+            conversion → revenue story. Only the BOOKED stage can segment; when a
+            service is selected we show its booked count for this window as a
+            callout and note the other stages are shop-wide. */}
         {serviceId ? (
           <div
             className="rounded-lg border p-4 text-sm"
@@ -474,6 +481,15 @@ export default async function VendorPerformancePage({
           </div>
         ) : null}
         <FunnelPreviewCard steps={steps} windowLabel={label} />
+
+        {/* Setnayan vs your own book — app-vs-import ROI for this window. */}
+        <RoiAttributionCard
+          attribution={attribution}
+          annualPlanPhp={mode === 'year' ? annualPlanPhp : null}
+          windowLabel={label}
+          scopeLabel={scopeLabel}
+          nullServiceExcluded={nullExcluded}
+        />
 
         {/* Where they came from — sliced breakdown folded in from the retired
             /funnel page. Shop-level (not per-service). */}
@@ -495,112 +511,112 @@ export default async function VendorPerformancePage({
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      {/* ── Everything below, down to the filter row, is SHOP-LEVEL: it has no
-          per-service or time-window dimension, so none of it depends on the
-          Daily/Monthly/Annual + service-scope controls further down the page.
-          (The service-scope selector moved into <PerformanceControls> below, so
-          the standalone top-of-page selector is intentionally gone.) */}
+      {/* ── Arrangement (owner 2026-07-02 design pass): ONE bounded windowed zone
+          headed by the filter, the acquisition→conversion→revenue story reunited
+          high, and every non-windowed card grouped into a clean back-half so the
+          "what does the filter control?" question is answered by containment. */}
 
-      {/* Overview · the signature health card + growth tips. */}
+      {/* 1 · Snapshot — how am I doing (all tiers, point-in-time). */}
       <div className="space-y-6">
         <HealthCompositeCard health={health} monthDelta={monthDelta}>
           <GrowthRecsCard recs={growthRecs} />
         </HealthCompositeCard>
       </div>
 
-      {/* Inquiries (Pro+) · own-business inquiry-handling analytics. */}
-      {canAdvanced && inquiryAnalytics && (
-        <div className="space-y-6">
-          <InquiryHandlingCard data={inquiryAnalytics} />
-        </div>
-      )}
-
-      {/* Conversion (Pro+) · own-business quote→booking economics. */}
-      {canAdvanced && conversionAnalytics && (
-        <div className="space-y-6">
-          <ConversionDealsCard data={conversionAnalytics} />
-        </div>
-      )}
-
-      {/* Reputation (Pro+) · own reviews: rating, coverage, velocity. */}
-      {canAdvanced && reputationAnalytics && (
-        <div className="space-y-6">
-          <ReputationCard data={reputationAnalytics} />
-        </div>
-      )}
-
-      {/* Capacity (Pro+) · booked-ahead load + waitlist (unmet demand). */}
-      {canAdvanced && capacityAnalytics && (
-        <div className="space-y-6">
-          <CapacityCard data={capacityAnalytics} />
-        </div>
-      )}
-
-      {/* Market intelligence (Enterprise) · cross-business, de-identified,
-          nationwide totals — no per-service dimension either. */}
-      <div className="space-y-6">
-        {canMarket ? (
-          <DemandPreviewCard radar={demandRadar} />
-        ) : (
-          <VendorTierTeaser
-            feature="Demand Radar & Price-Position"
-            requiredTier="enterprise"
-            blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
-            icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-          />
+      {/* 2 · Performance over time — the ONE windowed zone. The filter row is its
+          header (inside <PerformanceControls>); every card here (Momentum →
+          Funnel → ROI → by-source, plus the coming money graphs) responds to the
+          Daily/Monthly/Annual window + service scope, INSTANTLY client-side (no
+          refetch, no Apply button). Nothing else on the page follows the filter. */}
+      <div>
+        <SectionEyebrow label="Performance over time" />
+        <p className="mb-4 -mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          Pick a window and service below — this whole section updates instantly.
+        </p>
+        <PerformanceControls
+          initialMode={momentumMode}
+          isFull={canAdvanced}
+          serviceId={serviceId}
+          day={dayWindow}
+          month={monthWindow}
+          year={yearWindow}
+          monthlySeries={bookingSeries}
+          dailySeries={bookingDailySeries}
+          scopeLabel={scopeLabel}
+          nullExcludedYear={nullExcludedYear}
+          nullExcludedMonth={nullExcludedMonth}
+          nullExcludedDay={nullExcludedDay}
+          serviceSelector={
+            showSelector ? (
+              <ServiceScopeSelector
+                activeServices={activeServices}
+                activeServiceId={serviceId}
+                momentum={momentumMode}
+              />
+            ) : null
+          }
+          windowedSection={
+            canAdvanced
+              ? {
+                  day: renderWindowedSection('day'),
+                  month: renderWindowedSection('month'),
+                  year: renderWindowedSection('year'),
+                }
+              : null
+          }
+        />
+        {/* ROI + funnel are Pro+; a Solo vendor sees the upsell in their place. */}
+        {!canAdvanced && (
+          <div className="mt-6">
+            <VendorTierTeaser
+              feature="ROI & booking funnel"
+              requiredTier="pro"
+              blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
+              icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            />
+          </div>
         )}
       </div>
 
-      {/* ── Your business · the ONLY content that changes with the
-          Daily/Monthly/Annual window + service scope. Momentum + ROI + funnel +
-          by-source all SEGMENT on real booked data when a service is selected
-          (via event_vendors.service_id) and re-window on the toggle. The toggle
-          swaps the whole windowed section INSTANTLY client-side (no refetch, no
-          Apply button); the service selector re-fetches on navigation. Demand
-          Radar + Capacity sit ABOVE this row on purpose — they're market /
-          forward-looking reads that don't take a trailing window (owner
-          2026-07-02, "leave them global"). */}
-      <PerformanceControls
-        initialMode={momentumMode}
-        isFull={canAdvanced}
-        serviceId={serviceId}
-        day={dayWindow}
-        month={monthWindow}
-        year={yearWindow}
-        monthlySeries={bookingSeries}
-        dailySeries={bookingDailySeries}
-        scopeLabel={scopeLabel}
-        nullExcludedYear={nullExcludedYear}
-        nullExcludedMonth={nullExcludedMonth}
-        nullExcludedDay={nullExcludedDay}
-        serviceSelector={
-          showSelector ? (
-            <ServiceScopeSelector
-              activeServices={activeServices}
-              activeServiceId={serviceId}
-              momentum={momentumMode}
-            />
-          ) : null
-        }
-        windowedSection={
-          canAdvanced
-            ? {
-                day: renderWindowedSection('day'),
-                month: renderWindowedSection('month'),
-                year: renderWindowedSection('year'),
-              }
-            : null
-        }
-      />
+      {/* 3 · Conversion & responsiveness — last 12 months, NOT filtered (the
+          inquiry arrival heatmap needs a long window to read; owner 2026-07-02). */}
+      {canAdvanced && (inquiryAnalytics || conversionAnalytics) && (
+        <div>
+          <SectionEyebrow label="Conversion & responsiveness · last 12 months" />
+          <div className="space-y-6">
+            {inquiryAnalytics && <InquiryHandlingCard data={inquiryAnalytics} />}
+            {conversionAnalytics && <ConversionDealsCard data={conversionAnalytics} />}
+          </div>
+        </div>
+      )}
 
-      {/* ROI + funnel are Pro+; a Solo vendor sees the upsell in their place. */}
-      {!canAdvanced && (
-        <VendorTierTeaser
-          feature="ROI & booking funnel"
-          requiredTier="pro"
-          blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
-          icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        />
+      {/* 4 · Looking ahead & the market — forward-looking (Capacity) + market
+          intel (Demand radar), both deliberately OUTSIDE the period filter. */}
+      <div>
+        <SectionEyebrow label="Looking ahead & the market · not affected by the period filter" />
+        <div className="space-y-6">
+          {canAdvanced && capacityAnalytics && <CapacityCard data={capacityAnalytics} />}
+          {canMarket ? (
+            <DemandPreviewCard radar={demandRadar} />
+          ) : (
+            <VendorTierTeaser
+              feature="Demand Radar & Price-Position"
+              requiredTier="enterprise"
+              blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
+              icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* 5 · Reputation — all-time standing (not windowed). */}
+      {canAdvanced && reputationAnalytics && (
+        <div>
+          <SectionEyebrow label="Reputation · all-time" />
+          <div className="space-y-6">
+            <ReputationCard data={reputationAnalytics} />
+          </div>
+        </div>
       )}
     </section>
   );

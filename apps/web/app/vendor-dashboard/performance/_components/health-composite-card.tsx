@@ -18,8 +18,11 @@ import { pillarBand } from '@/lib/vendor-health-composite';
  * Pillar bar color follows the prototype thresholds: red < 70, amber 70–85,
  * green > 85. Pillars without data yet render as an empty track + "—".
  *
- * Tapping the card toggles `children` (the growth recs) open/closed below it —
- * collapsed by default so the cockpit opens on the health snapshot alone.
+ * Tapping the card smoothly expands/collapses `children` (the growth recs)
+ * below it — collapsed by default (and re-collapsed on every load; no persisted
+ * state) so the cockpit opens on the health snapshot alone. The reveal animates
+ * via a grid-template-rows 0fr↔1fr + opacity transition; the tray is `inert`
+ * while collapsed so its CTAs stay out of the tab order.
  */
 
 /** Gold ring — champagne-gold sweep on a faint track, over the dark card. */
@@ -196,8 +199,20 @@ export function HealthCompositeCard({
         </p>
       </button>
 
-      {children && expanded ? (
-        <div className="px-6 pb-6 sm:px-8 sm:pb-8">{children}</div>
+      {children ? (
+        <div
+          className="grid transition-[grid-template-rows] duration-500 ease-in-out motion-reduce:transition-none"
+          style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
+        >
+          <div
+            inert={!expanded}
+            className={`min-h-0 overflow-hidden transition-opacity duration-300 motion-reduce:transition-none ${
+              expanded ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <div className="px-6 pb-6 sm:px-8 sm:pb-8">{children}</div>
+          </div>
+        </div>
       ) : null}
     </section>
   );

@@ -12,6 +12,7 @@ import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchVendorContracts } from '@/lib/contracts';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
@@ -247,6 +248,12 @@ async function LockedMode({
       }))
     : coverage;
 
+  // The vendor's saved contracts, offered as templates to attach to this deal
+  // (cancelled ones excluded).
+  const contractOptions = (await fetchVendorContracts(supabase, vendorProfileId))
+    .filter((c) => c.status !== 'cancelled')
+    .map((c) => ({ value: c.contract_id, label: c.title }));
+
   return (
     <>
       {error ? (
@@ -255,11 +262,25 @@ async function LockedMode({
           className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
           {error === 'category'
-            ? 'Pick a service you actually offer.'
-            : 'Could not create the Locked QR. Please try again.'}
+            ? 'Pick at least one service you actually offer.'
+            : error === 'overpaid'
+              ? 'The downpayment can’t be more than the total value.'
+              : error === 'proof'
+                ? 'Upload the payment proof before generating the QR.'
+                : error === 'contract'
+                  ? 'Pick one of your saved contracts to attach.'
+                  : error === 'description'
+                    ? 'Describe what the couple availed.'
+                    : error === 'event_date'
+                      ? 'Set the agreed event date.'
+                      : 'Could not create the Locked QR. Please try again.'}
         </p>
       ) : null}
-      <LockedQrGenerator eventTypes={eventTypes} services={serviceOptions} />
+      <LockedQrGenerator
+        eventTypes={eventTypes}
+        services={serviceOptions}
+        contracts={contractOptions}
+      />
       <Link
         href="/vendor-dashboard/locked-qr"
         className="mt-4 inline-block text-sm font-medium text-terracotta hover:underline"

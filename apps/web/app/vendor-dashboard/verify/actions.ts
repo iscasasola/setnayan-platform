@@ -16,6 +16,7 @@ import {
   type ApplicationType,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
+import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 
 /**
  * Vendor-side server actions for /vendor-dashboard/verify.
@@ -36,7 +37,6 @@ import {
  * See migration `20260516040000_iteration_0006_vendor_verification_flow.sql`.
  */
 
-const DOC_SLOT_KEYS: ReadonlySet<string> = new Set(DOC_SLOTS.map((s) => s.key));
 const APPLICATION_TYPE_SET: ReadonlySet<string> = new Set(APPLICATION_TYPES);
 
 async function ensureVendorAuth() {
@@ -178,29 +178,6 @@ export async function updateDocUpload(formData: FormData): Promise<void> {
 
   revalidatePath('/vendor-dashboard/verify');
   redirect('/vendor-dashboard/verify?slot_saved=1');
-}
-
-function buildSlotValue(
-  slotKey: string,
-  fields: {
-    r2Ref: string | null;
-    url: string | null;
-    scheduledAt: string | null;
-  },
-): Record<string, unknown> | null {
-  const now = new Date().toISOString();
-
-  if (slotKey === 'social_media') {
-    if (!fields.url) return null;
-    return { url: fields.url, updated_at: now };
-  }
-  if (slotKey === 'google_meet') {
-    if (!fields.scheduledAt) return null;
-    return { scheduled_at: fields.scheduledAt };
-  }
-  // Default: every other slot persists an R2 ref.
-  if (!fields.r2Ref) return null;
-  return { r2_key: fields.r2Ref, uploaded_at: now };
 }
 
 /**

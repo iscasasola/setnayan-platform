@@ -68,6 +68,9 @@ export function BranchManager({ branches, feePhp, autoRadiusKm, initialCenter, p
   const toast = useToast();
   const router = useRouter();
   const [adding, setAdding] = useState(false);
+  // Bumped after a successful add so the form remounts fresh (pin back to the
+  // HQ centre, city cleared, manual-edit flag reset) for the next branch.
+  const [formKey, setFormKey] = useState(0);
 
   const live = branches.filter((b) => b.status !== 'cancelled');
   const hasPending = branches.some((b) => b.status === 'pending_payment');
@@ -87,11 +90,13 @@ export function BranchManager({ branches, feePhp, autoRadiusKm, initialCenter, p
         </button>
         <Collapsible open={adding} className="mt-3">
           <AddBranchForm
+            key={formKey}
             feePhp={feePhp}
             autoRadiusKm={autoRadiusKm}
             initialCenter={initialCenter}
             onDone={() => {
               setAdding(false);
+              setFormKey((k) => k + 1);
               router.refresh();
             }}
             toastSuccess={(m) => toast.success(m)}
@@ -189,6 +194,11 @@ function AddBranchForm({
   const [address, setAddress] = useState('');
   const [detecting, setDetecting] = useState(false);
   const detectSeq = useRef(0);
+  // Once the vendor types in the city field, stop auto-overwriting it — a
+  // later pin fine-tune must not clobber a manual edit (the rule is the vendor
+  // MAY edit the auto-detected city). The address hidden field still tracks the
+  // pin since it isn't user-editable.
+  const cityTouched = useRef(false);
   const handled = useRef<BranchActionState | null>(null);
 
   const detect = useCallback((v: LatLng) => {
@@ -197,7 +207,7 @@ function AddBranchForm({
     detectBranchLocation(v.lat, v.lng)
       .then((res) => {
         if (seq !== detectSeq.current) return; // ignore stale pan responses
-        setCity(res.city);
+        if (!cityTouched.current) setCity(res.city);
         setAddress(res.address);
       })
       .catch(() => {
@@ -266,7 +276,10 @@ function AddBranchForm({
           required
           maxLength={BRANCH_CITY_MAX}
           value={city}
-          onChange={(e) => setCity(e.target.value)}
+          onChange={(e) => {
+            setCity(e.target.value);
+            cityTouched.current = true;
+          }}
           placeholder="Drop a pin to detect the city"
           className="input-field"
         />

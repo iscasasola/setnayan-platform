@@ -118,6 +118,47 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
     setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
   };
 
+  /** Shift the centre by whole pixels (keyboard panning). */
+  const panByPixels = (dxPx: number, dyPx: number) => {
+    const cx = worldX(center.lng, zoom) - dxPx;
+    const cy = worldY(center.lat, zoom) - dyPx;
+    const nextLat = Math.min(85, Math.max(-85, yToLat(cy, zoom)));
+    let nextLng = xToLng(cx, zoom);
+    nextLng = ((((nextLng + 180) % 360) + 360) % 360) - 180;
+    commitCenter({ lat: nextLat, lng: nextLng });
+  };
+
+  // Keyboard operability — the map is role="application", so arrow keys must
+  // pan and +/- must zoom (otherwise it announces as interactive but isn't).
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const STEP = 48;
+    switch (e.key) {
+      case 'ArrowUp':
+        panByPixels(0, STEP);
+        break;
+      case 'ArrowDown':
+        panByPixels(0, -STEP);
+        break;
+      case 'ArrowLeft':
+        panByPixels(STEP, 0);
+        break;
+      case 'ArrowRight':
+        panByPixels(-STEP, 0);
+        break;
+      case '+':
+      case '=':
+        bumpZoom(1);
+        break;
+      case '-':
+      case '_':
+        bumpZoom(-1);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  };
+
   // Tile grid for the current centre (+ live drag offset).
   const n2 = 2 ** zoom;
   const offX = drag?.dx ?? 0;
@@ -159,8 +200,10 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
       role="application"
-      aria-label="Drag the map to place your branch pin"
+      aria-label="Place your branch pin — drag the map, or use arrow keys to pan and + / − to zoom"
     >
       {tiles.map((t) => (
         // eslint-disable-next-line @next/next/no-img-element -- absolutely-positioned OSM tile grid; next/image can't lay this out

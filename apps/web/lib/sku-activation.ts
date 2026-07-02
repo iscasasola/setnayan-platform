@@ -9,6 +9,7 @@ import {
   cyclesFromAmount,
   extendUserAiSubscription,
 } from '@/lib/setnayan-ai-subscription';
+import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -89,9 +90,19 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // front via the manual apply-then-pay rails and this boolean is the gate.
   SETNAYAN_AI: async (ctx) => {
     if (!ctx.eventId) return;
+    const update: Record<string, unknown> = { setnayan_ai_active: true };
+    // Per-EVENT pricing (owner 2026-07-02): also mark the ₱499 intro consumed so
+    // this event's NEXT purchase is charged the ₱799 renewal, not a second intro.
+    // Idempotent + re-approval-safe (setting the boolean/flag again is a no-op).
+    // Flag-gated → inert (just the setnayan_ai_active boolean, exactly as today)
+    // while per-event pricing is off. The 28-day window (setnayan_ai_active_until)
+    // + lapse enforcement land in the next slice.
+    if (await resolveSetnayanAiPerEventPricingEnabled()) {
+      update.setnayan_ai_intro_used = true;
+    }
     const { error } = await ctx.admin
       .from('events')
-      .update({ setnayan_ai_active: true })
+      .update(update)
       .eq('event_id', ctx.eventId);
     // Surface a write failure so activateOrderSku's outer catch logs it —
     // otherwise the paid AI silently never provisions with no retry signal.

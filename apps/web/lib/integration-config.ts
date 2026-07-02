@@ -148,6 +148,33 @@ export async function resolveSetnayanAiPerUserEnabled(): Promise<boolean> {
   return false;
 }
 
+// ── Per-EVENT ₱499-intro / ₱799-renewal pricing flag (owner 2026-07-02) ──────
+//
+// DB-first, no env fallback, uncached — same shape as resolveSetnayanAiPerUser
+// Enabled. platform_settings.setnayan_ai_per_event_pricing_enabled is TRI-STATE:
+//   • NULL  → OFF (today's behaviour — the ₱499 flat per-event unlock).
+//   • TRUE  → the ₱499-first-28-days then ₱799-per-28-day-cycle model is live
+//             (the intro/renewal charge + the per-event window are honored).
+//   • FALSE → off.
+// Default OFF on any read error (column absent pre-migration) — the conservative,
+// byte-identical-to-today choice. Flip from /admin/integrations at go-live, once
+// the buy-flow wiring + copy ship AND the Wave-1 guard is live (so ₱799 is earned).
+export async function resolveSetnayanAiPerEventPricingEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('setnayan_ai_per_event_pricing_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.setnayan_ai_per_event_pricing_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → default OFF below.
+  }
+  return false;
+}
+
 // ── Registry-driven "simple secret" integrations (PR2) ──────────────────────
 //
 // Generic DB-first / env-fallback resolver for any integration in

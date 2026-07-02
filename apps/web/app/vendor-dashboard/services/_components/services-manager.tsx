@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchVendorServices, fetchDiscountsByService } from '@/lib/vendor-services';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
 import {
   fetchVendorPoolBookings,
@@ -167,6 +167,9 @@ export async function VendorServicesManager({
     return ra - rb;
   });
   const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
+  // Discounts moved to their own table (multi-discount · migration 20270502342558);
+  // fetch them grouped by service for the off-peak nudge, row badge, and edit form.
+  const discountsByService = await fetchDiscountsByService(supabase, serviceIdList);
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
   // former serial chain (2026-07-01 perf):
@@ -374,13 +377,15 @@ export async function VendorServicesManager({
 
   // ── Off-Season Promos nudge (Wave 5 "Soon" vendor benefit) ──────────────
   const now = new Date();
-  const hasLiveOffPeak = services.some(
-    (s) =>
-      s.is_active &&
-      s.discount_type === 'off_peak' &&
-      s.discount_expires_at !== null &&
-      new Date(s.discount_expires_at).getTime() > now.getTime(),
-  );
+  const hasLiveOffPeak = services.some((s) => {
+    if (!s.is_active) return false;
+    return (discountsByService.get(s.vendor_service_id) ?? []).some(
+      (d) =>
+        d.discount_type === 'off_peak' &&
+        d.expires_at !== null &&
+        new Date(d.expires_at).getTime() > now.getTime(),
+    );
+  });
   const offPeakCandidate =
     services.find((s) => s.is_active) ?? services[0] ?? null;
   const offPeakPrefillId =
@@ -688,6 +693,10 @@ export async function VendorServicesManager({
                   : 'You';
               const hasSlots =
                 (slotsByService.get(svc.vendor_service_id)?.length ?? 0) > 0;
+              // Multi-discount: the single-discount UI shows/edits the first row
+              // (the list editor lands in Phase 3 · migration 20270502342558).
+              const svcDiscount =
+                discountsByService.get(svc.vendor_service_id)?.[0] ?? null;
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
@@ -733,11 +742,11 @@ export async function VendorServicesManager({
                         {svc.is_active ? '' : ' · hidden'}
                       </p>
                     </div>
-                    {svc.discount_type ? (
+                    {svcDiscount ? (
                       <DiscountBadge
-                        type={svc.discount_type}
-                        value={svc.discount_value}
-                        expiresAt={svc.discount_expires_at}
+                        type={svcDiscount.discount_type}
+                        value={svcDiscount.rate}
+                        expiresAt={svcDiscount.expires_at}
                       />
                     ) : null}
                     {/* on/off toggle (is_active) */}
@@ -910,20 +919,20 @@ export async function VendorServicesManager({
                         ) : null}
                         {(() => {
                           const isPrefillTarget =
-                            offPeakPrefillId === svc.vendor_service_id && !svc.discount_type;
+                            offPeakPrefillId === svc.vendor_service_id && !svcDiscount;
                           return (
                             <DiscountFields
                               idPrefix={svc.vendor_service_id}
                               typeDefault={
-                                svc.discount_type ?? (isPrefillTarget ? 'off_peak' : undefined)
+                                svcDiscount?.discount_type ?? (isPrefillTarget ? 'off_peak' : undefined)
                               }
-                              valueDefault={svc.discount_value ?? undefined}
+                              valueDefault={svcDiscount?.rate ?? undefined}
                               expiresDefault={
-                                svc.discount_expires_at ??
+                                svcDiscount?.expires_at ??
                                 (isPrefillTarget && suggestedExpiry ? suggestedExpiry : undefined)
                               }
                               conditionsDefault={
-                                svc.discount_conditions_md ??
+                                svcDiscount?.conditions_md ??
                                 (isPrefillTarget ? suggestedConditions : undefined)
                               }
                               forceOpen={isPrefillTarget}

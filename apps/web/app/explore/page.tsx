@@ -916,15 +916,17 @@ async function fetchLiveOffPeakVendorIds(
   admin: ReturnType<typeof createAdminClient>,
 ): Promise<string[]> {
   try {
+    // Discounts moved to vendor_service_discounts (migration 20270502342558).
+    // Embed vendor_services to keep the active-service constraint (admin client
+    // bypasses RLS, so we filter is_active explicitly via the inner join).
     const { data, error } = await admin
-      .from('vendor_services')
-      .select('vendor_profile_id')
-      .eq('is_active', true)
+      .from('vendor_service_discounts')
+      .select('vendor_profile_id, vendor_services!inner(is_active)')
       .eq('discount_type', 'off_peak')
-      .not('discount_value', 'is', null)
-      .gt('discount_value', 0)
-      .not('discount_expires_at', 'is', null)
-      .gt('discount_expires_at', new Date().toISOString());
+      .gt('rate', 0)
+      .not('expires_at', 'is', null)
+      .gt('expires_at', new Date().toISOString())
+      .eq('vendor_services.is_active', true);
     if (error) {
       console.warn('[off-season] fetchLiveOffPeakVendorIds failed:', error.message);
       return [];
@@ -1826,14 +1828,35 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         const { data, error } = await admin
           .from('vendor_services')
           .select(
-            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active, discount_type, discount_value, discount_expires_at',
+            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active',
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
           console.error('[vendors] vendor_services fetch failed', error);
           return new Map();
         }
-        const nowMs = Date.now();
+        // Live off-peak deals moved to vendor_service_discounts (migration
+        // 20270502342558). Resolve the latest-expiring off_peak per vendor; the
+        // inner join keeps the active-service constraint (admin bypasses RLS).
+        const offPeakByVendor = new Map<string, { value: number; expiresAt: string }>();
+        {
+          const { data: dRows } = await admin
+            .from('vendor_service_discounts')
+            .select('vendor_profile_id, rate, expires_at, vendor_services!inner(is_active)')
+            .in('vendor_profile_id', visibleVendorIds)
+            .eq('discount_type', 'off_peak')
+            .gt('rate', 0)
+            .not('expires_at', 'is', null)
+            .gt('expires_at', new Date().toISOString())
+            .eq('vendor_services.is_active', true);
+          for (const row of dRows ?? []) {
+            const d = row as { vendor_profile_id: string; rate: number; expires_at: string };
+            const prev = offPeakByVendor.get(d.vendor_profile_id);
+            if (!prev || new Date(d.expires_at).getTime() > new Date(prev.expiresAt).getTime()) {
+              offPeakByVendor.set(d.vendor_profile_id, { value: d.rate, expiresAt: d.expires_at });
+            }
+          }
+        }
         const out = new Map<
           string,
           {
@@ -1848,9 +1871,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             starting_price_php: number | null;
             primary_photo_r2_key: string | null;
             is_active: boolean | null;
-            discount_type: string | null;
-            discount_value: number | null;
-            discount_expires_at: string | null;
           };
           // Skip inactive services — they shouldn't drive the
           // surfaced starting price or the off-season offer.
@@ -1868,21 +1888,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             r.primary_photo_r2_key && r.primary_photo_r2_key.length > 0
               ? r.primary_photo_r2_key
               : null;
-          // Live off-peak offer on this service (future expiry only — an
-          // off-peak discount with no end date or a past end date isn't a
-          // "live promo window", matching the couple-facing filter contract).
-          const isLiveOffPeak =
-            r.discount_type === 'off_peak' &&
-            r.discount_value !== null &&
-            r.discount_value > 0 &&
-            r.discount_expires_at !== null &&
-            new Date(r.discount_expires_at).getTime() > nowMs;
-          const newOffPeak = isLiveOffPeak
-            ? {
-                value: r.discount_value as number,
-                expiresAt: r.discount_expires_at as string,
-              }
-            : null;
+          // Live off-peak offer for this vendor, resolved above from
+          // vendor_service_discounts (migration 20270502342558).
+          const newOffPeak = offPeakByVendor.get(r.vendor_profile_id) ?? null;
           if (!existing) {
             out.set(r.vendor_profile_id, {
               startingPrice: newPrice,

@@ -377,35 +377,52 @@ export async function createVendorService(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from('vendor_services').insert({
-    vendor_profile_id: profile.vendor_profile_id,
-    category,
-    title,
-    starting_price_php,
-    added_pax_price_php,
-    base_pax,
-    coverage_id,
-    crew_size,
-    crew_meal_required,
-    branch_id,
-    recommended_lead_time_months,
-    last_minute_end_months,
-    last_minute_surcharge_pct,
-    daily_capacity,
-    discount_type,
-    discount_value,
-    discount_expires_at,
-    discount_conditions_md,
-    exclusive_perk_text,
-    // New services are created as drafts (is_active: false) so the publish gate
-    // (exclusive_perk_text required) is enforced only on the toggle action.
-    is_active: false,
-  });
+  const { data: created, error } = await supabase
+    .from('vendor_services')
+    .insert({
+      vendor_profile_id: profile.vendor_profile_id,
+      category,
+      title,
+      starting_price_php,
+      added_pax_price_php,
+      base_pax,
+      coverage_id,
+      crew_size,
+      crew_meal_required,
+      branch_id,
+      recommended_lead_time_months,
+      last_minute_end_months,
+      last_minute_surcharge_pct,
+      daily_capacity,
+      exclusive_perk_text,
+      // New services are created as drafts (is_active: false) so the publish gate
+      // (exclusive_perk_text required) is enforced only on the toggle action.
+      is_active: false,
+    })
+    .select('vendor_service_id')
+    .single();
 
   if (error) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
+  }
+
+  // Discount → the multi-discount table (migration 20270502342558). The current
+  // single-discount form carries no unit; derive it with the migration's backfill
+  // heuristic (rate <= 100 ⇒ %, else ₱). The list editor + unit toggle land in
+  // Phase 3; this keeps the existing form writing to the new table.
+  if (discount_type && discount_value != null && created) {
+    await supabase.from('vendor_service_discounts').insert({
+      vendor_service_id: created.vendor_service_id,
+      vendor_profile_id: profile.vendor_profile_id,
+      discount_type,
+      rate: discount_value,
+      unit: discount_value <= 100 ? 'pct' : 'php',
+      expires_at: discount_expires_at,
+      conditions_md: discount_conditions_md,
+      sort_order: 0,
+    });
   }
 
   revalidatePath('/vendor-dashboard/services');
@@ -539,10 +556,6 @@ export async function updateVendorService(formData: FormData) {
       last_minute_end_months,
       last_minute_surcharge_pct,
       daily_capacity,
-      discount_type,
-      discount_value,
-      discount_expires_at,
-      discount_conditions_md,
       exclusive_perk_text,
       updated_at: new Date().toISOString(),
     })
@@ -553,6 +566,27 @@ export async function updateVendorService(formData: FormData) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
     );
+  }
+
+  // Discount → the multi-discount table (replace-all for this service · migration
+  // 20270502342558). The single-discount form carries no unit; derive it with the
+  // migration's backfill heuristic (rate <= 100 ⇒ %, else ₱).
+  await supabase
+    .from('vendor_service_discounts')
+    .delete()
+    .eq('vendor_service_id', idRaw)
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (discount_type && discount_value != null) {
+    await supabase.from('vendor_service_discounts').insert({
+      vendor_service_id: idRaw,
+      vendor_profile_id: profile.vendor_profile_id,
+      discount_type,
+      rate: discount_value,
+      unit: discount_value <= 100 ? 'pct' : 'php',
+      expires_at: discount_expires_at,
+      conditions_md: discount_conditions_md,
+      sort_order: 0,
+    });
   }
 
   revalidatePath('/vendor-dashboard/services');
@@ -909,6 +943,8 @@ export async function commitVendorService(formData: FormData) {
   // ---- Parse the vendor_services fields (reuse the legacy helpers) ----
   let category: VendorCategory;
   let fields: Record<string, unknown>;
+  // Hoisted so the multi-discount write below the parse try can read it.
+  let discount: ReturnType<typeof parseDiscountFields>;
   try {
     // On edit the category is immutable; read it from the existing row instead
     // of trusting the form. On create it comes from the chosen category step.
@@ -931,7 +967,7 @@ export async function commitVendorService(formData: FormData) {
       typeof titleRaw === 'string' && titleRaw.trim().length > 0
         ? titleRaw.trim().slice(0, 80)
         : null;
-    const discount = parseDiscountFields(formData);
+    discount = parseDiscountFields(formData);
     const branch_id = await resolveBranchId(
       supabase,
       profile.vendor_profile_id,
@@ -963,10 +999,6 @@ export async function commitVendorService(formData: FormData) {
         formData.get('daily_capacity'),
         caps.slotsPerDay,
       ),
-      discount_type: discount.discount_type,
-      discount_value: discount.discount_value,
-      discount_expires_at: discount.discount_expires_at,
-      discount_conditions_md: discount.discount_conditions_md,
       exclusive_perk_text: parseExclusivePerk(formData),
       primary_photo_r2_key: parsePrimaryPhoto(formData),
     };
@@ -1046,6 +1078,24 @@ export async function commitVendorService(formData: FormData) {
     return back((e as Error).message);
   }
 
+  // Discount → the multi-discount table via the RPC's replace-all. The single-
+  // discount wizard form carries no unit; derive it with the migration's backfill
+  // heuristic (rate <= 100 ⇒ %, else ₱). p_brackets / p_inclusions are [] until
+  // the Phase-3 UI wires them (nothing to preserve yet · migration 20270502342558).
+  const svcDiscounts =
+    discount.discount_type && discount.discount_value != null
+      ? [
+          {
+            discount_type: discount.discount_type,
+            rate: discount.discount_value,
+            unit: discount.discount_value <= 100 ? 'pct' : 'php',
+            expires_at: discount.discount_expires_at,
+            conditions_md: discount.discount_conditions_md,
+            sort_order: 0,
+          },
+        ]
+      : [];
+
   // ---- ONE atomic write ----
   const { data: savedId, error } = await supabase.rpc('save_vendor_service', {
     p_vendor_profile_id: profile.vendor_profile_id,
@@ -1053,6 +1103,9 @@ export async function commitVendorService(formData: FormData) {
     p_fields: fields,
     p_links: links,
     p_schedule: schedule,
+    p_discounts: svcDiscounts,
+    p_brackets: [],
+    p_inclusions: [],
     p_publish: publish,
   });
   if (error) return back(error.message);

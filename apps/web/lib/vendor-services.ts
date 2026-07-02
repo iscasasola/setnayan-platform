@@ -29,16 +29,10 @@ export type VendorServiceRow = {
   last_minute_surcharge_pct: number | null;
   /** Vendor-declared max bookings/day for this service (#2); null = unset. */
   daily_capacity: number | null;
-  // ── Part A: Discount fields (migration 20270108000200) ──────────────────
-  /** One of: early_booking | off_peak | bundle | promo | returning. null = no discount. */
-  discount_type: 'early_booking' | 'off_peak' | 'bundle' | 'promo' | 'returning' | null;
-  /** Positive numeric discount amount (% or PHP flat depending on type). */
-  discount_value: number | null;
-  /** Expiry timestamp (required for promo; optional/null for all other types). */
-  discount_expires_at: string | null;
-  /** Markdown conditions text for the discount (optional). */
-  discount_conditions_md: string | null;
-  // ── Part B: Setnayan Exclusive perk (v2.1 §7.2) ─────────────────────────
+  // Discounts moved OFF vendor_services into the vendor_service_discounts table
+  // (multi-discount; couples see the best they qualify for · migration
+  // 20270502342558). Fetch them with fetchDiscountsByService.
+  // ── Setnayan Exclusive perk (v2.1 §7.2) ─────────────────────────────────
   /** Never shown publicly. Revealed in-thread when the vendor token-pursues.
    *  Required to publish (is_active=true). Drafts may be null. */
   exclusive_perk_text: string | null;
@@ -55,7 +49,7 @@ export type VendorServiceRow = {
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,discount_type,discount_value,discount_expires_at,discount_conditions_md,exclusive_perk_text,base_pax,coverage_id`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,base_pax,coverage_id`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -85,10 +79,6 @@ export async function fetchVendorServices(
         | 'last_minute_end_months'
         | 'last_minute_surcharge_pct'
         | 'daily_capacity'
-        | 'discount_type'
-        | 'discount_value'
-        | 'discount_expires_at'
-        | 'discount_conditions_md'
         | 'exclusive_perk_text'
         | 'base_pax'
         | 'coverage_id'
@@ -99,16 +89,51 @@ export async function fetchVendorServices(
       last_minute_end_months: null,
       last_minute_surcharge_pct: null,
       daily_capacity: null,
-      discount_type: null,
-      discount_value: null,
-      discount_expires_at: null,
-      discount_conditions_md: null,
       exclusive_perk_text: null,
       base_pax: null,
       coverage_id: null,
     }));
   }
   return (data ?? []) as VendorServiceRow[];
+}
+
+// ── Multi-discount (vendor_service_discounts · migration 20270502342558) ────
+export type DiscountType = 'early_booking' | 'off_peak' | 'bundle' | 'promo' | 'returning';
+export type VendorServiceDiscount = {
+  vendor_service_id: string;
+  discount_type: DiscountType;
+  /** Positive rate; `unit` says whether it's a percent or a peso amount off. */
+  rate: number;
+  unit: 'pct' | 'php';
+  /** Required for `promo`; null for other types. */
+  expires_at: string | null;
+  conditions_md: string | null;
+  sort_order: number;
+};
+
+/**
+ * Discounts for a set of service ids, grouped by service. Replaces the single
+ * discount_* columns dropped in 20270502342558. Fail-soft to an empty map so a
+ * missing table / RLS hiccup degrades to "no discounts" rather than crashing.
+ */
+export async function fetchDiscountsByService(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<Map<string, VendorServiceDiscount[]>> {
+  const out = new Map<string, VendorServiceDiscount[]>();
+  if (serviceIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from('vendor_service_discounts')
+    .select('vendor_service_id,discount_type,rate,unit,expires_at,conditions_md,sort_order')
+    .in('vendor_service_id', serviceIds)
+    .order('sort_order', { ascending: true });
+  if (error) return out;
+  for (const row of (data ?? []) as VendorServiceDiscount[]) {
+    const list = out.get(row.vendor_service_id) ?? [];
+    list.push(row);
+    out.set(row.vendor_service_id, list);
+  }
+  return out;
 }
 
 export function isVendorCategory(value: string): value is VendorCategory {

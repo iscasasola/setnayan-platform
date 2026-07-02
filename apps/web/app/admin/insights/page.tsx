@@ -19,6 +19,7 @@
  */
 
 import {
+  Activity,
   LineChart,
   Radar,
   BarChart3,
@@ -35,6 +36,16 @@ import { WonLostAdminCard } from './_components/won-lost-admin-card';
 export const metadata = { title: 'Insights · Admin' };
 
 const INSIGHTS_ITEMS: LandingItem[] = [
+  {
+    // The cockpit leads the group (owner lock 2026-07-03 — "1 of the 6 menus";
+    // the desktop sidebar group is renamed "App Performance" with this at top).
+    key: 'app-performance',
+    label: 'App Performance',
+    href: '/admin/app-performance',
+    icon: Activity,
+    description:
+      'The operator cockpit — growth, stability, and money in on one page, every chart tagged Live or Needs-wiring.',
+  },
   {
     key: 'growth',
     label: 'Growth',

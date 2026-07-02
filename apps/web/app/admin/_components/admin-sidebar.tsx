@@ -36,8 +36,10 @@
  *                   Force majeure · Reviews · AI abuse · Help.
  *   3. Directory (key 'directory') — Users · Vendors · Demo vendors ·
  *                   Events · Venues.
- *   4. Insights (key 'funnels') — Growth · Intelligence · Funnels ·
- *                   Operations & Hiring · Connection logs · Offline daemon.
+ *   4. App Performance (key 'funnels' · renamed from "Insights" 2026-07-03,
+ *                   owner: "1 of the 6 menus") — App Performance cockpit ·
+ *                   Growth · Intelligence · Funnels · Operations & Hiring ·
+ *                   Connection logs · Offline daemon.
  *   5. Monetization (key 'money') — the App-Engine money lane: Pricing ·
  *                   Add-ons · Discount codes · Token bands · Budget Planner ·
  *                   Receipts · Payment methods. (Act-now money QUEUES stay
@@ -68,6 +70,7 @@
 import {
   Home,
   ListChecks,
+  Activity,
   Banknote,
   Coins,
   Gauge,
@@ -429,10 +432,23 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
   },
   // ── TUNE GROUPS (collapsible) ─────────────────────────────────────────
   {
+    // APP PERFORMANCE (key 'funnels' kept for localStorage continuity) —
+    // owner lock 2026-07-03: "App Performance … 1 of the 6 menus of admin
+    // dashboard". This group is the Insights menu's successor: the cockpit
+    // (/admin/app-performance · plan: spec corpus 0023_admin_console/
+    // App_Performance_Plan_2026-07-03.md) leads the group and the former
+    // Insights surfaces remain as its drill-downs.
     key: 'funnels',
-    label: 'Insights',
+    label: 'App Performance',
     defaultOpen: false,
     items: [
+      {
+        key: 'app-performance',
+        label: 'App Performance',
+        href: '/admin/app-performance',
+        icon: Activity,
+        matchPrefix: '/admin/app-performance',
+      },
       {
         key: 'growth',
         label: 'Growth',

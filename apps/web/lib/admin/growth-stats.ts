@@ -133,8 +133,10 @@ const DAY_MS = 86_400_000;
  * Base count query per entity. Each entity's filter is applied to EVERY
  * boundary count so the curve's final point equals the live population tile
  * (e.g. guests excludes soft-deleted rows everywhere, not just at the end).
+ * Exported for app-performance-stats.ts (previous-window deltas) so the
+ * cockpit counts with the exact same entity filters — extend, don't fork.
  */
-function entityBase(admin: Admin, key: EntityKey) {
+export function entityBase(admin: Admin, key: EntityKey) {
   switch (key) {
     case 'customers':
       return admin.from('users').select('*', HEAD).eq('account_type', 'customer');
@@ -180,8 +182,12 @@ async function headCount(query: PromiseLike<{ count: number | null; error: unkno
   return count ?? 0;
 }
 
-/** start = window open; ends = the GROWTH_BUCKETS end boundaries (last = now). */
-function bucketBoundaries(now: Date, days: number): { start: Date; ends: Date[] } {
+/**
+ * start = window open; ends = the GROWTH_BUCKETS end boundaries (last = now).
+ * Exported for the App Performance cockpit (app-performance-stats.ts) so its
+ * sibling fetchers bucket on the exact same boundaries — extend, don't fork.
+ */
+export function bucketBoundaries(now: Date, days: number): { start: Date; ends: Date[] } {
   const rangeMs = days * DAY_MS;
   const start = new Date(now.getTime() - rangeMs);
   const ends: Date[] = [];
@@ -191,8 +197,8 @@ function bucketBoundaries(now: Date, days: number): { start: Date; ends: Date[] 
   return { start, ends };
 }
 
-/** Turn a baseline + 12 cumulative boundary counts into curve points. */
-function toPoints(baseline: number, cumulative: number[], ends: Date[]): SeriesPoint[] {
+/** Turn a baseline + 12 cumulative boundary counts into curve points. Exported for app-performance-stats.ts. */
+export function toPoints(baseline: number, cumulative: number[], ends: Date[]): SeriesPoint[] {
   // Iterate `ends` (each a Date) so the boundary is never undefined; index
   // into cumulative with a baseline fallback to satisfy noUncheckedIndexedAccess.
   return ends.map((end, i) => {

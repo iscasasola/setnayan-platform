@@ -2172,6 +2172,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 22,
   },
   {
+    // App Performance cockpit — leads the renamed (2026-07-03) sidebar group;
+    // registry slot so /admin/menus can rename/re-icon/hide it like siblings.
+    key: "admin.sidebar.app-performance",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/app-performance",
+    label: "App Performance",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Activity",
+    customRef: null,
+    sortOrder: 22.5,
+  },
+  {
     key: "admin.sidebar.growth",
     scope: "admin",
     area: "admin-sidebar",

@@ -324,21 +324,23 @@ export async function fetchHasBusinessDocuments(
 
 /**
  * The required Business Profile (vendor onboarding · owner 2026-06-28;
- * relabelled + Logo added 2026-07-02).
+ * relabelled + Logo added 2026-07-02; documents item REMOVED 2026-07-03).
  *
- * A vendor "must have their Business Profile" — these 9 fields — before they
- * can be published / listed / take inquiries. Each item maps to a concrete
- * column (or the verification-docs flow). `complete` gates publication; the
- * checklist drives the dashboard onboarding card + the profile completion UI.
+ * A vendor "must have their Business Profile" — these 8 identity fields —
+ * before they can be published / listed / take inquiries. Each item maps to a
+ * concrete `vendor_profiles` column. `complete` gates publication; the
+ * checklist drives the My Shop Profile tile + the profile completion UI.
  *
- * `hasDocuments` is resolved by the caller via `fetchHasBusinessDocuments`
- * (separate table) so this function stays pure/synchronous.
+ * Verification DOCUMENTS are no longer a checklist item (owner-approved
+ * redesign): they moved to the always-visible "Get verified" section on My
+ * Shop and gate only the verified BADGE, never publication. `surface` is kept
+ * in the type for compatibility but every item is now 'profile'.
  */
 export type BusinessProfileItem = {
   key: string;
   label: string;
   ok: boolean;
-  /** Where to go to fix it: 'profile' (the edit form) or 'documents' (/verify). */
+  /** Where to fix it. Post-2026-07-03 every checklist item is 'profile'. */
   surface: 'profile' | 'documents';
 };
 
@@ -360,12 +362,10 @@ export const BUSINESS_PROFILE_LABELS = {
   contact_email: 'Company email',
   services: 'Services covered',
   in_business_since_year: 'EST',
-  business_documents: 'Documents needed',
 } as const;
 
 export function businessProfileChecklist(
   profile: VendorProfileRow | null,
-  opts: { hasDocuments: boolean },
 ): { items: BusinessProfileItem[]; done: number; total: number; complete: boolean; missing: string[] } {
   const L = BUSINESS_PROFILE_LABELS;
   const items: BusinessProfileItem[] = [
@@ -391,7 +391,6 @@ export function businessProfileChecklist(
       surface: 'profile',
       ok: !!profile?.in_business_since_year && profile.in_business_since_year > 1900,
     },
-    { key: 'business_documents', label: L.business_documents, surface: 'documents', ok: opts.hasDocuments },
   ];
   const done = items.filter((i) => i.ok).length;
   return {
@@ -404,19 +403,16 @@ export function businessProfileChecklist(
 }
 
 /**
- * Backward-compatible profile-fields-only gauge (excludes the documents item,
- * which lives in a separate table + flow). Kept sync for callers that only have
- * the profile row (e.g. the vendor-activity soft score). The full publish gate
- * is `businessProfileChecklist` (9 items incl. documents).
+ * Profile-fields-only gauge. Since 2026-07-03 (documents item removed) this is
+ * the SAME set as `businessProfileChecklist` — kept as the stable entry point
+ * for callers that only care about the counts (e.g. the vendor-activity score).
  */
 export function profileCompletion(profile: VendorProfileRow | null): {
   done: number;
   total: number;
   missing: string[];
 } {
-  const items = businessProfileChecklist(profile, { hasDocuments: true }).items.filter(
-    (i) => i.surface === 'profile',
-  );
+  const { items } = businessProfileChecklist(profile);
   const done = items.filter((i) => i.ok).length;
   return { done, total: items.length, missing: items.filter((i) => !i.ok).map((i) => i.label) };
 }

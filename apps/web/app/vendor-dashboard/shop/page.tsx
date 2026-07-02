@@ -9,6 +9,7 @@ import {
   Handshake,
   Heart,
   Images,
+  ShieldCheck,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -17,10 +18,17 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
-  fetchHasBusinessDocuments,
   businessProfileChecklist,
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
+import {
+  VENDOR_DOC_SLOTS,
+  countCompleteVendorSlots,
+  fetchLatestApplication,
+  requiredDocsComplete,
+  verificationSubmitMissing,
+  type DocUploadMap,
+} from '@/lib/vendor-verification';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import {
   fetchVendorBranches,
@@ -60,6 +68,8 @@ import { fetchVendorMicrosite, type VendorMicrosite } from '@/lib/vendor-microsi
 
 import { ManageTiles } from './_components/manage-tiles';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
+import { VerifySection, type VerifySummary } from './_components/verify-section';
+import { readContactStamps } from './inline-docs-actions';
 import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
 import { ServicesDisclosure } from './_components/services-disclosure';
@@ -125,7 +135,7 @@ type ShopData = {
   reviewOptions: { id: string; label: string }[];
   editorialOptions: { id: string; label: string }[];
   completionPct: number;
-  hasDocuments: boolean;
+  verify: VerifySummary;
   checklist: BusinessProfileItem[];
   profileFields: ProfileFieldData;
   profileViewsWeek: number;
@@ -181,7 +191,7 @@ async function loadShopData(): Promise<ShopData | null> {
   const weekStart = startOfWeekIso();
 
   const [
-    hasDocuments,
+    verifyApp,
     reviewStats,
     savesRes,
     viewsRes,
@@ -190,7 +200,10 @@ async function loadShopData(): Promise<ShopData | null> {
     bookings,
     partnershipsRes,
   ] = await Promise.all([
-    fetchHasBusinessDocuments(supabase, vendorId).catch(() => false),
+    // Latest verification application — feeds the Get-verified stepper + the
+    // Hero "N of 3" pill. Cheap read (no presigns — those stay lazy on Step 1
+    // expand). Null when the vendor has never started.
+    fetchLatestApplication(supabase, vendorId).catch(() => null),
     fetchReviewStats(supabase, vendorId).catch(() => ({
       avg_rating_overall: 0,
       total_count: 0,
@@ -230,11 +243,58 @@ async function loadShopData(): Promise<ShopData | null> {
       .join(' — '),
   }));
 
-  const completion = businessProfileChecklist(profile, { hasDocuments });
+  const completion = businessProfileChecklist(profile);
   const completionPct =
     completion.total === 0
       ? 0
       : Math.round((completion.done / completion.total) * 100);
+
+  // ── Get-verified summary (owner redesign 2026-07-03) ─────────────────────
+  // Everything the always-visible stepper needs, WITHOUT presigning documents
+  // (that stays lazy on Step 1 expand). Contact stamps + the VALIDATE send-to
+  // settings are soft probes — their columns land in a parallel migration, so
+  // pre-migration reads degrade to "waiting" / defaults instead of crashing.
+  const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
+  const contactStamps = verifyApp
+    ? await readContactStamps(supabase, verifyApp.application_id)
+    : { emailConfirmedAt: null, phoneConfirmedAt: null };
+  let validateEmail = 'verify@setnayan.com';
+  let validatePhone: string | null = null;
+  try {
+    const { data } = await supabase
+      .from('platform_settings')
+      .select('vendor_validate_email,vendor_validate_phone')
+      .eq('id', 1)
+      .maybeSingle();
+    const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
+    if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
+    validatePhone = row?.vendor_validate_phone?.trim() || null;
+  } catch {
+    // pre-migration → defaults above
+  }
+  const meetSlot = verifyUploads.google_meet;
+  const meetScheduledAt =
+    meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
+      ? ((meetSlot as { scheduled_at?: string | null }).scheduled_at ?? null)
+      : null;
+  const verify: VerifySummary = {
+    status: (verifyApp?.status as VerifySummary['status']) ?? null,
+    vendorComplete: countCompleteVendorSlots(verifyUploads),
+    vendorTotal: VENDOR_DOC_SLOTS.length,
+    requiredDocsIn: requiredDocsComplete(verifyUploads),
+    emailConfirmedAt: contactStamps.emailConfirmedAt,
+    phoneConfirmedAt: contactStamps.phoneConfirmedAt,
+    meetScheduledAt,
+    decisionReason: (verifyApp?.decision_reason as string | null) ?? null,
+    submitMissing: verificationSubmitMissing({
+      profileComplete: completion.complete,
+      uploads: verifyUploads,
+      emailConfirmedAt: contactStamps.emailConfirmedAt,
+      phoneConfirmedAt: contactStamps.phoneConfirmedAt,
+    }),
+    validateEmail,
+    validatePhone,
+  };
 
   const activeBranches = branches.filter((b) => b.status === 'active').length;
 
@@ -389,7 +449,7 @@ async function loadShopData(): Promise<ShopData | null> {
     reviewOptions,
     editorialOptions,
     completionPct,
-    hasDocuments,
+    verify,
     checklist: completion.items,
     profileFields,
     profileViewsWeek: viewsRes,
@@ -522,7 +582,11 @@ export default async function VendorShopPage({
 
       <ManageTiles
         completionPct={data.completionPct}
-        verifyLabel={data.hasDocuments ? 'Documents in' : '1 doc to verify'}
+        verifyLabel={
+          data.completionPct >= 100
+            ? 'All fields in'
+            : `${data.checklist.filter((i) => !i.ok).length} field${data.checklist.filter((i) => !i.ok).length === 1 ? '' : 's'} left`
+        }
         teamLabel={nf.format(data.teamMembers)}
         teamSub={data.teamSub}
         branchLabel={nf.format(data.branchLocations)}
@@ -572,6 +636,17 @@ export default async function VendorShopPage({
             branchPay={data.branchPay}
           />
         }
+      />
+
+      {/* ── GET VERIFIED — the verification journey, promoted to its own
+          always-visible stage (owner redesign 2026-07-03; it was buried four
+          levels deep inside the Profile tile). Reward-led, flat 3-step
+          stepper, soft-gated Submit. The Hero pill deep-links here. */}
+      <VerifySection
+        businessName={data.businessName}
+        vendorProfileId={data.profileFields.vendorProfileId}
+        isVerified={data.isVerified}
+        verify={data.verify}
       />
 
       {/* ── YOUR SERVICES — the full Services manager, fully consolidated onto
@@ -625,13 +700,30 @@ function HeroCard({
               <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
               Verified
             </span>
-          ) : (
-            <span
+          ) : data.verify.status === 'pending_review' || data.verify.status === 'in_review' ? (
+            <a
+              href="#get-verified"
               className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ background: 'var(--m-paper)', color: 'var(--m-slate-3)' }}
+              style={{ background: 'var(--m-paper)', color: 'var(--m-slate)' }}
             >
-              Unverified
-            </span>
+              Verification in review
+            </a>
+          ) : (
+            // The passive "Unverified" chip became the GOAL (owner redesign
+            // 2026-07-03): a live step count that deep-links to the
+            // Get-verified section below.
+            <a
+              href="#get-verified"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors hover:bg-[color:var(--m-orange-3)]"
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+            >
+              <ShieldCheck className="h-3 w-3" strokeWidth={2} aria-hidden />
+              Get verified ·{' '}
+              {(data.verify.requiredDocsIn ? 1 : 0) +
+                (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0) +
+                (data.verify.meetScheduledAt ? 1 : 0)}{' '}
+              of 3
+            </a>
           )}
         </div>
         {subline ? (

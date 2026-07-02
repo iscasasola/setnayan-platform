@@ -6,7 +6,6 @@ import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { EditableRow, type ProfileFieldData } from './editable-row';
-import { InlineDocumentsRow } from './inline-documents-row';
 
 /**
  * The interactive body of the My Shop → Profile panel (2026-07-02).
@@ -15,8 +14,8 @@ import { InlineDocumentsRow } from './inline-documents-row';
  * /profile form) with in-place editing: each of the 8 profile-surface rows is an
  * `<EditableRow>` that expands into a one-field editor and auto-saves. Exactly
  * ONE row is open at a time (mirrors the ManageTiles one-open discipline a level
- * down). The 9th item — business documents — expands into the full 12-doc
- * verification checklist inline (`<InlineDocumentsRow>`), lazy-loaded on open.
+ * down). Verification documents are NOT a checklist item (2026-07-03) — they
+ * live in the always-visible "Get verified" section below the Manage grid.
  *
  * Signature moment: the completeness bar + % (derived from `items`, which
  * revalidate after each save) sweeps forward as gaps close — the one animated
@@ -92,31 +91,20 @@ export function ProfileChecklistEditor({
       </div>
 
       <ul className="space-y-2">
-        {items.map((item) =>
-          item.surface === 'documents' ? (
-            <InlineDocumentsRow
-              key={item.key}
-              item={item}
-              vendorProfileId={data.vendorProfileId}
-              isOpen={openKey === item.key}
-              onOpen={() => setOpenKey(item.key)}
-              onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
-            />
-          ) : (
-            <EditableRow
-              key={item.key}
-              item={item}
-              data={data}
-              isOpen={openKey === item.key}
-              onOpen={() => setOpenKey(item.key)}
-              onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
-              // Re-open after a rejected save ONLY if the user hasn't opened a
-              // different row meanwhile — a late rejection must never steal the
-              // open slot from (and force-commit) the row they moved to.
-              onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
-            />
-          ),
-        )}
+        {items.map((item) => (
+          <EditableRow
+            key={item.key}
+            item={item}
+            data={data}
+            isOpen={openKey === item.key}
+            onOpen={() => setOpenKey(item.key)}
+            onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
+            // Re-open after a rejected save ONLY if the user hasn't opened a
+            // different row meanwhile — a late rejection must never steal the
+            // open slot from (and force-commit) the row they moved to.
+            onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
+          />
+        ))}
       </ul>
 
       <div className="flex flex-wrap items-center gap-3 pt-1">

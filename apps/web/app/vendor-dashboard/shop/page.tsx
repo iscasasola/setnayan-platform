@@ -128,6 +128,7 @@ type ShopData = {
   microsite: VendorMicrosite;
   portfolioPhotos: { key: string; url: string }[];
   reviewOptions: { id: string; label: string }[];
+  editorialOptions: { id: string; label: string }[];
   completionPct: number;
   hasDocuments: boolean;
   checklist: BusinessProfileItem[];
@@ -221,10 +222,18 @@ async function loadShopData(): Promise<ShopData | null> {
   ]);
 
   const eventIds = bookings.map((b) => b.eventId);
-  const [storiesTagged, recapCount] = await Promise.all([
-    loadVendorFeaturedStories(eventIds).then((s) => s.length, () => 0),
+  const [stories, recapCount] = await Promise.all([
+    loadVendorFeaturedStories(eventIds).catch(() => []),
     loadVendorRecaps(eventIds).then((r) => r.length, () => 0),
   ]);
+  const storiesTagged = stories.length;
+  // Picker options for the Pro "Featured editorials" control (id = event_id).
+  const editorialOptions = stories.map((s) => ({
+    id: s.eventId,
+    label: [s.coupleNames, [s.city, s.dateLabel].filter(Boolean).join(' · ')]
+      .filter(Boolean)
+      .join(' — '),
+  }));
 
   const completion = businessProfileChecklist(profile, { hasDocuments });
   const completionPct =
@@ -377,6 +386,7 @@ async function loadShopData(): Promise<ShopData | null> {
     microsite,
     portfolioPhotos,
     reviewOptions,
+    editorialOptions,
     completionPct,
     hasDocuments,
     checklist: completion.items,
@@ -542,6 +552,8 @@ export default async function VendorShopPage({
             portfolioPhotos={data.portfolioPhotos}
             reviews={data.reviewOptions}
             pinnedReviewId={data.microsite.pinnedReviewId}
+            editorials={data.editorialOptions}
+            featuredEditorialIds={data.microsite.featuredEditorialIds}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}

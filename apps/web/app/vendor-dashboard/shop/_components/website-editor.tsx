@@ -10,6 +10,7 @@ import {
   MICROSITE_ABOUT_MAX,
   MICROSITE_ACCENTS,
   MICROSITE_DEFAULT_ACCENT_KEY,
+  MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
   isSectionVisible,
@@ -50,6 +51,8 @@ export function WebsiteEditor({
   portfolioPhotos,
   reviews,
   pinnedReviewId,
+  editorials,
+  featuredEditorialIds,
 }: {
   publicPath: string | null;
   displayHost: string;
@@ -68,6 +71,8 @@ export function WebsiteEditor({
   portfolioPhotos: MicrositePortfolioPhoto[];
   reviews: MicrositeReviewOption[];
   pinnedReviewId: string | null;
+  editorials: MicrositeReviewOption[];
+  featuredEditorialIds: string[];
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -177,6 +182,26 @@ export function WebsiteEditor({
     dispatch('microsite_pinned_review', [['microsite_pinned_review', id]], {
       onError: () => setPin(was),
     });
+  }
+
+  // ── Pro: featured editorials (chips · instant · up to 3) ──────────────────
+  const [edPicked, setEdPicked] = useState<string[]>(
+    featuredEditorialIds.filter((id) => editorials.some((e) => e.id === id)),
+  );
+  function toggleEditorial(id: string) {
+    const was = edPicked;
+    const next = edPicked.includes(id)
+      ? edPicked.filter((x) => x !== id)
+      : edPicked.length >= MICROSITE_FEATURED_EDITORIALS_MAX
+        ? edPicked
+        : [...edPicked, id];
+    if (next === was) return;
+    setEdPicked(next);
+    dispatch(
+      'microsite_featured_editorials',
+      next.map((k) => ['microsite_featured_editorials', k]),
+      { onError: () => setEdPicked(was) },
+    );
   }
 
   return (
@@ -493,10 +518,61 @@ export function WebsiteEditor({
               )}
             </Row>
 
-            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Featured editorials — appears here once a couple you worked with publishes
-              their story.
-            </p>
+            {/* Featured editorials */}
+            <Row
+              title="Featured editorials"
+              hint={
+                editorials.length > 0
+                  ? `${edPicked.length}/${MICROSITE_FEATURED_EDITORIALS_MAX}`
+                  : undefined
+              }
+              tight
+            >
+              {editorials.length === 0 ? (
+                <p className="text-sm text-ink/60">
+                  No stories yet — when a couple you worked with publishes their
+                  story, feature up to {MICROSITE_FEATURED_EDITORIALS_MAX} here.
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  {editorials.map((e) => {
+                    const on = edPicked.includes(e.id);
+                    const disabled =
+                      !on && edPicked.length >= MICROSITE_FEATURED_EDITORIALS_MAX;
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={disabled}
+                        onClick={() => toggleEditorial(e.id)}
+                        className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-sm hover:bg-[color:var(--m-orange-4)] disabled:opacity-40"
+                      >
+                        <span
+                          aria-hidden
+                          className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border-2"
+                          style={{
+                            borderColor: on ? 'var(--m-orange)' : 'var(--m-line)',
+                            background: on ? 'var(--m-orange)' : 'transparent',
+                          }}
+                        >
+                          {on ? (
+                            <Check
+                              className="h-3 w-3"
+                              strokeWidth={3}
+                              style={{ color: 'var(--m-paper)' }}
+                            />
+                          ) : null}
+                        </span>
+                        <span className="min-w-0" style={{ color: 'var(--m-slate)' }}>
+                          {e.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </Row>
           </div>
         ) : (
           <ul className="mt-3 space-y-2">

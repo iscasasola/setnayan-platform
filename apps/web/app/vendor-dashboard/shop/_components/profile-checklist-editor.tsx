@@ -6,17 +6,17 @@ import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { EditableRow, type ProfileFieldData } from './editable-row';
+import { InlineDocumentsRow } from './inline-documents-row';
 
 /**
  * The interactive body of the My Shop → Profile panel (2026-07-02).
  *
  * Replaces the old read-only checklist (every row deep-linked to the full
  * /profile form) with in-place editing: each of the 8 profile-surface rows is an
- * `<EditableRow>` that expands into a one-field editor and saves without leaving
- * the panel. Exactly ONE row is open at a time (mirrors the ManageTiles
- * one-open discipline a level down). The 9th item — business documents — is a
- * genuinely separate multi-file verification flow, so it stays a deep-link,
- * sequenced last and visually marked as the one step that lives elsewhere.
+ * `<EditableRow>` that expands into a one-field editor and auto-saves. Exactly
+ * ONE row is open at a time (mirrors the ManageTiles one-open discipline a level
+ * down). The 9th item — business documents — expands into the full 12-doc
+ * verification checklist inline (`<InlineDocumentsRow>`), lazy-loaded on open.
  *
  * Signature moment: the completeness bar + % (derived from `items`, which
  * revalidate after each save) sweeps forward as gaps close — the one animated
@@ -94,7 +94,14 @@ export function ProfileChecklistEditor({
       <ul className="space-y-2">
         {items.map((item) =>
           item.surface === 'documents' ? (
-            <DocumentsRow key={item.key} item={item} />
+            <InlineDocumentsRow
+              key={item.key}
+              item={item}
+              vendorProfileId={data.vendorProfileId}
+              isOpen={openKey === item.key}
+              onOpen={() => setOpenKey(item.key)}
+              onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
+            />
           ) : (
             <EditableRow
               key={item.key}
@@ -123,62 +130,5 @@ export function ProfileChecklistEditor({
         </Link>
       </div>
     </div>
-  );
-}
-
-/**
- * The documents row — the one item that can't be edited in place (a separate
- * multi-file verification flow at /vendor-dashboard/verify). Rendered as an
- * honest deep-link, clearly the exception.
- */
-function DocumentsRow({ item }: { item: BusinessProfileItem }) {
-  return (
-    <li
-      className="flex items-center gap-3 rounded-lg border bg-white p-3"
-      style={{ borderColor: 'var(--m-line)' }}
-    >
-      <span
-        aria-hidden
-        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-        style={
-          item.ok
-            ? {
-                background: 'color-mix(in srgb, var(--m-sage-deep) 14%, transparent)',
-                color: 'var(--m-sage-deep)',
-              }
-            : { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }
-        }
-      >
-        {item.ok ? (
-          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-        ) : (
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'currentColor' }} />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span
-          className="block truncate text-sm"
-          style={{ color: item.ok ? 'var(--m-slate)' : 'var(--m-ink)' }}
-        >
-          {item.label}
-        </span>
-        <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Verified separately
-        </span>
-      </span>
-      {item.ok ? (
-        <span className="shrink-0 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Documents in
-        </span>
-      ) : (
-        <Link
-          href="/vendor-dashboard/verify"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-[color:var(--m-orange-4)]"
-        >
-          Upload
-          <ArrowRight className="h-3 w-3" strokeWidth={2} aria-hidden />
-        </Link>
-      )}
-    </li>
   );
 }

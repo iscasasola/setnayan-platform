@@ -774,6 +774,22 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                           </Field>
                         </div>
                         <Field
+                          label="Base covers (guests)"
+                          htmlFor={`basepax-${svc.vendor_service_id}`}
+                          help="Guests the starting price covers. Blank = flat price. Pairs with the per-guest surcharge below."
+                        >
+                          <input
+                            id={`basepax-${svc.vendor_service_id}`}
+                            name="base_pax"
+                            type="number"
+                            min={1}
+                            step={1}
+                            defaultValue={svc.base_pax ?? ''}
+                            placeholder="e.g. 100"
+                            className="input-field"
+                          />
+                        </Field>
+                        <Field
                           label="Additional cost per added guest (PHP)"
                           htmlFor={`addpax-${svc.vendor_service_id}`}
                         >

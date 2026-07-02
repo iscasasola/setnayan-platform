@@ -570,13 +570,18 @@ function SetnayanAiOverlay({
    *  in-world replacement for the old-chrome /setnayan-ai bounce. */
   onOpenStory?: () => void;
 }) {
-  const [months, setMonths] = useState(12);
+  // A "month" here = the house 28-DAY cycle (13 ≈ 1 year — owner 2026-07-03).
+  const [months, setMonths] = useState(13);
   const [mode, setMode] = useState<'hire' | 'apps' | 'diy'>('hire');
 
   const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
   // Setnayan AI over the window: the ₱499 intro cycle + ₱799 × the rest —
   // raw numbers straight from the catalog resolve (pricing-data.ts).
   const mine = pricing.aiIntroPhp + pricing.aiRegularPhp * Math.max(0, months - 1);
+  // Alternatives are quoted per CALENDAR month → prorate to the 28-day window so
+  // we never overstate them (13 cycles ≈ 12.1 calendar months).
+  const calMonths = (months * 28) / 30;
+  const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
 
   const CHIPS: Array<['hire' | 'apps' | 'diy', string]> = [
     ['hire', 'vs hiring it'],
@@ -587,23 +592,23 @@ function SetnayanAiOverlay({
     mode === 'hire'
       ? {
           sub: 'A 2–3 person team doing this until your day (typical PH rates, illustrative):',
-          save: `you save ${peso(AI_COMPARE_TEAM_PHP_MO * months - mine)}`,
-          themLabel: `Hired team · ${peso(AI_COMPARE_TEAM_PHP_MO * months)}`,
-          usPct: Math.max((mine / (AI_COMPARE_TEAM_PHP_MO * months)) * 100, 1.2),
+          save: `you save ${peso(AI_COMPARE_TEAM_PHP_MO * calMonths - mine)}`,
+          themLabel: `Hired team · ${peso(AI_COMPARE_TEAM_PHP_MO * calMonths)}`,
+          usPct: Math.max((mine / (AI_COMPARE_TEAM_PHP_MO * calMonths)) * 100, 1.2),
           foot: 'Bars drawn to scale. Setnayan AI ends on your wedding day.',
         }
       : mode === 'apps'
         ? {
             sub: `A planning AI abroad until your day (${peso(AI_COMPARE_APPS_PHP_MO)}/mo, top of range):`,
-            save: `you save ${peso(Math.max(0, AI_COMPARE_APPS_PHP_MO * months - mine))}`,
-            themLabel: `Other AI apps · ${peso(AI_COMPARE_APPS_PHP_MO * months)}`,
-            usPct: Math.max((mine / (AI_COMPARE_APPS_PHP_MO * months)) * 100, 1.2),
+            save: `you save ${peso(Math.max(0, AI_COMPARE_APPS_PHP_MO * calMonths - mine))}`,
+            themLabel: `Other AI apps · ${peso(AI_COMPARE_APPS_PHP_MO * calMonths)}`,
+            usPct: Math.max((mine / (AI_COMPARE_APPS_PHP_MO * calMonths)) * 100, 1.2),
             foot: 'Drawn to scale — and theirs waits for your questions; it doesn’t watch your vendors.',
           }
         : {
             sub: 'Keeping every vendor, price and deadline current by hand:',
-            save: `you get back ${(AI_COMPARE_DIY_HOURS_MO[0] * months).toLocaleString()}–${(AI_COMPARE_DIY_HOURS_MO[1] * months).toLocaleString()} hours`,
-            themLabel: `Your hours · ${(AI_COMPARE_DIY_HOURS_MO[1] * months).toLocaleString()} h`,
+            save: `you get back ${Math.round(AI_COMPARE_DIY_HOURS_MO[0] * calMonths).toLocaleString()}–${Math.round(AI_COMPARE_DIY_HOURS_MO[1] * calMonths).toLocaleString()} hours`,
+            themLabel: `Your hours · ${Math.round(AI_COMPARE_DIY_HOURS_MO[1] * calMonths).toLocaleString()} h`,
             usPct: 2,
             foot: '≈ 25–50 hours of checking per month, illustrative — it runs in the background instead.',
           };
@@ -630,13 +635,13 @@ function SetnayanAiOverlay({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
           <span>My wedding is in</span>
           <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
-            {months} {months === 1 ? 'month' : 'months'}
+            {months} {months === 1 ? 'month' : 'months'}{yearsNote}
           </span>
         </div>
         <input
           type="range"
           min={1}
-          max={24}
+          max={26}
           step={1}
           value={months}
           onChange={(e) => setMonths(Number(e.target.value))}
@@ -644,7 +649,7 @@ function SetnayanAiOverlay({
           style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#a8a4a0' }}>
-          <span>1 month</span>
+          <span>1 month · a month = 28 days</span>
           <span>2 years</span>
         </div>
       </div>

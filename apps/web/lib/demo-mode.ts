@@ -35,23 +35,16 @@
 
 import type { NextRequest } from 'next/server';
 import type { NextResponse } from 'next/server';
+import {
+  DEMO_MODE_COOKIE_NAME,
+  DEMO_MODE_HINT_COOKIE_NAME,
+} from './demo-mode-constants';
 
-/**
- * Canonical cookie name. 24h max-age, httpOnly, secure in production,
- * sameSite=lax. Reads same way the supabase auth cookies do.
- */
-export const DEMO_MODE_COOKIE_NAME = 'setnayan_demo_mode';
-
-/**
- * Non-httpOnly "presence hint" companion to DEMO_MODE_COOKIE_NAME. Carries NO
- * security value — it only lets the client-side <DemoModeBanner> know that demo
- * mode *might* be on, so it fetches the (authoritative, server-side) status only
- * then. The real admin check stays server-side in /api/demo-mode/status. Set /
- * cleared in lockstep with the httpOnly cookie. This is what lets the root layout
- * stop reading cookies() during SSR, so the marketing pages can be edge-cached.
- * (Perf sweep 2026-07-02, homepage ISR.)
- */
-export const DEMO_MODE_HINT_COOKIE_NAME = 'setnayan_demo_mode_hint';
+// Cookie names live in the client-safe ./demo-mode-constants module (so the
+// client <DemoModeBanner> can import DEMO_MODE_HINT_COOKIE_NAME without dragging
+// this server-only module's next/headers chain into the client bundle). Re-export
+// here so existing server-side importers of these names are unchanged.
+export { DEMO_MODE_COOKIE_NAME, DEMO_MODE_HINT_COOKIE_NAME };
 
 /**
  * Canonical query-param name. When present with value '1' (or 'on'),

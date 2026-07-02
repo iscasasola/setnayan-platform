@@ -22,7 +22,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { DEMO_MODE_HINT_COOKIE_NAME } from '@/lib/demo-mode';
+import { DEMO_MODE_HINT_COOKIE_NAME } from '@/lib/demo-mode-constants';
 import { DemoModeBannerClient } from './demo-mode-banner-client';
 
 type Status = { show: boolean; deadlineLabel?: string };

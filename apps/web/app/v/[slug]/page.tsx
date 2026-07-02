@@ -25,7 +25,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
   fetchVendorServices,
@@ -795,6 +795,17 @@ export async function renderVendorBySlug({
   // accent / featured) still render for whoever set them — the gate is on the
   // LAYOUT here, not the content.
   const premiumLayout = viewerTierCaps.customWebsiteName;
+  // Enterprise "Flagship" cinematic layer (tier ladder 2026-07-03) — a full,
+  // name-overlaid hero. Only when the vendor is Enterprise AND has chosen a hero
+  // photo (else it falls back to the standard banner + identity block).
+  const isEnterprise = asVendorTier(vendor.tier_state ?? null) === 'enterprise';
+  const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
+  const heroKicker = [
+    vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
+    vendor.location_city,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const displayLabel = resolveVendorDisplayName({
     business_name: vendor.business_name,
     name_revealed_at: vendor.name_revealed_at ?? null,
@@ -1270,7 +1281,42 @@ export async function renderVendorBySlug({
             generic placeholder so the page never looks empty (owner directive).
             Vendors with portfolio photos but no chosen hero show them in the
             gallery below (no banner needed). */}
-        {heroPhotoUrl ? (
+        {cinematicHero && heroPhotoUrl ? (
+          /* Enterprise flagship — full cinematic hero with the name overlaid. */
+          <div className="relative mb-8 h-80 w-full overflow-hidden rounded-2xl bg-ink sm:h-[26rem]">
+            <Image
+              src={heroPhotoUrl}
+              alt={displayLabel}
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 1024px"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/20 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
+              {heroKicker ? (
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-cream/80">
+                  {heroKicker}
+                </p>
+              ) : null}
+              <h1 className="mt-3 font-serif text-4xl font-normal italic tracking-[-0.02em] text-cream sm:text-6xl">
+                {displayLabel}
+              </h1>
+              {vendor.tagline ? (
+                <p className="mt-2 max-w-xl text-base text-cream/85">{vendor.tagline}</p>
+              ) : null}
+              {bookable ? (
+                <a
+                  href="#get-in-touch"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cream px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-white"
+                >
+                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  Inquire Now
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : heroPhotoUrl ? (
           <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl bg-ink/5 sm:h-56 lg:h-64">
             <Image
               src={heroPhotoUrl}
@@ -1326,12 +1372,18 @@ export async function renderVendorBySlug({
                 resolveVendorDisplayName call so the hero surfaces the
                 taxonomy + city placeholder during the hidden window
                 and the real business_name once revealed. */}
-            <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
-              {displayLabel}
-            </h1>
-            {vendor.tagline ? (
-              <p className="text-base text-ink/70">{vendor.tagline}</p>
-            ) : null}
+            {/* Name + tagline live on the cinematic hero for Enterprise — avoid
+                duplicating them here in that case. */}
+            {cinematicHero ? null : (
+              <>
+                <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
+                  {displayLabel}
+                </h1>
+                {vendor.tagline ? (
+                  <p className="text-base text-ink/70">{vendor.tagline}</p>
+                ) : null}
+              </>
+            )}
             {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
                 subtle violet chip stating how many finalized bookings flowed
                 through Setnayan. The profile keeps the honest "New to Setnayan"

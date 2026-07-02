@@ -509,7 +509,9 @@ export function HomeReskin({
           {/* Setnayan AI story-as-hero (owner 2026-07-03): pure TEXT on top of
               the background — no extra buttons; the original two CTAs below
               stay exactly as on every scene. */}
-          {hero?.role === 'Setnayan AI' && <SetnayanAiHeroStory pricing={pricing} />}
+          {hero?.role === 'Setnayan AI' && (
+            <SetnayanAiHeroStory pricing={pricing} onCompare={() => setOverlay('setnayan-ai')} />
+          )}
           <div className="hr-hctas">
             <Link className="hr-pill-cta hr-glass-dark" href="/onboarding/wedding">
               Start planning&nbsp;·&nbsp;free

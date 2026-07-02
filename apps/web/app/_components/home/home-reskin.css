@@ -2719,65 +2719,26 @@ html.hr-snap {
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.6);
 }
-.home-reskin .hr-ai-intro {
-  background: rgba(255, 255, 255, 0.14);
+/* The one hero CTA opening the comparator pop-up (owner 2026-07-03: "instead
+   of showing these prices, we would have a button instead"). */
+.home-reskin .hr-ai-cta {
+  margin-top: 16px;
+  padding: 11px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: var(--hr-r);
-  padding: 3px 11px;
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 13.5px;
   font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
 }
-/* Price-as-comparison (owner 2026-07-03): the hero's price row is the
-   vs-hired-team comparison — static text + bars drawn to scale, no controls. */
-.home-reskin .hr-ai-compare {
-  max-width: 540px;
-  margin: 16px auto 0;
-  text-align: left;
-  color: #fff;
+.home-reskin .hr-ai-cta:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
-.home-reskin .hr-ai-cmp-row {
-  margin-top: 9px;
-}
-.home-reskin .hr-ai-cmp-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.72);
-}
-.home-reskin .hr-ai-cmp-head b {
-  font-weight: 600;
-  font-size: 14.5px;
-  color: #fff;
-}
-.home-reskin .hr-ai-cmp-head b i {
-  font-style: normal;
-  font-weight: 400;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-}
-.home-reskin .hr-ai-cmp-bar {
-  display: block;
-  height: 8px;
-  margin-top: 4px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: var(--hr-r);
-  overflow: hidden;
-}
-.home-reskin .hr-ai-cmp-bar i {
-  display: block;
-  height: 100%;
-  background: var(--hr-pop2);
-  border-radius: var(--hr-r);
-}
-.home-reskin .hr-ai-cmp-us .hr-ai-cmp-bar i {
-  background: #fff;
-}
-.home-reskin .hr-ai-cmp-foot {
-  margin: 7px 0 0;
-  font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.45);
-}
+
 /* Short viewports: keep the hero one screen — job blurbs + the quiet line fold away. */
 @media (max-height: 760px) {
   .home-reskin .hr-ai-job span,

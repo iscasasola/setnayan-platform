@@ -170,8 +170,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   // Solo — ₱999/28d entry-level paid tier (price from vendor_billing_catalog).
-  // One category, one operator. Real name shown day-1 (paid). Token-burn model
-  // same as Pro/Enterprise (inAppGated = true). No agent seats (truly solo).
+  // One category, one operator + one helper. Real name shown day-1 (paid).
+  // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
+  // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
     serviceRadiusKm: 20,
     servicesPerLeaf: 3,
@@ -182,7 +183,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     soloBusinessTools: true,
     chat: 'chat',
     parentCategories: 1,
-    agentAccounts: 0,
+    agentAccounts: 1,
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',

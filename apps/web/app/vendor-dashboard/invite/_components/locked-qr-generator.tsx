@@ -238,7 +238,8 @@ export function LockedQrGenerator({
     ISO_DATE_RE.test(eventDate) &&
     eventDate >= today &&
     serviceDescription.trim() !== '' &&
-    contractId !== '' &&
+    // Contract is required only when the vendor has saved contracts to pick from.
+    (contracts.length === 0 || contractId !== '') &&
     totalNum > 0 &&
     paidNum > 0 &&
     paidNum <= totalNum &&
@@ -565,7 +566,7 @@ export function LockedQrGenerator({
       {/* Contract — pick one of the vendor's saved contracts to attach. */}
       <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
         <label htmlFor="source_contract_id" className="block text-sm font-medium text-ink/80">
-          Contract <span className="text-terracotta">*</span>
+          Contract {contracts.length > 0 && <span className="text-terracotta">*</span>}
         </label>
         {contracts.length > 0 ? (
           <>
@@ -586,8 +587,8 @@ export function LockedQrGenerator({
           </>
         ) : (
           <p className="rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-            No saved contracts yet. Add one under <span className="font-medium">Contracts</span> first,
-            then pick it here.
+            No saved contracts yet — you can generate without one, or add a contract under{' '}
+            <span className="font-medium">Contracts</span> to attach it here.
           </p>
         )}
       </div>

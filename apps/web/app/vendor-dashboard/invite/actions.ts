@@ -149,16 +149,26 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (!proofRef) fail('proof');
   const remembranceRef = String(formData.get('remembrance_r2_ref') ?? '').trim() || null;
 
-  // Chosen contract must be one of the vendor's own saved contracts.
+  // Contract: required only when the vendor HAS saved (non-cancelled) contracts
+  // to pick from — a vendor with none can issue without one (owner 2026-07).
+  // When one is provided it must be the vendor's own.
   const sourceContractId = String(formData.get('source_contract_id') ?? '').trim() || null;
-  if (!sourceContractId) fail('contract');
-  const { data: contractRow } = await supabase
-    .from('vendor_contracts')
-    .select('contract_id')
-    .eq('contract_id', sourceContractId)
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  if (!contractRow) fail('contract');
+  if (sourceContractId) {
+    const { data: contractRow } = await supabase
+      .from('vendor_contracts')
+      .select('contract_id')
+      .eq('contract_id', sourceContractId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (!contractRow) fail('contract');
+  } else {
+    const { count } = await supabase
+      .from('vendor_contracts')
+      .select('contract_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .neq('status', 'cancelled');
+    if ((count ?? 0) > 0) fail('contract');
+  }
 
   let schedule: ReturnType<typeof sanitizeLockSchedule> = [];
   try {

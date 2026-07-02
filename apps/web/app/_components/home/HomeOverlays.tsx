@@ -541,6 +541,22 @@ function SignInOverlay({
  * from the catalog via `pricing` (₱799/28d, ₱499 first). Cadence stated so
  * turning it on never reads as inviting spam.
  */
+/**
+ * The Setnayan AI pop-up = the interactive SAVINGS COMPARATOR (owner
+ * 2026-07-03: "the widget you showed is the pop up. the text on hero is the
+ * benefits"). The hero story carries the benefits; this pop-up carries the
+ * burden-and-cost comparison — a "my wedding is in N months" slider (1–24)
+ * plus three compare modes (hire it · other AI apps · do it yourself), with
+ * bars drawn to honest scale. Setnayan's side of the math comes from the RAW
+ * catalog prices on `pricing` (intro + regular × cycles — never re-hardcoded);
+ * the alternatives are labeled illustrative estimates, category-level only
+ * (never a named competitor). Desktop fits without scrolling; the overlay
+ * wrapper (.home-reskin-ov, overflow-y auto) scrolls on small screens.
+ */
+const AI_COMPARE_TEAM_PHP_MO = 50_000; // 2–3-person team · typical PH rates (illustrative)
+const AI_COMPARE_APPS_PHP_MO = 2_900; // planning AIs abroad · top of range
+const AI_COMPARE_DIY_HOURS_MO: [number, number] = [25, 50]; // hands-on checking (illustrative)
+
 function SetnayanAiOverlay({
   current,
   onClose,
@@ -554,11 +570,44 @@ function SetnayanAiOverlay({
    *  in-world replacement for the old-chrome /setnayan-ai bounce. */
   onOpenStory?: () => void;
 }) {
-  const jobs: Array<[string, string]> = [
-    ['Does the legwork', 'Finds and ranks your best-fit verified vendors, chases the quiet ones, and lines up their quotes.'],
-    ['Stands guard', 'Flags a deposit due, a price change, a double-booking, or a deadline before it slips — while there’s still time.'],
-    ['Reassures you', '“Great pick — 47 reviews, 4.8★,” with the evidence. So you can stop second-guessing.'],
+  const [months, setMonths] = useState(12);
+  const [mode, setMode] = useState<'hire' | 'apps' | 'diy'>('hire');
+
+  const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
+  // Setnayan AI over the window: the ₱499 intro cycle + ₱799 × the rest —
+  // raw numbers straight from the catalog resolve (pricing-data.ts).
+  const mine = pricing.aiIntroPhp + pricing.aiRegularPhp * Math.max(0, months - 1);
+
+  const CHIPS: Array<['hire' | 'apps' | 'diy', string]> = [
+    ['hire', 'vs hiring it'],
+    ['apps', 'vs other AI apps'],
+    ['diy', 'vs doing it yourself'],
   ];
+  const compare =
+    mode === 'hire'
+      ? {
+          sub: 'A 2–3 person team doing this until your day (typical PH rates, illustrative):',
+          save: `you save ${peso(AI_COMPARE_TEAM_PHP_MO * months - mine)}`,
+          themLabel: `Hired team · ${peso(AI_COMPARE_TEAM_PHP_MO * months)}`,
+          usPct: Math.max((mine / (AI_COMPARE_TEAM_PHP_MO * months)) * 100, 1.2),
+          foot: 'Bars drawn to scale. Setnayan AI ends on your wedding day.',
+        }
+      : mode === 'apps'
+        ? {
+            sub: `A planning AI abroad until your day (${peso(AI_COMPARE_APPS_PHP_MO)}/mo, top of range):`,
+            save: `you save ${peso(Math.max(0, AI_COMPARE_APPS_PHP_MO * months - mine))}`,
+            themLabel: `Other AI apps · ${peso(AI_COMPARE_APPS_PHP_MO * months)}`,
+            usPct: Math.max((mine / (AI_COMPARE_APPS_PHP_MO * months)) * 100, 1.2),
+            foot: 'Drawn to scale — and theirs waits for your questions; it doesn’t watch your vendors.',
+          }
+        : {
+            sub: 'Keeping every vendor, price and deadline current by hand:',
+            save: `you get back ${(AI_COMPARE_DIY_HOURS_MO[0] * months).toLocaleString()}–${(AI_COMPARE_DIY_HOURS_MO[1] * months).toLocaleString()} hours`,
+            themLabel: `Your hours · ${(AI_COMPARE_DIY_HOURS_MO[1] * months).toLocaleString()} h`,
+            usPct: 2,
+            foot: '≈ 25–50 hours of checking per month, illustrative — it runs in the background instead.',
+          };
+
   return (
     <OverlayShell id="setnayan-ai" current={current} onClose={onClose} label="Setnayan AI">
       <div className="hr-ov-eyebrow">Setnayan AI · your planning brain</div>
@@ -575,24 +624,71 @@ function SetnayanAiOverlay({
           {pricing.aiIntroPrice} your first 28 days
         </span>
       </div>
-      {/* No trailer line under the price (owner 2026-07-03 — marketplace facts,
-          not Setnayan AI; "covers all your events" contradicted per-event pricing). */}
 
-      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {jobs.map(([t, d]) => (
-          <div key={t} style={{ display: 'flex', gap: 11 }}>
-            <span aria-hidden="true" style={{ flex: '0 0 auto', width: 7, height: 7, marginTop: 7, borderRadius: '50%', background: '#a67c3d' }} />
-            <div>
-              <div style={{ fontWeight: 500, fontSize: 15, color: '#2a2925' }}>{t}</div>
-              <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#57534b' }}>{d}</div>
-            </div>
-          </div>
+      {/* ── the savings comparator ── */}
+      <div style={{ maxWidth: 460, marginTop: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
+          <span>My wedding is in</span>
+          <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
+            {months} {months === 1 ? 'month' : 'months'}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={24}
+          step={1}
+          value={months}
+          onChange={(e) => setMonths(Number(e.target.value))}
+          aria-label="Months until your wedding"
+          style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#a8a4a0' }}>
+          <span>1 month</span>
+          <span>2 years</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+        {CHIPS.map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setMode(k)}
+            aria-pressed={mode === k}
+            style={{
+              border: `1px solid ${mode === k ? '#2a2925' : 'rgba(42,43,46,.25)'}`,
+              background: mode === k ? '#2a2925' : 'transparent',
+              color: mode === k ? '#f2f2f0' : '#54514d',
+              fontSize: 12.5,
+              padding: '7px 14px',
+              borderRadius: 'var(--m-r-full)',
+              cursor: 'pointer',
+            }}
+          >
+            {label}
+          </button>
         ))}
       </div>
 
-      <p style={{ marginTop: 16, fontSize: 13, lineHeight: 1.5, color: '#6c675e' }}>
-        One calm weekly digest — loud only when it can’t wait. No spam, no fake countdowns.
-      </p>
+      <div style={{ maxWidth: 460 }}>
+        <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
+        <p style={{ margin: '2px 0 0', fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 26, color: '#3f6b3f' }}>
+          {compare.save}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <span style={{ flex: '0 0 118px', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
+          <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: '100%', background: '#c5a059', borderRadius: 'var(--m-r-full)' }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <span style={{ flex: '0 0 118px', fontSize: 11, fontWeight: 600, color: '#2a2925' }}>Setnayan AI · {peso(mine)}</span>
+          <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${compare.usPct}%`, background: '#2a2925', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
+          </div>
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: 10.5, color: '#a8a4a0' }}>{compare.foot}</p>
+      </div>
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
         <Link

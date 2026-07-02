@@ -49,20 +49,6 @@ export const metadata = { title: 'My Customers · Vendor · Setnayan' };
 
 type Props = { searchParams: Promise<{ m?: string }> };
 
-function monthLabelOf(ym: string): string {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y ?? 2026, (m ?? 1) - 1, 1).toLocaleDateString('en-PH', {
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function shiftMonth(ym: string, delta: number): string {
-  const [y, m] = ym.split('-').map(Number);
-  const d = new Date(y ?? 2026, (m ?? 1) - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Date not set';
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
@@ -347,10 +333,12 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
         <CustomersCalendar
-          data={calendar}
-          monthLabel={monthLabelOf(month)}
-          prevHref={`/vendor-dashboard/customers?m=${shiftMonth(month, -1)}`}
-          nextHref={`/vendor-dashboard/customers?m=${shiftMonth(month, 1)}`}
+          initialData={calendar}
+          initialMonth={month}
+          todayIso={todayIso}
+          pools={pools}
+          bookings={bookings}
+          blocks={blocks}
           dayHrefBase={dayHrefBase}
           types={eventTypeOptions}
           services={serviceOptions}

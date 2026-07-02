@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import {
   VENDOR_CATEGORIES,
@@ -226,6 +227,25 @@ function parseDailyCapacityOrThrow(
   return n;
 }
 
+/** Resolve a submitted coverage_id to a number ONLY if it belongs to this
+ *  vendor (defense-in-depth; the UI already offers only the vendor's own
+ *  coverages). Anything else → null (unassigned). */
+async function resolveOwnedCoverageId(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  raw: FormDataEntryValue | null,
+): Promise<number | null> {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const { data } = await supabase
+    .from('vendor_coverages')
+    .select('id')
+    .eq('id', n)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  return data ? n : null;
+}
+
 export async function createVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
@@ -254,7 +274,11 @@ export async function createVendorService(formData: FormData) {
     // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
     // only the vendor's own coverages). Simple parse; strict ownership check is
     // a follow-up (founder-only marketplace, low harm).
-    coverage_id = Number(formData.get('coverage_id')) || null;
+    coverage_id = await resolveOwnedCoverageId(
+      supabase,
+      profile.vendor_profile_id,
+      formData.get('coverage_id'),
+    );
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
     recommended_lead_time_months = parseLeadTimeMonthsOrNull(
@@ -450,7 +474,11 @@ export async function updateVendorService(formData: FormData) {
     // Which coverage this card belongs to (FK → vendor_coverages; the UI offers
     // only the vendor's own coverages). Simple parse; strict ownership check is
     // a follow-up (founder-only marketplace, low harm).
-    coverage_id = Number(formData.get('coverage_id')) || null;
+    coverage_id = await resolveOwnedCoverageId(
+      supabase,
+      profile.vendor_profile_id,
+      formData.get('coverage_id'),
+    );
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
     recommended_lead_time_months = parseLeadTimeMonthsOrNull(
@@ -910,7 +938,11 @@ export async function commitVendorService(formData: FormData) {
       starting_price_php: parseInt0OrNull(formData.get('starting_price_php')),
       added_pax_price_php: parseInt0OrNull(formData.get('added_pax_price_php')),
       base_pax: parseInt0OrNull(formData.get('base_pax')) || null,
-      coverage_id: Number(formData.get('coverage_id')) || null,
+      coverage_id: await resolveOwnedCoverageId(
+        supabase,
+        profile.vendor_profile_id,
+        formData.get('coverage_id'),
+      ),
       crew_size: parseInt0OrNull(formData.get('crew_size')),
       crew_meal_required: formData.get('crew_meal_required') === 'on',
       branch_id,

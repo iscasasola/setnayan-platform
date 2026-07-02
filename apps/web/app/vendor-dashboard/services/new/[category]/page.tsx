@@ -10,6 +10,7 @@ import {
 } from '@/lib/vendors';
 import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
 import { ServiceWizard } from '../../_components/service-wizard';
+import { fetchVendorCoverages, resolveCoverageLabels } from '@/lib/vendor-coverages';
 
 export const metadata = { title: 'Add a service · Setnayan' };
 
@@ -79,6 +80,18 @@ export default async function NewServicePage({
     ),
   ).map((c) => ({ value: c, label: displayServiceLabel(c as VendorCategory) }));
 
+  // The vendor's coverages → the "assign this card to a coverage" picker.
+  const [vendorCoverages, coverageLabels] = await Promise.all([
+    fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
+    resolveCoverageLabels().catch(() => null),
+  ]);
+  const coverageOptions = vendorCoverages.map((c) => ({
+    id: c.id,
+    label: coverageLabels
+      ? coverageLabels.pathLabel(c.canonical_service)
+      : c.canonical_service,
+  }));
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <Link
@@ -114,6 +127,7 @@ export default async function NewServicePage({
         categoryValue={cat}
         categoryLabel={displayServiceLabel(cat)}
         otherCategories={otherCategories}
+        coverages={coverageOptions}
         vendorProfileId={profile.vendor_profile_id}
         claimToken={showClaimBanner ? claimToken : null}
       />

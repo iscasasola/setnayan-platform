@@ -23,14 +23,11 @@ const GuestVenue3D = dynamic(() => import('@/app/[slug]/venue/_components/guest-
   ),
 });
 
-const TABLE_LABEL: Record<string, string> = {
-  head: 'the Head Table',
-  t1: 'Table 1',
-  t2: 'Table 2',
-  t3: 'Table 3',
-  t4: 'Table 4',
-  t5: 'Table 5',
-};
+// Table ids in the demo scene ARE the display labels (the shipped HUD renders
+// `you.table` verbatim — "You're at Table 1"). Only prose needs an article.
+function tableProse(table: string): string {
+  return table === 'Head Table' ? 'the Head Table' : table;
+}
 
 export function Plan3dWalk({ guest }: { guest: DemoGuest }) {
   const [walking, setWalking] = useState(false);
@@ -47,7 +44,7 @@ export function Plan3dWalk({ guest }: { guest: DemoGuest }) {
           </h1>
           <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
             Welcome to Maria &amp; Jose&rsquo;s sample wedding — a live demo of
-            the Setnayan 3D plan. Your seat is waiting at {TABLE_LABEL[guest.table] ?? guest.table}.
+            the Setnayan 3D plan. Your seat is waiting at {tableProse(guest.table)}.
           </p>
           <button
             type="button"
@@ -70,7 +67,7 @@ export function Plan3dWalk({ guest }: { guest: DemoGuest }) {
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex items-center justify-between px-1 pb-2">
           <div>
-            <h1 className="text-base font-semibold tracking-tight">{guest.name} → {TABLE_LABEL[guest.table] ?? guest.table}</h1>
+            <h1 className="text-base font-semibold tracking-tight">{guest.name} → {guest.table}</h1>
             <p className="text-[11px] text-[var(--m-grey,#8c8884)]">Watch yourself walk in — then tap the floor to roam.</p>
           </div>
           <button

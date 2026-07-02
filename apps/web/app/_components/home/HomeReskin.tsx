@@ -520,11 +520,9 @@ export function HomeReskin({
               Learn more{' '}
               <span className="hr-arr">{hero ? '→' : '↓'}</span>
             </button>
-            {/* Live product demos (owner 2026-07-03, demos program): Papic +
-                Panood/Live Studio have working demos on the shared
-                demo_sessions scaffold; 3D Plan gets its button when its demo
-                lands, per the standing "no silent caps" rule — never a button
-                that pretends. */}
+            {/* Live product demos (owner 2026-07-03, demos program): all three
+                — Papic, Panood/Live Studio, 3D Plan — share the demo_sessions
+                scaffold and each shows its own button on its own hero. */}
             {hero?.name === 'Papic' && (
               <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('papic-demo')}>
                 Try the live demo
@@ -533,6 +531,11 @@ export function HomeReskin({
             {hero?.name === 'Panood' && (
               <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('panood-demo')}>
                 Try the control room&nbsp;·&nbsp;two phones
+              </button>
+            )}
+            {hero?.name === '3D Plan' && (
+              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('plan3d-demo')}>
+                Find your seat&nbsp;·&nbsp;try it
               </button>
             )}
           </div>

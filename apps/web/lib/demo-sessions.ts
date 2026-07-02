@@ -32,6 +32,10 @@ export type DemoSession = {
   joinedB: boolean;
   shotCount: number;
   expiresAt: string;
+  /** 3D Plan only: the sample guest_id this session is bound to. Every
+   *  Papic/Panood row leaves this null (two-phone sessions aren't bound to
+   *  one identity). */
+  boundRef: string | null;
 };
 
 export type DemoRole = 'a' | 'b';
@@ -49,7 +53,7 @@ function mintToken(): string {
  * cron-free (Next.js `after()` is used by the caller, not here — this module
  * has no request context of its own).
  */
-export async function createDemoSession(demoKind: DemoKind): Promise<DemoSession> {
+export async function createDemoSession(demoKind: DemoKind, boundRef?: string): Promise<DemoSession> {
   const admin = createAdminClient();
   const expiresAt = new Date(Date.now() + DEMO_SESSION_TTL_MINUTES * 60_000).toISOString();
 
@@ -57,11 +61,21 @@ export async function createDemoSession(demoKind: DemoKind): Promise<DemoSession
   // backstop against the unique-index constraint, not an expected path.
   for (let attempt = 0; attempt < 3; attempt++) {
     const tokenA = mintToken();
+    // 3D Plan only mints/uses tokenA (the one QR bound to the clicked guest) —
+    // tokenB still has to exist (NOT NULL UNIQUE) but is never surfaced or
+    // resolved against, so a throwaway second token satisfies the column
+    // without giving the row a second meaningful entry point.
     const tokenB = mintToken();
     const { data, error } = await admin
       .from('demo_sessions')
-      .insert({ demo_kind: demoKind, token_a: tokenA, token_b: tokenB, expires_at: expiresAt })
-      .select('id, demo_kind, token_a, token_b, joined_a, joined_b, shot_count, expires_at')
+      .insert({
+        demo_kind: demoKind,
+        token_a: tokenA,
+        token_b: tokenB,
+        expires_at: expiresAt,
+        bound_ref: boundRef ?? null,
+      })
+      .select('id, demo_kind, token_a, token_b, joined_a, joined_b, shot_count, expires_at, bound_ref')
       .single();
     if (!error && data) {
       return {
@@ -73,6 +87,7 @@ export async function createDemoSession(demoKind: DemoKind): Promise<DemoSession
         joinedB: data.joined_b,
         shotCount: data.shot_count,
         expiresAt: data.expires_at,
+        boundRef: data.bound_ref,
       };
     }
   }
@@ -93,18 +108,18 @@ export async function createDemoSession(demoKind: DemoKind): Promise<DemoSession
  */
 export async function resolveDemoToken(
   token: string,
-): Promise<{ sessionId: string; demoKind: DemoKind; role: DemoRole } | null> {
+): Promise<{ sessionId: string; demoKind: DemoKind; role: DemoRole; boundRef: string | null } | null> {
   try {
     const admin = createAdminClient();
     const { data } = await admin
       .from('demo_sessions')
-      .select('id, demo_kind, token_a, token_b, expires_at')
+      .select('id, demo_kind, token_a, token_b, expires_at, bound_ref')
       .or(`token_a.eq.${token},token_b.eq.${token}`)
       .maybeSingle();
     if (!data) return null;
     if (new Date(data.expires_at).getTime() <= Date.now()) return null;
     const role: DemoRole = data.token_a === token ? 'a' : 'b';
-    return { sessionId: data.id, demoKind: data.demo_kind, role };
+    return { sessionId: data.id, demoKind: data.demo_kind, role, boundRef: data.bound_ref };
   } catch {
     return null;
   }

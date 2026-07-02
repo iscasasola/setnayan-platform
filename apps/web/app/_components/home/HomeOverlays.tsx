@@ -40,6 +40,7 @@ import type { PricingData, PriceRow } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
+import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
 
 export type OverlayId =
   | 'prices'
@@ -49,6 +50,7 @@ export type OverlayId =
   | 'setnayan-ai'
   | 'papic-demo'
   | 'panood-demo'
+  | 'plan3d-demo'
   | null;
 
 /**
@@ -777,6 +779,7 @@ export function HomeOverlays({
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />
+      <Plan3DDemoOverlay current={current} onClose={onClose} />
     </>
   );
 }

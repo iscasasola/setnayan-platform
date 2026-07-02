@@ -1,11 +1,10 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
-import { Check, ChevronDown, Pencil, Plus } from 'lucide-react';
+import { useActionState, useEffect, useRef, useState } from 'react';
+import { Check, ChevronDown, Loader2, Pencil, Plus } from 'lucide-react';
 
 import { Field } from '@/app/_components/forms/field';
 import { FileUpload } from '@/app/_components/file-upload';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { ServicesPicker } from '../../_components/services-picker';
@@ -34,79 +33,119 @@ export type ProfileFieldData = {
 const CURRENT_YEAR = new Date().getFullYear();
 
 /**
- * One inline-editable Business-Profile checklist row. Collapsed it looks like
- * the old read-only row (status chip + label + a value preview); its right-side
- * affordance is now a real button that expands the row IN PLACE into a single-
- * field editor (the same `Field` + control primitives as the full /profile
- * form), Save/Cancel, backed by `updateVendorProfileField` — no navigation.
+ * One inline-editable Business-Profile checklist row.
  *
- * The parent owns which row is open (one at a time); this component owns only
- * the form + its save lifecycle. The `business_documents` row is NOT rendered
- * here — it's a separate verification flow the parent renders as a deep-link.
+ * AUTO-SAVE ON COLLAPSE (owner 2026-07-02): there is no Save button. Collapsed
+ * the row shows the status chip + label + a readable value preview (a real logo
+ * thumbnail for the logo row). Its trigger expands the row into the same
+ * `Field` + control primitives as the full /profile form. The field then saves
+ * itself whenever the row COLLAPSES for any reason — you click Close, you open a
+ * different row, or you press Enter — via `updateVendorProfileField`. **Cancel**
+ * reverts the edit (remounts the control to its saved value) and closes without
+ * saving. A required field the server rejects (e.g. a blank Shop name) re-opens
+ * the row with an error toast, so an invalid value is never silently dropped.
+ *
+ * The parent owns which row is open (one at a time). `business_documents` is NOT
+ * rendered here — the parent renders it as its own verification row.
  */
 export function EditableRow({
   item,
   data,
   isOpen,
-  onToggle,
-  onSaved,
+  onOpen,
+  onClose,
+  onReopenAfterError,
 }: {
   item: BusinessProfileItem;
   data: ProfileFieldData;
   isOpen: boolean;
-  onToggle: () => void;
-  onSaved: () => void;
+  /** Request that THIS row become the open one. */
+  onOpen: () => void;
+  /** Request that this row close (if it's the open one). */
+  onClose: () => void;
+  /**
+   * Re-open THIS row after an async save was REJECTED — but only if the user
+   * hasn't already opened a different row in the meantime (the parent no-ops
+   * when another row is open, so a late rejection never steals the open slot).
+   */
+  onReopenAfterError: () => void;
 }) {
   const toast = useToast();
-  const [state, formAction] = useActionState<FieldSaveResult | null, FormData>(
+  const [state, formAction, isPending] = useActionState<FieldSaveResult | null, FormData>(
     updateVendorProfileField,
     null,
   );
   const handledRef = useRef<FieldSaveResult | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const wasOpen = useRef(false);
-  // TRUE when this row's collapse was self-initiated (its own trigger / Cancel /
-  // Esc / a successful save) → return focus to the trigger. FALSE when the row
-  // was collapsed because the user OPENED A DIFFERENT row → leave focus in the
-  // newly-opened editor (don't yank it back). Deterministic (not activeElement-
-  // based) so it also works when a pending SubmitButton has blurred to <body>.
+  // Focus: TRUE when this row's collapse was self-initiated (own trigger / Esc /
+  // Cancel) → return focus to the trigger. FALSE when collapsed because ANOTHER
+  // row opened → leave focus in the newly-opened editor.
   const selfCollapse = useRef(false);
+  // Whether the field changed since the row opened (drives whether a collapse
+  // triggers a save). Set by control edits; reset once a save is fired.
+  const dirty = useRef(false);
+  // TRUE for a collapse caused by Cancel/Esc — skip the auto-save + revert.
+  const cancelled = useRef(false);
+  // Bumping this remounts the FieldControl, discarding a composite widget's
+  // (FileUpload / ServicesPicker) internal state back to the saved props — how
+  // Cancel reverts an edit that native uncontrolled inputs can't revert alone.
+  const [revertNonce, setRevertNonce] = useState(0);
 
-  // Toast + collapse exactly once when a submission settles. Keyed on the
-  // per-dispatch `state` object (a fresh reference each submit) so repeated
-  // saves each fire once, and a failed save keeps the editor open + intact.
+  const markDirty = () => {
+    dirty.current = true;
+  };
+
+  // Settle a submission exactly once (keyed on the per-dispatch `state` object).
+  // On success: toast + clear dirty. On failure (e.g. blank required field the
+  // server rejected): toast the error and RE-OPEN so the value is never lost.
   useEffect(() => {
     if (!state || state === handledRef.current) return;
     handledRef.current = state;
     if (state.ok) {
+      dirty.current = false;
       toast.success(`${item.label} saved.`);
-      selfCollapse.current = true;
-      onSaved();
     } else {
       toast.error(state.error);
+      onReopenAfterError();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  // Focus management: on expand move focus into the first control; on a self-
-  // initiated collapse return focus to the row's Edit/Add trigger. Effects flush
-  // in DOM order, so without the `selfCollapse` guard a later-in-the-list row's
-  // collapse (caused by opening an earlier row) would run AFTER the earlier row
-  // focused its editor and steal focus back to the wrong, collapsed row.
+  // Focus + AUTO-SAVE on collapse. On expand: focus the first control. On
+  // collapse: unless it was a Cancel/Esc, submit the form if the field is dirty
+  // (fires updateVendorProfileField); then return focus to the trigger only when
+  // the collapse was self-initiated.
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
+      cancelled.current = false;
       editorRef.current
         ?.querySelector<HTMLElement>('input:not([type="hidden"]),textarea,select')
         ?.focus();
-    } else if (!isOpen && wasOpen.current && selfCollapse.current) {
-      triggerRef.current?.focus();
+    } else if (!isOpen && wasOpen.current) {
+      if (cancelled.current) {
+        cancelled.current = false;
+        dirty.current = false;
+      } else if (dirty.current) {
+        // Fire once per edit — a rejected save re-opens (settle effect) and
+        // requires a fresh edit to retry, so this can't loop on a bad value.
+        dirty.current = false;
+        formRef.current?.requestSubmit();
+      }
+      if (selfCollapse.current) triggerRef.current?.focus();
     }
     selfCollapse.current = false;
     wasOpen.current = isOpen;
   }, [isOpen]);
 
-  const preview = fieldPreview(item.key, data);
+  const cancel = () => {
+    cancelled.current = true;
+    setRevertNonce((n) => n + 1); // remount FieldControl → revert widget state
+    selfCollapse.current = true;
+    onClose();
+  };
 
   return (
     <li
@@ -122,18 +161,18 @@ export function EditableRow({
           >
             {item.label}
           </span>
-          {preview ? (
-            <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              {preview}
-            </span>
-          ) : null}
+          <RowPreview itemKey={item.key} data={data} />
         </span>
         <button
           ref={triggerRef}
           type="button"
           onClick={() => {
-            selfCollapse.current = true;
-            onToggle();
+            if (isOpen) {
+              selfCollapse.current = true;
+              onClose();
+            } else {
+              onOpen();
+            }
           }}
           aria-expanded={isOpen}
           className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-[color:var(--m-orange-4)]"
@@ -165,28 +204,40 @@ export function EditableRow({
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.stopPropagation();
-              selfCollapse.current = true;
-              onToggle();
+              cancel();
             }
           }}
         >
-          <form action={formAction} className="space-y-3">
+          {/* noValidate: the on-collapse requestSubmit() must ALWAYS reach the
+              server action — native constraint validation would otherwise abort
+              the submit for a blank required / malformed field, silently dropping
+              the edit. updateVendorProfileField validates server-side and the
+              settle effect re-opens the row with a friendly error. */}
+          <form ref={formRef} action={formAction} noValidate className="space-y-3">
             <input type="hidden" name="field" value={item.key} />
-            <FieldControl item={item} data={data} />
-            <div className="flex items-center justify-end gap-2">
+            <FieldControl key={revertNonce} item={item} data={data} onDirty={markDirty} />
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <span
+                className="inline-flex items-center gap-1.5 text-xs"
+                style={{ color: 'var(--m-slate-3)' }}
+                aria-live="polite"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
+                    Saving…
+                  </>
+                ) : (
+                  'Saves automatically when you close.'
+                )}
+              </span>
               <button
                 type="button"
-                onClick={() => {
-            selfCollapse.current = true;
-            onToggle();
-          }}
+                onClick={cancel}
                 className="rounded-md px-3 py-1.5 text-sm font-medium text-ink/60 hover:bg-ink/5"
               >
                 Cancel
               </button>
-              <SubmitButton className="button-primary px-4 py-1.5 text-sm" pendingLabel="Saving…">
-                Save
-              </SubmitButton>
             </div>
           </form>
         </div>
@@ -218,11 +269,39 @@ function StatusChip({ ok }: { ok: boolean }) {
   );
 }
 
-/** Short at-a-glance preview of the current value shown on the collapsed row. */
-function fieldPreview(key: string, data: ProfileFieldData): string | null {
+/**
+ * At-a-glance current value on the collapsed row. The logo renders as a real
+ * thumbnail (presigned R2 URL, resolved server-side into `logoDisplayMap`);
+ * every other row echoes its saved value so the whole panel is readable without
+ * expanding anything.
+ */
+function RowPreview({ itemKey, data }: { itemKey: string; data: ProfileFieldData }) {
+  if (itemKey === 'logo') {
+    const url = data.logo_url ? data.logoDisplayMap[data.logo_url] : undefined;
+    if (url) {
+      return (
+        <span className="mt-1 inline-flex h-6 w-6 overflow-hidden rounded border" style={{ borderColor: 'var(--m-line)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="Your logo" className="h-full w-full object-cover" />
+        </span>
+      );
+    }
+    return data.logo_url ? (
+      <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+        Uploaded
+      </span>
+    ) : null;
+  }
+  const text = textPreview(itemKey, data);
+  return text ? (
+    <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+      {text}
+    </span>
+  ) : null;
+}
+
+function textPreview(key: string, data: ProfileFieldData): string | null {
   switch (key) {
-    case 'logo':
-      return data.logo_url ? 'Uploaded' : null;
     case 'business_name':
       return data.business_name || null;
     case 'business_owner_name':
@@ -234,9 +313,7 @@ function fieldPreview(key: string, data: ProfileFieldData): string | null {
     case 'contact_email':
       return data.contact_email || null;
     case 'services':
-      return data.services.length > 0
-        ? `${data.services.length} selected`
-        : null;
+      return data.services.length > 0 ? `${data.services.length} selected` : null;
     case 'in_business_since_year':
       return data.in_business_since_year || null;
     default:
@@ -248,9 +325,11 @@ function fieldPreview(key: string, data: ProfileFieldData): string | null {
 function FieldControl({
   item,
   data,
+  onDirty,
 }: {
   item: BusinessProfileItem;
   data: ProfileFieldData;
+  onDirty: () => void;
 }) {
   switch (item.key) {
     case 'logo':
@@ -270,6 +349,7 @@ function FieldControl({
             maxSizeMB={2}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="square"
+            onChange={onDirty}
           />
         </Field>
       );
@@ -280,6 +360,7 @@ function FieldControl({
             id="business_name"
             name="business_name"
             required
+            onInput={onDirty}
             maxLength={128}
             defaultValue={data.business_name}
             placeholder="Your studio / company name"
@@ -297,6 +378,7 @@ function FieldControl({
           <input
             id="business_owner_name"
             name="business_owner_name"
+            onInput={onDirty}
             maxLength={128}
             defaultValue={data.business_owner_name}
             placeholder="Owner / representative full name"
@@ -315,6 +397,7 @@ function FieldControl({
           <input
             id="hq_address"
             name="hq_address"
+            onInput={onDirty}
             maxLength={500}
             defaultValue={data.hq_address}
             placeholder="123 Katipunan Ave, Quezon City, Metro Manila"
@@ -329,6 +412,7 @@ function FieldControl({
             id="contact_phone"
             name="contact_phone"
             type="tel"
+            onInput={onDirty}
             defaultValue={data.contact_phone}
             placeholder="+63 917 …"
             className="input-field"
@@ -342,6 +426,7 @@ function FieldControl({
             id="contact_email"
             name="contact_email"
             type="email"
+            onInput={onDirty}
             defaultValue={data.contact_email}
             placeholder="hello@yourstudio.ph"
             className="input-field"
@@ -361,6 +446,7 @@ function FieldControl({
               initial={data.services}
               labels={data.serviceLabels}
               extraCanonicals={data.extraServiceLeaves}
+              onChange={onDirty}
             />
           </div>
         </Field>
@@ -379,6 +465,7 @@ function FieldControl({
             type="number"
             min={1900}
             max={CURRENT_YEAR}
+            onInput={onDirty}
             defaultValue={data.in_business_since_year}
             placeholder="2017"
             className="input-field"

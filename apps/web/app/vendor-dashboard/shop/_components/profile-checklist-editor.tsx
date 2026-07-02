@@ -101,8 +101,12 @@ export function ProfileChecklistEditor({
               item={item}
               data={data}
               isOpen={openKey === item.key}
-              onToggle={() => setOpenKey((cur) => (cur === item.key ? null : item.key))}
-              onSaved={() => setOpenKey(null)}
+              onOpen={() => setOpenKey(item.key)}
+              onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
+              // Re-open after a rejected save ONLY if the user hasn't opened a
+              // different row meanwhile — a late rejection must never steal the
+              // open slot from (and force-commit) the row they moved to.
+              onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
             />
           ),
         )}

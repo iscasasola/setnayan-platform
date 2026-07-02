@@ -236,7 +236,15 @@ html.hr-snap {
 /* ── HERO (fullscreen monochrome film, no-scroll gate) ─── */
 .home-reskin .hr-hero {
   position: relative;
+  /* On iOS Safari `100vh` is the toolbar-HIDDEN height, so it overshoots the
+     visible area while the bottom toolbar is showing — pushing the bottom-
+     anchored .hr-dock (the 5 pillar cards) behind the chrome. And the gate
+     locks scroll (overflow:hidden), so the user can't scroll to reveal it.
+     `100svh` = the smallest (toolbar-shown) viewport, so the hero always fits
+     the visible area and the dock stays on-screen in every toolbar state.
+     `100vh` is kept as the fallback for browsers without small-viewport units. */
   height: 100vh;
+  height: 100svh;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -382,7 +390,11 @@ html.hr-snap {
 /* dock of 5 pillar widgets */
 .home-reskin .hr-dock {
   position: absolute;
-  bottom: 30px;
+  /* Clear the home-indicator inset when Safari's toolbar is minimized (with
+     viewport-fit=cover, safe-area-inset-bottom is 0 while the toolbar shows —
+     so this is a no-op in the common locked-gate state and only lifts the dock
+     when the chrome collapses). */
+  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;

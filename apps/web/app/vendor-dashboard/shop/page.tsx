@@ -290,8 +290,6 @@ async function loadShopData(): Promise<ShopData | null> {
     submitMissing: verificationSubmitMissing({
       profileComplete: completion.complete,
       uploads: verifyUploads,
-      emailConfirmedAt: contactStamps.emailConfirmedAt,
-      phoneConfirmedAt: contactStamps.phoneConfirmedAt,
     }),
     validateEmail,
     validatePhone,
@@ -643,13 +641,16 @@ export default async function VendorShopPage({
       />
 
       {/* ── GET VERIFIED — the verification journey, promoted to its own
-          always-visible stage (owner redesign 2026-07-03; it was buried four
-          levels deep inside the Profile tile). Reward-led, flat 3-step
-          stepper, soft-gated Submit. The Hero pill deep-links here. */}
+          always-visible stage (owner redesign 2026-07-03). SEQUENCED (owner
+          flow): a teaser until the profile is 100% complete → the documents
+          reveal (auto-open) → upload + send VALIDATE → Submit → "we'll contact
+          you for final confirmation" (the Meet). Hero pill deep-links here. */}
       <VerifySection
         businessName={data.businessName}
         vendorProfileId={data.profileFields.vendorProfileId}
         isVerified={data.isVerified}
+        profileComplete={data.completionPct >= 100}
+        profileFieldsLeft={data.checklist.filter((i) => !i.ok).length}
         verify={data.verify}
       />
 
@@ -715,7 +716,9 @@ function HeroCard({
           ) : (
             // The passive "Unverified" chip became the GOAL (owner redesign
             // 2026-07-03): a live step count that deep-links to the
-            // Get-verified section below.
+            // Get-verified section below. Before the profile is complete the
+            // pill points at the prerequisite instead (owner flow: profile
+            // first → then the documents appear).
             <a
               href="#get-verified"
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors hover:bg-[color:var(--m-orange-3)]"
@@ -724,9 +727,8 @@ function HeroCard({
               <ShieldCheck className="h-3 w-3" strokeWidth={2} aria-hidden />
               Get verified ·{' '}
               {(data.verify.requiredDocsIn ? 1 : 0) +
-                (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0) +
-                (data.verify.meetScheduledAt ? 1 : 0)}{' '}
-              of 3
+                (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0)}{' '}
+              of 2
             </a>
           )}
         </div>

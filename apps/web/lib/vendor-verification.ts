@@ -374,26 +374,23 @@ export function requiredDocsComplete(uploads: DocUploadMap): boolean {
 }
 
 /**
- * The ONE submit gate for verification (owner 2026-07-03 soft-gate): documents
- * + VALIDATE messages can start anytime; submitting for review requires a
- * complete profile + the 4 required documents + both contact confirmations.
- * Shared by the Get-verified section (renders the reasons) and
- * `submitInlineForReview` (enforces them) so client copy and server validation
- * can never drift. Returns plain-English blockers; empty = ready to submit.
+ * The ONE submit gate for verification (owner flow 2026-07-03: complete the
+ * profile → the documents appear → upload → submit → "we contact you for final
+ * confirmation"). Submitting requires a complete profile + the 4 required
+ * documents. The VALIDATE contact confirmations and the Google Meet are part
+ * of the POST-submit review (Setnayan contacts the vendor), so submit never
+ * waits on admin stamping latency. Shared by the Get-verified section (renders
+ * the reasons) and `submitInlineForReview` (enforces them) so client copy and
+ * server validation can never drift. Empty = ready to submit.
  */
 export function verificationSubmitMissing(input: {
   profileComplete: boolean;
   uploads: DocUploadMap;
-  emailConfirmedAt: string | null;
-  phoneConfirmedAt: string | null;
 }): string[] {
   const missing: string[] = [];
   if (!input.profileComplete) missing.push('Finish your business profile');
   if (!requiredDocsComplete(input.uploads)) {
     missing.push('Upload your DTI/SEC, BIR 2303, Business Permit, and bank proof');
-  }
-  if (!input.emailConfirmedAt || !input.phoneConfirmedAt) {
-    missing.push('Send the VALIDATE email and text so we can confirm your contacts');
   }
   return missing;
 }

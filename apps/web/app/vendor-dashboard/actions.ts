@@ -18,6 +18,7 @@ import { geocodeNominatim } from '@/lib/geo';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   MICROSITE_ABOUT_MAX,
+  MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
   isValidAccentKey,
@@ -795,6 +796,7 @@ const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_hero_photo',
   'microsite_accent',
   'microsite_pinned_review',
+  'microsite_featured_editorials',
 ]);
 
 /** PRO-gated website fields. Reuses the same cap the custom slug already uses. */
@@ -803,6 +805,7 @@ const PRO_WEBSITE_FIELDS = new Set([
   'microsite_hero_photo',
   'microsite_accent',
   'microsite_pinned_review',
+  'microsite_featured_editorials',
 ]);
 
 /**
@@ -918,6 +921,18 @@ export async function updateVendorWebsiteField(
       // id simply doesn't pin — no cross-vendor leak. Cap length defensively.
       const raw = nullIfBlank(formData.get('microsite_pinned_review'));
       patch = { microsite_pinned_review_id: raw ? raw.slice(0, 64) : null };
+      break;
+    }
+    case 'microsite_featured_editorials': {
+      // Up to 3 story event_ids to feature first in the public Editorials
+      // section. The public render only surfaces ids that match one of THIS
+      // vendor's published stories, so a stale/foreign id simply no-ops.
+      const featured = formData
+        .getAll('microsite_featured_editorials')
+        .map(String)
+        .filter(Boolean)
+        .slice(0, MICROSITE_FEATURED_EDITORIALS_MAX);
+      patch = { microsite_featured_editorial_ids: featured };
       break;
     }
     default:

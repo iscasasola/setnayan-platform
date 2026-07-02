@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -85,6 +85,11 @@ import {
   type VendorCompletedEventRow,
 } from '@/lib/reviews';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
+import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import {
+  loadVendorFeaturedStories,
+  type VendorFeaturedStory,
+} from '@/lib/realstories-vendor';
 import {
   fetchVendorMicrosite,
   isSectionVisible,
@@ -726,6 +731,30 @@ export async function renderVendorBySlug({
         ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
       ]
     : reviews;
+
+  // Editorials ("Real Stories") — the vendor's own booked weddings the couple
+  // has PUBLISHED + consented to showcase. Featured-first (Pro pick), capped to
+  // a tidy row. Best-effort + auto-hidden when empty: today this is [] for
+  // everyone until real consented stories exist (~Dec 2026), so the whole
+  // section simply doesn't render until there's something to show.
+  const showEditorials = isSectionVisible(microsite.sections, 'editorials');
+  let featuredEditorials: VendorFeaturedStory[] = [];
+  if (showEditorials) {
+    try {
+      const bookings = await fetchVendorPoolBookings(admin, vendor.vendor_profile_id);
+      const stories = await loadVendorFeaturedStories(bookings.map((b) => b.eventId));
+      const byId = new Map(stories.map((s) => [s.eventId, s]));
+      featuredEditorials = orderFeaturedFirst(
+        stories.map((s) => s.eventId),
+        microsite.featuredEditorialIds,
+      )
+        .map((id) => byId.get(id))
+        .filter((s): s is VendorFeaturedStory => Boolean(s))
+        .slice(0, 3);
+    } catch {
+      featuredEditorials = [];
+    }
+  }
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Get in touch" copy,
@@ -1470,6 +1499,48 @@ export async function renderVendorBySlug({
                     className="object-cover"
                   />
                 </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Editorials ("Real Stories") — the vendor's published, couple-consented
+            weddings, told in full. Featured-first (Pro pick); the lead story is a
+            wide spotlight. Auto-hidden until a real story exists. */}
+        {showEditorials && featuredEditorials.length > 0 ? (
+          <section className="space-y-4 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Featured in Real Stories
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {featuredEditorials.map((story, idx) => (
+                <a
+                  key={story.eventId}
+                  href={`/${story.slug}`}
+                  className={`group flex flex-col justify-between rounded-2xl border border-ink/10 bg-cream/50 p-5 transition-colors hover:border-terracotta/40 ${
+                    idx === 0 ? 'sm:col-span-3 sm:flex-row sm:items-end sm:gap-6' : ''
+                  }`}
+                >
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                      {idx === 0 ? 'Featured story' : 'Real Story'}
+                    </p>
+                    <p
+                      className={`mt-1 font-serif italic text-ink ${
+                        idx === 0 ? 'text-2xl' : 'text-lg'
+                      }`}
+                    >
+                      {story.coupleNames}
+                    </p>
+                    <p className="mt-1 text-sm text-ink/60">
+                      {[story.city, story.dateLabel].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <span className="mt-3 inline-flex shrink-0 items-center gap-1 text-sm font-medium text-terracotta group-hover:underline sm:mt-0">
+                    Read their story
+                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                  </span>
+                </a>
               ))}
             </div>
           </section>

@@ -700,6 +700,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             maxSizeMB={2}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="square"
+            qrGuard
           />
         </Field>
 
@@ -720,6 +721,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="wide"
             watermark
+            qrGuard
           />
         </Field>
 

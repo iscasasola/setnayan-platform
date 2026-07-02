@@ -6,6 +6,8 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
+import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
+import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
@@ -474,6 +476,35 @@ export async function saveVendorProfile(formData: FormData) {
     }
   }
 
+  // QR-in-media guard (owner-locked 2026-07-03): website media may not embed
+  // the vendor's invite/lock QR. Scan only refs NOT already stored (an
+  // unchanged gallery re-save costs nothing) — the authoritative server-side
+  // reject; the <FileUpload qrGuard> client check is fast feedback only.
+  // vendorQrGuardRejects fails OPEN on scanner trouble, never blocking an
+  // honest save (the admin retro-scan is the backstop).
+  {
+    const { data: curMedia } = await supabase
+      .from('vendor_profiles')
+      .select('portfolio_r2_keys, logo_url')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const cur = curMedia as
+      | { portfolio_r2_keys?: string[] | null; logo_url?: string | null }
+      | null;
+    const stored = new Set((cur?.portfolio_r2_keys ?? []).filter(Boolean));
+    const toScan = payload.portfolio_r2_keys.filter((r) => !stored.has(r));
+    // logo_url is absent from payload when identity is verified-locked (the
+    // strip above) — the optional chain skips it cleanly then.
+    if (payload.logo_url && payload.logo_url !== cur?.logo_url) {
+      toScan.push(payload.logo_url);
+    }
+    if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
+      return redirect(
+        `/vendor-dashboard/profile?error=${encodeURIComponent(VENDOR_QR_MEDIA_ERROR)}`,
+      );
+    }
+  }
+
   const { error } = await supabase
     .from('vendor_profiles')
     .update(payload)
@@ -624,7 +655,13 @@ export async function updateVendorProfileField(
 
   switch (field) {
     case 'logo': {
-      patch = { logo_url: parseLogoValue(formData.get('logo_url')) };
+      const logoRef = parseLogoValue(formData.get('logo_url'));
+      // QR-in-media guard (owner 2026-07-03): the logo renders on the public
+      // vendor page — it may not embed the vendor's invite/lock QR.
+      if (logoRef && (await vendorQrGuardRejects([logoRef]))) {
+        return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
+      }
+      patch = { logo_url: logoRef };
       break;
     }
     case 'business_name': {

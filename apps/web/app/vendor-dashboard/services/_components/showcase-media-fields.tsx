@@ -94,6 +94,7 @@ export function ShowcaseMediaFields({
         maxSizeMB={5}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         watermark
+        qrGuard
         variant="wide"
         label="Photos (up to 5)"
         help="PNG, JPEG, or WebP up to 5 MB each. Your cover photo stays separate — these are the gallery."
@@ -108,6 +109,7 @@ export function ShowcaseMediaFields({
         acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
         compressVideo
         validateFile={validateShowcaseVideo}
+        qrGuard
         variant="wide"
         label="Video (up to 30 seconds)"
         help="One short clip — booth in action, a real setup, the vibe. We compress it for smooth playback."

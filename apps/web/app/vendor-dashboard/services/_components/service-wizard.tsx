@@ -125,6 +125,7 @@ export function ServiceWizard({
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="square"
+            qrGuard
           />
         </Field>
         <Field label="Listing title (optional)" htmlFor="title">

@@ -38,6 +38,7 @@ export function WebsiteEditor({
   displayHost,
   websiteLive,
   isPro,
+  canPersonalize,
   about,
   sections,
   featuredServiceIds,
@@ -58,6 +59,7 @@ export function WebsiteEditor({
   displayHost: string;
   websiteLive: boolean;
   isPro: boolean;
+  canPersonalize: boolean;
   about: string | null;
   sections: Record<string, boolean>;
   featuredServiceIds: string[];
@@ -257,6 +259,9 @@ export function WebsiteEditor({
         </p>
       )}
 
+      {/* ── Personalize (Solo+): About · Featured services · Sections ─────── */}
+      {canPersonalize ? (
+        <>
       {/* ── About ────────────────────────────────────────────────────────── */}
       <Row title="About">
         <textarea
@@ -341,6 +346,10 @@ export function WebsiteEditor({
           Reviews always show — they&rsquo;re what couples trust most.
         </p>
       </Row>
+        </>
+      ) : (
+        <SoloUpsell />
+      )}
 
       {/* ── Awards (read-only) ───────────────────────────────────────────── */}
       <Row title="Awards and badges">
@@ -591,6 +600,31 @@ export function WebsiteEditor({
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+/* ─── Free-tier upsell: personalizing is a Solo+ benefit ────────────────── */
+function SoloUpsell() {
+  return (
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: 'var(--m-line)', background: 'var(--m-orange-4)' }}
+    >
+      <p className="text-sm font-medium text-ink">Make this page yours</p>
+      <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
+        On a <span className="font-medium">Solo</span> plan you can add an About
+        intro, an accent colour, featured services, and choose which sections
+        show. Your page is live and findable on Free — personalizing it is a Solo
+        upgrade.
+      </p>
+      <Link
+        href="/vendor-dashboard/subscription"
+        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+      >
+        See plans
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      </Link>
     </div>
   );
 }

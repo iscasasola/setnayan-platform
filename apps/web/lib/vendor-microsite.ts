@@ -1,5 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { asVendorTier } from './vendor-tier-caps';
+
+/**
+ * Website-tier capability gate (owner 2026-07-03 tier ladder). Maps a vendor's
+ * subscription `tier_state` to what the microsite editor unlocks:
+ *   - canPersonalize (Solo+): About · accent · featured services · sections
+ *   - canPremium (Pro+): custom slug · hero photo · pinned review · editorials
+ *     + the 2-column public layout (mirrors tierCaps.customWebsiteName)
+ *   - isEnterprise: the cinematic flagship layer
+ * Free / Verified get the clean auto-composed page (no customization).
+ */
+export function micrositeCan(tierState: string | null | undefined): {
+  canPersonalize: boolean;
+  canPremium: boolean;
+  isEnterprise: boolean;
+} {
+  const t = asVendorTier(tierState ?? null);
+  const rank = t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
+  return { canPersonalize: rank >= 1, canPremium: rank >= 2, isEnterprise: rank >= 3 };
+}
+
 /**
  * Vendor microsite customization — the curation layer a vendor sets in
  * My Shop → Website that overrides the auto-composed public `/v/[slug]` page.

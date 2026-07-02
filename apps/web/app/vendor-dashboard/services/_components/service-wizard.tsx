@@ -31,12 +31,14 @@ export function ServiceWizard({
   categoryValue,
   categoryLabel,
   otherCategories,
+  coverages = [],
   vendorProfileId,
   claimToken = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
   otherCategories: OtherCategory[];
+  coverages?: { id: number; label: string }[];
   vendorProfileId: string;
   /**
    * PR-C — when present, this service-create came from a couple's claim QR.
@@ -140,6 +142,18 @@ export function ServiceWizard({
 
       {/* 2 · Pricing */}
       <section {...show('price')} className="space-y-3">
+        {coverages.length > 0 ? (
+          <Field label="Coverage (optional)" htmlFor="coverage_id">
+            <select id="coverage_id" name="coverage_id" defaultValue="" className="input-field cursor-pointer">
+              <option value="">— not assigned —</option>
+              {coverages.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
         <Field label="Starting price (₱)" htmlFor="starting_price_php">
           <input
             id="starting_price_php"

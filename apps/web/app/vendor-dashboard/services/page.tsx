@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Fragment } from 'react';
 import { redirect } from 'next/navigation';
 import {
   ChevronDown,
@@ -155,6 +156,15 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   }));
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
   const coverageLabelById = new Map(coverageItems.map((c) => [c.id, c.pathLabel]));
+  // Group the service list by coverage (in the coverage panel's order; unassigned
+  // cards last). A stable sort keeps each group's created_at order; the render
+  // below emits a group header when the coverage changes.
+  const coverageOrder = new Map(coverageItems.map((c, idx) => [c.id, idx]));
+  const listedServices = [...services].sort((a, b) => {
+    const ra = a.coverage_id != null ? coverageOrder.get(a.coverage_id) ?? 9998 : 9999;
+    const rb = b.coverage_id != null ? coverageOrder.get(b.coverage_id) ?? 9998 : 9999;
+    return ra - rb;
+  });
   const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
@@ -650,7 +660,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
           </div>
         ) : (
           <ul className="space-y-2.5">
-            {services.map((svc) => {
+            {listedServices.map((svc, i) => {
+              const prevCov = i > 0 ? listedServices[i - 1]?.coverage_id ?? null : null;
+              const showCovHeader = i === 0 || prevCov !== (svc.coverage_id ?? null);
+              const covHeaderLabel =
+                svc.coverage_id && coverageLabelById.has(svc.coverage_id)
+                  ? (coverageLabelById.get(svc.coverage_id) as string)
+                  : 'Unassigned';
               const Icon = iconForVendorCategory(svc.category);
               const priceLabel = svc.starting_price_php
                 ? `from ${formatPhp(svc.starting_price_php)}`
@@ -666,8 +682,18 @@ export default async function VendorServicesPage({ searchParams }: Props) {
               const hasSlots =
                 (slotsByService.get(svc.vendor_service_id)?.length ?? 0) > 0;
               return (
+                <Fragment key={svc.vendor_service_id}>
+                  {showCovHeader ? (
+                    <li className="px-1 pb-1 pt-3 first:pt-1">
+                      <p
+                        className="font-mono text-[11px] font-medium uppercase tracking-[0.15em]"
+                        style={{ color: 'var(--m-slate-3)' }}
+                      >
+                        {covHeaderLabel}
+                      </p>
+                    </li>
+                  ) : null}
                 <li
-                  key={svc.vendor_service_id}
                   id={`svc-${svc.vendor_service_id}`}
                   className="scroll-mt-24 overflow-hidden rounded-2xl border"
                   style={{
@@ -997,6 +1023,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     </div>
                   </details>
                 </li>
+                </Fragment>
               );
             })}
           </ul>

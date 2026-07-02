@@ -69,6 +69,8 @@ import {
 } from '@/lib/vendor-service-payment-schedules';
 import { PaymentScheduleEditor } from './_components/payment-schedule-editor';
 import { ExploreCardPreview } from './_components/explore-card-preview';
+import { fetchAddonsByService } from '@/lib/vendor-service-addons';
+import { AddonsEditor } from './_components/addons-editor';
 import {
   createVendorService,
   proposeCategory,
@@ -152,6 +154,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
     serviceCount: serviceCountByCoverage[c.id] ?? 0,
   }));
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
+  const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
 
   // Four independent per-vendor reads batched into ONE round-trip instead of the
   // former serial chain (2026-07-01 perf):
@@ -942,6 +945,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         initial={(scheduleRowsByService.get(svc.vendor_service_id) ?? []).map(
                           rowToDraft,
                         )}
+                      />
+                      <AddonsEditor
+                        serviceId={svc.vendor_service_id}
+                        initial={(addonsByService.get(svc.vendor_service_id) ?? []).map((a) => ({
+                          label: a.label,
+                          price: a.from_price_php != null ? String(a.from_price_php) : '',
+                        }))}
                       />
                     </div>
                   </details>

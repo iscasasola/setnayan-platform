@@ -28,6 +28,7 @@ import {
 import { APX_CSS, CockpitFx } from './_components/fx';
 import { HealthNow } from './_components/health-now';
 import { ActionCenterZone } from './_components/action-center';
+import { ExpensesZone } from './_components/expenses';
 
 /**
  * /admin/app-performance — the App Performance cockpit (owner lock 2026-07-03:
@@ -300,6 +301,18 @@ export default async function AppPerformancePage({ searchParams }: Props) {
         }
       >
         <ActionCenterZone />
+      </Suspense>
+
+      {/* ── ZONE 2 · EXPENSES & RECEIPTS — money out (PR 3; pairs with the
+             Action Center's credit/plan cards, feeds 0026 BIR) ─────────── */}
+      <Suspense
+        fallback={
+          <section aria-label="Expenses loading" className="mb-12">
+            <div className="m-card h-28 animate-pulse p-5" />
+          </section>
+        }
+      >
+        <ExpensesZone />
       </Suspense>
 
       {/* ── GROWTH ─────────────────────────────────────────────────────── */}
@@ -658,8 +671,8 @@ export default async function AppPerformancePage({ searchParams }: Props) {
         {perf.generatedAtIso.slice(0, 16).replace('T', ' ')} UTC
         {sampled ? ' · some window reads hit their row cap — those counts are a floor, not exact' : ''}
         . Needs-wiring cards name their missing instrumentation — nothing here is
-        simulated. Expenses &amp; Receipts (the money-out ledger + receipts) lands as the
-        next PR per the plan.
+        simulated. All three zones of the plan are live: Action Center · Expenses &amp;
+        Receipts · Growth · Stability.
       </footer>
     </div>
   );

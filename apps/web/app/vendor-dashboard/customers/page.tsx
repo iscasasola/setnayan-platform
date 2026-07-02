@@ -13,7 +13,12 @@ import {
 } from '@/lib/vendor-schedule';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
-import { fetchVendorTeam, enrichTeamWithUsers } from '@/lib/vendor-team';
+import {
+  fetchVendorTeam,
+  enrichTeamWithUsers,
+  fetchAgentServiceAssignments,
+} from '@/lib/vendor-team';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 import { manilaTodayIso, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -134,6 +139,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     services,
     teamRows,
     paydayRes,
+    tierProbe,
   ] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     fetchVendorPoolBookings(supabase, vendorProfileId),
@@ -148,7 +154,41 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
     fetchVendorTeam(supabase, vendorProfileId),
     // Frozen installment plan across all booked events (ownership-gated RPC).
     supabase.rpc('vendor_payday_installments'),
+    // tier_state is excluded from the profile select → isolated probe (matches
+    // the chat-send / proposal-send convention). Gates the Agent filter.
+    supabase
+      .from('vendor_profiles')
+      .select('tier_state')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
   ]);
+
+  // Agent filtering is a subscription feature — enabled only when the tier
+  // grants agent accounts (Pro+, agentAccounts > 0). A vendor who drops below
+  // Pro loses it. Resolve which service categories each agent covers so the
+  // filter can narrow the calendar to that agent's schedule.
+  const tier = (tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null;
+  const agentsEnabled = tierCaps(tier).agentAccounts > 0;
+  const agentCategories: Record<string, string[]> = {};
+  if (agentsEnabled && teamRows.length > 0) {
+    try {
+      const assignments = await fetchAgentServiceAssignments(supabase, vendorProfileId);
+      const categoryByServiceId = new Map(
+        services.map((s) => [s.vendor_service_id, s.category]),
+      );
+      for (const [memberId, serviceIds] of Object.entries(assignments)) {
+        const cats = new Set<string>();
+        for (const sid of serviceIds) {
+          const cat = categoryByServiceId.get(sid);
+          if (cat) cats.add(cat);
+        }
+        agentCategories[memberId] = [...cats];
+      }
+    } catch {
+      // Fail-soft: no assignment map → agent options still render, but selecting
+      // one narrows to nothing rather than blocking the page.
+    }
+  }
 
   const paydayRows = (
     paydayRes.error ? [] : ((paydayRes.data ?? []) as unknown as PaydayInstallmentRow[])
@@ -363,6 +403,8 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
           types={eventTypeOptions}
           services={serviceOptions}
           agents={agentOptions}
+          agentsEnabled={agentsEnabled}
+          agentCategories={agentCategories}
         />
 
         {/* Section 3 — three summary cards. */}

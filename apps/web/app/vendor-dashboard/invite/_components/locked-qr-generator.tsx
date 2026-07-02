@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2, Upload, Check, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Trash2, Upload, Check, Loader2, AlertTriangle } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockScheduleRow } from '@/lib/vendor-locked-qr';
-import { issueLockedQr } from '../actions';
+import { issueLockedQr, checkVendorDateConflict } from '../actions';
 
 type Opt = { value: string; label: string };
 type Row = {
@@ -48,39 +48,120 @@ function round2(n: number): number {
 const downpaymentRow = (): Row => ({ label: 'Downpayment', amount: '', date: todayIso() });
 const blankRow = (n: number): Row => ({ label: `Payment ${n}`, amount: '', date: '' });
 
+/** Presign + PUT a file to R2; resolves the r2 ref. Throws on failure. */
+async function presignAndUpload(file: File): Promise<string> {
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      bucket: 'media',
+      pathPrefix: 'locked-qr-proof',
+      filename: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+    }),
+  });
+  if (!res.ok) throw new Error('presign failed');
+  const { uploadUrl, r2Ref } = (await res.json()) as { uploadUrl: string; r2Ref: string };
+  const put = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'content-type': file.type },
+    body: file,
+  });
+  if (!put.ok) throw new Error('upload failed');
+  return r2Ref;
+}
+
+/** One image upload slot (presign → PUT → ref), with its own busy/error state. */
+function useUploadSlot() {
+  const [ref, setRef] = useState('');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const r2Ref = await presignAndUpload(file);
+      setRef(r2Ref);
+      setName(file.name);
+    } catch {
+      setErr('Upload failed — try again.');
+      setRef('');
+      setName('');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { ref, name, busy, err, onChange };
+}
+
 /**
- * Locked QR generator form. The vendor sets the deal (event-type + service +
- * agreed wedding date + scope + total + downpayment + a "Name · Date · Amount"
- * payment schedule + proof of the received downpayment), and on submit
- * `issueLockedQr` mints a single-use token which the page renders as a QR.
+ * Locked QR generator form. The vendor sets the deal (event-type + one or more
+ * services + agreed event date + scope + total + downpayment + a
+ * "Name · Date · Amount" payment schedule + a contract + a payment proof), and on
+ * submit `issueLockedQr` mints a single-use token which the page renders as a QR.
  *
- * The schedule must fully account for the balance before it can be issued: row 1
- * is the downpayment (auto-filled from "Initial paid"), and the remaining rows
- * must sum with it to the total. The amount placeholder shows the outstanding
- * balance so the vendor is guided to zero it out; "Generate" unlocks only when
- * every required field is filled and nothing is left to schedule.
+ * "Generate" unlocks only when the deal is COMPLETE: a service, a valid event
+ * date, scope, total, a downpayment ≤ the total, every schedule row (each dated
+ * between today and the event), the balance fully scheduled (₱0 remaining), a
+ * chosen contract, and the payment proof uploaded.
  */
 export function LockedQrGenerator({
   eventTypes,
   services,
+  contracts,
 }: {
   eventTypes: Opt[];
   /** The vendor's own leaf offerings (vendor_services), DB-driven — value is a
    *  vendor_service_id, or a VendorCategory key for the no-published-services
-   *  fallback. issueLockedQr resolves either back to a category. */
+   *  fallback. issueLockedQr resolves either back to a category. Multi-select. */
   services: Opt[];
+  /** The vendor's saved contracts (value = contract_id). Chosen one is copied
+   *  onto the couple's booking at scan. */
+  contracts: Opt[];
 }) {
+  const today = todayIso();
   const [rows, setRows] = useState<Row[]>(() => [downpaymentRow()]);
-  const [serviceRef, setServiceRef] = useState('');
+  const [eventType, setEventType] = useState('');
+  const [serviceRefs, setServiceRefs] = useState<string[]>([]);
   const [eventDate, setEventDate] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
+  const [contractId, setContractId] = useState('');
   // Clean numeric strings (no separators) — displayed with thousands commas.
   const [total, setTotal] = useState('');
   const [initialPaid, setInitialPaid] = useState('');
-  const [proofRef, setProofRef] = useState('');
-  const [proofName, setProofName] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState('');
+  const proof = useUploadSlot();
+  const remembrance = useUploadSlot();
+  // Date-collision advisory for the entered event date (soft — never blocks).
+  const [conflict, setConflict] = useState<{ loading: boolean; labels: string[] } | null>(null);
+
+  // Event-type-aware date label (there are many event types, not just weddings).
+  const eventTypeLabel = eventTypes.find((t) => t.value === eventType)?.label ?? null;
+  const eventDateLabel = eventTypeLabel ? `${eventTypeLabel} date` : 'Event date';
+
+  // Notify the vendor if they already have a calendar block / booking on the
+  // chosen event date. Advisory only.
+  useEffect(() => {
+    if (!ISO_DATE_RE.test(eventDate)) {
+      setConflict(null);
+      return;
+    }
+    let cancelled = false;
+    setConflict({ loading: true, labels: [] });
+    checkVendorDateConflict(eventDate)
+      .then((res) => {
+        if (!cancelled) setConflict({ loading: false, labels: res.labels });
+      })
+      .catch(() => {
+        if (!cancelled) setConflict(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventDate]);
 
   // Row 1 (index 0) is the Downpayment: its amount is the "Initial paid /
   // downpayment" figure above (single source of truth) — the vendor never
@@ -98,17 +179,55 @@ export function LockedQrGenerator({
   // Balance math — the schedule must add up to the total before issuing.
   const totalNum = round2(Number(total) || 0);
   const paidNum = round2(Number(initialPaid) || 0);
+  const overpaid = paidNum > totalNum && totalNum > 0;
   const futureRows = rows.slice(1);
   const sumFuture = round2(futureRows.reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const remaining = round2(totalNum - paidNum - sumFuture);
 
+  // Auto-grow the schedule: keep exactly ONE open (empty-amount) installment row
+  // whenever a balance is left to schedule, and NONE once it reaches ₱0 — so the
+  // vendor never presses an "add" button. Keyed on the money inputs only (not
+  // names/dates), so editing a row's name/date never disturbs it; only ADDS when
+  // there is no open row, so a half-typed open row is preserved.
+  const futureAmountsKey = futureRows.map((r) => r.amount).join('|');
+  useEffect(() => {
+    setRows((prev) => {
+      const sumF = round2(prev.slice(1).reduce((s, r) => s + (Number(r.amount) || 0), 0));
+      const rem = round2(totalNum - paidNum - sumF);
+      let trailingEmpty = 0;
+      for (let i = prev.length - 1; i > 0; i--) {
+        const row = prev[i];
+        if (row && String(row.amount).trim() === '') trailingEmpty++;
+        else break;
+      }
+      if (rem > 0) {
+        if (trailingEmpty === 0 && prev.length < MAX_SCHEDULE_ITEMS) {
+          return [...prev, blankRow(prev.length)];
+        }
+        if (trailingEmpty > 1) {
+          return prev.slice(0, prev.length - (trailingEmpty - 1));
+        }
+        return prev;
+      }
+      // Balance settled (or over-scheduled) — drop any leftover open rows.
+      return trailingEmpty > 0 ? prev.slice(0, prev.length - trailingEmpty) : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalNum, paidNum, futureAmountsKey]);
+
+  // Each payment date must sit between today and the event date (inclusive).
+  const dateInRange = (d: string) =>
+    ISO_DATE_RE.test(d) && d >= today && (ISO_DATE_RE.test(eventDate) ? d <= eventDate : true);
+
   const labelsOk = rows.every((r) => r.label.trim() !== '');
-  const datesOk = rows.every((r) => ISO_DATE_RE.test(r.date));
+  const datesOk = rows.every((r) => dateInRange(r.date));
   const futureAmountsOk = futureRows.every((r) => (Number(r.amount) || 0) > 0);
   const canGenerate =
-    serviceRef !== '' &&
+    serviceRefs.length > 0 &&
     ISO_DATE_RE.test(eventDate) &&
+    eventDate >= today &&
     serviceDescription.trim() !== '' &&
+    contractId !== '' &&
     totalNum > 0 &&
     paidNum > 0 &&
     paidNum <= totalNum &&
@@ -116,46 +235,18 @@ export function LockedQrGenerator({
     datesOk &&
     futureAmountsOk &&
     remaining === 0 &&
-    !uploading;
+    proof.ref !== '' &&
+    !proof.busy &&
+    !remembrance.busy;
 
   function patch(i: number, p: Partial<Row>) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
   }
 
-  async function onProof(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadErr('');
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          bucket: 'media',
-          pathPrefix: 'locked-qr-proof',
-          filename: file.name,
-          contentType: file.type,
-          sizeBytes: file.size,
-        }),
-      });
-      if (!res.ok) throw new Error('presign failed');
-      const { uploadUrl, r2Ref } = (await res.json()) as { uploadUrl: string; r2Ref: string };
-      const put = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'content-type': file.type },
-        body: file,
-      });
-      if (!put.ok) throw new Error('upload failed');
-      setProofRef(r2Ref);
-      setProofName(file.name);
-    } catch {
-      setUploadErr('Upload failed — try again.');
-      setProofRef('');
-      setProofName('');
-    } finally {
-      setUploading(false);
-    }
+  function toggleService(value: string) {
+    setServiceRefs((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
   }
 
   const remainingLabel = `₱${withThousands(String(Math.abs(remaining)))}`;
@@ -163,7 +254,10 @@ export function LockedQrGenerator({
   return (
     <form action={issueLockedQr} className="mt-6 space-y-5">
       <input type="hidden" name="schedule_json" value={JSON.stringify(scheduleJson)} />
-      <input type="hidden" name="proof_r2_ref" value={proofRef} />
+      <input type="hidden" name="service_refs" value={JSON.stringify(serviceRefs)} />
+      <input type="hidden" name="proof_r2_ref" value={proof.ref} />
+      <input type="hidden" name="remembrance_r2_ref" value={remembrance.ref} />
+      <input type="hidden" name="source_contract_id" value={contractId} />
       {/* Comma-formatted fields display with separators but submit clean numbers. */}
       <input type="hidden" name="total_php" value={total} />
       <input type="hidden" name="initial_paid_php" value={initialPaid} />
@@ -173,7 +267,13 @@ export function LockedQrGenerator({
           <label htmlFor="event_type" className="block text-sm font-medium text-ink/80">
             Event
           </label>
-          <select id="event_type" name="event_type" className="input-field w-full" defaultValue="">
+          <select
+            id="event_type"
+            name="event_type"
+            className="input-field w-full"
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value)}
+          >
             <option value="">Any event type</option>
             {eventTypes.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
@@ -181,22 +281,29 @@ export function LockedQrGenerator({
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="service_ref" className="block text-sm font-medium text-ink/80">
-            Service <span className="text-terracotta">*</span>
+          <label htmlFor="event_date" className="block text-sm font-medium text-ink/80">
+            {eventDateLabel} <span className="text-terracotta">*</span>
           </label>
-          <select
-            id="service_ref"
-            name="service_ref"
+          <input
+            id="event_date"
+            name="event_date"
+            type="date"
             required
+            min={today}
             className="input-field w-full"
-            value={serviceRef}
-            onChange={(e) => setServiceRef(e.target.value)}
-          >
-            <option value="" disabled>Pick a service</option>
-            {services.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+          />
+          <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
+          {conflict && !conflict.loading && conflict.labels.length > 0 && (
+            <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+              <span>
+                You already have {conflict.labels.length} booking/block on this date:{' '}
+                {conflict.labels.join(' · ')}. Double-check before locking.
+              </span>
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <label htmlFor="total_php" className="block text-sm font-medium text-ink/80">
@@ -220,26 +327,45 @@ export function LockedQrGenerator({
             id="initial_paid_php"
             type="text"
             inputMode="decimal"
-            className="input-field w-full"
+            className={`input-field w-full ${overpaid ? 'border-terracotta' : ''}`}
             placeholder="e.g. 15,000"
             value={withThousands(initialPaid)}
             onChange={(e) => setInitialPaid(cleanNumeric(e.target.value))}
           />
+          {overpaid && (
+            <p className="text-xs text-terracotta">
+              Downpayment can&apos;t be more than the total value.
+            </p>
+          )}
         </div>
-        <div className="space-y-1.5">
-          <label htmlFor="event_date" className="block text-sm font-medium text-ink/80">
-            Wedding date <span className="text-terracotta">*</span>
-          </label>
-          <input
-            id="event_date"
-            name="event_date"
-            type="date"
-            required
-            className="input-field w-full"
-            value={eventDate}
-            onChange={(e) => setEventDate(e.target.value)}
-          />
-          <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
+      </div>
+
+      {/* Services — one or more of the vendor's own offerings (multi-select). */}
+      <div className="space-y-2 rounded-2xl border border-ink/10 bg-white/60 p-5">
+        <p className="text-sm font-medium text-ink/80">
+          Service(s) <span className="text-terracotta">*</span>
+          <span className="ml-1 font-normal text-ink/45">— pick every service this deal covers</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {services.map((s) => {
+            const on = serviceRefs.includes(s.value);
+            return (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => toggleService(s.value)}
+                aria-pressed={on}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+                  on
+                    ? 'border-terracotta bg-terracotta/10 text-terracotta'
+                    : 'border-ink/15 bg-white text-ink/70 hover:border-ink/30'
+                }`}
+              >
+                {on && <Check className="h-3.5 w-3.5" strokeWidth={2} />}
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -273,6 +399,7 @@ export function LockedQrGenerator({
         <div className="mt-3 space-y-3">
           {rows.map((r, i) => {
             const isDownpayment = i === 0;
+            const badDate = r.date !== '' && !dateInRange(r.date);
             return (
               <div key={i} className="rounded-xl border border-ink/10 p-3">
                 <div className="flex items-center gap-2">
@@ -301,8 +428,10 @@ export function LockedQrGenerator({
                     </label>
                     <input
                       aria-label="Payment date"
-                      className="input-field w-full"
+                      className={`input-field w-full ${badDate ? 'border-terracotta' : ''}`}
                       type="date"
+                      min={today}
+                      max={ISO_DATE_RE.test(eventDate) ? eventDate : undefined}
                       value={r.date}
                       onChange={(e) => patch(i, { date: e.target.value })}
                     />
@@ -323,24 +452,24 @@ export function LockedQrGenerator({
                     />
                   </div>
                 </div>
-                {isDownpayment && (
+                {isDownpayment ? (
                   <p className="mt-2 text-xs text-ink/45">
                     Auto-filled from “Initial paid / downpayment” above.
                   </p>
-                )}
+                ) : badDate ? (
+                  <p className="mt-2 text-xs text-terracotta">
+                    Date must be between today and the event date.
+                  </p>
+                ) : null}
               </div>
             );
           })}
         </div>
 
-        {rows.length < MAX_SCHEDULE_ITEMS && (
-          <button
-            type="button"
-            onClick={() => setRows((prev) => [...prev, blankRow(prev.length)])}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.75} /> Add an installment
-          </button>
+        {rows.length >= MAX_SCHEDULE_ITEMS && remaining > 0 && (
+          <p className="mt-3 text-xs text-ink/45">
+            Maximum installments reached — adjust the amounts so the balance reaches ₱0.
+          </p>
         )}
 
         {/* Balance guide — must reach ₱0 before the QR can be issued. */}
@@ -360,24 +489,90 @@ export function LockedQrGenerator({
         </div>
       </div>
 
-      {/* Proof of downpayment */}
-      <div className="rounded-2xl border border-ink/10 bg-white/60 p-5">
-        <h2 className="text-sm font-semibold text-ink">Downpayment proof</h2>
-        <p className="mt-1 text-xs text-ink/50">
-          Upload the receipt/screenshot of the downpayment you received.
-        </p>
-        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-ink/75 hover:border-terracotta">
-          {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-          ) : proofRef ? (
-            <Check className="h-4 w-4 text-emerald-600" strokeWidth={2} />
-          ) : (
-            <Upload className="h-4 w-4" strokeWidth={1.75} />
-          )}
-          {proofRef ? proofName : uploading ? 'Uploading…' : 'Choose file'}
-          <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onProof} disabled={uploading} />
+      {/* Contract — pick one of the vendor's saved contracts to attach. */}
+      <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/60 p-5">
+        <label htmlFor="source_contract_id" className="block text-sm font-medium text-ink/80">
+          Contract <span className="text-terracotta">*</span>
         </label>
-        {uploadErr && <p className="mt-2 text-xs text-terracotta">{uploadErr}</p>}
+        {contracts.length > 0 ? (
+          <>
+            <select
+              id="source_contract_id"
+              className="input-field w-full"
+              value={contractId}
+              onChange={(e) => setContractId(e.target.value)}
+            >
+              <option value="" disabled>Pick a contract</option>
+              {contracts.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-ink/50">
+              A copy is attached to the couple&apos;s booking for e-signature when they scan.
+            </p>
+          </>
+        ) : (
+          <p className="rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
+            No saved contracts yet. Add one under <span className="font-medium">Contracts</span> first,
+            then pick it here.
+          </p>
+        )}
+      </div>
+
+      {/* Proof of payment (required) + optional remembrance photo */}
+      <div className="space-y-4 rounded-2xl border border-ink/10 bg-white/60 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">
+            Proof of payment <span className="text-terracotta">*</span>
+          </h2>
+          <p className="mt-1 text-xs text-ink/50">
+            Upload the receipt/screenshot of the downpayment you received.
+          </p>
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-ink/75 hover:border-terracotta">
+            {proof.busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+            ) : proof.ref ? (
+              <Check className="h-4 w-4 text-emerald-600" strokeWidth={2} />
+            ) : (
+              <Upload className="h-4 w-4" strokeWidth={1.75} />
+            )}
+            {proof.ref ? proof.name : proof.busy ? 'Uploading…' : 'Choose file'}
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={proof.onChange}
+              disabled={proof.busy}
+            />
+          </label>
+          {proof.err && <p className="mt-2 text-xs text-terracotta">{proof.err}</p>}
+        </div>
+        <div className="border-t border-ink/10 pt-4">
+          <h2 className="text-sm font-semibold text-ink">
+            Remembrance photo <span className="font-normal text-ink/45">(optional)</span>
+          </h2>
+          <p className="mt-1 text-xs text-ink/50">
+            A keepsake photo saved with this booking.
+          </p>
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-ink/75 hover:border-terracotta">
+            {remembrance.busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+            ) : remembrance.ref ? (
+              <Check className="h-4 w-4 text-emerald-600" strokeWidth={2} />
+            ) : (
+              <Upload className="h-4 w-4" strokeWidth={1.75} />
+            )}
+            {remembrance.ref ? remembrance.name : remembrance.busy ? 'Uploading…' : 'Choose file'}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={remembrance.onChange}
+              disabled={remembrance.busy}
+            />
+          </label>
+          {remembrance.err && <p className="mt-2 text-xs text-terracotta">{remembrance.err}</p>}
+        </div>
       </div>
 
       <SubmitButton
@@ -389,8 +584,8 @@ export function LockedQrGenerator({
       </SubmitButton>
       {!canGenerate && (
         <p className="-mt-2 text-center text-xs text-ink/45">
-          Fill in the service, wedding date, scope, total, downpayment, and every payment date and
-          amount until the balance is fully scheduled to generate the QR.
+          Complete every field — service(s), event date, scope, total, downpayment, the full payment
+          schedule (balance at ₱0), a contract, and the payment proof — to generate the QR.
         </p>
       )}
     </form>

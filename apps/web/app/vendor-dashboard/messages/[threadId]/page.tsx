@@ -27,7 +27,14 @@ import {
   type VendorOfferOption,
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
+import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { interestChipLabel } from '@/lib/thread-interests';
+import {
+  deriveThreadStage,
+  THREAD_STAGE_LABEL,
+  THREAD_STAGE_TONE,
+} from '@/lib/vendor-thread-stage';
 import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
 import {
   InquiryOutcomeCapture,
@@ -222,10 +229,48 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     />
   );
 
+  // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
+  // Masked = the inquiry is still pending; the rail reveals nothing beyond the
+  // placeholder (vendor hybrid-anonymity — mirrors the accept-gate on the
+  // conversation below). Only derive the stage/snapshot when unmasked.
+  const railMasked = thread.inquiry_status === 'pending';
+  const railInitials =
+    coupleLabel
+      .split(/[\s&·]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w: string) => w[0]?.toUpperCase() ?? '')
+      .join('') || 'C';
+  // Service/category of the inquiry — the first recorded interest chip (the
+  // same source the interest chips + cross-sell already use on this page).
+  const firstInterest = existingInterests[0];
+  const railService = firstInterest ? interestChipLabel(firstInterest) : null;
+  const railPaxLabel = !railMasked && headerPax ? `~${headerPax} planning` : null;
+  const railStage = railMasked
+    ? ('inquiry' as const)
+    : await deriveThreadStage({
+        supabase,
+        adminClient: paxAdmin,
+        eventId: thread.event_id,
+        vendorProfileId: profile.vendor_profile_id,
+      });
+  const railProps = {
+    displayName: railMasked ? 'New Customer' : coupleLabel,
+    initials: railInitials,
+    masked: railMasked,
+    stage: { label: THREAD_STAGE_LABEL[railStage], tone: THREAD_STAGE_TONE[railStage] },
+    eventDate: event?.event_date ?? null,
+    service: railMasked ? null : railService,
+    paxLabel: railPaxLabel,
+    threadId,
+    eventId: thread.event_id,
+  };
+
   msgTimer.flush();
 
   return (
-    <section className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8">
+      <section className="flex min-w-0 flex-1 flex-col gap-4">
       <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
@@ -251,11 +296,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             </p>
           ) : null}
         </div>
-        <ChatThreadMenu
-          threadId={threadId}
-          returnTo={`/vendor-dashboard/messages/${threadId}`}
-          blockedByMe={blockState.blockedByMe}
-        />
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Mobile: opens the customer info rail as a sheet. Desktop shows the
+              rail as a docked column instead (see below). */}
+          <ChatInfoRailTrigger {...railProps} />
+          <ChatThreadMenu
+            threadId={threadId}
+            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            blockedByMe={blockState.blockedByMe}
+          />
+        </div>
       </header>
 
       {/* Pending surcharge confirms (Adaptive Pax Pricing Phase 5) — the count
@@ -306,6 +356,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         );
       })}
 
+      {/* Scroll anchor for the rail's "Log payment" quick action — lands on the
+          couple-logged-payment confirm cards (rendered below when any exist). */}
+      <div id="pending-payments" className="scroll-mt-24" aria-hidden />
+
       {/* Pending payment confirms + per-booking plan progress — moved into a
           live client component so the vendor's payment cards update in real
           time (Realtime on the couple-RLS payment tables, gated by the
@@ -347,11 +401,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               {proposalNotice}
             </p>
           ) : null}
-          <SendProposalCard
-            threadId={threadId}
-            templates={proposalTemplates}
-            packages={proposalPackages}
-          />
+          <div id="send-proposal" className="scroll-mt-24">
+            <SendProposalCard
+              threadId={threadId}
+              templates={proposalTemplates}
+              packages={proposalPackages}
+            />
+          </div>
           {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active
               inquiry. Self-reported; "Won" is off-platform, not a payment. */}
           {outcomeCapture}
@@ -422,6 +478,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           {outcomeCapture}
         </div>
       )}
-    </section>
+      </section>
+
+      {/* Customer info rail — docked column on lg+ (mobile uses the header
+          trigger + sheet above). Customer Card respine PR-3. */}
+      <ChatInfoRailColumn {...railProps} />
+    </div>
   );
 }

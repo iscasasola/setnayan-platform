@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
-import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake } from 'lucide-react';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -944,6 +944,59 @@ async function fetchLiveOffPeakVendorIds(
 }
 
 /**
+ * Couple-side serves filter (service-card redesign · couple payoff 2026-07-03)
+ * — the vendor_profile_ids to EXCLUDE for a `?faith=<X>` narrow, resolved from
+ * the vendors' own `vendor_coverages.faiths` declarations.
+ *
+ * Matching rule: a vendor MATCHES faith X when ANY of their coverage rows
+ * either has an EMPTY `faiths[]` (empty = all faiths welcomed — the column
+ * contract from migration 20270502342558) OR explicitly contains X (TITLE-CASE
+ * faithCol, strict equality). Vendors with ZERO coverage rows also MATCH:
+ * legacy vendors simply haven't declared who they serve yet, and hiding them
+ * behind every faith narrow would silently blank the marketplace (the
+ * "not enough data ≠ blocked" rule). The filter is therefore an EXCLUSION —
+ * only vendors who DID declare coverage faiths and whose rows all fail to
+ * admit X get filtered out.
+ *
+ * One read of (vendor_profile_id, faiths) with the sets computed in-memory:
+ * this sidesteps PostgREST array-literal quoting for multi-word faith keys
+ * ("Born Again") and keeps the zero-coverage rule exact. The table is tiny at
+ * V1 scale (founder-only marketplace; rows = vendors × declared leaves).
+ * Fail-soft: on error return [] (exclude nobody) so a DB hiccup degrades to
+ * the unfiltered marketplace rather than a 500.
+ */
+async function fetchFaithMismatchVendorIds(
+  admin: ReturnType<typeof createAdminClient>,
+  faithCol: string,
+): Promise<string[]> {
+  try {
+    const { data, error } = await admin
+      .from('vendor_coverages')
+      .select('vendor_profile_id, faiths');
+    if (error) {
+      console.warn('[faith-filter] fetchFaithMismatchVendorIds failed:', error.message);
+      return [];
+    }
+    const declared = new Set<string>();
+    const matched = new Set<string>();
+    for (const row of (data ?? []) as Array<{
+      vendor_profile_id?: string;
+      faiths?: string[] | null;
+    }>) {
+      const id = row.vendor_profile_id;
+      if (!id) continue;
+      declared.add(id);
+      const faiths = row.faiths ?? [];
+      if (faiths.length === 0 || faiths.includes(faithCol)) matched.add(id);
+    }
+    return [...declared].filter((id) => !matched.has(id));
+  } catch (e) {
+    console.warn('[faith-filter] fetchFaithMismatchVendorIds threw:', e);
+    return [];
+  }
+}
+
+/**
  * Look up the minimum `starting_price_php` per vendor_profile_id for
  * the given list — used only for demo-mode marketplace card pricing.
  * Returns a Map for O(1) lookup at render time.
@@ -1247,6 +1300,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // main yet.
   const demoVendorIds = await fetchDemoVendorIds(admin);
 
+  // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
+  // ONCE per request; it constrains both the main grid query and the broadened
+  // empty-state count below. `filters.faithFilter` is the page-local TitleCase
+  // FaithKey, which is exactly the `faithCol` value vendor_coverages stores.
+  const faithMismatchIds = filters.faithFilter
+    ? await fetchFaithMismatchVendorIds(admin, filters.faithFilter)
+    : [];
+
   // Public marketplace requires a non-empty business_name. Coming-soon
   // vendors are intentionally surfaced (Decision 6 / 2026-05-15) — but
   // a row that hasn't even filled in its name renders as "Unnamed
@@ -1335,6 +1396,22 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // each vendor serves (default ['wedding'] for legacy / V1.1 vendors).
     // GIN-indexed by migration 20260521090000.
     query = query.contains('event_types', [filters.eventType]);
+  }
+  // Couple-side serves filter (2026-07-03) — `?faith=<x>` now narrows the
+  // VENDOR GRID via the vendors' own vendor_coverages.faiths declarations
+  // (previously the param only narrowed catalog-mode ceremony tiles). Applied
+  // as an exclusion — see fetchFaithMismatchVendorIds for the matching rule
+  // (empty faiths = all welcome; zero coverage rows = never hidden). Same
+  // NOT-IN shape + type-narrowing as the demo exclusion above.
+  if (filters.faithFilter && faithMismatchIds.length > 0) {
+    type FaithQueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as FaithQueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${faithMismatchIds.join(',')})`,
+    );
   }
   if (filters.city.length > 0) {
     query = query.ilike('location_city', `%${filters.city}%`);
@@ -1551,6 +1628,18 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
     if (filters.eventType) {
       broadened = broadened.contains('event_types', [filters.eventType]);
+    }
+    // Mirror the faith narrow (like category/city/q/eventType, it's preserved
+    // context — only match + verified drop for the broadened count).
+    if (filters.faithFilter && faithMismatchIds.length > 0) {
+      type BroadenedFaithShape = {
+        not: (column: string, op: string, value: string) => typeof broadened;
+      };
+      broadened = (broadened as unknown as BroadenedFaithShape).not(
+        'vendor_profile_id',
+        'in',
+        `(${faithMismatchIds.join(',')})`,
+      );
     }
     if (filters.city.length > 0) {
       broadened = broadened.ilike('location_city', `%${filters.city}%`);
@@ -2517,6 +2606,38 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             </Link>
           )}
         </div>
+
+        {/* Couple-side serves filter (2026-07-03) — active-faith strip. The
+            faith PICKER stays inside the FilterDrawer (owner directive
+            2026-05-30 retired the inline pill row: "they should be embedded
+            inside the filter"), so this strip only renders when a narrow is
+            ACTIVE — it names the faith being matched and offers a one-click
+            clear that keeps every other filter. Vendors surface when any of
+            their coverages welcomes this faith (or all faiths). */}
+        {filters.faithFilter ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-terracotta/20 bg-terracotta/5 px-4 py-3">
+            <p className="inline-flex items-center gap-2 text-sm text-ink/80">
+              <HeartHandshake
+                aria-hidden
+                className="h-4 w-4 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <span>
+                Showing vendors who serve{' '}
+                <span className="font-medium text-ink">
+                  {FAITH_KEY_TO_LABEL[filters.faithFilter]}
+                </span>{' '}
+                celebrations.
+              </span>
+            </p>
+            <Link
+              href={buildHref(filters, { faithFilter: null, page: 1 })}
+              className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              All faiths
+            </Link>
+          </div>
+        ) : null}
 
         {visible.length === 0 ? (
           <EmptyState

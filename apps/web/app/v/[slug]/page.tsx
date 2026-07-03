@@ -33,11 +33,15 @@ import {
   type VendorServiceDiscount,
 } from '@/lib/vendor-services';
 import {
+  fetchCoveragesByIdPublic,
   fetchInclusionsByService,
   fetchDiscountsByServicePublic,
   pickBestDiscount,
+  type VendorServiceCoverage,
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   fetchTrustedByVendors,
   type TrustedByVendor,
@@ -525,6 +529,73 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   }
 }
 
+/** Display URLs for one service card's showcase media. */
+type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
+
+/**
+ * Showcase media per active service (couple-side serves payoff, 2026-07-03) —
+ * presign the ≤5 gallery photos + the optional ≤30s clip for every card, all
+ * refs in parallel + fail-soft PER SERVICE, so one bad ref (or a dev env with
+ * no R2 credentials) never blocks the profile. Cover (`primary_photo_r2_key`)
+ * is intentionally untouched — it keeps its existing behavior.
+ */
+async function resolveServiceShowcaseMedia(
+  services: ReadonlyArray<VendorServiceRow>,
+): Promise<Map<string, ServiceShowcaseMedia>> {
+  const out = new Map<string, ServiceShowcaseMedia>();
+  await Promise.all(
+    services.map(async (s) => {
+      const photoKeys = (s.showcase_photo_r2_keys ?? []).slice(0, 5);
+      if (photoKeys.length === 0 && !s.showcase_video_r2_key) return;
+      try {
+        const [photoUrls, videoUrl] = await Promise.all([
+          Promise.all(photoKeys.map((k) => displayUrlForStoredAsset(k))),
+          displayUrlForStoredAsset(s.showcase_video_r2_key),
+        ]);
+        const photos = photoUrls.filter((u): u is string => Boolean(u));
+        if (photos.length > 0 || videoUrl) {
+          out.set(s.vendor_service_id, { photos, videoUrl: videoUrl ?? null });
+        }
+      } catch {
+        // Fail-soft — the card simply renders without its media strip.
+      }
+    }),
+  );
+  return out;
+}
+
+/** faithCol (Title-Case storage key) → couple-facing label, from the single
+ *  faith registry ([[lib/faith-registry.ts]]). Unknown values pass through. */
+const FAITHCOL_TO_LABEL: ReadonlyMap<string, string> = new Map(
+  FAITH_REGISTRY.map((e) => [e.faithCol, e.label]),
+);
+
+/**
+ * The card's "Serves" line from its coverage row — event types first, faiths
+ * after an em-dash. EMPTY faiths = "All faiths" (the column contract: an empty
+ * array means all faiths welcomed). No coverage row → null → no line rendered.
+ * e.g. "Wedding · Debut — All faiths" / "Wedding — Catholic, Muslim".
+ */
+function buildServesLine(
+  coverage: VendorServiceCoverage | undefined,
+  eventTypeLabelByKey: ReadonlyMap<string, string>,
+): string | null {
+  if (!coverage) return null;
+  const types = coverage.event_types
+    .map(
+      (t) =>
+        eventTypeLabelByKey.get(t) ??
+        t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    )
+    .filter((t) => t.length > 0);
+  const faiths =
+    coverage.faiths.length === 0
+      ? 'All faiths'
+      : coverage.faiths.map((f) => FAITHCOL_TO_LABEL.get(f) ?? f).join(', ');
+  if (types.length === 0) return faiths === 'All faiths' ? null : faiths;
+  return `${types.join(' · ')} — ${faiths}`;
+}
+
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // render a vendor when a bare slug resolves to one, without duplicating this
 // route. The route's own default export (below) is a thin wrapper.
@@ -670,10 +741,39 @@ export async function renderVendorBySlug({
   // vendor is already resolved as published + these ids are all active, so the
   // read is correctly scoped even under the server-role admin client.
   const activeServiceIds = activeServices.map((s) => s.vendor_service_id);
-  const [inclusionsByService, discountsByService] = await Promise.all([
+  // Coverage ids behind the active cards — drive the "Serves" line (event
+  // types + faiths). Legacy services (coverage_id null) simply show no line.
+  const coverageIds = Array.from(
+    new Set(
+      activeServices
+        .map((s) => s.coverage_id)
+        .filter((id): id is number => id !== null),
+    ),
+  );
+  const [
+    inclusionsByService,
+    discountsByService,
+    coveragesById,
+    eventTypeVocab,
+    showcaseByService,
+  ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
     fetchDiscountsByServicePublic(admin, activeServiceIds),
+    fetchCoveragesByIdPublic(admin, coverageIds),
+    // Fail-soft by contract (falls back to the hardcoded roster on error).
+    getEventTypeVocab(),
+    resolveServiceShowcaseMedia(activeServices),
   ]);
+
+  // Pre-format the per-service "Serves" line server-side so the client gallery
+  // stays a dumb view (same contract as inclusions/discount labels).
+  const eventTypeLabelByKey = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
+  const servesByService = new Map<string, string>();
+  for (const s of activeServices) {
+    if (s.coverage_id === null) continue;
+    const line = buildServesLine(coveragesById.get(s.coverage_id), eventTypeLabelByKey);
+    if (line) servesByService.set(s.vendor_service_id, line);
+  }
 
   // Linked services per anchor service (owner-locked 2026-06-12 "multi-service
   // inquiry mapping") — the price-included "comes with" set shown as read-only
@@ -1741,6 +1841,8 @@ export async function renderVendorBySlug({
             businessName={displayLabel}
             inclusionsByService={inclusionsByService}
             discountsByService={discountsByService}
+            servesByService={servesByService}
+            showcaseByService={showcaseByService}
           />
         ) : null}
 
@@ -2126,11 +2228,17 @@ function ServicesPricingSection({
   businessName,
   inclusionsByService,
   discountsByService,
+  servesByService,
+  showcaseByService,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
   inclusionsByService: Map<string, VendorServiceInclusion[]>;
   discountsByService: Map<string, VendorServiceDiscount[]>;
+  /** Pre-formatted "Serves" line per service id (coverage event types + faiths). */
+  servesByService: Map<string, string>;
+  /** Resolved showcase display URLs per service id (photos ≤5 + optional clip). */
+  showcaseByService: Map<string, ServiceShowcaseMedia>;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2157,6 +2265,8 @@ function ServicesPricingSection({
           row,
           inclusionsByService.get(row.vendor_service_id),
           discountsByService.get(row.vendor_service_id),
+          servesByService.get(row.vendor_service_id),
+          showcaseByService.get(row.vendor_service_id),
         ),
       ),
     });
@@ -2190,6 +2300,8 @@ function toServiceCard(
   row: VendorServiceRow,
   inclusions: VendorServiceInclusion[] | undefined,
   discounts: VendorServiceDiscount[] | undefined,
+  serves: string | undefined,
+  showcase: ServiceShowcaseMedia | undefined,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
@@ -2198,6 +2310,36 @@ function toServiceCard(
     row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`
       : 'Inquire';
+
+  // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
+  // the per-guest rate (+ the min floor when set); per-hour shows the base
+  // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
+  // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
+  // above is untouched.
+  let priceDetail: string | null = null;
+  if (
+    row.pricing_basis === 'per_pax' &&
+    row.per_pax_price_php !== null &&
+    row.per_pax_price_php > 0
+  ) {
+    const minPart =
+      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} guests` : '';
+    priceDetail = `${formatPhp(row.per_pax_price_php)} / guest${minPart}`;
+  } else if (
+    row.pricing_basis === 'per_hour' &&
+    row.hour_base_php !== null &&
+    row.hour_base_php > 0
+  ) {
+    const base =
+      row.min_hours !== null && row.min_hours > 0
+        ? `${formatPhp(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
+        : formatPhp(row.hour_base_php);
+    const extra =
+      row.extra_hour_php !== null && row.extra_hour_php > 0
+        ? ` · +${formatPhp(row.extra_hour_php)}/extra hr`
+        : '';
+    priceDetail = `${base}${extra}`;
+  }
 
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
   // savings on the anchor, dropping expired offers).
@@ -2243,6 +2385,10 @@ function toServiceCard(
     inclusions: shownInclusions,
     inclusionsMore,
     notIncluded,
+    priceDetail,
+    serves: serves ?? null,
+    photos: showcase?.photos ?? [],
+    videoUrl: showcase?.videoUrl ?? null,
   };
 }
 

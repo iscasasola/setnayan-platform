@@ -17,11 +17,14 @@ import {
   defaultPriorityOrder,
   parsePriorityOrder,
   resolvePriorityRank,
+  computeGuestSwap,
+  computeTableSwap,
   type EventTableRow,
   type AutoSeatGuest,
   type PriorityOrder,
   type KeepApartRule,
   type RecommendGuest,
+  type SeatAssignmentRow,
 } from './seating';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
@@ -465,4 +468,96 @@ test('recommendTableSet skipFour:true skips every ones-digit-4 across many table
   assert.ok(!labels.includes('Table 4'));
   assert.ok(!labels.includes('Table 14'));
   assert.equal(labels[labels.length - 1], 'Table 22');
+});
+
+// ---------------------------------------------------------------------------
+// Atomic swap logic — computeGuestSwap / computeTableSwap mirror the DB RPCs.
+// The DB guarantees atomicity + the physical-chair unique index; these pins
+// the client-visible END STATE the RPC produces (no NULL-park artefact leaks).
+// ---------------------------------------------------------------------------
+
+function asg(over: Partial<SeatAssignmentRow> & Pick<SeatAssignmentRow, 'guest_id'>): SeatAssignmentRow {
+  return {
+    assignment_id: `a-${over.guest_id}`,
+    table_id: 't1',
+    seat_number: 0,
+    ...over,
+  };
+}
+
+test('computeGuestSwap exchanges (table, seat) of two seated guests', () => {
+  const rows = [
+    asg({ guest_id: 'A', table_id: 't1', seat_number: 2 }),
+    asg({ guest_id: 'B', table_id: 't2', seat_number: 5 }),
+  ];
+  const r = computeGuestSwap(rows, 'A', 'B');
+  assert.ok(r);
+  // A takes B's chair, B takes A's chair.
+  assert.deepEqual(r.a, { tableId: 't2', seatNumber: 5 });
+  assert.deepEqual(r.b, { tableId: 't1', seatNumber: 2 });
+});
+
+test('computeGuestSwap carries a NULL seat_number (table-only, no chair)', () => {
+  const rows = [
+    asg({ guest_id: 'A', table_id: 't1', seat_number: null }),
+    asg({ guest_id: 'B', table_id: 't2', seat_number: 3 }),
+  ];
+  const r = computeGuestSwap(rows, 'A', 'B');
+  assert.ok(r);
+  assert.deepEqual(r.a, { tableId: 't2', seatNumber: 3 });
+  assert.deepEqual(r.b, { tableId: 't1', seatNumber: null });
+});
+
+test('computeGuestSwap returns null when a guest is unseated (RPC would raise)', () => {
+  const rows = [asg({ guest_id: 'A', table_id: 't1', seat_number: 0 })];
+  assert.equal(computeGuestSwap(rows, 'A', 'B'), null); // B has no row
+  assert.equal(computeGuestSwap(rows, 'A', 'A'), null); // self-swap
+});
+
+test('computeGuestSwap never lands two guests on one chair', () => {
+  // The whole point of the swap: after it, A and B still occupy exactly the two
+  // chairs they collectively held — just exchanged. No chair is doubled.
+  const rows = [
+    asg({ guest_id: 'A', table_id: 't1', seat_number: 1 }),
+    asg({ guest_id: 'B', table_id: 't1', seat_number: 4 }),
+  ];
+  const r = computeGuestSwap(rows, 'A', 'B');
+  assert.ok(r);
+  const chairs = [r.a, r.b].map((p) => `${p.tableId}:${p.seatNumber}`);
+  assert.equal(new Set(chairs).size, 2, 'the two guests must occupy two distinct chairs');
+  assert.deepEqual(chairs.sort(), ['t1:1', 't1:4'].sort());
+});
+
+test('computeTableSwap flips table_id for every occupant, keeping seat numbers', () => {
+  const rows = [
+    asg({ guest_id: 'A', table_id: 't1', seat_number: 0 }),
+    asg({ guest_id: 'B', table_id: 't1', seat_number: 1 }),
+    asg({ guest_id: 'C', table_id: 't2', seat_number: 0 }),
+    asg({ guest_id: 'D', table_id: 't3', seat_number: 0 }), // untouched — other table
+  ];
+  const moved = computeTableSwap(rows, 't1', 't2');
+  assert.equal(moved.size, 3);
+  assert.deepEqual(moved.get('A'), { tableId: 't2', seatNumber: 0 });
+  assert.deepEqual(moved.get('B'), { tableId: 't2', seatNumber: 1 });
+  assert.deepEqual(moved.get('C'), { tableId: 't1', seatNumber: 0 });
+  assert.equal(moved.has('D'), false); // guest on t3 not affected
+});
+
+test('computeTableSwap keeps every (table, seat) chair unique after the swap', () => {
+  // t1 seats {0,1}, t2 seats {0,1} — post-swap the two tables exchange whole
+  // rosters, so all four (table,seat) pairs stay distinct.
+  const rows = [
+    asg({ guest_id: 'A', table_id: 't1', seat_number: 0 }),
+    asg({ guest_id: 'B', table_id: 't1', seat_number: 1 }),
+    asg({ guest_id: 'C', table_id: 't2', seat_number: 0 }),
+    asg({ guest_id: 'D', table_id: 't2', seat_number: 1 }),
+  ];
+  const moved = computeTableSwap(rows, 't1', 't2');
+  const chairs = [...moved.values()].map((p) => `${p.tableId}:${p.seatNumber}`);
+  assert.equal(new Set(chairs).size, chairs.length, 'no chair may be double-booked');
+});
+
+test('computeTableSwap on identical tables is a no-op', () => {
+  const rows = [asg({ guest_id: 'A', table_id: 't1', seat_number: 0 })];
+  assert.equal(computeTableSwap(rows, 't1', 't1').size, 0);
 });

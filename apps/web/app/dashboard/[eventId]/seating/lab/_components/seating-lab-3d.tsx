@@ -55,6 +55,8 @@ import {
   unlinkTable,
   setTableSeat,
   saveFloorPlan,
+  swapSeats,
+  swapTableOccupants,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
@@ -1217,10 +1219,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     setMovers((prev) => prev.filter((m) => m.gid !== gid));
   }, []);
 
-  // Reassign guest `gid` to (toTableId, toSeat): persist (lock-gated) + fly a
-  // token from its current seat to the new one.
+  // Reassign guest `gid` to (toTableId, toSeat): fly a token from its current
+  // seat to the new one, and (by default) persist that single move. The swap
+  // flows below pass persist=false so they can animate BOTH movers while the
+  // exchange is persisted ATOMICALLY via one swap RPC (not two independent
+  // writes — see swapGuests/swapTables).
   const moveGuestTo = useCallback(
-    (gid: string, fromWorld: Vec2, toTableId: string, toSeat: number) => {
+    (gid: string, fromWorld: Vec2, toTableId: string, toSeat: number, doPersist = true) => {
       const g = guestById.get(gid);
       const t = tablesById.get(toTableId);
       if (!g || !t) return;
@@ -1233,6 +1238,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         ...prev,
         { gid, color: style.color, opacity: style.opacity, path, target: { tableId: toTableId, seatNumber: toSeat } },
       ]);
+      if (!doPersist) return;
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('lock_id', lock.lockId ?? '');
@@ -1255,10 +1261,19 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const B = seatWorldOf(b);
       if (!A || !B) return;
       setMode('play');
-      moveGuestTo(a, A.world, B.seat.tableId, B.seat.seatNumber);
-      moveGuestTo(b, B.world, A.seat.tableId, A.seat.seatNumber);
+      // Animate both tokens locally (persist=false), then persist the exchange
+      // ATOMICALLY in one RPC. If it fails, persist() arms a full server resync
+      // (router.refresh) that reverts the optimistic move.
+      moveGuestTo(a, A.world, B.seat.tableId, B.seat.seatNumber, false);
+      moveGuestTo(b, B.world, A.seat.tableId, A.seat.seatNumber, false);
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('guest_a_id', a);
+      fd.set('guest_b_id', b);
+      void persist(() => swapSeats(fd));
     },
-    [canEdit, movingGuests, seatWorldOf, moveGuestTo],
+    [canEdit, movingGuests, seatWorldOf, moveGuestTo, eventId, lock.lockId, persist],
   );
 
   const swapTables = useCallback(
@@ -1277,20 +1292,29 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const o2 = occ(t2);
       const maxc = Math.max(tablesById.get(t1)!.capacity, tablesById.get(t2)!.capacity);
       setMode('play');
+      // Animate every occupant to the mirror table locally (persist=false), then
+      // persist the whole table exchange ATOMICALLY in one RPC (seat numbers
+      // travel with each guest). Failure arms a server resync that reverts.
       for (let i = 0; i < maxc; i++) {
         const g1 = o1.get(i);
         const g2 = o2.get(i);
         if (g1) {
           const w = seatWorldOf(g1);
-          if (w) moveGuestTo(g1, w.world, t2, i);
+          if (w) moveGuestTo(g1, w.world, t2, i, false);
         }
         if (g2) {
           const w = seatWorldOf(g2);
-          if (w) moveGuestTo(g2, w.world, t1, i);
+          if (w) moveGuestTo(g2, w.world, t1, i, false);
         }
       }
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('table_id_a', t1);
+      fd.set('table_id_b', t2);
+      void persist(() => swapTableOccupants(fd));
     },
-    [canEdit, tablesById, seats, movingGuests, seatWorldOf, moveGuestTo],
+    [canEdit, tablesById, seats, movingGuests, seatWorldOf, moveGuestTo, eventId, lock.lockId, persist],
   );
 
   const onTableDown = useCallback(

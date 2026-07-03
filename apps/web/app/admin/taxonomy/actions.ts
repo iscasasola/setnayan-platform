@@ -378,6 +378,50 @@ export async function setCategoryPhoto(formData: FormData) {
 }
 
 /**
+ * Admin: toggle a taxonomy node's `service_categories.marketplace_hidden` — an
+ * admin-only tile/folder that never surfaces on couple-facing browse surfaces
+ * (/explore tile grid, onboarding picker) but stays fully visible in this Studio
+ * and to the vendor services picker (vendors must be able to list under hidden
+ * tiles like officiants for faith-readiness counts). Boolean toggle read from the
+ * `hidden` field ('1' = hide, else visible). No-op guarded. Audit-logged.
+ */
+export async function setCategoryHidden(formData: FormData) {
+  const user = await requireAdmin();
+  const categoryId = String(formData.get('category_id') ?? '').trim();
+  if (!categoryId) throw new Error('Missing category_id');
+  const next = String(formData.get('hidden') ?? '') === '1';
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('service_categories')
+    .select('id, marketplace_hidden')
+    .eq('id', categoryId)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Category not found.');
+  if ((before.marketplace_hidden ?? false) === next) {
+    redirectBack(formData, 'ok', 'No change.');
+  }
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ marketplace_hidden: next, updated_at: new Date().toISOString() })
+    .eq('id', categoryId);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_hidden',
+    target_table: 'service_categories',
+    target_id: categoryId,
+    before_json: { marketplace_hidden: before.marketplace_hidden ?? false },
+    after_json: { marketplace_hidden: next },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', next ? 'Hidden from couples.' : 'Visible on /explore again.');
+}
+
+/**
  * Admin: re-map a `canonical_service` to a different tile (+ its parent folder)
  * in `canonical_service_taxonomy`. Read live by `getCanonicalBuckets()` → the
  * /vendors marketplace re-buckets that vendor set with no deploy. Audit-logged.

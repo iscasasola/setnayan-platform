@@ -55,6 +55,13 @@ export type TaxonomySnapshot = {
    * `displayUrlForStoredAsset()` (lib/uploads.ts). Empty on the fallback path.
    */
   categoryPhotos: Record<string, string | null>;
+  /**
+   * category id (folder OR tile) → true when admin-flagged marketplace_hidden
+   * in service_categories. Couple-facing consumers (/explore tile grid,
+   * onboarding pickers) must skip hidden ids; admin + vendor surfaces keep
+   * them. Sparse — only true entries stored. Empty on the fallback path.
+   */
+  hiddenCategories: Record<string, true>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
@@ -70,6 +77,7 @@ export type CategoryRow = {
   applicable_event_types: string[] | null;
   icon_name: string | null;
   sample_photo_r2_key: string | null;
+  marketplace_hidden: boolean;
 };
 
 export type MapRow = {
@@ -105,6 +113,7 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     tileEventTypes: {}, // constant fallback has no event scoping → all universal
     categoryIcons: {}, // constant fallback has no admin icon overrides → all default
     categoryPhotos: {}, // constant fallback has no admin photo overrides
+    hiddenCategories: {}, // constant fallback has no hidden tiles
     map: { ...TAXONOMY_MAP },
   };
 }
@@ -119,11 +128,15 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     .sort((a, b) => a.sort_order - b.sort_order);
 
   // Icon/photo overrides cover BOTH tiers (folders + tiles), keyed by category id.
+  // hiddenCategories is sparse: only admin-flagged (true) ids get an entry;
+  // absent = visible (default), same as false.
   const categoryIcons: Record<string, string | null> = {};
   const categoryPhotos: Record<string, string | null> = {};
+  const hiddenCategories: Record<string, true> = {};
   for (const c of cats) {
     categoryIcons[c.id] = c.icon_name ?? null;
     categoryPhotos[c.id] = c.sample_photo_r2_key ?? null;
+    if (c.marketplace_hidden) hiddenCategories[c.id] = true;
   }
 
   const folderLabel: Record<string, string> = {};
@@ -188,6 +201,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     tileEventTypes,
     categoryIcons,
     categoryPhotos,
+    hiddenCategories,
     map,
   };
 }

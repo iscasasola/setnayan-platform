@@ -432,6 +432,7 @@ export default async function AdminTaxonomyPage({
     iconName: tax.categoryIcons[id] ?? null,
     photoRaw: tax.categoryPhotos[id] ?? null,
     eventTypes: tax.tileEventTypes[id] ?? null,
+    hidden: tax.hiddenCategories[id] === true,
     serviceCount: serviceCountByTile.get(id) ?? 0,
     faithCount: faithCountByTile.get(id) ?? 0,
     refinementCount: refinementCountByTile.get(id) ?? 0,

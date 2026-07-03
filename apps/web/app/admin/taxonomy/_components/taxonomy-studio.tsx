@@ -65,6 +65,7 @@ import {
   remapCanonical,
   setServiceFaith,
   setCategoryEventTypes,
+  setCategoryHidden,
   setCategoryIcon,
   setCategoryPhoto,
   reorderCategories,
@@ -122,6 +123,8 @@ export type StudioTile = {
   /** Raw stored ref (`r2://…` / `/public…`) carried into the photo form. */
   photoRaw: string | null;
   eventTypes: string[] | null;
+  /** true = admin-only tile (marketplace_hidden); never shows on /explore or onboarding. */
+  hidden: boolean;
   serviceCount: number;
   faithCount: number;
   refinementCount: number;
@@ -896,6 +899,9 @@ function TileCard({
       </p>
       <div className="mt-auto flex flex-wrap gap-1">
         <Badge tone="bg-ink/5 text-ink/60">{tile.serviceCount} svc</Badge>
+        {tile.hidden ? (
+          <Badge tone="bg-terracotta/15 text-terracotta">Hidden</Badge>
+        ) : null}
         {tile.refinementCount > 0 ? (
           <button
             type="button"
@@ -1165,6 +1171,30 @@ function Inspector({
                 Save scope
               </SubmitButton>
               <span className="ml-1.5 text-[10px] text-ink/40">none checked = universal</span>
+            </form>
+
+            {/* Marketplace visibility */}
+            <form
+              action={setCategoryHidden}
+              className="flex items-center justify-between gap-2 rounded-md border border-ink/10 bg-white px-3 py-2"
+            >
+              <div>
+                <p className="text-xs font-medium text-ink/70">Hidden from couples</p>
+                <p className="text-[11px] text-ink/45">
+                  Admin-only tile — never shows on /explore or onboarding.
+                </p>
+              </div>
+              <input type="hidden" name="category_id" value={tile.id} />
+              <input type="hidden" name="_anchor" value={`t-${tile.id}`} />
+              <input type="hidden" name="hidden" value={tile.hidden ? '0' : '1'} />
+              <SubmitButton
+                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-medium ${
+                  tile.hidden ? 'bg-terracotta/15 text-terracotta' : 'bg-ink/5 text-ink/60'
+                }`}
+                pendingLabel="Saving…"
+              >
+                {tile.hidden ? 'Hidden' : 'Visible'}
+              </SubmitButton>
             </form>
 
             {/* Delete */}

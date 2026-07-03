@@ -217,14 +217,14 @@ function GuestAvatar({
 function SeatDestinationMarker({ position, color }: { position: Vec2; color: string }) {
   const ring = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
-    const s = 1 + Math.sin(clock.elapsedTime * 3.2) * 0.16;
+    const s = 1 + Math.sin(clock.elapsedTime * 2.0) * 0.18;
     if (ring.current) ring.current.scale.set(s, s, 1);
   });
   return (
     <group position={[position.x, 0, position.z]}>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <ringGeometry args={[0.44, 0.6, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0.9} side={THREE.DoubleSide} />
+        <ringGeometry args={[0.54, 0.74, 40]} />
+        <meshBasicMaterial color={color} transparent opacity={1} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );

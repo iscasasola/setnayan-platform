@@ -1101,13 +1101,13 @@ export const PILLARS: Pillar[] = [
     num: '01',
     tag: 'Ala Ala',
     role: 'Memory Hub',
-    name: 'A photo album is just a record. This is the memory itself.',
+    name: 'Come back to your best days whenever you miss them.',
     def: (
       <>
-        The heart of it all. Planning ends when the day is over — your memories shouldn’t have to.
-        Every event you <em>hold</em> and every event you <em>attend</em> lives on here, one
-        continuous archive that grows richer year after year. Not a tool you close after the guests
-        leave. A home you keep coming back to.
+        The heart of it all. When the day ends, the feeling doesn’t have to. Every event you{' '}
+        <em>hold</em> and every event you <em>attend</em> lives on here, one continuous archive that
+        grows richer year after year. Not a tool you close when the guests leave, but a home you keep
+        coming back to.
       </>
     ),
     widgetId: 'hr-awAla',
@@ -1119,8 +1119,8 @@ export const PILLARS: Pillar[] = [
         fn: 'Every event type',
         fl: (
           <>
-            Ten event types ready today — wedding, debut, birthday, christening, gender reveal,
-            celebration, travel, corporate, tournament, and a simple event — with anniversary,
+            Ten event types ready today: wedding, debut, birthday, christening, gender reveal,
+            celebration, travel, corporate, tournament, and a simple event, with anniversary,
             graduation, reunion, and gala night rolling out. The widest variety in the market.{' '}
             <em>10 live · 4 rolling out</em>
           </>
@@ -1131,20 +1131,18 @@ export const PILLARS: Pillar[] = [
         fn: 'Editorials',
         fl: (
           <>
-            Far more memorable than scribbling in a photo album. Every event becomes an editorial —
-            a real storyline you can relive, as if you were there again: write-ups, photos, what
-            your guests said, and short clips (not full films) — shareable straight to your socials.
-            The front-page story of your life.{' '}
-            <em>
-              Read two complete sample editions now — a Tagaytay wedding and a Makati debut.
-            </em>
+            Far more memorable than scribbling in a photo album. Every event becomes an editorial, a
+            real storyline you can relive, as if you were there again: write-ups, photos, what your
+            guests said, and short clips (not full films), shareable straight to your socials. The
+            front-page story of your life.{' '}
+            <em>Read two complete sample editions now: a Tagaytay wedding and a Makati debut.</em>
           </>
         ),
       },
       {
         ic: '▦',
         fn: 'Dashboard',
-        fl: 'The all-in-one command center for a single event — guests, budget, schedule, services, and memories in one place you come back to, share, and revisit on the anniversaries. (Your home lists every event; this one runs the event itself.)',
+        fl: 'The all-in-one command center for a single event: guests, budget, schedule, services, and memories in one place you come back to, share, and revisit on the anniversaries. (Your home lists every event; this one runs the event itself.)',
       },
     ],
   },
@@ -1152,13 +1150,13 @@ export const PILLARS: Pillar[] = [
     num: '02',
     tag: 'Likha',
     role: 'Creative Studio',
-    name: 'Your event has a look. Give it a voice.',
+    name: 'Make it look and feel unmistakably yours.',
     def: (
       <>
-        <em>Likha</em> means “to create.” Your free creative studio — the whole look and feel of
-        your celebration in one workspace: an adaptive website that stays alive, your own monogram,
-        Papic candid capture, Live Studio for the ones who couldn’t make the trip, and the 3D Plan.
-        And it keeps growing.
+        <em>Likha</em> means “to create.” Your free creative studio brings the whole look and feel
+        of your celebration into one workspace: an adaptive website that stays alive, your own
+        monogram, Papic candid capture, Live Studio for the ones who couldn’t make the trip, and the
+        3D Plan. And it keeps growing.
       </>
     ),
     widgetId: 'hr-awLikhaan',
@@ -1168,21 +1166,22 @@ export const PILLARS: Pillar[] = [
       {
         ic: '◷',
         fn: 'Adaptive website',
-        fl: 'A single-link event page that changes and adapts to what’s happening, in real time. No more static sites — it adjusts from planning all the way to the end of the event, finishing as your very own editorial.',
+        fl: 'A single-link event page that changes and adapts to what’s happening, in real time. No more static sites: it adjusts from planning all the way to the end of the event, finishing as your very own editorial.',
       },
       {
         ic: '❖',
         fn: 'Logo & monogram',
-        fl: 'Logo and monogram designs that stay simple, but far more efficient than what’s on the market — your mark across every surface of the event.',
+        fl: 'Logo and monogram designs that stay simple, but far more efficient than what’s on the market. Your mark across every surface of the event.',
       },
       {
         ic: '◎',
         fn: 'Papic',
         fl: (
           <>
-            Modern candid capture — five looks (Original · Retro · Mono · Cine · Lomo), face tagging
-            that happens right on the phone, and every photo lands in your gallery, tagged or not.{' '}
-            <em>Try it live from the Papic tile — you and a friend, right now.</em>
+            Modern candid capture in five looks (Original · Retro · Mono · Cine · Lomo), with face
+            tagging that happens right on the phone, and every photo lands in your gallery, tagged or
+            not.{' '}
+            <em>Try it live from the Papic tile, you and a friend, right now.</em>
           </>
         ),
       },
@@ -1191,9 +1190,9 @@ export const PILLARS: Pillar[] = [
         fn: 'Live Studio',
         fl: (
           <>
-            Your phones become the cameras, and you get a real control room — cut between angles
+            Your phones become the cameras, and you get a real control room to cut between angles
             live for everyone who couldn’t make the trip. <em>Try the control room from the Panood
-            tile — two phones.</em> Full event livestream rolling out.
+            tile, two phones.</em> Full event livestream rolling out.
           </>
         ),
       },
@@ -1202,7 +1201,7 @@ export const PILLARS: Pillar[] = [
         fn: '3D Plan',
         fl: (
           <>
-            Click a guest and their phone walks them from the entrance to their seat — in a real 3D
+            Click a guest and their phone walks them from the entrance to their seat, in a real 3D
             room, right on your website. <em>Try it from the 3D Plan tile.</em> Your 2D seat plan,
             guest list, and mood board stay free; the full 3D Plan is the paid unlock.
           </>
@@ -1211,7 +1210,7 @@ export const PILLARS: Pillar[] = [
       {
         ic: '✦',
         fn: 'And it keeps growing',
-        fl: 'We continuously add new creative tools to push your event further — and they land already connected to everything you’ve made.',
+        fl: 'We continuously add new creative tools to push your event further, and they land already connected to everything you’ve made.',
       },
     ],
   },
@@ -1219,11 +1218,11 @@ export const PILLARS: Pillar[] = [
     num: '03',
     tag: 'Plano',
     role: 'The Ultimate Planner',
-    name: 'Your spreadsheet doesn’t know your day.',
+    name: 'Watch the whole plan take care of itself.',
     def: (
       <>
         <em>Plano</em> means “to plan.” Gone are the days of scattered documents. One free,
-        connected suite where every detail intertwines — change a single thing and the guest list,
+        connected suite where every detail intertwines. Change a single thing and the guest list,
         seat plan, budget, checklist, and schedule all stay honest, automatically. The reason to
         open the app on a Tuesday night.
       </>
@@ -1247,7 +1246,7 @@ export const PILLARS: Pillar[] = [
         fl: (
           <>
             Guests self-RSVP, each with their own QR code, and you add anyone yourself. Flag
-            gate-crashers — people who RSVP but aren’t on your list — and give every guest a personal
+            gate-crashers (people who RSVP but aren’t on your list) and give every guest a personal
             assistant. <em>Gate-crasher flagging + assistant rolling out</em>
           </>
         ),
@@ -1265,17 +1264,17 @@ export const PILLARS: Pillar[] = [
       {
         ic: '❑',
         fn: 'Mood board',
-        fl: 'Create palettes and collect your inspirations in one place — then share them with all your vendors in one tap.',
+        fl: 'Create palettes and collect your inspirations in one place, then share them with all your vendors in one tap.',
       },
       {
         ic: '₱',
         fn: 'Budget planner',
-        fl: 'Track every payment in one place, with a schedule that guides you to what’s due next — so nothing slips.',
+        fl: 'Track every payment in one place, with a schedule that guides you to what’s due next, so nothing slips.',
       },
       {
         ic: '◷',
         fn: 'Date picker',
-        fl: 'No longer a one-pick gamble. No research, no statistics to chase — we hand you the best information on your target dates, with tips and a list of every compatible vendor free that day.',
+        fl: 'No longer a one-pick gamble. No research, no statistics to chase: we hand you the best information on your target dates, with tips and a list of every compatible vendor free that day.',
       },
       {
         ic: '✓',
@@ -1287,7 +1286,7 @@ export const PILLARS: Pillar[] = [
         fn: 'Printable PDF',
         fl: (
           <>
-            Free to print — seating, mood board, QR, and invites today, with every Plano tool
+            Free to print: seating, mood board, QR, and invites today, with every Plano tool
             rolling out. <em>All tools printable rolling out</em>
           </>
         ),
@@ -1306,11 +1305,11 @@ export const PILLARS: Pillar[] = [
     name: 'You are the host, not the coordinator.',
     def: (
       <>
-        <em>Suri</em> means “to analyze closely.” The quiet planning brain — it checks every option
-        against your budget, date, and venue in an instant and ranks the short list worth choosing
-        from, reshapes your checklist and budget as things change, and stands watch over every
-        vendor you’re eyeing or booked — catching risks before they happen. You choose instead of
-        drown. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
+        <em>Suri</em> means “to analyze closely.” Your quiet planning brain checks every option
+        against your budget, date, and venue in an instant and hands you the short list worth
+        choosing from. It reshapes your checklist and budget as things change, and keeps watch over
+        every vendor you’re eyeing or booked, catching risks before they happen. You get to choose,
+        calmly. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
       </>
     ),
     widgetId: 'hr-awSurian',
@@ -1320,22 +1319,22 @@ export const PILLARS: Pillar[] = [
       {
         ic: '⌖',
         fn: 'Filtering & sorting',
-        fl: 'Thinking of many things at once is hard. Every option is checked against your budget, date, venue, and style in an instant — then ranked, so the best fits surface first. No more inquiring into dead ends and losing hours.',
+        fl: 'Thinking of many things at once is hard. Every option is checked against your budget, date, venue, and style in an instant, then ranked, so the best fits surface first. No more inquiring into dead ends and losing hours.',
       },
       {
         ic: '✓',
         fn: 'Adaptive checklist',
-        fl: 'The adaptive system reshapes your checklist as things change — every step re-paced and recomputed around your date, guest count, and picks, so planning stays steady instead of frantic.',
+        fl: 'The adaptive system reshapes your checklist as things change, every step re-paced and recomputed around your date, guest count, and picks, so planning stays steady instead of frantic.',
       },
       {
         ic: '₱',
         fn: 'Smart budgeting',
-        fl: 'The budget planner always knows where you stand. Allocations adjust on their own as guests, dates, and choices shift — every peso visible, nothing recomputed by hand.',
+        fl: 'The budget planner always knows where you stand. Allocations adjust on their own as guests, dates, and choices shift, every peso visible, nothing recomputed by hand.',
       },
       {
         ic: '◉',
         fn: 'The watch system',
-        fl: 'It watches the vendors you’re eyeing and the ones you’ve booked — a deposit due, a price change, a double-booking, a deadline about to slip. One calm weekly digest; loud only when it can’t wait.',
+        fl: 'It watches the vendors you’re eyeing and the ones you’ve booked: a deposit due, a price change, a double-booking, a deadline about to slip. One calm weekly digest, loud only when it can’t wait.',
       },
       {
         ic: '◆',
@@ -1354,12 +1353,12 @@ export const PILLARS: Pillar[] = [
     num: '05',
     tag: 'Tiangge',
     role: 'The Marketplace',
-    name: 'Supporting cast — there when you’re ready, invisible when you’re not.',
+    name: 'Vendors arrive only when you want them, never before.',
     def: (
       <>
-        <em>Tiangge</em> — the marketplace, on your terms. Plano, Likha, and Ala Ala stand on their
+        <em>Tiangge</em> is the marketplace, on your terms. Plano, Likha, and Ala Ala stand on their
         own; when you’re ready for vendors, they arrive verified, with real reviews and a real
-        track record, matched to what you actually need. Talking to them is free — and commission
+        track record, matched to what you actually need. Talking to them is free, and commission
         is 0%. What the vendor charges is what you pay.
       </>
     ),
@@ -1375,14 +1374,14 @@ export const PILLARS: Pillar[] = [
       {
         ic: '▥',
         fn: 'Track record you can trust',
-        fl: 'Verified reviews and a real track record from their past events — not a portfolio they curated to flatter themselves.',
+        fl: 'Verified reviews and a real track record from their past events, not a portfolio they curated to flatter themselves.',
       },
       {
         ic: '▲',
         fn: 'Performance breakdown',
         fl: (
           <>
-            Response time, re-book rate, and completion — the numbers that show how a vendor actually
+            Response time, re-book rate, and completion: the numbers that show how a vendor actually
             performs. <em>Rolling out</em>
           </>
         ),
@@ -1390,12 +1389,12 @@ export const PILLARS: Pillar[] = [
       {
         ic: '❖',
         fn: 'Customized, at the right price',
-        fl: 'No one price, one product for everyone. You keep the personal experience of talking to your vendors and customizing everything to the very end — every specification you want, at the right price.',
+        fl: 'No one price, one product for everyone. You keep the personal experience of talking to your vendors and customizing everything to the very end. Every specification you want, at the right price.',
       },
       {
         ic: '✦',
         fn: 'Setnayan Exclusive',
-        fl: 'Each vendor gives you a special gift available only at Setnayan — plus special discounts, gifts, and benefits.',
+        fl: 'Each vendor gives you a special gift available only at Setnayan, plus special discounts, gifts, and benefits.',
       },
       {
         ic: '⊘',

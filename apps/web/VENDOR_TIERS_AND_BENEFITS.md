@@ -130,6 +130,8 @@ _Append a dated entry whenever you change something the other session relies on.
 
 - **2026-07-03 · strategy session — CUSTOM RATE CARD REVISED per owner (2 decisions).** (1) **Branch = ₱999/28d listing-only, shared cap pool** — the v1 "fully-loaded ₱2,499 location with its own Enterprise caps" unit is DELETED; franchises scale caps via overflow units. Also settles the old Pricing.md § 0.C ₱999-vs-₱1,000 branch flag → ₱999. (2) **"Additional brand" line DROPPED** — multi-brand houses register one vendor account per brand. §11 model line, table, examples, and sign-off list rewritten; §2 Custom card updated. Remaining sign-offs: base composition (₱14,999 incl. 3 branches) · extra-seat ₱250 vs ₱500 · overflow unit prices · annual/token treatment.
 
+- **2026-07-04 · strategy session — CUSTOM CONFIGURATOR = SLIDERS ON BOTH SIDES (owner).** §11 Stage 2 rewritten: the Custom composer is a **two-surface slider configurator**, not an admin-only quote tool — vendors move the line sliders themselves on `/vendor-dashboard/subscription` (live charm-rounded price, floored at base, 28d/annual toggle, submit → apply-then-pay + admin review handshake) and HQ admin has the same sliders per org plus unit-price control via the admin catalog. Provisioning = `tier_state='custom'` + effective caps = base + purchased units. Interactive prototype delivered to the owner for the remaining 4 number sign-offs. **Dashboard session:** no action until sign-off; the Opus build brief will cover both surfaces.
+
 ## 6 · Verification audit (2026-07-01 · origin/main HEAD `3dec2cb`)
 
 Source of truth: coded `apps/web/lib/vendor-tier-caps.ts` + DB `vendor_billing_catalog`. **Where §6 disagrees with §2's intended allocation, §6 is the as-built reality.** 85 per-benefit verdicts reconciled. `TIER_CAPS` is real, single-source, enforced by 26 importers (services/actions, calendar/actions, team/actions, vendor-dashboard/actions, chat-send, proposal-send). Ladder was retuned 2026-06-25 → strictly monotonic Free < Verified < Solo.
@@ -241,9 +243,15 @@ Token economy unchanged — Custom answers still burn region-banded tokens (₱1
 
 Admin computes the quote from this card → creates an org-scoped `vendor_billing_catalog` row (`custom_vendor_<org>` · 28d cadence · quoted amount) → payment-instructions email → apply-then-pay → set the org's Custom path (`tier_state='custom'` — the path §5's 2026-07-01 entry already assigns to the dashboard session) with caps matching the quoted composition. Renewals fold add-ons into one order (same pattern as the token-addon / seat fold-in renewals).
 
-### Stage 2 — HQ quote builder (build AFTER sign-off)
+### Stage 2 — the slider configurator (owner-directed 2026-07-04 · build AFTER sign-off)
 
-Admin surface: pick vendor org → dial branches / seats / event slots / photos → price computes live from this rate card (stored admin-side, never hardcoded) → "Send quote" issues the payment-instructions email → acceptance provisions the subscription + caps automatically. Brief goes to an Opus implementation agent once the numbers are locked.
+**Owner: "the customization will be vendor AND admin side — they can move the line sliders to meet their demand."** Not an admin-only quote tool; a two-surface configurator over the same rate card:
+
+- **Vendor side (self-serve):** a "Build your Custom plan" panel on `/vendor-dashboard/subscription` — **one slider per rate-card line** (branches · team seats · event slots per category · portfolio photo packs), baselines pinned at what the base includes. Price recomputes **live** as sliders move (charm-rounded · floored at the base · 28d/annual toggle at 10×). Submitting creates the org-scoped apply-then-pay order with an **admin review handshake** before activation (same approval pattern as the STD-openings buy flow).
+- **Admin side (HQ):** the same sliders scoped to any vendor org for negotiated deals, **plus unit-price control** — line prices live in the admin catalog (admin-managed-pricing lock) and the vendor's sliders read whatever admin set. Admin can also compose + send a quote directly (payment-instructions email).
+- **Provisioning:** acceptance sets `tier_state='custom'` with effective caps = base + purchased units (same `effectiveSeatCap` composition pattern); renewals fold all units into one order.
+
+Brief goes to an Opus implementation agent once the remaining sign-off numbers are locked.
 
 ### ⚠ Owner sign-off — remaining items
 

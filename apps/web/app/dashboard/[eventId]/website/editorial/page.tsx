@@ -8,8 +8,10 @@ import {
   loadEditorialChaptersForEditor,
   loadEditorialData,
   type EditorialSections,
+  type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
+import { isEditorialProActive } from '@/lib/couple-website-pro';
 import { siteUrl } from '@/lib/social/urls';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { EditorialEditor } from './_components/editorial-editor';
@@ -99,6 +101,39 @@ export default async function EditorialEditorPage({
     ? (draft.lead_paragraphs as unknown[]).map(str).filter(Boolean)
     : [];
 
+  // PRO section order (draft_json.sectionOrder → string[] | null). The editor
+  // resolves the full order from this + the canonical default; a bad value is a
+  // harmless [] here (sanitized again server-side).
+  const savedSectionOrder = Array.isArray(draft.sectionOrder)
+    ? (draft.sectionOrder as unknown[]).filter((v): v is string => typeof v === 'string')
+    : null;
+
+  // PRO guest-wishes (draft_json.reviews). Read the saved rows so the editor can
+  // list them for editing; each row is coerced to the Review shape (blank-safe).
+  const savedReviews: Review[] = Array.isArray(draft.reviews)
+    ? (draft.reviews as unknown[]).map((r): Review => {
+        const o = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
+        const starsNum = Number(o.stars);
+        return {
+          author: typeof o.author === 'string' ? o.author : '',
+          role: typeof o.role === 'string' && o.role.trim() ? o.role : null,
+          quote: typeof o.quote === 'string' ? o.quote : '',
+          stars: Number.isFinite(starsNum) && starsNum >= 1 ? Math.min(5, Math.round(starsNum)) : null,
+        };
+      })
+    : [];
+
+  // Editorial PRO — the "Editor's Desk" authorship gate (à-la-carte EDITORIAL_PRO
+  // OR the Couple Website PRO umbrella; dual-unlock in lib/couple-website-pro).
+  // Server-side; the editor renders authorship inputs read-only for free couples
+  // and saveEditorial re-checks this, so the client flag is presentation only.
+  let isPro = false;
+  try {
+    isPro = await isEditorialProActive(createAdminClient(), eventId);
+  } catch {
+    isPro = false;
+  }
+
   // Compose the couple's CURRENT editorial copy — their own draft_json overrides
   // ON TOP of the onboarding-derived defaults (names → headline, archetype →
   // eyebrow, years-together + date + venue + tone → sub-headline, guest message →
@@ -140,6 +175,10 @@ export default async function EditorialEditorPage({
     // The editor derives its own working rows from the cards + overrides below;
     // `chapterOverrides` in `initial` is only the save-shape default.
     chapterOverrides: [],
+    // The editor computes the working section order + wishes from the props
+    // below; these `initial` values are only the save-shape defaults.
+    sectionOrder: savedSectionOrder,
+    reviews: savedReviews,
     publish: status === 'published',
   };
 
@@ -173,8 +212,11 @@ export default async function EditorialEditorPage({
         eventId={eventId}
         slug={event.slug ?? null}
         initial={initial}
+        isPro={isPro}
         chapterCards={chapterCards.cards}
         chapterOverrides={chapterCards.overrides}
+        savedSectionOrder={savedSectionOrder}
+        savedReviews={savedReviews}
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}

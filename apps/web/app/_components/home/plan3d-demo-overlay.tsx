@@ -126,7 +126,15 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
             ) : qr ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div
-                  style={{ width: 92, height: 92, flexShrink: 0 }}
+                  className="hr-qr-fit"
+                  style={{
+                    width: 128,
+                    height: 128,
+                    flexShrink: 0,
+                    borderRadius: 'var(--m-r-12, 12px)',
+                    border: '1px solid rgba(42,43,46,.12)',
+                    overflow: 'hidden',
+                  }}
                   dangerouslySetInnerHTML={{ __html: qr.qrSvg }}
                 />
                 <div style={{ textAlign: 'left' }}>

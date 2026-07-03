@@ -41,6 +41,7 @@ function QrTile({ label, svg, joined }: { label: string; svg: string; joined: bo
         }}
       >
         <div
+          className="hr-qr-fit"
           style={{ width: '100%', height: '100%', opacity: joined ? 0.35 : 1, transition: 'opacity .3s ease' }}
           // Inline SVG rendered server-side by the SAME QR renderer + palette
           // every other Setnayan QR uses (lib/qr.ts) — no client QR library.

@@ -186,6 +186,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
         /* ── Lobby: the one QR, waiting for the first camera ─────────────── */
         <>
           <div
+            className="hr-qr-fit"
             style={{
               position: 'relative',
               width: 200,
@@ -317,6 +318,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
             {!bothLive && (
               <div style={{ width: 120, textAlign: 'center', flexShrink: 0 }}>
                 <div
+                  className="hr-qr-fit"
                   style={{
                     width: 104,
                     height: 104,

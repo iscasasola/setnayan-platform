@@ -117,6 +117,9 @@ export function ServiceWizard({
           htmlFor="primary_photo_r2_key"
           help="Couples see this on your service card — it's the first thing they notice. PNG, JPEG, or WebP up to 5 MB. Required to publish."
         >
+          {/* watermark: owner-locked 2026-07-03 — service COVERS carry the
+              SETNAYAN watermark like every other marketplace photo (closes the
+              cover/showcase inconsistency; per the 2026-05-21 directive). */}
           <FileUpload
             bucket="media"
             pathPrefix={`vendors/${vendorProfileId}/services`}
@@ -124,6 +127,7 @@ export function ServiceWizard({
             onChange={(v) => setPhotoKey(typeof v === 'string' ? v : '')}
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            watermark
             variant="square"
             qrGuard
           />

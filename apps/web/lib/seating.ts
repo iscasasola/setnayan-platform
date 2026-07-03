@@ -1429,6 +1429,43 @@ export async function fetchSigns(
   }));
 }
 
+// --- placed venue objects (whole-venue designer) ----------------------------
+// The non-seating fixtures (arch / buffet / bar / cake & gift & registration
+// tables / photo booth / lounge / LED wall / greenery) placed on the same
+// percent canvas as tables. `kind` mirrors lib/seating-3d VENUE_OBJECT_CATALOG
+// (the canonical list) and the event_scene_objects CHECK. The 3D surfaces render
+// these; the 2D editor + couple lab own placement.
+export type SceneObjectRow = {
+  object_id: string;
+  event_id: string;
+  kind: string;
+  label: string | null;
+  x_pct: number;
+  y_pct: number;
+  rotation_deg: number;
+};
+
+export async function fetchSceneObjects(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<SceneObjectRow[]> {
+  const { data, error } = await supabase
+    .from('event_scene_objects')
+    .select('object_id,event_id,kind,label,x_pct,y_pct,rotation_deg')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true });
+  // Graceful-degrade (same contract as fetchBooths/fetchSigns): a not-yet-
+  // migrated table or RLS hiccup renders an object-less plan, never a crash.
+  if (error || !data) return [];
+  return (data as SceneObjectRow[]).map((o) => ({
+    ...o,
+    label: o.label ?? null,
+    x_pct: Number(o.x_pct),
+    y_pct: Number(o.y_pct),
+    rotation_deg: Number(o.rotation_deg),
+  }));
+}
+
 // Booth footprint + the hardcoded perimeter rulebook. All numbers are percent
 // of the canvas — the same unit as every other floor-plan coordinate.
 export const BOOTH_W = 12;

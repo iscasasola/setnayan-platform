@@ -14,11 +14,27 @@ import {
   fetchAssignments,
   fetchFloorPlan,
   fetchSeatingConstraints,
+  fetchSceneObjects,
+  fetchBooths,
+  fetchSigns,
   defaultPriorityOrder,
   guestTier,
   defaultTablePosition,
 } from '@/lib/seating';
-import { shapeHintFor, type Lab3DTable, type Lab3DFloor, type Lab3DFloorExtras, type Lab3DGuest, type Lab3DGroup, type Lab3DMonogram } from '@/lib/seating-3d';
+import {
+  shapeHintFor,
+  VENUE_OBJECT_CATALOG,
+  type Lab3DTable,
+  type Lab3DFloor,
+  type Lab3DFloorExtras,
+  type Lab3DGuest,
+  type Lab3DGroup,
+  type Lab3DMonogram,
+  type Lab3DSceneObject,
+  type Lab3DBooth,
+  type Lab3DSign,
+  type VenueObjectKind,
+} from '@/lib/seating-3d';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -46,12 +62,15 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, groupsRaw, memberships, moodboard, eventRow, roleSet] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, moodboard, eventRow, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchSeatingConstraints(supabase, eventId),
+    fetchSceneObjects(supabase, eventId),
+    fetchBooths(supabase, eventId),
+    fetchSigns(supabase, eventId),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
     supabase
@@ -185,6 +204,35 @@ export default async function SeatingLabPage({ params }: Props) {
     cocktailLinked: floorPlan.cocktail_linked,
   };
 
+  // Placed venue fixtures — rendered read-only in 3D (the 2D editor owns edits).
+  // Guard scene-object kinds against the canonical catalog so a future DB kind
+  // (or a stale row) never breaks the union type; unknown kinds are dropped.
+  const knownKinds = new Set<string>(VENUE_OBJECT_CATALOG.map((o) => o.kind));
+  const sceneObjects: Lab3DSceneObject[] = sceneObjectsRaw
+    .filter((o) => knownKinds.has(o.kind))
+    .map((o) => ({
+      id: o.object_id,
+      kind: o.kind as VenueObjectKind,
+      label: o.label,
+      xPct: o.x_pct,
+      yPct: o.y_pct,
+      rotationDeg: o.rotation_deg,
+    }));
+  const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
+    id: b.booth_id,
+    kind: b.booth_type,
+    label: b.label,
+    xPct: b.x_pos,
+    yPct: b.y_pos,
+  }));
+  const signs: Lab3DSign[] = signsRaw.map((s) => ({
+    id: s.sign_id,
+    label: s.label,
+    xPct: s.x_pos,
+    yPct: s.y_pos,
+    rotationDeg: s.rotation_deg,
+  }));
+
   const snapshot = (moodboard.data?.palette_snapshot ?? {}) as Record<string, unknown>;
   const paletteHexes = Object.values(snapshot).filter((v): v is string => typeof v === 'string');
 
@@ -238,6 +286,9 @@ export default async function SeatingLabPage({ params }: Props) {
         roleSetKey={roleSet.key}
         groups={groups}
         floorExtras={floorExtras}
+        sceneObjects={sceneObjects}
+        booths={booths}
+        signs={signs}
       />
     </section>
   );

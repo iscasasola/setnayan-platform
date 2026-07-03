@@ -52,6 +52,10 @@ import {
   seatWorld,
   tableDims,
   floorObstacles,
+  sceneObjectObstacles,
+  boothObstacles,
+  signObstacles,
+  cocktailObstacles,
   pushOutOfDiscs,
   steerPath,
   seatApproachPath,
@@ -61,11 +65,16 @@ import {
   type Lab3DTable,
   type Lab3DFloor,
   type Lab3DPalette,
+  type Lab3DSceneObject,
+  type Lab3DBooth,
+  type Lab3DSign,
+  type Lab3DCocktail,
   type Vec2,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { GuestPhotoAvatar, preloadGuestPhotos } from './guest-avatar';
+import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 
 const NEUTRAL_PALETTE = resolvePalette([]); // the lab's warm-neutral default
 
@@ -347,6 +356,10 @@ export function Plan3DScene({
   tables,
   floor,
   guests,
+  sceneObjects = [],
+  booths = [],
+  signs = [],
+  cocktail = null,
   rolePalette,
   onGuestClick,
   walkTarget,
@@ -357,6 +370,12 @@ export function Plan3DScene({
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Plan3DGuest[];
+  /** Placed venue fixtures — rendered read-only + fed into the walk obstacles
+   *  so the walker rounds them. Default empty so old call sites still compile. */
+  sceneObjects?: Lab3DSceneObject[];
+  booths?: Lab3DBooth[];
+  signs?: Lab3DSign[];
+  cocktail?: Lab3DCocktail;
   /** When set, the room recolours to the couple's mood board (owner toggle). */
   rolePalette?: RolePalette;
   onGuestClick?: (guestId: string) => void;
@@ -374,6 +393,17 @@ export function Plan3DScene({
   const palette = useMemo(
     () => (rolePalette ? resolvePaletteFromRoles(rolePalette) : NEUTRAL_PALETTE),
     [rolePalette],
+  );
+  // Fixture avoidance discs — merged into every walk/roam obstacle set so the
+  // demo walker rounds the buffet / booth / cocktail room like a table.
+  const fixtureObstacles = useMemo(
+    () => [
+      ...sceneObjectObstacles(sceneObjects, room),
+      ...boothObstacles(booths, room),
+      ...signObstacles(signs, room),
+      ...cocktailObstacles(cocktail, room),
+    ],
+    [sceneObjects, booths, signs, cocktail, room],
   );
 
   // Warm the texture cache for every seated guest's photo up front so the first
@@ -417,7 +447,7 @@ export function Plan3DScene({
     const dest = seatWorld(walkTable, walkGuest.seatNumber ?? 0, room);
     // Route AROUND every table (the destination included) and step in to the
     // chair from outside — a guest walks around their table, never across it.
-    const obstacles = floorObstacles(floor, tables, room, []);
+    const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
     const path = seatApproachPath(entranceWorld, walkTable, walkGuest.seatNumber ?? 0, room, obstacles, AVATAR_BODY_R);
     const markArrived = () => {
       setArrived(true);
@@ -443,7 +473,7 @@ export function Plan3DScene({
     const start = walkerPosRef.current ?? entranceWorld;
     const toCenter = Math.hypot(start.x, start.z) || 1;
     const nudge = { x: start.x - (start.x / toCenter) * 1.2, z: start.z - (start.z / toCenter) * 1.2 };
-    const obstacles = floorObstacles(floor, tables, room, []);
+    const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
     const path = steerPath(start, nudge, obstacles, AVATAR_BODY_R);
     setWalk({ path, obstacles, startedAt: performance.now(), durationMs: reducedMotion ? 1 : 900 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -459,7 +489,7 @@ export function Plan3DScene({
       z: Math.max(-room.d / 2 + margin, Math.min(room.d / 2 - margin, e.point.z)),
     };
     const from = walkerPosRef.current ?? entranceWorld;
-    const obstacles = floorObstacles(floor, tables, room, []);
+    const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
     const path = steerPath(from, dest, obstacles, AVATAR_BODY_R);
     if (reducedMotion) {
       setWalk({ path: [dest], obstacles: [], startedAt: performance.now(), durationMs: 1 });
@@ -500,6 +530,16 @@ export function Plan3DScene({
       {tables.map((t) => (
         <TableMesh key={t.id} table={t} room={room} palette={palette} />
       ))}
+
+      {/* Placed venue fixtures — objects · booths · signs · cocktail room. */}
+      <VenueFixtures
+        room={room}
+        palette={palette}
+        objects={sceneObjects}
+        booths={booths}
+        signs={signs}
+        cocktail={cocktail}
+      />
 
       {guests.map((g) => {
         // The guest currently mid-walk (or roaming) is drawn by the Walker instead — never both.

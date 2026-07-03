@@ -26,14 +26,25 @@ import {
   steerPath,
   seatApproachPath,
   floorObstacles,
+  sceneObjectObstacles,
+  boothObstacles,
+  signObstacles,
+  cocktailObstacles,
+  VENUE_OBJECT_CATALOG,
   resolvePalette,
   resolvePaletteFromRoles,
   type Lab3DFloor,
   type Lab3DTable,
   type Lab3DPalette,
+  type Lab3DSceneObject,
+  type Lab3DBooth,
+  type Lab3DSign,
+  type Lab3DCocktail,
+  type VenueObjectKind,
   type Vec2,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
+import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 
 export type VenueScene = {
   published: boolean;
@@ -46,6 +57,12 @@ export type VenueScene = {
   };
   tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[] }[];
   objects: { kind: string; xPct: number; yPct: number; rotationDeg: number }[];
+  /** Vendor booths (v2 payload; absent on an old cached payload → treated as []). */
+  booths?: { id: string; kind: string; label: string; xPct: number; yPct: number }[];
+  /** Wayfinding signs (v2 payload). */
+  signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];
+  /** Cocktail / waiting room (v2 payload) — null/absent when the couple didn't enable one. */
+  cocktail?: { xPct: number; yPct: number; wPct: number; hPct: number; label: string | null } | null;
   occupancy: { table: string; seats: number[] }[];
   you: { table: string; seatNumber: number; tablemates: { name: string; seatNumber: number }[] } | null;
   /** The couple's mood-board role palette — drives 3D scene materials. Optional for backwards compat. */
@@ -264,6 +281,45 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
       })),
     [scene],
   );
+  // Placed venue fixtures (v2 payload). Scene-object kinds are guarded against
+  // the canonical catalog so a stray kind never breaks the union; unknown kinds
+  // drop out of both the render and the obstacle set.
+  const knownKinds = useMemo(() => new Set<string>(VENUE_OBJECT_CATALOG.map((o) => o.kind)), []);
+  const sceneObjects = useMemo<Lab3DSceneObject[]>(
+    () =>
+      scene.objects
+        .filter((o) => knownKinds.has(o.kind))
+        .map((o, i) => ({
+          id: `obj-${i}`,
+          kind: o.kind as VenueObjectKind,
+          label: null,
+          xPct: o.xPct,
+          yPct: o.yPct,
+          rotationDeg: o.rotationDeg,
+        })),
+    [scene.objects, knownKinds],
+  );
+  const booths = useMemo<Lab3DBooth[]>(
+    () => (scene.booths ?? []).map((b) => ({ id: b.id, kind: b.kind, label: b.label, xPct: b.xPct, yPct: b.yPct })),
+    [scene.booths],
+  );
+  const signs = useMemo<Lab3DSign[]>(
+    () => (scene.signs ?? []).map((s) => ({ id: s.id, label: s.label, xPct: s.xPct, yPct: s.yPct, rotationDeg: s.rotationDeg })),
+    [scene.signs],
+  );
+  const cocktail = useMemo<Lab3DCocktail>(() => scene.cocktail ?? null, [scene.cocktail]);
+  // Fixture avoidance discs — merged into BOTH walk sets so the auto-walk and
+  // every roam tap round the buffet / booth / cocktail room just like a table.
+  const fixtureObstacles = useMemo(
+    () => [
+      ...sceneObjectObstacles(sceneObjects, room),
+      ...boothObstacles(booths, room),
+      ...signObstacles(signs, room),
+      ...cocktailObstacles(cocktail, room),
+    ],
+    [sceneObjects, booths, signs, cocktail, room],
+  );
+
   const occByTable = useMemo(() => new Map(scene.occupancy.map((o) => [o.table, new Set(o.seats)])), [scene]);
   const entrance = useMemo<Vec2>(
     () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
@@ -276,12 +332,12 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   //  · roamObstacles skips the guest's own table so a free-roam tap can land them
   //    right at their chair.
   const seatObstacles = useMemo(
-    () => floorObstacles(floor, tables, room, []),
-    [floor, tables, room],
+    () => [...floorObstacles(floor, tables, room, []), ...fixtureObstacles],
+    [floor, tables, room, fixtureObstacles],
   );
   const roamObstacles = useMemo(
-    () => floorObstacles(floor, tables, room, [scene.you?.table]),
-    [floor, tables, room, scene.you],
+    () => [...floorObstacles(floor, tables, room, [scene.you?.table]), ...fixtureObstacles],
+    [floor, tables, room, scene.you, fixtureObstacles],
   );
   const youTable = useMemo<Lab3DTable | null>(
     () => (scene.you ? tables.find((x) => x.id === scene.you!.table) ?? null : null),
@@ -352,6 +408,16 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
           />
         ))}
+
+        {/* Placed venue fixtures — objects · booths · signs · cocktail room. */}
+        <VenueFixtures
+          room={room}
+          palette={palette}
+          objects={sceneObjects}
+          booths={booths}
+          signs={signs}
+          cocktail={cocktail}
+        />
 
         {/* Destination beacon: where the avatar is walking, shown until it sits. */}
         {seatTarget && isSeatTarget && !seatReached ? (

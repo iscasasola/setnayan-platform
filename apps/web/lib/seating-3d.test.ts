@@ -28,9 +28,15 @@ import {
   VENUE_OBJECT_CATALOG,
   venueObjectDims,
   sceneObjectObstacles,
+  boothObstacles,
+  signObstacles,
+  cocktailObstacles,
+  BOOTH_FOOTPRINT_M,
   type Lab3DFloor,
   type Lab3DTable,
   type Lab3DSceneObject,
+  type Lab3DBooth,
+  type Lab3DSign,
 } from './seating-3d';
 
 const ROOM = { w: 20, d: 20 };
@@ -239,6 +245,44 @@ test('sceneObjectObstacles: one disc per object, radius = half-footprint + clear
   assert.ok(Math.abs(discs[0]!.r - (3.0 / 2 + 0.4)) < 1e-9, 'buffet disc uses the long side');
   // plant at (0,0) pct → top-left world corner of a 20×20 room.
   assert.deepEqual(discs[1]!.c, { x: -10, z: -10 });
+});
+
+test('boothObstacles: one disc per booth at the fixed booth footprint + clearance', () => {
+  const booths: Lab3DBooth[] = [
+    { id: 'a', kind: 'photo_booth', label: 'Booth', xPct: 50, yPct: 50 },
+    { id: 'b', kind: 'mobile_bar', label: 'Bar', xPct: 100, yPct: 100 },
+  ];
+  const discs = boothObstacles(booths, ROOM);
+  assert.equal(discs.length, 2);
+  const wantR = Math.max(BOOTH_FOOTPRINT_M.w, BOOTH_FOOTPRINT_M.d) / 2 + 0.4;
+  assert.ok(Math.abs(discs[0]!.r - wantR) < 1e-9, 'radius = half-footprint + 0.4 clearance');
+  assert.deepEqual(discs[0]!.c, { x: 0, z: 0 }, 'centre-of-room booth → world origin');
+  assert.deepEqual(discs[1]!.c, { x: 10, z: 10 }, '(100,100) pct → bottom-right corner');
+});
+
+test('signObstacles: one small disc per sign post', () => {
+  const signs: Lab3DSign[] = [
+    { id: 's1', label: 'Restrooms', xPct: 0, yPct: 50, rotationDeg: 90 },
+  ];
+  const discs = signObstacles(signs, ROOM);
+  assert.equal(discs.length, 1);
+  assert.ok(discs[0]!.r > 0 && discs[0]!.r < 0.6, 'a slim clearance disc');
+  assert.deepEqual(discs[0]!.c, { x: -10, z: 0 }, '(0,50) pct → left wall midpoint');
+});
+
+test('cocktailObstacles: null → empty; enabled → a ring of perimeter discs', () => {
+  assert.deepEqual(cocktailObstacles(null, ROOM), [], 'no room → no discs');
+  const discs = cocktailObstacles(
+    { xPct: 50, yPct: 50, wPct: 40, hPct: 40, label: 'Cocktails' },
+    ROOM,
+  );
+  assert.ok(discs.length >= 8, 'traces the four walls with overlapping discs');
+  // 40% of 20 = 8 m wide/deep → half-span 4 m each way; every disc sits on the
+  // rectangle's edge, so |x|≤4 and |z|≤4 (corners are at the 4,4 diagonal).
+  for (const d of discs) {
+    assert.ok(d.r > 0, 'each perimeter disc has a positive radius');
+    assert.ok(Math.abs(d.c.x) <= 4 + 1e-9 && Math.abs(d.c.z) <= 4 + 1e-9, 'discs sit on the room perimeter');
+  }
 });
 
 test('firstFreeSeatAtTable: lowest seat skipping removed + occupied; -1 when full', () => {

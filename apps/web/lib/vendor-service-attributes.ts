@@ -346,7 +346,21 @@ function pickChipFields(
 ): Record<string, AttributeFieldDef> {
   const fields: Record<string, AttributeFieldDef> = {};
   for (const [key, def] of Object.entries(categoryAttributes ?? {})) {
-    if (def && isChipRefinementType(def.type)) fields[key] = def;
+    if (!def || !isChipRefinementType(def.type)) continue;
+    // A refinement the admin RETIRED in the Taxonomy Studio stops offering NEW
+    // chip picks. This is a RENDER-only filter — the parse/validate path uses
+    // the full schema (fetchSchemaWithSharedGroups), so a vendor's already-saved
+    // value on a retired field/option still validates (0044 never-orphan).
+    const d = def as AttributeFieldDef & { retired?: boolean; retired_options?: string[] };
+    if (d.retired === true) continue;
+    if (Array.isArray(d.retired_options) && d.retired_options.length > 0 && Array.isArray(d.options)) {
+      const retired = new Set(d.retired_options);
+      const { retired_options: _drop, retired: _drop2, ...rest } = d;
+      fields[key] = { ...rest, options: d.options.filter((o) => !retired.has(o)) };
+    } else {
+      const { retired: _drop, retired_options: _drop2, ...rest } = d;
+      fields[key] = rest;
+    }
   }
   return fields;
 }

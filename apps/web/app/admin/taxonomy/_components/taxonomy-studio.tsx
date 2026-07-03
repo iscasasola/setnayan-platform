@@ -37,6 +37,11 @@ import {
   Trash2,
   Circle,
   Lock,
+  SlidersHorizontal,
+  Tag,
+  Pencil,
+  Undo2,
+  Archive,
 } from 'lucide-react';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { Sheet } from '@/app/_components/sheet';
@@ -64,6 +69,11 @@ import {
   removeRefinementOption,
   reorderRefinementLeaves,
   reorderRefinementOptions,
+  addLeafAttributeFieldAction,
+  addLeafAttributeOptionAction,
+  relabelLeafAttributeFieldAction,
+  retireLeafAttributeFieldAction,
+  retireLeafAttributeOptionAction,
   type StudioActionResult,
 } from '../actions';
 
@@ -91,6 +101,25 @@ export type StudioTile = {
   refinementCount: number;
 };
 
+/** One option value on an option-bearing leaf refinement. `value` is the
+ *  immutable stored string (also the vendor-visible label after underscores →
+ *  spaces); `retired` hides it from new picks without dropping it. */
+export type StudioLeafRefinementOption = {
+  value: string;
+  retired: boolean;
+};
+
+/** One leaf refinement = one vendor attribute field on a canonical service
+ *  (`category_specific_attributes[key]`). The owner-clarified "refinement". */
+export type StudioLeafRefinement = {
+  key: string;
+  type: string;
+  label: string;
+  retired: boolean;
+  /** Non-empty only for enum / multi_select (option-bearing) types. */
+  options: StudioLeafRefinementOption[];
+};
+
 export type StudioService = {
   canonical: string;
   displayEn: string;
@@ -102,6 +131,13 @@ export type StudioService = {
   setnayan: boolean;
   rental: boolean;
   hidden: boolean;
+  /** Current schema_version — every refinement edit bumps this +1. */
+  schemaVersion: number;
+  /** Cross-category shared groups (faith / dietary / pricing) — read-only here;
+   *  edited by their own dedicated tooling, not the leaf refinements editor. */
+  sharedGroups: string[];
+  /** The leaf's vendor attribute fields (category_specific_attributes). */
+  refinements: StudioLeafRefinement[];
 };
 
 export type StudioRequest = {
@@ -1220,6 +1256,9 @@ function ServicesTab({
                   </SubmitButton>
                 </form>
               </div>
+
+              {/* Leaf refinements (vendor attribute schema) editor */}
+              <LeafRefinementsPanel tile={tile} service={s} />
             </li>
           ))}
         </ul>
@@ -1278,6 +1317,369 @@ function ServicesTab({
         </form>
       </details>
     </div>
+  );
+}
+
+// ── Leaf Refinements panel (vendor attribute schema editor) ──────────────────────
+//
+// The owner-clarified "refinements" = the vendor attribute fields on a leaf
+// (canonical_service_schemas.category_specific_attributes). This is the FIRST
+// editor for them. ADDITIVE-ONLY (0044 never-orphan contract): field keys +
+// option values are IMMUTABLE, so we offer add-field · add-option · relabel-field
+// (label is pure display, safe) · retire/restore (soft). We deliberately DO NOT
+// offer option-relabel — an option string IS the value a vendor stored, so
+// renaming it in place would orphan every saved payload. Each form is a
+// redirect-back <form action> carrying `_opentab=services` so a save re-opens
+// right here. Shared attribute groups are shown read-only (edited elsewhere).
+
+/** Human labels for the vendor-form-supported field types. Mirrors AttributeFieldDef. */
+const LEAF_FIELD_TYPE_LABELS: Record<string, string> = {
+  boolean: 'Yes / no',
+  int: 'Number',
+  text_short: 'Short text',
+  text_long: 'Long text',
+  enum: 'Pick one',
+  multi_select: 'Pick many',
+  multi_select_open: 'Tags (free)',
+};
+
+/** The types the admin can mint here + whether they carry a fixed option list. */
+const LEAF_TYPE_CHOICES: { value: string; hasOptions: boolean }[] = [
+  { value: 'boolean', hasOptions: false },
+  { value: 'int', hasOptions: false },
+  { value: 'text_short', hasOptions: false },
+  { value: 'text_long', hasOptions: false },
+  { value: 'enum', hasOptions: true },
+  { value: 'multi_select', hasOptions: true },
+  { value: 'multi_select_open', hasOptions: false },
+];
+
+const OPTION_BEARING = new Set(['enum', 'multi_select']);
+
+/** Underscores → spaces, matching the vendor form's option/label display. */
+function humanize(s: string): string {
+  return s.replaceAll('_', ' ');
+}
+
+function LeafRefinementsPanel({ tile, service }: { tile: StudioTile; service: StudioService }) {
+  const [open, setOpen] = useState(false);
+  const activeCount = service.refinements.filter((r) => !r.retired).length;
+  const retiredCount = service.refinements.length - activeCount;
+
+  return (
+    <div className="mt-2 rounded-lg border border-ink/10 bg-cream/50">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
+        )}
+        <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-ink/45" aria-hidden />
+        <span className="text-xs font-medium text-ink/80">Refinements</span>
+        <span className="text-[10px] text-ink/45">(vendor attributes)</span>
+        <span className="ml-auto flex items-center gap-1">
+          <Badge tone="bg-ink/5 text-ink/60">{activeCount} active</Badge>
+          {retiredCount > 0 ? <Badge tone="bg-ink/5 text-ink/40">{retiredCount} retired</Badge> : null}
+          <span className="font-mono text-[9px] text-ink/35">v{service.schemaVersion}</span>
+        </span>
+      </button>
+
+      {open ? (
+        <div className="space-y-3 border-t border-ink/10 px-2.5 py-3">
+          <p className="text-[10px] leading-relaxed text-ink/50">
+            The attributes vendors fill in for <span className="font-medium text-ink/70">{service.displayEn}</span>.
+            Keys and option values are permanent (a vendor’s saved answer must never break) — so you can
+            <strong> add</strong> and <strong>rename labels</strong>, and <strong>retire</strong> instead of delete.
+            Every change bumps the schema version.
+          </p>
+
+          {/* Shared groups — read-only */}
+          {service.sharedGroups.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-ink/40">Shared groups:</span>
+              {service.sharedGroups.map((g) => (
+                <span
+                  key={g}
+                  className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-white px-2 py-0.5 font-mono text-[10px] text-ink/55"
+                >
+                  <Lock className="h-2.5 w-2.5" aria-hidden />
+                  {g}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Field cards */}
+          {service.refinements.length === 0 ? (
+            <p className="rounded-md border border-dashed border-ink/15 bg-white/60 px-2.5 py-3 text-center text-[11px] text-ink/50">
+              No refinements yet. Add the first one below.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {service.refinements.map((f) => (
+                <LeafFieldCard key={f.key} tile={tile} service={service} field={f} />
+              ))}
+            </ul>
+          )}
+
+          {/* Add a field */}
+          <AddLeafFieldForm tile={tile} service={service} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LeafFieldCard({
+  tile,
+  service,
+  field,
+}: {
+  tile: StudioTile;
+  service: StudioService;
+  field: StudioLeafRefinement;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [addingOption, setAddingOption] = useState(false);
+  const hasOptions = OPTION_BEARING.has(field.type);
+
+  return (
+    <li
+      className={`rounded-md border p-2 ${
+        field.retired ? 'border-ink/10 bg-ink/[0.02] opacity-70' : 'border-ink/15 bg-white'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {renaming ? (
+              <form action={relabelLeafAttributeFieldAction} className="flex items-center gap-1">
+                <LeafHiddenFields tile={tile} service={service} />
+                <input type="hidden" name="field_key" value={field.key} />
+                <input
+                  name="field_label"
+                  defaultValue={field.label}
+                  autoFocus
+                  required
+                  minLength={2}
+                  maxLength={80}
+                  className="rounded border border-ink/20 bg-white px-1.5 py-0.5 text-xs"
+                  aria-label={`Rename ${field.key}`}
+                />
+                <SubmitButton
+                  className="rounded border border-ink/15 bg-white px-1.5 py-0.5 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+                  pendingLabel="…"
+                >
+                  Save
+                </SubmitButton>
+                <button
+                  type="button"
+                  onClick={() => setRenaming(false)}
+                  className="rounded p-0.5 text-ink/45 hover:bg-black/5"
+                  aria-label="Cancel rename"
+                >
+                  <X className="h-3 w-3" aria-hidden />
+                </button>
+              </form>
+            ) : (
+              <>
+                <span className="text-xs font-medium text-ink">{field.label}</span>
+                <button
+                  type="button"
+                  onClick={() => setRenaming(true)}
+                  className="rounded p-0.5 text-ink/35 hover:bg-black/5 hover:text-ink/60"
+                  aria-label={`Rename ${field.label}`}
+                  title="Rename (label only — key is permanent)"
+                >
+                  <Pencil className="h-3 w-3" aria-hidden />
+                </button>
+              </>
+            )}
+            {field.retired ? <Badge tone="bg-ink/5 text-ink/45">retired</Badge> : null}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <span className="font-mono text-[10px] text-ink/40">{field.key}</span>
+            <Badge tone="bg-ink/5 text-ink/55">{LEAF_FIELD_TYPE_LABELS[field.type] ?? field.type}</Badge>
+          </div>
+        </div>
+
+        {/* Retire / restore the whole field */}
+        <form action={retireLeafAttributeFieldAction} className="shrink-0">
+          <LeafHiddenFields tile={tile} service={service} />
+          <input type="hidden" name="field_key" value={field.key} />
+          <input type="hidden" name="retired" value={field.retired ? 'false' : 'true'} />
+          <SubmitButton
+            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+              field.retired
+                ? 'border-success-200 bg-white text-success-700 hover:bg-success-50'
+                : 'border-ink/15 bg-white text-ink/55 hover:border-ink/40'
+            }`}
+            pendingLabel="…"
+          >
+            {field.retired ? (
+              <>
+                <Undo2 className="h-3 w-3" aria-hidden /> Restore
+              </>
+            ) : (
+              <>
+                <Archive className="h-3 w-3" aria-hidden /> Retire
+              </>
+            )}
+          </SubmitButton>
+        </form>
+      </div>
+
+      {/* Options (enum / multi_select) */}
+      {hasOptions ? (
+        <div className="mt-2 border-t border-ink/10 pt-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {field.options.length === 0 ? (
+              <span className="text-[10px] text-ink/45">No options.</span>
+            ) : (
+              field.options.map((opt) => (
+                <span
+                  key={opt.value}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${
+                    opt.retired
+                      ? 'border-ink/10 bg-ink/[0.02] text-ink/40 line-through'
+                      : 'border-ink/15 bg-cream text-ink/70'
+                  }`}
+                >
+                  <span>{humanize(opt.value)}</span>
+                  <form action={retireLeafAttributeOptionAction} className="inline-flex">
+                    <LeafHiddenFields tile={tile} service={service} />
+                    <input type="hidden" name="field_key" value={field.key} />
+                    <input type="hidden" name="option" value={opt.value} />
+                    <input type="hidden" name="retired" value={opt.retired ? 'false' : 'true'} />
+                    <button
+                      type="submit"
+                      className="rounded p-0.5 text-ink/40 hover:bg-black/10"
+                      aria-label={opt.retired ? `Restore option ${opt.value}` : `Retire option ${opt.value}`}
+                      title={opt.retired ? 'Restore option' : 'Retire option (kept for saved answers)'}
+                    >
+                      {opt.retired ? <Undo2 className="h-2.5 w-2.5" aria-hidden /> : <X className="h-2.5 w-2.5" aria-hidden />}
+                    </button>
+                  </form>
+                </span>
+              ))
+            )}
+            {addingOption ? (
+              <form action={addLeafAttributeOptionAction} className="inline-flex items-center gap-1">
+                <LeafHiddenFields tile={tile} service={service} />
+                <input type="hidden" name="field_key" value={field.key} />
+                <input
+                  name="option_label"
+                  autoFocus
+                  required
+                  maxLength={80}
+                  placeholder="New option"
+                  className="w-28 rounded border border-ink/20 bg-white px-1.5 py-0.5 text-[10px]"
+                  aria-label={`New option for ${field.key}`}
+                />
+                <SubmitButton
+                  className="rounded border border-success-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-success-700 hover:bg-success-50"
+                  pendingLabel="…"
+                >
+                  Add
+                </SubmitButton>
+                <button
+                  type="button"
+                  onClick={() => setAddingOption(false)}
+                  className="rounded p-0.5 text-ink/45 hover:bg-black/5"
+                  aria-label="Cancel add option"
+                >
+                  <X className="h-3 w-3" aria-hidden />
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingOption(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 bg-white px-2 py-0.5 text-[10px] text-ink/55 hover:border-terracotta/50 hover:text-terracotta"
+              >
+                <Plus className="h-2.5 w-2.5" aria-hidden /> Option
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+/** The hidden fields every leaf-refinement form needs so redirect-back re-opens
+ *  this tile on the Services tab. */
+function LeafHiddenFields({ tile, service }: { tile: StudioTile; service: StudioService }) {
+  return (
+    <>
+      <input type="hidden" name="canonical_service" value={service.canonical} />
+      <input type="hidden" name="tile_id" value={tile.id} />
+      <input type="hidden" name="_anchor" value={`t-${tile.id}`} />
+      <input type="hidden" name="_opentab" value="services" />
+    </>
+  );
+}
+
+function AddLeafFieldForm({ tile, service }: { tile: StudioTile; service: StudioService }) {
+  const [type, setType] = useState('multi_select');
+  const needsOptions = OPTION_BEARING.has(type);
+  return (
+    <details className="rounded-md border border-success-200 bg-success-50/40 p-2">
+      <summary className="cursor-pointer text-[11px] font-medium text-success-800">
+        ＋ Add a refinement
+      </summary>
+      <form action={addLeafAttributeFieldAction} className="mt-2 space-y-1.5">
+        <input type="hidden" name="canonical_service" value={service.canonical} />
+        <input type="hidden" name="tile_id" value={tile.id} />
+        <input type="hidden" name="_anchor" value={`t-${tile.id}`} />
+        <input type="hidden" name="_opentab" value="services" />
+        <input
+          name="field_label"
+          required
+          minLength={2}
+          maxLength={80}
+          placeholder="Refinement name — e.g. Shooting style"
+          className="w-full rounded border border-ink/20 bg-white px-2 py-1 text-xs"
+        />
+        <div className="flex items-center gap-1.5">
+          <Tag className="h-3 w-3 shrink-0 text-ink/40" aria-hidden />
+          <select
+            name="field_type"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="rounded border border-ink/20 bg-white px-1.5 py-1 text-xs"
+            aria-label="Field type"
+          >
+            {LEAF_TYPE_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {LEAF_FIELD_TYPE_LABELS[c.value]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {needsOptions ? (
+          <input
+            name="field_options"
+            required
+            placeholder="Options, comma-separated — e.g. candid, traditional, editorial"
+            className="w-full rounded border border-ink/20 bg-white px-2 py-1 text-xs"
+          />
+        ) : (
+          <input type="hidden" name="field_options" value="" />
+        )}
+        <SubmitButton
+          className="rounded-md bg-success-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-success-700"
+          pendingLabel="Adding…"
+        >
+          Add refinement
+        </SubmitButton>
+      </form>
+    </details>
   );
 }
 

@@ -108,6 +108,46 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
         type: 'p',
         text: 'They kept the palette soft and natural — champagne, sage, and warm wood — and carried it from the invitations through the aisle to the long-table reception, so the whole day read as one unbroken idea.',
       },
+      { type: 'h2', text: 'The morning' },
+      {
+        type: 'p',
+        text: 'The suite smelled of coffee and hairspray by seven. Maria dressed with her mother and two sisters in a hillside casita while Juan and his groomsmen played one last round of pusoy dos on the terrace — the calm kind of morning you only get when the checklist is already done.',
+      },
+      { type: 'h2', text: 'The first look' },
+      {
+        type: 'p',
+        text: 'Juan waited at the end of the garden path with his back turned. When he heard her step on the gravel and turned, the photographers caught the exact second his composure gave up. Nobody coached it; nobody needed to.',
+      },
+      { type: 'h2', text: 'The ceremony' },
+      {
+        type: 'p',
+        text: 'A three-o’clock Mass under an arch of sampaguita and sage, Taal flat and silver behind the priest. The veil and cord were placed by the same ninang who introduced their parents thirty years ago — a detail nobody in the family let go unmentioned.',
+      },
+      { type: 'h2', text: 'Golden hour' },
+      {
+        type: 'p',
+        text: 'At half past five the garden turned amber, and the couple slipped out for twenty minutes of portraits along the ridge. The guests didn’t mind — the bar had opened, and the acoustic trio had found their groove.',
+      },
+      { type: 'h2', text: 'The reception' },
+      {
+        type: 'p',
+        text: 'One long table under the trees, string lights overhead, and a first dance to a song their guests swear was written for them. The speeches ran long in the best way — Juan’s father needed two tries to finish his.',
+      },
+      { type: 'h2', text: 'What the guests said' },
+      {
+        type: 'ul',
+        items: [
+          '“When Maria walked in, the whole garden went quiet. Even the birds.” — Ate Celine, Maid of Honor',
+          '“The longest I have ever seen Juan sit still. He didn’t look away once.” — Marco, Best Man',
+          '“I’ve been to forty weddings. This is the first one that felt like a family dinner that happened to be beautiful.” — Tito Ramon',
+          '“The lechon was gone in forty minutes. That is the real review.” — Kuya Dan, cousin of the groom',
+        ],
+      },
+      { type: 'h2', text: 'The last song' },
+      {
+        type: 'p',
+        text: 'They closed the night the way they opened it — just the two of them on the floor, everyone else holding up their phones with the flash on, a hundred small stars over a Tagaytay garden.',
+      },
     ],
     team: [
       { role: 'Venue', href: '/explore' },
@@ -336,6 +376,41 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       {
         type: 'p',
         text: 'A rose-and-gold palette, a grand cotillion, and a program that moved from the formal rose ceremony through the candle lighting to a reception that went long past midnight.',
+      },
+      { type: 'h2', text: 'The entrance' },
+      {
+        type: 'p',
+        text: 'The ballroom doors opened on the first chord, and Sofia came down the staircase in a rose-gold gown her lola had quietly helped choose. Two hundred people stood without being asked to.',
+      },
+      { type: 'h2', text: 'Eighteen roses' },
+      {
+        type: 'p',
+        text: 'Her father first, then grandfathers, uncles, cousins, and the family friends who taught her to bike, to swim, to drive. Each rose came with a dance and a sentence or two — some rehearsed, the best ones not.',
+      },
+      { type: 'h2', text: 'Eighteen candles' },
+      {
+        type: 'p',
+        text: 'The women who raised her — mother, lola, titas, teachers, her best friend since grade two — each lit a candle and left her a wish. By the twelfth, half the ballroom had given up pretending they weren’t crying.',
+      },
+      { type: 'h2', text: 'The cotillion' },
+      {
+        type: 'p',
+        text: 'Eight couples, three months of Sunday rehearsals, one waltz that broke into a track nobody in the older generation recognized and everybody under twenty knew by heart. It brought the house down.',
+      },
+      { type: 'h2', text: 'What the guests said' },
+      {
+        type: 'ul',
+        items: [
+          '“I’ve watched her grow up. This night, I watched her arrive.” — Ninong Ernesto, fourth rose',
+          '“She danced with her father the way she used to stand on his shoes at five years old. I couldn’t breathe.” — Tita Marielle',
+          '“Best cotillion I’ve seen, and I say that as someone who choreographed her mother’s.” — Teacher Fe',
+          '“The dessert bar had her baby pictures on it. Genius. Devastating. Genius.” — Bea, best friend, eighteenth candle',
+        ],
+      },
+      { type: 'h2', text: 'Past midnight' },
+      {
+        type: 'p',
+        text: 'The formal program ended at eleven; nobody left. The last photo on the wall that night is Sofia, barefoot, crown slightly crooked, dancing with her lola to a song older than both of them put together.',
       },
     ],
     team: [

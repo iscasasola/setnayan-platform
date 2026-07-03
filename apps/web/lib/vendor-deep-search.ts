@@ -98,7 +98,14 @@ export function adTransparencyLinks(businessName: string): Array<{ label: string
 // The research run
 // ---------------------------------------------------------------------------
 
-export const DEEP_SEARCH_MODEL = 'claude-opus-4-8';
+// Owner 2026-07-03: the paid AI dossier defaults to Haiku (~₱9/run) not Opus
+// (~₱28/run) — this is a due-diligence glance, not a critical call. Swap here to
+// change the model everywhere. The Lite (keyless) mode below needs no model.
+export const DEEP_SEARCH_MODEL = 'claude-haiku-4-5-20251001';
+
+/** Marker stored in vendor_web_dossiers.model for a keyless Lite (no-AI) run. */
+export const DEEP_SEARCH_LITE_MODEL = 'lite';
+
 const MAX_CONTINUATIONS = 4;
 
 const SYSTEM_PROMPT = `You are a due-diligence researcher for Setnayan, a Philippines events-vendor marketplace. An admin is verifying a vendor's application and needs an honest picture of the vendor's real-world business footprint.
@@ -245,4 +252,207 @@ export async function runDeepSearch(inputs: DeepSearchInputs): Promise<VendorDos
     throw new Error('Deep search finished but returned an unreadable result — try re-running.');
   }
   return dossier;
+}
+
+// ---------------------------------------------------------------------------
+// Lite (keyless) mode — the free, no-AI, ₱0 default (owner 2026-07-03)
+// ---------------------------------------------------------------------------
+//
+// When ANTHROPIC_API_KEY isn't configured, deep search still does something
+// useful: fetch the vendor's own website and pull out what's deterministically
+// visible — page title + meta description, any ₱ price signals on the page, and
+// the known presence links — with NO AI and NO cost. The admin reads and judges
+// (category_match/confidence stay 'unknown'/'low' — no machine verdict). Pairs
+// with the always-on ad-transparency deep links (adTransparencyLinks). When the
+// key IS present, the AI dossier (runDeepSearch) is the richer upgrade.
+
+/** Add a scheme if the vendor typed a bare host; return null for junk. */
+export function normalizeSiteUrl(raw: string | null | undefined): string | null {
+  const s = (raw ?? '').trim();
+  if (!s) return null;
+  const withScheme = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if (!u.hostname.includes('.')) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** First <title>…</title>, collapsed + trimmed. */
+export function extractTitle(html: string): string {
+  const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return m ? decodeEntities(m[1] ?? '').replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+}
+
+/** <meta name/property="description|og:description" content="…">. */
+export function extractMetaDescription(html: string): string {
+  const patterns = [
+    /<meta[^>]+(?:name|property)=["'](?:description|og:description)["'][^>]*content=["']([^"']*)["']/i,
+    /<meta[^>]+content=["']([^"']*)["'][^>]*(?:name|property)=["'](?:description|og:description)["']/i,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) return decodeEntities(m[1] ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  }
+  return '';
+}
+
+/** Strip tags + script/style so price regex runs over visible-ish text. */
+export function stripTags(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ');
+}
+
+/**
+ * Pull ₱ / PHP / Php price mentions out of page text, each with a little
+ * surrounding context as the label. Deduped, capped. Deterministic — no AI.
+ */
+export function extractPesoSignals(text: string): Array<{ label: string; price: string }> {
+  const clean = decodeEntities(text).replace(/\s+/g, ' ');
+  // ₱ or PHP/Php, an amount (with optional thousands + decimals), optional range.
+  const re = /(?:₱|php\s?|php)\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?(?:\s?[–\-to]{1,3}\s?(?:₱|php\s?)?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)?/gi;
+  const seen = new Set<string>();
+  const out: Array<{ label: string; price: string }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(clean)) !== null && out.length < 20) {
+    const price = match[0].replace(/\s+/g, ' ').trim();
+    const key = price.toLowerCase().replace(/\s/g, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const start = Math.max(0, match.index - 40);
+    const end = Math.min(clean.length, match.index + match[0].length + 40);
+    const label = clean.slice(start, end).trim();
+    out.push({ label, price });
+  }
+  return out;
+}
+
+/** Fetch a vendor site (best-effort, timed out, HTML only) and parse it. */
+async function fetchSiteFacts(
+  rawUrl: string,
+): Promise<{ url: string; title: string; description: string; prices: Array<{ label: string; price: string }> } | null> {
+  const url = normalizeSiteUrl(rawUrl);
+  if (!url) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: {
+        // A plain, honest UA — some hosts 403 an empty one.
+        'user-agent': 'Mozilla/5.0 (compatible; SetnayanVerify/1.0; +https://www.setnayan.com)',
+        accept: 'text/html,application/xhtml+xml',
+      },
+    });
+    if (!res.ok) return null;
+    const ct = res.headers.get('content-type') ?? '';
+    if (!ct.includes('html') && !ct.includes('text')) return null;
+    // Cap the body so a huge page can't blow memory.
+    const html = (await res.text()).slice(0, 500_000);
+    return {
+      url,
+      title: extractTitle(html),
+      description: extractMetaDescription(html),
+      prices: extractPesoSignals(stripTags(html)),
+    };
+  } catch {
+    return null; // dead link, DNS fail, timeout, TLS error — all "couldn't read"
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The free, keyless due-diligence pass. NEVER throws for a normal miss (a dead
+ * or blocked website just yields an empty-but-honest dossier); the admin still
+ * gets the ad-transparency links and the raw facts to judge.
+ */
+export async function runLiteDeepSearch(inputs: DeepSearchInputs): Promise<VendorDossier> {
+  const web_presence: DossierPresence[] = [];
+  const price_signals: DossierPriceSignal[] = [];
+  let read = '';
+
+  if (inputs.social_url) {
+    web_presence.push({
+      platform: 'Social',
+      url: inputs.social_url,
+      note: 'Claimed social link — open to review (posts may be login-walled).',
+    });
+  }
+
+  if (inputs.website) {
+    const facts = await fetchSiteFacts(inputs.website);
+    if (facts) {
+      read = [facts.title, facts.description].filter(Boolean).join(' — ');
+      web_presence.unshift({
+        platform: 'Website',
+        url: facts.url,
+        note: facts.title || 'Reachable',
+      });
+      for (const p of facts.prices) {
+        price_signals.push({ label: p.label, price: p.price, source_url: facts.url });
+      }
+    } else {
+      web_presence.unshift({
+        platform: 'Website',
+        url: normalizeSiteUrl(inputs.website),
+        note: 'Could not fetch — dead link, blocked, or timed out. Open it manually.',
+      });
+    }
+  }
+
+  const business_summary = read
+    ? `Lite result (no AI) — read directly from the website: ${read}`.slice(0, 600)
+    : `Lite result (no AI). ${
+        inputs.website
+          ? "Couldn't read the website automatically."
+          : 'No website was given to read.'
+      } Use the ad-transparency links and open the pages to verify this vendor.`;
+
+  return {
+    business_summary,
+    detected_services: [],
+    price_signals,
+    web_presence,
+    ads_findings: null,
+    consistency_flags: [],
+    category_match: 'unknown',
+    confidence: 'low',
+  };
+}
+
+/**
+ * Run deep search the best way available: the AI dossier when ANTHROPIC_API_KEY
+ * is set (Haiku by default), otherwise the free keyless Lite pass. Returns the
+ * dossier plus the model marker to store on the row so the admin sees which ran.
+ */
+export async function runDeepSearchOrLite(
+  inputs: DeepSearchInputs,
+): Promise<{ dossier: VendorDossier; model: string }> {
+  if (process.env.ANTHROPIC_API_KEY) {
+    return { dossier: await runDeepSearch(inputs), model: DEEP_SEARCH_MODEL };
+  }
+  return { dossier: await runLiteDeepSearch(inputs), model: DEEP_SEARCH_LITE_MODEL };
+}
+
+// Minimal HTML entity decode for the handful that show up in titles/prices.
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#8369;|&#x20b1;/gi, '₱')
+    .replace(/&#(\d+);/g, (_, d) => {
+      const n = Number(d);
+      return Number.isFinite(n) && n > 0 && n < 0x10ffff ? String.fromCodePoint(n) : _;
+    });
 }

@@ -73,21 +73,21 @@ export const dynamic = 'force-dynamic';
 // Setnayan AI + the software you add. No "free website / free RSVP" claims —
 // those SKUs are paid (owner reversals § 00.D).
 export const metadata = {
-  title: 'Pricing — Setnayan',
+  title: 'Pricing · Setnayan',
   description:
-    'Start planning free. Software you actually use at your event, at transparent PHP prices. No commission on vendor bookings — vendors keep 100%.',
+    'Start planning free. Software you actually use at your event, at transparent PHP prices. No commission on vendor bookings. Vendors keep 100%.',
   alternates: { canonical: '/pricing' },
   openGraph: {
-    title: 'Pricing — Setnayan',
+    title: 'Pricing · Setnayan',
     description:
-      'Start free, add the software you want. Transparent PHP prices. Vendors transact directly — Setnayan takes 0%.',
+      'Start free, add the software you want. Transparent PHP prices. Vendors transact directly. Setnayan takes 0%.',
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pricing — Setnayan',
+    title: 'Pricing · Setnayan',
     description: 'Software at retail · vendors keep 100% · 0% commission on bookings.',
   },
 };
@@ -378,7 +378,7 @@ export default async function PricingPage() {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
           name: s.title,
-          description: `${s.title} — Setnayan vendor subscription ${cadence.shortLabel}. 0% commission on bookings.`,
+          description: `${s.title} · Setnayan vendor subscription ${cadence.shortLabel}. 0% commission on bookings.`,
           provider: ORGANIZATION_REF,
           category: 'Wedding vendor subscription',
           offers: {
@@ -406,7 +406,7 @@ export default async function PricingPage() {
         description:
           t.token_grant_count !== null
             ? `${t.title} · ${t.token_grant_count} Setnayan vendor tokens.`
-            : `${t.title} — Setnayan vendor token pack.`,
+            : `${t.title} · Setnayan vendor token pack.`,
         brand: ORGANIZATION_REF,
         category: 'Wedding vendor tokens',
         offers: {
@@ -441,7 +441,7 @@ export default async function PricingPage() {
           </LineRevealHeading>
           <p className="mt-8 max-w-2xl text-xl leading-relaxed text-ink/65">
             You buy software at retail. Your vendors keep 100% of what you pay
-            them — Setnayan never sits between you and them at checkout.
+            them. Setnayan never sits between you and them at checkout.
           </p>
         </div>
       </section>
@@ -468,7 +468,7 @@ export default async function PricingPage() {
                 The planning workspace
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/65">
-                Schedule · budget · guest list · seat plan · mood board — plus
+                Schedule · budget · guest list · seat plan · mood board, plus
                 the full vendor marketplace and a personalized match preview.
                 Free with every account, no card required.
               </p>
@@ -483,7 +483,7 @@ export default async function PricingPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/65">
                 Create your account and set up your profile at no cost. Solo
-                at {soloMonthlyLabel}/28d activates your marketplace presence — verified
+                at {soloMonthlyLabel}/28d activates your marketplace presence, verified
                 profile, in-app chat, bid pipeline, and your vendor microsite.
               </p>
             </article>
@@ -504,7 +504,7 @@ export default async function PricingPage() {
             </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
               Plan free for as long as you like. Add Setnayan AI to unlock the
-              full matchmaking engine and guided planning — then pick exactly
+              full matchmaking engine and guided planning, then pick exactly
               the software you want from the catalog below. No packages, no
               commitments.
             </p>
@@ -512,14 +512,14 @@ export default async function PricingPage() {
           <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
             <article data-reveal-item className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Free — Explore
+                Free · Explore
               </p>
               <p className="font-sans text-3xl font-semibold tracking-tight text-ink">₱0</p>
               <p className="text-sm leading-relaxed text-ink/65">
                 Browse the marketplace, see your match preview, and plan with
                 the free workspace: schedule, budget, guest list, seat plan,
-                mood board, and a live single-camera stream on your event page —
-                to your own YouTube — so everyone who can&rsquo;t be there can
+                mood board, and a live single-camera stream on your event page,
+                to your own YouTube, so everyone who can&rsquo;t be there can
                 watch.
               </p>
             </article>
@@ -536,8 +536,8 @@ export default async function PricingPage() {
                 28 days.
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
-                The paid brain that watches your vendors so you don&rsquo;t have to —
-                it finds your best-fit matches, then flags a deposit due, a price
+                The paid brain that watches your vendors so you don&rsquo;t have to.
+                It finds your best-fit matches, then flags a deposit due, a price
                 change, or a clash before it costs you. Active until your wedding
                 day, then it ends.
               </p>
@@ -558,10 +558,10 @@ export default async function PricingPage() {
             </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
               Going live so lola abroad can watch is free for everyone. When you
-              want a true broadcast — multiple cameras with live cuts, multi-cam
+              want a true broadcast, multiple cameras with live cuts, multi-cam
               to YouTube or an in-house offline stream, Photowall and LED-Wall
               routed to every venue screen, overlays, and live replays as the
-              moments happen — that&apos;s the upgrade.
+              moments happen. That&apos;s the upgrade.
             </p>
           </div>
           <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
@@ -599,7 +599,7 @@ export default async function PricingPage() {
               <ul className="mt-1 space-y-1 text-xs leading-relaxed text-ink/60">
                 <li>
                   <span className="font-medium text-ink/75">Cameras</span> · connect
-                  any camera — phone or DSLR, bridge included with no per-camera fee —
+                  any camera (phone or DSLR, bridge included with no per-camera fee),
                   live switching, one-tap camera switch
                 </li>
                 <li>
@@ -616,7 +616,7 @@ export default async function PricingPage() {
                 </li>
               </ul>
               <p className="text-[11px] leading-relaxed text-ink/45">
-                Live replays are during the broadcast — post-event edits (AI
+                Live replays are during the broadcast. Post-event edits (AI
                 Highlight · Thank-You) and the standalone PhotoWall /
                 Live-Background content services are separate.
               </p>
@@ -652,7 +652,7 @@ export default async function PricingPage() {
 
           {customerSkus.length === 0 ? (
             <p className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-6 text-sm text-ink/65">
-              Catalog is loading. Refresh the page — if this card persists,
+              Catalog is loading. Refresh the page. If this card persists,
               we&apos;re briefly between updates and will be back shortly.
             </p>
           ) : (
@@ -687,7 +687,7 @@ export default async function PricingPage() {
                           </p>
                           {sku.is_token_able ? (
                             <span
-                              title="Token Worthy — can be purchased with vendor tokens"
+                              title="Token Worthy: can be purchased with vendor tokens"
                               className="inline-flex items-center gap-1 rounded-full bg-ink/[0.04] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/55"
                             >
                               <Coins aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
@@ -721,7 +721,7 @@ export default async function PricingPage() {
           )}
 
           <p data-premium-item className="mt-10 text-sm text-ink/55">
-            Token Worthy SKUs can also be redeemed using vendor tokens — see
+            Token Worthy SKUs can also be redeemed using vendor tokens. See
             the vendor pricing below for how tokens work.
           </p>
           </CatalogPanel>
@@ -798,7 +798,7 @@ export default async function PricingPage() {
                           Best value · save ₱{formatPeso(annualDeal.savings)} ({annualDeal.savingsPct}%) vs paying per 28 days
                         </p>
                         <p className="rounded-lg border border-ink/15 bg-ink/[0.03] px-3 py-2 text-xs leading-relaxed text-ink/75">
-                          Or <span className="font-semibold text-ink">₱{formatPeso(sub.price_php)} / 28 days</span> — prepaid blocks, 13 cycles a year
+                          Or <span className="font-semibold text-ink">₱{formatPeso(sub.price_php)} / 28 days</span>, prepaid blocks, 13 cycles a year
                         </p>
                       </>
                     ) : (
@@ -891,7 +891,7 @@ export default async function PricingPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">
                 Software SKUs above (Animated Monogram, Editorial Website,
-                Patiktok, the Panood control room, etc.) — paid at 100% retail.
+                Patiktok, the Panood control room, etc.), paid at 100% retail.
                 PHP only · itemized receipts on every transaction.
               </p>
             </div>
@@ -900,8 +900,8 @@ export default async function PricingPage() {
                 You → Vendor (off-platform)
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">
-                Vendor packages settle directly with the vendor — bank
-                transfer, GCash, in-person — whatever you arrange. Setnayan
+                Vendor packages settle directly with the vendor (bank
+                transfer, GCash, in-person), whatever you arrange. Setnayan
                 takes 0% commission.
               </p>
             </div>

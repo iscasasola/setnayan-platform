@@ -146,7 +146,8 @@ export async function getHomePricingData(): Promise<PricingData> {
   const galleryUpload = priceOf(catalog, 'WEBSITE_GALLERY_UPLOAD', 100);
   const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 100);
   const themes = priceOf(catalog, 'WEBSITE_THEMES', 1000);
-  const websitePro = priceOf(catalog, 'COUPLE_WEBSITE_PRO', 1999);
+  const editorialPro = priceOf(catalog, 'EDITORIAL_PRO', 3499);
+  const websitePro = priceOf(catalog, 'COUPLE_WEBSITE_PRO', 4999);
 
   // ── Everything else ──
   const seating3d = priceOf(catalog, 'SEATING_3D', 2499);
@@ -212,7 +213,8 @@ export async function getHomePricingData(): Promise<PricingData> {
         { n: 'Photo gallery upload', v: galleryUpload.v },
         { n: 'Waze / Google Map link', v: mapLink.v },
         { n: 'Themes · RSVP + Event + Editorial', v: themes.v },
-        { n: 'Unlock All · Couple Website PRO', v: websitePro.v },
+        { n: 'Editorial PRO · author your front page', v: editorialPro.v },
+        { n: 'Unlock All · Couple Website PRO', note: '· STD · RSVP · on the day · Editorial', v: websitePro.v },
       ],
     },
     {

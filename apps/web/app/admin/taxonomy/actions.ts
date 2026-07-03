@@ -5,8 +5,14 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeIconName } from '@/lib/taxonomy-icon-name';
+import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
 
 const BASE = '/admin/taxonomy';
+
+/** JSON result for the Studio's drag actions — they cannot redirect (they fire
+ *  from `fetch`/`useTransition`, not a form navigation), so they hand the client
+ *  a `{ ok }` / `{ error }` shape and the client calls `router.refresh()`. */
+export type StudioActionResult = { ok: true; message: string } | { ok: false; error: string };
 
 /**
  * A sample photo must be a /public image path or an r2:// ref — never arbitrary
@@ -1169,4 +1175,355 @@ export async function resolveCategoryRequest(formData: FormData) {
 
   revalidatePath(BASE);
   redirectBack(formData, 'ok', outcome === 'kept_private' ? 'Kept private.' : 'Request rejected.');
+}
+
+// ── Taxonomy Studio drag actions (JSON-returning · Phase 2 visual editor) ─────
+// These fire from the drag/drop client (a `fetch` to the server action, NOT a
+// form navigation), so they return `{ ok }` / `{ error }` and the client calls
+// `router.refresh()` on success. They keep the SAME admin gate + audit-log
+// contract as every other action here; only the error channel differs (a JSON
+// payload instead of a redirect-with-?error=).
+
+/**
+ * JSON-flavoured admin gate for the Studio actions: same defense-in-depth check
+ * as `requireAdmin`, but returns `{ user }` or `{ error }` instead of throwing /
+ * redirecting so the caller can hand the client a clean `StudioActionResult`.
+ */
+async function requireAdminJson(): Promise<
+  { user: { id: string } } | { error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not signed in.' };
+  const { data: me } = await supabase
+    .from('users')
+    .select('is_internal, is_team_member, account_type')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
+    return { error: 'Forbidden.' };
+  }
+  return { user };
+}
+
+/**
+ * Admin: persist a drag-to-reorder of the tiles under one folder. The client
+ * sends the folder id + the full new order of its child tile ids. We validate
+ * the set is EXACTLY that folder's current children (a permutation — a drag can
+ * shuffle but never add / drop / dupe a tile) via the pure `validateReorder`,
+ * then write only the rows whose sort_order actually changed (`computeReorder`).
+ * ONE audit row carries the before/after order arrays. The /explore catalogue
+ * reads tile order from the snapshot, so the marketplace re-orders live.
+ */
+export async function reorderCategories(
+  parentId: string,
+  orderedIds: string[],
+): Promise<StudioActionResult> {
+  const gate = await requireAdminJson();
+  if ('error' in gate) return { ok: false, error: gate.error };
+
+  const parent = String(parentId ?? '').trim();
+  const ordered = (orderedIds ?? []).map((s) => String(s).trim()).filter(Boolean);
+  if (!parent) return { ok: false, error: 'Missing folder.' };
+
+  const admin = createAdminClient();
+  const { data: children } = await admin
+    .from('service_categories')
+    .select('id, sort_order')
+    .eq('parent_id', parent)
+    .eq('tier', 2);
+  const rows = (children ?? []) as { id: string; sort_order: number }[];
+  if (rows.length === 0) return { ok: false, error: 'No tiles under this folder.' };
+
+  const currentIds = rows.map((r) => r.id);
+  const valid = validateReorder(currentIds, ordered);
+  if (!valid.ok) return { ok: false, error: valid.reason };
+
+  const currentSort: Record<string, number> = {};
+  for (const r of rows) currentSort[r.id] = r.sort_order;
+  const writes = computeReorder(ordered, currentSort);
+  if (writes.length === 0) return { ok: true, message: 'Order unchanged.' };
+
+  // Sequential writes (no unique constraint on sort_order → interim collisions
+  // are fine). A failure mid-way leaves a partially-applied order, but every
+  // sort_order is still a valid integer and the next successful reorder makes it
+  // dense again — no orphan / stranded canonical can result from a sort shuffle.
+  for (const w of writes) {
+    const { error } = await admin
+      .from('service_categories')
+      .update({ sort_order: w.sort_order, updated_at: new Date().toISOString() })
+      .eq('id', w.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.reorder',
+    target_table: 'service_categories',
+    target_id: parent,
+    before_json: { order: currentIds },
+    after_json: { order: ordered },
+    actor_user_id: gate.user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  return { ok: true, message: 'Order saved.' };
+}
+
+/**
+ * Admin: move a TILE to a different parent folder (drag onto a folder in the
+ * left rail, or the inspector's "Move to folder…" picker). Re-parents the tile
+ * AND re-points the DENORMALIZED `canonical_service_taxonomy.folder_id` for every
+ * canonical filed on it — the two writes must stay consistent, so the second is
+ * guarded with a compensating rollback if it fails. The tile appends to the end
+ * of the destination folder (max sibling sort_order + 1). A tile with child
+ * nodes (tier-3) is refused — only leaf tiles move here. ONE audit row carries
+ * the before/after parent + the re-pointed canonical count.
+ */
+export async function moveTileToFolder(
+  tileId: string,
+  newParentId: string,
+): Promise<StudioActionResult> {
+  const gate = await requireAdminJson();
+  if ('error' in gate) return { ok: false, error: gate.error };
+
+  const tile = String(tileId ?? '').trim();
+  const newParent = String(newParentId ?? '').trim();
+  if (!tile || !newParent) return { ok: false, error: 'Missing tile or destination.' };
+  if (tile === newParent) return { ok: false, error: 'Pick a different folder.' };
+
+  const admin = createAdminClient();
+  const { data: tileRow } = await admin
+    .from('service_categories')
+    .select('id, parent_id, tier')
+    .eq('id', tile)
+    .maybeSingle();
+  if (!tileRow || tileRow.tier !== 2) return { ok: false, error: 'That’s not a movable tile.' };
+  if (tileRow.parent_id === newParent) return { ok: true, message: 'Already in that folder.' };
+
+  const { data: destRow } = await admin
+    .from('service_categories')
+    .select('id, tier')
+    .eq('id', newParent)
+    .maybeSingle();
+  if (!destRow || destRow.tier !== 1) return { ok: false, error: 'Pick a valid folder.' };
+
+  // A tile with sub-categories (tier-3) can't be blindly re-homed here.
+  const { count: childCount } = await admin
+    .from('service_categories')
+    .select('id', { count: 'exact', head: true })
+    .eq('parent_id', tile);
+  if ((childCount ?? 0) > 0) {
+    return { ok: false, error: 'This tile has sub-categories — move those first.' };
+  }
+
+  // Append to the end of the destination folder.
+  const { data: lastSibling } = await admin
+    .from('service_categories')
+    .select('sort_order')
+    .eq('parent_id', newParent)
+    .eq('tier', 2)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = ((lastSibling?.sort_order as number | undefined) ?? -1) + 1;
+
+  const prevParent = tileRow.parent_id;
+
+  // 1. Re-parent the tile.
+  const { error: parentErr } = await admin
+    .from('service_categories')
+    .update({ parent_id: newParent, sort_order: nextSort, updated_at: new Date().toISOString() })
+    .eq('id', tile);
+  if (parentErr) return { ok: false, error: parentErr.message };
+
+  // 2. Re-point the denormalized folder_id on every canonical filed on the tile.
+  const { data: mapped } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service')
+    .eq('tile_id', tile);
+  const repointCount = (mapped ?? []).length;
+  const { error: mapErr } = await admin
+    .from('canonical_service_taxonomy')
+    .update({ folder_id: newParent, updated_at: new Date().toISOString() })
+    .eq('tile_id', tile);
+  if (mapErr) {
+    // Compensating rollback — restore the tile's parent so the denormalized
+    // folder_id and the tile's parent never disagree (a split state would
+    // mis-bucket the whole tile in the marketplace).
+    await admin
+      .from('service_categories')
+      .update({ parent_id: prevParent, updated_at: new Date().toISOString() })
+      .eq('id', tile);
+    return { ok: false, error: `Could not re-point services: ${mapErr.message}` };
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.move_tile',
+    target_table: 'service_categories',
+    target_id: tile,
+    before_json: { parent_id: prevParent },
+    after_json: { parent_id: newParent, repointed_canonicals: repointCount },
+    actor_user_id: gate.user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  return {
+    ok: true,
+    message: repointCount > 0 ? `Moved — ${repointCount} service(s) re-pointed.` : 'Moved.',
+  };
+}
+
+/**
+ * Admin: delete a tile, moving its contents to a destination tile first. Extends
+ * the guarded `deleteTaxonomyNode`: if the tile still has canonicals or anchored
+ * refinements, a `destinationTileId` is REQUIRED (no operation may strand a
+ * canonical off a leaf — the never-strand lock). We re-point
+ * `canonical_service_taxonomy` (tile_id + denormalized folder_id) and
+ * `onboarding_refinements.tile_id` to the destination, then delete the tile.
+ * Sequential writes with a compensating rollback if a later step fails. A tile
+ * with child nodes (tier-3) still hard-blocks. ONE audit row carries the full
+ * before-map. An EMPTY tile needs no destination (plain delete).
+ */
+export async function deleteTileWithDestination(
+  tileId: string,
+  destinationTileId?: string,
+): Promise<StudioActionResult> {
+  const gate = await requireAdminJson();
+  if ('error' in gate) return { ok: false, error: gate.error };
+
+  const tile = String(tileId ?? '').trim();
+  const dest = String(destinationTileId ?? '').trim();
+  if (!tile) return { ok: false, error: 'Missing tile.' };
+
+  const admin = createAdminClient();
+  const { data: tileRow } = await admin
+    .from('service_categories')
+    .select('id, tier, label_en, parent_id')
+    .eq('id', tile)
+    .maybeSingle();
+  if (!tileRow) return { ok: false, error: 'Tile not found.' };
+  if (tileRow.tier === 1) return { ok: false, error: 'Folders are owner-managed — can’t delete here.' };
+
+  // Sub-categories still hard-block (tier-3) — those aren't re-pointable here.
+  const { count: childCount } = await admin
+    .from('service_categories')
+    .select('id', { count: 'exact', head: true })
+    .eq('parent_id', tile);
+  if ((childCount ?? 0) > 0) {
+    return { ok: false, error: 'This tile has sub-categories — remove those first.' };
+  }
+
+  const [canonRes, refRes] = await Promise.all([
+    admin.from('canonical_service_taxonomy').select('canonical_service').eq('tile_id', tile),
+    admin.from('onboarding_refinements').select('leaf_key').eq('tile_id', tile),
+  ]);
+  const canonicals = (canonRes.data ?? []).map((r) => r.canonical_service as string);
+  const refinements = (refRes.data ?? []).map((r) => r.leaf_key as string);
+  const hasContents = canonicals.length > 0 || refinements.length > 0;
+
+  // Empty tile → plain delete, no destination needed.
+  if (!hasContents) {
+    const { error } = await admin.from('service_categories').delete().eq('id', tile);
+    if (error) return { ok: false, error: error.message };
+    await admin.from('admin_audit_log').insert({
+      action: 'taxonomy.delete_tile',
+      target_table: 'service_categories',
+      target_id: tile,
+      before_json: { label_en: tileRow.label_en, parent_id: tileRow.parent_id, canonicals: [], refinements: [] },
+      actor_user_id: gate.user.id,
+    });
+    revalidatePath(BASE);
+    revalidatePath('/explore');
+    return { ok: true, message: `Deleted "${tileRow.label_en}".` };
+  }
+
+  // Non-empty → a destination is mandatory (never strand a canonical).
+  if (!dest) {
+    return {
+      ok: false,
+      error: 'This tile still holds services or refinements — choose a destination tile for them.',
+    };
+  }
+  if (dest === tile) return { ok: false, error: 'Pick a different destination tile.' };
+  const { data: destRow } = await admin
+    .from('service_categories')
+    .select('id, parent_id, tier')
+    .eq('id', dest)
+    .maybeSingle();
+  if (!destRow || destRow.tier !== 2 || !destRow.parent_id) {
+    return { ok: false, error: 'Pick a valid destination tile.' };
+  }
+
+  // 1. Re-point canonicals (tile_id + denormalized folder_id → dest's folder).
+  if (canonicals.length > 0) {
+    const { error } = await admin
+      .from('canonical_service_taxonomy')
+      .update({ tile_id: dest, folder_id: destRow.parent_id, updated_at: new Date().toISOString() })
+      .eq('tile_id', tile);
+    if (error) return { ok: false, error: `Could not move services: ${error.message}` };
+  }
+
+  // 2. Re-point anchored refinements.
+  if (refinements.length > 0) {
+    const { error } = await admin
+      .from('onboarding_refinements')
+      .update({ tile_id: dest, updated_at: new Date().toISOString() })
+      .eq('tile_id', tile);
+    if (error) {
+      // Compensating rollback of step 1 so nothing is stranded on a
+      // half-emptied, about-to-be-deleted tile.
+      if (canonicals.length > 0) {
+        await admin
+          .from('canonical_service_taxonomy')
+          .update({ tile_id: tile, folder_id: tileRow.parent_id, updated_at: new Date().toISOString() })
+          .in('canonical_service', canonicals);
+      }
+      return { ok: false, error: `Could not move refinements: ${error.message}` };
+    }
+  }
+
+  // 3. Delete the now-empty tile.
+  const { error: delErr } = await admin.from('service_categories').delete().eq('id', tile);
+  if (delErr) {
+    // Rollback both re-points — the tile survives, so its contents must too.
+    if (canonicals.length > 0) {
+      await admin
+        .from('canonical_service_taxonomy')
+        .update({ tile_id: tile, folder_id: tileRow.parent_id, updated_at: new Date().toISOString() })
+        .in('canonical_service', canonicals);
+    }
+    if (refinements.length > 0) {
+      await admin
+        .from('onboarding_refinements')
+        .update({ tile_id: tile, updated_at: new Date().toISOString() })
+        .in('leaf_key', refinements);
+    }
+    return { ok: false, error: delErr.message };
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.delete_tile',
+    target_table: 'service_categories',
+    target_id: tile,
+    before_json: {
+      label_en: tileRow.label_en,
+      parent_id: tileRow.parent_id,
+      canonicals,
+      refinements,
+      moved_to: dest,
+    },
+    after_json: { moved_to: dest, moved_canonicals: canonicals.length, moved_refinements: refinements.length },
+    actor_user_id: gate.user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  return {
+    ok: true,
+    message: `Deleted "${tileRow.label_en}" — ${canonicals.length} service(s) and ${refinements.length} refinement set(s) moved.`,
+  };
 }

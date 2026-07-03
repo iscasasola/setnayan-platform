@@ -29,7 +29,7 @@ const COPY: Record<
     titleLine1: 'Every part of your event,',
     titleLine2: 'in one place.',
     bodyA:
-      'From the first guest invite to the same-day highlight reel — here’s everything Setnayan does. Read as much or as little as you want; when you’re ready, sign up and pick the à-la-carte SKUs your event needs. Fixed PHP prices live on ',
+      'From the first guest invite to the same-day highlight reel. Here’s everything Setnayan does. Read as much or as little as you want; when you’re ready, sign up and pick the à-la-carte SKUs your event needs. Fixed PHP prices live on ',
     bodyB: '.',
     ctaTitle: 'Start planning · free',
     ctaSub: 'Fixed PHP prices · no card',
@@ -39,7 +39,7 @@ const COPY: Record<
     titleLine1: 'Bawat parte ng event mo,',
     titleLine2: 'nasa isang lugar.',
     bodyA:
-      'Mula sa unang guest invite hanggang sa same-day highlight reel — eto lahat ng ginagawa ng Setnayan. Basahin mo lang kung gaano karami ang gusto mo; pag ready ka na, mag-sign up at piliin ang à-la-carte SKUs na kailangan ng event mo. Fixed PHP prices, nasa ',
+      'Mula sa unang guest invite hanggang sa same-day highlight reel. Eto lahat ng ginagawa ng Setnayan. Basahin mo lang kung gaano karami ang gusto mo; pag ready ka na, mag-sign up at piliin ang à-la-carte SKUs na kailangan ng event mo. Fixed PHP prices, nasa ',
     bodyB: '.',
     ctaTitle: 'Magsimula · free',
     ctaSub: 'Fixed PHP prices · walang card',

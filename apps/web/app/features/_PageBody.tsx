@@ -33,8 +33,8 @@ function featuresJsonLd(locale: MarketingLocale) {
   const url = localeUrl(locale, FEATURES_PATHS);
   const name =
     locale === 'tl'
-      ? 'Features deep-dive — Setnayan (Taglish)'
-      : 'Features deep-dive — Setnayan';
+      ? 'Features deep-dive · Setnayan (Taglish)'
+      : 'Features deep-dive · Setnayan';
   return {
     '@context': 'https://schema.org',
     '@graph': [

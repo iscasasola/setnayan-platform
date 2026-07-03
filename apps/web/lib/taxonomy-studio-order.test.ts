@@ -73,3 +73,37 @@ test('computeReorder densifies sparse sort_orders to 0..n-1', () => {
     { id: 'c', sort_order: 2 },
   ]);
 });
+
+// ── Refinement reorder reuse ────────────────────────────────────────────────────
+// reorderRefinementLeaves / reorderRefinementOptions share the SAME pure helpers
+// as the tile reorder — the members happen to be leaf_keys / option_keys. These
+// guards pin the permutation semantics for the refinement case so a regression in
+// the shared helper can't silently accept a dropped/added/foreign option key.
+
+test('validateReorder pins option-permutation semantics (leaf_key / option_key set)', () => {
+  const current = ['cuisine_filipino', 'cuisine_chinese', 'cuisine_american'];
+  // A true shuffle of the option keys is accepted.
+  assert.deepEqual(
+    validateReorder(current, ['cuisine_chinese', 'cuisine_american', 'cuisine_filipino']),
+    { ok: true },
+  );
+  // A dropped option key (deleting via reorder) is rejected — reorder never drops.
+  assert.equal(validateReorder(current, ['cuisine_filipino', 'cuisine_chinese']).ok, false);
+  // A foreign / label-derived key (immutable-key violation via a tampered POST) is rejected.
+  const foreign = validateReorder(current, [
+    'cuisine_filipino',
+    'cuisine_chinese',
+    'cuisine_NEW',
+  ]);
+  assert.equal(foreign.ok, false);
+  if (!foreign.ok) assert.match(foreign.reason, /not a child/);
+});
+
+test('computeReorder emits minimal option writes for a two-key swap', () => {
+  // Swap the first two options in a 3-option leaf → only those two get a write.
+  const writes = computeReorder(['b', 'a', 'c'], { a: 0, b: 1, c: 2 });
+  assert.deepEqual(writes.sort((x, y) => x.id.localeCompare(y.id)), [
+    { id: 'a', sort_order: 1 },
+    { id: 'b', sort_order: 0 },
+  ]);
+});

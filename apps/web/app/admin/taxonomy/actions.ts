@@ -6,8 +6,17 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeIconName } from '@/lib/taxonomy-icon-name';
 import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
+import {
+  addOptionCore,
+  removeOptionCore,
+  updateLeafCore,
+  updateOptionCore,
+} from '@/lib/refinements-mutations';
 
 const BASE = '/admin/taxonomy';
+/** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
+ *  revalidate it alongside /admin/taxonomy so a refinement edit shows up live. */
+const ONBOARDING_PATH = '/onboarding/wedding';
 
 /** JSON result for the Studio's drag actions — they cannot redirect (they fire
  *  from `fetch`/`useTransition`, not a form navigation), so they hand the client
@@ -45,11 +54,17 @@ function redirectBack(
   const view = String(formData.get('_view') ?? '').trim();
   const rawAnchor = override?.anchor ?? String(formData.get('_anchor') ?? '');
   const anchor = rawAnchor.replace(SAFE_ANCHOR, '').slice(0, 80);
+  const opentab = String(formData.get('_opentab') ?? '').trim();
   const p = new URLSearchParams();
   if (q) p.set('q', q);
   if (VIEWS.has(view)) p.set('view', view);
   if (anchor.startsWith('t-')) p.set('open', anchor.slice(2));
   if (anchor.startsWith('f-')) p.set('openf', anchor.slice(2));
+  // A tile form can ask the re-opened inspector to land on a specific tab
+  // (e.g. the Refinements tab) so an edit + save keeps its place.
+  if (opentab === 'refinements' || opentab === 'services' || opentab === 'details') {
+    p.set('opentab', opentab);
+  }
   p.set(kind, msg);
   const url = `${BASE}?${p.toString()}${anchor ? `#${anchor}` : ''}`;
   redirect(url);
@@ -1526,4 +1541,228 @@ export async function deleteTileWithDestination(
     ok: true,
     message: `Deleted "${tileRow.label_en}" — ${canonicals.length} service(s) and ${refinements.length} refinement set(s) moved.`,
   };
+}
+
+// ── Refinements (Studio inspector · Refinements tab) ────────────────────────────
+//
+// These edit the onboarding "what kind of X?" refinements anchored to a tile
+// (onboarding_refinements.tile_id + onboarding_refinement_options). The four CRUD
+// actions are redirect-back form actions (they re-open the tile on the
+// Refinements tab via the `t-<tile>` anchor + `_opentab=refinements`). The two
+// reorder actions return JSON (drag/up-down) following the PR-2 pattern exactly.
+// All logic lives in lib/refinements-mutations.ts so it's shared, key-immutable,
+// and photo-validated in one place. leaf_key / option_key are NEVER regenerated.
+
+/** Update a refinement leaf's label / description / status / main photo. */
+export async function updateRefinementLeaf(leafKey: string, formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(leafKey ?? '').trim();
+  if (!key) redirectBack(formData, 'error', 'Missing leaf.');
+  const admin = createAdminClient();
+  const res = await updateLeafCore(admin, key, {
+    label: String(formData.get('label_en') ?? ''),
+    description: String(formData.get('description_en') ?? ''),
+    mainPhotoUploaded: formData.get('main_photo_url'),
+    mainPhotoCurrent: formData.get('main_photo_current'),
+    retired: formData.get('status') === 'retired',
+  });
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.update_refinement_leaf',
+    target_table: 'onboarding_refinements',
+    target_id: key,
+    after_json: { label_en: String(formData.get('label_en') ?? '').trim(), retired: formData.get('status') === 'retired' },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath(ONBOARDING_PATH);
+  redirectBack(formData, 'ok', 'Refinement saved.');
+}
+
+/** Update an existing option's emoji / label / status / photo. */
+export async function updateRefinementOption(leafKey: string, optionKey: string, formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(leafKey ?? '').trim();
+  const opt = String(optionKey ?? '').trim();
+  if (!key || !opt) redirectBack(formData, 'error', 'Missing option.');
+  const admin = createAdminClient();
+  const res = await updateOptionCore(admin, key, opt, {
+    emoji: String(formData.get('emoji') ?? ''),
+    label: String(formData.get('label_en') ?? ''),
+    photoUploaded: formData.get('photo_url'),
+    photoCurrent: formData.get('photo_current'),
+    retired: formData.get('status') === 'retired',
+  });
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.update_refinement_option',
+    target_table: 'onboarding_refinement_options',
+    target_id: `${key}:${opt}`,
+    after_json: { label_en: String(formData.get('label_en') ?? '').trim(), retired: formData.get('status') === 'retired' },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath(ONBOARDING_PATH);
+  redirectBack(formData, 'ok', 'Option saved.');
+}
+
+/** Add a new option to a leaf (photo REQUIRED · projectable leaves blocked). */
+export async function addRefinementOption(leafKey: string, formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(leafKey ?? '').trim();
+  if (!key) redirectBack(formData, 'error', 'Missing leaf.');
+  const admin = createAdminClient();
+  const label = String(formData.get('label_en') ?? '').trim();
+  const res = await addOptionCore(admin, key, {
+    emoji: String(formData.get('emoji') ?? ''),
+    label,
+    photoUploaded: formData.get('photo_url'),
+  });
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.add_refinement_option',
+    target_table: 'onboarding_refinement_options',
+    target_id: `${key}:${label}`,
+    after_json: { leaf_key: key, option_key: label },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath(ONBOARDING_PATH);
+  redirectBack(formData, 'ok', `Added “${label}”.`);
+}
+
+/** Permanently remove an option (projectable leaves blocked). */
+export async function removeRefinementOption(leafKey: string, optionKey: string, formData: FormData) {
+  const user = await requireAdmin();
+  const key = String(leafKey ?? '').trim();
+  const opt = String(optionKey ?? '').trim();
+  if (!key || !opt) redirectBack(formData, 'error', 'Missing option.');
+  const admin = createAdminClient();
+  const res = await removeOptionCore(admin, key, opt);
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.remove_refinement_option',
+    target_table: 'onboarding_refinement_options',
+    target_id: `${key}:${opt}`,
+    before_json: { leaf_key: key, option_key: opt },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath(ONBOARDING_PATH);
+  redirectBack(formData, 'ok', 'Option removed.');
+}
+
+/**
+ * Admin: persist a drag-to-reorder of the LEAVES anchored to one tile. The
+ * client sends the tile id + the full new order of its leaf keys. Validated as a
+ * permutation of the tile's current leaves (a drag can shuffle but never add /
+ * drop / dupe) via the shared `validateReorder`, then only the rows whose
+ * sort_order actually changed get a write (`computeReorder`). ONE audit row
+ * carries the before/after order arrays. Onboarding reads leaf order live.
+ */
+export async function reorderRefinementLeaves(
+  tileId: string,
+  orderedLeafKeys: string[],
+): Promise<StudioActionResult> {
+  const gate = await requireAdminJson();
+  if ('error' in gate) return { ok: false, error: gate.error };
+
+  const tile = String(tileId ?? '').trim();
+  const ordered = (orderedLeafKeys ?? []).map((s) => String(s).trim()).filter(Boolean);
+  if (!tile) return { ok: false, error: 'Missing tile.' };
+
+  const admin = createAdminClient();
+  const { data: leaves } = await admin
+    .from('onboarding_refinements')
+    .select('leaf_key, sort_order')
+    .eq('tile_id', tile);
+  const rows = (leaves ?? []) as { leaf_key: string; sort_order: number }[];
+  if (rows.length === 0) return { ok: false, error: 'No refinements anchored to this tile.' };
+
+  const currentIds = rows.map((r) => r.leaf_key);
+  const valid = validateReorder(currentIds, ordered);
+  if (!valid.ok) return { ok: false, error: valid.reason };
+
+  const currentSort: Record<string, number> = {};
+  for (const r of rows) currentSort[r.leaf_key] = r.sort_order;
+  const writes = computeReorder(ordered, currentSort);
+  if (writes.length === 0) return { ok: true, message: 'Order unchanged.' };
+
+  for (const w of writes) {
+    const { error } = await admin
+      .from('onboarding_refinements')
+      .update({ sort_order: w.sort_order, updated_at: new Date().toISOString() })
+      .eq('leaf_key', w.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.reorder_refinement_leaves',
+    target_table: 'onboarding_refinements',
+    target_id: tile,
+    before_json: { order: currentIds },
+    after_json: { order: ordered },
+    actor_user_id: gate.user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath(ONBOARDING_PATH);
+  return { ok: true, message: 'Order saved.' };
+}
+
+/**
+ * Admin: persist a drag-to-reorder of the OPTIONS within one leaf. Same shape as
+ * reorderRefinementLeaves — validated as a permutation of the leaf's current
+ * option keys, minimal-diff writes, ONE audit row. Option order is what couples
+ * see in the "what kind of X?" grid.
+ */
+export async function reorderRefinementOptions(
+  leafKey: string,
+  orderedOptionKeys: string[],
+): Promise<StudioActionResult> {
+  const gate = await requireAdminJson();
+  if ('error' in gate) return { ok: false, error: gate.error };
+
+  const leaf = String(leafKey ?? '').trim();
+  const ordered = (orderedOptionKeys ?? []).map((s) => String(s).trim()).filter(Boolean);
+  if (!leaf) return { ok: false, error: 'Missing leaf.' };
+
+  const admin = createAdminClient();
+  const { data: opts } = await admin
+    .from('onboarding_refinement_options')
+    .select('option_key, sort_order')
+    .eq('leaf_key', leaf);
+  const rows = (opts ?? []) as { option_key: string; sort_order: number }[];
+  if (rows.length === 0) return { ok: false, error: 'No options under this refinement.' };
+
+  const currentIds = rows.map((r) => r.option_key);
+  const valid = validateReorder(currentIds, ordered);
+  if (!valid.ok) return { ok: false, error: valid.reason };
+
+  const currentSort: Record<string, number> = {};
+  for (const r of rows) currentSort[r.option_key] = r.sort_order;
+  const writes = computeReorder(ordered, currentSort);
+  if (writes.length === 0) return { ok: true, message: 'Order unchanged.' };
+
+  for (const w of writes) {
+    const { error } = await admin
+      .from('onboarding_refinement_options')
+      .update({ sort_order: w.sort_order, updated_at: new Date().toISOString() })
+      .eq('leaf_key', leaf)
+      .eq('option_key', w.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.reorder_refinement_options',
+    target_table: 'onboarding_refinement_options',
+    target_id: leaf,
+    before_json: { order: currentIds },
+    after_json: { order: ordered },
+    actor_user_id: gate.user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath(ONBOARDING_PATH);
+  return { ok: true, message: 'Order saved.' };
 }

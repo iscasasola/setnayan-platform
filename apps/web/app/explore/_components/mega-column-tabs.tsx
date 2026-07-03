@@ -12,6 +12,12 @@ export type FolderTab = {
   slug: string;
   /** Number of categories (or venue facets) under this folder. */
   count: number;
+  /**
+   * Admin-set Lucide icon name for this folder (service_categories.icon_name),
+   * or null/undefined to use the hardcoded per-folder default. DB-first: when
+   * present AND on the allowlist it wins; anything unknown safely falls back.
+   */
+  iconName?: string | null;
 };
 
 type Props = {

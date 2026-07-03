@@ -4,8 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { normalizeIconName } from '@/lib/taxonomy-icon-name';
 
 const BASE = '/admin/taxonomy';
+
+/**
+ * A sample photo must be a /public image path or an r2:// ref — never arbitrary
+ * text (blocks CSS-injection via a tampered POST, since the value can render as
+ * a `url(…)` background). Same shape as the /admin/refinements VALID_PHOTO.
+ */
+const VALID_PHOTO = /^(\/[\w./-]+\.(?:webp|jpe?g|png)|r2:\/\/[\w./-]+)$/i;
 
 const SAFE_ANCHOR = /[^a-z0-9_-]/g;
 const VIEWS = new Set(['faith', 'scoped', 'unfiled']);
@@ -215,6 +223,110 @@ export async function renameTaxonomyNode(formData: FormData) {
   revalidatePath(BASE);
   revalidatePath('/explore');
   redirectBack(formData, 'ok', `Renamed to "${label}".`);
+}
+
+/**
+ * Admin: set (or clear) a taxonomy node's couple-facing Lucide icon override in
+ * `service_categories.icon_name`. Read live by `getTaxonomy()` → the /explore
+ * folder/tile grids swap the icon with no deploy; empty clears back to the
+ * hardcoded code default. The name is validated against the curated Lucide
+ * allowlist (the nav-registry source of truth) so a bad value can never reach
+ * the render path. Audit-logged.
+ */
+export async function setCategoryIcon(formData: FormData) {
+  const user = await requireAdmin();
+  const categoryId = String(formData.get('category_id') ?? '').trim();
+  if (!categoryId) throw new Error('Missing category_id');
+  const next = normalizeIconName(String(formData.get('icon_name') ?? ''));
+  if (next === null) {
+    redirectBack(formData, 'error', 'Pick an icon from the list.');
+  }
+  const iconName = next === '' ? null : next;
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('service_categories')
+    .select('id, icon_name')
+    .eq('id', categoryId)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Category not found.');
+  if ((before.icon_name ?? null) === iconName) {
+    redirectBack(formData, 'ok', 'No change.');
+  }
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ icon_name: iconName, updated_at: new Date().toISOString() })
+    .eq('id', categoryId);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_icon',
+    target_table: 'service_categories',
+    target_id: categoryId,
+    before_json: { icon_name: before.icon_name ?? null },
+    after_json: { icon_name: iconName },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(
+    formData,
+    'ok',
+    iconName ? `Icon set to ${iconName}.` : 'Icon cleared — back to the default.',
+  );
+}
+
+/**
+ * Admin: set (or clear) a taxonomy node's sample photo in
+ * `service_categories.sample_photo_r2_key`. Accepts the same refs as
+ * /admin/refinements — a `/public` image path or an `r2://` ref, validated by
+ * the shared VALID_PHOTO regex (an invalid value is rejected, never stored, so
+ * a tampered POST can't inject a `url(…)` background). Empty clears. The value
+ * is resolved to a display URL by consumers via `displayUrlForStoredAsset()`.
+ * Audit-logged. (No couple-facing photo render ships in this PR.)
+ */
+export async function setCategoryPhoto(formData: FormData) {
+  const user = await requireAdmin();
+  const categoryId = String(formData.get('category_id') ?? '').trim();
+  if (!categoryId) throw new Error('Missing category_id');
+  const raw = String(formData.get('photo_ref') ?? '').trim();
+  let photoRef: string | null = null;
+  if (raw) {
+    if (!VALID_PHOTO.test(raw)) {
+      redirectBack(formData, 'error', 'Photo must be a /public image path or an r2:// ref.');
+    }
+    photoRef = raw;
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('service_categories')
+    .select('id, sample_photo_r2_key')
+    .eq('id', categoryId)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Category not found.');
+  if ((before.sample_photo_r2_key ?? null) === photoRef) {
+    redirectBack(formData, 'ok', 'No change.');
+  }
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ sample_photo_r2_key: photoRef, updated_at: new Date().toISOString() })
+    .eq('id', categoryId);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_photo',
+    target_table: 'service_categories',
+    target_id: categoryId,
+    before_json: { sample_photo_r2_key: before.sample_photo_r2_key ?? null },
+    after_json: { sample_photo_r2_key: photoRef },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', photoRef ? 'Photo saved.' : 'Photo cleared.');
 }
 
 /**

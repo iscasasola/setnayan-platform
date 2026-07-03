@@ -58,7 +58,7 @@ export const PILLAR_HEROES: PillarHero[] = [
     name: 'Ala ala',
     role: 'Memory Hub',
     head: 'A gallery stores photos. This keeps the memory.',
-    desc: 'Free, for life — every event you host and attend, kept as a living story long after the day.',
+    desc: 'Free, for life. Every event you host and attend, kept as a living story long after the day.',
     photo:
       'radial-gradient(120% 85% at 50% 25%, #B0ABA4 0%, #847d74 42%, #524c44 78%, #34302b 100%)',
   },
@@ -68,7 +68,7 @@ export const PILLAR_HEROES: PillarHero[] = [
     name: 'Suri',
     role: 'Setnayan AI',
     head: 'Skip the chatbot. It watches your event for you.',
-    desc: 'Your planning brain — it tracks the vendors you’re eyeing and the ones you’ve booked, and taps you only when something actually needs you.',
+    desc: 'Your planning brain. It tracks the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.',
     photo: 'radial-gradient(100% 85% at 50% 35%, #A6AEB6 0%, #757d86 44%, #383f47 100%)',
   },
   {
@@ -78,7 +78,7 @@ export const PILLAR_HEROES: PillarHero[] = [
     name: 'Papic',
     role: 'Candid capture',
     head: 'No photographer can be everywhere. Guests can.',
-    desc: 'Your crew and guests catch what one photographer can’t — every photo and clip lands in one gallery, tagged to who’s in it, in real time.',
+    desc: 'Your crew and guests catch what one photographer can’t. Every photo and clip lands in one gallery, tagged to who’s in it, in real time.',
     photo: 'radial-gradient(90% 80% at 50% 40%, #B6ADBA 0%, #837b8a 42%, #463f4d 82%)',
   },
   {
@@ -88,7 +88,7 @@ export const PILLAR_HEROES: PillarHero[] = [
     name: 'Panood',
     role: 'Live Studio',
     head: 'The ones who couldn’t come get a front-row seat.',
-    desc: 'Stream straight to your event page in one tap — free with a single camera. Bring the multicam control room when you want a full broadcast.',
+    desc: 'Stream straight to your event page in one tap, free with a single camera. Add the multicam control room when you want a full broadcast.',
     photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
   },
   {
@@ -98,7 +98,7 @@ export const PILLAR_HEROES: PillarHero[] = [
     name: '3D Plan',
     role: 'Seating in 3D',
     head: 'Stand in the room before the day arrives.',
-    desc: 'Build your seating chart, then step inside it in 3D — place every table, check the sightlines, and walk the room as your guests will.',
+    desc: 'Build your seating chart, then step inside it in 3D. Place every table, check the sightlines, and walk the room as your guests will.',
     photo: 'linear-gradient(160deg, #BBB4AC 0%, #8a8077 46%, #524a40 100%)',
   },
 ];

@@ -57,8 +57,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     sectionId: 'hr-p1',
     name: 'Ala ala',
     role: 'Memory Hub',
-    head: 'A photo album is a record. This is a memory.',
-    desc: 'Where your celebrations live on — every event you hold and every event you attend, kept for life.',
+    head: 'Your gallery stores photos. This keeps the memory.',
+    desc: 'Free, for life — every event you host and every one you attend, gathered in one place, told as a story, and kept alive long after the day.',
     photo:
       'radial-gradient(120% 85% at 50% 25%, #B0ABA4 0%, #847d74 42%, #524c44 78%, #34302b 100%)',
   },
@@ -67,8 +67,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     sectionId: 'hr-p4',
     name: 'Suri',
     role: 'Setnayan AI',
-    head: 'It doesn’t chat. It watches your event for you.',
-    desc: 'The planning brain — it keeps an eye on the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.',
+    head: 'Most AI waits for questions. This one watches your event.',
+    desc: 'Your planning brain — it tracks the vendors you’re eyeing and the ones you’ve booked, catches what’s slipping, and taps you only when something actually needs you.',
     photo: 'radial-gradient(100% 85% at 50% 35%, #A6AEB6 0%, #757d86 44%, #383f47 100%)',
   },
   {
@@ -77,8 +77,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 2 }, // Likha → Papic preview
     name: 'Papic',
     role: 'Candid capture',
-    head: 'Every guest is a photographer.',
-    desc: 'Your crew and your guests shoot the day — every photo and clip lands in one live gallery, tagged to the people in it, delivered in real time.',
+    head: 'Your photographer can’t catch everything. Your guests can.',
+    desc: 'Turn your crew and guests into the candid camera one photographer can’t be — every photo and 5-second clip lands in one live gallery, tagged to who’s in it, delivered as it happens.',
     photo: 'radial-gradient(90% 80% at 50% 40%, #B6ADBA 0%, #837b8a 42%, #463f4d 82%)',
   },
   {
@@ -87,8 +87,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 3 }, // Likha → Live Studio preview
     name: 'Panood',
     role: 'Live Studio',
-    head: 'For everyone who couldn’t be there.',
-    desc: 'Go live to your event page in one tap — free with a single camera. Add the multicam control room when you want the full broadcast.',
+    head: 'The ones who couldn’t come still get a front-row seat.',
+    desc: 'Stream straight to your event page in one tap — free with a single camera. Bring the multicam control room when you want a full broadcast.',
     photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
   },
   {
@@ -97,8 +97,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 4 }, // Likha → 3D Plan preview
     name: '3D Plan',
     role: 'Seating in 3D',
-    head: 'Walk the room before the day.',
-    desc: 'Build your seat plan, then step inside it — place the tables, check the sightlines, and see the room your guests will walk into.',
+    head: 'Stand in the room before the day arrives.',
+    desc: 'Build your seating chart, then step inside it in 3D — place every table, check the sightlines, and walk the room exactly as your guests will.',
     photo: 'linear-gradient(160deg, #BBB4AC 0%, #8a8077 46%, #524a40 100%)',
   },
 ];

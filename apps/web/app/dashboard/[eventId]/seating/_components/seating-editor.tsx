@@ -2147,6 +2147,7 @@ export function SeatingEditor({
           sort_order: bs.length,
           zone: 'cocktail',
           event_vendor_id: null,
+          offerings: null,
         },
       ]);
       setBoothsDirty(true);
@@ -2223,6 +2224,7 @@ export function SeatingEditor({
         // no vendor link.
         zone: inCocktail(p.x, p.y) ? 'cocktail' : 'reception',
         event_vendor_id: null,
+        offerings: null,
       },
     ]);
     setBoothsDirty(true);
@@ -2244,7 +2246,18 @@ export function SeatingEditor({
       ),
     );
     setBoothsDirty(true);
-    setBoothPickerFor(null);
+    // Keep the popover open after picking a type so the couple can (optionally)
+    // type the offerings copy in the same sheet — the field lives below the list.
+  };
+  // Edit a booth's guest-facing "offerings" copy (what it serves) — surfaced on
+  // the 3D venue-walk booth card. Trimmed/capped on save (server + DB CHECK);
+  // here we hard-cap the raw input at 280 so the counter can't run negative.
+  const setBoothOfferings = (boothId: string, offerings: string) => {
+    const next = offerings.slice(0, 280);
+    setBooths((bs) =>
+      bs.map((b) => (b.booth_id === boothId ? { ...b, offerings: next.length > 0 ? next : null } : b)),
+    );
+    setBoothsDirty(true);
   };
   const removeBooth = (boothId: string) => {
     setBooths((bs) => bs.filter((b) => b.booth_id !== boothId));
@@ -2265,6 +2278,8 @@ export function SeatingEditor({
         // is a cocktail booth, otherwise reception.
         zone: inCocktail(b.x_pos, b.y_pos) ? 'cocktail' : 'reception',
         event_vendor_id: b.event_vendor_id ?? null,
+        // Guest-facing "what this booth serves" copy for the 3D walk card.
+        offerings: b.offerings ?? null,
       })),
     );
 
@@ -3911,7 +3926,7 @@ export function SeatingEditor({
                       role="menu"
                       aria-label="Pick a booth type"
                       onPointerDown={(e) => e.stopPropagation()}
-                      className="absolute left-1/2 top-full z-50 mt-2 w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+                      className="absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
                     >
                       <p className="px-3 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
                         What is this booth?
@@ -3930,6 +3945,41 @@ export function SeatingEditor({
                           {c.label}
                         </button>
                       ))}
+                      {/* Offerings — guest-facing "what this booth serves" copy
+                          shown on the 3D venue-walk booth card. */}
+                      <div className="mt-1 border-t border-ink/10 px-2 pb-1.5 pt-2">
+                        <label
+                          htmlFor={`booth-offerings-${b.booth_id}`}
+                          className="mb-1 block font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45"
+                        >
+                          Offerings
+                        </label>
+                        <textarea
+                          id={`booth-offerings-${b.booth_id}`}
+                          value={b.offerings ?? ''}
+                          onChange={(e) => setBoothOfferings(b.booth_id, e.target.value)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          maxLength={280}
+                          rows={2}
+                          placeholder="e.g. Espresso martinis & mocktails"
+                          className="w-full resize-none rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+                        />
+                        <div className="mt-0.5 flex items-center justify-between">
+                          <span className="text-[10px] text-ink/40">
+                            Guests see this on the 3D venue walk.
+                          </span>
+                          <span className="text-[10px] tabular-nums text-ink/40">
+                            {(b.offerings ?? '').length}/280
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setBoothPickerFor(null)}
+                        className="mt-0.5 flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-ink/[0.04]"
+                      >
+                        Done
+                      </button>
                     </div>
                   </>
                 ) : null}

@@ -108,7 +108,7 @@ export async function VendorHero() {
             }}
           >
             <Link
-              href="/signup?as=vendor"
+              href="/open-shop"
               className="m-btn m-btn-primary m-btn-lg"
             >
               Register your business — free

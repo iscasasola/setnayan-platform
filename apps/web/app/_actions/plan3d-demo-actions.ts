@@ -19,10 +19,20 @@
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
-import { fetchTables, fetchAssignments, fetchFloorPlan, defaultTablePosition } from '@/lib/seating';
+import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition } from '@/lib/seating';
 import { guestDisplayName } from '@/lib/guests';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { shapeHintFor, type Lab3DTable, type Lab3DFloor } from '@/lib/seating-3d';
+import {
+  shapeHintFor,
+  VENUE_OBJECT_CATALOG,
+  type Lab3DTable,
+  type Lab3DFloor,
+  type Lab3DSceneObject,
+  type Lab3DBooth,
+  type Lab3DSign,
+  type Lab3DCocktail,
+  type VenueObjectKind,
+} from '@/lib/seating-3d';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { createDemoSession, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -45,6 +55,12 @@ export type Plan3DScene = {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Plan3DGuest[];
+  /** Placed venue fixtures — rendered read-only in the demo (same shared module
+   *  as the couple lab + guest walk). Zero PII: room layout only. */
+  sceneObjects: Lab3DSceneObject[];
+  booths: Lab3DBooth[];
+  signs: Lab3DSign[];
+  cocktail: Lab3DCocktail;
   brideName: string;
   groomName: string;
   /** The sample couple's saved mood-board palette (events.role_palette),
@@ -71,10 +87,13 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   const eventId = ev.event_id;
   const admin = createAdminClient();
 
-  const [tablesRaw, assignments, floorPlan, guestResult] = await Promise.all([
+  const [tablesRaw, assignments, floorPlan, sceneObjectsRaw, boothsRaw, signsRaw, guestResult] = await Promise.all([
     fetchTables(admin, eventId),
     fetchAssignments(admin, eventId),
     fetchFloorPlan(admin, eventId),
+    fetchSceneObjects(admin, eventId),
+    fetchBooths(admin, eventId),
+    fetchSigns(admin, eventId),
     admin
       .from('guests')
       .select('guest_id,first_name,last_name,display_name,side,photo_url')
@@ -160,10 +179,51 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     published: floorPlan.published_at != null,
   };
 
+  // Placed venue fixtures — guard scene-object kinds against the canonical
+  // catalog (drop any stray kind), map booths/signs, derive the cocktail room.
+  const knownKinds = new Set<string>(VENUE_OBJECT_CATALOG.map((o) => o.kind));
+  const sceneObjects: Lab3DSceneObject[] = sceneObjectsRaw
+    .filter((o) => knownKinds.has(o.kind))
+    .map((o) => ({
+      id: o.object_id,
+      kind: o.kind as VenueObjectKind,
+      label: o.label,
+      xPct: o.x_pct,
+      yPct: o.y_pct,
+      rotationDeg: o.rotation_deg,
+    }));
+  const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
+    id: b.booth_id,
+    kind: b.booth_type,
+    label: b.label,
+    xPct: b.x_pos,
+    yPct: b.y_pos,
+  }));
+  const signs: Lab3DSign[] = signsRaw.map((s) => ({
+    id: s.sign_id,
+    label: s.label,
+    xPct: s.x_pos,
+    yPct: s.y_pos,
+    rotationDeg: s.rotation_deg,
+  }));
+  const cocktail: Lab3DCocktail = floorPlan.cocktail_enabled
+    ? {
+        xPct: floorPlan.cocktail_x,
+        yPct: floorPlan.cocktail_y,
+        wPct: floorPlan.cocktail_w,
+        hPct: floorPlan.cocktail_h,
+        label: floorPlan.cocktail_label,
+      }
+    : null;
+
   return {
     tables,
     floor,
     guests,
+    sceneObjects,
+    booths,
+    signs,
+    cocktail,
     brideName: ev.bride_name ?? 'Maria',
     groomName: ev.groom_name ?? 'Jose',
     rolePalette: sanitizeRolePalette(ev.role_palette ?? {}),

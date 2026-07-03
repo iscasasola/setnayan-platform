@@ -59,6 +59,10 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           tables={scene.tables}
           floor={scene.floor}
           guests={scene.guests}
+          sceneObjects={scene.sceneObjects}
+          booths={scene.booths}
+          signs={scene.signs}
+          cocktail={scene.cocktail}
           // The guest arrives into the room themed to the couple's mood board —
           // "the place is themed" (owner 2026-07-03). Falls back to neutral when
           // the sample event never set a palette.

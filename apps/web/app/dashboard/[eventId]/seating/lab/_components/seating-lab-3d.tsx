@@ -80,6 +80,10 @@ import {
   type Lab3DFloorExtras,
   type Lab3DPalette,
   type Lab3DMonogram,
+  type Lab3DSceneObject,
+  type Lab3DBooth,
+  type Lab3DSign,
+  type Lab3DCocktail,
   type Vec2,
   roomSize,
   contentBounds,
@@ -91,6 +95,10 @@ import {
   serpentineChairs,
   seatWorld,
   floorObstacles,
+  sceneObjectObstacles,
+  boothObstacles,
+  signObstacles,
+  cocktailObstacles,
   firstFreeSeatAtTable,
   pushOutOfDiscs,
   separateAgents,
@@ -107,6 +115,7 @@ import {
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
+import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 
 type Props = {
   eventId: string;
@@ -131,6 +140,12 @@ type Props = {
   roleSetKey: string;
   groups: Lab3DGroup[];
   floorExtras: Lab3DFloorExtras;
+  /** Placed venue fixtures — rendered read-only in 3D (edits stay in the 2D
+   *  editor + this lab's own table tooling). The cocktail room is derived from
+   *  floorExtras, so it isn't a separate prop. */
+  sceneObjects: Lab3DSceneObject[];
+  booths: Lab3DBooth[];
+  signs: Lab3DSign[];
 };
 
 type LiveTable = Lab3DTable;
@@ -229,7 +244,7 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -399,8 +414,39 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
   const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
-  // What the walking camera can't pass through (tables + stage + dance discs).
-  const walkObstacles = useMemo(() => floorObstacles(floor, tables, room, []), [floor, tables, room]);
+  // The cocktail room (derived from the floorExtras the lab must round-trip on
+  // save) — rendered as a second-room shell + treated as a solid perimeter.
+  const cocktail = useMemo<Lab3DCocktail>(
+    () =>
+      floorExtras.cocktailEnabled
+        ? {
+            xPct: floorExtras.cocktailX,
+            yPct: floorExtras.cocktailY,
+            wPct: floorExtras.cocktailW,
+            hPct: floorExtras.cocktailH,
+            label: floorExtras.cocktailLabel,
+          }
+        : null,
+    [floorExtras],
+  );
+  // Avoidance discs for the placed venue fixtures (objects + booths + sign posts
+  // + cocktail walls) — merged into every walk/crowd obstacle set so the roam
+  // avatar rounds the buffet / photo booth / cocktail room just like a table.
+  const fixtureObstacles = useMemo(
+    () => [
+      ...sceneObjectObstacles(sceneObjects, room),
+      ...boothObstacles(booths, room),
+      ...signObstacles(signs, room),
+      ...cocktailObstacles(cocktail, room),
+    ],
+    [sceneObjects, booths, signs, cocktail, room],
+  );
+  // What the walking camera can't pass through (tables + stage + dance +
+  // fixture discs).
+  const walkObstacles = useMemo(
+    () => [...floorObstacles(floor, tables, room, []), ...fixtureObstacles],
+    [floor, tables, room, fixtureObstacles],
+  );
   // Walk mode only makes sense in Play — drop it whenever we leave.
   useEffect(() => {
     if (mode !== 'play') setWalking(false);
@@ -1138,7 +1184,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       // Route AROUND every fixed object — other tables, the walker's OWN table,
       // the stage, the dance floor — then step in to the chair from outside, so
       // the walker never cuts across its own tabletop (or anything else).
-      const obstacles = floorObstacles(floor, tables, room, []);
+      const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
       const path = seatApproachPath(entranceWorld, table, seat.seatNumber, room, obstacles, 0.2);
       setMode('play');
       setArrived(null);
@@ -1146,7 +1192,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       setWalker({ gid: g.id, name: g.name, path, tableId: seat.tableId });
       return true;
     },
-    [seats, tables, tablesById, room, entranceWorld, floor],
+    [seats, tables, tablesById, room, entranceWorld, floor, fixtureObstacles],
   );
 
   // Populate-Play: send EVERY seated guest walking in from the entrance at once.
@@ -1164,8 +1210,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       // The PATH routes around every table (own included) so the walk-in never
       // crosses a tabletop; the per-frame obstacle set still SKIPS the guest's own
       // table so that, once arrived, the seated avatar isn't shoved off its chair.
-      const walkAround = floorObstacles(floor, tables, room, []);
-      const obstacles = floorObstacles(floor, tables, room, [s.tableId]);
+      const walkAround = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
+      const obstacles = [...floorObstacles(floor, tables, room, [s.tableId]), ...fixtureObstacles];
       const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
       const style = guestTokenStyle(g);
       const color = style?.attireColor ?? style?.color ?? SIDE_COLOR[g.side];
@@ -1176,7 +1222,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     setArrived(null);
     setMode('play');
     setCrowd(agents.length ? agents : null);
-  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld]);
+  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles]);
 
   // A single walk-in that has reached its chair settles into the seat: clear the
   // walker so the static SeatedAvatar takes over (the guest is already in `seats`).
@@ -1231,7 +1277,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!g || !t) return;
       const end = seatWorld(t, toSeat, room);
       const fromTableId = seats.get(gid)?.tableId;
-      const obstacles = floorObstacles(floor, tables, room, [toTableId, fromTableId]);
+      const obstacles = [...floorObstacles(floor, tables, room, [toTableId, fromTableId]), ...fixtureObstacles];
       const path = steerPath(fromWorld, end, obstacles, 0.2);
       const style = guestTokenStyle(g) ?? { color: SIDE_COLOR[g.side], opacity: 1 };
       setMovers((prev) => [
@@ -1247,7 +1293,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       fd.set('seat_number', String(toSeat));
       void persist(() => assignGuest(fd));
     },
-    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor],
+    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor, fixtureObstacles],
   );
 
   const swapGuests = useCallback(
@@ -1453,6 +1499,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             reduced={reduced}
           />
         ))}
+
+        {/* Placed venue fixtures — read-only in 3D (edits stay in the 2D editor
+            + this lab's own table tooling). Recolours with the palette. */}
+        <VenueFixtures
+          room={room}
+          palette={palette}
+          objects={sceneObjects}
+          booths={booths}
+          signs={signs}
+          cocktail={cocktail}
+        />
 
         {/* Invisible floor catcher for drag-move + tap-to-drop + deselect. */}
         <mesh

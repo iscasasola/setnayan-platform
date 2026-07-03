@@ -9,7 +9,17 @@
  */
 
 import dynamic from 'next/dynamic';
-import type { Lab3DTable, Lab3DFloor, Lab3DFloorExtras, Lab3DGuest, Lab3DGroup, Lab3DMonogram } from '@/lib/seating-3d';
+import type {
+  Lab3DTable,
+  Lab3DFloor,
+  Lab3DFloorExtras,
+  Lab3DGuest,
+  Lab3DGroup,
+  Lab3DMonogram,
+  Lab3DSceneObject,
+  Lab3DBooth,
+  Lab3DSign,
+} from '@/lib/seating-3d';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 import type { RolePalette } from '@/lib/mood-board';
 
@@ -43,6 +53,10 @@ type Props = {
   roleSetKey: string;
   groups: Lab3DGroup[];
   floorExtras: Lab3DFloorExtras;
+  /** Placed venue fixtures rendered read-only in 3D (the 2D editor owns edits). */
+  sceneObjects: Lab3DSceneObject[];
+  booths: Lab3DBooth[];
+  signs: Lab3DSign[];
 };
 
 export function SeatingLabLoader(props: Props) {

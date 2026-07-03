@@ -555,6 +555,103 @@ export function sceneObjectObstacles(
   });
 }
 
+// ── Booths + signs + cocktail room (whole-venue fixtures) ──────────────────
+// The 2D editor also places vendor booths (event_floor_booths), wayfinding
+// signs (event_floor_signs) and a second "cocktail / waiting" room on the same
+// percent canvas. The 3D surfaces render these now; the walk-in crowd steers
+// around the ones that occupy floor space, exactly like it does for tables and
+// venue objects. All pure — unit-tested in lib.
+
+/** A placed vendor booth (percent canvas). `kind` mirrors event_floor_booths.booth_type. */
+export type Lab3DBooth = {
+  id: string;
+  kind: string;
+  label: string;
+  xPct: number;
+  yPct: number;
+};
+
+/** A wayfinding sign (percent canvas). `rotationDeg` = the arrow heading. */
+export type Lab3DSign = {
+  id: string;
+  label: string;
+  xPct: number;
+  yPct: number;
+  rotationDeg: number;
+};
+
+/** The optional cocktail / waiting room — a second rectangle on the same canvas
+ *  (centre + size in percent), sitting outside the reception walls. null when the
+ *  couple never enabled one. */
+export type Lab3DCocktail = {
+  xPct: number;
+  yPct: number;
+  wPct: number;
+  hPct: number;
+  label: string | null;
+} | null;
+
+// Booth footprint (metres) used for both the 3D mesh and the avoidance disc.
+// Booths are ~2 m stations regardless of type — a single tasteful size keeps the
+// low-poly render legible without a per-type dimension table.
+export const BOOTH_FOOTPRINT_M = { w: 2.0, d: 1.0 } as const;
+// A sign is a slim post — a small clearance disc so walkers don't stand on it.
+const SIGN_AVOID_R = 0.35;
+
+/**
+ * Avoidance discs for placed booths, so the crowd rounds the photo booth / bar
+ * the same way it rounds a buffet. Merge into floorObstacles' output at the call
+ * site (a guest never walks INTO a booth).
+ */
+export function boothObstacles(
+  booths: Lab3DBooth[],
+  room: { w: number; d: number },
+): { c: Vec2; r: number }[] {
+  return booths.map((b) => ({
+    c: pctToWorld(b.xPct, b.yPct, room),
+    r: Math.max(BOOTH_FOOTPRINT_M.w, BOOTH_FOOTPRINT_M.d) / 2 + 0.4,
+  }));
+}
+
+/** Small avoidance discs for wayfinding signs (slim posts). */
+export function signObstacles(
+  signs: Lab3DSign[],
+  room: { w: number; d: number },
+): { c: Vec2; r: number }[] {
+  return signs.map((s) => ({ c: pctToWorld(s.xPct, s.yPct, room), r: SIGN_AVOID_R }));
+}
+
+/**
+ * Avoidance discs tracing the walls of the cocktail room, so a roaming walker in
+ * the reception can't stroll through it. Approximates the rectangle's four wall
+ * segments with a ring of overlapping discs (the crowd/steer primitives work in
+ * discs, not rects) sized to the room's larger half-span so the interior stays
+ * enclosed. Empty when there's no cocktail room.
+ */
+export function cocktailObstacles(
+  cocktail: Lab3DCocktail,
+  room: { w: number; d: number },
+): { c: Vec2; r: number }[] {
+  if (!cocktail) return [];
+  const c = pctToWorld(cocktail.xPct, cocktail.yPct, room);
+  const halfW = Math.max(0.5, (cocktail.wPct / 100) * room.w) / 2;
+  const halfD = Math.max(0.5, (cocktail.hPct / 100) * room.d) / 2;
+  // One disc per corner + one per wall midpoint, each ~0.5 m thick, so the
+  // walker treats the room's perimeter as solid without blocking its interior.
+  const wallR = 0.5;
+  const pts: Vec2[] = [
+    { x: c.x - halfW, z: c.z - halfD },
+    { x: c.x + halfW, z: c.z - halfD },
+    { x: c.x - halfW, z: c.z + halfD },
+    { x: c.x + halfW, z: c.z + halfD },
+    { x: c.x, z: c.z - halfD },
+    { x: c.x, z: c.z + halfD },
+    { x: c.x - halfW, z: c.z },
+    { x: c.x + halfW, z: c.z },
+  ];
+  return pts.map((p) => ({ c: p, r: wallR }));
+}
+
 /**
  * Push a point to the edge of any avoidance disc it sits inside (one pass over
  * the discs). `perp` is the escape heading for the degenerate case where the

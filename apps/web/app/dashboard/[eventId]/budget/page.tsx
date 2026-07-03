@@ -14,6 +14,7 @@ import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.serve
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
+import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 
@@ -44,7 +45,7 @@ export default async function BudgetPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, estimated_budget_centavos, estimated_pax, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description',
+        'event_id, display_name, estimated_budget_centavos, estimated_pax, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description, share_budget_band',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -95,6 +96,7 @@ export default async function BudgetPage({ params }: Props) {
         ceremony_type: string | null;
         secondary_ceremony_type: string | null;
         mahr_description: string | null;
+        share_budget_band: boolean | null;
       }
     | null;
 
@@ -144,6 +146,12 @@ export default async function BudgetPage({ params }: Props) {
   const initialBudgetCentavos: number | null =
     (event as { estimated_budget_centavos?: number | null } | null)
       ?.estimated_budget_centavos ?? null;
+
+  // Couple opt-in (default OFF) to share their budget as a rounded RANGE with
+  // vendors on the Customer Card (Customer Card respine PR-5). Defensive read —
+  // undefined (pre-migration) treated the same as false.
+  const initialShareBudgetBand: boolean =
+    (event as { share_budget_band?: boolean | null } | null)?.share_budget_band ?? false;
 
   // Current commitments — sum of paid/fulfilled service_orders + the
   // total_cost_php of every vendor at-or-past 'contracted' status (the
@@ -318,6 +326,14 @@ export default async function BudgetPage({ params }: Props) {
             config={allocInputs.config}
             pax={allocInputs.pax}
             region={event?.region ?? null}
+          />
+
+          {/* Opt-in to share this plan as a rounded RANGE with vendors — sits
+           *  right under the split it derives from. Off by default; range-only,
+           *  per-category, never an exact number (Customer Card respine PR-5). */}
+          <ShareBudgetBandToggle
+            eventId={eventId}
+            initialShare={initialShareBudgetBand}
           />
         </div>
       ) : null}

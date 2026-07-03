@@ -116,10 +116,18 @@ export async function eventCompActiveSkus(
  * framework, and it can't be expressed via BUNDLE_CHILD_SKUS because
  * COUPLE_WEBSITE_PRO is itself a CHILD of GUIDED_PACK/MEDIA_PACK and the
  * bundle-map linter (GUARD 2) forbids a bundle code nesting as a child.
+ *
+ * STD_PREMIUM_OPENINGS ← COUPLE_WEBSITE_PRO (owner confirmation 2026-07-04:
+ * "Couple Website pro unlocks all pro features for the website, Save the date,
+ * rsvp, event(on the day), editorial") — the Save-the-Date cinematic openings
+ * are one of the four umbrella phases, so the umbrella confers them too. The
+ * openings stay purchasable à la carte at their own catalog price; this only
+ * adds the read-side grant.
  */
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
   Object.freeze({
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
   });
 
 /**
@@ -295,15 +303,22 @@ const BUNDLES_GRANTING_SKU: ReadonlyMap<string, ReadonlyArray<string>> = (() => 
 })();
 
 /**
- * Reverse index: alias purchase key → its CANONICAL service_key. Built once from
- * SKU_OWNERSHIP_ALIASES so the batch reader (eventActiveSkus) can collapse a
- * per-tier order key to the canonical SKU the Studio grid + add-on catalog read.
- * (Currently empty — Patiktok, its first user, was retired 2026-06-29.)
+ * Reverse index: alias purchase key → ALL the CANONICAL service_keys it grants.
+ * Built once from SKU_OWNERSHIP_ALIASES so the batch reader (eventActiveSkus)
+ * can collapse an alias order key to the canonical SKU(s) the Studio grid +
+ * add-on catalog read. MULTI-valued because one purchase key can confer several
+ * canonicals — COUPLE_WEBSITE_PRO (the website umbrella) grants BOTH
+ * EDITORIAL_PRO and STD_PREMIUM_OPENINGS; a single-valued map would let the
+ * second Map.set() silently overwrite the first grant.
  */
-const CANONICAL_FOR_ALIAS: ReadonlyMap<string, string> = (() => {
-  const m = new Map<string, string>();
+const CANONICALS_FOR_ALIAS: ReadonlyMap<string, ReadonlyArray<string>> = (() => {
+  const m = new Map<string, string[]>();
   for (const [canonical, aliases] of Object.entries(SKU_OWNERSHIP_ALIASES)) {
-    for (const alias of aliases) m.set(alias, canonical);
+    for (const alias of aliases) {
+      const list = m.get(alias) ?? [];
+      list.push(canonical);
+      m.set(alias, list);
+    }
   }
   return m;
 })();
@@ -448,12 +463,13 @@ export async function eventActiveSkus(
       const rawKey = row.service_key as string | null;
       if (!rawKey) continue;
       const status = (row.status as string | null) ?? '';
-      // Collapse a per-tier alias purchase key to its canonical SKU so a buyer
+      // Collapse an alias purchase key to its canonical SKU(s) so a buyer
       // reads as owning the canonical SKU (the key the Studio grid + add-on
-      // catalog gate on). Keep the raw key too — some surfaces read the per-tier
-      // code directly.
-      const canonical = CANONICAL_FOR_ALIAS.get(rawKey);
-      const keys = canonical ? [rawKey, canonical] : [rawKey];
+      // catalog gate on). Multi-valued: the COUPLE_WEBSITE_PRO umbrella confers
+      // both EDITORIAL_PRO and STD_PREMIUM_OPENINGS. Keep the raw key too —
+      // some surfaces read the purchase code directly.
+      const canonicals = CANONICALS_FOR_ALIAS.get(rawKey);
+      const keys = canonicals ? [rawKey, ...canonicals] : [rawKey];
       if (ACTIVE_STATUSES.has(status)) {
         for (const key of keys) {
           active.add(key);

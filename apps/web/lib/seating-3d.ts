@@ -641,7 +641,12 @@ export function steerPath(
   tables: { c: Vec2; r: number }[],
   skipR = 0,
 ): Vec2[] {
-  const STEPS = 22;
+  // Denser sampling (was 22) keeps waypoints close together so the straight
+  // CHORD a walker interpolates between two disc-edge-clamped waypoints barely
+  // dips into the disc — the visible "walking through the table" artefact.
+  // Strictly smoother for every caller (couple lab, guest venue, 3D demo);
+  // same endpoints, same clamp logic, just finer.
+  const STEPS = 40;
   const pts: Vec2[] = [];
   for (let i = 0; i <= STEPS; i++) {
     const t = i / STEPS;

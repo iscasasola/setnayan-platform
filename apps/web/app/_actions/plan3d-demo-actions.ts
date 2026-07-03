@@ -22,6 +22,7 @@ import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
 import { fetchTables, fetchAssignments, fetchFloorPlan, defaultTablePosition } from '@/lib/seating';
 import { guestDisplayName } from '@/lib/guests';
 import { shapeHintFor, type Lab3DTable, type Lab3DFloor } from '@/lib/seating-3d';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { createDemoSession, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { renderUrlQrSvg } from '@/lib/qr';
 
@@ -41,6 +42,11 @@ export type Plan3DScene = {
   guests: Plan3DGuest[];
   brideName: string;
   groomName: string;
+  /** The sample couple's saved mood-board palette (events.role_palette),
+   *  sanitized. Drives the "Apply mood board" recolour — same field + shape the
+   *  couple-facing venue walk (`guest-venue-3d.tsx`) themes from. Empty object
+   *  when the event never set one (→ scene falls back to the neutral default). */
+  rolePalette: RolePalette;
 };
 
 function toPlan3DSide(side: string | null): 'bride' | 'groom' | 'both' {
@@ -139,6 +145,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     guests,
     brideName: ev.bride_name ?? 'Maria',
     groomName: ev.groom_name ?? 'Jose',
+    rolePalette: sanitizeRolePalette(ev.role_palette ?? {}),
   };
 }
 

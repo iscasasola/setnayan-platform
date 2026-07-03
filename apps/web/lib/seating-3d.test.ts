@@ -93,6 +93,56 @@ test('steerPath hard-clears its discs: no interior waypoint stays inside an obst
   assert.deepEqual(path[path.length - 1], { x: 9, z: 0 });
 });
 
+test('walk sampling: the INTERPOLATED path (chords + per-frame re-clamp) never enters a table', () => {
+  // Regression for the owner-reported "person walks THROUGH the table, not
+  // around it" (2026-07-03). The old test only checked path WAYPOINTS; the
+  // artefact was the straight chord a walker interpolates between two
+  // disc-edge-clamped waypoints dipping back inside the disc. The Plan3D walker
+  // fixes it by re-clamping every sampled frame out of the obstacle discs
+  // (Plan3DScene <Walker>: `pushOutOfDiscs(sample.p, discs)`). Reproduce that
+  // here over the whole eased walk and assert zero incursion.
+  const bodyR = 0.24;
+  // A table dead-centre between the entrance and the far seat — the worst case.
+  const obstacles = [{ c: { x: 0, z: 0 }, r: 3 }];
+  const path = steerPath({ x: -9, z: 0 }, { x: 9, z: 0 }, obstacles, bodyR);
+  const clampDiscs = obstacles.map((d) => ({ c: d.c, r: d.r + bodyR }));
+
+  // Mirror the component's per-frame sampling: arc-length even sample of the
+  // eased t, then re-clamp — checked at fine resolution across the whole walk.
+  const cum: number[] = [0];
+  for (let i = 1; i < path.length; i++) {
+    cum.push(cum[i - 1]! + Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.z - path[i - 1]!.z));
+  }
+  const total = cum[cum.length - 1]!;
+  const smoother = (x: number) => x * x * x * (x * (x * 6 - 15) + 10);
+  let breachedWithoutReclamp = false;
+  for (let f = 0; f <= 240; f++) {
+    const t = smoother(f / 240);
+    const targetLen = t * total;
+    let seg = 0;
+    while (seg < cum.length - 2 && cum[seg + 1]! < targetLen) seg++;
+    const localT = (targetLen - cum[seg]!) / (cum[seg + 1]! - cum[seg]! || 1);
+    const a = path[seg]!;
+    const b = path[seg + 1]!;
+    const sampled = { x: a.x + (b.x - a.x) * localT, z: a.z + (b.z - a.z) * localT };
+    // WITHOUT the re-clamp the interpolated chord can dip inside the table
+    // (the actual bug). WITH it, never.
+    for (const disc of obstacles) {
+      if (Math.hypot(sampled.x - disc.c.x, sampled.z - disc.c.z) < disc.r + bodyR - 1e-3) {
+        breachedWithoutReclamp = true;
+      }
+    }
+    const p = pushOutOfDiscs(sampled, clampDiscs);
+    for (const disc of obstacles) {
+      const d = Math.hypot(p.x - disc.c.x, p.z - disc.c.z);
+      assert.ok(d >= disc.r - 1e-6, `frame ${f} landed inside the table (dist ${d.toFixed(3)} < r ${disc.r})`);
+    }
+  }
+  // The counter-proof: for the worst-case straight-through table the raw chords
+  // DO breach — so the per-frame re-clamp is load-bearing, not decoration.
+  assert.ok(breachedWithoutReclamp, 'expected raw chords to breach so the re-clamp is proven necessary');
+});
+
 test('pushOutOfDiscs: moves a point inside a disc to its edge, leaves outside points', () => {
   const discs = [{ c: { x: 0, z: 0 }, r: 2 }];
   const inside = pushOutOfDiscs({ x: 0.5, z: 0 }, discs);

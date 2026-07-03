@@ -58,10 +58,10 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
               type="button"
               disabled={phase === 'walking'}
               onClick={() => setPhase('walking')}
+              className="rounded-full"
               style={{
                 minWidth: 240,
                 padding: '14px 24px',
-                borderRadius: 999,
                 border: 'none',
                 background: '#2a2925',
                 color: '#faf7f2',

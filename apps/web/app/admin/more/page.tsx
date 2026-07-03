@@ -21,7 +21,6 @@ import {
   Settings,
   Compass,
   Tag,
-  PartyPopper,
   Globe,
   Newspaper,
   Brain,
@@ -52,14 +51,11 @@ const DATA_STRUCTURE_ITEMS: LandingItem[] = [
     description:
       'Canonical vendor service categories and the sub-category card tree.',
   },
-  {
-    key: 'event-types',
-    label: 'Event Types',
-    href: '/admin/event-types',
-    icon: PartyPopper,
-    description:
-      'Create, launch, and retire the event types Setnayan plans — pickers and vendor checkboxes follow automatically.',
-  },
+  // 'event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+  // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event), where the
+  // event-type roster (couple-launch lever + picker-card presentation +
+  // retire/un-retire) now lives beside category scoping. The standalone page
+  // redirects there.
   {
     key: 'onboarding',
     label: 'Onboarding',

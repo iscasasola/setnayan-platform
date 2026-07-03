@@ -151,10 +151,14 @@ export default async function AdminTaxonomyPage({
         .order('canonical_service', { ascending: true }),
       getTaxonomy(),
       // FULL vocab rows (all statuses) — the Vocabularies rail edits these; the
-      // Studio filters to active where it needs the scoping picker set.
+      // Studio filters to active where it needs the scoping picker set. The
+      // presentation columns + `enabled` back the folded couple-launch grain
+      // (Taxonomy Studio PR 7).
       admin
         .from('event_type_vocab')
-        .select('event_type, label_en, sort_order, status, enabled')
+        .select(
+          'event_type, label_en, emoji, description, sort_order, status, enabled, onboarding_href, hero_photo_url',
+        )
         .order('sort_order', { ascending: true })
         .order('event_type', { ascending: true }),
       admin
@@ -191,9 +195,13 @@ export default async function AdminTaxonomyPage({
   const eventTypeVocab = (eventVocabRes.data ?? []) as {
     event_type: string;
     label_en: string;
+    emoji: string | null;
+    description: string | null;
     sort_order: number;
     status: string;
     enabled: boolean | null;
+    onboarding_href: string | null;
+    hero_photo_url: string | null;
   }[];
   const faithVocab = (faithRes.data ?? []) as {
     faith_key: string;
@@ -348,12 +356,43 @@ export default async function AdminTaxonomyPage({
   faithColToCeremony.set('Civil', 'civil');
   const readinessByCeremony = new Map(readinessRows.map((r) => [r.ceremonyType, r]));
 
+  // Category coverage per event type — how many tier-2 tiles each type offers.
+  // A tile with NULL/empty scope is universal (offers to EVERY event); else only
+  // to its listed types. Mirrors the legacy /admin/event-types roster "Offers N
+  // of M categories" hint so the folded bucket keeps the same at-a-glance signal.
+  const categoriesTotal = tax.tileOrder.length;
+  const categoriesOfferedByType = new Map<string, number>();
+  for (const et of eventTypeVocab) categoriesOfferedByType.set(et.event_type, 0);
+  for (const id of tax.tileOrder) {
+    const scope = tax.tileEventTypes[id];
+    if (!scope || scope.length === 0) {
+      // Universal tile → counts toward every type.
+      for (const et of eventTypeVocab) {
+        categoriesOfferedByType.set(et.event_type, (categoriesOfferedByType.get(et.event_type) ?? 0) + 1);
+      }
+    } else {
+      for (const t of scope) {
+        if (categoriesOfferedByType.has(t)) {
+          categoriesOfferedByType.set(t, (categoriesOfferedByType.get(t) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
   const eventTypeVocabFull: StudioEventTypeVocab[] = eventTypeVocab.map((v) => ({
     key: v.event_type,
     label: v.label_en,
     status: v.status,
     usage: eventUsage.get(v.event_type) ?? 0,
     isBase: v.event_type === 'wedding',
+    enabled: v.enabled === true,
+    emoji: v.emoji ?? '🎉',
+    description: v.description,
+    sortOrder: v.sort_order,
+    onboardingHref: v.onboarding_href,
+    heroPhotoUrl: v.hero_photo_url,
+    categoriesOffered: categoriesOfferedByType.get(v.event_type) ?? 0,
+    categoriesTotal,
   }));
 
   const faithVocabFull: StudioFaithVocab[] = faithVocab.map((f) => {

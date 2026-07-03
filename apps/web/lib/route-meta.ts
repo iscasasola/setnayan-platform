@@ -68,7 +68,6 @@ import {
   Music,
   Newspaper,
   Palette,
-  PartyPopper,
   Pencil,
   PiggyBank,
   Printer,
@@ -119,7 +118,9 @@ export const routeMeta = {
     directory: { icon: Users, label: 'Directory' },
     discountCodes: { icon: Tag, label: 'Discount codes' },
     disputes: { icon: Shield, label: 'Disputes' },
-    eventTypes: { icon: PartyPopper, label: 'Event Types' },
+    // eventTypes REMOVED 2026-07-03 — /admin/event-types retired to a
+    // redirect(/admin/taxonomy?view=vocab-event); the event-type roster folded
+    // into the Taxonomy Studio's Vocabularies → Event types rail.
     events: { icon: CalendarDays, label: 'Events' },
     forceMajeure: { icon: AlertOctagon, label: 'Force majeure' },
     funnels: { icon: BarChart3, label: 'Funnels' },

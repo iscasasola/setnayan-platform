@@ -93,8 +93,8 @@ export default async function EventTypeProfilePage({
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-8">
-      <Link href="/admin/event-types" className="text-sm text-ink/55 hover:text-mulberry">
-        ← Event Types
+      <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
+        ← Event types
       </Link>
       <h1 className="mt-3 text-2xl font-semibold text-ink">
         {vocab.emoji} {vocab.label_en} · Onboarding profile

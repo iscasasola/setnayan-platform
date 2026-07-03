@@ -119,7 +119,6 @@ import {
   ShoppingBag,
   Bell,
   UserX,
-  PartyPopper,
   Newspaper,
   Images,
   Radar,
@@ -666,14 +665,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/taxonomy',
         icon: Tag,
       },
-      {
-        // Event-type roster CRUD (2026-06-13 cutover) — create/launch/retire
-        // event types; pickers + vendor checkboxes + filters follow live.
-        key: 'event-types',
-        label: 'Event Types',
-        href: '/admin/event-types',
-        icon: PartyPopper,
-      },
+      // 'event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+      // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event), where
+      // the event-type roster (couple-launch `enabled` lever + picker-card
+      // presentation + retire/un-retire) now lives beside the category-scoping
+      // controls. The standalone page redirects there.
       // 'refinements' sidebar item REMOVED 2026-07-03 — /admin/refinements was
       // retired to a redirect(/admin/taxonomy); refinements are now edited in the
       // Taxonomy Studio inspector's Refinements tab (reachable via the Taxonomy

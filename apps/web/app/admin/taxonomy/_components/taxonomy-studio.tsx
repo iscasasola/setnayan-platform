@@ -46,7 +46,13 @@ import {
   Church,
   ArrowUp,
   ArrowDown,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Layers,
+  ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { Sheet } from '@/app/_components/sheet';
 import { useConfirm } from '@/app/_components/confirm-dialog';
@@ -81,7 +87,11 @@ import {
   relabelEventTypeVocab,
   setEventTypeVocabStatus,
   reorderEventTypeVocab,
-  createEventTypeVocab,
+  createEventTypeRoster,
+  updateEventTypePresentation,
+  setEventTypeLaunch,
+  retireEventTypeVocab,
+  unretireEventTypeVocab,
   relabelFaithVocab,
   setFaithVocabStatus,
   reorderFaithVocab,
@@ -172,15 +182,30 @@ export type StudioRequest = {
 
 export type VocabItem = { key: string; label: string };
 
-/** One event-type vocab row for the Vocabularies rail editor. */
+/** One event-type vocab row for the Vocabularies rail editor. Carries BOTH
+ *  lifecycle grains folded into one bucket (Taxonomy Studio PR 7):
+ *  the CATEGORY-SCOPING grain (`status` + `usage`) and the COUPLE-LAUNCH grain
+ *  (`enabled` picker lever + presentation fields + category coverage). */
 export type StudioEventTypeVocab = {
   key: string;
   label: string;
   status: string;
   /** How many tiles + canonicals explicitly scope to this event type. */
   usage: number;
-  /** `wedding` is the base type — it can't be deactivated. */
+  /** `wedding` is the base type — it can't be deactivated / retired. */
   isBase: boolean;
+  /** Couple-launch lever: TRUE = the type appears in the create-event picker. */
+  enabled: boolean;
+  /** Picker-card presentation. */
+  emoji: string;
+  description: string | null;
+  sortOrder: number;
+  onboardingHref: string | null;
+  heroPhotoUrl: string | null;
+  /** Category coverage: how many tier-2 tiles this type offers, out of the total
+   *  (a NULL/empty-scope tile serves EVERY event, so counts toward every type). */
+  categoriesOffered: number;
+  categoriesTotal: number;
 };
 
 /** The per-faith launch-gate readiness (folded from /admin/wedding-types). */
@@ -2651,6 +2676,33 @@ const VOCAB_INPUT =
 const VOCAB_BTN =
   'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta';
 
+/** A labeled cluster inside an event-type row — makes the two grains
+ *  (Category scoping vs Couple launch) visually distinct per the fold spec. */
+function GrainGroup({
+  icon,
+  label,
+  hint,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="w-full rounded-lg border border-ink/8 bg-cream/40 p-2.5">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        {icon}
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/55">
+          {label}
+        </span>
+        <span className="text-[10px] text-ink/40">· {hint}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </div>
+  );
+}
+
 function EventTypeVocabPanel({
   rows,
   query,
@@ -2659,6 +2711,7 @@ function EventTypeVocabPanel({
   query: string;
 }) {
   const active = rows.filter((r) => r.status === 'active');
+  const inPicker = rows.filter((r) => r.status === 'active' && r.enabled).length;
   const filtered = query
     ? rows.filter((r) => r.key.includes(query) || r.label.toLowerCase().includes(query))
     : rows;
@@ -2669,49 +2722,121 @@ function EventTypeVocabPanel({
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-ink/60" aria-hidden />
           <h2 className="text-base font-semibold text-ink">Event types</h2>
-          <span className="font-mono text-[11px] text-ink/45">{active.length} active · {rows.length} total</span>
+          <span className="font-mono text-[11px] text-ink/45">
+            {inPicker} in picker · {active.length} active · {rows.length} total
+          </span>
         </div>
         <p className="mt-1 max-w-prose text-sm text-ink/60">
-          The vocabulary that scopes which categories each event offers. Used for{' '}
-          <strong>category scoping</strong> only — adding one here does not, by itself, put a new
-          event type in front of couples (that&apos;s the separate Event-Type Engine). Keys are
-          permanent; deactivating one just hides it from scoping pickers — existing scopes keep
-          working.
+          The single home for every event type Setnayan plans. Each row carries two levers, shown
+          separately:{' '}
+          <strong>
+            <Layers className="mb-0.5 mr-0.5 inline h-3.5 w-3.5" aria-hidden />
+            Category scoping
+          </strong>{' '}
+          decides which categories the type offers (relabel · reorder · deactivate), and{' '}
+          <strong>
+            <Sparkles className="mb-0.5 mr-0.5 inline h-3.5 w-3.5" aria-hidden />
+            Couple launch
+          </strong>{' '}
+          decides whether couples can pick it when creating an event (the “Show in picker” switch)
+          plus its picker-card presentation and retire/un-retire. Keys are permanent.
+        </p>
+        <p className="mt-2 grid gap-1.5 text-[11px] text-ink/55 sm:grid-cols-3">
+          <span>
+            <strong className="text-ink">Show in picker</strong> — couples can create this event
+            type. Off = hidden from couples, but vendors can still pre-tag coverage.
+          </span>
+          <span>
+            <strong className="text-ink">Deactivate</strong> — drops the type from category-scoping
+            pickers (existing scopes keep working). Same <code>status</code> as Retire.
+          </span>
+          <span>
+            <strong className="text-ink">Retire</strong> — off the books for new events everywhere;
+            existing events keep working. Un-retire any time.
+          </span>
         </p>
       </header>
 
-      {/* Add-new */}
+      {/* Add-new — full roster shape (explicit key + name + emoji + tagline + sort). */}
       <form
-        action={createEventTypeVocab}
-        className="flex flex-wrap items-end gap-2 rounded-xl border border-success-200 bg-success-50/30 p-3"
+        action={createEventTypeRoster}
+        className="grid gap-2 rounded-xl border border-success-200 bg-success-50/30 p-3 sm:grid-cols-2 lg:grid-cols-5"
       >
         <input type="hidden" name="_view" value="vocab-event" />
         <label className="space-y-1">
           <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
-            New event type
+            Key (permanent)
+          </span>
+          <input
+            name="event_type"
+            required
+            pattern="[a-z][a-z0-9_]{2,30}"
+            title="3–31 chars: lowercase letters, numbers, underscores; starts with a letter"
+            placeholder="house_blessing"
+            className={`${VOCAB_INPUT} w-full font-mono`}
+          />
+        </label>
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Display name
           </span>
           <input
             name="label_en"
             required
             minLength={2}
             maxLength={80}
-            placeholder="e.g. House Blessing"
-            className={`${VOCAB_INPUT} w-52`}
+            placeholder="House Blessing"
+            className={`${VOCAB_INPUT} w-full`}
           />
         </label>
-        <SubmitButton
-          className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
-          pendingLabel="Adding…"
-        >
-          <Plus className="mr-1 inline h-3 w-3" aria-hidden />
-          Add for scoping
-        </SubmitButton>
-        <span className="text-[11px] text-ink/45">Key = snake_case from the label · permanent.</span>
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Emoji
+          </span>
+          <input name="emoji" maxLength={16} placeholder="🏠" className={`${VOCAB_INPUT} w-full`} />
+        </label>
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Tagline
+          </span>
+          <input
+            name="description"
+            maxLength={300}
+            placeholder="A home, blessed."
+            className={`${VOCAB_INPUT} w-full`}
+          />
+        </label>
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Sort
+          </span>
+          <input
+            name="sort_order"
+            type="number"
+            min={0}
+            defaultValue={100}
+            className={`${VOCAB_INPUT} w-full`}
+          />
+        </label>
+        <div className="sm:col-span-2 lg:col-span-5">
+          <SubmitButton
+            className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
+            pendingLabel="Adding…"
+          >
+            <Plus className="mr-1 inline h-3 w-3" aria-hidden />
+            Create event type
+          </SubmitButton>
+          <span className="ml-2 text-[11px] text-ink/45">
+            Starts active + hidden from couples — flip “Show in picker” when it’s ready.
+          </span>
+        </div>
       </form>
 
       <ul className="space-y-2">
         {filtered.map((r) => {
           const isActive = r.status === 'active';
+          const retired = r.status === 'retired';
+          const tailored = r.categoriesOffered < r.categoriesTotal;
           return (
             <VocabRowShell
               key={r.key}
@@ -2727,64 +2852,276 @@ function EventTypeVocabPanel({
               }
               title={
                 <span className="text-sm font-semibold text-ink">
+                  <span aria-hidden className="mr-1">
+                    {r.emoji}
+                  </span>
                   {r.label}{' '}
                   <code className="ml-1 font-mono text-[11px] font-normal text-ink/45">{r.key}</code>
                 </span>
               }
               statusPill={
-                isActive ? (
-                  <Badge tone="bg-success-100 text-success-800">Active</Badge>
-                ) : (
-                  <Badge tone="bg-ink/10 text-ink/55">Inactive</Badge>
-                )
+                <span className="flex flex-wrap items-center gap-1">
+                  {retired ? (
+                    <Badge tone="bg-ink/10 text-ink/55">Retired</Badge>
+                  ) : isActive ? (
+                    <Badge tone="bg-success-100 text-success-800">Active</Badge>
+                  ) : (
+                    <Badge tone="bg-ink/10 text-ink/55">Inactive</Badge>
+                  )}
+                  {retired ? null : r.enabled ? (
+                    <Badge tone="bg-terracotta/10 text-terracotta">In picker</Badge>
+                  ) : (
+                    <Badge tone="bg-warn-50 text-warn-800">Hidden from picker</Badge>
+                  )}
+                </span>
               }
               usagePill={
-                <Badge tone={r.usage > 0 ? 'bg-sky-50 text-sky-700' : 'bg-ink/5 text-ink/45'}>
-                  scoped by {r.usage}
-                </Badge>
+                <span className="flex flex-wrap items-center gap-1">
+                  <Badge tone={r.usage > 0 ? 'bg-sky-50 text-sky-700' : 'bg-ink/5 text-ink/45'}>
+                    scoped by {r.usage}
+                  </Badge>
+                  <Badge tone={tailored ? 'bg-warn-50 text-warn-700' : 'bg-ink/5 text-ink/45'}>
+                    offers {r.categoriesOffered}/{r.categoriesTotal}
+                  </Badge>
+                </span>
               }
               subtitle={
                 r.isBase
-                  ? 'The base event type — always active.'
+                  ? 'The base event type — always active, always in the picker.'
                   : r.usage > 0
                     ? `${r.usage} tile${r.usage === 1 ? '' : 's'} / service${r.usage === 1 ? '' : 's'} scope to this type.`
                     : 'Not referenced by any scoped tile or service.'
               }
             >
-              {/* Relabel */}
-              <form action={relabelEventTypeVocab} className="flex items-center gap-1">
-                <input type="hidden" name="event_type" value={r.key} />
-                <input type="hidden" name="_view" value="vocab-event" />
-                <input
-                  name="label_en"
-                  defaultValue={r.label}
-                  required
-                  minLength={2}
-                  maxLength={80}
-                  aria-label={`Rename ${r.key}`}
-                  className={`${VOCAB_INPUT} w-44`}
-                />
-                <SubmitButton className={VOCAB_BTN} pendingLabel="…">
-                  Save name
-                </SubmitButton>
-              </form>
-              {/* Status toggle */}
-              {!r.isBase ? (
-                <form action={setEventTypeVocabStatus}>
+              {/* ── Grain 1 · Category scoping ─────────────────────────────── */}
+              <GrainGroup
+                icon={<Layers className="h-3.5 w-3.5 text-ink/50" aria-hidden />}
+                label="Category scoping"
+                hint="which categories this type offers"
+              >
+                {/* Relabel */}
+                <form action={relabelEventTypeVocab} className="flex items-center gap-1">
                   <input type="hidden" name="event_type" value={r.key} />
-                  <input type="hidden" name="active" value={isActive ? '0' : '1'} />
                   <input type="hidden" name="_view" value="vocab-event" />
-                  <SubmitButton
-                    className={
-                      isActive
-                        ? 'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700'
-                        : 'rounded-md border border-success-300 bg-white px-2 py-1 text-[10px] font-medium text-success-700 hover:bg-success-50'
-                    }
-                    pendingLabel="…"
-                  >
-                    {isActive ? 'Deactivate' : 'Reactivate'}
+                  <input
+                    name="label_en"
+                    defaultValue={r.label}
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    aria-label={`Rename ${r.key}`}
+                    className={`${VOCAB_INPUT} w-40`}
+                  />
+                  <SubmitButton className={VOCAB_BTN} pendingLabel="…">
+                    Save name
                   </SubmitButton>
                 </form>
+                {/* Scope categories jump (the per-type category editor) */}
+                {!retired ? (
+                  <Link
+                    href={`/admin/event-types/${r.key}/categories`}
+                    className={`${VOCAB_BTN} inline-flex items-center gap-1`}
+                  >
+                    <SlidersHorizontal className="h-3 w-3" aria-hidden />
+                    Scope categories
+                  </Link>
+                ) : null}
+                {/* Status (scoping) toggle — same `status` column as Retire below */}
+                {!r.isBase && !retired ? (
+                  <form action={setEventTypeVocabStatus}>
+                    <input type="hidden" name="event_type" value={r.key} />
+                    <input type="hidden" name="active" value={isActive ? '0' : '1'} />
+                    <input type="hidden" name="_view" value="vocab-event" />
+                    <SubmitButton
+                      className={
+                        isActive
+                          ? 'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700'
+                          : 'rounded-md border border-success-300 bg-white px-2 py-1 text-[10px] font-medium text-success-700 hover:bg-success-50'
+                      }
+                      pendingLabel="…"
+                    >
+                      {isActive ? 'Deactivate' : 'Reactivate'}
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </GrainGroup>
+
+              {/* ── Grain 2 · Couple launch ────────────────────────────────── */}
+              <GrainGroup
+                icon={<Sparkles className="h-3.5 w-3.5 text-ink/50" aria-hidden />}
+                label="Couple launch"
+                hint="whether couples can pick it + its picker card"
+              >
+                {/* Show-in-picker (enabled) lever */}
+                {!retired ? (
+                  <form action={setEventTypeLaunch}>
+                    <input type="hidden" name="event_type" value={r.key} />
+                    <input type="hidden" name="enabled" value={r.enabled ? '0' : '1'} />
+                    <input type="hidden" name="_view" value="vocab-event" />
+                    <SubmitButton
+                      className={
+                        r.enabled
+                          ? 'inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-terracotta/50 hover:text-terracotta'
+                          : 'inline-flex items-center gap-1 rounded-md border border-terracotta/40 bg-terracotta px-2 py-1 text-[10px] font-medium text-cream hover:bg-terracotta/90'
+                      }
+                      pendingLabel="…"
+                    >
+                      {r.enabled ? (
+                        <>
+                          <EyeOff className="h-3 w-3" aria-hidden />
+                          Hide from picker
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3" aria-hidden />
+                          Show in picker
+                        </>
+                      )}
+                    </SubmitButton>
+                  </form>
+                ) : null}
+
+                {/* Onboarding editors (per-type deep screens) */}
+                {!retired ? (
+                  <Link
+                    href={`/admin/event-types/${r.key}/profile`}
+                    className={`${VOCAB_BTN} inline-flex items-center gap-1`}
+                  >
+                    <ExternalLink className="h-3 w-3" aria-hidden />
+                    Onboarding profile
+                  </Link>
+                ) : null}
+                {!retired && !r.isBase ? (
+                  <Link
+                    href={`/admin/event-types/${r.key}/onboarding`}
+                    className={`${VOCAB_BTN} inline-flex items-center gap-1`}
+                  >
+                    <ExternalLink className="h-3 w-3" aria-hidden />
+                    Onboarding content
+                  </Link>
+                ) : null}
+
+                {/* Retire / Un-retire (status — launch-grain framing) */}
+                {retired ? (
+                  <form action={unretireEventTypeVocab}>
+                    <input type="hidden" name="event_type" value={r.key} />
+                    <input type="hidden" name="_view" value="vocab-event" />
+                    <SubmitButton
+                      className="inline-flex items-center gap-1 rounded-md border border-success-300 bg-white px-2 py-1 text-[10px] font-medium text-success-700 hover:bg-success-50"
+                      pendingLabel="…"
+                    >
+                      <Undo2 className="h-3 w-3" aria-hidden />
+                      Un-retire
+                    </SubmitButton>
+                  </form>
+                ) : !r.isBase ? (
+                  <form action={retireEventTypeVocab}>
+                    <input type="hidden" name="event_type" value={r.key} />
+                    <input type="hidden" name="_view" value="vocab-event" />
+                    <SubmitButton
+                      className="inline-flex items-center gap-1 rounded-md border border-danger-200 bg-white px-2 py-1 text-[10px] font-medium text-danger-700 hover:bg-danger-50"
+                      pendingLabel="…"
+                    >
+                      <Archive className="h-3 w-3" aria-hidden />
+                      Retire
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </GrainGroup>
+
+              {/* Presentation editor (picker-card fields) */}
+              {!retired ? (
+                <details className="w-full">
+                  <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.14em] text-ink/50 hover:text-terracotta">
+                    Edit picker card
+                  </summary>
+                  <form
+                    action={updateEventTypePresentation}
+                    className="mt-2 grid gap-2 rounded-lg border border-ink/8 bg-white p-2.5 sm:grid-cols-2 lg:grid-cols-3"
+                  >
+                    <input type="hidden" name="event_type" value={r.key} />
+                    <input type="hidden" name="_view" value="vocab-event" />
+                    <label className="space-y-1">
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                        Display name
+                      </span>
+                      <input
+                        name="label_en"
+                        required
+                        minLength={2}
+                        maxLength={80}
+                        defaultValue={r.label}
+                        className={`${VOCAB_INPUT} w-full`}
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                        Emoji
+                      </span>
+                      <input
+                        name="emoji"
+                        maxLength={16}
+                        defaultValue={r.emoji}
+                        className={`${VOCAB_INPUT} w-full`}
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                        Sort
+                      </span>
+                      <input
+                        name="sort_order"
+                        type="number"
+                        min={0}
+                        defaultValue={r.sortOrder}
+                        className={`${VOCAB_INPUT} w-full`}
+                      />
+                    </label>
+                    <label className="space-y-1 lg:col-span-3">
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                        Tagline (picker card one-liner)
+                      </span>
+                      <input
+                        name="description"
+                        maxLength={300}
+                        defaultValue={r.description ?? ''}
+                        className={`${VOCAB_INPUT} w-full`}
+                      />
+                    </label>
+                    <label className="space-y-1 lg:col-span-1">
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                        Onboarding link (optional)
+                      </span>
+                      <input
+                        name="onboarding_href"
+                        maxLength={300}
+                        defaultValue={r.onboardingHref ?? ''}
+                        placeholder="/onboarding/wedding"
+                        className={`${VOCAB_INPUT} w-full font-mono`}
+                      />
+                    </label>
+                    <label className="space-y-1 lg:col-span-2">
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                        Hero photo URL (optional)
+                      </span>
+                      <input
+                        name="hero_photo_url"
+                        maxLength={300}
+                        defaultValue={r.heroPhotoUrl ?? ''}
+                        placeholder="https://… or /event-types/wedding.webp"
+                        className={`${VOCAB_INPUT} w-full font-mono`}
+                      />
+                    </label>
+                    <div className="lg:col-span-3">
+                      <SubmitButton
+                        className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
+                        pendingLabel="Saving…"
+                      >
+                        Save picker card
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </details>
               ) : null}
             </VocabRowShell>
           );

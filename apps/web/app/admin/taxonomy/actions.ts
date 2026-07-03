@@ -27,6 +27,13 @@ import {
   LAUNCH_STATUSES,
   type LaunchStatus,
 } from '@/lib/wedding-types-mutations';
+import {
+  createEventTypeCore,
+  updateEventTypeCore,
+  setEventTypeEnabledCore,
+  retireEventTypeCore,
+  unretireEventTypeCore,
+} from '@/lib/event-types-mutations';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 
@@ -2149,6 +2156,151 @@ export async function createEventTypeVocab(formData: FormData): Promise<never> {
   revalidatePath(BASE);
   revalidatePath('/explore');
   redirectBack(formData, 'ok', `Added event type "${label}" (${key}) for scoping.`);
+}
+
+// ── Event-type ROSTER grain (couple launch) — folded from /admin/event-types ──
+//
+// The event_type_vocab row carries TWO lifecycle levers, edited from ONE Studio
+// bucket now (Taxonomy Studio PR 7 folds the standalone /admin/event-types
+// roster in). The vocab actions above own the CATEGORY-SCOPING grain (relabel /
+// reorder / activate-deactivate for the scoping pickers). The actions below own
+// the COUPLE-LAUNCH grain that used to live on /admin/event-types: the `enabled`
+// create-event-picker lever, the richer presentation fields (emoji · tagline ·
+// sort · onboarding href · hero photo), and retire/unretire (status). They
+// delegate to the SAME shared cores the legacy surface calls
+// (lib/event-types-mutations) — one source of truth, byte-identical writes, no
+// gating-semantics change. `status` is one column: "Deactivate" (scoping) and
+// "Retire" (launch) write the same value; both surfaces are shown so the admin
+// sees the full lifecycle without leaving the bucket.
+
+/** Every surface that renders the event-type roster — refresh after a launch/
+ *  presentation/retire write so the couple picker + vendor checkboxes + the
+ *  marketplace filter follow live (matches the legacy revalidateRosterSurfaces). */
+function revalidateEventTypeRosterSurfaces() {
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  revalidatePath('/dashboard/create-event');
+  revalidatePath('/vendor-dashboard/profile');
+}
+
+/**
+ * Studio: create an event type with the FULL roster shape (explicit snake_case
+ * key + name + emoji + tagline + sort). Lands status='active', enabled=FALSE.
+ * Delegates to the shared core; the legacy /admin/event-types create-form uses
+ * the same core. Replaces the label-only scoping quick-add for the Studio bucket
+ * so there is ONE add path (createEventTypeVocab stays exported for old POSTs).
+ */
+export async function createEventTypeRoster(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim().toLowerCase();
+  const admin = createAdminClient();
+  const res = await createEventTypeCore(admin, user.id, {
+    key,
+    label: String(formData.get('label_en') ?? ''),
+    emoji: String(formData.get('emoji') ?? ''),
+    description: String(formData.get('description') ?? ''),
+    sortOrder: Number(formData.get('sort_order')),
+  });
+  if (!res.ok) {
+    if (res.error === 'exists') {
+      redirectBack(formData, 'error', `"${key}" already exists — keys are permanent, edit the existing row instead.`);
+    }
+    redirectBack(formData, 'error', res.error);
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(
+    formData,
+    'ok',
+    `${res.data.label} created. It stays out of the couple picker until you turn on "Show in picker".`,
+  );
+}
+
+/**
+ * Studio: edit an event type's presentation fields (name · emoji · tagline ·
+ * sort · onboarding href · hero photo). The key is immutable. Delegates to the
+ * shared core.
+ */
+export async function updateEventTypePresentation(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const admin = createAdminClient();
+  const res = await updateEventTypeCore(admin, user.id, {
+    key,
+    label: String(formData.get('label_en') ?? ''),
+    emoji: String(formData.get('emoji') ?? ''),
+    description: String(formData.get('description') ?? ''),
+    onboardingHref: String(formData.get('onboarding_href') ?? ''),
+    heroPhotoUrl: String(formData.get('hero_photo_url') ?? ''),
+    sortOrder: Number(formData.get('sort_order')),
+  });
+  if (!res.ok) {
+    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
+    redirectBack(formData, 'error', res.error);
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(formData, 'ok', `${res.data.label} saved.`);
+}
+
+/**
+ * Studio: the couple-launch lever — show/hide a type in the create-event picker
+ * (`event_type_vocab.enabled`). Independent of active/retired. Delegates to the
+ * shared core.
+ */
+export async function setEventTypeLaunch(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const enable = String(formData.get('enabled') ?? '') === '1';
+  const admin = createAdminClient();
+  const res = await setEventTypeEnabledCore(admin, user.id, key, enable);
+  if (!res.ok) {
+    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
+    redirectBack(formData, 'error', res.error);
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(
+    formData,
+    'ok',
+    enable
+      ? `${res.data.label} is now live in the create-event picker.`
+      : `${res.data.label} is hidden from the create-event picker. Existing events keep working.`,
+  );
+}
+
+/**
+ * Studio: retire an event type (status → 'retired', forces enabled=false). It
+ * leaves every picker + vendor checkbox + marketplace filter; existing events
+ * keep working. Wedding can't be retired. Delegates to the shared core. This is
+ * the launch-grain framing of the same `status` column the scoping-grain
+ * "Deactivate" (setEventTypeVocabStatus) writes.
+ */
+export async function retireEventTypeVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const admin = createAdminClient();
+  const res = await retireEventTypeCore(admin, user.id, key);
+  if (!res.ok) {
+    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
+    redirectBack(formData, 'error', res.error);
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(formData, 'ok', `${res.data.label} retired. Existing events keep working; nobody can pick it for new events.`);
+}
+
+/**
+ * Studio: reverse a retirement (status → 'active'; picker visibility stays a
+ * separate "Show in picker" flip). Delegates to the shared core.
+ */
+export async function unretireEventTypeVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const admin = createAdminClient();
+  const res = await unretireEventTypeCore(admin, user.id, key);
+  if (!res.ok) {
+    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
+    redirectBack(formData, 'error', res.error);
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(formData, 'ok', `${res.data.label} is active again. Flip "Show in picker" when you’re ready to relaunch it.`);
 }
 
 // ── Faith vocabulary ─────────────────────────────────────────────────────────

@@ -376,7 +376,7 @@ const REGLABEL: Record<string, string> = Object.fromEntries(
 /* ════════════ PHASE 3 — picker (screen 9) + style sub-stepper (screen 10) ════════════ */
 
 /* ── "What would you love?" picker — 53 services grouped by the 10 taxonomy parents (prototype lines 780-830). Rows = chip rows (solo or pair). `s` = default-selected. ── */
-type PickChip = { cat: string; label: string };
+type PickChip = { cat: string; label: string; photoUrl?: string | null };
 type PickGroup = { label: string; rows: PickChip[][] };
 const PICK_GROUPS_FALLBACK: PickGroup[] = [
   { label: 'Venue', rows: [[{ cat: 'reception', label: 'Reception venue' }, { cat: 'ceremony', label: 'Ceremony venue' }]] },
@@ -745,13 +745,18 @@ function Rail({ children, className, wrapClassName }: { children: ReactNode; cla
   );
 }
 
-/* Picker service card — per-service photo + label + select check (owner 2026-06-05). */
-function PickCard({ cat, label, desc, selected, onClick }: { cat: string; label: string; desc?: string; selected: boolean; onClick: () => void }) {
+/* Picker service card — per-service photo + label + select check (owner 2026-06-05).
+   `photoUrl` (Taxonomy Studio · PR 4) is the DB-first tile photo from
+   service_categories.sample_photo_r2_key; when set it wins over the static
+   /onboarding/picker/<cat>.webp asset, and a missing DB photo falls back to the
+   static asset — never a broken image (a failed bg just shows the neutral tint). */
+function PickCard({ cat, label, desc, selected, photoUrl, onClick }: { cat: string; label: string; desc?: string; selected: boolean; photoUrl?: string | null; onClick: () => void }) {
+  const bg = photoUrl || PICKER_ASSET(cat);
   return (
     // key flips with `selected` so the button remounts on each pick → the .sn-bounce
     // selection-feedback animation replays every time this card becomes selected.
     <button key={selected ? 'on' : 'off'} type="button" className={`svccard${selected ? ' sel sn-bounce' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
-      <span className="svcph" style={{ backgroundImage: `url(${PICKER_ASSET(cat)})` }} />
+      <span className="svcph" style={{ backgroundImage: `url("${bg}")` }} />
       <span className="svcck" aria-hidden="true">✓</span>
       <span className="svclb">{label}</span>
     </button>
@@ -1550,7 +1555,10 @@ export function OnboardingShell({
       let group = result.find((g) => g.label === groupLabel);
       if (!group) { group = { label: groupLabel, rows: [] }; result.push(group); }
       // Append as its own row (single-chip row) so layout stays clean.
-      group.rows.push([{ cat: chip.cat, label: chip.label }]);
+      // Carry the DB-resolved tile photo (Taxonomy Studio · PR 4) so the
+      // PickCard shows the seeded editorial photo instead of a missing static
+      // /onboarding/picker/<db_tile_id>.webp for these DB-only tiles.
+      group.rows.push([{ cat: chip.cat, label: chip.label, photoUrl: chip.photoUrl ?? null }]);
     }
     return result;
   }, [dynamicTiles]);
@@ -4075,7 +4083,7 @@ export function OnboardingShell({
                           {open && (
                             <Rail className="pgrid car">
                               {g.leaves.map((c) => (
-                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} onClick={() => pickChip(c.cat)} />
+                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} photoUrl={c.photoUrl} onClick={() => pickChip(c.cat)} />
                               ))}
                             </Rail>
                           )}

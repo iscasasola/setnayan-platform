@@ -1,10 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Download, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
-import { useDemoChannel, type DemoMessage, type DemoRole } from '@/app/_components/demo-session/use-demo-channel';
+import {
+  useDemoChannel,
+  untaggedReason,
+  type DemoDiag,
+  type DemoMessage,
+  type DemoRole,
+} from '@/app/_components/demo-session/use-demo-channel';
 import { isFaceModelConfigured } from '@/lib/face-embed-core';
-import { euclideanDistance, FACE_AUTO_MAX_DISTANCE } from '@/lib/face-match-core';
+import { euclideanDistance } from '@/lib/face-match-core';
 import { PAPIC_STYLES, DEFAULT_PAPIC_STYLE } from '@/lib/papic-photo-styles';
 import { recordDemoShot } from '@/app/_actions/demo-session-actions';
 
@@ -32,10 +38,16 @@ type DemoPhoto = {
   from: DemoRole;
   dataUrl: string;
   tags: DemoRole[];
+  diag?: DemoDiag;
 };
 
 const SHOT_MAX_EDGE = 900;
 const RELAY_BYTE_BUDGET = 200_000; // keep well under the Realtime payload limit
+// Demo-only match cut. Real Papic auto-tags at 0.50 and SUGGESTS 0.50–0.60 for a
+// human to confirm; the demo has no confirm step, so it tags directly at face-
+// api's native 0.60 line — still ~0.19 below the validated impostor floor (0.79),
+// safely inside the empty gap. Deliberately NOT face-match-core's global constant.
+const DEMO_TAG_MAX_DISTANCE = 0.6;
 
 function styleCss(styleId: string): string {
   return PAPIC_STYLES.find((s) => s.id === styleId)?.cssPreview ?? '';
@@ -77,7 +89,7 @@ export function DemoJoinFlow({
         setPhotos((prev) =>
           prev.some((p) => p.id === msg.id)
             ? prev
-            : [...prev, { id: msg.id, from: msg.from, dataUrl: msg.dataUrl, tags: msg.tags }],
+            : [...prev, { id: msg.id, from: msg.from, dataUrl: msg.dataUrl, tags: msg.tags, diag: msg.diag }],
         );
         setRemaining(msg.remaining);
       } else if (msg.type === 'style') {
@@ -87,11 +99,23 @@ export function DemoJoinFlow({
     [role],
   );
 
-  const { presence, send } = useDemoChannel(sessionId, { role, registered }, onMessage);
+  const me = useMemo(() => ({ role, registered }), [role, registered]);
+  const { presence, send } = useDemoChannel(sessionId, me, onMessage);
   sendRef.current = send;
 
   const otherRole: DemoRole = role === 'a' ? 'b' : 'a';
   const friendJoined = presence[otherRole].joined;
+
+  // Self-heal the vector handshake: if my registered vector's early broadcast was
+  // dropped before the peer had subscribed, re-send it (plus a face-request) the
+  // moment the peer appears in presence. With send() now queuing until joined,
+  // this closes the race for any subscribe/register order.
+  useEffect(() => {
+    if (friendJoined && myVectorRef.current) {
+      send({ type: 'face', role, vector: myVectorRef.current });
+      send({ type: 'face-request' });
+    }
+  }, [friendJoined, role, send]);
 
   useEffect(() => {
     return () => {
@@ -130,7 +154,13 @@ export function DemoJoinFlow({
       // isn't configured or no face is found — the demo still completes, it
       // just tags less rather than blocking anyone.
       const { embedSingleFace } = await import('@/lib/face-embed');
-      const res = await embedSingleFace(canvas);
+      let res = await embedSingleFace(canvas);
+      // A null despite a configured model is usually the first call racing the
+      // ~13 MB model download; getFaceApi no longer caches a failed load, so one
+      // retry recovers the common transient case before we give up on tagging.
+      if (!res?.vector && isFaceModelConfigured()) {
+        res = await embedSingleFace(canvas);
+      }
       myVectorRef.current = res?.vector ?? null;
       if (res?.vector) send({ type: 'face', role, vector: res.vector });
       setRegistered(true);
@@ -163,17 +193,29 @@ export function DemoJoinFlow({
       canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       // On-device friend-tagging: every registered vector this phone knows
-      // (its own + what peers relayed) vs every face in the frame.
+      // (its own + what peers relayed) vs every face in the frame. `diag` records
+      // WHY a shot missed (demo-only, no PII) so an untagged photo can say so.
       const tags: DemoRole[] = [];
+      const diag: DemoDiag = {
+        model: isFaceModelConfigured(),
+        you: myVectorRef.current != null,
+        friend: peerVectorsRef.current[otherRole] != null,
+        faces: 0,
+        closest: null,
+      };
       try {
         const { embedFaces } = await import('@/lib/face-embed');
         const found = await embedFaces(canvas);
+        diag.faces = found.length;
         const known: Array<[DemoRole, number[]]> = [];
         if (myVectorRef.current) known.push([role, myVectorRef.current]);
         const peer = peerVectorsRef.current[otherRole];
         if (peer) known.push([otherRole, peer]);
         for (const [who, vec] of known) {
-          if (found.some((f) => euclideanDistance(f, vec) <= FACE_AUTO_MAX_DISTANCE)) tags.push(who);
+          let best = Infinity;
+          for (const f of found) best = Math.min(best, euclideanDistance(f, vec));
+          if (Number.isFinite(best)) diag.closest = diag.closest == null ? best : Math.min(diag.closest, best);
+          if (best <= DEMO_TAG_MAX_DISTANCE) tags.push(who);
         }
       } catch {
         /* tagging is a flourish — the shot still counts */
@@ -189,7 +231,7 @@ export function DemoJoinFlow({
         dataUrl = small.toDataURL('image/jpeg', 0.5);
       }
 
-      const photo: DemoPhoto = { id: crypto.randomUUID(), from: role, dataUrl, tags };
+      const photo: DemoPhoto = { id: crypto.randomUUID(), from: role, dataUrl, tags, diag };
       // Broadcast doesn't echo to the sender — render locally + relay to peers.
       setPhotos((prev) => [...prev, photo]);
       setRemaining(gate.remaining);
@@ -319,7 +361,7 @@ export function DemoJoinFlow({
                 />
                 <div className="flex items-center justify-between px-3 py-2">
                   <span className="text-xs text-[var(--m-grey,#8c8884)]">
-                    {p.tags.length ? p.tags.map(tagLabel).join(' · ') : 'No one recognized'}
+                    {p.tags.length ? p.tags.map(tagLabel).join(' · ') : untaggedReason(p.diag)}
                     {' · '}
                     {PAPIC_STYLES.find((s) => s.id === style)?.label ?? style}
                   </span>

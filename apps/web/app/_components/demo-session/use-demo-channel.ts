@@ -18,11 +18,54 @@ import { createClient } from '@/lib/supabase/client';
  * mirror, and are NEVER persisted anywhere (no table, no bucket — a page
  * refresh forgets them). Every message uses the single 'demo' event with a
  * typed payload, so the socket contract stays one line wide.
+ *
+ * RELIABLE DELIVERY (relay fix): Supabase broadcast has NO history/replay and
+ * only delivers to a socket that is already 'joined'. The face-vector handshake
+ * (`face` / `face-request`) fires early in the phone flow — squarely inside the
+ * join window on a slow mobile/cellular WS handshake — so a naive send would be
+ * silently dropped and never recovered, permanently stranding the pair with no
+ * peer vector to tag against ("No one recognized"). So `send` now QUEUES until
+ * the socket is truly joined and flushes on SUBSCRIBED, which also re-fires on
+ * every automatic REJOIN — self-healing a mid-session reconnect (presence + any
+ * queued sends are re-asserted). No broadcast is ever issued into the void.
  */
 
 export type DemoPeerState = { joined: boolean; registered: boolean };
 export type DemoPresence = { a: DemoPeerState; b: DemoPeerState };
 export type DemoRole = 'a' | 'b';
+
+/**
+ * Per-photo diagnostic for the demo — demo-only, NO PII (four booleans, a face
+ * count, and one distance). It lets an untagged shot explain WHY it missed
+ * instead of a blank "No one recognized", so a single live two-phone test names
+ * the failing stage (model / registration / relay / match distance).
+ */
+export type DemoDiag = {
+  /** the face model URL is configured (NEXT_PUBLIC_FACE_MODEL_URL set) */
+  model: boolean;
+  /** this phone holds its OWN registered vector */
+  you: boolean;
+  /** this phone holds the PEER's relayed vector (the relay-fix linchpin) */
+  friend: boolean;
+  /** faces detected in the captured frame */
+  faces: number;
+  /** closest euclidean distance to any known vector, or null if nothing to compare */
+  closest: number | null;
+};
+
+/**
+ * Human sentence for an untagged shot, derived from its diagnostic. Shared by
+ * the phone caption and the desktop mirror so both explain a miss identically.
+ * Order matters: earliest-in-the-pipeline failure wins.
+ */
+export function untaggedReason(d?: DemoDiag | null): string {
+  if (!d) return 'No one recognized';
+  if (!d.model) return 'Face matching is warming up';
+  if (d.faces === 0) return 'No face in the frame';
+  if (!d.friend) return 'Waiting for your friend’s face to sync';
+  if (d.closest != null && d.closest <= 0.75) return `So close — best match ${d.closest.toFixed(2)}`;
+  return 'No one recognized';
+}
 
 /** The transient peer-to-peer messages. NOTHING here is ever persisted. */
 export type DemoMessage =
@@ -38,6 +81,8 @@ export type DemoMessage =
       dataUrl: string;
       /** roles recognized in the frame (on-device matching) */
       tags: DemoRole[];
+      /** demo-only, no-PII diagnostic so a miss can say why (optional for back-compat) */
+      diag?: DemoDiag;
       shotNumber: number;
       remaining: number;
     }
@@ -55,12 +100,25 @@ export function useDemoChannel(
 ): { presence: DemoPresence; send: (msg: DemoMessage) => void } {
   const [presence, setPresence] = useState<DemoPresence>({ a: EMPTY_PEER, b: EMPTY_PEER });
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+  // Outbound messages issued before the socket is 'joined' (or during a
+  // reconnect) queue here and flush on SUBSCRIBED — broadcast has no replay.
+  const outboxRef = useRef<DemoMessage[]>([]);
   const meRef = useRef(me);
   meRef.current = me;
   // The handler lives in a ref so a new callback identity never tears down the
   // socket — the channel subscribes once per session.
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
+
+  const flushOutbox = useCallback(() => {
+    const ch = channelRef.current;
+    if (!ch || ch.state !== 'joined') return;
+    const queued = outboxRef.current;
+    outboxRef.current = [];
+    for (const msg of queued) {
+      void ch.send({ type: 'broadcast', event: 'demo', payload: msg });
+    }
+  }, []);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -86,17 +144,22 @@ export function useDemoChannel(
         }
       })
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED' && meRef.current) {
-          void channel.track({ registered: Boolean(meRef.current.registered) });
+        // Fires on the initial join AND on every automatic REJOIN after a drop,
+        // so re-tracking presence and flushing the outbox here also self-heals a
+        // mobile reconnect — presence and any queued sends are re-asserted.
+        if (status === 'SUBSCRIBED') {
+          if (meRef.current) void channel.track({ registered: Boolean(meRef.current.registered) });
+          flushOutbox();
         }
       });
     channelRef.current = channel;
     return () => {
       channelRef.current = null;
+      outboxRef.current = [];
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- role is fixed per mount; `registered` re-publishes below
-  }, [sessionId, me?.role]);
+  }, [sessionId, me?.role, flushOutbox]);
 
   // A phone that finishes face registration AFTER joining re-publishes so the
   // desktop overlay flips that side to "✓ Face registered" live.
@@ -109,8 +172,13 @@ export function useDemoChannel(
 
   const send = useCallback((msg: DemoMessage) => {
     const ch = channelRef.current;
-    if (!ch) return;
-    void ch.send({ type: 'broadcast', event: 'demo', payload: msg });
+    // Send immediately only when the socket is truly joined; otherwise queue and
+    // let the SUBSCRIBED handler flush it — no broadcast is issued into the void.
+    if (ch && ch.state === 'joined') {
+      void ch.send({ type: 'broadcast', event: 'demo', payload: msg });
+    } else {
+      outboxRef.current.push(msg);
+    }
   }, []);
 
   return { presence, send };

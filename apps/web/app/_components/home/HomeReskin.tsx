@@ -51,7 +51,7 @@ const HOME_HERO = {
       Plan your moments.
     </>
   ),
-  sub: 'The independent hub to keep a lifetime of memories — and plan any event, free.',
+  sub: 'The independent hub to keep a lifetime of memories, and plan any event, free.',
 };
 
 /**
@@ -506,7 +506,7 @@ export function HomeReskin({
         </div>
 
         <div className="hr-hero-mid">
-          <div className="hr-kick">{hero ? `0${activePillar! + 1} · ${hero.name} — ${hero.role}` : HOME_HERO.kick}</div>
+          <div className="hr-kick">{hero ? `0${activePillar! + 1} · ${hero.name} · ${hero.role}` : HOME_HERO.kick}</div>
           <h1 className="hr-htitle">{hero ? hero.head : HOME_HERO.title}</h1>
           <p className="hr-hsub">{hero ? hero.desc : HOME_HERO.sub}</p>
           {/* Setnayan AI story-as-hero (owner 2026-07-03): pure TEXT on top of

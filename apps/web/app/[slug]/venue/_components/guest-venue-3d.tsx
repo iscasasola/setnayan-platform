@@ -47,6 +47,14 @@ import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
+import {
+  VenueShell,
+  VenueDecor,
+  archetypeFor,
+  archetypeFloorColor,
+  archetypeBackground,
+} from '@/app/_components/plan3d/venue-decor';
+import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 
 export type VenueScene = {
   published: boolean;
@@ -83,6 +91,13 @@ export type VenueScene = {
   photos?: { table: string; seatNumber: number; photoUrl: string | null }[] | null;
   /** The couple's mood-board role palette — drives 3D scene materials. Optional for backwards compat. */
   rolePalette?: RolePalette;
+  /** Couple's reception treatments (v4 payload · raw JSONB, sanitized client-side
+   *  against RECEPTION_PARTS). Drives the Wave-2b decor. Absent on an old cached
+   *  payload → no treatments. */
+  receptionDesign?: unknown;
+  /** Room archetype (v4 payload · events.venue_setting) — swaps the room shell.
+   *  Absent on an old cached payload → 'banquet_hall'. */
+  venueSetting?: string;
 };
 
 const TOKEN_GEO = new THREE.CylinderGeometry(0.14, 0.16, 0.5, 10);
@@ -311,6 +326,13 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     () => (scene.rolePalette ? resolvePaletteFromRoles(scene.rolePalette) : resolvePalette([])),
     [scene.rolePalette],
   );
+  // Wave 2b: the couple's reception treatments + venue archetype reach the guest
+  // walk (v4 payload). `receptionDesign` is sanitized against RECEPTION_PARTS; the
+  // archetype swaps the room shell + floor tone + sky background.
+  const receptionDesign = useMemo(() => sanitizeReceptionDesign(scene.receptionDesign), [scene.receptionDesign]);
+  const archetype = useMemo(() => archetypeFor(scene.venueSetting), [scene.venueSetting]);
+  const archFloorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
+  const bgColor = useMemo(() => archetypeBackground(archetype), [archetype]);
   const tables: Lab3DTable[] = useMemo(
     () =>
       scene.tables.map((t) => ({
@@ -460,11 +482,15 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
         camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}
         gl={{ ...RECOMMENDED_TONEMAP }}
       >
-        <color attach="background" args={['#0c0e14']} />
-        <fog attach="fog" args={['#0c0e14', room.d * 1.4, room.d * 3.2]} />
+        <color attach="background" args={[bgColor]} />
+        <fog attach="fog" args={[bgColor, room.d * 1.4, room.d * 3.2]} />
         {/* Shared rig (Wave 2a) at 'low' — guests explore on phones, so the
             1024 shadow map + 128 env map budget. */}
         <SceneLighting palette={palette} quality="low" room={room} />
+
+        {/* Wave 2b: archetype room shell (garden / chapel / barn / …), reduced
+            decor set at 'low' quality for phones. */}
+        <VenueShell archetype={archetype} room={room} palette={palette} quality="low" />
 
         {/* Floor — tap anywhere to walk there (Sims roam). */}
         <mesh
@@ -478,7 +504,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           }}
         >
           <planeGeometry args={[room.w, room.d]} />
-          <meshStandardMaterial color={palette.floor} roughness={0.95} roughnessMap={floorRoughnessMap()} />
+          <meshStandardMaterial color={archFloorColor} roughness={0.95} roughnessMap={floorRoughnessMap()} />
         </mesh>
 
         {/* Stage */}
@@ -508,6 +534,17 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           booths={booths}
           signs={signs}
           cocktail={cocktail}
+        />
+
+        {/* Wave 2b: the couple's reception treatments (reduced set on phones). */}
+        <VenueDecor
+          design={receptionDesign}
+          floor={floor}
+          tables={tables}
+          room={room}
+          palette={palette}
+          quality="low"
+          archetype={archetype}
         />
 
         {/* Destination beacon: where the avatar is walking, shown until it sits. */}

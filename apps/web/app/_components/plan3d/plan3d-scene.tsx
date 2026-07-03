@@ -87,6 +87,14 @@ import {
   type SceneLightingQuality,
 } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
+import {
+  VenueShell,
+  VenueDecor,
+  archetypeFor,
+  archetypeFloorColor,
+  archetypeBackground,
+} from '@/app/_components/plan3d/venue-decor';
+import type { ReceptionDesign } from '@/lib/reception-scene';
 
 const NEUTRAL_PALETTE = resolvePalette([]); // the lab's warm-neutral default
 
@@ -394,6 +402,8 @@ export function Plan3DScene({
   signs = [],
   cocktail = null,
   rolePalette,
+  receptionDesign,
+  venueSetting,
   onGuestClick,
   walkTarget,
   onWalkComplete,
@@ -412,6 +422,13 @@ export function Plan3DScene({
   cocktail?: Lab3DCocktail;
   /** When set, the room recolours to the couple's mood board (owner toggle). */
   rolePalette?: RolePalette;
+  /** Couple's saved reception treatments (Wave 2b) — drives 3D decor. Gated by
+   *  the mood-board toggle at the call site: pass it themed-ON, omit themed-OFF
+   *  so decor + palette flip together (a neutral shell shows no treatments). */
+  receptionDesign?: ReceptionDesign;
+  /** Room archetype (`events.venue_setting`) — swaps the `VenueShell`. Independent
+   *  of theming: the archetype room shows even in the neutral view. */
+  venueSetting?: string;
   onGuestClick?: (guestId: string) => void;
   walkTarget?: Plan3DWalkRequest;
   onWalkComplete?: () => void;
@@ -431,6 +448,11 @@ export function Plan3DScene({
     () => (rolePalette ? resolvePaletteFromRoles(rolePalette) : NEUTRAL_PALETTE),
     [rolePalette],
   );
+  // Wave 2b: room archetype + its floor/background tints. `venueSetting` is
+  // independent of the mood-board toggle — the archetype room shows either way.
+  const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
+  const floorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
+  const bgColor = useMemo(() => archetypeBackground(archetype), [archetype]);
   // Fixture avoidance discs — merged into every walk/roam obstacle set so the
   // demo walker rounds the buffet / booth / cocktail room like a table.
   const fixtureObstacles = useMemo(
@@ -565,10 +587,15 @@ export function Plan3DScene({
       gl={{ ...RECOMMENDED_TONEMAP }}
       onPointerMissed={() => {}}
     >
+      <color attach="background" args={[bgColor]} />
       <SceneLighting palette={palette} quality={quality} room={room} />
+
+      {/* Wave 2b: archetype room shell (garden greenery / chapel windows / …). */}
+      <VenueShell archetype={archetype} room={room} palette={palette} quality={quality} />
+
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={roam ? handleFloorTap : undefined}>
         <planeGeometry args={[room.w, room.d]} />
-        <meshStandardMaterial color={palette.floor} roughness={0.9} roughnessMap={floorRoughnessMap()} />
+        <meshStandardMaterial color={floorColor} roughness={0.9} roughnessMap={floorRoughnessMap()} />
       </mesh>
       <mesh
         position={[pctToWorld(floor.stage.xPct, floor.stage.yPct, room).x, 0.14, pctToWorld(floor.stage.xPct, floor.stage.yPct, room).z]}
@@ -595,6 +622,21 @@ export function Plan3DScene({
         signs={signs}
         cocktail={cocktail}
       />
+
+      {/* Wave 2b: mood-board reception treatments (chandeliers / backdrop /
+          centrepieces / entrance arch). Only when the couple's design reached
+          us AND the theming toggle is on — the neutral view stays undecorated. */}
+      {receptionDesign ? (
+        <VenueDecor
+          design={receptionDesign}
+          floor={floor}
+          tables={tables}
+          room={room}
+          palette={palette}
+          quality={quality}
+          archetype={archetype}
+        />
+      ) : null}
 
       {guests.map((g) => {
         // The guest currently mid-walk (or roaming) is drawn by the Walker instead — never both.

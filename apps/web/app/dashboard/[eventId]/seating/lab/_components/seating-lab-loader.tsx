@@ -22,6 +22,7 @@ import type {
 } from '@/lib/seating-3d';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 import type { RolePalette } from '@/lib/mood-board';
+import type { ReceptionDesign } from '@/lib/reception-scene';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
   ssr: false,
@@ -43,6 +44,10 @@ type Props = {
   guests: Lab3DGuest[];
   paletteHexes: string[];
   rolePalette: RolePalette;
+  /** Couple's saved reception treatments (Wave 2b) — drives the 3D decor. */
+  receptionDesign: ReceptionDesign;
+  /** Room archetype (`events.venue_setting`) — swaps the 3D room shell. */
+  venueSetting: string;
   monogram: Lab3DMonogram;
   /** Couple owns the paid ANIMATED_MONOGRAM → the floor mark blooms on Play. */
   animatedMonogram: boolean;

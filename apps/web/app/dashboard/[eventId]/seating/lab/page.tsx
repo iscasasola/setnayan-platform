@@ -39,6 +39,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
@@ -86,7 +87,7 @@ export default async function SeatingLabPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -140,6 +141,11 @@ export default async function SeatingLabPage({ params }: Props) {
   const rolePalette = sanitizeRolePalette((eventRow.data as Record<string, unknown> | null)?.role_palette);
   const gownColor = rolePalette.wedding_party?.[0] ?? rolePalette.bride?.[0] ?? '#c9a4ad';
   const suitColor = rolePalette.groom?.[0] ?? '#2b2f38';
+  // Wave 2b: the couple's saved reception treatments + room archetype reach the
+  // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).
+  const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
+  const venueSettingRaw = (eventRow.data as Record<string, unknown> | null)?.venue_setting;
+  const venueSetting = typeof venueSettingRaw === 'string' && venueSettingRaw ? venueSettingRaw : 'banquet_hall';
 
   const guests: Lab3DGuest[] = guestsRaw.map((g) => {
     const seat = seatByGuest.get(g.guest_id);
@@ -271,6 +277,8 @@ export default async function SeatingLabPage({ params }: Props) {
         guests={guests}
         paletteHexes={paletteHexes}
         rolePalette={rolePalette}
+        receptionDesign={receptionDesign}
+        venueSetting={venueSetting}
         monogram={monogram}
         animatedMonogram={ownsAnimatedMonogram}
         me={{

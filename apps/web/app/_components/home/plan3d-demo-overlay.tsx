@@ -163,6 +163,8 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               signs={scene.signs}
               cocktail={scene.cocktail}
               rolePalette={themed ? scene.rolePalette : undefined}
+              receptionDesign={themed ? scene.receptionDesign : undefined}
+              venueSetting={scene.venueSetting}
               onGuestClick={handleGuestClick}
               interactive
             />

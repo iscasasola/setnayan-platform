@@ -34,6 +34,14 @@ import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
+import {
+  VenueShell,
+  VenueDecor,
+  archetypeFor,
+  archetypeFloorColor,
+  archetypeBackground,
+} from '@/app/_components/plan3d/venue-decor';
+import { type ReceptionDesign } from '@/lib/reception-scene';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -128,6 +136,12 @@ type Props = {
   paletteHexes: string[];
   /** Structured role palette from `events.role_palette` — the canonical source for scene materials. */
   rolePalette: RolePalette;
+  /** Couple's saved reception treatments (Wave 2b · events.reception_design) —
+   *  drives the 3D decor (ceiling / backdrop / centrepieces / entrance arch),
+   *  palette-tinted so the material switcher recolours it. */
+  receptionDesign: ReceptionDesign;
+  /** Room archetype (events.venue_setting) — swaps the room shell + floor tone. */
+  venueSetting: string;
   /** The couple's canonical mark — rendered as a medallion on the floor centre
    *  (the Play-mode camera's focal point). null → no mark. */
   monogram: Lab3DMonogram;
@@ -251,7 +265,7 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
 // A guest token animating between seats during a swap / table-swap.
 type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -277,6 +291,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     if (paletteKey === 'mood') return resolvePaletteFromRoles(rolePalette);
     return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolvePaletteFromRoles(rolePalette);
   }, [paletteKey, rolePalette]);
+  // Wave 2b: room archetype + its floor tint (background stays the lab's dark
+  // studio in Play/Build for editing legibility, but garden/beach/rooftop lift
+  // it toward their sky so the open-air shells don't float in black).
+  const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
+  const archFloorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
 
   // Single-editor lock — the SAME one the 2D editor uses, so 3D and 2D never
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
@@ -1472,10 +1491,25 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           room={room}
           floor={floor}
           palette={palette}
+          floorColor={archFloorColor}
           buildMode={mode === 'build'}
           monogram={monogram}
           animatedMonogram={animatedMonogram}
           playSettled={mode === 'play' && !camBusy}
+        />
+
+        {/* Wave 2b: archetype room shell (garden greenery / chapel windows /
+            barn trusses / beach horizon / rooftop parapet) + the mood-board
+            reception treatments. Both recolour with the active palette. */}
+        <VenueShell archetype={archetype} room={room} palette={palette} quality="high" />
+        <VenueDecor
+          design={receptionDesign}
+          floor={floor}
+          tables={tables}
+          room={room}
+          palette={palette}
+          quality="high"
+          archetype={archetype}
         />
 
         {tables.map((t) => (
@@ -1824,6 +1858,7 @@ function RoomShell({
   room,
   floor,
   palette,
+  floorColor,
   buildMode,
   monogram,
   animatedMonogram,
@@ -1832,6 +1867,9 @@ function RoomShell({
   room: { w: number; d: number };
   floor: Lab3DFloor;
   palette: Lab3DPalette;
+  /** Archetype-tinted floor colour (Wave 2b) — sand for beach, timber for barn,
+   *  etc. Falls back to the palette floor for banquet/chapel. */
+  floorColor: string;
   buildMode: boolean;
   monogram: Lab3DMonogram;
   animatedMonogram: boolean;
@@ -1846,7 +1884,6 @@ function RoomShell({
   const dance = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
   const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
   const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
-  const wallH = 1.1;
 
   // The couple's mark on the floor centre (the Play-mode camera's focal point —
   // CameraRig lookAt 0,0.5,0). Rasterized once from the canonical SVG mark; the
@@ -1890,7 +1927,7 @@ function RoomShell({
           roughness map breaks up the uniform sheen (Wave 2a materials pass). */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[room.w, room.d]} />
-        <meshStandardMaterial color={palette.floor} roughness={0.92} metalness={0.02} roughnessMap={floorRoughnessMap()} />
+        <meshStandardMaterial color={floorColor} roughness={0.92} metalness={0.02} roughnessMap={floorRoughnessMap()} />
       </mesh>
 
       {/* Build grid (brighter while building) */}
@@ -1908,22 +1945,9 @@ function RoomShell({
         infiniteGrid={false}
       />
 
-      {/* Perimeter walls (only when the couple set a venue size) */}
-      {floor.venueWidthM && floor.venueLengthM ? (
-        <group>
-          {[
-            { p: [0, wallH / 2, -room.d / 2] as const, s: [room.w, wallH, 0.12] as const },
-            { p: [0, wallH / 2, room.d / 2] as const, s: [room.w, wallH, 0.12] as const },
-            { p: [-room.w / 2, wallH / 2, 0] as const, s: [0.12, wallH, room.d] as const },
-            { p: [room.w / 2, wallH / 2, 0] as const, s: [0.12, wallH, room.d] as const },
-          ].map((w, i) => (
-            <mesh key={i} position={w.p}>
-              <boxGeometry args={w.s} />
-              <meshStandardMaterial color={palette.wall} roughness={0.95} transparent opacity={0.55} />
-            </mesh>
-          ))}
-        </group>
-      ) : null}
+      {/* Perimeter walls now come from the shared archetype `VenueShell` (Wave 2b)
+          — banquet/chapel/barn get full-height walls, garden/beach/rooftop stay
+          open — so RoomShell no longer draws its own low perimeter box. */}
 
       {/* Stage */}
       <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>

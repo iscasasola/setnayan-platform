@@ -67,6 +67,10 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           // "the place is themed" (owner 2026-07-03). Falls back to neutral when
           // the sample event never set a palette.
           rolePalette={scene.rolePalette}
+          // Wave 2b — the walked room carries the couple's reception treatments
+          // + venue archetype (reduced decor set at 'low' quality).
+          receptionDesign={scene.receptionDesign}
+          venueSetting={scene.venueSetting}
           walkTarget={phase === 'walking' || phase === 'arrived' ? { guestId: guest.id } : null}
           onWalkComplete={() => setPhase('arrived')}
           roam={phase === 'roam' ? { guestId: guest.id } : null}

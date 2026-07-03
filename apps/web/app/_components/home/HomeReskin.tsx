@@ -517,8 +517,13 @@ export function HomeReskin({
               comparator CTA (.hr-ai-cta) — the subtle glass accent sitting
               between the hero copy and the standard Start-planning/Learn-more
               CTAs (owner 2026-07-03: "apply this kind of placement for all
-              5"). Ala ala gets its button here when its veil-reveal demo
-              lands — never a button that pretends. */}
+              5"). Ala ala's showcases the editorial — two complete sample
+              editions (owner 2026-07-03). */}
+          {hero?.name === 'Ala ala' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('alaala-editorial')}>
+              Read two sample editions&nbsp;·&nbsp;the editorial
+            </button>
+          )}
           {hero?.name === 'Papic' && (
             <button className="hr-ai-cta" onClick={() => setOverlay('papic-demo')}>
               Try the live demo — you and a friend, right now

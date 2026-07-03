@@ -14,6 +14,11 @@ import {
 } from '@/lib/vendor-verification';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import {
+  DEEP_SEARCH_MODEL,
+  runDeepSearch,
+  type DeepSearchInputs,
+} from '@/lib/vendor-deep-search';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -723,4 +728,101 @@ export async function markVendorContactConfirmed(formData: FormData) {
 
   revalidatePath('/admin/verify');
   redirect('/admin/verify?contact_marked=1');
+}
+
+/**
+ * "Run deep search" — live web due-diligence dossier (owner 2026-07-03).
+ *
+ * Takes the vendor's website + social link + shop name + location, runs the
+ * Claude web_search research pass (lib/vendor-deep-search.ts), and stores the
+ * structured result in vendor_web_dossiers (admin-only RLS). Synchronous —
+ * the admin waits on the run (typically 1–3 minutes; the verify page sets
+ * maxDuration accordingly). A failure is stored on the row and surfaced in
+ * the queue instead of throwing.
+ */
+export async function runVendorDeepSearchAction(formData: FormData) {
+  const adminUser = await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+
+  const admin = createAdminClient();
+
+  // Snapshot the search inputs from the profile + the application's social slot.
+  const { data: vendorRow, error: vendorErr } = await admin
+    .from('vendor_profiles')
+    .select('business_name, website, location_city, services')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (vendorErr || !vendorRow) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(vendorErr?.message ?? 'Vendor not found.')}`,
+    );
+  }
+
+  let socialUrl: string | null = null;
+  if (applicationId) {
+    const { data: appRow } = await admin
+      .from('vendor_verification_applications')
+      .select('doc_uploads')
+      .eq('application_id', applicationId)
+      .maybeSingle();
+    const uploads = (appRow as { doc_uploads?: Record<string, unknown> } | null)?.doc_uploads;
+    const social = uploads?.social_media as { url?: unknown } | undefined;
+    if (social && typeof social.url === 'string') socialUrl = social.url;
+  }
+
+  const inputs: DeepSearchInputs = {
+    business_name: (vendorRow.business_name as string | null) ?? '',
+    website: (vendorRow.website as string | null) ?? null,
+    social_url: socialUrl,
+    location_city: (vendorRow.location_city as string | null) ?? null,
+    claimed_services: ((vendorRow.services as string[] | null) ?? []).filter(Boolean),
+  };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(
+        'Nothing to search — this vendor has no name, website, or social link yet.',
+      )}`,
+    );
+  }
+
+  // Ledger row first, so a crashed run is visible as 'running' → re-runnable.
+  const { data: inserted, error: insErr } = await admin
+    .from('vendor_web_dossiers')
+    .insert({
+      vendor_profile_id: vendorProfileId,
+      application_id: applicationId || null,
+      status: 'running',
+      requested_by: adminUser.user_id,
+      inputs,
+      model: DEEP_SEARCH_MODEL,
+    })
+    .select('id')
+    .single();
+  if (insErr || !inserted) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(insErr?.message ?? 'Could not start deep search.')}`,
+    );
+  }
+  const dossierId = (inserted as { id: number }).id;
+
+  try {
+    const dossier = await runDeepSearch(inputs);
+    await admin
+      .from('vendor_web_dossiers')
+      .update({ status: 'complete', dossier, completed_at: new Date().toISOString() })
+      .eq('id', dossierId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Deep search failed.';
+    await admin
+      .from('vendor_web_dossiers')
+      .update({ status: 'failed', error: message.slice(0, 2000), completed_at: new Date().toISOString() })
+      .eq('id', dossierId);
+    revalidatePath('/admin/verify');
+    redirect(`/admin/verify?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?deep_search=1');
 }

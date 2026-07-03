@@ -5,7 +5,10 @@ import { Plus, X } from 'lucide-react';
 import {
   SERVICE_GROUPS,
   VENDOR_CATEGORY_LABEL,
+  groupDisplayOptions,
   isCanonicalService,
+  type ServiceGroupOption,
+  type VendorCategory,
 } from '@/lib/vendors';
 
 type Props = {
@@ -98,6 +101,25 @@ export function ServicesPicker({ name, initial, labels, extraCanonicals, onChang
     });
   };
 
+  // Toggle a COLLAPSED option (one or more legacy keys that share a label).
+  // On = add the primary key; off = clear every folded key (so a legacy row's
+  // secondary key like `videographer` is removed too).
+  const toggleOption = (opt: ServiceGroupOption) => {
+    setError(null);
+    setSelected((current) => {
+      const anyOn = opt.keys.some((k) => current.includes(k));
+      if (anyOn) {
+        const keySet = new Set<string>(opt.keys);
+        return current.filter((x) => !keySet.has(x));
+      }
+      if (current.length >= MAX_SERVICES) {
+        setError(`At most ${MAX_SERVICES} services. Remove one to add another.`);
+        return current;
+      }
+      return [...current, opt.primaryKey];
+    });
+  };
+
   const addCustom = () => {
     const t = customDraft.trim();
     if (t.length === 0) return;
@@ -145,23 +167,31 @@ export function ServicesPicker({ name, initial, labels, extraCanonicals, onChang
         </legend>
         <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-3">
           {SERVICE_GROUPS.map((group) => {
-            const checkedInGroup = group.members.filter((m) => selected.includes(m)).length;
+            // Collapse legacy keys that share a taxonomy label (e.g.
+            // photographer + videographer → one "Photo & Video" checkbox).
+            const options = groupDisplayOptions(
+              group.members,
+              (cat: VendorCategory) => labels?.[cat] ?? VENDOR_CATEGORY_LABEL[cat],
+            );
+            const checkedInGroup = options.filter((o) =>
+              o.keys.some((k) => selected.includes(k)),
+            ).length;
             return (
               <div key={group.key} className="space-y-1.5">
                 <p className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                   <span>{group.label}</span>
                   {checkedInGroup > 0 ? (
                     <span className="text-terracotta-700">
-                      {checkedInGroup} / {group.members.length}
+                      {checkedInGroup} / {options.length}
                     </span>
                   ) : null}
                 </p>
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 md:grid-cols-3">
-                  {group.members.map((cat) => {
-                    const checked = selected.includes(cat);
+                  {options.map((opt) => {
+                    const checked = opt.keys.some((k) => selected.includes(k));
                     return (
                       <label
-                        key={cat}
+                        key={opt.primaryKey}
                         className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
                           checked
                             ? 'bg-terracotta/10 text-terracotta-700'
@@ -171,11 +201,11 @@ export function ServicesPicker({ name, initial, labels, extraCanonicals, onChang
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => toggle(cat)}
+                          onChange={() => toggleOption(opt)}
                           disabled={!checked && isAtMax}
                           className="h-4 w-4 cursor-pointer accent-terracotta disabled:cursor-not-allowed"
                         />
-                        <span>{labels?.[cat] ?? VENDOR_CATEGORY_LABEL[cat]}</span>
+                        <span>{opt.label}</span>
                       </label>
                     );
                   })}

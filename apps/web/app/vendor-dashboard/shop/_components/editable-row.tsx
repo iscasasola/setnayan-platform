@@ -1,14 +1,14 @@
 'use client';
 
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Loader2, MapPin, Pencil, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, Check, ChevronDown, Loader2, MapPin, Pencil, Plus } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 import { Field } from '@/app/_components/forms/field';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
-import { ServicesPicker } from '../../_components/services-picker';
 import { updateVendorProfileField, type FieldSaveResult } from '../../actions';
 import { Collapsible } from '../../_components/collapsible';
 
@@ -345,6 +345,61 @@ export function EditableRow({
   );
 }
 
+/**
+ * The "Services covered" checklist row (owner 2026-07-03). Unlike the other
+ * rows it does NOT edit a `vendor_profiles` column inline — what a vendor
+ * serves is admin-taxonomy-driven, built in the Coverage flow. So this row is a
+ * jump: it mirrors the collapsed-row chrome (status chip · label · preview) and
+ * links to /vendor-dashboard/services (Coverage is the default tab), which
+ * writes the covered leaves back into `services[]` — the same column this
+ * row's completeness reads. Rendered LAST by the parent.
+ */
+export function ServiceCoverageRow({
+  item,
+  count,
+}: {
+  item: BusinessProfileItem;
+  count: number;
+}) {
+  return (
+    <li className="overflow-hidden rounded-lg border bg-white" style={{ borderColor: 'var(--m-line)' }}>
+      <div className="flex items-center gap-3 p-3">
+        <StatusChip ok={item.ok} />
+        <span className="min-w-0 flex-1">
+          <span
+            className="block truncate text-sm"
+            style={{ color: item.ok ? 'var(--m-slate)' : 'var(--m-ink)' }}
+          >
+            {item.label}
+          </span>
+          <span className="mt-0.5 block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            {item.ok
+              ? `${count} ${count === 1 ? 'category' : 'categories'} · manage in Coverage`
+              : 'Pick what you serve from our category tree'}
+          </span>
+        </span>
+        <Link
+          href="/vendor-dashboard/services"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-[color:var(--m-orange-4)]"
+        >
+          {item.ok ? (
+            <>
+              <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              Manage
+            </>
+          ) : (
+            <>
+              <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              Add
+            </>
+          )}
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        </Link>
+      </div>
+    </li>
+  );
+}
+
 function StatusChip({ ok }: { ok: boolean }) {
   return (
     <span
@@ -411,8 +466,6 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
       return data.contact_phone || null;
     case 'contact_email':
       return data.contact_email || null;
-    case 'services':
-      return data.services.length > 0 ? `${data.services.length} selected` : null;
     case 'in_business_since_year':
       return data.in_business_since_year || null;
     default:
@@ -489,24 +542,6 @@ function FieldControl({
       return (
         <Field label="Company email" htmlFor="contact_email" required>
           <PlainInput itemKey={item.key} data={data} onDirty={onDirty} />
-        </Field>
-      );
-    case 'services':
-      return (
-        <Field
-          label="Services covered"
-          htmlFor="services"
-          help="Tick the categories you offer. Add custom services for anything not on the list."
-        >
-          <div className="max-h-[40vh] overflow-y-auto rounded-lg">
-            <ServicesPicker
-              name="services"
-              initial={data.services}
-              labels={data.serviceLabels}
-              extraCanonicals={data.extraServiceLeaves}
-              onChange={onDirty}
-            />
-          </div>
         </Field>
       );
     case 'in_business_since_year':

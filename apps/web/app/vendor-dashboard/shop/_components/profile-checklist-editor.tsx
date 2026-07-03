@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
-import { EditableRow, type ProfileFieldData } from './editable-row';
+import { EditableRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
 
 /**
  * The interactive body of the My Shop → Profile panel (2026-07-02).
@@ -90,20 +90,26 @@ export function ProfileChecklistEditor({
       </div>
 
       <ul className="space-y-2">
-        {items.map((item) => (
-          <EditableRow
-            key={item.key}
-            item={item}
-            data={data}
-            isOpen={openKey === item.key}
-            onOpen={() => setOpenKey(item.key)}
-            onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
-            // Re-open after a rejected save ONLY if the user hasn't opened a
-            // different row meanwhile — a late rejection must never steal the
-            // open slot from (and force-commit) the row they moved to.
-            onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
-          />
-        ))}
+        {items.map((item) =>
+          // "Services covered" is taxonomy-driven — it jumps to the Coverage
+          // flow instead of editing a column inline (owner 2026-07-03).
+          item.key === 'services' ? (
+            <ServiceCoverageRow key={item.key} item={item} count={data.services.length} />
+          ) : (
+            <EditableRow
+              key={item.key}
+              item={item}
+              data={data}
+              isOpen={openKey === item.key}
+              onOpen={() => setOpenKey(item.key)}
+              onClose={() => setOpenKey((cur) => (cur === item.key ? null : cur))}
+              // Re-open after a rejected save ONLY if the user hasn't opened a
+              // different row meanwhile — a late rejection must never steal the
+              // open slot from (and force-commit) the row they moved to.
+              onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
+            />
+          ),
+        )}
       </ul>
     </div>
   );

@@ -153,6 +153,99 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
   redirect(`/vendor-dashboard/clients/${eventId}?deposit_ack=${flag}`);
 }
 
+// ==========================================================================
+// Customer Card — private, team-shared CRM notes (vendor_client_notes).
+//
+// Design source: 03_Strategy/Customer_Card_Prototype_2026-07-03.html (Activity
+// tab). vendor_client_notes is vendor-org-only RLS (current_vendor_profile_ids)
+// with NO couple/admin policy — off-limits to hosts and to Setnayan HQ. All
+// three actions run under the caller's OWN session (no admin client): the
+// org-scoped RLS policy is the authorization boundary, so a plain insert /
+// update / delete can only ever touch the caller's own org's rows. We resolve
+// vendor_profile_id from the caller so the WITH CHECK passes; RLS rejects any
+// cross-org write.
+// ==========================================================================
+
+/** Create a private note on this (vendor org, event) pair. */
+export async function createClientNote(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const body = formData.get('body');
+  if (typeof eventId !== 'string' || typeof body !== 'string' || body.trim().length === 0) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Optional follow-up reminder — a bare YYYY-MM-DD date or null.
+  const remindRaw = formData.get('remind_at');
+  const remindAt =
+    typeof remindRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(remindRaw) ? remindRaw : null;
+
+  // RLS (vendor_client_notes_org_all) enforces the org scope on WITH CHECK.
+  await supabase.from('vendor_client_notes').insert({
+    vendor_profile_id: profile.vendor_profile_id,
+    event_id: eventId,
+    author_user_id: user.id,
+    body: (body as string).trim().slice(0, 2000),
+    remind_at: remindAt,
+  });
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
+/** Toggle a note's done/reopened state. Team-shared: any org member may flip. */
+export async function toggleClientNoteDone(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const noteId = formData.get('note_id');
+  const done = formData.get('done') === '1';
+  if (typeof eventId !== 'string' || typeof noteId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS scopes the UPDATE to the caller's own org's notes — no extra gate here.
+  await supabase
+    .from('vendor_client_notes')
+    .update({ done_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
+    .eq('note_id', noteId);
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
+/** Delete a private note. Team-shared: any org member may remove any org note. */
+export async function deleteClientNote(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const noteId = formData.get('note_id');
+  if (typeof eventId !== 'string' || typeof noteId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS scopes the DELETE to the caller's own org's notes.
+  await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
 export async function suggestScheduleChange(formData: FormData) {
   const eventId = formData.get('event_id');
   const note = formData.get('note');

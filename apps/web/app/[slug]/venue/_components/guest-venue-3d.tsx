@@ -45,6 +45,7 @@ import {
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 
 export type VenueScene = {
   published: boolean;
@@ -65,6 +66,20 @@ export type VenueScene = {
   cocktail?: { xPct: number; yPct: number; wPct: number; hPct: number; label: string | null } | null;
   occupancy: { table: string; seats: number[] }[];
   you: { table: string; seatNumber: number; tablemates: { name: string; seatNumber: number }[] } | null;
+  /**
+   * Host's guest-photo visibility choice (venue_photo_visibility): 'none' | 'table'
+   * | 'all'. Echoed from the RPC so the client knows the couple's intent even
+   * when `photos` is empty. Optional/absent on an old cached payload → 'none'.
+   */
+  photoVisibility?: 'none' | 'table' | 'all';
+  /**
+   * Per-seat guest photos, keyed by table public_id + seat number. Present ONLY
+   * for a valid token holder and only per the host setting (see the RPC): 'table'
+   * → own tablemates only · 'all' → every seated face · 'none'/tokenless → absent.
+   * `photoUrl` is the SERVER-RESOLVED display URL (the page rewrites the raw
+   * stored ref via `displayUrlForStoredAsset`) — or null when resolution failed.
+   */
+  photos?: { table: string; seatNumber: number; photoUrl: string | null }[] | null;
   /** The couple's mood-board role palette — drives 3D scene materials. Optional for backwards compat. */
   rolePalette?: RolePalette;
 };
@@ -72,19 +87,28 @@ export type VenueScene = {
 const CHAIR_GEO = new THREE.BoxGeometry(0.42, 0.5, 0.42);
 const TOKEN_GEO = new THREE.CylinderGeometry(0.14, 0.16, 0.5, 10);
 
-/** One table: a top + chairs, occupied seats get a token, the guest's own seat glows. */
+/** One table: a top + chairs, occupied seats get a token, the guest's own seat glows.
+ *  When the host enabled photos AND this viewer is a token holder, a seat with a
+ *  resolved photo wears the shared `GuestPhotoAvatar` (billboard disc) instead of
+ *  the anonymous token; everything else stays a plain token. `photoBySeat` maps a
+ *  seat number → resolved display URL; `nameBySeat` supplies the initials-fallback
+ *  name where we know it (own tablemates) — both keyed by chair index (= seat #). */
 function GuestTable({
   table,
   room,
   palette,
   occupied,
   yourSeat,
+  photoBySeat,
+  nameBySeat,
 }: {
   table: Lab3DTable;
   room: { w: number; d: number };
   palette: Lab3DPalette;
   occupied: Set<number> | undefined;
   yourSeat: number | null;
+  photoBySeat: Map<number, string> | undefined;
+  nameBySeat: Map<number, string> | undefined;
 }) {
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   const chairs = useMemo(() => chairLocalPositions(table.shape, table.capacity), [table.shape, table.capacity]);
@@ -110,12 +134,25 @@ function GuestTable({
         const ang = Math.atan2(c.x, c.z);
         const taken = occupied?.has(i);
         const mine = yourSeat === i;
+        // Host enabled photos + this seat has a resolved face → wear the shared
+        // photo avatar. Ring colour follows the token convention (own seat =
+        // accent, others = table). No photo → the plain token, unchanged.
+        const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
+        const ringColor = mine ? palette.accent : palette.table;
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
             <mesh geometry={CHAIR_GEO} position={[0, 0.25, 0]}>
               <meshStandardMaterial color={palette.wall} roughness={0.75} />
             </mesh>
-            {taken ? (
+            {taken && photoUrl ? (
+              <GuestPhotoAvatar
+                photoUrl={photoUrl}
+                name={nameBySeat?.get(i) ?? ''}
+                ringColor={ringColor}
+                radius={0.16}
+                height={0.92}
+              />
+            ) : taken ? (
               <mesh geometry={TOKEN_GEO} position={[0, 0.75, -0.04]}>
                 <meshStandardMaterial color={mine ? palette.accent : palette.table} roughness={0.5} emissive={mine ? palette.accent : '#000'} emissiveIntensity={mine ? 0.5 : 0} />
               </mesh>
@@ -321,6 +358,43 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   );
 
   const occByTable = useMemo(() => new Map(scene.occupancy.map((o) => [o.table, new Set(o.seats)])), [scene]);
+
+  // Resolved guest photos, indexed table → (seat number → display URL). Only
+  // populated for a token holder + a host setting that returns photos ('table' /
+  // 'all'); null/failed refs are skipped so a seat with a broken photo falls back
+  // to its plain token. Seat numbers ARE the chair indices (same key occupancy
+  // uses), so GuestTable can look each chair up directly.
+  const photoByTable = useMemo(() => {
+    const m = new Map<string, Map<number, string>>();
+    for (const p of scene.photos ?? []) {
+      if (!p.photoUrl) continue;
+      let seats = m.get(p.table);
+      if (!seats) {
+        seats = new Map<number, string>();
+        m.set(p.table, seats);
+      }
+      seats.set(p.seatNumber, p.photoUrl);
+    }
+    return m;
+  }, [scene.photos]);
+  // Names we can pair to a photo's initials fallback: only the token holder's own
+  // tablemates carry names ('all' widens faces, never names), so this map is scoped
+  // to the guest's own table by seat number. Purely a fallback aid — the initials
+  // only surface if a photo texture fails to load.
+  const nameByTable = useMemo(() => {
+    const m = new Map<string, Map<number, string>>();
+    if (scene.you) {
+      const seats = new Map<number, string>();
+      for (const tm of scene.you.tablemates) seats.set(tm.seatNumber, tm.name);
+      m.set(scene.you.table, seats);
+    }
+    return m;
+  }, [scene.you]);
+  // Warm the texture cache once so the first frame paints faces, not tokens.
+  useEffect(() => {
+    preloadGuestPhotos((scene.photos ?? []).map((p) => p.photoUrl));
+  }, [scene.photos]);
+
   const entrance = useMemo<Vec2>(
     () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
     [floor, room],
@@ -406,6 +480,8 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             palette={palette}
             occupied={occByTable.get(t.id)}
             yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
+            photoBySeat={photoByTable.get(t.id)}
+            nameBySeat={nameByTable.get(t.id)}
           />
         ))}
 

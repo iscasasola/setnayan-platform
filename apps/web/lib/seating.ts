@@ -199,6 +199,10 @@ export type FloorPlanRow = {
   // (who fills the stage-closest tables first). null = the locked default
   // (defaultPriorityOrder()), which reproduces the historical hardcoded fill.
   priority_order: PriorityOrder | null;
+  // Host choice for guest PHOTOS in the public 3D venue walk (owner 2026-07-03):
+  // 'table' (default) = own tablemates only · 'all' = every seated face · 'none'
+  // = no photos. Photos are always token-gated in the RPC; this sets the reach.
+  venue_photo_visibility: 'table' | 'all' | 'none';
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -232,6 +236,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   venue_length_m: null,
   published_at: null,
   priority_order: null,
+  venue_photo_visibility: 'table',
 };
 
 export async function fetchFloorPlan(
@@ -241,7 +246,7 @@ export async function fetchFloorPlan(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,venue_photo_visibility',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -291,6 +296,10 @@ export async function fetchFloorPlan(
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,
     priority_order: parsePriorityOrder((data as { priority_order?: unknown }).priority_order),
+    venue_photo_visibility: ((): 'table' | 'all' | 'none' => {
+      const v = (data as { venue_photo_visibility?: unknown }).venue_photo_visibility;
+      return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
+    })(),
   };
 }
 

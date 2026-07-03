@@ -1,5 +1,28 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+
+// Guest photos in the payload (present only for a token holder + a host setting
+// that returns them) arrive as RAW stored refs (r2:// or bare URL). A client
+// can't resolve an r2:// ref, so — exactly like the venue page — resolve them
+// here before returning. The RPC already privacy-gates WHICH photos appear; this
+// is purely ref → display URL. Failed refs drop to null (→ initials fallback).
+type PhotoEntry = { table: string; seatNumber: number; photoUrl: string | null };
+async function resolveScenePhotos(data: unknown): Promise<unknown> {
+  if (!data || typeof data !== 'object') return data;
+  const photos = (data as { photos?: PhotoEntry[] | null }).photos;
+  if (!photos || photos.length === 0) return data;
+  const distinct = [...new Set(photos.map((p) => p.photoUrl).filter((r): r is string => !!r))];
+  const resolved: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(distinct.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
+  return {
+    ...(data as object),
+    photos: photos.map((p) => ({ ...p, photoUrl: p.photoUrl ? resolved[p.photoUrl] ?? null : null })),
+  };
+}
 
 // GET /api/venue-scene/[slug]?t=<personal-token> — read-only data for the
 // guest-facing 3D venue explorer (Sims-style; owner 2026-06-26). All the safety
@@ -44,5 +67,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const { data, error } = await admin.rpc('public_venue_scene', { p_slug: slug, p_token: token });
   if (error || !data) return NextResponse.json({ published: false });
 
-  return NextResponse.json(data);
+  return NextResponse.json(await resolveScenePhotos(data));
 }

@@ -585,7 +585,7 @@ export function WebsiteEditor({
           </div>
         ) : (
           <ul className="mt-3 space-y-2">
-            {['Custom address', 'Hero photo', 'Accent theme', 'Pinned review', 'Featured editorials'].map(
+            {['Custom address', 'Hero photo', 'Pinned review', 'Featured editorials'].map(
               (t) => (
                 <li
                   key={t}

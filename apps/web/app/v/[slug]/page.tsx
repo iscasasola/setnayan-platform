@@ -102,6 +102,7 @@ import {
   fetchVendorMicrosite,
   isSectionVisible,
   micrositeAccentVars,
+  micrositeCan,
   orderFeaturedFirst,
 } from '@/lib/vendor-microsite';
 import {
@@ -730,34 +731,55 @@ export async function renderVendorBySlug({
     // auto-composed baseline.
     fetchVendorMicrosite(admin, vendor.vendor_profile_id),
   ]);
-  const showPortfolio = isSectionVisible(microsite.sections, 'portfolio');
-  const showTrustedBy = isSectionVisible(microsite.sections, 'trusted_by');
+  // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
+  // Every premium customization is gated on the vendor's CURRENT tier, mirroring
+  // the caps the My-Shop editor uses. On a downgrade OR a lapsed subscription the
+  // stored data is KEPT (never deleted) but stops rendering — so the page cleanly
+  // drops to the tier's baseline look, and a re-upgrade restores everything
+  // instantly (no redo). Solo+ (`canPersonalizePage`) unlocks About · accent ·
+  // featured-service order · section toggles; Pro+ (`premiumLayout`) unlocks the
+  // hero photo · pinned review · editorials · the 2-column layout. The custom URL
+  // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
+  // links already handed out); routing keeps resolving it.
+  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
+  const premiumLayout = viewerTierCaps.customWebsiteName;
+  const canPersonalizePage = micrositeCan(vendor.tier_state ?? null).canPersonalize;
+  // Section toggles are a Solo control → below Solo, ignore the saved hide/show
+  // set and fall back to defaults (all baseline sections visible).
+  const pageSections = canPersonalizePage ? microsite.sections : {};
+
+  const showPortfolio = isSectionVisible(pageSections, 'portfolio');
+  const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
   const orderedServices = orderFeaturedFirst(
     vendor.services,
-    microsite.featuredServiceIds,
+    canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
-  const heroPhotoUrl = microsite.heroPhotoKey
-    ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
-    : null;
-  // Pro accent — retint the microsite's accent ramp (undefined = default).
-  const accentVars = micrositeAccentVars(microsite.accent);
+  const heroPhotoUrl =
+    premiumLayout && microsite.heroPhotoKey
+      ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
+      : null;
+  // Solo accent — retint the microsite's accent ramp (undefined = default).
+  const accentVars = canPersonalizePage
+    ? micrositeAccentVars(microsite.accent)
+    : undefined;
   // Pro pinned review — float the chosen review to the top of the loaded set.
   // Best-effort: if it's older than the loaded window it simply isn't surfaced
   // (no extra fetch); a stale/foreign id no-ops.
-  const orderedReviews = microsite.pinnedReviewId
-    ? [
-        ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
-        ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
-      ]
-    : reviews;
+  const orderedReviews =
+    premiumLayout && microsite.pinnedReviewId
+      ? [
+          ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
+          ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
+        ]
+      : reviews;
 
   // Editorials ("Real Stories") — the vendor's own booked weddings the couple
   // has PUBLISHED + consented to showcase. Featured-first (Pro pick), capped to
   // a tidy row. Best-effort + auto-hidden when empty: today this is [] for
   // everyone until real consented stories exist (~Dec 2026), so the whole
   // section simply doesn't render until there's something to show.
-  const showEditorials = isSectionVisible(microsite.sections, 'editorials');
+  const showEditorials = premiumLayout && isSectionVisible(pageSections, 'editorials');
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
@@ -784,17 +806,9 @@ export async function renderVendorBySlug({
      OR when the vendor is a true-name tier (Pro/Enterprise) per the
      Phase C tier gates below; Free + Verified stay anonymized until
      name_revealed_at is stamped on first reply. */
-  // Phase C tier caps for this vendor — drives the day-1 name reveal +
+  // viewerTierCaps + premiumLayout + canPersonalizePage are computed above (the
+  // downgrade-revert block); `viewerTierCaps` also drives the day-1 name reveal +
   // the review-display gate (stars / comments) further down the page.
-  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
-  // Tier-conditional website LOOK (owner 2026-07-03: "adjust their website design
-  // depending on their tier"). The premium 2-column layout + sticky Inquire rail
-  // is a Pro/Enterprise benefit (reuses the `customWebsiteName` cap — true for
-  // Pro+); Free/Solo render the clean single column. (Enterprise's cinematic
-  // layer is a follow-up slice.) Content overrides a vendor already set (About /
-  // accent / featured) still render for whoever set them — the gate is on the
-  // LAYOUT here, not the content.
-  const premiumLayout = viewerTierCaps.customWebsiteName;
   // Enterprise "Flagship" cinematic layer (tier ladder 2026-07-03) — a full,
   // name-overlaid hero. Only when the vendor is Enterprise AND has chosen a hero
   // photo (else it falls back to the standard banner + identity block).
@@ -1540,8 +1554,8 @@ export async function renderVendorBySlug({
 
         {/* About — the vendor's own intro (My Shop → Website editor). Optional
             override; hidden when unset so the page keeps its auto-composed
-            baseline. */}
-        {microsite.about ? (
+            baseline. Solo+ only — reverts to baseline on downgrade (data kept). */}
+        {canPersonalizePage && microsite.about ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               About

@@ -20,10 +20,12 @@ import {
   eventOwnsSku,
   eventSkuActive,
   eventHasPapicUnlock,
+  eventActiveSkus,
   BUNDLE_CHILD_SKUS,
   PAPIC_UNLOCK_SKU,
   RELINQUISHED_STATUSES,
   ACTIVE_STATUSES,
+  SKU_OWNERSHIP_ALIASES,
 } from './entitlements';
 
 type QueryResult = { data: { status: string }[] | null; error: { code?: string; message: string } | null };
@@ -138,9 +140,9 @@ test('canonical query shape is preserved (event_id eq + service_key in + relinqu
 });
 
 test('alias query shape: a non-aliased SKU filters over just its own key', async () => {
-  // SKU_OWNERSHIP_ALIASES is empty post-Patiktok-retirement; ownershipKeysFor
-  // therefore returns [serviceKey] only. (The aliasing machinery is retained for
-  // the next SKU that needs a purchase-key→canonical bridge.)
+  // SOME_SKU has no entry in SKU_OWNERSHIP_ALIASES, so ownershipKeysFor
+  // returns [serviceKey] only. (The map's live entries — the Couple Website PRO
+  // umbrella — are locked by the tests at the bottom of this file.)
   const { supabase, calls } = makeSupabase({ data: [], error: null });
   await checkOrderOwnership(supabase, 'evt_42', 'SOME_SKU');
   const skuIn = calls
@@ -498,4 +500,108 @@ test('eventHasPapicUnlock: true only for a paid/fulfilled PAPIC_UNLOCK pass', as
     await eventHasPapicUnlock(makeOwnedSupabase(new Set(), 'paid'), 'evt_1'),
     false,
   );
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// SKU_OWNERSHIP_ALIASES — the Couple Website PRO umbrella (owner 2026-07-04):
+// a COUPLE_WEBSITE_PRO order confers BOTH EDITORIAL_PRO and
+// STD_PREMIUM_OPENINGS. Locks the alias query shape, the per-SKU readers, and
+// the eventActiveSkus multimap fan-out (a single-valued alias→canonical map
+// would let the second grant silently overwrite the first).
+// ──────────────────────────────────────────────────────────────────────────
+
+test('alias query shape: EDITORIAL_PRO filters over itself + COUPLE_WEBSITE_PRO', async () => {
+  const { supabase, calls } = makeSupabase({ data: [], error: null });
+  await checkOrderOwnership(supabase, 'evt_42', 'EDITORIAL_PRO');
+  const skuIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'service_key');
+  assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'COUPLE_WEBSITE_PRO']);
+});
+
+test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSITE_PRO', async () => {
+  const { supabase, calls } = makeSupabase({ data: [], error: null });
+  await checkOrderOwnership(supabase, 'evt_42', 'STD_PREMIUM_OPENINGS');
+  const skuIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'service_key');
+  assert.deepEqual(skuIn?.args[1], ['STD_PREMIUM_OPENINGS', 'COUPLE_WEBSITE_PRO']);
+});
+
+test('umbrella: a COUPLE_WEBSITE_PRO order confers EDITORIAL_PRO ownership', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'EDITORIAL_PRO'), true);
+});
+
+test('umbrella: a COUPLE_WEBSITE_PRO order confers STD_PREMIUM_OPENINGS ownership', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+});
+
+test('umbrella: an ACTIVE (paid) COUPLE_WEBSITE_PRO order activates both aliased SKUs', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'EDITORIAL_PRO'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+});
+
+test('umbrella: a SUBMITTED COUPLE_WEBSITE_PRO order does NOT activate the aliased SKUs (handshake)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'EDITORIAL_PRO'), false);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+test('umbrella: the standalone SKUs still confer only themselves (no reverse grant)', async () => {
+  // Owning EDITORIAL_PRO à la carte must NOT read as owning the umbrella (or STD).
+  const supabase = makeOwnedSupabase(new Set(['EDITORIAL_PRO']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'EDITORIAL_PRO'), true);
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'COUPLE_WEBSITE_PRO'), false);
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+/** Minimal stub for the eventActiveSkus batch read (one orders query + comp RPC). */
+function makeBatchSupabase(rows: { service_key: string; status: string }[]) {
+  const builder: Record<string, unknown> = {
+    from() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
+    eq() {
+      return builder;
+    },
+    in() {
+      return builder;
+    },
+    then(resolve: (value: unknown) => unknown) {
+      return Promise.resolve({ data: rows, error: null }).then(resolve);
+    },
+    rpc() {
+      return Promise.resolve({ data: [], error: null });
+    },
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('eventActiveSkus: a paid COUPLE_WEBSITE_PRO order fans out to BOTH aliased canonicals (multimap)', async () => {
+  const supabase = makeBatchSupabase([{ service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' }]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.has('COUPLE_WEBSITE_PRO'), true, 'raw purchase key kept');
+  assert.equal(active.has('EDITORIAL_PRO'), true, 'first aliased canonical granted');
+  assert.equal(active.has('STD_PREMIUM_OPENINGS'), true, 'second aliased canonical granted (the overwrite regression)');
+  assert.equal(pending.size, 0);
+});
+
+test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased canonicals pending', async () => {
+  const supabase = makeBatchSupabase([{ service_key: 'COUPLE_WEBSITE_PRO', status: 'submitted' }]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.size, 0);
+  assert.equal(pending.has('EDITORIAL_PRO'), true);
+  assert.equal(pending.has('STD_PREMIUM_OPENINGS'), true);
+});
+
+test('SKU_OWNERSHIP_ALIASES: the umbrella entries are exactly the owner-locked pair', () => {
+  assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), ['EDITORIAL_PRO', 'STD_PREMIUM_OPENINGS']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
 });

@@ -69,47 +69,73 @@ function leafColor(palette: Lab3DPalette): string {
 // ═════════════════════════════════════════════════════════════════════════════
 
 /** A tight cluster of small crystal-fixture instances hung on a grid across the
- *  room, each a faceted octahedron with a warm emissive core. Two InstancedMesh
- *  draws (crystal body + glow) for the whole ceiling regardless of count. */
+ *  room — a slim hanging rod from the ceiling, a faceted crystal body, and a
+ *  warm emissive core at its lower tip. Three InstancedMesh draws for the whole
+ *  ceiling regardless of count. The glow renders at BOTH qualities (it's what
+ *  makes the fixture read as "lit" instead of a floating gray rock from the
+ *  top-down overview — taste-review fix 2026-07-03). */
 function Chandeliers({ room, palette, quality }: { room: Room; palette: Lab3DPalette; quality: DecorQuality }) {
+  const rodRef = useRef<THREE.InstancedMesh>(null);
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const glowRef = useRef<THREE.InstancedMesh>(null);
   const positions = useMemo(() => gridHangPoints(room, quality === 'low' ? 6 : 9), [room, quality]);
   const count = positions.length;
-  const crystal = useMemo(() => mix(palette.wall, '#ffffff', 0.55), [palette.wall]);
-  const glow = useMemo(() => bloomColor(palette), [palette]);
+  // Warm champagne crystal (accent-tinted) instead of bare wall-gray.
+  const crystal = useMemo(() => mix(mix(palette.accent, '#ffffff', 0.55), '#ffe9c4', 0.35), [palette.accent]);
+  const glow = useMemo(() => mix(palette.accent, '#ffe4a8', 0.65), [palette.accent]);
+  const bodyY = CEILING_Y - 0.55;
 
   useLayoutEffect(() => {
+    const rod = rodRef.current;
     const body = bodyRef.current;
     const glowM = glowRef.current;
     if (!body) return;
     const m = new THREE.Matrix4();
     const p = new THREE.Vector3();
     const q = new THREE.Quaternion();
-    const s = new THREE.Vector3(1, 1.4, 1);
+    const s = new THREE.Vector3();
     for (let i = 0; i < count; i++) {
-      p.set(positions[i]!.x, CEILING_Y - 0.5, positions[i]!.z);
+      const { x, z } = positions[i]!;
+      // Rod: from the ceiling down to the crystal.
+      if (rod) {
+        p.set(x, (CEILING_Y + bodyY) / 2 + 0.12, z);
+        s.set(1, 1, 1);
+        m.compose(p, q, s);
+        rod.setMatrixAt(i, m);
+      }
+      // Crystal body.
+      p.set(x, bodyY, z);
+      s.set(1, 1.4, 1);
       m.compose(p, q, s);
       body.setMatrixAt(i, m);
-      if (glowM) glowM.setMatrixAt(i, m);
+      // Glow core at the crystal's LOWER tip — visible from below AND from the
+      // top-down overview (peeks past the body's waist).
+      if (glowM) {
+        p.set(x, bodyY - 0.22, z);
+        s.set(1, 1, 1);
+        m.compose(p, q, s);
+        glowM.setMatrixAt(i, m);
+      }
     }
+    if (rod) rod.instanceMatrix.needsUpdate = true;
     body.instanceMatrix.needsUpdate = true;
     if (glowM) glowM.instanceMatrix.needsUpdate = true;
-  }, [positions, count]);
+  }, [positions, count, bodyY]);
 
   return (
     <>
+      <instancedMesh key={`chand-rod-${count}`} ref={rodRef} args={[undefined, undefined, count]} frustumCulled={false}>
+        <cylinderGeometry args={[0.02, 0.02, 0.55, 6]} />
+        <meshStandardMaterial color={mix(palette.accent, '#000', 0.25)} roughness={0.5} metalness={0.6} />
+      </instancedMesh>
       <instancedMesh key={`chand-${count}`} ref={bodyRef} args={[undefined, undefined, count]} frustumCulled={false}>
         <octahedronGeometry args={[0.24, 0]} />
-        <meshStandardMaterial color={crystal} roughness={0.15} metalness={0.35} transparent opacity={0.9} />
+        <meshStandardMaterial color={crystal} roughness={0.15} metalness={0.35} transparent opacity={0.75} />
       </instancedMesh>
-      {/* Warm emissive core — the "lit" read. Dropped on 'low' to save the extra draw. */}
-      {quality === 'high' ? (
-        <instancedMesh key={`chand-glow-${count}`} ref={glowRef} args={[undefined, undefined, count]} frustumCulled={false}>
-          <sphereGeometry args={[0.1, 8, 8]} />
-          <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={1.4} toneMapped={false} />
-        </instancedMesh>
-      ) : null}
+      <instancedMesh key={`chand-glow-${count}`} ref={glowRef} args={[undefined, undefined, count]} frustumCulled={false}>
+        <sphereGeometry args={[0.13, 8, 8]} />
+        <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={2.0} toneMapped={false} />
+      </instancedMesh>
     </>
   );
 }
@@ -596,6 +622,7 @@ export function VenueDecor({
   room,
   palette,
   quality = 'high',
+  archetype = 'banquet_hall',
 }: {
   /** `events.reception_design`. Empty `{}` (the default) → DEFAULT_DESIGN via `sel()`. */
   design: ReceptionDesign;
@@ -604,7 +631,14 @@ export function VenueDecor({
   room: Room;
   palette: Lab3DPalette;
   quality?: DecorQuality;
+  /** Room archetype — open-air settings (garden/beach/rooftop) have no ceiling,
+   *  so ceiling-HUNG decor (chandeliers/lanterns/hanging florals) is suppressed
+   *  there; string lights stay (outdoor fairy-light canopies are strung, not
+   *  hung from a slab). Pass the same value the surface gives `VenueShell`. */
+  archetype?: VenueArchetype;
 }) {
+  // No ceiling → nothing to hang chandeliers/lanterns/floral clusters from.
+  const openAir = archetype === 'garden' || archetype === 'beach' || archetype === 'rooftop';
   const ceiling = sel(design, 'ceiling', 'treatment');
   const backdrop = sel(design, 'backdrop', 'style');
   const centerpiece = sel(design, 'tables', 'centerpiece');
@@ -640,11 +674,12 @@ export function VenueDecor({
 
   return (
     <group>
-      {/* Ceiling */}
-      {ceiling === 'chandeliers' && <Chandeliers room={room} palette={palette} quality={quality} />}
+      {/* Ceiling — hung fixtures only exist where there IS a ceiling; open-air
+          archetypes keep string lights (strung, not slab-hung) and drop the rest. */}
+      {!openAir && ceiling === 'chandeliers' && <Chandeliers room={room} palette={palette} quality={quality} />}
       {(ceiling === 'fairy_lights') && <StringLights room={room} palette={palette} />}
-      {ceiling === 'lanterns' && <Lanterns room={room} palette={palette} quality={quality} />}
-      {(ceiling === 'hanging_florals' || ceiling === 'hanging_greenery') && (
+      {!openAir && ceiling === 'lanterns' && <Lanterns room={room} palette={palette} quality={quality} />}
+      {!openAir && (ceiling === 'hanging_florals' || ceiling === 'hanging_greenery') && (
         <HangingFlorals room={room} palette={palette} quality={quality} greenery={ceiling === 'hanging_greenery'} />
       )}
       {/* 'draped' | 'geometric' | 'bare' → no ceiling decor (drape reads as the room itself) */}

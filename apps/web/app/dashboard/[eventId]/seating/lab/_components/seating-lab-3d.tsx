@@ -1509,6 +1509,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           room={room}
           palette={palette}
           quality="high"
+          archetype={archetype}
         />
 
         {tables.map((t) => (

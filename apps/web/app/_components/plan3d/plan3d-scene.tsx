@@ -634,6 +634,7 @@ export function Plan3DScene({
           room={room}
           palette={palette}
           quality={quality}
+          archetype={archetype}
         />
       ) : null}
 

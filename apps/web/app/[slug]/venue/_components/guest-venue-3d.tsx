@@ -544,6 +544,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           room={room}
           palette={palette}
           quality="low"
+          archetype={archetype}
         />
 
         {/* Destination beacon: where the avatar is walking, shown until it sits. */}

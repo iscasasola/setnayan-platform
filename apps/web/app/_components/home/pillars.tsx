@@ -182,7 +182,7 @@ const AlaEventTypes = (
         <span className="hr-me-gl">🌟</span>Gala Night<span className="hr-me-tag">Soon</span>
       </span>
     </div>
-    <div className="hr-me-evnote">One memory hub for every life event — not weddings alone.</div>
+    <div className="hr-me-evnote">One memory hub for every life event, not weddings alone.</div>
   </div>
 );
 
@@ -395,7 +395,7 @@ const LikhaanMonogram = (
       ))}
     </div>
     <div className="hr-mk-h" style={{ margin: '13px 0 0', color: 'var(--hr-grey)' }}>
-      One mark — invite, signage, gallery, save-the-date.
+      One mark: invite, signage, gallery, save-the-date.
     </div>
   </div>
 );
@@ -502,7 +502,7 @@ const LikhaanLiveStudio = (
       <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
     </div>
     <div className="hr-mk-h" style={{ margin: '11px 0 0', color: '#97742f' }}>
-      A real control room — cut between phone cameras live · try it from the Panood tile
+      A real control room: cut between phone cameras live · try it from the Panood tile
     </div>
   </div>
 );
@@ -598,7 +598,7 @@ const PlanGuests = (
     </div>
     <div className="hr-mrow">
       <span className="hr-mdot" />
-      Unknown — not on your list<span className="hr-mchip hr-warn">Gate-crasher</span>
+      Unknown, not on your list<span className="hr-mchip hr-warn">Gate-crasher</span>
     </div>
     <div className="hr-mrow">
       <span className="hr-mdot" />
@@ -625,7 +625,7 @@ const PlanSeat = (
       ))}
     </div>
     <div className="hr-mk-h" style={{ margin: '18px 0 0', color: 'var(--hr-grey)' }}>
-      Rules keep the right people together — and apart.
+      Rules keep the right people together, and apart.
     </div>
   </div>
 );
@@ -816,7 +816,7 @@ const SurianFilter = (
       <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 28, color: '#2f2d2a' }}>
         6
       </span>
-      <span style={{ fontSize: 11, color: 'var(--hr-grey)' }}>of 847 vendors fit your plan — ranked</span>
+      <span style={{ fontSize: 11, color: 'var(--hr-grey)' }}>of 847 vendors fit your plan, ranked</span>
     </div>
     <div className="hr-mrow">
       <span className="hr-mdot" />
@@ -831,7 +831,7 @@ const SurianFilter = (
       North Light Co.<span className="hr-mchip hr-ok">85% fit</span>
     </div>
     <div className="hr-mk-h" style={{ margin: '13px 0 0', color: '#97742f' }}>
-      Budget · date · venue · style — checked and ranked in an instant
+      Budget · date · venue · style, checked and ranked in an instant
     </div>
   </div>
 );
@@ -930,7 +930,7 @@ const SurianWatch = (
       Everything else<span className="hr-mchip">quiet</span>
     </div>
     <div className="hr-mk-h" style={{ margin: '13px 0 0', color: '#97742f' }}>
-      One calm weekly digest — loud only when it can&rsquo;t wait
+      One calm weekly digest, loud only when it can&rsquo;t wait
     </div>
   </div>
 );
@@ -1002,7 +1002,7 @@ const TiTrack = (
       “Exactly the look we moodboarded.” <span style={{ color: 'var(--hr-grey-2)' }}>— Paolo, Oct 2025</span>
     </div>
     <div className="hr-mk-h" style={{ margin: '12px 0 0', color: '#97742f' }}>
-      Verified reviews from real events — not a curated portfolio
+      Verified reviews from real events, not a curated portfolio
     </div>
   </div>
 );
@@ -1035,7 +1035,7 @@ const TiQuote = (
       Album · 30 pages<span className="hr-mchip hr-ok">added</span>
     </div>
     <div className="hr-mk-h" style={{ margin: '12px 0 0', color: '#97742f' }}>
-      Every spec you want — at the right price, not one-size-fits-all
+      Every spec you want, at the right price, not one-size-fits-all
     </div>
   </div>
 );
@@ -1061,7 +1061,7 @@ const TiExclusive = (
       </div>
     </div>
     <div className="hr-mk-h" style={{ margin: '12px 0 0', color: '#97742f' }}>
-      A gift from every vendor — found only here
+      A gift from every vendor, found only here
     </div>
   </div>
 );

@@ -25,9 +25,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, ContactShadows, Billboard } from '@react-three/drei';
+import { OrbitControls, Grid, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -170,6 +171,7 @@ const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
 type SeatToken = {
   color: string;
   opacity: number;
+  name: string;
   photoUrl?: string | null;
   attire?: 'gown' | 'suit' | 'neutral';
   attireColor?: string | null;
@@ -182,6 +184,7 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
   return {
     color: status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR,
     opacity: status === 'confirmed' ? 1 : 0.62,
+    name: g.name,
     photoUrl: g.photoUrl,
     attire: g.attire,
     attireColor: g.attireColor,
@@ -189,52 +192,13 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
 }
 
 /**
- * Lazily load a remote image into a texture. Manual (not drei's suspending
- * useTexture) so a failed/forbidden load degrades to null — the avatar falls
- * back to its coloured head rather than suspending or erroring the whole scene.
- * Cross-origin is requested so R2-served selfies can paint a WebGL texture
- * (needs the bucket to send CORS headers; if it doesn't, onError → fallback).
- */
-function useImageTexture(url: string | null | undefined): THREE.Texture | null {
-  const [tex, setTex] = useState<THREE.Texture | null>(null);
-  useEffect(() => {
-    if (!url) {
-      setTex(null);
-      return;
-    }
-    let alive = true;
-    const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin('anonymous');
-    loader.load(
-      url,
-      (t) => {
-        if (!alive) {
-          t.dispose();
-          return;
-        }
-        t.colorSpace = THREE.SRGBColorSpace;
-        setTex(t);
-      },
-      undefined,
-      () => {
-        if (alive) setTex(null);
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [url]);
-  return tex;
-}
-
-/**
  * A seated guest: a coloured body token, topped by the guest's selfie as a
  * camera-facing disc (ringed in their RSVP colour) when a photo is available,
- * else the plain coloured head. One component per seated chair so the texture
- * hook is a stable top-level call.
+ * else the plain coloured head. The photo disc + its texture caching now come
+ * from the shared `GuestPhotoAvatar` (module-level refcounted texture cache),
+ * so a big guest list shares one decode per URL and failures don't retry-storm.
  */
 function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Material }) {
-  const tex = useImageTexture(tok.photoUrl);
   // Attire-driven silhouette: gown / suit / plain token. Gown sits a touch
   // higher so the flared skirt clears the chair seat.
   const bodyGeo = tok.attire === 'gown' ? GOWN_GEO : tok.attire === 'suit' ? SUIT_GEO : TOKEN_BODY_GEO;
@@ -242,19 +206,17 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
   return (
     <group position={[0, 0, -0.04]}>
       <mesh geometry={bodyGeo} position={[0, bodyY, 0]} material={bodyMat} />
-      {tex ? (
-        <Billboard position={[0, 1.04, 0]}>
-          {/* RSVP-coloured ring behind the photo */}
-          <mesh position={[0, 0, -0.001]}>
-            <circleGeometry args={[0.17, 28]} />
-            <meshBasicMaterial color={tok.color} transparent opacity={tok.opacity} />
-          </mesh>
-          {/* the selfie */}
-          <mesh>
-            <circleGeometry args={[0.15, 28]} />
-            <meshBasicMaterial map={tex} transparent opacity={tok.opacity} toneMapped={false} />
-          </mesh>
-        </Billboard>
+      {tok.photoUrl ? (
+        // Shared photo disc: billboarded selfie, ringed in the RSVP colour, with
+        // an initials fallback baked in if the texture fails to load.
+        <GuestPhotoAvatar
+          photoUrl={tok.photoUrl}
+          name={tok.name}
+          ringColor={tok.color}
+          height={1.04}
+          radius={0.15}
+          opacity={tok.opacity}
+        />
       ) : (
         <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} />
       )}
@@ -496,7 +458,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           }
         }
       }
-      if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4 });
+      if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4, name: '' });
     }
     return out;
   }, [seats, guestById, tablesById, movingGuests, crowd, walker]);

@@ -21,6 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
 import { fetchTables, fetchAssignments, fetchFloorPlan, defaultTablePosition } from '@/lib/seating';
 import { guestDisplayName } from '@/lib/guests';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { shapeHintFor, type Lab3DTable, type Lab3DFloor } from '@/lib/seating-3d';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { createDemoSession, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
@@ -34,6 +35,10 @@ export type Plan3DGuest = {
   tableId: string;
   seatNumber: number | null;
   side: 'bride' | 'groom' | 'both';
+  /** Resolved display URL of the guest's own `photo_url` (sanctioned avatar
+   *  source — never face-enrollment biometrics). Null → initials/token fallback.
+   *  The sample event's guests are fictional, so photos here are privacy-clean. */
+  photoUrl?: string | null;
 };
 
 export type Plan3DScene = {
@@ -72,7 +77,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     fetchFloorPlan(admin, eventId),
     admin
       .from('guests')
-      .select('guest_id,first_name,last_name,display_name,side')
+      .select('guest_id,first_name,last_name,display_name,side,photo_url')
       .eq('event_id', eventId)
       .is('deleted_at', null),
   ]);
@@ -107,11 +112,26 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     last_name: string | null;
     display_name: string | null;
     side: string | null;
+    photo_url: string | null;
   };
   const guestRows = (guestResult.data ?? []) as GuestNameRow[];
 
+  // Resolve each guest's stored `photo_url` (an r2:// ref or raw avatar URL) to
+  // a display URL so the 3D avatars wear the guest's actual selfie — mirrors the
+  // couple lab's resolver (seating/lab/page.tsx), signed in parallel. The sample
+  // event's guests are fictional, so these photos carry zero privacy surface.
+  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(
+        guestRows
+          .filter((g) => g.photo_url)
+          .map(async (g) => [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const),
+      )
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
+
   const guests: Plan3DGuest[] = guestRows
-    .map((g) => {
+    .map((g): Plan3DGuest | null => {
       const seat = seatByGuest.get(g.guest_id);
       if (!seat) return null; // the demo only clicks guests who actually have a seat
       return {
@@ -120,6 +140,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
         tableId: seat.table_id,
         seatNumber: seat.seat_number,
         side: toPlan3DSide(g.side),
+        photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       };
     })
     .filter((g): g is Plan3DGuest => g !== null);

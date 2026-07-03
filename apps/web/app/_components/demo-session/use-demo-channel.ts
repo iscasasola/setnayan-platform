@@ -133,14 +133,43 @@ export function useDemoChannel(
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<{ registered?: boolean }>();
-        setPresence({
-          a: state['a']?.[0] ? { joined: true, registered: Boolean(state['a'][0].registered) } : EMPTY_PEER,
-          b: state['b']?.[0] ? { joined: true, registered: Boolean(state['b'][0].registered) } : EMPTY_PEER,
-        });
+        // LATCH joined: a phone that has scanned in stays "joined" for this
+        // session even if a later sync momentarily omits it. Mobile Realtime
+        // presence flaps — a heartbeat hiccup during the heavy on-device face
+        // step drops the phone from presence for a beat — and reverting the
+        // desktop tile to "Waiting for a scan…" under live activity was exactly
+        // the reported bug ("after the face is saved it returned to waiting").
+        // `registered` still updates; we only refuse to un-join. A fresh overlay
+        // open mints a new sessionId → new subscription → the latch resets.
+        setPresence((prev) => ({
+          a: state['a']?.[0]
+            ? { joined: true, registered: Boolean(state['a'][0].registered) }
+            : prev.a.joined
+              ? prev.a
+              : EMPTY_PEER,
+          b: state['b']?.[0]
+            ? { joined: true, registered: Boolean(state['b'][0].registered) }
+            : prev.b.joined
+              ? prev.b
+              : EMPTY_PEER,
+        }));
       })
       .on('broadcast', { event: 'demo' }, ({ payload }) => {
         if (payload && typeof payload === 'object' && 'type' in payload) {
-          onMessageRef.current?.(payload as DemoMessage);
+          const msg = payload as DemoMessage;
+          // Any traffic from a role proves it's in the session — latch it joined
+          // so presence can't lag behind live photos/vectors (the screenshot
+          // symptom: photos arriving while both tiles still said "Waiting").
+          const fromRole: DemoRole | null =
+            msg.type === 'photo' ? msg.from : msg.type === 'face' ? msg.role : null;
+          if (fromRole) {
+            setPresence((prev) =>
+              prev[fromRole].joined
+                ? prev
+                : { ...prev, [fromRole]: { joined: true, registered: prev[fromRole].registered } },
+            );
+          }
+          onMessageRef.current?.(msg);
         }
       })
       .subscribe((status) => {

@@ -58,6 +58,7 @@ import {
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
@@ -3538,6 +3539,32 @@ async function CatalogView({
         if (names.length >= 3) break;
       }
       if (names.length > 0) card.sampleVendorNames = names;
+    }
+  }
+
+  // Stamp each tile card with its admin/seeded photo (Taxonomy Studio · PR 4).
+  // Source = service_categories.sample_photo_r2_key via the taxonomy snapshot,
+  // keyed by tile id (the card's `canonicalService`). Resolve r2:// refs to
+  // presigned URLs in parallel (one signing round-trip each); /public paths and
+  // legacy URLs pass through verbatim. A null/failed resolve leaves photoUrl
+  // undefined and the card falls back to its text-only render (no photo banner).
+  {
+    const cardsWithPhoto: Array<{ card: CategoryTileData; ref: string }> = [];
+    for (const tiles of buckets.values()) {
+      for (const card of tiles) {
+        const ref = tax.categoryPhotos[card.canonicalService];
+        if (ref) cardsWithPhoto.push({ card, ref });
+      }
+    }
+    if (cardsWithPhoto.length > 0) {
+      const urls = await Promise.all(
+        cardsWithPhoto.map(({ ref }) =>
+          displayUrlForStoredAsset(ref).catch(() => null),
+        ),
+      );
+      cardsWithPhoto.forEach(({ card }, i) => {
+        card.photoUrl = urls[i] ?? null;
+      });
     }
   }
 

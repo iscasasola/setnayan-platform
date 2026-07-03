@@ -8,9 +8,7 @@ import {
   QrCode,
   ArrowRight,
   CheckCircle2,
-  Apple,
-} from 'lucide-react';
-import { Logo } from '@/app/_components/logo';
+  } from 'lucide-react';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
 // /tl/how-it-works — Taglish edition of /how-it-works (localization). English +
@@ -387,48 +385,8 @@ export default async function HowItWorksPageTaglish() {
           </div>
         </section>
 
-        <Footer />
       </main>
     </>
   );
 }
 
-function Footer() {
-  return (
-    <footer className="border-t border-ink/5">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 text-ink">
-          <Logo height={24} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-            Setnayan · setnayan.com
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span>© 2026 Setnayan</span>
-          <span aria-hidden>·</span>
-          <span>Made in the Philippines</span>
-          <span aria-hidden>·</span>
-          <Link href="/features" className="hover:text-ink">
-            Features
-          </Link>
-          <Link href="/help" className="hover:text-ink">
-            Help
-          </Link>
-          <Link href="/download" className="inline-flex items-center gap-1 hover:text-ink">
-            <Apple aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Mac app
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/login" className="hover:text-ink">
-            Sign in
-          </Link>
-          <Link href="/signup" className="hover:text-ink">
-            Create account
-          </Link>
-        </div>
-      </div>
-    </footer>
-  );
-}

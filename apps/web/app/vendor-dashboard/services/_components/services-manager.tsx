@@ -86,6 +86,12 @@ import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
 import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
+import { RefinementsEditor } from './refinements-editor';
+import {
+  fetchCategoryChipRefinementsMany,
+  fetchVendorServiceAttributes,
+  type CategoryRefinements,
+} from '@/lib/vendor-service-attributes';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -330,6 +336,30 @@ export async function VendorServicesManager({
     (VENDOR_CATEGORIES as readonly string[]).includes(search.add)
       ? (search.add as VendorCategory)
       : null;
+
+  // Inline refinement chips (v20 card gap): the leaf's chip-shaped,
+  // category-specific facets (multi_select / enum / boolean) surfaced right on
+  // each card form. `vendor_services.category` IS a canonical_service, so we
+  // load the schema (chip fields only) + the vendor's saved payload per
+  // category in play. Both reads fail soft to empty — the chips just don't
+  // render, the card still works. Keyed by canonical_service.
+  const refinementCategories = Array.from(
+    new Set([...distinctCategories, ...(addCategory ? [addCategory] : [])]),
+  );
+  const [refinementsByCategory, refinementPayloads] = await Promise.all([
+    fetchCategoryChipRefinementsMany(supabase, refinementCategories).catch(
+      () => new Map<string, CategoryRefinements>(),
+    ),
+    fetchVendorServiceAttributes(supabase, profile.vendor_profile_id).catch(
+      () => [],
+    ),
+  ]);
+  const refinementPayloadByCategory = new Map<string, Record<string, unknown>>(
+    refinementPayloads.map((p) => [
+      p.canonical_service,
+      (p.attribute_payload ?? {}) as Record<string, unknown>,
+    ]),
+  );
 
   // Guided "create a service" wizard (LIVE by default). The "Add a service"
   // / "Add coverage" links open it; kill-switch falls back to the inline form.
@@ -595,6 +625,8 @@ export async function VendorServicesManager({
               branches={branches}
               basePath={basePath}
               vendorProfileId={profile.vendor_profile_id}
+              refinements={refinementsByCategory.get(addCategory) ?? null}
+              refinementInitial={refinementPayloadByCategory.get(addCategory) ?? {}}
             />
           </div>
         ) : null}
@@ -995,6 +1027,18 @@ export async function VendorServicesManager({
                         </form>
                       ) : null}
 
+                      {/* Refinement chips — the leaf's facets, own action
+                          (sibling of the update form), merges into the
+                          category's attribute payload. */}
+                      {refinementsByCategory.has(svc.category) ? (
+                        <RefinementsEditor
+                          canonicalService={svc.category}
+                          refinements={refinementsByCategory.get(svc.category)!}
+                          initial={refinementPayloadByCategory.get(svc.category) ?? {}}
+                          leafLabel={displayServiceLabel(svc.category)}
+                        />
+                      ) : null}
+
                       <SlotEditor
                         serviceId={svc.vendor_service_id}
                         slots={slotsByService.get(svc.vendor_service_id) ?? []}
@@ -1185,6 +1229,8 @@ function AddServiceForm({
   branches,
   basePath,
   vendorProfileId,
+  refinements,
+  refinementInitial,
 }: {
   addCategory: VendorCategory;
   labelFor: (cat: VendorCategory) => string;
@@ -1194,8 +1240,11 @@ function AddServiceForm({
   branches: { branch_id: string; branch_label: string }[];
   basePath: string;
   vendorProfileId: string;
+  refinements: CategoryRefinements | null;
+  refinementInitial: Record<string, unknown>;
 }) {
   return (
+    <>
     <form action={createVendorService} className="space-y-4">
       <input type="hidden" name="category" value={addCategory} />
       {/* v20: the live card preview — mirrors this form as you type. */}
@@ -1296,6 +1345,20 @@ function AddServiceForm({
         </SubmitButton>
       </div>
     </form>
+    {/* Refinement chips — category-level, saved on their own (sibling of the
+        create form). Available before the first listing exists since they key
+        on the category, not the service row. */}
+    {refinements ? (
+      <div className="mt-3">
+        <RefinementsEditor
+          canonicalService={addCategory}
+          refinements={refinements}
+          initial={refinementInitial}
+          leafLabel={labelFor(addCategory)}
+        />
+      </div>
+    ) : null}
+    </>
   );
 }
 

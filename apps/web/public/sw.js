@@ -10,8 +10,10 @@
 //   - setnayan-fonts-v2    CacheFirst         20 entries,  1-year max-age
 //
 // Preserves the existing exclusions (/auth/, /api/, /health, cross-origin,
-// non-GET) and the shell-cache navigation fallback so the app shell still
-// loads offline on a return visit.
+// non-GET). App-shell navigations (dashboard / login / auth / marketing) are
+// intentionally NOT intercepted — see the `fetch` handler's trailing comment
+// for why (Safari "Service Worker context closed" navigation crash). Only the
+// day-of guest `/[slug]` navigation is served offline.
 //
 // Listens for `{ type: 'CACHE_BUST' }` postMessages to drop every cache —
 // used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps.
@@ -371,28 +373,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Fallback: network with shell-cache offline support for navigations. On a
-  // hard offline miss, serve the static offline.html fallback (added v3) before
-  // falling back to the cached shell root.
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response.ok && isNavigation) {
-          const clone = response.clone();
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      })
-      .catch(() =>
-        caches.match(request).then(
-          (cached) =>
-            cached ??
-            (isNavigation
-              ? caches.match('/offline.html').then((o) => o ?? caches.match('/'))
-              : caches.match('/')),
-        ),
-      ),
-  );
+  // Every OTHER navigation (dashboard · login · auth · marketing) is left to
+  // the browser: we deliberately do NOT call event.respondWith for it, so the
+  // request goes straight to the network natively.
+  //
+  // WHY (Safari "Service Worker context closed" crash · 2026-07-03): WebKit
+  // aggressively terminates the SW context during a navigation — most often in
+  // the install→skipWaiting()→clients.claim() handover window a returning user
+  // hits on nearly every visit (our sw.js bytes change per deploy, so the
+  // worker updates constantly). If we're mid-`respondWith(fetch(navigation))`
+  // when Safari kills the context, WebKit fails the WHOLE navigation with
+  // "Service Worker context closed (WebKitInternal:0)" instead of retrying on
+  // the network. Login was the reproducer: POST → server-action redirect → GET
+  // /dashboard navigation, intercepted right inside that handover window.
+  //
+  // The generic shell-cache offline fallback we used to serve here bought
+  // almost nothing — the dashboard / login / auth surfaces all need the network
+  // + a live auth session anyway — so it never justified crashing live logins.
+  // The one genuinely-offline navigation, the day-of guest `/[slug]` page, is
+  // still intercepted above; asset caching (images / fonts / JS / CSS) is
+  // unaffected because those aren't navigations. Not intercepting app
+  // navigations also *helps* freshness: they can never serve a stale shell.
+  return;
 });
 
 // ---------------------------------------------------------------------------

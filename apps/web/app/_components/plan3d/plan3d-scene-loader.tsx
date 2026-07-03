@@ -8,8 +8,9 @@
 
 import dynamic from 'next/dynamic';
 import type { Lab3DTable, Lab3DFloor } from '@/lib/seating-3d';
+import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
-import type { Plan3DWalkRequest } from './plan3d-scene';
+import type { Plan3DWalkRequest, Plan3DRoamRequest } from './plan3d-scene';
 
 const Plan3DSceneInner = dynamic(() => import('./plan3d-scene').then((m) => m.Plan3DScene), {
   ssr: false,
@@ -36,9 +37,11 @@ export function Plan3DSceneLoader(props: {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Plan3DGuest[];
+  rolePalette?: RolePalette;
   onGuestClick?: (guestId: string) => void;
   walkTarget?: Plan3DWalkRequest;
   onWalkComplete?: () => void;
+  roam?: Plan3DRoamRequest;
   interactive?: boolean;
 }) {
   return <Plan3DSceneInner {...props} />;

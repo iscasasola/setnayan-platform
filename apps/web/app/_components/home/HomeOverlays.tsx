@@ -27,7 +27,7 @@
  * threaded in via the `oauth` prop, mirroring /login's getClientShell() logic.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -41,6 +41,7 @@ import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
+import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 
 export type OverlayId =
   | 'prices'
@@ -51,6 +52,7 @@ export type OverlayId =
   | 'papic-demo'
   | 'panood-demo'
   | 'plan3d-demo'
+  | 'alaala-editorial'
   | null;
 
 /**
@@ -227,6 +229,7 @@ function PricesOverlay({
             value={guests}
             onChange={(e) => setGuests(+e.target.value)}
             aria-label="Number of guests"
+            data-sn-hint
           />
         </div>
         <div className="hr-grp">
@@ -242,6 +245,7 @@ function PricesOverlay({
             value={days}
             onChange={(e) => setDays(+e.target.value)}
             aria-label="Number of event days"
+            data-sn-hint
           />
         </div>
         <div className="hr-hint">
@@ -575,11 +579,17 @@ function SignInOverlay({
  * visibly rise instead of the alternative sitting at a static full bar.
  * Hire ≈ ₱46,667/28d (a 2–3-person team at typical PH rates, prorated);
  * apps ≈ ₱3,846/28d (planning AIs abroad, top of range); DIY upper ≈ 47 h/28d.
+ * The DIY mode answers "what is your hour worth?": the person sets their OWN
+ * hourly rate, the DIY hours are valued in pesos at that rate, and — like the
+ * other two modes — the result reads "you save ₱X" against Setnayan AI's price
+ * (owner 2026-07-03). All three modes are peso-to-peso; only the alternative's
+ * ceiling differs.
  */
 const AI_COMPARE_MAX_MONTHS = 26;
 const AI_COMPARE_TEAM_MAX_PHP = 1_213_333;
 const AI_COMPARE_APPS_MAX_PHP = 100_000;
 const AI_COMPARE_DIY_MAX_HOURS = 1_213;
+const AI_COMPARE_RATE_DEFAULT_PHP = 150; // ₱/hr starting point; user-adjustable
 
 function SetnayanAiOverlay({
   current,
@@ -597,6 +607,8 @@ function SetnayanAiOverlay({
   // A "month" here = the house 28-DAY cycle (13 ≈ 1 year — owner 2026-07-03).
   const [months, setMonths] = useState(13);
   const [mode, setMode] = useState<'hire' | 'apps' | 'diy'>('hire');
+  // "What is your hour worth?" — the DIY mode values your own time in pesos.
+  const [rate, setRate] = useState(AI_COMPARE_RATE_DEFAULT_PHP);
 
   const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
   // Setnayan AI over the window: the ₱499 intro cycle + ₱799 × the rest —
@@ -614,6 +626,7 @@ function SetnayanAiOverlay({
   const teamPhp = AI_COMPARE_TEAM_MAX_PHP * frac;
   const appsPhp = AI_COMPARE_APPS_MAX_PHP * frac;
   const diyHours = AI_COMPARE_DIY_MAX_HOURS * frac;
+  const diyWorth = diyHours * rate; // your DIY hours valued at your own rate
   const compare =
     mode === 'hire'
       ? {
@@ -621,6 +634,7 @@ function SetnayanAiOverlay({
           save: `you save ${peso(teamPhp - mine)}`,
           themLabel: `Hired team · ${peso(teamPhp)}`,
           themPct: frac * 100,
+          usLabel: `Setnayan AI · ${peso(mine)}`,
           usPct: Math.max((mine / AI_COMPARE_TEAM_MAX_PHP) * 100, 1.2),
           foot: 'Bars drawn to one scale — both grow with your timeline. Setnayan AI ends on your wedding day.',
         }
@@ -630,16 +644,22 @@ function SetnayanAiOverlay({
             save: `you save ${peso(Math.max(0, appsPhp - mine))}`,
             themLabel: `Other AI apps · ${peso(appsPhp)}`,
             themPct: frac * 100,
+            usLabel: `Setnayan AI · ${peso(mine)}`,
             usPct: Math.max((mine / AI_COMPARE_APPS_MAX_PHP) * 100, 1.2),
             foot: 'Drawn to one scale — and theirs waits for your questions; it doesn’t watch your vendors.',
           }
         : {
+            // "What is your hour worth?" — value the DIY hours at the rate the
+            // person sets, then read "you save ₱X" like the other two modes.
+            // Both bars share one peso scale (ceiling = the hours' worth at the
+            // 26-month end), so raising the rate visibly shrinks Setnayan's bar.
             sub: 'Keeping every vendor, price and deadline current by hand:',
-            save: `you get back ${Math.round(diyHours / 2).toLocaleString()}–${Math.round(diyHours).toLocaleString()} hours`,
-            themLabel: `Your hours · ${Math.round(diyHours).toLocaleString()} h`,
+            save: `you save ${peso(Math.max(0, diyWorth - mine))}`,
+            themLabel: `Your time · ${peso(diyWorth)}`,
             themPct: frac * 100,
-            usPct: 2,
-            foot: '≈ 25–50 hours of checking per month, illustrative — it runs in the background instead.',
+            usLabel: `Setnayan AI · ${peso(mine)}`,
+            usPct: Math.max((mine / (AI_COMPARE_DIY_MAX_HOURS * rate)) * 100, 1.2),
+            foot: `${Math.round(diyHours).toLocaleString()} h by hand × ${peso(rate)}/hr, illustrative — Setnayan AI runs it in the background instead.`,
           };
 
   return (
@@ -660,16 +680,12 @@ function SetnayanAiOverlay({
         Most weeks, it stays quiet.
       </p>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
-        <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
-        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
-          {pricing.aiIntroPrice} your first 28 days
-        </span>
-      </div>
-
       {/* ── the savings comparator ── */}
-      <div style={{ marginTop: 18 }}>
+      {/* Value-first order (owner 2026-07-03): the calculator + savings come
+          FIRST; the price + CTA move to the bottom as the "offer," so you see
+          what you save before what it costs — and the ₱ total in the bar sits
+          right next to the /28-day price it's built from. */}
+      <div style={{ marginTop: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
           <span>My wedding is in</span>
           <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
@@ -684,15 +700,13 @@ function SetnayanAiOverlay({
           value={months}
           onChange={(e) => setMonths(Number(e.target.value))}
           aria-label="Months until your wedding"
-          style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
+          className="sn-range"
+          style={{ '--sn-p': `${((months - 1) / 25) * 100}%` } as CSSProperties}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#a8a4a0' }}>
-          <span>1 month · a month = 28 days</span>
-          <span>2 years</span>
-        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+      <div style={{ marginTop: 10, fontSize: 12, color: '#6c675e' }}>Compared to</div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
         {CHIPS.map(([k, label]) => (
           <button
             key={k}
@@ -714,29 +728,63 @@ function SetnayanAiOverlay({
       </div>
 
       <div>
-        <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
+        {/* "What is your hour worth?" — the person sets their own rate; the DIY
+            hours are valued at it (owner 2026-07-03). DIY-only control. */}
+        {mode === 'diy' && (
+          <div style={{ margin: '6px 0 4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
+              <span>My time is worth</span>
+              <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
+                {peso(rate)}/hr
+              </span>
+            </div>
+            <input
+              type="range"
+              min={100}
+              max={1000}
+              step={50}
+              value={rate}
+              onChange={(e) => setRate(Number(e.target.value))}
+              aria-label="What your time is worth per hour"
+              className="sn-range"
+              style={{ '--sn-p': `${((rate - 100) / 900) * 100}%` } as CSSProperties}
+            />
+          </div>
+        )}
         <p style={{ margin: '2px 0 0', fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 26, color: '#3f6b3f' }}>
           {compare.save}
         </p>
         {/* One shared label-column width, sized for the longest label at the
             26-month max ("Hired team · ₱1,213,333"), and no wrapping — both
             rows stay single-line and their bars start at the same x. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
           <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${compare.themPct}%`, background: '#c5a059', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 600, color: '#2a2925' }}>Setnayan AI · {peso(mine)}</span>
+          <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 600, color: '#2a2925' }}>{compare.usLabel}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${compare.usPct}%`, background: '#2a2925', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>
         </div>
-        <p style={{ margin: '8px 0 0', fontSize: 10.5, color: '#a8a4a0' }}>{compare.foot}</p>
+        <p style={{ margin: '6px 0 0', fontSize: 10.5, color: '#a8a4a0' }}>{compare.foot}</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+      {/* The offer — price + act, LAST (owner 2026-07-03). The muted total ties
+          the /28-day price to the ₱ figure in the Setnayan AI bar just above. */}
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(42,43,46,.1)', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
+        <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
+        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
+          {pricing.aiIntroPrice} your first 28 days
+        </span>
+        <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} across your {months} {months === 1 ? 'month' : 'months'}</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
         <Link
           href="/onboarding/wedding?from=setnayan-ai"
           onClick={onClose}
@@ -770,7 +818,13 @@ export function HomeOverlays({
 }: {
   current: OverlayId;
   onClose: () => void;
-  pricing: PricingData;
+  // Nullable so the persistent marketing chrome (SiteChrome) can mount this
+  // BEFORE its lazy /api/home-pricing fetch resolves — the pricing-free
+  // overlays (Download / Sign in / the demos) then work instantly, and the
+  // pricing-dependent ones (Prices / Setnayan AI / Vendors) render as soon as
+  // pricing lands. The homepage always passes a resolved value, so its
+  // behavior is unchanged.
+  pricing: PricingData | null;
   onOpenStory?: () => void;
 }) {
   // OAuth visibility, resolved client-side (this overlay is ssr:false). Computed
@@ -790,14 +844,23 @@ export function HomeOverlays({
 
   return (
     <>
-      <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
-      <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
+      {/* Pricing-dependent overlays — mount only once pricing has resolved (on
+          the homepage that's always; on marketing pages it's after the lazy
+          fetch). A press before pricing lands is a brief no-op that resolves
+          itself the instant the fetch completes. */}
+      {pricing && <PricesOverlay current={current} onClose={onClose} pricing={pricing} />}
+      {pricing && (
+        <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
+      )}
+      {pricing && <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />}
+      {/* Pricing-free overlays — always mounted, so Download / Sign in / the
+          demos work immediately regardless of the pricing fetch. */}
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
-      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />
       <Plan3DDemoOverlay current={current} onClose={onClose} />
+      <AlaalaEditorialOverlay current={current} onClose={onClose} />
     </>
   );
 }

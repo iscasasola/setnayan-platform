@@ -45,11 +45,49 @@ export type VendorMicrosite = {
   pinnedReviewId: string | null;
   /** Story event_ids featured (first) in the public Editorials section (PRO). */
   featuredEditorialIds: string[];
+  /** Ordered YouTube video IDs for the Enterprise "Films" video portfolio. */
+  videoIds: string[];
 };
 
 export const MICROSITE_ABOUT_MAX = 600;
 export const MICROSITE_FEATURED_SERVICES_MAX = 3;
 export const MICROSITE_FEATURED_EDITORIALS_MAX = 3;
+export const MICROSITE_VIDEOS_MAX = 6;
+
+/**
+ * Normalize a pasted YouTube link (or bare id) to its canonical 11-char video
+ * id, or null if it isn't a recognizable YouTube video. Accepts watch?v=,
+ * youtu.be/, /embed/, /shorts/, /live/, and a bare id. IDs are `[A-Za-z0-9_-]{11}`.
+ */
+export function parseYouTubeId(input: string | null | undefined): string | null {
+  const raw = (input ?? '').trim();
+  if (!raw) return null;
+  const ID = /^[A-Za-z0-9_-]{11}$/;
+  if (ID.test(raw)) return raw;
+  // watch?v=ID (and any &-params), plus embed/shorts/live/youtu.be path forms.
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{11})/,
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+    /\/embed\/([A-Za-z0-9_-]{11})/,
+    /\/shorts\/([A-Za-z0-9_-]{11})/,
+    /\/live\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = raw.match(p);
+    if (m) return m[1] ?? null;
+  }
+  return null;
+}
+
+/** Privacy-preserving embed URL (no cookies until the viewer plays). */
+export function youTubeEmbedUrl(id: string): string {
+  return `https://www.youtube-nocookie.com/embed/${id}`;
+}
+
+/** Lightweight thumbnail for the editor chips. */
+export function youTubeThumb(id: string): string {
+  return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
 
 /**
  * Sections a vendor may hide on their public microsite. Reviews are
@@ -73,6 +111,7 @@ export const DEFAULT_MICROSITE: VendorMicrosite = {
   accent: null,
   pinnedReviewId: null,
   featuredEditorialIds: [],
+  videoIds: [],
 };
 
 /** A section renders unless it has been explicitly turned off. */
@@ -164,6 +203,7 @@ type MicrositeRow = {
   microsite_accent?: string | null;
   microsite_pinned_review_id?: string | null;
   microsite_featured_editorial_ids?: unknown;
+  microsite_video_ids?: unknown;
 };
 
 function coerceSections(raw: unknown): Record<string, boolean> {
@@ -190,6 +230,7 @@ export async function fetchVendorMicrosite(
   client: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorMicrosite> {
+  let base: VendorMicrosite = DEFAULT_MICROSITE;
   try {
     const { data, error } = await client
       .from('vendor_profiles')
@@ -201,7 +242,7 @@ export async function fetchVendorMicrosite(
     if (error || !data) return DEFAULT_MICROSITE;
     const row = data as MicrositeRow;
     const about = row.microsite_about?.trim();
-    return {
+    base = {
       about: about ? about : null,
       sections: coerceSections(row.microsite_sections),
       featuredServiceIds: coerceStringArray(row.microsite_featured_service_ids),
@@ -209,8 +250,29 @@ export async function fetchVendorMicrosite(
       accent: row.microsite_accent ?? null,
       pinnedReviewId: row.microsite_pinned_review_id ?? null,
       featuredEditorialIds: coerceStringArray(row.microsite_featured_editorial_ids),
+      videoIds: [],
     };
   } catch {
     return DEFAULT_MICROSITE;
   }
+
+  // Videos live in a column added later (migration 20270505905788). Fetch it
+  // SEPARATELY + defensively so a not-yet-applied migration only empties the
+  // video rack — it can never blank the rest of the microsite above.
+  try {
+    const { data } = await client
+      .from('vendor_profiles')
+      .select('microsite_video_ids')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    const ids = coerceStringArray((data as MicrositeRow | null)?.microsite_video_ids)
+      .map((v) => parseYouTubeId(v))
+      .filter((v): v is string => Boolean(v))
+      .slice(0, MICROSITE_VIDEOS_MAX);
+    base = { ...base, videoIds: ids };
+  } catch {
+    // Column not applied yet → no videos; the rest of the microsite is intact.
+  }
+
+  return base;
 }

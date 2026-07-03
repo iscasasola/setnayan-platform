@@ -23,7 +23,6 @@
  * tools are free; Setnayan AI is the upgrade that does the finding for you.
  */
 
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 // Client motion island (the page itself stays a force-static Server Component;
 // metadata + both JSON-LD scripts live here in the server file). The island
 // renders the hero so the serif line-reveal ref sits on the real <h1>, and wraps
@@ -196,7 +195,6 @@ export default function SetnayanAiLandingPage() {
             border on cream (no fill / no glow). */}
         <CtaPanel />
       </main>
-      <SiteFooter />
     </>
   );
 }

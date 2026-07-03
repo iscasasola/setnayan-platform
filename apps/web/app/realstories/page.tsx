@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { ALL_REAL_WEDDINGS } from '@/lib/real-weddings';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
@@ -201,7 +200,6 @@ export default async function RealStoriesIndexPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
     </>
   );
 }

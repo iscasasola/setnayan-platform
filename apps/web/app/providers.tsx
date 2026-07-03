@@ -24,6 +24,7 @@ import { LoaderOverlayProvider } from '@/components/sd-loader';
 import { BrandProvider } from './_components/brand-provider';
 import { DeferredObservability } from './_components/deferred-observability';
 import { GlobalHaptics } from './_components/global-haptics';
+import { GlobalSliderHint } from './_components/global-slider-hint';
 import { PostHogProvider } from './_components/posthog-provider';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 import { ToastProvider } from './_components/toast/toast-provider';
@@ -186,6 +187,13 @@ export function Providers({
           Renders nothing; no-ops on engines without haptic support.
         */}
         <GlobalHaptics />
+        {/*
+          App-wide "drag me" hint — one client effect adds a periodic left-right
+          knob shake to opted-in line sliders (`.sn-range` / `[data-sn-hint]`)
+          and removes it the moment a slider is touched. Owner directive
+          2026-07-03. Renders nothing; silent under prefers-reduced-motion.
+        */}
+        <GlobalSliderHint />
       </PersistQueryClientProvider>
     </ThemeProvider>
   );

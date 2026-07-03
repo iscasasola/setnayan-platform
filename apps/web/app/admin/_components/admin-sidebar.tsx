@@ -16,51 +16,48 @@
  * single source of truth for admin nav structure on desktop. The 4-item
  * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
  *
- * 8 GROUPS — a 3-item spine (Home · Work · Directory · the "Operations"
- * region) + 5 collapsible tune-groups. The VERB axis is unchanged
- * (act / find / tune): this 2026-06-28 pass is a VOCABULARY RE-SKIN, not
- * an axis flip. It (a) adopts the Operations / App Engine / Settings
- * naming and (b) splits the former 21-item "Platform" mega-group into
- * three scannable collapsibles (Data Structure · Content & Media ·
- * Settings) so the engine-room is browseable. No surface was dropped and
- * no URL changed — see the route map in the same PR's changelog fragment.
+ * 6 MENUS — the owner's 2026-07-03 topic respine ("Overview · Accounts ·
+ * Content · Marketing · Performance · System Settings"). The VERB insight
+ * from the 2026-06-08 ops redesign survives INSIDE Overview: the owner
+ * declared Overview the task inbox (vendor-home pattern) — the /admin
+ * pulse PLUS every act-now queue (requests · approvals · transactions ·
+ * reports · disputes), so clear-a-queue work still leads the console.
  *
- * Group KEYS are preserved so localStorage open-state survives a relabel:
- * key 'queues' renders "Work"; 'money' renders "Monetization"; 'funnels'
- * renders "Insights"; 'content' renders "Data Structure" (Platform's
- * successor). NEW keys 'media' + 'settings-group' carry the two surfaces
- * split out of Platform.
- *   1. Home  (key 'home')      — Overview (/admin)
- *   2. Work  (key 'queues')    — every act-now queue: Verify · Payments ·
- *                   Payouts · Token sales · Payment options · Disputes ·
- *                   Force majeure · Reviews · AI abuse · Help.
- *   3. Directory (key 'directory') — Users · Vendors · Demo vendors ·
- *                   Events · Venues.
- *   4. App Performance (key 'funnels' · renamed from "Insights" 2026-07-03,
- *                   owner: "1 of the 6 menus") — App Performance cockpit ·
- *                   Growth · Intelligence · Funnels · Operations & Hiring ·
- *                   Connection logs · Offline daemon.
- *   5. Monetization (key 'money') — the App-Engine money lane: Pricing ·
- *                   Add-ons · Discount codes · Token bands · Budget Planner ·
- *                   Receipts · Payment methods. (Act-now money QUEUES stay
- *                   in Work; this group is config + records.)
- *   6. Data Structure (key 'content') — the App-Engine structure lane:
- *                   Menus & icons · Taxonomy · Event Types · Refinements ·
- *                   Onboarding · Wedding types · Wedding traditions · AI brain.
- *   7. Content & Media (key 'media') — Website · Hero video ·
- *                   Reveal Studio · Real Stories · Recaps · Patiktok · Songs ·
+ * Group KEYS are preserved wherever a group has a predecessor so the
+ * setnayan.nav.section.<key>.open localStorage state survives the relabel:
+ *   1. Overview (key 'queues' — the old Home + Work merged) — the /admin
+ *                   pulse · All work · every act-now queue. (Social queue
+ *                   moved to Marketing — it's the marketing task lane.)
+ *   2. Accounts (key 'directory') — Users · Vendors · Demo vendors ·
+ *                   Events · Venues. (Spotlight Awards + Journal
+ *                   Spotlights moved to Marketing — featuring is a
+ *                   marketing lever, not record look-up.)
+ *   3. Content (key 'media') — Website · Hero video · Reveal Studio ·
+ *                   Real Stories · Recaps · Patiktok · Songs ·
  *                   Moodboard library.
- *   8. Settings (key 'settings-group') — Settings · Notifications ·
- *                   Demo mode · My account.
+ *   4. Marketing (key 'marketing' · NEW — the 6th-HQ marketing module's
+ *                   home) — Social queue · Spotlight Awards · Journal
+ *                   Spotlights · Discount codes · Referrals.
+ *   5. Performance (key 'funnels') — App Performance cockpit · Growth ·
+ *                   Intelligence · Funnels · Operations & Hiring ·
+ *                   Connection logs · Offline daemon.
+ *   6. System Settings (key 'settings-group') — absorbs the dissolved
+ *                   Monetization config lane (old key 'money': Pricing ·
+ *                   Add-ons · Token bands · Price bands · Budget Planner ·
+ *                   Receipts · Payment methods · Vendor recommendations)
+ *                   + Data Structure (old key 'content': Menus & icons ·
+ *                   Taxonomy · Event Types · Refinements · Onboarding ·
+ *                   Wedding types · Wedding traditions · AI brain) +
+ *                   Settings. The visit-least engine room, one collapsible.
  *
  * REQUIRED FOLLOW-UP (carried from 2026-06-08 sign-off): the Work view's
  * Money-lane filter (Payments + Payouts + Token sales surfaced together)
  * ships with the Work master-detail PR, so finance keeps a one-stop money
  * view. RBAC handler-lane scoping is a later, separate build.
  *
- * PAYMENT METHODS: canonical home is Monetization (the data IS money —
- * vendor payouts + customer payment instructions both consume it). Not
- * duplicated into Settings.
+ * PAYMENT METHODS: lives with the money config inside System Settings (the
+ * data IS money — vendor payouts + customer payment instructions both
+ * consume it). Never duplicated.
  *
  * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse keeps its route
  * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
@@ -155,8 +152,14 @@ import type {
 export const ADMIN_NAV_GROUPS: NavGroup[] = [
   // ── SPINE ─────────────────────────────────────────────────────────────
   {
-    key: 'home',
-    label: 'Home',
+    // OVERVIEW (key 'queues' kept for localStorage continuity) — the owner's
+    // 2026-07-03 respine merges the old Home + Work groups: Overview IS the
+    // task inbox (vendor-home pattern) — the /admin pulse plus every act-now
+    // queue (requests · approvals · transactions · reports · disputes).
+    // Social queue moved to Marketing. (Two-admin Approvals + Taxonomy-
+    // requests join here once their dedicated surfaces ship.)
+    key: 'queues',
+    label: 'Overview',
     items: [
       {
         key: 'overview',
@@ -164,16 +167,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin',
         icon: Home,
       },
-    ],
-  },
-  {
-    // WORK (key 'queues' kept for localStorage continuity) — every act-now
-    // surface in one group. Absorbs Payouts + Token sales from the dissolved
-    // Money group. (Two-admin Approvals + Taxonomy-requests join here once
-    // their dedicated surfaces ship — orphan-prevention until then.)
-    key: 'queues',
-    label: 'Work',
-    items: [
       {
         // All work — the command-center worklist: every act-now queue ranked
         // most-urgent-first (overdue → due-soon → busiest) in one view. This is
@@ -341,15 +334,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: CheckCheck,
       },
       {
-        // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
-        // post couple creations + vendor verification features + take-downs.
-        key: 'social-queue',
-        label: 'Social queue',
-        href: '/admin/social-queue',
-        icon: Share2,
-        matchPrefix: '/admin/social-queue',
-      },
-      {
         // Pakanta songwriting queue — each couple's custom-song brief, auto-
         // composed from their onboarding love story + Pakanta music prefs
         // (lib/pakanta-brief.ts). The music team writes the song from it.
@@ -375,10 +359,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // DIRECTORY — pure record-lookup. Wedding types + traditions moved out to
-    // Platform (governance + content, not look-up) per the redesign A.4.
+    // ACCOUNTS (key 'directory' kept for localStorage continuity) — pure
+    // record-lookup. Spotlight Awards + Journal Spotlights moved to Marketing
+    // (featuring is a marketing lever, not look-up) per the 2026-07-03 respine.
     key: 'directory',
-    label: 'Directory',
+    label: 'Accounts',
     items: [
       {
         key: 'users',
@@ -401,20 +386,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/demo-vendors',
       },
       {
-        key: 'spotlight-awards',
-        label: 'Spotlight Awards',
-        href: '/admin/spotlight-awards',
-        icon: Trophy,
-        matchPrefix: '/admin/spotlight-awards',
-      },
-      {
-        key: 'journal-spotlights',
-        label: 'Journal Spotlights',
-        href: '/admin/journal-spotlights',
-        icon: BookOpen,
-        matchPrefix: '/admin/journal-spotlights',
-      },
-      {
         key: 'events',
         label: 'Events',
         href: '/admin/events',
@@ -430,16 +401,132 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
     ],
   },
+  {
+    // CONTENT (key 'media' kept for localStorage continuity — was "Content &
+    // Media"). Every couple-facing publishing surface + asset library.
+    key: 'media',
+    label: 'Content',
+    defaultOpen: false,
+    items: [
+      {
+        key: 'website',
+        label: 'Website',
+        href: '/admin/website',
+        icon: Globe,
+      },
+      {
+        key: 'hero-video',
+        label: 'Hero video',
+        href: '/admin/hero-video',
+        icon: Video,
+      },
+      {
+        key: 'reveal-studio',
+        label: 'Reveal Studio',
+        href: '/admin/reveal-studio',
+        icon: Sparkles,
+      },
+      {
+        // Real Stories featuring (PR D) — pin + order which consented wedding
+        // editorials surface (and which is the hero) on the public /realstories
+        // index. Curation on top of the RA 10173 consent gate.
+        key: 'real-stories',
+        label: 'Real Stories',
+        href: '/admin/real-stories',
+        icon: Newspaper,
+        matchPrefix: '/admin/real-stories',
+      },
+      {
+        // Auto-Recap oversight — every couple-published "living recap" (a
+        // public page of guest photos + words) + the RA 10173 takedown lever.
+        key: 'recaps',
+        label: 'Recaps',
+        href: '/admin/recaps',
+        icon: Images,
+        matchPrefix: '/admin/recaps',
+      },
+      {
+        // Patiktok template-library oversight + render-job monitor (un-retired
+        // 2026-07-01).
+        key: 'patiktok',
+        label: 'Patiktok',
+        href: '/admin/patiktok',
+        icon: Film,
+        matchPrefix: '/admin/patiktok',
+      },
+      {
+        key: 'songs',
+        label: 'Songs',
+        href: '/admin/songs',
+        icon: Music,
+        matchPrefix: '/admin/songs',
+      },
+      {
+        key: 'moodboard-library',
+        label: 'Moodboard library',
+        href: '/admin/moodboard-library',
+        icon: Palette,
+      },
+    ],
+  },
+  {
+    // MARKETING (NEW key 'marketing' · 2026-07-03 respine) — the 6th-HQ
+    // marketing module's nav home: the social publishing queue + the two
+    // featuring levers + the growth incentives. Ads + campaign surfaces join
+    // here when they ship (Ads blocked on Meta creds).
+    key: 'marketing',
+    label: 'Marketing',
+    defaultOpen: false,
+    items: [
+      {
+        // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
+        // post couple creations + vendor verification features + take-downs.
+        // Moved from Work: it's the marketing task lane. Its live count badge
+        // follows the item key, not the group.
+        key: 'social-queue',
+        label: 'Social queue',
+        href: '/admin/social-queue',
+        icon: Share2,
+        matchPrefix: '/admin/social-queue',
+      },
+      {
+        key: 'spotlight-awards',
+        label: 'Spotlight Awards',
+        href: '/admin/spotlight-awards',
+        icon: Trophy,
+        matchPrefix: '/admin/spotlight-awards',
+      },
+      {
+        key: 'journal-spotlights',
+        label: 'Journal Spotlights',
+        href: '/admin/journal-spotlights',
+        icon: BookOpen,
+        matchPrefix: '/admin/journal-spotlights',
+      },
+      {
+        key: 'discount-codes',
+        label: 'Discount codes',
+        href: '/admin/discount-codes',
+        icon: TagIcon,
+        matchPrefix: '/admin/discount-codes',
+      },
+      {
+        key: 'referrals',
+        label: 'Referrals',
+        href: '/admin/referrals',
+        icon: Gift,
+        matchPrefix: '/admin/referrals',
+      },
+    ],
+  },
   // ── TUNE GROUPS (collapsible) ─────────────────────────────────────────
   {
-    // APP PERFORMANCE (key 'funnels' kept for localStorage continuity) —
-    // owner lock 2026-07-03: "App Performance … 1 of the 6 menus of admin
-    // dashboard". This group is the Insights menu's successor: the cockpit
-    // (/admin/app-performance · plan: spec corpus 0023_admin_console/
-    // App_Performance_Plan_2026-07-03.md) leads the group and the former
-    // Insights surfaces remain as its drill-downs.
+    // PERFORMANCE (key 'funnels' kept for localStorage continuity) — owner
+    // lock 2026-07-03: the App Performance cockpit (/admin/app-performance ·
+    // plan: spec corpus 0023_admin_console/App_Performance_Plan_2026-07-03.md)
+    // leads the group and the former Insights surfaces are its drill-downs.
     key: 'funnels',
-    label: 'App Performance',
+    label: 'Performance',
     defaultOpen: false,
     items: [
       {
@@ -490,14 +577,30 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // MONETIZATION (key 'money' kept for localStorage continuity) — the
-    // App-Engine money lane: config + records, NOT the act-now money queues
-    // (Payments/Payouts/Token sales live in Work). The Work Money-lane filter
-    // reunites them in one view per the 2026-06-08 sign-off condition.
-    key: 'money',
-    label: 'Monetization',
+    // SYSTEM SETTINGS (key 'settings-group' kept for localStorage continuity)
+    // — the 2026-07-03 respine's engine room: absorbs the dissolved
+    // Monetization config lane (old key 'money' — act-now money QUEUES stay in
+    // Overview; the Work Money-lane filter reunites them per the 2026-06-08
+    // sign-off condition) and Data Structure (old key 'content'), plus system
+    // + personal config. The visit-least bucket, one collapsible; ordered
+    // system → money config → data structure → personal.
+    key: 'settings-group',
+    label: 'System Settings',
     defaultOpen: false,
     items: [
+      {
+        key: 'settings',
+        label: 'Settings',
+        href: '/admin/settings',
+        icon: Settings,
+        matchPrefix: '/admin/settings',
+      },
+      {
+        key: 'notifications',
+        label: 'Notifications',
+        href: '/admin/notifications',
+        icon: Bell,
+      },
       {
         key: 'pricing',
         label: 'Pricing',
@@ -518,20 +621,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/vendor-recommendations',
         icon: Lightbulb,
         matchPrefix: '/admin/vendor-recommendations',
-      },
-      {
-        key: 'discount-codes',
-        label: 'Discount codes',
-        href: '/admin/discount-codes',
-        icon: TagIcon,
-        matchPrefix: '/admin/discount-codes',
-      },
-      {
-        key: 'referrals',
-        label: 'Referrals',
-        href: '/admin/referrals',
-        icon: Gift,
-        matchPrefix: '/admin/referrals',
       },
       {
         key: 'token-bands',
@@ -558,23 +647,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Receipt,
       },
       {
+        // Canonical home stays with money config (the data IS money — vendor
+        // payouts + customer payment instructions both consume it).
         key: 'payment-methods',
         label: 'Payment methods',
         href: '/admin/settings/payment-methods',
         icon: Landmark,
       },
-    ],
-  },
-  {
-    // DATA STRUCTURE (key 'content' kept — Platform's successor, so the old
-    // setnayan.nav.section.content.open localStorage state survives). The
-    // App-Engine structure lane: the taxonomy/event-type/registry surfaces an
-    // admin tunes to shape how the product is organised. Wedding types +
-    // traditions live here (governance + content, not look-up).
-    key: 'content',
-    label: 'Data Structure',
-    defaultOpen: false,
-    items: [
       {
         // Nav/icon/menu registry — the single source for the name + icon of
         // every menu across all account types (foundation 2026-06-16).
@@ -628,101 +707,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: "Setnayan AI brain",
         href: '/admin/brain',
         icon: Brain,
-      },
-    ],
-  },
-  {
-    // CONTENT & MEDIA (key 'media' — NEW group split out of Platform 2026-06-28).
-    // Every couple-facing publishing surface + asset library. Distinct from
-    // Data Structure (how the product is organised) and Settings (system config).
-    key: 'media',
-    label: 'Content & Media',
-    defaultOpen: false,
-    items: [
-      {
-        key: 'website',
-        label: 'Website',
-        href: '/admin/website',
-        icon: Globe,
-      },
-      {
-        key: 'hero-video',
-        label: 'Hero video',
-        href: '/admin/hero-video',
-        icon: Video,
-      },
-      {
-        key: 'reveal-studio',
-        label: 'Reveal Studio',
-        href: '/admin/reveal-studio',
-        icon: Sparkles,
-      },
-      {
-        // Real Stories featuring (PR D) — pin + order which consented wedding
-        // editorials surface (and which is the hero) on the public /realstories
-        // index. Curation on top of the RA 10173 consent gate.
-        key: 'real-stories',
-        label: 'Real Stories',
-        href: '/admin/real-stories',
-        icon: Newspaper,
-        matchPrefix: '/admin/real-stories',
-      },
-      {
-        // Auto-Recap oversight — every couple-published "living recap" (a
-        // public page of guest photos + words) + the RA 10173 takedown lever.
-        key: 'recaps',
-        label: 'Recaps',
-        href: '/admin/recaps',
-        icon: Images,
-        matchPrefix: '/admin/recaps',
-      },
-      {
-        // Patiktok template-library oversight + render-job monitor (un-retired
-        // 2026-07-01). Page at /admin/patiktok; slotted into Content & Media
-        // next to the other content surfaces.
-        key: 'patiktok',
-        label: 'Patiktok',
-        href: '/admin/patiktok',
-        icon: Film,
-        matchPrefix: '/admin/patiktok',
-      },
-      {
-        key: 'songs',
-        label: 'Songs',
-        href: '/admin/songs',
-        icon: Music,
-        matchPrefix: '/admin/songs',
-      },
-      {
-        key: 'moodboard-library',
-        label: 'Moodboard library',
-        href: '/admin/moodboard-library',
-        icon: Palette,
-      },
-    ],
-  },
-  {
-    // SETTINGS (key 'settings-group' — NEW group split out of Platform
-    // 2026-06-28). The "Global Configuration" region: system + personal config,
-    // the system-last bucket an admin visits least often.
-    key: 'settings-group',
-    label: 'Settings',
-    defaultOpen: false,
-    items: [
-      {
-        key: 'settings',
-        label: 'Settings',
-        href: '/admin/settings',
-        icon: Settings,
-        // /admin/settings/payment-methods lives under Monetization — exclude
-        // it so that entry stays lit when viewing payment methods.
-        matchPrefix: '/admin/settings',
-      },
-      {
-        key: 'notifications',
-        label: 'Notifications',
-        href: '/admin/notifications',
-        icon: Bell,
       },
       {
         key: 'demo-mode',

@@ -31,6 +31,10 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
   const [qr, setQr] = useState<Plan3DGuestQr | null>(null);
   const [qrPending, setQrPending] = useState(false);
   const [qrFailed, setQrFailed] = useState(false);
+  // Owner 2026-07-03: "apply mood board toggle so the place is themed." Default
+  // ON — the couple's palette is the whole point; off shows the neutral shell.
+  const [themed, setThemed] = useState(true);
+  const hasMood = scene ? Object.values(scene.rolePalette).some((a) => (a?.length ?? 0) > 0) : false;
 
   useEffect(() => {
     if (current !== 'plan3d-demo') return;
@@ -72,7 +76,8 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
       <h2 className="hr-ov-title">Click a guest. See their seat, in their pocket.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
         This is Maria &amp; Jose&rsquo;s sample room. Tap anyone seated and we&rsquo;ll hand you a QR that opens
-        the room, in 3D, from that guest&rsquo;s phone.
+        the room, in 3D, from that guest&rsquo;s phone — walk straight to their seat, or wander the whole
+        room.
       </p>
 
       {failed ? (
@@ -86,6 +91,59 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
         </div>
       ) : (
         <div style={{ marginTop: 18, display: 'grid', gap: 14 }}>
+          {hasMood ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ fontSize: 12.5, color: '#6c675e' }}>
+                {themed ? 'Themed to Maria & Jose’s mood board' : 'Neutral room'}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={themed}
+                aria-label="Apply mood board"
+                onClick={() => setThemed((v) => !v)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  border: '1px solid rgba(42,43,46,.2)',
+                  borderRadius: 'var(--m-r-full)',
+                  padding: '5px 6px 5px 12px',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: 12.5,
+                  color: '#2a2925',
+                }}
+              >
+                Apply mood board
+                <span
+                  aria-hidden
+                  style={{
+                    width: 34,
+                    height: 20,
+                    borderRadius: 'var(--m-r-full)',
+                    background: themed ? '#8C6932' : 'rgba(42,43,46,.22)',
+                    position: 'relative',
+                    transition: 'background .2s',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 2,
+                      left: themed ? 16 : 2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: 'var(--m-r-full)',
+                      background: '#fff',
+                      transition: 'left .2s',
+                    }}
+                  />
+                </span>
+              </button>
+            </div>
+          ) : null}
           <div
             style={{
               width: '100%',
@@ -100,6 +158,7 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               tables={scene.tables}
               floor={scene.floor}
               guests={scene.guests}
+              rolePalette={themed ? scene.rolePalette : undefined}
               onGuestClick={handleGuestClick}
               interactive
             />

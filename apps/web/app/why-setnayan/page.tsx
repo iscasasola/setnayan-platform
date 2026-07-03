@@ -18,7 +18,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { LineRevealHeading, RevealBand, SettleRow } from './_why-motion';
 
 export const dynamic = 'force-static';
@@ -263,7 +262,6 @@ export default function WhySetnayanPage() {
           </section>
         </RevealBand>
       </main>
-      <SiteFooter />
     </>
   );
 }

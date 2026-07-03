@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { Footer } from '@/app/_components/marketing/_sections';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -287,7 +286,6 @@ export default function AboutPageTaglish() {
         </section>
       </main>
 
-      <Footer />
     </>
   );
 }

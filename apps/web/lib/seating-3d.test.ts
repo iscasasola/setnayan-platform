@@ -12,6 +12,11 @@ import assert from 'node:assert/strict';
 import {
   floorObstacles,
   steerPath,
+  seatApproachPath,
+  seatWorld,
+  pctToWorld,
+  tableDims,
+  tableAvoidR,
   pushOutOfDiscs,
   separateAgents,
   firstFreeSeatAtTable,
@@ -91,6 +96,101 @@ test('steerPath hard-clears its discs: no interior waypoint stays inside an obst
   // Endpoints stay exact (the entrance + the target chair are never moved).
   assert.deepEqual(path[0], { x: -9, z: 0 });
   assert.deepEqual(path[path.length - 1], { x: 9, z: 0 });
+});
+
+test('walk sampling: the INTERPOLATED path (chords + per-frame re-clamp) never enters a table', () => {
+  // Regression for the owner-reported "person walks THROUGH the table, not
+  // around it" (2026-07-03). The old test only checked path WAYPOINTS; the
+  // artefact was the straight chord a walker interpolates between two
+  // disc-edge-clamped waypoints dipping back inside the disc. The Plan3D walker
+  // fixes it by re-clamping every sampled frame out of the obstacle discs
+  // (Plan3DScene <Walker>: `pushOutOfDiscs(sample.p, discs)`). Reproduce that
+  // here over the whole eased walk and assert zero incursion.
+  const bodyR = 0.24;
+  // A table dead-centre between the entrance and the far seat — the worst case.
+  const obstacles = [{ c: { x: 0, z: 0 }, r: 3 }];
+  const path = steerPath({ x: -9, z: 0 }, { x: 9, z: 0 }, obstacles, bodyR);
+  const clampDiscs = obstacles.map((d) => ({ c: d.c, r: d.r + bodyR }));
+
+  // Mirror the component's per-frame sampling: arc-length even sample of the
+  // eased t, then re-clamp — checked at fine resolution across the whole walk.
+  const cum: number[] = [0];
+  for (let i = 1; i < path.length; i++) {
+    cum.push(cum[i - 1]! + Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.z - path[i - 1]!.z));
+  }
+  const total = cum[cum.length - 1]!;
+  const smoother = (x: number) => x * x * x * (x * (x * 6 - 15) + 10);
+  let breachedWithoutReclamp = false;
+  for (let f = 0; f <= 240; f++) {
+    const t = smoother(f / 240);
+    const targetLen = t * total;
+    let seg = 0;
+    while (seg < cum.length - 2 && cum[seg + 1]! < targetLen) seg++;
+    const localT = (targetLen - cum[seg]!) / (cum[seg + 1]! - cum[seg]! || 1);
+    const a = path[seg]!;
+    const b = path[seg + 1]!;
+    const sampled = { x: a.x + (b.x - a.x) * localT, z: a.z + (b.z - a.z) * localT };
+    // WITHOUT the re-clamp the interpolated chord can dip inside the table
+    // (the actual bug). WITH it, never.
+    for (const disc of obstacles) {
+      if (Math.hypot(sampled.x - disc.c.x, sampled.z - disc.c.z) < disc.r + bodyR - 1e-3) {
+        breachedWithoutReclamp = true;
+      }
+    }
+    const p = pushOutOfDiscs(sampled, clampDiscs);
+    for (const disc of obstacles) {
+      const d = Math.hypot(p.x - disc.c.x, p.z - disc.c.z);
+      assert.ok(d >= disc.r - 1e-6, `frame ${f} landed inside the table (dist ${d.toFixed(3)} < r ${disc.r})`);
+    }
+  }
+  // The counter-proof: for the worst-case straight-through table the raw chords
+  // DO breach — so the per-frame re-clamp is load-bearing, not decoration.
+  assert.ok(breachedWithoutReclamp, 'expected raw chords to breach so the re-clamp is proven necessary');
+});
+
+test('seatApproachPath: walks AROUND the guest\'s own table and ends exactly at the chair', () => {
+  // Regression for the owner-reported "person still walks THROUGH the table, not
+  // around it, when [I say] take me to my seat" (2026-07-03). The naive path
+  // DROPPED the destination table from the obstacle set so a walker "could reach
+  // its chair" — but that let the straight line from the entrance cut clean
+  // across the tabletop to a far-side seat. seatApproachPath keeps the table IN
+  // the set, routes to an approach point just outside it, then steps in.
+  const room = { w: 20, d: 20 };
+  const t = table('A', 50, 50); // round_10, dead-centre of the room
+  const centre = pctToWorld(t.xPct, t.yPct, room); // (0, 0)
+  // Seat 0 sits on the FAR (−z / top) side of a round table; the entrance is at
+  // the bottom (+z) — so the straight line runs right through the table centre.
+  const farSeat = 0;
+  const chair = seatWorld(t, farSeat, room);
+  const entrance = pctToWorld(50, 96, room); // bottom-centre
+  assert.ok(chair.z < 0 && entrance.z > 0, 'seat is on the far side of the table');
+
+  // The FULL obstacle set — destination table PRESENT (the whole fix).
+  const obstacles = [{ c: centre, r: tableAvoidR(t) }];
+  const path = seatApproachPath(entrance, t, farSeat, room, obstacles, 0.2);
+
+  // (a) Ends exactly on the chair, starts exactly at the entrance.
+  assert.deepEqual(path[path.length - 1], chair);
+  assert.deepEqual(path[0], entrance);
+
+  // (b) No point ever enters the physical tabletop — the walker went AROUND it.
+  const topR = tableDims(t.shape, t.capacity).w / 2; // 0.75 m for round_10
+  for (let i = 0; i < path.length; i++) {
+    const d = Math.hypot(path[i]!.x - centre.x, path[i]!.z - centre.z);
+    assert.ok(d >= topR - 1e-6, `waypoint ${i} (dist ${d.toFixed(3)}) crosses the tabletop (r=${topR})`);
+  }
+
+  // (c) Counter-proof: the naive straight entrance→chair line (what the old
+  // skip-the-table code produced) DOES pass through the tabletop — so routing
+  // around it is load-bearing, not decoration.
+  let straightBreaches = false;
+  for (let f = 0; f <= 100; f++) {
+    const s = f / 100;
+    const x = entrance.x + (chair.x - entrance.x) * s;
+    const z = entrance.z + (chair.z - entrance.z) * s;
+    if (Math.hypot(x - centre.x, z - centre.z) < topR) straightBreaches = true;
+  }
+  assert.ok(straightBreaches, 'the naive straight line must breach the tabletop');
 });
 
 test('pushOutOfDiscs: moves a point inside a disc to its edge, leaves outside points', () => {

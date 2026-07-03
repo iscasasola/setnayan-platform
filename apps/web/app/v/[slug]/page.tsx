@@ -33,11 +33,15 @@ import {
   type VendorServiceDiscount,
 } from '@/lib/vendor-services';
 import {
+  fetchCoveragesByIdPublic,
   fetchInclusionsByService,
   fetchDiscountsByServicePublic,
   pickBestDiscount,
+  type VendorServiceCoverage,
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   fetchTrustedByVendors,
   type TrustedByVendor,
@@ -102,7 +106,9 @@ import {
   fetchVendorMicrosite,
   isSectionVisible,
   micrositeAccentVars,
+  micrositeCan,
   orderFeaturedFirst,
+  youTubeEmbedUrl,
 } from '@/lib/vendor-microsite';
 import {
   DEMO_MODE_COOKIE_NAME,
@@ -524,6 +530,73 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   }
 }
 
+/** Display URLs for one service card's showcase media. */
+type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
+
+/**
+ * Showcase media per active service (couple-side serves payoff, 2026-07-03) —
+ * presign the ≤5 gallery photos + the optional ≤30s clip for every card, all
+ * refs in parallel + fail-soft PER SERVICE, so one bad ref (or a dev env with
+ * no R2 credentials) never blocks the profile. Cover (`primary_photo_r2_key`)
+ * is intentionally untouched — it keeps its existing behavior.
+ */
+async function resolveServiceShowcaseMedia(
+  services: ReadonlyArray<VendorServiceRow>,
+): Promise<Map<string, ServiceShowcaseMedia>> {
+  const out = new Map<string, ServiceShowcaseMedia>();
+  await Promise.all(
+    services.map(async (s) => {
+      const photoKeys = (s.showcase_photo_r2_keys ?? []).slice(0, 5);
+      if (photoKeys.length === 0 && !s.showcase_video_r2_key) return;
+      try {
+        const [photoUrls, videoUrl] = await Promise.all([
+          Promise.all(photoKeys.map((k) => displayUrlForStoredAsset(k))),
+          displayUrlForStoredAsset(s.showcase_video_r2_key),
+        ]);
+        const photos = photoUrls.filter((u): u is string => Boolean(u));
+        if (photos.length > 0 || videoUrl) {
+          out.set(s.vendor_service_id, { photos, videoUrl: videoUrl ?? null });
+        }
+      } catch {
+        // Fail-soft — the card simply renders without its media strip.
+      }
+    }),
+  );
+  return out;
+}
+
+/** faithCol (Title-Case storage key) → couple-facing label, from the single
+ *  faith registry ([[lib/faith-registry.ts]]). Unknown values pass through. */
+const FAITHCOL_TO_LABEL: ReadonlyMap<string, string> = new Map(
+  FAITH_REGISTRY.map((e) => [e.faithCol, e.label]),
+);
+
+/**
+ * The card's "Serves" line from its coverage row — event types first, faiths
+ * after an em-dash. EMPTY faiths = "All faiths" (the column contract: an empty
+ * array means all faiths welcomed). No coverage row → null → no line rendered.
+ * e.g. "Wedding · Debut — All faiths" / "Wedding — Catholic, Muslim".
+ */
+function buildServesLine(
+  coverage: VendorServiceCoverage | undefined,
+  eventTypeLabelByKey: ReadonlyMap<string, string>,
+): string | null {
+  if (!coverage) return null;
+  const types = coverage.event_types
+    .map(
+      (t) =>
+        eventTypeLabelByKey.get(t) ??
+        t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    )
+    .filter((t) => t.length > 0);
+  const faiths =
+    coverage.faiths.length === 0
+      ? 'All faiths'
+      : coverage.faiths.map((f) => FAITHCOL_TO_LABEL.get(f) ?? f).join(', ');
+  if (types.length === 0) return faiths === 'All faiths' ? null : faiths;
+  return `${types.join(' · ')} — ${faiths}`;
+}
+
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // render a vendor when a bare slug resolves to one, without duplicating this
 // route. The route's own default export (below) is a thin wrapper.
@@ -669,10 +742,39 @@ export async function renderVendorBySlug({
   // vendor is already resolved as published + these ids are all active, so the
   // read is correctly scoped even under the server-role admin client.
   const activeServiceIds = activeServices.map((s) => s.vendor_service_id);
-  const [inclusionsByService, discountsByService] = await Promise.all([
+  // Coverage ids behind the active cards — drive the "Serves" line (event
+  // types + faiths). Legacy services (coverage_id null) simply show no line.
+  const coverageIds = Array.from(
+    new Set(
+      activeServices
+        .map((s) => s.coverage_id)
+        .filter((id): id is number => id !== null),
+    ),
+  );
+  const [
+    inclusionsByService,
+    discountsByService,
+    coveragesById,
+    eventTypeVocab,
+    showcaseByService,
+  ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
     fetchDiscountsByServicePublic(admin, activeServiceIds),
+    fetchCoveragesByIdPublic(admin, coverageIds),
+    // Fail-soft by contract (falls back to the hardcoded roster on error).
+    getEventTypeVocab(),
+    resolveServiceShowcaseMedia(activeServices),
   ]);
+
+  // Pre-format the per-service "Serves" line server-side so the client gallery
+  // stays a dumb view (same contract as inclusions/discount labels).
+  const eventTypeLabelByKey = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
+  const servesByService = new Map<string, string>();
+  for (const s of activeServices) {
+    if (s.coverage_id === null) continue;
+    const line = buildServesLine(coveragesById.get(s.coverage_id), eventTypeLabelByKey);
+    if (line) servesByService.set(s.vendor_service_id, line);
+  }
 
   // Linked services per anchor service (owner-locked 2026-06-12 "multi-service
   // inquiry mapping") — the price-included "comes with" set shown as read-only
@@ -730,34 +832,55 @@ export async function renderVendorBySlug({
     // auto-composed baseline.
     fetchVendorMicrosite(admin, vendor.vendor_profile_id),
   ]);
-  const showPortfolio = isSectionVisible(microsite.sections, 'portfolio');
-  const showTrustedBy = isSectionVisible(microsite.sections, 'trusted_by');
+  // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
+  // Every premium customization is gated on the vendor's CURRENT tier, mirroring
+  // the caps the My-Shop editor uses. On a downgrade OR a lapsed subscription the
+  // stored data is KEPT (never deleted) but stops rendering — so the page cleanly
+  // drops to the tier's baseline look, and a re-upgrade restores everything
+  // instantly (no redo). Solo+ (`canPersonalizePage`) unlocks About · accent ·
+  // featured-service order · section toggles; Pro+ (`premiumLayout`) unlocks the
+  // hero photo · pinned review · editorials · the 2-column layout. The custom URL
+  // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
+  // links already handed out); routing keeps resolving it.
+  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
+  const premiumLayout = viewerTierCaps.customWebsiteName;
+  const canPersonalizePage = micrositeCan(vendor.tier_state ?? null).canPersonalize;
+  // Section toggles are a Solo control → below Solo, ignore the saved hide/show
+  // set and fall back to defaults (all baseline sections visible).
+  const pageSections = canPersonalizePage ? microsite.sections : {};
+
+  const showPortfolio = isSectionVisible(pageSections, 'portfolio');
+  const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
   const orderedServices = orderFeaturedFirst(
     vendor.services,
-    microsite.featuredServiceIds,
+    canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
-  const heroPhotoUrl = microsite.heroPhotoKey
-    ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
-    : null;
-  // Pro accent — retint the microsite's accent ramp (undefined = default).
-  const accentVars = micrositeAccentVars(microsite.accent);
+  const heroPhotoUrl =
+    premiumLayout && microsite.heroPhotoKey
+      ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
+      : null;
+  // Solo accent — retint the microsite's accent ramp (undefined = default).
+  const accentVars = canPersonalizePage
+    ? micrositeAccentVars(microsite.accent)
+    : undefined;
   // Pro pinned review — float the chosen review to the top of the loaded set.
   // Best-effort: if it's older than the loaded window it simply isn't surfaced
   // (no extra fetch); a stale/foreign id no-ops.
-  const orderedReviews = microsite.pinnedReviewId
-    ? [
-        ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
-        ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
-      ]
-    : reviews;
+  const orderedReviews =
+    premiumLayout && microsite.pinnedReviewId
+      ? [
+          ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
+          ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
+        ]
+      : reviews;
 
   // Editorials ("Real Stories") — the vendor's own booked weddings the couple
   // has PUBLISHED + consented to showcase. Featured-first (Pro pick), capped to
   // a tidy row. Best-effort + auto-hidden when empty: today this is [] for
   // everyone until real consented stories exist (~Dec 2026), so the whole
   // section simply doesn't render until there's something to show.
-  const showEditorials = isSectionVisible(microsite.sections, 'editorials');
+  const showEditorials = premiumLayout && isSectionVisible(pageSections, 'editorials');
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
@@ -784,17 +907,9 @@ export async function renderVendorBySlug({
      OR when the vendor is a true-name tier (Pro/Enterprise) per the
      Phase C tier gates below; Free + Verified stay anonymized until
      name_revealed_at is stamped on first reply. */
-  // Phase C tier caps for this vendor — drives the day-1 name reveal +
+  // viewerTierCaps + premiumLayout + canPersonalizePage are computed above (the
+  // downgrade-revert block); `viewerTierCaps` also drives the day-1 name reveal +
   // the review-display gate (stars / comments) further down the page.
-  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
-  // Tier-conditional website LOOK (owner 2026-07-03: "adjust their website design
-  // depending on their tier"). The premium 2-column layout + sticky Inquire rail
-  // is a Pro/Enterprise benefit (reuses the `customWebsiteName` cap — true for
-  // Pro+); Free/Solo render the clean single column. (Enterprise's cinematic
-  // layer is a follow-up slice.) Content overrides a vendor already set (About /
-  // accent / featured) still render for whoever set them — the gate is on the
-  // LAYOUT here, not the content.
-  const premiumLayout = viewerTierCaps.customWebsiteName;
   // Enterprise "Flagship" cinematic layer (tier ladder 2026-07-03) — a full,
   // name-overlaid hero. Only when the vendor is Enterprise AND has chosen a hero
   // photo (else it falls back to the standard banner + identity block).
@@ -1540,8 +1655,8 @@ export async function renderVendorBySlug({
 
         {/* About — the vendor's own intro (My Shop → Website editor). Optional
             override; hidden when unset so the page keeps its auto-composed
-            baseline. */}
-        {microsite.about ? (
+            baseline. Solo+ only — reverts to baseline on downgrade (data kept). */}
+        {canPersonalizePage && microsite.about ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               About
@@ -1569,6 +1684,35 @@ export async function renderVendorBySlug({
                     fill
                     sizes="(max-width: 640px) 50vw, 33vw"
                     className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Films — the Enterprise "Flagship" video portfolio. Playable YouTube
+            embeds (youtube-nocookie, lazy). Enterprise-only + reverts on
+            downgrade (data kept); auto-hidden when empty. */}
+        {isEnterprise && microsite.videoIds.length > 0 ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Films
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {microsite.videoIds.map((id) => (
+                <div
+                  key={id}
+                  className="relative aspect-video overflow-hidden rounded-xl bg-ink/5"
+                >
+                  <iframe
+                    src={youTubeEmbedUrl(id)}
+                    title={`${displayLabel} film`}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    className="absolute inset-0 h-full w-full"
                   />
                 </div>
               ))}
@@ -1727,6 +1871,8 @@ export async function renderVendorBySlug({
             businessName={displayLabel}
             inclusionsByService={inclusionsByService}
             discountsByService={discountsByService}
+            servesByService={servesByService}
+            showcaseByService={showcaseByService}
           />
         ) : null}
 
@@ -2112,11 +2258,17 @@ function ServicesPricingSection({
   businessName,
   inclusionsByService,
   discountsByService,
+  servesByService,
+  showcaseByService,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
   inclusionsByService: Map<string, VendorServiceInclusion[]>;
   discountsByService: Map<string, VendorServiceDiscount[]>;
+  /** Pre-formatted "Serves" line per service id (coverage event types + faiths). */
+  servesByService: Map<string, string>;
+  /** Resolved showcase display URLs per service id (photos ≤5 + optional clip). */
+  showcaseByService: Map<string, ServiceShowcaseMedia>;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2143,6 +2295,8 @@ function ServicesPricingSection({
           row,
           inclusionsByService.get(row.vendor_service_id),
           discountsByService.get(row.vendor_service_id),
+          servesByService.get(row.vendor_service_id),
+          showcaseByService.get(row.vendor_service_id),
         ),
       ),
     });
@@ -2176,6 +2330,8 @@ function toServiceCard(
   row: VendorServiceRow,
   inclusions: VendorServiceInclusion[] | undefined,
   discounts: VendorServiceDiscount[] | undefined,
+  serves: string | undefined,
+  showcase: ServiceShowcaseMedia | undefined,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
@@ -2184,6 +2340,36 @@ function toServiceCard(
     row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`
       : 'Inquire';
+
+  // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
+  // the per-guest rate (+ the min floor when set); per-hour shows the base
+  // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
+  // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
+  // above is untouched.
+  let priceDetail: string | null = null;
+  if (
+    row.pricing_basis === 'per_pax' &&
+    row.per_pax_price_php !== null &&
+    row.per_pax_price_php > 0
+  ) {
+    const minPart =
+      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} guests` : '';
+    priceDetail = `${formatPhp(row.per_pax_price_php)} / guest${minPart}`;
+  } else if (
+    row.pricing_basis === 'per_hour' &&
+    row.hour_base_php !== null &&
+    row.hour_base_php > 0
+  ) {
+    const base =
+      row.min_hours !== null && row.min_hours > 0
+        ? `${formatPhp(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
+        : formatPhp(row.hour_base_php);
+    const extra =
+      row.extra_hour_php !== null && row.extra_hour_php > 0
+        ? ` · +${formatPhp(row.extra_hour_php)}/extra hr`
+        : '';
+    priceDetail = `${base}${extra}`;
+  }
 
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
   // savings on the anchor, dropping expired offers).
@@ -2229,6 +2415,10 @@ function toServiceCard(
     inclusions: shownInclusions,
     inclusionsMore,
     notIncluded,
+    priceDetail,
+    serves: serves ?? null,
+    photos: showcase?.photos ?? [],
+    videoUrl: showcase?.videoUrl ?? null,
   };
 }
 

@@ -26,7 +26,10 @@ import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { SetnayanAiHeroStory } from './setnayan-ai-story';
-import { openConsentManager } from '@/lib/cookie-consent';
+// The shared reskin footer (extracted from the old private HomeFooter 2026-07-03)
+// — the same component the persistent SiteFooterChrome renders on every other
+// marketing page, so the homepage and the rest of the site can never fork.
+import { ReskinFooter } from '@/app/_components/marketing/reskin-footer';
 import dynamic from 'next/dynamic';
 
 // The Sign-in / Prices / vendor / login overlays are CLOSED on first paint
@@ -48,7 +51,7 @@ const HOME_HERO = {
       Plan your moments.
     </>
   ),
-  sub: 'The independent hub to keep a lifetime of memories — and plan any event, free.',
+  sub: 'The independent hub to keep a lifetime of memories, and plan any event, free.',
 };
 
 /**
@@ -503,7 +506,7 @@ export function HomeReskin({
         </div>
 
         <div className="hr-hero-mid">
-          <div className="hr-kick">{hero ? `0${activePillar! + 1} · ${hero.name} — ${hero.role}` : HOME_HERO.kick}</div>
+          <div className="hr-kick">{hero ? `0${activePillar! + 1} · ${hero.name} · ${hero.role}` : HOME_HERO.kick}</div>
           <h1 className="hr-htitle">{hero ? hero.head : HOME_HERO.title}</h1>
           <p className="hr-hsub">{hero ? hero.desc : HOME_HERO.sub}</p>
           {/* Setnayan AI story-as-hero (owner 2026-07-03): pure TEXT on top of
@@ -511,6 +514,33 @@ export function HomeReskin({
               stay exactly as on every scene. */}
           {hero?.role === 'Setnayan AI' && (
             <SetnayanAiHeroStory pricing={pricing} onCompare={() => setOverlay('setnayan-ai')} />
+          )}
+          {/* Live product demos (owner 2026-07-03, demos program): every tile's
+              demo button uses the SAME treatment + placement as Suri's
+              comparator CTA (.hr-ai-cta) — the subtle glass accent sitting
+              between the hero copy and the standard Start-planning/Learn-more
+              CTAs (owner 2026-07-03: "apply this kind of placement for all
+              5"). Ala ala's showcases the editorial — two complete sample
+              editions (owner 2026-07-03). */}
+          {hero?.name === 'Ala ala' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('alaala-editorial')}>
+              Read two sample editions&nbsp;·&nbsp;the editorial
+            </button>
+          )}
+          {hero?.name === 'Papic' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('papic-demo')}>
+              Try the live demo — you and a friend, right now
+            </button>
+          )}
+          {hero?.name === 'Panood' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('panood-demo')}>
+              Try the control room&nbsp;·&nbsp;two phones
+            </button>
+          )}
+          {hero?.name === '3D Plan' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('plan3d-demo')}>
+              Find your seat&nbsp;·&nbsp;try it live
+            </button>
           )}
           <div className="hr-hctas">
             <Link className="hr-pill-cta hr-glass-dark" href="/onboarding/wedding">
@@ -520,24 +550,6 @@ export function HomeReskin({
               Learn more{' '}
               <span className="hr-arr">{hero ? '→' : '↓'}</span>
             </button>
-            {/* Live product demos (owner 2026-07-03, demos program): all three
-                — Papic, Panood/Live Studio, 3D Plan — share the demo_sessions
-                scaffold and each shows its own button on its own hero. */}
-            {hero?.name === 'Papic' && (
-              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('papic-demo')}>
-                Try the live demo
-              </button>
-            )}
-            {hero?.name === 'Panood' && (
-              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('panood-demo')}>
-                Try the control room&nbsp;·&nbsp;two phones
-              </button>
-            )}
-            {hero?.name === '3D Plan' && (
-              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('plan3d-demo')}>
-                Find your seat&nbsp;·&nbsp;try it
-              </button>
-            )}
           </div>
         </div>
 
@@ -724,7 +736,7 @@ export function HomeReskin({
           </Link>
         </section>
 
-        <HomeFooter />
+        <ReskinFooter />
       </main>
 
       <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} onOpenStory={openStory} />
@@ -780,88 +792,4 @@ function Mock({ active, children }: { active: boolean; children: ReactNode }) {
   const base = children.props.className ?? '';
   const className = active ? `${base} hr-on` : base;
   return cloneElement(children, { className, 'aria-hidden': !active });
-}
-// The site footer for the homepage. Carries every compliance link (Legal
-// column) plus product/company links, and "crawls in" — translateY + fade,
-// staggered per column — when it scrolls into view. Respects reduced motion.
-function HomeFooter() {
-  const ref = useRef<HTMLElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (reduceMotion()) {
-      setInView(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            setInView(true);
-            io.disconnect();
-          }
-        }
-      },
-      { threshold: 0.12 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  return (
-    <footer ref={ref} className={`hr-footer${inView ? ' hr-foot-in' : ''}`}>
-      <div className="hr-foot-grid">
-        <div className="hr-foot-brand">
-          <span className="hr-foot-mark">
-            <SetnayanMark />
-          </span>
-          <span className="hr-foot-word">Setnayan</span>
-          <p className="hr-foot-tag">
-            One place that plans it, runs it, remembers it — and keeps it, for
-            life. <i>Set na &rsquo;yan.</i>
-          </p>
-        </div>
-
-        <nav className="hr-foot-col" aria-label="Explore">
-          <h3>Explore</h3>
-          <Link href="/pricing">Prices</Link>
-          <Link href="/explore">Vendors</Link>
-          <Link href="/papic">Papic</Link>
-          <Link href="/monogram">Monogram maker</Link>
-          <Link href="/download">Download app</Link>
-        </nav>
-
-        <nav className="hr-foot-col" aria-label="Company">
-          <h3>Company</h3>
-          <Link href="/about">About</Link>
-          <Link href="/blog">Journal</Link>
-          <Link href="/weddings">Real stories</Link>
-          <Link href="/help">Help center</Link>
-          <Link href="/for-vendors">For vendors</Link>
-        </nav>
-
-        <nav className="hr-foot-col" aria-label="Legal">
-          <h3>Legal</h3>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/refunds">Refunds &amp; cancellations</Link>
-          <Link href="/cookies">Cookie policy</Link>
-          <Link href="/acceptable-use">Acceptable use</Link>
-          <button type="button" className="hr-foot-linkbtn" onClick={() => openConsentManager()}>
-            Cookie settings
-          </button>
-        </nav>
-      </div>
-
-      <div className="hr-foot-base">
-        <span>&copy; 2026 Setnayan &middot; Made in the Philippines</span>
-        <span>
-          Data Protection Officer ·{' '}
-          <a href="mailto:dpo@setnayan.com">dpo@setnayan.com</a>
-        </span>
-      </div>
-    </footer>
-  );
 }

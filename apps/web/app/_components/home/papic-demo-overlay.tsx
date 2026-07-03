@@ -18,13 +18,15 @@ import { Loader2 } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
 import {
   useDemoChannel,
+  untaggedReason,
+  type DemoDiag,
   type DemoMessage,
   type DemoRole,
 } from '@/app/_components/demo-session/use-demo-channel';
 import { startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
 import { PAPIC_STYLES, DEFAULT_PAPIC_STYLE } from '@/lib/papic-photo-styles';
 
-type MirrorPhoto = { id: string; from: DemoRole; dataUrl: string; tags: DemoRole[] };
+type MirrorPhoto = { id: string; from: DemoRole; dataUrl: string; tags: DemoRole[]; diag?: DemoDiag };
 
 function QrTile({ label, svg, joined }: { label: string; svg: string; joined: boolean }) {
   return (
@@ -122,7 +124,7 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
       setPhotos((prev) =>
         prev.some((p) => p.id === msg.id)
           ? prev
-          : [...prev, { id: msg.id, from: msg.from, dataUrl: msg.dataUrl, tags: msg.tags }],
+          : [...prev, { id: msg.id, from: msg.from, dataUrl: msg.dataUrl, tags: msg.tags, diag: msg.diag }],
       );
       setRemaining(msg.remaining);
     } else if (msg.type === 'style-request') {
@@ -225,7 +227,7 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
                       }}
                     />
                     <figcaption style={{ marginTop: 4, fontSize: 11, color: '#8c8884', textAlign: 'center' }}>
-                      {p.tags.length ? p.tags.map((t) => TAG_LABEL[t]).join(' · ') : 'No one recognized'}
+                      {p.tags.length ? p.tags.map((t) => TAG_LABEL[t]).join(' · ') : untaggedReason(p.diag)}
                     </figcaption>
                   </figure>
                 ))}

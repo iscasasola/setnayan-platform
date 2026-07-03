@@ -6,7 +6,7 @@
  * (Website_Master_Plan_2026-06-28 §0/§6, Phase 1). Mirrors the /panood + /papic
  * pattern exactly: force-static Server Component, static `metadata`,
  * SoftwareApplication + FAQPage JSON-LD, hero + benefit sections + FAQ + a
- * Mulberry-accent primary CTA, and the shared SiteFooter. The persistent
+ * Mulberry-accent primary CTA, and the layout-mounted SiteFooterChrome. The persistent
  * SiteChrome nav renders because '/alaala' is registered in NAV_ROUTES.
  *
  * DEFINITION (owner, 2026-06-28): Alaala is the COMBINATION of the five Pa-
@@ -22,7 +22,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import {
@@ -326,7 +325,6 @@ export default function AlaalaLandingPage() {
           </section>
         </Reveal>
       </main>
-      <SiteFooter />
     </>
   );
 }

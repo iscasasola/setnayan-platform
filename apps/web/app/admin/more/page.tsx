@@ -1,33 +1,22 @@
 /**
- * /admin/more — mobile overflow landing for the system-last tune-groups.
+ * /admin/more — mobile overflow landing for the 6-menu respine's two
+ * non-tab groups (2026-07-03: Overview · Accounts · Marketing · Performance
+ * get tabs under the ≤5 ruleset; Content + System Settings live here).
  *
- * WHY: nav tune 2026-06-15 (owner-approved — "6 tabs, keep 'Work'"). The
- * 2026-06-08 ops redesign crammed the desktop tune-groups into a mobile
- * accordion; the owner re-promoted Money + Insights to their own bottom-nav
- * tabs; the 2026-06-21 ≤5 reroster demoted Insights BACK into More (Money keeps
- * its tab). The 2026-06-28 vocabulary re-skin then split the former desktop
- * "Platform" group into three (Data Structure · Content & Media · Settings), so
- * More now carries Insights + those three sections — a flat card grid (same
- * renderer as /admin/directory + /admin/money), no accordion.
- *
- * Mirrors the desktop sidebar's successor groups (keys 'content' · 'media' ·
- * 'settings-group') per [[feedback_setnayan_orphan_prevention]]. Mobile carries
- * a pre-existing SUBSET — menus · refinements · hero-video · reveal-studio
- * · recaps · patiktok are desktop-only and stay so (a parity gap that predates
- * this re-skin, not introduced by it).
+ * System Settings absorbs the dissolved Money-config surfaces (Pricing ·
+ * Add-ons · Discount→Marketing · Token bands · Budget Planner · Receipts)
+ * and Data Structure (Taxonomy · Event Types · …), mirroring the desktop
+ * sidebar (keys 'media' + 'settings-group') per
+ * [[feedback_setnayan_orphan_prevention]]. Mobile carries a pre-existing
+ * SUBSET — menus · refinements · hero-video · reveal-studio · recaps ·
+ * patiktok are desktop-only and stay so (a parity gap that predates this
+ * respine, not introduced by it).
  *
  * SCOPE: server component. Hidden at lg+ via lg:hidden — desktop reaches
- * these through the sidebar tune-groups.
+ * these through the sidebar groups.
  */
 
 import {
-  Activity,
-  BarChart3,
-  LineChart,
-  Radar,
-  TrendingUp,
-  Bug,
-  WifiOff,
   Settings,
   Compass,
   Tag,
@@ -41,83 +30,19 @@ import {
   BookOpen,
   Bell,
   CircleUser,
+  DollarSign,
+  Sparkles,
+  Coins,
+  PiggyBank,
+  Receipt,
+  Landmark,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
 export const metadata = { title: 'More · Admin' };
 
-// App Performance group (renamed from "Insights" 2026-07-03 — owner: "1 of the
-// 6 menus") — demoted from its dedicated bottom-nav tab in the 2026-06-21 ≤5
-// reroster, expanded into its own labeled section here, mirroring the desktop
-// sidebar group (key 'funnels') 1:1. The cockpit leads.
-const INSIGHTS_ITEMS: LandingItem[] = [
-  {
-    key: 'app-performance',
-    label: 'App Performance',
-    href: '/admin/app-performance',
-    icon: Activity,
-    description:
-      'The operator cockpit — growth, stability, and money in on one page.',
-  },
-  {
-    key: 'insights-pulse',
-    label: 'Insights',
-    href: '/admin/insights',
-    icon: BarChart3,
-    description: 'The daily analytics pulse — the hub for the surfaces below.',
-  },
-  {
-    key: 'growth',
-    label: 'Growth',
-    href: '/admin/growth',
-    icon: LineChart,
-    description: 'Sign-ups, activation, and revenue trends over time.',
-  },
-  {
-    key: 'intelligence',
-    label: 'Intelligence',
-    href: '/admin/intelligence',
-    icon: Radar,
-    description: 'Market and competitor signals worth acting on.',
-  },
-  {
-    key: 'funnels',
-    label: 'Funnels',
-    href: '/admin/funnels',
-    icon: BarChart3,
-    description: 'Where couples and vendors drop off, step by step.',
-  },
-  {
-    key: 'operations-hiring',
-    label: 'Operations & Hiring',
-    href: '/admin/operations-hiring',
-    icon: TrendingUp,
-    description: 'Team capacity and hiring signals against demand.',
-  },
-  {
-    key: 'connection-logs',
-    label: 'Connection logs',
-    href: '/admin/connection-logs',
-    icon: Bug,
-    description: 'Integration and webhook health at a glance.',
-  },
-  {
-    key: 'offline',
-    label: 'Offline daemon',
-    href: '/admin/offline',
-    icon: WifiOff,
-    description: 'Background jobs and the offline sync worker status.',
-  },
-];
-
-// The former flat PLATFORM_ITEMS list, re-split 2026-06-28 to mirror the
-// desktop sidebar's three successor groups (Data Structure · Content & Media ·
-// Settings) per [[feedback_setnayan_orphan_prevention]]. NOTE: mobile carries a
-// pre-existing subset — menus · refinements · hero-video · reveal-studio ·
-// recaps · patiktok are desktop-only and remain so (separate parity gap, not
-// introduced by this re-skin).
-
-// DATA STRUCTURE — the App-Engine structure lane (mirrors desktop key 'content').
+// DATA STRUCTURE items — folded into the System Settings section below
+// (desktop dissolved the standalone group into 'settings-group').
 const DATA_STRUCTURE_ITEMS: LandingItem[] = [
   {
     key: 'taxonomy',
@@ -169,7 +94,56 @@ const DATA_STRUCTURE_ITEMS: LandingItem[] = [
   },
 ];
 
-// CONTENT & MEDIA — couple-facing publishing surfaces + asset libraries
+// MONEY CONFIG — the dissolved Monetization lane's mobile cards (act-now money
+// QUEUES live under Overview; Discount codes + Referrals moved to Marketing).
+const MONEY_CONFIG_ITEMS: LandingItem[] = [
+  {
+    key: 'pricing',
+    label: 'Pricing',
+    href: '/admin/pricing',
+    icon: DollarSign,
+    description:
+      'The admin-managed retail catalog — every SKU price lives here, never in code.',
+  },
+  {
+    key: 'addons',
+    label: 'Add-ons',
+    href: '/admin/addons',
+    icon: Sparkles,
+    description: 'Attachable add-on SKUs and their availability.',
+  },
+  {
+    key: 'token-bands',
+    label: 'Token bands',
+    href: '/admin/token-bands',
+    icon: Coins,
+    description: 'Vendor token pricing bands by location tier.',
+  },
+  {
+    key: 'budget-planner',
+    label: 'Budget Planner',
+    href: '/admin/budget-planner',
+    icon: PiggyBank,
+    description: 'The couple budget-planner reference table and defaults.',
+  },
+  {
+    key: 'receipts',
+    label: 'Receipts',
+    href: '/admin/receipts',
+    icon: Receipt,
+    description: 'Issued receipts and BIR-facing records.',
+  },
+  {
+    key: 'payment-methods',
+    label: 'Payment methods',
+    href: '/admin/settings/payment-methods',
+    icon: Landmark,
+    description:
+      'The BDO / GCash receiving accounts shown on payment instructions.',
+  },
+];
+
+// CONTENT — couple-facing publishing surfaces + asset libraries
 // (mirrors desktop key 'media').
 const CONTENT_MEDIA_ITEMS: LandingItem[] = [
   {
@@ -250,13 +224,18 @@ export default function AdminMoreLanding() {
   return (
     <MobileLandingGrid
       title="More"
-      subtitle="Insights, data structure, content, and settings."
+      subtitle="Content and System Settings — publishing surfaces, catalog config, data structure, and platform settings."
       searchable
       groups={[
-        { label: 'App Performance', items: INSIGHTS_ITEMS },
-        { label: 'Data Structure', items: DATA_STRUCTURE_ITEMS },
-        { label: 'Content & Media', items: CONTENT_MEDIA_ITEMS },
-        { label: 'Settings', items: SETTINGS_ITEMS },
+        { label: 'Content', items: CONTENT_MEDIA_ITEMS },
+        {
+          label: 'System Settings',
+          items: [
+            ...SETTINGS_ITEMS,
+            ...MONEY_CONFIG_ITEMS,
+            ...DATA_STRUCTURE_ITEMS,
+          ],
+        },
       ]}
     />
   );

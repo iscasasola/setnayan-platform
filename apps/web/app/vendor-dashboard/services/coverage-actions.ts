@@ -9,17 +9,17 @@ import { getCoverageTaxonomy, type CoverageLeaf } from '@/lib/vendor-coverages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { getActiveFaithKeys } from '@/lib/faith-vocab-db';
 
-/** Valid marketplace faith keys (Title-Case faithCol) — the app-side validation
- *  set for vendor_coverages.faiths (no DB FK; the vocab is a stable registry). */
-const FAITH_COL_SET = new Set(FAITH_REGISTRY.map((f) => f.faithCol));
-
-/** Validate a faiths[] submission. Unlike event_types, faiths MAY be empty —
- *  empty means "all faiths welcomed" (the couple religion filter treats an empty
- *  coverage.faiths as compatible-with-all). */
-function parseFaiths(raw: string[]): string[] {
-  return Array.from(new Set(raw)).filter((f) => FAITH_COL_SET.has(f));
+/** Validate a faiths[] submission against the ACTIVE `faith_vocab` keys (the
+ *  DB is the vocab authority per the vendor_coverages.faiths column comment;
+ *  getActiveFaithKeys fails soft to the static FAITH_REGISTRY set). Unlike
+ *  event_types, faiths MAY be empty — empty means "all faiths welcomed" (the
+ *  couple religion filter treats an empty coverage.faiths as
+ *  compatible-with-all). */
+async function parseFaiths(raw: string[]): Promise<string[]> {
+  const valid = await getActiveFaithKeys();
+  return Array.from(new Set(raw)).filter((f) => valid.has(f));
 }
 
 /**
@@ -128,7 +128,7 @@ export async function createCoverage(formData: FormData): Promise<void> {
     formData.getAll('event_types').map(String),
     leaf.allowedEventTypes,
   );
-  const faiths = parseFaiths(formData.getAll('faiths').map(String));
+  const faiths = await parseFaiths(formData.getAll('faiths').map(String));
   const { error } = await supabase.from('vendor_coverages').insert({
     vendor_profile_id: profile.vendor_profile_id,
     canonical_service: canonical,
@@ -162,7 +162,7 @@ export async function updateCoverageServes(formData: FormData): Promise<void> {
     formData.getAll('event_types').map(String),
     leaf?.allowedEventTypes ?? null,
   );
-  const faiths = parseFaiths(formData.getAll('faiths').map(String));
+  const faiths = await parseFaiths(formData.getAll('faiths').map(String));
   const { error } = await supabase
     .from('vendor_coverages')
     .update({ event_types: eventTypes, faiths, updated_at: new Date().toISOString() })

@@ -11,6 +11,7 @@
  * and scoped under `.home-reskin` (see home-reskin.css).
  */
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 
 export type PillarHero = {
   /** stable tile id (also the admin background-video slot key) */
@@ -56,8 +57,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     sectionId: 'hr-p1',
     name: 'Ala ala',
     role: 'Memory Hub',
-    head: 'A photo album is a record. This is a memory.',
-    desc: 'Where your celebrations live on — every event you hold and every event you attend, kept for life.',
+    head: 'A gallery stores photos. This keeps the memory.',
+    desc: 'Free, for life. Every event you host and attend, kept as a living story long after the day.',
     photo:
       'radial-gradient(120% 85% at 50% 25%, #B0ABA4 0%, #847d74 42%, #524c44 78%, #34302b 100%)',
   },
@@ -66,8 +67,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     sectionId: 'hr-p4',
     name: 'Suri',
     role: 'Setnayan AI',
-    head: 'It doesn’t chat. It watches your event for you.',
-    desc: 'The planning brain — it keeps an eye on the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.',
+    head: 'Skip the chatbot. It watches your event for you.',
+    desc: 'Your planning brain. It tracks the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.',
     photo: 'radial-gradient(100% 85% at 50% 35%, #A6AEB6 0%, #757d86 44%, #383f47 100%)',
   },
   {
@@ -76,8 +77,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 2 }, // Likha → Papic preview
     name: 'Papic',
     role: 'Candid capture',
-    head: 'Every guest is a photographer.',
-    desc: 'Your crew and your guests shoot the day — every photo and clip lands in one live gallery, tagged to the people in it, delivered in real time.',
+    head: 'No photographer can be everywhere. Guests can.',
+    desc: 'Your crew and guests catch what one photographer can’t. Every photo and clip lands in one gallery, tagged to who’s in it, in real time.',
     photo: 'radial-gradient(90% 80% at 50% 40%, #B6ADBA 0%, #837b8a 42%, #463f4d 82%)',
   },
   {
@@ -86,8 +87,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 3 }, // Likha → Live Studio preview
     name: 'Panood',
     role: 'Live Studio',
-    head: 'For everyone who couldn’t be there.',
-    desc: 'Go live to your event page in one tap — free with a single camera. Add the multicam control room when you want the full broadcast.',
+    head: 'The ones who couldn’t come get a front-row seat.',
+    desc: 'Stream straight to your event page in one tap, free with a single camera. Add the multicam control room when you want a full broadcast.',
     photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
   },
   {
@@ -96,8 +97,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 4 }, // Likha → 3D Plan preview
     name: '3D Plan',
     role: 'Seating in 3D',
-    head: 'Walk the room before the day.',
-    desc: 'Build your seat plan, then step inside it — place the tables, check the sightlines, and see the room your guests will walk into.',
+    head: 'Stand in the room before the day arrives.',
+    desc: 'Build your seating chart, then step inside it in 3D. Place every table, check the sightlines, and walk the room as your guests will.',
     photo: 'linear-gradient(160deg, #BBB4AC 0%, #8a8077 46%, #524a40 100%)',
   },
 ];
@@ -189,21 +190,21 @@ const AlaEditorial = (
   <div className="hr-pmock hr-me-ed" data-i="1">
     <div className="hr-me-mast">
       <span className="hr-nm">Alaala</span>
-      <span className="hr-dt">The Reyes Wedding · Edition 01</span>
+      <span className="hr-dt">Maria &amp; Juan · Edition 01</span>
     </div>
-    <div className="hr-me-beat">Beat 03 · The Ceremony</div>
-    <h3 className="hr-me-hl">The first look.</h3>
+    <div className="hr-me-beat">Beat 02 · The first look</div>
+    <h3 className="hr-me-hl">The exact second his composure gave up.</h3>
     <div className="hr-me-spread">
       <div className="hr-me-fig" />
       <p className="hr-me-narr">
-        He turned, and the whole room went quiet. <b>Twenty-two years</b> of friends and family,
-        holding one breath at once.
+        Juan waited at the end of the garden path with his back turned. He heard her step on the
+        gravel — and <b>nobody coached what happened next</b>.
       </p>
     </div>
     <div className="hr-me-quote">
       <span className="hr-qm">“</span>
-      <p>I have never seen Lolo cry like that. The boy he raised, all grown — at the end of the aisle.</p>
-      <span className="hr-att">— Tita Let, on the bride’s side</span>
+      <p>When Maria walked in, the whole garden went quiet. Even the birds.</p>
+      <span className="hr-att">— Ate Celine, Maid of Honor</span>
     </div>
     <div className="hr-me-share">
       <span className="hr-lb">Share</span>
@@ -211,7 +212,16 @@ const AlaEditorial = (
       <span className="hr-si">◎</span>
       <span className="hr-si">𝕏</span>
       <span className="hr-si">↗</span>
-      <span className="hr-more">Read full edition →</span>
+      {/* Two COMPLETE sample editorials (owner 2026-07-03) — these are real,
+          readable pages at /realstories, not mock chrome. */}
+      <Link className="hr-more" href="/realstories/maria-and-juan-tagaytay-garden-wedding">
+        Read full edition →
+      </Link>
+    </div>
+    <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
+      <Link href="/realstories/sofia-reyes-makati-debut" style={{ color: 'inherit' }}>
+        Also complete: Sofia&rsquo;s debut · Edition 06 →
+      </Link>
     </div>
   </div>
 );
@@ -1119,7 +1129,17 @@ export const PILLARS: Pillar[] = [
       {
         ic: '¶',
         fn: 'Editorials',
-        fl: 'Far more memorable than scribbling in a photo album. Every event becomes an editorial — a real storyline you can relive, as if you were there again: write-ups, photos, what your guests said, and short clips (not full films) — shareable straight to your socials. The front-page story of your life.',
+        fl: (
+          <>
+            Far more memorable than scribbling in a photo album. Every event becomes an editorial —
+            a real storyline you can relive, as if you were there again: write-ups, photos, what
+            your guests said, and short clips (not full films) — shareable straight to your socials.
+            The front-page story of your life.{' '}
+            <em>
+              Read two complete sample editions now — a Tagaytay wedding and a Makati debut.
+            </em>
+          </>
+        ),
       },
       {
         ic: '▦',

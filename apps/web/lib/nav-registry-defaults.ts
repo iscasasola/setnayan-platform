@@ -93,6 +93,59 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 4,
   },
+  // ── Reskin glass nav (2026-07-03) — the marketing chrome now mirrors the
+  // homepage's floating glass nav: Prices / Download / Vendors open overlays
+  // (route = the overlay's "see full" destination), Sign in opens the auth
+  // popup. The six link slots above are seeded-but-inert (retired from the
+  // nav, kept so any admin overrides never orphan).
+  {
+    key: "public.site-nav.prices",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/pricing",
+    label: "Prices",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 5,
+  },
+  {
+    key: "public.site-nav.download",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/download",
+    label: "Download",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 6,
+  },
+  {
+    key: "public.site-nav.vendors-overlay",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/for-vendors",
+    label: "Vendors",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 7,
+  },
+  {
+    key: "public.site-nav.sign-in",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/login",
+    label: "Sign in",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 8,
+  },
   {
     key: "public.download.page",
     scope: "public",
@@ -1791,11 +1844,14 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    // 6-menu respine 2026-07-03: the mobile Home tab is now "Overview" — the
+    // merged Home+Work task inbox (key stays 'home' so an existing admin
+    // label/icon override survives).
     key: "admin.bottom-nav.home",
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin",
-    label: "Home",
+    label: "Overview",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -2582,38 +2638,46 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 53,
   },
   {
-    key: "admin.bottom-nav.work",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/work",
-    label: "Work",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "ListChecks",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
+    // 6-menu respine 2026-07-03: Directory tab renders "Accounts" (key stays
+    // 'directory' so an existing override survives). The old Work + Money tab
+    // defaults were REMOVED with their tabs — Work merged into Overview, Money
+    // config moved to System Settings (More) + Marketing.
     key: "admin.bottom-nav.directory",
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin/directory",
-    label: "Directory",
+    label: "Accounts",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
+    sortOrder: 1,
+  },
+  {
+    // Marketing tab (6-menu respine 2026-07-03) — social queue + featuring +
+    // growth incentives; lands on the /admin/marketing card grid.
+    key: "admin.bottom-nav.marketing",
+    scope: "admin",
+    area: "admin-bottom-nav",
+    route: "/admin/marketing",
+    label: "Marketing",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Megaphone",
+    customRef: null,
     sortOrder: 2,
   },
   {
-    key: "admin.bottom-nav.money",
+    // Performance tab (6-menu respine 2026-07-03) — lands directly on the App
+    // Performance cockpit.
+    key: "admin.bottom-nav.performance",
     scope: "admin",
     area: "admin-bottom-nav",
-    route: "/admin/money",
-    label: "Money",
+    route: "/admin/app-performance",
+    label: "Performance",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "DollarSign",
+    lucideName: "Activity",
     customRef: null,
     sortOrder: 3,
   },
@@ -2627,6 +2691,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Menu",
     customRef: null,
-    sortOrder: 5,
+    sortOrder: 4,
   },
 ];

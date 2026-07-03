@@ -149,3 +149,280 @@ export async function listCanonicalServices(
   if (error) throw new Error(`listCanonicalServices failed: ${error.message}`);
   return (data ?? []) as CanonicalServiceCatalogRow[];
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Shared attribute-field PARSING (single source of truth)
+ *
+ * Both the full /vendor-dashboard/attributes tool AND the inline refinement
+ * chips on the fast service-card form parse FormData into a typed payload the
+ * exact same way. These helpers used to live privately inside
+ * attributes/actions.ts; they're hoisted here so the two write paths can never
+ * drift on parse semantics. Pure functions — no Supabase, no server-only deps.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** FormData field-name prefix — an input for `shooting_style` is named
+ *  `field__shooting_style`. Shared by every attribute form + parser. */
+export const ATTRIBUTE_FIELD_NAME_PREFIX = 'field__';
+
+// Sample audio / video URL fields per the 2026-05-20 showcase-pattern lock
+// (CLAUDE.md decision log): only YouTube + Vimeo URLs are accepted.
+export const YOUTUBE_VIMEO_URL_RE =
+  /^https?:\/\/(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com|vimeo\.com|player\.vimeo\.com)\//i;
+
+export function isSampleUrlField(fieldKey: string): boolean {
+  return fieldKey.endsWith('_audio_urls') || fieldKey.endsWith('_video_urls');
+}
+
+export type ParsedAttributeValue =
+  | { ok: true; value: unknown }
+  | { ok: false; reason: string };
+
+/**
+ * Parse the raw FormData values for a single field against its declared type.
+ * Returns `{ value: null }` for unset fields; a friendly `reason` on invalid
+ * input. Byte-for-byte the same logic the attributes tool has always used.
+ */
+export function parseAttributeFieldValue(
+  fieldKey: string,
+  def: AttributeFieldDef,
+  rawValues: FormDataEntryValue[],
+): ParsedAttributeValue {
+  if (rawValues.length === 0) return { ok: true, value: null };
+  switch (def.type) {
+    case 'boolean': {
+      const hasOn = rawValues.some(
+        (v) => typeof v === 'string' && (v === 'on' || v === 'true'),
+      );
+      return { ok: true, value: hasOn };
+    }
+    case 'int': {
+      const raw = String(rawValues[0] ?? '').trim();
+      if (raw === '') return { ok: true, value: null };
+      const n = Number(raw);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        return { ok: false, reason: `${fieldKey}: must be a whole number` };
+      }
+      if (typeof def.min === 'number' && n < def.min) {
+        return { ok: false, reason: `${fieldKey}: minimum is ${def.min}` };
+      }
+      if (typeof def.max === 'number' && n > def.max) {
+        return { ok: false, reason: `${fieldKey}: maximum is ${def.max}` };
+      }
+      return { ok: true, value: n };
+    }
+    case 'text_short':
+    case 'text_long': {
+      const raw = String(rawValues[0] ?? '').trim();
+      return { ok: true, value: raw === '' ? null : raw };
+    }
+    case 'enum': {
+      const raw = String(rawValues[0] ?? '').trim();
+      if (raw === '') return { ok: true, value: null };
+      const allowed = (def.options ?? []) as readonly string[];
+      if (!allowed.includes(raw)) {
+        return { ok: false, reason: `${fieldKey}: invalid option "${raw}"` };
+      }
+      return { ok: true, value: raw };
+    }
+    case 'multi_select': {
+      const allowed = new Set((def.options ?? []) as readonly string[]);
+      const filtered: string[] = [];
+      for (const v of rawValues) {
+        if (typeof v !== 'string') continue;
+        const trimmed = v.trim();
+        if (!allowed.has(trimmed)) continue;
+        if (filtered.includes(trimmed)) continue;
+        filtered.push(trimmed);
+      }
+      return { ok: true, value: filtered.length > 0 ? filtered : null };
+    }
+    case 'multi_select_open': {
+      const out: string[] = [];
+      const seen = new Set<string>();
+      const isUrlField = isSampleUrlField(fieldKey);
+      for (const v of rawValues) {
+        if (typeof v !== 'string') continue;
+        for (const piece of v.split(',')) {
+          const trimmed = piece.trim().slice(0, 256);
+          if (trimmed.length === 0) continue;
+          if (isUrlField && !YOUTUBE_VIMEO_URL_RE.test(trimmed)) {
+            return {
+              ok: false,
+              reason: `${fieldKey}: "${trimmed.slice(0, 60)}" is not a YouTube or Vimeo URL`,
+            };
+          }
+          const lc = trimmed.toLowerCase();
+          if (seen.has(lc)) continue;
+          seen.add(lc);
+          out.push(trimmed);
+          if (out.length >= 50) break;
+        }
+        if (out.length >= 50) break;
+      }
+      return { ok: true, value: out.length > 0 ? out : null };
+    }
+    default:
+      return { ok: true, value: null };
+  }
+}
+
+/** required_if format: "other_field=value" — field is required only when the
+ *  other field equals the value. Falls back to `def.required` when unset. */
+export function checkAttributeConditionalRequired(
+  payload: Record<string, unknown>,
+  def: AttributeFieldDef,
+): boolean {
+  if (!def.required_if) return def.required === true;
+  const [otherKey, expectedValue] = def.required_if.split('=');
+  if (!otherKey) return false;
+  const otherActual = payload[otherKey];
+  if (Array.isArray(otherActual)) {
+    return otherActual.includes(expectedValue ?? '');
+  }
+  return String(otherActual ?? '') === (expectedValue ?? '');
+}
+
+export function isAttributeFieldFilled(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+/**
+ * Compute the 0-100 completeness score for a payload against a full field map.
+ * Prefers the SQL helper `compute_attribute_completeness` (so the number stays
+ * consistent with admin queries that call it directly) and falls back to a
+ * JS-side filled/total ratio if the RPC errors. Mirrors the inline logic the
+ * attributes tool has used since iteration 0044.
+ */
+export async function computeAttributeCompleteness(
+  supabase: SupabaseClient,
+  payload: Record<string, unknown>,
+  fields: Record<string, AttributeFieldDef>,
+): Promise<number> {
+  const { data: scoreRow, error } = await supabase.rpc(
+    'compute_attribute_completeness',
+    { payload, schema: fields },
+  );
+  if (!error && typeof scoreRow === 'number' && Number.isFinite(scoreRow)) {
+    return Math.max(0, Math.min(100, Math.round(scoreRow)));
+  }
+  const totalFields = Object.keys(fields).length;
+  const filledFields = Object.keys(fields).filter((k) =>
+    isAttributeFieldFilled(payload[k]),
+  ).length;
+  return totalFields === 0 ? 0 : Math.round((filledFields * 100) / totalFields);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Inline "refinement chips" for the fast service-card form
+ *
+ * The fast form surfaces only the CHIP-shaped, category-specific refinements
+ * (multi_select / enum / boolean) so a vendor can tag the leaf's facets
+ * without leaving the card. The heavier fields (int / free-text / URL lists)
+ * and the shared faith/dietary/region groups stay in the full attributes
+ * tool. Same underlying vendor_service_attributes row — keyed by
+ * canonical_service, which is exactly a vendor_services.category value.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** The field types that render naturally as inline chips. */
+export const CHIP_REFINEMENT_TYPES = ['multi_select', 'enum', 'boolean'] as const;
+
+export function isChipRefinementType(type: AttributeFieldDef['type']): boolean {
+  return (CHIP_REFINEMENT_TYPES as readonly string[]).includes(type);
+}
+
+export type CategoryRefinements = {
+  canonical_service: string;
+  /** Chip-shaped category-specific fields only, in declaration order. */
+  fields: Record<string, AttributeFieldDef>;
+  /** filter_facets verbatim — used to flag which chips are marketplace filters. */
+  filter_facets: string[];
+};
+
+function pickChipFields(
+  categoryAttributes: Record<string, AttributeFieldDef> | null | undefined,
+): Record<string, AttributeFieldDef> {
+  const fields: Record<string, AttributeFieldDef> = {};
+  for (const [key, def] of Object.entries(categoryAttributes ?? {})) {
+    if (def && isChipRefinementType(def.type)) fields[key] = def;
+  }
+  return fields;
+}
+
+/**
+ * Read the chip-shaped refinements for one leaf (canonical_service). Returns
+ * null when the category has no schema row or no chip-shaped fields — callers
+ * simply render nothing in that case (graceful; ~9% of categories have no
+ * schema yet). Reads ONLY category_specific_attributes — the shared
+ * faith/dietary/region/pricing groups are surfaced by their own dedicated UI
+ * (Serves checklist, coverage, pricing editor) and must not be duplicated here.
+ */
+export async function fetchCategoryChipRefinements(
+  supabase: SupabaseClient,
+  canonicalService: string,
+): Promise<CategoryRefinements | null> {
+  const { data, error } = await supabase
+    .from('canonical_service_schemas')
+    .select('canonical_service, category_specific_attributes, filter_facets')
+    .eq('canonical_service', canonicalService)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`fetchCategoryChipRefinements failed: ${error.message}`);
+  }
+  if (!data) return null;
+
+  const fields = pickChipFields(
+    data.category_specific_attributes as Record<string, AttributeFieldDef> | null,
+  );
+  if (Object.keys(fields).length === 0) return null;
+
+  return {
+    canonical_service: data.canonical_service as string,
+    fields,
+    filter_facets: Array.isArray(data.filter_facets)
+      ? (data.filter_facets as string[])
+      : [],
+  };
+}
+
+/**
+ * Batch variant of {@link fetchCategoryChipRefinements} for the services
+ * manager, which needs refinements for several categories at once. One round
+ * trip; returns a Map keyed by canonical_service (only entries that have
+ * chip-shaped fields are present).
+ */
+export async function fetchCategoryChipRefinementsMany(
+  supabase: SupabaseClient,
+  canonicalServices: string[],
+): Promise<Map<string, CategoryRefinements>> {
+  const out = new Map<string, CategoryRefinements>();
+  const unique = Array.from(new Set(canonicalServices.filter(Boolean)));
+  if (unique.length === 0) return out;
+
+  const { data, error } = await supabase
+    .from('canonical_service_schemas')
+    .select('canonical_service, category_specific_attributes, filter_facets')
+    .in('canonical_service', unique);
+  if (error) {
+    throw new Error(`fetchCategoryChipRefinementsMany failed: ${error.message}`);
+  }
+
+  for (const row of (data ?? []) as {
+    canonical_service: string;
+    category_specific_attributes: Record<string, AttributeFieldDef> | null;
+    filter_facets: unknown;
+  }[]) {
+    const fields = pickChipFields(row.category_specific_attributes);
+    if (Object.keys(fields).length === 0) continue;
+    out.set(row.canonical_service, {
+      canonical_service: row.canonical_service,
+      fields,
+      filter_facets: Array.isArray(row.filter_facets)
+        ? (row.filter_facets as string[])
+        : [],
+    });
+  }
+  return out;
+}

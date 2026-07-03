@@ -125,6 +125,14 @@ export type FileUploadProps = {
    */
   compressVideo?: boolean;
   /**
+   * Hard duration cap (seconds) enforced by the `compressVideo` ffmpeg pass
+   * (`-t` output trim). The BACKSTOP behind a duration `validateFile`: the
+   * <video>-metadata probe fails open on codecs the browser can't read, but
+   * ffmpeg demuxes the container regardless, so an unprobeable over-length
+   * clip still comes out trimmed. Only meaningful with `compressVideo`.
+   */
+  maxVideoDurationS?: number;
+  /**
    * QR-in-media integrity guard (owner-locked 2026-07-03): reject a picked
    * image/video that contains a QR code targeting a vendor-funnel URL
    * (/vendor-invite/, /vendor/lock/ — directly or via a shortener resolved
@@ -245,6 +253,7 @@ export function FileUpload({
   variant = 'square',
   watermark = false,
   compressVideo = false,
+  maxVideoDurationS,
   qrGuard = false,
 }: FileUploadProps) {
   const inputId = useId();
@@ -257,6 +266,17 @@ export function FileUpload({
   // surfaces a labelled progress bar while it works. null = not optimising.
   const [optimizing, setOptimizing] = useState<{ label: string; pct: number } | null>(null);
   const isMountedRef = useRef(true);
+  // TRUE for the whole synchronous+async critical section of a handleFiles
+  // batch — validation (validateFile / qrGuard) AND video compression AND
+  // presign, i.e. everything BEFORE each file is registered in `inFlight`
+  // (uploadOne is fire-and-forget on the XHR, so once it returns the item is
+  // in-flight and `atCapacity` is accurate again). New picks during this window
+  // are refused WITH feedback: they'd otherwise start a second handleFiles whose
+  // closure captured a STALE `items+inFlight` count (0), racing a duplicate
+  // upload — in single-file mode the last-finished XHR wins and the loser is an
+  // orphaned R2 object. Covering only the validator sub-window (the prior fix)
+  // left the far longer compression window open.
+  const busyRef = useRef(false);
 
   // We need to seed `items` from `currentValue` on mount AND any time
   // `currentValue` changes (e.g. server re-renders with new defaults after
@@ -324,6 +344,15 @@ export function FileUpload({
   const handleFiles = useCallback(
     async (selected: FileList | File[]) => {
       if (disabled) return;
+      // Refuse — WITH feedback, not silently — a new batch that arrives while a
+      // prior batch is still in its pre-inFlight critical section (validation /
+      // compression / presign). Returning silently would drop a legitimate
+      // second drop; blocking is what keeps the stale-count duplicate-upload
+      // race closed for the whole window, not just validation.
+      if (busyRef.current) {
+        setError('Still preparing your last file — give it a moment, then add the next.');
+        return;
+      }
       const files = Array.from(selected);
       if (files.length === 0) return;
       setError(null);
@@ -345,62 +374,68 @@ export function FileUpload({
         );
       }
 
-      for (const file of toUpload) {
-        // Client-side validation. The server runs this same set in the
-        // presign route — this is for fast feedback.
-        if (file.size > maxBytes) {
-          setError(
-            `${file.name} is ${bytesToHuman(file.size)} — max ${maxSizeMB} MB.`,
-          );
-          continue;
-        }
-        if (file.type && !acceptedTypes.includes(file.type)) {
-          setError(
-            `${file.name} is ${file.type || 'an unknown type'} — allowed: ${acceptedTypes.join(', ')}.`,
-          );
-          continue;
-        }
-
-        // Optional content-rule validator (e.g. a video duration cap). An
-        // error string rejects the file; a validator crash fails OPEN so a
-        // broken metadata read can never brick the upload path. The check runs
-        // BEFORE anything lands in inFlight, so surface the existing
-        // `optimizing` strip while it awaits — without it the dropzone sits
-        // idle-looking (and re-clickable) for up to the validator's timeout.
-        if (validateFile || qrGuard) {
-          let problem: string | null = null;
-          setOptimizing({ label: `Checking ${file.name}…`, pct: 0 });
-          try {
-            if (validateFile) problem = await validateFile(file);
-            // QR-in-media guard composes AFTER the caller's validator: reject
-            // vendor-funnel QR codes embedded in website media. Lazy import so
-            // jsQR never loads for the (majority) uploads without the guard.
-            if (!problem && qrGuard) {
-              const { validateNoVendorQrInFile } = await import(
-                '@/lib/vendor-qr-guard-client'
-              );
-              problem = await validateNoVendorQrInFile(file);
-            }
-          } catch {
-            problem = null;
-          } finally {
-            setOptimizing(null);
-          }
-          if (problem) {
-            setError(problem);
+      busyRef.current = true;
+      try {
+        for (const file of toUpload) {
+          // Client-side validation. The server runs this same set in the
+          // presign route — this is for fast feedback.
+          if (file.size > maxBytes) {
+            setError(
+              `${file.name} is ${bytesToHuman(file.size)} — max ${maxSizeMB} MB.`,
+            );
             continue;
           }
-        }
+          if (file.type && !acceptedTypes.includes(file.type)) {
+            setError(
+              `${file.name} is ${file.type || 'an unknown type'} — allowed: ${acceptedTypes.join(', ')}.`,
+            );
+            continue;
+          }
 
-        // Hand the raw, validated File to the parent before the upload begins
-        // (e.g. for client-side video poster extraction). Best-effort.
-        try {
-          onFilePicked?.(file);
-        } catch {
-          /* never block an upload on a parent hook */
-        }
+          // Optional content-rule validator (e.g. a video duration cap). An
+          // error string rejects the file; a validator crash fails OPEN so a
+          // broken metadata read can never brick the upload path. Surface the
+          // existing `optimizing` strip while it awaits.
+          if (validateFile || qrGuard) {
+            let problem: string | null = null;
+            setOptimizing({ label: `Checking ${file.name}…`, pct: 0 });
+            try {
+              if (validateFile) problem = await validateFile(file);
+              // QR-in-media guard composes AFTER the caller's validator: reject
+              // vendor-funnel QR codes embedded in website media. Lazy import so
+              // jsQR never loads for the (majority) uploads without the guard.
+              if (!problem && qrGuard) {
+                const { validateNoVendorQrInFile } = await import(
+                  '@/lib/vendor-qr-guard-client'
+                );
+                problem = await validateNoVendorQrInFile(file);
+              }
+            } catch {
+              problem = null;
+            } finally {
+              setOptimizing(null);
+            }
+            if (problem) {
+              setError(problem);
+              continue;
+            }
+          }
 
-        await uploadOne(file);
+          // Hand the raw, validated File to the parent before the upload begins
+          // (e.g. for client-side video poster extraction). Best-effort.
+          try {
+            onFilePicked?.(file);
+          } catch {
+            /* never block an upload on a parent hook */
+          }
+
+          // uploadOne compresses (video) then registers the item in `inFlight`
+          // and fires the XHR (fire-and-forget) — so it returns once the item
+          // is counted, which is exactly when the busy window can end.
+          await uploadOne(file);
+        }
+      } finally {
+        busyRef.current = false;
       }
 
       // Reset the underlying input so picking the same file twice still
@@ -470,6 +505,7 @@ export function FileUpload({
         const { compressVideoForWeb } = await import('@/lib/video-compress');
         setOptimizing({ label: 'Preparing video…', pct: 0 });
         file = await compressVideoForWeb(file, {
+          maxDurationS: maxVideoDurationS,
           onProgress: (p) => {
             if (!isMountedRef.current) return;
             const label =

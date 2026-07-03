@@ -83,16 +83,39 @@ function probeDurationSeconds(file: File): Promise<number | null> {
  */
 export async function compressVideoForWeb(
   file: File,
-  opts: { onProgress?: (p: CompressProgress) => void; signal?: AbortSignal } = {},
+  opts: {
+    onProgress?: (p: CompressProgress) => void;
+    signal?: AbortSignal;
+    /**
+     * Hard output-duration cap in seconds (service-card showcase = 30). The
+     * caller's <video>-metadata validator is the friendly gate; THIS is the
+     * backstop for clips whose duration the browser can't probe (the validator
+     * fails open on those) — ffmpeg demuxes containers regardless of decoder
+     * support, so the encode is trimmed with `-t` even when the probe lied.
+     * When set and the clip needs trimming (unknown duration or over the cap),
+     * the small-file/low-bitrate SKIP is bypassed (the trim is a content rule,
+     * not an optimisation) and the trimmed output is kept even if it isn't
+     * smaller. The overall never-throws / return-original-on-failure contract
+     * is unchanged — a browser that can't run ffmpeg.wasm at all remains the
+     * one (narrow) bypass.
+     */
+    maxDurationS?: number;
+  } = {},
 ): Promise<File> {
-  const { onProgress, signal } = opts;
+  const { onProgress, signal, maxDurationS } = opts;
   if (!canCompressVideo()) return file;
 
   // ── Skip clips that are already light enough to stream smoothly.
   onProgress?.({ phase: 'probing', ratio: 0 });
   const duration = await probeDurationSeconds(file);
   const bitrate = duration && duration > 0 ? (file.size * 8) / duration : null;
-  if (file.size < SKIP_BELOW_BYTES || (bitrate !== null && bitrate < SKIP_BELOW_BITRATE)) {
+  // Duration-cap backstop: unknown or over-cap duration forces the encode.
+  const needsTrim =
+    maxDurationS != null && (duration === null || duration > maxDurationS + 1);
+  if (
+    !needsTrim &&
+    (file.size < SKIP_BELOW_BYTES || (bitrate !== null && bitrate < SKIP_BELOW_BITRATE))
+  ) {
     return file;
   }
 
@@ -140,6 +163,9 @@ export async function compressVideoForWeb(
       '-c:a', 'aac',
       '-b:a', AUDIO_BITRATE,
       '-movflags', '+faststart',
+      // Output-duration cap (content rule, e.g. the 30s showcase clip) — +1s
+      // tolerance matches the picker validator's container-rounding allowance.
+      ...(maxDurationS != null ? ['-t', String(maxDurationS + 1)] : []),
       outName,
     ]);
     if (code !== 0 || signal?.aborted) {
@@ -149,10 +175,13 @@ export async function compressVideoForWeb(
 
     const out = await ffmpeg.readFile(outName);
     ffmpeg.terminate();
-    // out is a Uint8Array (binary read). Guard the type + that it actually shrank.
+    // out is a Uint8Array (binary read). Guard the type + that it actually
+    // shrank — EXCEPT when the pass was forced to trim: the duration cap is a
+    // content rule, so the trimmed output is kept even if it didn't get smaller
+    // (returning the original there would silently ship an over-length clip).
     if (typeof out === 'string') return file;
     const bytes = out as Uint8Array;
-    if (bytes.byteLength === 0 || bytes.byteLength >= file.size) return file;
+    if (bytes.byteLength === 0 || (!needsTrim && bytes.byteLength >= file.size)) return file;
 
     // Copy into a fresh ArrayBuffer for the File part — the ffmpeg buffer view is
     // typed over ArrayBufferLike (TS won't accept it as a BlobPart directly).

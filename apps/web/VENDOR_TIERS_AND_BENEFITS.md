@@ -134,6 +134,8 @@ _Append a dated entry whenever you change something the other session relies on.
 
 - **2026-07-04 · strategy session — CUSTOM BASE REPRICED ₱14,999 → ₱8,999, LEAN (owner: "shouldn't custom start a bit above enterprise?").** Base = Enterprise ₱7,499 + ₱1,500 white-glove premium (account manager · QBR · priority disputes · negotiated onboarding); main address included, NO bundled extra branches — every additional branch is +₱999 from the 2nd. Kills the dead zone between Enterprise ₱7,499 and the old ₱14,999 floor; supersedes the 2026-07-01 "~₱15,000" number. New worked example: 5-branch franchise = **₱12,999/28d · ₱129,999/yr**. §11 table/formula/examples + §2 Custom card updated; sign-off prototype re-published with the new base. Remaining sign-offs (3): extra-seat ₱250 vs ₱500 · overflow units (slot ₱499 / photos ₱99) · annual + token treatment.
 
+- **2026-07-04 · strategy session — REACH (km) LINE added to the Custom rate card (owner: "KM reach also add that").** New §11 line: **+₱499 per +100 km · Nationwide flat +₱2,499**, 100 km included in the base; added as the second slider in the configurator prototype (100→500 km steps, Nationwide at the top). **⚠ Surfaced a load-bearing contradiction:** Enterprise's 2026-07-01 owner cap says "nationwide reach," which would make a paid reach line meaningless — but §6's code note markets Enterprise at 100 km and §1's boost ladder ends at 100 km. Owner must pick (sign-off item 4): re-cap Enterprise at 100 km, or keep nationwide and drop the line. §2 Enterprise copy untouched pending that call.
+
 ## 6 · Verification audit (2026-07-01 · origin/main HEAD `3dec2cb`)
 
 Source of truth: coded `apps/web/lib/vendor-tier-caps.ts` + DB `vendor_billing_catalog`. **Where §6 disagrees with §2's intended allocation, §6 is the as-built reality.** 85 per-benefit verdicts reconciled. `TIER_CAPS` is real, single-source, enforced by 26 importers (services/actions, calendar/actions, team/actions, vendor-dashboard/actions, chat-send, proposal-send). Ladder was retuned 2026-06-25 → strictly monotonic Free < Verified < Solo.
@@ -218,6 +220,7 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 |---|---|---|
 | **Custom base** | **₱8,999** ✅ | Everything in Enterprise (main address included; no bundled extra branches) · dedicated account manager · quarterly business review · priority dispute handling · negotiated onboarding (**owner-decided 2026-07-04**: lean base = Enterprise ₱7,499 + ₱1,500 white-glove premium; the ₱14,999 "incl. 3 branches" base is DELETED — it created a dead zone above Enterprise) |
 | Additional branch (2nd onward) | **+₱999** ✅ | Another address / service-area listing; shares the org's cap pool (**owner-decided 2026-07-03**) |
+| Extended reach (owner-requested line 2026-07-04) | **+₱499 per +100 km** · Nationwide flat **+₱2,499** | 100 km included in the base ⚠ — this line only works if Enterprise reach is 100 km (per §6 "marketed 100km" + §1's Local→20→50→100 boost ladder). It **contradicts the 2026-07-01 "nationwide reach" Enterprise cap** — owner must reconcile (see sign-off list) |
 | Extra seat (beyond the org's 10) | +₱250 ⚠ | Reuses the Enterprise extra-seat add-on — ⚠ price conflict ₱250 (PR #2623) vs ₱500 (§10); inherits whichever the owner picks |
 | +1 event slot per category | +₱499 | Capacity on the shared pool |
 | +100 portfolio photos | +₱99 | Deliberately near-cost — storage is a retention convenience, **never a profit line** (tax-aware-floor lock) |
@@ -235,6 +238,7 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 - **5-branch catering franchise (standard caps):** 8,999 + 4 × 999 = 12,995 → **₱12,999/28d · ₱129,999/yr**.
 - **5-branch franchise scaling up** (30 seats · 600 photos): 12,995 + 20 × 250 + 3 × 99 = 18,292 → **₱18,299/28d** (seat line pending the ₱250/₱500 pick).
 - **Single-brand studio needing 12 events/category + 400 photos:** NOT Custom — Enterprise 7,499 + 4 × 499 + 1 × 99 = 9,594 → **₱9,599/28d** as Enterprise + overflow units. (The same composition inside Custom = 8,999 + 4 × 499 + 99 = ₱11,099 — the ₱1,500 delta is the white-glove premium, as intended.)
+- **5-branch franchise going nationwide:** 12,995 + 2,499 = 15,494 → **₱15,499/28d · ₱154,999/yr**.
 - **Multi-brand house:** not a Custom composition — one vendor account per brand, each on its own tier (owner 2026-07-03).
 
 ### What Custom does NOT change
@@ -249,7 +253,7 @@ Admin computes the quote from this card → creates an org-scoped `vendor_billin
 
 **Owner: "the customization will be vendor AND admin side — they can move the line sliders to meet their demand."** Not an admin-only quote tool; a two-surface configurator over the same rate card:
 
-- **Vendor side (self-serve):** a "Build your Custom plan" panel on `/vendor-dashboard/subscription` — **one slider per rate-card line** (branches · team seats · event slots per category · portfolio photo packs), baselines pinned at what the base includes. Price recomputes **live** as sliders move (charm-rounded · floored at the base · 28d/annual toggle at 10×). Submitting creates the org-scoped apply-then-pay order with an **admin review handshake** before activation (same approval pattern as the STD-openings buy flow).
+- **Vendor side (self-serve):** a "Build your Custom plan" panel on `/vendor-dashboard/subscription` — **one slider per rate-card line** (branches · reach in km, topping out at Nationwide · team seats · event slots per category · portfolio photo packs), baselines pinned at what the base includes. Price recomputes **live** as sliders move (charm-rounded · floored at the base · 28d/annual toggle at 10×). Submitting creates the org-scoped apply-then-pay order with an **admin review handshake** before activation (same approval pattern as the STD-openings buy flow).
 - **Admin side (HQ):** the same sliders scoped to any vendor org for negotiated deals, **plus unit-price control** — line prices live in the admin catalog (admin-managed-pricing lock) and the vendor's sliders read whatever admin set. Admin can also compose + send a quote directly (payment-instructions email).
 - **Provisioning:** acceptance sets `tier_state='custom'` with effective caps = base + purchased units (same `effectiveSeatCap` composition pattern); renewals fold all units into one order.
 
@@ -261,4 +265,6 @@ Brief goes to an Opus implementation agent once the remaining sign-off numbers a
 - ✅ **DECIDED 2026-07-04 (owner):** **base ₱8,999, lean** — Enterprise + ₱1,500 white-glove (account manager · QBR · priority disputes · negotiated onboarding), main address included, every additional branch +₱999. Supersedes the ₱14,999-incl-3-branches base AND the 2026-07-01 "~₱15,000" floor (owner: Custom should start "a bit above Enterprise").
 1. **Extra-seat price:** ₱250 (open PR #2623) vs ₱500 (§10) — pick one.
 2. **Overflow units:** +1 event slot/category ₱499 · +100 photos ₱99.
-3. **Custom keeps the ladder's annual math** (annual = 10 × 28d, 3 free cycles) **and burns tokens like every tier** (no bulk discount in v1).
+3. **Reach pricing:** +₱499 per +100 km · Nationwide flat +₱2,499 (owner asked for the line 2026-07-04; unit prices proposed).
+4. **⚠ Enterprise reach baseline — load-bearing contradiction to settle:** the 2026-07-01 Enterprise caps say **"nationwide reach"**, but a paid Custom reach line is meaningless if nationwide is already free at ₱7,499. Code/§6 markets Enterprise at **100 km** and §1's boost ladder ends at 100 km. Pick: **(a) Enterprise reach = 100 km** and reach beyond is sold in Custom (matches code + the new line), or **(b) Enterprise keeps nationwide** and the reach line is dropped. §2's Enterprise "nationwide reach (all regions)" copy is left untouched until this call.
+5. **Custom keeps the ladder's annual math** (annual = 10 × 28d, 3 free cycles) **and burns tokens like every tier** (no bulk discount in v1).

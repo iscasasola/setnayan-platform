@@ -41,7 +41,7 @@ import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { EditorialBand } from './_components/editorial-band';
 import { VendorDoorScenario } from './_components/vendor-door-scenario';
-import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
+import { Voices, FAQ, ClosingCTA } from './_components/page-tail';
 import { RevealOnView } from './_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -287,7 +287,6 @@ export default async function ForVendorsPage() {
         <RevealOnView>
           <ClosingCTA />
         </RevealOnView>
-        <Footer />
       </main>
     </>
   );

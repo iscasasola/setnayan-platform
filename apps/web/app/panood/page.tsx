@@ -6,7 +6,7 @@
  * LOCKED). Mirrors the /papic + /setnayan-ai pattern exactly: force-static
  * Server Component, generateMetadata-equivalent static `metadata`,
  * SoftwareApplication + FAQPage JSON-LD, hero + benefit sections + FAQ + a
- * Mulberry-accent primary CTA, and the shared SiteFooter. The persistent
+ * Mulberry-accent primary CTA, and the layout-mounted SiteFooterChrome. The persistent
  * SiteChrome nav renders because '/panood' is registered in NAV_ROUTES.
  *
  * POSITIONING (locked "Panood human positioning"): sell PRESENCE ACROSS
@@ -16,7 +16,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import {
   LineRevealHeading,
@@ -260,7 +259,6 @@ export default function PanoodLandingPage() {
           </section>
         </Reveal>
       </main>
-      <SiteFooter />
     </>
   );
 }

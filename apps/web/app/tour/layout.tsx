@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 
 /**
  * Chrome for the public Maria & Jose tour. Reads the sample event per request
@@ -25,7 +24,6 @@ export default function TourLayout({ children }: { children: ReactNode }) {
         </Link>
       </div>
       {children}
-      <SiteFooter />
     </>
   );
 }

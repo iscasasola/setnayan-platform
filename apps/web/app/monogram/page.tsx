@@ -18,7 +18,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { PublicMonogramStudio } from './public-monogram-studio';
 import { MonogramHeadline, StepsReveal, ClosingCta } from './_monogram-motion';
 import { registerGatesEnabled } from '@/lib/register-gates';
@@ -156,7 +155,6 @@ export default function PublicMonogramPage() {
           </Link>
         </ClosingCta>
       </main>
-      <SiteFooter />
     </>
   );
 }

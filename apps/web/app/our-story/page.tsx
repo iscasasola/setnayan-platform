@@ -14,7 +14,6 @@
 
 import Link from 'next/link';
 import { OurStoryManifesto } from '@/app/_components/marketing/OurStory';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { fetchAlaalaOrbClips } from '@/lib/alaala-orb';
 
 // ISR (was force-static): the Alaala orb is now fed by consented + couple-
@@ -177,7 +176,6 @@ export default async function OurStoryPage() {
           </div>
         </section>
 
-        <SiteFooter />
       </main>
     </>
   );

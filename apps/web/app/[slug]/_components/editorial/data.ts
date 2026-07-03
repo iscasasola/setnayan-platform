@@ -67,6 +67,17 @@ export const EDITORIAL_DAY_CHAPTER_CAP = 10;
 /** How many clean Papic 5-second clips to pull into the day timeline. */
 export const EDITORIAL_PAPIC_CLIP_CAP = 14;
 
+/**
+ * How many clean Papic PHOTOS to sample for the "As the Day Unfolded" timeline.
+ * This is a SEPARATE, wider read from the most-recent-24 gallery slice: the
+ * gallery is recency-capped (evening-biased on a photo-heavy day), while the
+ * timeline needs the whole day's arc — so it reads captured_at ASC across the
+ * event. Only a lightweight (photo_id, key, captured_at) row set is fetched here;
+ * we bucket FIRST and presign ONLY the ≤3 media each chapter actually uses, so a
+ * heavily-shot wedding never presigns all 48.
+ */
+export const EDITORIAL_TIMELINE_PHOTO_CAP = 48;
+
 /** Display labels for in-app Setnayan service_keys (the "Powered by Setnayan"
  * strip). Unknown keys fall back to prettyServiceKey(). */
 const SERVICE_LABELS: Record<string, string> = {
@@ -214,20 +225,43 @@ export type VendorMediaItem = {
 // A single medium (photo or a 5-second Papic clip) inside a chapter. `url` is a
 // presigned display URL (a still image for a photo, the playable MP4 for a clip);
 // `posterUrl` is the clip's freeze-frame poster (null for photos / clips with no
-// baked poster).
+// baked poster). `id` is the underlying Papic photo_id, carried through so the
+// couple-curation layer (chapterOverrides) can target a chapter by its lead.
 export type ChapterMedia = {
   type: 'photo' | 'clip';
   url: string;
   posterUrl?: string | null;
+  id?: string | null;
 };
 
 // One chapter of the day. `time` is a clock-time kicker ("4:12 in the
-// afternoon") derived from the lead media's captured_at — NEVER a moment name
-// (no "First Kiss"); factual naming waits for couple curation. `media[0]` is the
-// lead (a clip when the bucket has one), followed by ≤2 supporting photos.
+// afternoon") derived from the lead media's captured_at — the auto floor, NEVER
+// a moment name (no "First Kiss"). Factual naming arrives only via couple
+// curation: `title` (a moment name the couple typed, e.g. "First Kiss") and
+// `writeUp` (a short paragraph) are null until the couple names the moment in the
+// editorial editor. `leadId` is the lead medium's Papic photo_id — the stable key
+// that chapterOverrides (title/writeUp/hidden/reorder) target. It is null for the
+// curated legacy essay_photo_ids path (which carries no timeline identity).
+// `media[0]` is the lead (a clip when the bucket has one), followed by ≤2
+// supporting photos.
 export type DayChapter = {
   time: string | null;
+  title: string | null;
+  writeUp: string | null;
+  leadId: string | null;
   media: ChapterMedia[];
+};
+
+// A couple's per-chapter curation, stored in event_editorial.draft_json under
+// `chapterOverrides`. Targets an auto-built chapter by its lead's `leadId` and
+// carries any of: a moment name (`title`), a short story (`writeUp`), a hide flag,
+// and — by its POSITION in the array — the couple's chosen order. Overrides whose
+// leadId no longer maps to a live chapter are ignored gracefully.
+export type ChapterOverride = {
+  leadId: string;
+  title?: string | null;
+  writeUp?: string | null;
+  hidden?: boolean;
 };
 
 export type EditorialData = {
@@ -796,6 +830,42 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     papicClipRows = [];
   }
 
+  // 5b-ter. The day's Papic PHOTOS for the "As the Day Unfolded" timeline — a
+  // SEPARATE, wider read from the recency-capped gallery slice above. The gallery
+  // query is `captured_at DESC` limit 24 (evening-biased on a photo-heavy day),
+  // but a story timeline needs the whole day's arc, so this reads `captured_at
+  // ASC` across the event (cap 48) with the SAME fail-closed moderation filter.
+  // Lightweight rows only (photo_id, key, captured_at) — buckets are built from
+  // these FIRST, and only the ≤3 media each chapter uses get presigned later.
+  type TimelinePhotoRow = { photoId: string; key: string; capturedAt: string | null };
+  let timelinePhotoRows: TimelinePhotoRow[] = [];
+  try {
+    const { data: rows, error } = await admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .not(
+        'moderation_state',
+        'in',
+        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+      )
+      .order('captured_at', { ascending: true })
+      .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
+    if (!error && Array.isArray(rows)) {
+      timelinePhotoRows = (rows as Array<Record<string, unknown>>)
+        .map((r) => ({
+          photoId: asString(r.photo_id),
+          key: asString(r.r2_object_key),
+          capturedAt: asString(r.captured_at) ?? null,
+        }))
+        .filter((r): r is TimelinePhotoRow => Boolean(r.photoId && r.key));
+    }
+  } catch {
+    timelinePhotoRows = [];
+  }
+
   // Presign the Papic captures once; reused by gallery + essay (and the hero
   // auto-pick reads from the same ordered list).
   const papicUrlByPhotoId = new Map<string, string>();
@@ -1179,32 +1249,25 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   }
 
   // ── "As the Day Unfolded" living-story chapters ──────────────────────────────
-  // Weave the day's clean photos + 5-second clips into ONE captured_at-ASC
-  // timeline, then bucket into up to 10 chapters by an even time-order split.
-  // Each chapter leads with a clip when its bucket has one (else the most-tagged
-  // photo, mirroring the hero auto-pick), plus ≤2 supporting photos. Read-time
-  // only — no writer, no migration. Empty → the renderer keeps the legacy essay.
+  // Weave the day's clean photos (the WIDE captured_at-ASC timeline read, not the
+  // recency-capped gallery slice) + 5-second clips into ONE captured_at-ASC
+  // timeline, then bucket into up to 10 chapters by an even time-order split. Each
+  // chapter leads with a clip when its bucket has one (else the most-tagged photo,
+  // mirroring the hero auto-pick), plus ≤2 supporting photos. We bucket from RAW
+  // rows first, then presign ONLY the media each chapter actually uses (≤3/chapter
+  // → ≤30 total), so a heavily-shot wedding never presigns all 48 timeline photos.
+  // On top of the auto floor, the couple's `chapterOverrides` (draft_json) rename,
+  // reorder, hide, or add a write-up to any chapter — targeted by the lead's
+  // photo_id. Read-time only — no writer, no migration. Empty → renderer keeps the
+  // legacy essay.
   let dayChapters: DayChapter[] = [];
 
-  // Presign the clips once (playable MP4 + optional poster).
-  const clipUrlByPhotoId = new Map<string, { url: string; posterUrl: string | null }>();
-  if (papicClipRows.length > 0) {
-    await Promise.all(
-      papicClipRows.map(async (r) => {
-        const url = await displayUrlForStoredAsset(r.key);
-        if (!url) return;
-        const posterUrl = r.posterKey ? await displayUrlForStoredAsset(r.posterKey) : null;
-        clipUrlByPhotoId.set(r.photoId, { url, posterUrl });
-      }),
-    );
-  }
-
-  // Best-effort tag counts for the day's photos → prefer the most-tagged photo as
-  // a chapter's lead (the frame with the most people reads as the key image),
-  // exactly like the hero auto-pick. A missing tags table (42P01) → all zero,
-  // and buckets fall back to first-in-bucket order.
+  // Best-effort tag counts for the TIMELINE photos → prefer the most-tagged photo
+  // as a chapter's lead (the frame with the most people reads as the key image),
+  // exactly like the hero auto-pick. A missing tags table (42P01) → all zero, and
+  // buckets fall back to first-in-bucket order.
   const photoTagCount = new Map<string, number>();
-  if (papicRows.length > 0) {
+  if (timelinePhotoRows.length > 0) {
     try {
       const { data: tagRows, error } = await admin
         .from('photo_tags')
@@ -1213,7 +1276,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         .eq('source_table', 'papic_photos')
         .in(
           'source_id',
-          papicRows.map((r) => r.photoId),
+          timelinePhotoRows.map((r) => r.photoId),
         );
       if (!error && Array.isArray(tagRows)) {
         for (const t of tagRows as Array<Record<string, unknown>>) {
@@ -1226,13 +1289,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     }
   }
 
-  // A unified timeline item. Photos carry a presigned still URL + tag count;
-  // clips carry a playable URL + optional poster. `ts` is captured_at ms (NaN
-  // when absent → sorts last so timestamped media leads the timeline).
-  type TimelineItem = {
+  // A RAW timeline item — NO presigned URL yet (that happens after bucketing, for
+  // the chosen media only). Photos carry an id + tag count; clips carry the R2
+  // keys they'll presign to. `ts` is captured_at ms (NaN when absent → sorts last
+  // so timestamped media leads the timeline).
+  type RawTimelineItem = {
     kind: 'photo' | 'clip';
-    url: string;
-    posterUrl: string | null;
+    photoId: string;
+    key: string;
+    posterKey: string | null;
     ts: number;
     tsRaw: string | null;
     tagCount: number;
@@ -1242,33 +1307,31 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const n = new Date(raw).getTime();
     return Number.isFinite(n) ? n : Number.NaN;
   };
-  const timeline: TimelineItem[] = [];
-  for (const r of papicRows) {
-    const url = papicUrlByPhotoId.get(r.photoId);
-    if (!url) continue;
-    timeline.push({
+  const rawTimeline: RawTimelineItem[] = [];
+  for (const r of timelinePhotoRows) {
+    rawTimeline.push({
       kind: 'photo',
-      url,
-      posterUrl: null,
+      photoId: r.photoId,
+      key: r.key,
+      posterKey: null,
       ts: tsMs(r.capturedAt),
       tsRaw: r.capturedAt,
       tagCount: photoTagCount.get(r.photoId) ?? 0,
     });
   }
   for (const r of papicClipRows) {
-    const resolved = clipUrlByPhotoId.get(r.photoId);
-    if (!resolved) continue;
-    timeline.push({
+    rawTimeline.push({
       kind: 'clip',
-      url: resolved.url,
-      posterUrl: resolved.posterUrl,
+      photoId: r.photoId,
+      key: r.key,
+      posterKey: r.posterKey,
       ts: tsMs(r.capturedAt),
       tsRaw: r.capturedAt,
       tagCount: 0,
     });
   }
   // captured_at ASC; rows without a timestamp (NaN) sink to the end.
-  timeline.sort((a, b) => {
+  rawTimeline.sort((a, b) => {
     const aN = Number.isNaN(a.ts);
     const bN = Number.isNaN(b.ts);
     if (aN && bN) return 0;
@@ -1277,65 +1340,156 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     return a.ts - b.ts;
   });
 
-  const toChapterMedia = (it: TimelineItem): ChapterMedia => ({
-    type: it.kind,
-    url: it.url,
-    posterUrl: it.kind === 'clip' ? it.posterUrl : null,
-  });
-
-  // Build one chapter from a bucket of timeline items: lead = a clip if present
-  // (prefer the earliest clip so the kicker time matches the moment), else the
-  // most-tagged photo (tie → earliest). Then ≤2 supporting PHOTOS (never the
-  // lead), in timeline order. `time` = the lead's clock-time kicker.
-  const buildChapter = (bucket: TimelineItem[]): DayChapter | null => {
+  // A "chapter plan" — the chosen lead + supporting items for a bucket, still by
+  // reference to raw items (no presign yet). We collect all plans first, gather the
+  // exact media to presign, then resolve URLs in one batch.
+  type ChapterPlan = { lead: RawTimelineItem; supporting: RawTimelineItem[] };
+  const planChapter = (bucket: RawTimelineItem[]): ChapterPlan | null => {
     const first = bucket[0];
     if (!first) return null;
     const firstClip = bucket.find((b) => b.kind === 'clip');
-    // Lead = the earliest clip in the bucket (bucket is captured_at ASC), else
-    // the most-tagged photo (tie → earliest, since reduce keeps the incumbent).
-    const lead: TimelineItem = firstClip
+    // Lead = the earliest clip in the bucket (bucket is captured_at ASC), else the
+    // most-tagged photo (tie → earliest, since reduce keeps the incumbent).
+    const lead: RawTimelineItem = firstClip
       ? firstClip
       : bucket.reduce((best, cur) => (cur.tagCount > best.tagCount ? cur : best), first);
-    const supporting = bucket
-      .filter((b) => b !== lead && b.kind === 'photo')
-      .slice(0, 2)
-      .map(toChapterMedia);
-    return {
-      time: formatClockKicker(lead.tsRaw),
-      media: [toChapterMedia(lead), ...supporting],
-    };
+    const supporting = bucket.filter((b) => b !== lead && b.kind === 'photo').slice(0, 2);
+    return { lead, supporting };
   };
 
-  if (essayIds.length > 0 && essayPhotos.length > 0) {
-    // Respect couple curation: one chapter per curated essay photo, in order, no
-    // clips injected. `time` is null (curated URLs carry no captured_at here).
-    dayChapters = essayPhotos.map((url) => ({
-      time: null,
-      media: [{ type: 'photo', url, posterUrl: null }],
-    }));
-  } else if (timeline.length > 0) {
-    if (timeline.length < 4) {
+  const plans: ChapterPlan[] = [];
+  if (rawTimeline.length > 0) {
+    if (rawTimeline.length < 4) {
       // Too few media to bucket meaningfully → one chapter per item.
-      dayChapters = timeline
-        .map((it) => buildChapter([it]))
-        .filter((c): c is DayChapter => Boolean(c));
+      for (const it of rawTimeline) {
+        const p = planChapter([it]);
+        if (p) plans.push(p);
+      }
     } else {
-      // Even time-order split into ≤10 buckets (same decile approach as the
-      // essay sampler). Only emit non-empty buckets → never an empty frame.
-      const n = timeline.length;
+      // Even time-order split into ≤10 buckets (same decile approach as the essay
+      // sampler). Only emit non-empty buckets → never an empty frame.
+      const n = rawTimeline.length;
       const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
-      const buckets: TimelineItem[][] = [];
       for (let i = 0; i < chapterCount; i += 1) {
         const start = Math.floor((i * n) / chapterCount);
         const end = Math.floor(((i + 1) * n) / chapterCount);
-        if (end > start) buckets.push(timeline.slice(start, end));
+        if (end > start) {
+          const p = planChapter(rawTimeline.slice(start, end));
+          if (p) plans.push(p);
+        }
       }
-      dayChapters = buckets
-        .map((b) => buildChapter(b))
-        .filter((c): c is DayChapter => Boolean(c));
     }
   }
-  // Fallback: zero Papic media but curation empty → dayChapters stays [], and the
+
+  // Presign ONLY the media the plans actually chose (≤3/chapter). One R2 key can
+  // appear once; de-dup the resolve set. Reuse the already-presigned gallery URLs
+  // where a timeline photo overlaps the recent slice, to save a presign.
+  if (plans.length > 0) {
+    const resolveKey = new Map<string, string | null>(); // key → presigned url
+    const posterByKey = new Map<string, string | null>(); // clip key → poster url
+    const keysToResolve = new Set<string>();
+    for (const p of plans) {
+      for (const it of [p.lead, ...p.supporting]) {
+        const cached = it.kind === 'photo' ? papicUrlByPhotoId.get(it.photoId) : undefined;
+        if (cached) resolveKey.set(it.key, cached);
+        else keysToResolve.add(it.key);
+      }
+    }
+    const uniqueKeys = Array.from(keysToResolve);
+    const resolved = await Promise.all(uniqueKeys.map((k) => displayUrlForStoredAsset(k)));
+    uniqueKeys.forEach((k, i) => resolveKey.set(k, resolved[i] ?? null));
+    // Clip posters (only for lead clips — supporting are always photos).
+    const posterKeys = Array.from(
+      new Set(
+        plans
+          .map((p) => (p.lead.kind === 'clip' ? p.lead.posterKey : null))
+          .filter((k): k is string => Boolean(k)),
+      ),
+    );
+    const posters = await Promise.all(posterKeys.map((k) => displayUrlForStoredAsset(k)));
+    posterKeys.forEach((k, i) => posterByKey.set(k, posters[i] ?? null));
+
+    const toMedia = (it: RawTimelineItem): ChapterMedia | null => {
+      const url = resolveKey.get(it.key);
+      if (!url) return null;
+      return {
+        type: it.kind,
+        url,
+        posterUrl:
+          it.kind === 'clip' && it.posterKey ? posterByKey.get(it.posterKey) ?? null : null,
+        id: it.photoId,
+      };
+    };
+
+    const autoChapters: DayChapter[] = [];
+    for (const p of plans) {
+      const leadMedia = toMedia(p.lead);
+      if (!leadMedia) continue; // lead couldn't presign → drop the chapter
+      const supporting = p.supporting
+        .map(toMedia)
+        .filter((m): m is ChapterMedia => Boolean(m));
+      autoChapters.push({
+        time: formatClockKicker(p.lead.tsRaw),
+        title: null,
+        writeUp: null,
+        leadId: p.lead.photoId,
+        media: [leadMedia, ...supporting],
+      });
+    }
+
+    // Apply the couple's per-chapter curation (draft_json.chapterOverrides). When
+    // any override exists it WINS (title/writeUp/hidden/reorder); the legacy
+    // essay_photo_ids path below is skipped. Overrides referencing a leadId that
+    // no longer maps to a live chapter are ignored gracefully.
+    const overrides = readChapterOverrides(draftJson);
+    if (overrides.length > 0) {
+      const byLead = new Map(autoChapters.map((c) => [c.leadId, c] as const));
+      const taken = new Set<string>();
+      const ordered: DayChapter[] = [];
+      // 1. Overridden chapters, in override-array order.
+      for (const ov of overrides) {
+        const chapter = byLead.get(ov.leadId);
+        if (!chapter || taken.has(ov.leadId)) continue; // stale/dup → ignore
+        taken.add(ov.leadId);
+        if (ov.hidden === true) continue; // hidden → drop from the public render
+        ordered.push({
+          ...chapter,
+          title: asString(ov.title) ?? chapter.title,
+          writeUp: asString(ov.writeUp) ?? chapter.writeUp,
+        });
+      }
+      // 2. Auto chapters NOT in the override array, in timeline order.
+      for (const chapter of autoChapters) {
+        if (chapter.leadId && taken.has(chapter.leadId)) continue;
+        ordered.push(chapter);
+      }
+      dayChapters = ordered;
+    } else if (essayIds.length > 0 && essayPhotos.length > 0) {
+      // No overrides → the legacy curated essay path still wins over the auto
+      // timeline: one chapter per curated essay photo, in order, no clips injected.
+      // `time`/`leadId` are null (curated URLs carry no timeline identity here).
+      dayChapters = essayPhotos.map((url) => ({
+        time: null,
+        title: null,
+        writeUp: null,
+        leadId: null,
+        media: [{ type: 'photo', url, posterUrl: null, id: null }],
+      }));
+    } else {
+      dayChapters = autoChapters;
+    }
+  } else if (essayIds.length > 0 && essayPhotos.length > 0) {
+    // Zero Papic timeline media but a curated essay exists → render the curated
+    // essay as chapters (matches prior behaviour).
+    dayChapters = essayPhotos.map((url) => ({
+      time: null,
+      title: null,
+      writeUp: null,
+      leadId: null,
+      media: [{ type: 'photo', url, posterUrl: null, id: null }],
+    }));
+  }
+  // Fallback: zero Papic media AND curation empty → dayChapters stays [], and the
   // renderer keeps the legacy essay (built from manual `our_photos` above).
 
   // ── Their song ──────────────────────────────────────────────────────────────
@@ -1404,6 +1558,184 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   };
 }
 
+// ── Editor-facing chapter cards ───────────────────────────────────────────────
+// The couple-dashboard curation editor needs the RAW auto-built chapters — ALL of
+// them, unfiltered (hidden ones included, so the couple can un-hide), in timeline
+// order — plus the current overrides. This is deliberately separate from
+// loadEditorialData's `dayChapters` (which has overrides applied + hidden removed
+// for the public render). One thumbnail per chapter (the lead's still — a photo
+// URL, or a clip's poster; null when a clip has no baked poster → the editor shows
+// a film glyph), the clock-time kicker, and the stable leadId the override targets.
+export type ChapterCard = {
+  leadId: string;
+  time: string | null;
+  /** Lead thumbnail: a presigned still (photo) or clip poster. Null → film glyph. */
+  thumbUrl: string | null;
+  isClip: boolean;
+};
+
+export type EditorialChaptersForEditor = {
+  cards: ChapterCard[];
+  overrides: ChapterOverride[];
+};
+
+/**
+ * Build the auto chapters (unfiltered, timeline order) + read current overrides,
+ * for the couple curation editor. Mirrors loadEditorialData's timeline read but
+ * only resolves the ≤10 lead thumbnails (never the supporting media). Every query
+ * graceful-degrades; a non-Papic / no-clips event returns `{ cards: [], … }`.
+ */
+export async function loadEditorialChaptersForEditor(
+  eventId: string,
+): Promise<EditorialChaptersForEditor> {
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return { cards: [], overrides: [] };
+  }
+
+  // Current overrides (from draft_json). Read even when there are no cards, so the
+  // editor can drop stale ones on the next save.
+  let overrides: ChapterOverride[] = [];
+  try {
+    const { data } = await admin
+      .from('event_editorial')
+      .select('draft_json')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    overrides = readChapterOverrides(asObject(data?.draft_json));
+  } catch {
+    overrides = [];
+  }
+
+  // Timeline photos (wide, captured_at ASC) — lightweight rows.
+  type Row = { photoId: string; key: string; posterKey: string | null; capturedAt: string | null; kind: 'photo' | 'clip' };
+  const rows: Row[] = [];
+  try {
+    const { data, error } = await admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .order('captured_at', { ascending: true })
+      .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
+    if (!error && Array.isArray(data)) {
+      for (const r of data as Array<Record<string, unknown>>) {
+        const photoId = asString(r.photo_id);
+        const key = asString(r.r2_object_key);
+        if (photoId && key) rows.push({ photoId, key, posterKey: null, capturedAt: asString(r.captured_at), kind: 'photo' });
+      }
+    }
+  } catch {
+    // no photos
+  }
+  try {
+    const { data, error } = await admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, poster_r2_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'clip')
+      .is('hidden_at', null)
+      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .order('captured_at', { ascending: true })
+      .limit(EDITORIAL_PAPIC_CLIP_CAP);
+    if (!error && Array.isArray(data)) {
+      for (const r of data as Array<Record<string, unknown>>) {
+        const photoId = asString(r.photo_id);
+        const key = asString(r.r2_object_key);
+        if (photoId && key) rows.push({ photoId, key, posterKey: asString(r.poster_r2_key), capturedAt: asString(r.captured_at), kind: 'clip' });
+      }
+    }
+  } catch {
+    // no clips
+  }
+  if (rows.length === 0) return { cards: [], overrides };
+
+  // Tag counts for the lead pick (mirror the public read).
+  const tagCount = new Map<string, number>();
+  try {
+    const photoIds = rows.filter((r) => r.kind === 'photo').map((r) => r.photoId);
+    if (photoIds.length > 0) {
+      const { data } = await admin
+        .from('photo_tags')
+        .select('source_id')
+        .eq('event_id', eventId)
+        .eq('source_table', 'papic_photos')
+        .in('source_id', photoIds);
+      for (const t of (data ?? []) as Array<Record<string, unknown>>) {
+        const id = asString(t.source_id);
+        if (id) tagCount.set(id, (tagCount.get(id) ?? 0) + 1);
+      }
+    }
+  } catch {
+    // untagged fallback
+  }
+
+  const tsMs = (raw: string | null): number => {
+    if (!raw) return Number.NaN;
+    const n = new Date(raw).getTime();
+    return Number.isFinite(n) ? n : Number.NaN;
+  };
+  rows.sort((a, b) => {
+    const aN = Number.isNaN(tsMs(a.capturedAt));
+    const bN = Number.isNaN(tsMs(b.capturedAt));
+    if (aN && bN) return 0;
+    if (aN) return 1;
+    if (bN) return -1;
+    return tsMs(a.capturedAt) - tsMs(b.capturedAt);
+  });
+
+  // Same bucketing + lead pick as the public builder (so leadIds line up exactly).
+  const pickLead = (bucket: Row[]): Row | null => {
+    const first = bucket[0];
+    if (!first) return null;
+    const firstClip = bucket.find((b) => b.kind === 'clip');
+    if (firstClip) return firstClip;
+    return bucket.reduce(
+      (best, cur) => ((tagCount.get(cur.photoId) ?? 0) > (tagCount.get(best.photoId) ?? 0) ? cur : best),
+      first,
+    );
+  };
+  const leads: Row[] = [];
+  if (rows.length < 4) {
+    for (const r of rows) leads.push(r);
+  } else {
+    const n = rows.length;
+    const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
+    for (let i = 0; i < chapterCount; i += 1) {
+      const start = Math.floor((i * n) / chapterCount);
+      const end = Math.floor(((i + 1) * n) / chapterCount);
+      if (end > start) {
+        const lead = pickLead(rows.slice(start, end));
+        if (lead) leads.push(lead);
+      }
+    }
+  }
+
+  // Resolve ONLY the lead thumbnails (photo still or clip poster).
+  const cards: ChapterCard[] = [];
+  await Promise.all(
+    leads.map(async (lead) => {
+      const thumbKey = lead.kind === 'clip' ? lead.posterKey : lead.key;
+      const thumbUrl = thumbKey ? await displayUrlForStoredAsset(thumbKey) : null;
+      cards.push({
+        leadId: lead.photoId,
+        time: formatClockKicker(lead.capturedAt),
+        thumbUrl: thumbUrl ?? null,
+        isClip: lead.kind === 'clip',
+      });
+    }),
+  );
+  // Promise.all resolves out of order → restore timeline order by lead position.
+  const order = new Map(leads.map((l, i) => [l.photoId, i] as const));
+  cards.sort((a, b) => (order.get(a.leadId) ?? 0) - (order.get(b.leadId) ?? 0));
+
+  return { cards, overrides };
+}
+
 // ── small utilities ───────────────────────────────────────────────────────────
 
 // draft_json.sections → a partial visibility map. Only explicit `false` hides a
@@ -1414,6 +1746,30 @@ function readSections(draftJson: Record<string, unknown>): Partial<EditorialSect
   const out: Partial<EditorialSections> = {};
   for (const key of EDITORIAL_SECTION_KEYS) {
     if (raw[key] === false) out[key] = false;
+  }
+  return out;
+}
+
+// draft_json.chapterOverrides → an ordered, validated list of ChapterOverride.
+// Each entry needs a non-empty string leadId to target a chapter; malformed
+// entries are dropped. The ARRAY ORDER is load-bearing — it drives the couple's
+// chosen chapter order in loadEditorialData. Anything non-array → [].
+function readChapterOverrides(draftJson: Record<string, unknown>): ChapterOverride[] {
+  const raw = (draftJson as Record<string, unknown>).chapterOverrides;
+  if (!Array.isArray(raw)) return [];
+  const out: ChapterOverride[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw as unknown[]) {
+    const obj = asObject(entry);
+    const leadId = asString(obj.leadId);
+    if (!leadId || seen.has(leadId)) continue; // need a target; first wins on dup
+    seen.add(leadId);
+    out.push({
+      leadId,
+      title: asString(obj.title),
+      writeUp: asString(obj.writeUp),
+      hidden: obj.hidden === true,
+    });
   }
   return out;
 }

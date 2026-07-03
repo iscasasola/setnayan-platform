@@ -183,6 +183,19 @@ function LeadMedia({
   );
 }
 
+// ── Write-up (drop-cap serif paragraph) ──────────────────────────────────────
+// Mirrors the lead-article drop-cap treatment in editorial-content.tsx: the first
+// letter floats large in font-display mulberry. A couple's short per-moment story.
+function ChapterWriteUp({ text, className }: { text: string; className?: string }) {
+  return (
+    <p
+      className={`font-serif text-[15px] leading-relaxed text-ink/85 first-letter:float-left first-letter:mr-2 first-letter:pt-1 first-letter:font-display first-letter:text-5xl first-letter:font-bold first-letter:leading-[0.7] first-letter:text-mulberry ${className ?? ''}`}
+    >
+      {text}
+    </p>
+  );
+}
+
 // ── Supporting 2-up photo strip ──────────────────────────────────────────────
 function SupportingStrip({
   media,
@@ -228,11 +241,20 @@ function Chapter({
   const lead = chapter.media[0];
   const supporting = chapter.media.slice(1);
   const isClip = lead?.type === 'clip';
+  const { title, writeUp } = chapter;
   // Alternating desktop layout: even chapters lead media-left, odd flip.
   const flip = index % 2 === 1;
 
   return (
-    <section aria-label={chapter.time ? `A moment ${chapter.time}` : 'A moment from the day'}>
+    <section
+      aria-label={
+        title
+          ? title
+          : chapter.time
+            ? `A moment ${chapter.time}`
+            : 'A moment from the day'
+      }
+    >
       {/* ── Mobile (< lg): full-bleed story panel ─────────────────────────── */}
       <div className="lg:hidden">
         {/* Negative-margin breakout to the article-card edge. The card padding
@@ -247,24 +269,34 @@ function Chapter({
               className="absolute inset-0 h-full w-full [&>video]:h-full [&>img]:h-full"
             />
           ) : null}
-          {/* Bottom scrim + kicker. Scrim inner padding mirrors the card's
-              px-5/sm:px-10 so the kicker stays aligned with the card's text
-              column at every breakpoint. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-ink/80 via-ink/25 to-transparent px-5 pb-6 pt-24 sm:px-10">
-            {chapter.time ? (
-              <span className="font-mono text-xs uppercase tracking-[0.24em] text-cream/90">
-                {chapter.time}
-              </span>
-            ) : (
-              <span aria-hidden />
-            )}
-            {isClip ? (
-              <span className="font-mono text-xs uppercase tracking-[0.16em] text-cream/70">
-                tap for sound
-              </span>
+          {/* Bottom scrim: the couple's moment TITLE (when set) sits above the
+              clock-time kicker, in the display serif. Scrim inner padding mirrors
+              the card's px-5/sm:px-10 so text stays aligned at every breakpoint. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 via-ink/25 to-transparent px-5 pb-6 pt-28 sm:px-10">
+            {title ? (
+              <h3 className="mb-1.5 font-display text-2xl font-bold leading-[0.98] tracking-tight text-cream sm:text-3xl">
+                {title}
+              </h3>
             ) : null}
+            <div className="flex items-end justify-between gap-3">
+              {chapter.time ? (
+                <span className="font-mono text-xs uppercase tracking-[0.24em] text-cream/90">
+                  {chapter.time}
+                </span>
+              ) : (
+                <span aria-hidden />
+              )}
+              {isClip ? (
+                <span className="font-mono text-xs uppercase tracking-[0.16em] text-cream/70">
+                  tap for sound
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
+        {/* The couple's short story for this moment flows below the panel, before
+            the supporting strip. */}
+        {writeUp ? <ChapterWriteUp text={writeUp} className="mt-4" /> : null}
         <SupportingStrip media={supporting} names={names} />
       </div>
 
@@ -294,13 +326,22 @@ function Chapter({
             )
           ) : null}
         </div>
+        {/* Kicker column beside the media — clock-time eyebrow, then (when the
+            couple named the moment) the display-serif title + drop-cap write-up:
+            the "photo dominant, write-up beside it" newspaper spread. */}
         <div className={`lg:col-span-4 ${flip ? 'lg:order-1 lg:pr-2' : 'lg:order-2 lg:pl-2'}`}>
           {chapter.time ? (
             <p className="m-0 font-mono text-xs uppercase tracking-[0.24em] text-terracotta">
               {chapter.time}
             </p>
           ) : null}
+          {title ? (
+            <h3 className="mt-2 font-display text-3xl font-bold leading-[0.98] tracking-tight text-ink">
+              {title}
+            </h3>
+          ) : null}
           <span aria-hidden className="mt-3 block h-px w-16 bg-ink/40" />
+          {writeUp ? <ChapterWriteUp text={writeUp} className="mt-4" /> : null}
           {isClip ? (
             <p className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
               a living moment · tap for sound

@@ -43,15 +43,15 @@ const COPY: Record<
     items: [
       {
         title: 'Personal QR invitations',
-        body: 'Each guest gets a personal invitation site with a branded QR — your monogram in the center, your colors, your URL. Print sheet ready, share-by-link ready, MMS-ready. We render every invite at three aspect ratios so you can post the same invite to a story, a feed, or a print sheet without re-cropping.',
+        body: 'Each guest gets a personal invitation site with a branded QR: your monogram in the center, your colors, your URL. Print sheet ready, share-by-link ready, MMS-ready. We render every invite at three aspect ratios so you can post the same invite to a story, a feed, or a print sheet without re-cropping.',
       },
       {
         title: 'QR codes that do more than open a URL',
         body: 'Each guest’s QR carries their identity. Scanned at the door, it checks them in. Scanned by the photo crew (Papic), it tags candid photos to that guest. Scanned at the photo booth, it pulls their preferred email so the gallery shows up where they actually check.',
       },
       {
-        title: 'Guest microsite — one URL, every detail',
-        body: 'Your /event-slug page is the source of truth for guests: directions to the venue, dress code, the timeline, the gift registry, the live stream link on the day. Multilingual EN / TL toggle. No signup required for guests — they just open the link.',
+        title: 'Guest microsite · one URL, every detail',
+        body: 'Your /event-slug page is the source of truth for guests: directions to the venue, dress code, the timeline, the gift registry, the live stream link on the day. Multilingual EN / TL toggle. No signup required for guests. They just open the link.',
       },
       {
         title: 'RSVP that just works',
@@ -71,15 +71,15 @@ const COPY: Record<
     items: [
       {
         title: 'Personal QR invitations',
-        body: 'Bawat guest ay may sariling invitation site na may branded QR — ang monogram mo sa gitna, ang colors mo, ang URL mo. Print sheet ready, share-by-link ready, MMS-ready. Nire-render namin ang bawat invite sa tatlong aspect ratio para ma-post mo ang parehong invite sa story, feed, o print sheet nang hindi nire-crop ulit.',
+        body: 'Bawat guest ay may sariling invitation site na may branded QR: ang monogram mo sa gitna, ang colors mo, ang URL mo. Print sheet ready, share-by-link ready, MMS-ready. Nire-render namin ang bawat invite sa tatlong aspect ratio para ma-post mo ang parehong invite sa story, feed, o print sheet nang hindi nire-crop ulit.',
       },
       {
         title: 'QR codes na hindi lang basta nagbubukas ng URL',
         body: 'Ang QR ng bawat guest ay may dalang identity nila. Pag na-scan sa pinto, naka-check in na sila. Pag na-scan ng photo crew (Papic), nata-tag ang candid photos sa guest na ‘yun. Pag na-scan sa photo booth, kinukuha nito ang preferred email nila para lumabas ang gallery sa talagang chineck nila.',
       },
       {
-        title: 'Guest microsite — isang URL, lahat ng detalye',
-        body: 'Ang /event-slug page mo ang source of truth para sa mga guest: direksyon papunta sa venue, dress code, ang timeline, ang gift registry, ang live stream link sa mismong araw. Multilingual EN / TL toggle. Walang signup na kailangan ang mga guest — binubuksan lang nila ang link.',
+        title: 'Guest microsite · isang URL, lahat ng detalye',
+        body: 'Ang /event-slug page mo ang source of truth para sa mga guest: direksyon papunta sa venue, dress code, ang timeline, ang gift registry, ang live stream link sa mismong araw. Multilingual EN / TL toggle. Walang signup na kailangan ang mga guest. Binubuksan lang nila ang link.',
       },
       {
         title: 'RSVP na gumagana talaga',

@@ -11,16 +11,16 @@ const COPY: Record<
   { eyebrow: string; heading: string; body: string; ctaPrimary: string; ctaSecondary: string }
 > = {
   en: {
-    eyebrow: 'Set na ‘yan. — it’s all set.',
+    eyebrow: 'Set na ‘yan. · it’s all set.',
     heading: 'That’s the catalog. Want a quote for your event?',
     body: 'Apply now and the Setnayan Team will contact you within 24 hours with your activation link and a quote shaped to your guest count, your venue, and the apparatus you actually want.',
     ctaPrimary: 'Start planning · free',
     ctaSecondary: 'I’m a vendor →',
   },
   tl: {
-    eyebrow: 'Set na ‘yan. — set na lahat.',
+    eyebrow: 'Set na ‘yan. · set na lahat.',
     heading: 'Yan ang catalog. Gusto mo ng quote para sa event mo?',
-    body: 'Mag-apply na, at kokontakin ka ng Setnayan Team within 24 hours — kasama ang activation link mo at isang quote na hinubog para sa guest count mo, sa venue mo, at sa mga apparatus na talagang gusto mo.',
+    body: 'Mag-apply na, at kokontakin ka ng Setnayan Team within 24 hours, kasama ang activation link mo at isang quote na hinubog para sa guest count mo, sa venue mo, at sa mga apparatus na talagang gusto mo.',
     ctaPrimary: 'Magsimula · free',
     ctaSecondary: 'Vendor ako →',
   },

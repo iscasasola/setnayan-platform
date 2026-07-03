@@ -769,15 +769,15 @@ export async function VendorServicesManager({
                           htmlFor={`cover-${svc.vendor_service_id}`}
                           help="The first thing couples see on this card. Required to publish."
                         >
-                          {/* No watermark — matches the wizard's cover upload
-                              (covers are unwatermarked today; showcase photos
-                              are watermarked). Flagged for owner alignment. */}
+                          {/* watermark: owner-locked 2026-07-03 — covers carry
+                              the SETNAYAN watermark like all marketplace photos. */}
                           <FileUpload
                             bucket="media"
                             pathPrefix={`vendors/${profile.vendor_profile_id}/services`}
                             name="primary_photo_r2_key"
                             maxSizeMB={5}
                             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                            watermark
                             variant="square"
                             currentValue={svc.primary_photo_r2_key}
                             initialDisplayUrls={showcaseDisplayUrls}
@@ -1199,13 +1199,15 @@ function AddServiceForm({
         htmlFor={`new-cover-${addCategory}`}
         help="The first thing couples see on this card. Required to publish."
       >
-        {/* No watermark — matches the wizard's cover upload. */}
+        {/* watermark: owner-locked 2026-07-03 — covers carry the SETNAYAN
+            watermark like all marketplace photos. */}
         <FileUpload
           bucket="media"
           pathPrefix={`vendors/${vendorProfileId}/services`}
           name="primary_photo_r2_key"
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+          watermark
           variant="square"
         />
       </Field>

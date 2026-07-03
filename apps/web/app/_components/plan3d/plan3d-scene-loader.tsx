@@ -54,6 +54,9 @@ export function Plan3DSceneLoader(props: {
   onWalkComplete?: () => void;
   roam?: Plan3DRoamRequest;
   interactive?: boolean;
+  /** Lighting/shadow budget — the desktop overlay runs 'high' (default), the
+   *  phone guest walk passes 'low' (1024 shadow map + 128 env map). */
+  quality?: 'high' | 'low';
 }) {
   return <Plan3DSceneInner {...props} />;
 }

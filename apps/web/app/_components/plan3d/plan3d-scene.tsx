@@ -15,9 +15,14 @@
  *     "Where am I seated?", then a scripted entrance→seat walk (`walkTarget`)
  *
  * Low-poly on purpose (brief note: "a low-poly room is fine on mobile") —
- * simple primitives, no textures, no monogram, reuses the pure geometry math
- * from `lib/seating-3d.ts` (the couple lab's engine) so table shapes/seat
- * positions match the real product exactly.
+ * simple primitives, no fetched assets, no monogram, reuses the pure geometry
+ * math from `lib/seating-3d.ts` (the couple lab's engine) so table shapes/seat
+ * positions match the real product exactly. Realism (Wave 2a): lighting comes
+ * from the shared `SceneLighting` rig (procedural IBL + one warm shadow key),
+ * chairs render through the shared per-table `InstancedChairs` (2 draw calls a
+ * table regardless of capacity), and the floor carries a subtle procedural
+ * roughness map. `quality` picks the shadow/env budget: the desktop overlay
+ * runs 'high' (2048 shadow map), the phone walk 'low' (1024 / 128 env).
  *
  * ROAM mode (owner 2026-07-03 "show my seat OR walk around the event"): when
  * `roam` is set, the guest's figure stands in the room and every tap on the
@@ -75,6 +80,13 @@ import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { GuestPhotoAvatar, preloadGuestPhotos } from './guest-avatar';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import {
+  SceneLighting,
+  RECOMMENDED_TONEMAP,
+  floorRoughnessMap,
+  type SceneLightingQuality,
+} from '@/app/_components/plan3d/scene-lighting';
+import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 
 const NEUTRAL_PALETTE = resolvePalette([]); // the lab's warm-neutral default
 
@@ -88,32 +100,49 @@ function TableMesh({
   table,
   room,
   palette,
+  occupiedSeats,
 }: {
   table: Lab3DTable;
   room: { w: number; d: number };
   palette: Lab3DPalette;
+  /** Seat numbers with a guest on them — tints the instanced chairs. */
+  occupiedSeats?: ReadonlySet<number>;
 }) {
   const pos = pctToWorld(table.xPct, table.yPct, room);
   const dims = tableDims(table.shape, table.capacity);
   const ry = (-table.rotationDeg * Math.PI) / 180;
+  // Table-local chair placements — 2 instanced draw calls per table (Wave 2a).
+  const chairs = useMemo(
+    () => chairPlacements(table.shape, table.capacity),
+    [table.shape, table.capacity],
+  );
   return (
     <group position={[pos.x, 0, pos.z]} rotation={[0, ry, 0]}>
+      {/* Tabletop at the product-true 0.74 m (was a toy-height 0.38 before the
+          chairs landed — a 0.46 m chair seat must tuck UNDER the top). */}
       {dims.round ? (
-        <mesh position={[0, 0.38, 0]} castShadow receiveShadow>
+        <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.06, 24]} />
-          <meshStandardMaterial color={palette.table} />
+          <meshStandardMaterial color={palette.table} roughness={0.85} />
         </mesh>
       ) : (
-        <mesh position={[0, 0.38, 0]} castShadow receiveShadow>
+        <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <boxGeometry args={[dims.w, 0.06, dims.d || dims.w]} />
-          <meshStandardMaterial color={palette.table} />
+          <meshStandardMaterial color={palette.table} roughness={0.85} />
         </mesh>
       )}
       {/* one leg-post per table, purely for a grounded look at low-poly cost */}
-      <mesh position={[0, 0.18, 0]}>
-        <cylinderGeometry args={[0.06, 0.06, 0.36, 8]} />
-        <meshStandardMaterial color={palette.wall} />
+      <mesh position={[0, 0.36, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 0.72, 8]} />
+        <meshStandardMaterial color={palette.wall} roughness={0.6} />
       </mesh>
+      <InstancedChairs
+        chairs={chairs}
+        removedSeats={table.removedSeats}
+        occupiedSeats={occupiedSeats}
+        color={palette.wall}
+        accent={palette.accent}
+      />
     </group>
   );
 }
@@ -142,18 +171,21 @@ function GuestToken({
       }}
       onPointerOut={() => setHovered(false)}
     >
-      <mesh position={[0, 0.42, 0]} castShadow>
+      {/* Seated at chair height (0.46 m seat) now the tables are product-true
+          0.74 m — same proportions as the lab's SeatedAvatar. */}
+      <mesh position={[0, 0.71, 0]} castShadow>
         <cylinderGeometry args={[0.16, 0.19, 0.5, 10]} />
-        <meshStandardMaterial color={color} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
+        <meshStandardMaterial color={color} roughness={0.5} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
       </mesh>
       {photoUrl ? (
         // Instant guest recognition: the guest's photo billboards where the head
-        // would be. Shared cache/fallback keeps big guest lists fast.
-        <GuestPhotoAvatar photoUrl={photoUrl} name={name} ringColor={color} height={0.82} radius={0.18} />
+        // would be. Shared cache/fallback keeps big guest lists fast. (The
+        // billboard disc must NOT cast a shadow — it would shadow as a circle.)
+        <GuestPhotoAvatar photoUrl={photoUrl} name={name} ringColor={color} height={1.12} radius={0.18} />
       ) : (
-        <mesh position={[0, 0.78, 0]} castShadow>
+        <mesh position={[0, 1.06, 0]} castShadow>
           <sphereGeometry args={[0.15, 12, 12]} />
-          <meshStandardMaterial color={color} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
+          <meshStandardMaterial color={color} roughness={0.5} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
         </mesh>
       )}
     </group>
@@ -161,19 +193,20 @@ function GuestToken({
 }
 
 function EntranceMark({ position, palette }: { position: Vec2; palette: Lab3DPalette }) {
+  // A metal doorway frame — one of the room's metallic accents (Wave 2a).
   return (
     <group position={[position.x, 0, position.z]}>
-      <mesh position={[-0.55, 0.55, 0]}>
+      <mesh position={[-0.55, 0.55, 0]} castShadow>
         <boxGeometry args={[0.1, 1.1, 0.1]} />
-        <meshStandardMaterial color={palette.accent} />
+        <meshStandardMaterial color={palette.accent} roughness={0.35} metalness={0.7} />
       </mesh>
-      <mesh position={[0.55, 0.55, 0]}>
+      <mesh position={[0.55, 0.55, 0]} castShadow>
         <boxGeometry args={[0.1, 1.1, 0.1]} />
-        <meshStandardMaterial color={palette.accent} />
+        <meshStandardMaterial color={palette.accent} roughness={0.35} metalness={0.7} />
       </mesh>
-      <mesh position={[0, 1.12, 0]}>
+      <mesh position={[0, 1.12, 0]} castShadow>
         <boxGeometry args={[1.3, 0.08, 0.1]} />
-        <meshStandardMaterial color={palette.accent} />
+        <meshStandardMaterial color={palette.accent} roughness={0.35} metalness={0.7} />
       </mesh>
     </group>
   );
@@ -337,13 +370,13 @@ function Walker({
 
   return (
     <group ref={groupRef}>
-      <mesh position={[0, 0.42, 0]} castShadow>
+      <mesh position={[0, 0.5, 0]} castShadow>
         <cylinderGeometry args={[0.16, 0.19, 0.5, 10]} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={color} roughness={0.5} />
       </mesh>
-      <mesh position={[0, 0.78, 0]} castShadow>
+      <mesh position={[0, 0.92, 0]} castShadow>
         <sphereGeometry args={[0.15, 12, 12]} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={color} roughness={0.5} />
       </mesh>
     </group>
   );
@@ -366,6 +399,7 @@ export function Plan3DScene({
   onWalkComplete,
   roam,
   interactive = true,
+  quality = 'high',
 }: {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
@@ -385,6 +419,9 @@ export function Plan3DScene({
    *  them there. Mutually exclusive with `walkTarget` (callers pass one). */
   roam?: Plan3DRoamRequest;
   interactive?: boolean;
+  /** Lighting/shadow budget — 'high' for the desktop overlay, 'low' for the
+   *  phone walk (1024 shadow map + 128 env map). Defaults to 'high'. */
+  quality?: SceneLightingQuality;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const room = useMemo(() => roomSize(floor), [floor]);
@@ -415,6 +452,21 @@ export function Plan3DScene({
 
   const walkGuest = walkTarget ? guests.find((g) => g.id === walkTarget.guestId) ?? null : null;
   const walkTable = walkGuest ? tablesById.get(walkGuest.tableId) ?? null : null;
+
+  // Seat numbers occupied per table — tints each table's instanced chairs.
+  const occupiedByTable = useMemo(() => {
+    const m = new Map<string, Set<number>>();
+    for (const g of guests) {
+      if (g.seatNumber == null) continue;
+      let s = m.get(g.tableId);
+      if (!s) {
+        s = new Set<number>();
+        m.set(g.tableId, s);
+      }
+      s.add(g.seatNumber);
+    }
+    return m;
+  }, [guests]);
 
   const roamGuest = roam ? guests.find((g) => g.id === roam.guestId) ?? null : null;
   const roamSeat = useMemo(() => {
@@ -507,28 +559,31 @@ export function Plan3DScene({
   return (
     <Canvas
       shadows
+      dpr={[1, 2]}
       camera={{ position: initialCamPos, fov: 48, near: 0.1, far: 200 }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
+      gl={{ ...RECOMMENDED_TONEMAP }}
       onPointerMissed={() => {}}
     >
-      <ambientLight intensity={0.75} />
-      <directionalLight position={[room.w * 0.4, 10, room.d * 0.3]} intensity={1.05} castShadow />
+      <SceneLighting palette={palette} quality={quality} room={room} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={roam ? handleFloorTap : undefined}>
         <planeGeometry args={[room.w, room.d]} />
-        <meshStandardMaterial color={palette.floor} />
+        <meshStandardMaterial color={palette.floor} roughness={0.9} roughnessMap={floorRoughnessMap()} />
       </mesh>
       <mesh
         position={[pctToWorld(floor.stage.xPct, floor.stage.yPct, room).x, 0.14, pctToWorld(floor.stage.xPct, floor.stage.yPct, room).z]}
+        castShadow
+        receiveShadow
       >
         <boxGeometry
           args={[Math.max(1.5, (floor.stage.wPct / 100) * room.w), 0.28, Math.max(1, (floor.stage.hPct / 100) * room.d)]}
         />
-        <meshStandardMaterial color={palette.accent} />
+        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
       <EntranceMark position={entranceWorld} palette={palette} />
 
       {tables.map((t) => (
-        <TableMesh key={t.id} table={t} room={room} palette={palette} />
+        <TableMesh key={t.id} table={t} room={room} palette={palette} occupiedSeats={occupiedByTable.get(t.id)} />
       ))}
 
       {/* Placed venue fixtures — objects · booths · signs · cocktail room. */}

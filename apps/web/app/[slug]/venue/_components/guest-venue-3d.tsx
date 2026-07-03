@@ -21,7 +21,6 @@ import {
   pctToWorld,
   tableDims,
   shapeHintFor,
-  chairLocalPositions,
   seatWorld,
   steerPath,
   seatApproachPath,
@@ -46,6 +45,8 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
+import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
+import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 
 export type VenueScene = {
   published: boolean;
@@ -84,7 +85,6 @@ export type VenueScene = {
   rolePalette?: RolePalette;
 };
 
-const CHAIR_GEO = new THREE.BoxGeometry(0.42, 0.5, 0.42);
 const TOKEN_GEO = new THREE.CylinderGeometry(0.14, 0.16, 0.5, 10);
 
 /** One table: a top + chairs, occupied seats get a token, the guest's own seat glows.
@@ -111,29 +111,39 @@ function GuestTable({
   nameBySeat: Map<number, string> | undefined;
 }) {
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
-  const chairs = useMemo(() => chairLocalPositions(table.shape, table.capacity), [table.shape, table.capacity]);
+  // Shared placements (seat + facing) — feeds the 2-draw-call InstancedChairs
+  // (Wave 2a; same silhouette as the couple lab, replacing the plain cube).
+  const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   return (
     <group position={[home.x, 0, home.z]} rotation={[0, (-table.rotationDeg * Math.PI) / 180, 0]}>
       {dims.round ? (
-        <mesh position={[0, 0.74, 0]}>
+        <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 28]} />
-          <meshStandardMaterial color={palette.table} roughness={0.5} />
+          <meshStandardMaterial color={palette.table} roughness={0.85} />
         </mesh>
       ) : (
-        <mesh position={[0, 0.74, 0]}>
+        <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <boxGeometry args={[dims.w, 0.08, dims.d]} />
-          <meshStandardMaterial color={palette.table} roughness={0.5} />
+          <meshStandardMaterial color={palette.table} roughness={0.85} />
         </mesh>
       )}
       <mesh position={[0, 0.37, 0]}>
         <cylinderGeometry args={[0.12, 0.16, 0.72, 10]} />
-        <meshStandardMaterial color={palette.wall} roughness={0.7} />
+        <meshStandardMaterial color={palette.wall} roughness={0.6} />
       </mesh>
+      <InstancedChairs
+        chairs={chairs}
+        removedSeats={table.removedSeats}
+        occupiedSeats={occupied}
+        color={palette.wall}
+        accent={palette.accent}
+      />
       {chairs.map((c, i) => {
-        const ang = Math.atan2(c.x, c.z);
+        const ang = c.faceY;
         const taken = occupied?.has(i);
         const mine = yourSeat === i;
+        if (!taken && !mine) return null;
         // Host enabled photos + this seat has a resolved face → wear the shared
         // photo avatar. Ring colour follows the token convention (own seat =
         // accent, others = table). No photo → the plain token, unchanged.
@@ -141,19 +151,18 @@ function GuestTable({
         const ringColor = mine ? palette.accent : palette.table;
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
-            <mesh geometry={CHAIR_GEO} position={[0, 0.25, 0]}>
-              <meshStandardMaterial color={palette.wall} roughness={0.75} />
-            </mesh>
             {taken && photoUrl ? (
+              // Billboard photo disc — must NOT cast a shadow (it would shadow
+              // as a floating circle); lifted above the new chair backrest.
               <GuestPhotoAvatar
                 photoUrl={photoUrl}
                 name={nameBySeat?.get(i) ?? ''}
                 ringColor={ringColor}
                 radius={0.16}
-                height={0.92}
+                height={1.05}
               />
             ) : taken ? (
-              <mesh geometry={TOKEN_GEO} position={[0, 0.75, -0.04]}>
+              <mesh geometry={TOKEN_GEO} position={[0, 0.75, -0.04]} castShadow>
                 <meshStandardMaterial color={mine ? palette.accent : palette.table} roughness={0.5} emissive={mine ? palette.accent : '#000'} emissiveIntensity={mine ? 0.5 : 0} />
               </mesh>
             ) : null}
@@ -251,11 +260,11 @@ function GuestAvatar({
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <mesh position={[0, 0.55, 0]}>
+      <mesh position={[0, 0.55, 0]} castShadow>
         <capsuleGeometry args={[0.18, 0.5, 6, 12]} />
         <meshStandardMaterial color={palette.accent} roughness={0.4} emissive={palette.accent} emissiveIntensity={0.3} />
       </mesh>
-      <mesh position={[0, 1.0, 0]}>
+      <mesh position={[0, 1.0, 0]} castShadow>
         <sphereGeometry args={[0.16, 16, 16]} />
         <meshStandardMaterial color={palette.table} roughness={0.5} />
       </mesh>
@@ -445,17 +454,23 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
 
   return (
     <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl bg-[#0c0e14]">
-      <Canvas shadows={false} dpr={[1, 1.5]} camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}>
+      <Canvas
+        shadows
+        dpr={[1, 1.5]}
+        camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}
+        gl={{ ...RECOMMENDED_TONEMAP }}
+      >
         <color attach="background" args={['#0c0e14']} />
         <fog attach="fog" args={['#0c0e14', room.d * 1.4, room.d * 3.2]} />
-        <ambientLight intensity={0.8} color={palette.ambient} />
-        <hemisphereLight intensity={0.45} color={palette.ambient} groundColor={palette.floor} />
-        <directionalLight position={[room.w * 0.5, room.d + 8, room.d * 0.4]} intensity={1.15} color="#fff6ea" />
+        {/* Shared rig (Wave 2a) at 'low' — guests explore on phones, so the
+            1024 shadow map + 128 env map budget. */}
+        <SceneLighting palette={palette} quality="low" room={room} />
 
         {/* Floor — tap anywhere to walk there (Sims roam). */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, 0]}
+          receiveShadow
           onPointerDown={(e: ThreeEvent<PointerEvent>) => {
             const x = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
             const z = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
@@ -463,11 +478,11 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           }}
         >
           <planeGeometry args={[room.w, room.d]} />
-          <meshStandardMaterial color={palette.floor} roughness={0.95} />
+          <meshStandardMaterial color={palette.floor} roughness={0.95} roughnessMap={floorRoughnessMap()} />
         </mesh>
 
         {/* Stage */}
-        <mesh position={[stage.x, 0.15, stage.z]}>
+        <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
           <boxGeometry args={[stageW, 0.3, stageD]} />
           <meshStandardMaterial color={palette.table} roughness={0.6} />
         </mesh>

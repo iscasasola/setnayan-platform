@@ -71,6 +71,8 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           onWalkComplete={() => setPhase('arrived')}
           roam={phase === 'roam' ? { guestId: guest.id } : null}
           interactive={false}
+          // Phone surface — halve the shadow/env budget (Wave 2a quality knob).
+          quality="low"
         />
       </div>
 

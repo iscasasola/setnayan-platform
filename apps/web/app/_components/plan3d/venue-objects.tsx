@@ -15,7 +15,8 @@
  * discipline the shared `TableMesh` follows.
  *
  * Tasteful low-poly primitives on purpose (the demo is a homepage overlay; the
- * guest walk runs on phones): boxes / cylinders / cones, no textures, no troika
+ * guest walk runs on phones): boxes / cylinders / cones, no fetched assets
+ * (the cocktail floor shares the procedural roughness map only), no troika
  * text (so nothing fetches a font at runtime). Labels are color-coded panels the
  * surfaces' existing HTML-HUD conventions complement — the fixture READS as what
  * it is from its silhouette + accent colour. Footprints come from
@@ -27,6 +28,7 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
 import {
   pctToWorld,
   venueObjectDims,
@@ -91,11 +93,11 @@ function renderKind(kind: string, w: number, d: number, palette: Lab3DPalette) {
         </group>
       );
     case 'led_wall':
-      // A tall thin emissive panel — the LED wall.
+      // A tall thin emissive panel — the LED wall (metal frame grade, Wave 2a).
       return (
         <mesh position={[0, 1.4, 0]} castShadow>
           <boxGeometry args={[w, 2.8, Math.max(0.12, d)]} />
-          <meshStandardMaterial color="#10131b" emissive={palette.accent} emissiveIntensity={0.45} roughness={0.3} metalness={0.4} />
+          <meshStandardMaterial color="#10131b" emissive={palette.accent} emissiveIntensity={0.45} roughness={0.3} metalness={0.7} />
         </mesh>
       );
     case 'plant':
@@ -128,7 +130,8 @@ function renderKind(kind: string, w: number, d: number, palette: Lab3DPalette) {
       );
     case 'bar':
     case 'buffet':
-      // A counter with a raised back rail — bar / buffet station.
+      // A counter with a raised back rail — bar / buffet station. The counter
+      // top is the room's clearest metal accent (Wave 2a materials pass).
       return (
         <group>
           <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
@@ -137,7 +140,7 @@ function renderKind(kind: string, w: number, d: number, palette: Lab3DPalette) {
           </mesh>
           <mesh position={[0, 1.16, 0]} castShadow>
             <boxGeometry args={[w, 0.06, d]} />
-            <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.2} />
+            <meshStandardMaterial color={palette.accent} roughness={0.3} metalness={0.7} />
           </mesh>
         </group>
       );
@@ -261,7 +264,7 @@ export function CocktailRoom({ cocktail, room, palette }: { cocktail: NonNullabl
       {/* Floor plane — a hair above the ground so it never z-fights the reception floor. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]} receiveShadow>
         <planeGeometry args={[w, d]} />
-        <meshStandardMaterial color={palette.floor} roughness={0.95} />
+        <meshStandardMaterial color={palette.floor} roughness={0.95} roughnessMap={floorRoughnessMap()} />
       </mesh>
       {/* Accent trim ring on the floor edge. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>

@@ -57,8 +57,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     sectionId: 'hr-p1',
     name: 'Ala ala',
     role: 'Memory Hub',
-    head: 'A gallery stores photos. This keeps the memory.',
-    desc: 'Free, for life. Every event you host and attend, kept as a living story long after the day.',
+    head: 'Some days are too beautiful to live only once.',
+    desc: 'Every photo, every clip, every story of your day, waiting for you to step back into whenever you miss it. Yours for life.',
     photo:
       'radial-gradient(120% 85% at 50% 25%, #B0ABA4 0%, #847d74 42%, #524c44 78%, #34302b 100%)',
   },
@@ -67,8 +67,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     sectionId: 'hr-p4',
     name: 'Suri',
     role: 'Setnayan AI',
-    head: 'Skip the chatbot. It watches your event for you.',
-    desc: 'Your planning brain. It tracks the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.',
+    head: 'Plan like you have someone doing it for you.',
+    desc: 'Suri quietly watches over every vendor and every detail, and comes to you only when it’s time to decide. So it all feels effortless.',
     photo: 'radial-gradient(100% 85% at 50% 35%, #A6AEB6 0%, #757d86 44%, #383f47 100%)',
   },
   {
@@ -77,8 +77,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 2 }, // Likha → Papic preview
     name: 'Papic',
     role: 'Candid capture',
-    head: 'No photographer can be everywhere. Guests can.',
-    desc: 'Your crew and guests catch what one photographer can’t. Every photo and clip lands in one gallery, tagged to who’s in it, in real time.',
+    head: 'See your day through a hundred pairs of eyes.',
+    desc: 'Every laugh, every tear, every quiet moment your guests caught, gathered before the night is even over.',
     photo: 'radial-gradient(90% 80% at 50% 40%, #B6ADBA 0%, #837b8a 42%, #463f4d 82%)',
   },
   {
@@ -87,8 +87,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 3 }, // Likha → Live Studio preview
     name: 'Panood',
     role: 'Live Studio',
-    head: 'The ones who couldn’t come get a front-row seat.',
-    desc: 'Stream straight to your event page in one tap, free with a single camera. Add the multicam control room when you want a full broadcast.',
+    head: 'Everyone you love, there. Wherever they are.',
+    desc: 'The people who couldn’t travel watch it all unfold live, as if they were sitting in the front row the whole time.',
     photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
   },
   {
@@ -97,8 +97,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     feat: { pillar: 1, card: 4 }, // Likha → 3D Plan preview
     name: '3D Plan',
     role: 'Seating in 3D',
-    head: 'Stand in the room before the day arrives.',
-    desc: 'Build your seating chart, then step inside it in 3D. Place every table, check the sightlines, and walk the room as your guests will.',
+    head: 'Walk into your dream before it’s real.',
+    desc: 'See your reception come to life in 3D, every table and every detail in place, the exact room your guests will walk into on the day.',
     photo: 'linear-gradient(160deg, #BBB4AC 0%, #8a8077 46%, #524a40 100%)',
   },
 ];

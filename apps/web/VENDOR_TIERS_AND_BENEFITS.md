@@ -138,6 +138,8 @@ _Append a dated entry whenever you change something the other session relies on.
 
 - **2026-07-04 · strategy session — CUSTOM RATE CARD FULLY SIGNED (owner, all 5 remaining items).** Decisions: **Enterprise reach = 100 km** (supersedes the 2026-07-01 "nationwide" cap; reach beyond 100 km = Custom revenue at +₱499/100km · nationwide +₱2,499) · **extra seat ₱250** (the §10 ₱500 figure is dead; **PR #2623 auto-merge armed, merges as-is**) · slot ₱499 / photos ₱99 approved · annual = 10×28d + per-answer tokens confirmed. §2 Enterprise updated (reach up to 100 km; seat add-on ₱250). **Dashboard session actions:** merge #2623 · `TIER_CAPS` enterprise `serviceRadiusKm` ∞→100 · sweep public copy for Enterprise "nationwide" claims · Stage-2 configurator build is GO (Opus brief after #2623 + this PR land).
 
+- **2026-07-04 · strategy session — TWO LINES ADDED to the signed Custom card (owner: "okay add them. monthly tokens.").** (1) **Included tokens per cycle at flat ₱100 each** — bundled face-value prepay ("monthly" = per 28-day cycle per the month-lock), explicitly NOT a bulk discount; configurator slider 0–500 step 25. (2) **Custom domain +₱499/cycle** — vendor's own domain on their Setnayan website; ⚠ depends on the slug-program custom-domains build (pending) — becomes its first funded use case. Also discussed-and-parked: recurring boost slots (add when a prospect asks) + quarterly market-intel report + one-time onboarding line (needs one-time-vs-recurring support in the configurator). **Never-sell guardrails restated: no paid ranking/matching priority (merit-only lock) · no paid verification/badges · no storage-as-profit.** Prototype re-published with both sliders.
+
 ## 6 · Verification audit (2026-07-01 · origin/main HEAD `3dec2cb`)
 
 Source of truth: coded `apps/web/lib/vendor-tier-caps.ts` + DB `vendor_billing_catalog`. **Where §6 disagrees with §2's intended allocation, §6 is the as-built reality.** 85 per-benefit verdicts reconciled. `TIER_CAPS` is real, single-source, enforced by 26 importers (services/actions, calendar/actions, team/actions, vendor-dashboard/actions, chat-send, proposal-send). Ladder was retuned 2026-06-25 → strictly monotonic Free < Verified < Solo.
@@ -226,6 +228,8 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 | Extra seat (beyond the org's 10) | **+₱250** ✅ | Reuses the Enterprise extra-seat add-on (**owner-decided 2026-07-04** — the §10 ₱500 figure is dead; PR #2623 merges as-is) |
 | +1 event slot per category | +₱499 | Capacity on the shared pool |
 | +100 portfolio photos | +₱99 | Deliberately near-cost — storage is a retention convenience, **never a profit line** (tax-aware-floor lock) |
+| Included tokens, per cycle | **+₱100 each** ✅ | Inquiry tokens bundled into every 28-day cycle at flat face value (**owner-added 2026-07-04**) — prepaid convenience for volume answering, NOT a discount (keeps the no-bulk-discount call intact). Configurator slider 0–500, step 25 |
+| Custom domain | **+₱499** ✅ | Vendor's own domain (e.g. `yourbrand.ph`) pointing at their Setnayan website (**owner-added 2026-07-04**). ⚠ Build dependency: the slug-routing program's custom-domains work is still pending — this line gives it a paying customer |
 
 ### Quote formula
 
@@ -241,6 +245,7 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 - **5-branch franchise scaling up** (30 seats · 600 photos): 12,995 + 20 × 250 + 3 × 99 = 18,292 → **₱18,299/28d** (seat line pending the ₱250/₱500 pick).
 - **Single-brand studio needing 12 events/category + 400 photos:** NOT Custom — Enterprise 7,499 + 4 × 499 + 1 × 99 = 9,594 → **₱9,599/28d** as Enterprise + overflow units. (The same composition inside Custom = 8,999 + 4 × 499 + 99 = ₱11,099 — the ₱1,500 delta is the white-glove premium, as intended.)
 - **5-branch franchise going nationwide:** 12,995 + 2,499 = 15,494 → **₱15,499/28d · ₱154,999/yr**.
+- **Same franchise, full service** (+100 tokens/cycle + custom domain): 15,494 + 10,000 + 499 = 25,993 → **₱25,999/28d · ₱259,999/yr**.
 - **Multi-brand house:** not a Custom composition — one vendor account per brand, each on its own tier (owner 2026-07-03).
 
 ### What Custom does NOT change
@@ -255,7 +260,7 @@ Admin computes the quote from this card → creates an org-scoped `vendor_billin
 
 **Owner: "the customization will be vendor AND admin side — they can move the line sliders to meet their demand."** Not an admin-only quote tool; a two-surface configurator over the same rate card:
 
-- **Vendor side (self-serve):** a "Build your Custom plan" panel on `/vendor-dashboard/subscription` — **one slider per rate-card line** (branches · reach in km, topping out at Nationwide · team seats · event slots per category · portfolio photo packs), baselines pinned at what the base includes. Price recomputes **live** as sliders move (charm-rounded · floored at the base · 28d/annual toggle at 10×). Submitting creates the org-scoped apply-then-pay order with an **admin review handshake** before activation (same approval pattern as the STD-openings buy flow).
+- **Vendor side (self-serve):** a "Build your Custom plan" panel on `/vendor-dashboard/subscription` — **one slider per rate-card line** (branches · reach in km, topping out at Nationwide · team seats · event slots per category · portfolio photo packs · included tokens per cycle · custom domain toggle), baselines pinned at what the base includes. Price recomputes **live** as sliders move (charm-rounded · floored at the base · 28d/annual toggle at 10×). Submitting creates the org-scoped apply-then-pay order with an **admin review handshake** before activation (same approval pattern as the STD-openings buy flow).
 - **Admin side (HQ):** the same sliders scoped to any vendor org for negotiated deals, **plus unit-price control** — line prices live in the admin catalog (admin-managed-pricing lock) and the vendor's sliders read whatever admin set. Admin can also compose + send a quote directly (payment-instructions email).
 - **Provisioning:** acceptance sets `tier_state='custom'` with effective caps = base + purchased units (same `effectiveSeatCap` composition pattern); renewals fold all units into one order.
 
@@ -270,6 +275,7 @@ All numbers locked (decision trail: 2026-07-03 branches/brand · 2026-07-04 base
 - **+₱499 per +100 km reach · Nationwide flat +₱2,499** — Enterprise re-capped at **100 km** (supersedes the 2026-07-01 "nationwide" cap).
 - **+₱250** per extra seat (PR #2623 merges as-is; §10's ₱500 is dead).
 - **+₱499** per +1 event slot/category · **+₱99** per +100 photos.
+- **+₱100 per included token/cycle** (flat face value, no discount) · **+₱499** custom domain (**owner-added 2026-07-04**).
 - **Annual = 10 × 28d** (13 cycles, 3 free) · tokens burn per answer like every tier, no bulk discount in v1.
 - Charm-round UP to ‑99 · floor at base · prices admin-managed (the card is seeded values, not hardcoded).
 

@@ -34,6 +34,7 @@ import {
   type VenueObjectKind,
 } from '@/lib/seating-3d';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
 import { createDemoSession, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { renderUrlQrSvg } from '@/lib/qr';
 
@@ -68,6 +69,14 @@ export type Plan3DScene = {
    *  couple-facing venue walk (`guest-venue-3d.tsx`) themes from. Empty object
    *  when the event never set one (→ scene falls back to the neutral default). */
   rolePalette: RolePalette;
+  /** The couple's saved reception treatments (events.reception_design), sanitized
+   *  against the RECEPTION_PARTS vocabulary. Drives the Wave-2b 3D decor (ceiling
+   *  chandeliers / draped or floral backdrop / centrepieces …). Empty {} → the
+   *  DEFAULT_DESIGN treatments render (via `sel()`). Themed toggle gates it. */
+  receptionDesign: ReceptionDesign;
+  /** The room ARCHETYPE (events.venue_setting, default 'banquet_hall') — drives
+   *  the Wave-2b `VenueShell` swap (garden greenery / chapel windows / barn …). */
+  venueSetting: string;
 };
 
 function toPlan3DSide(side: string | null): 'bride' | 'groom' | 'both' {
@@ -227,6 +236,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     brideName: ev.bride_name ?? 'Maria',
     groomName: ev.groom_name ?? 'Jose',
     rolePalette: sanitizeRolePalette(ev.role_palette ?? {}),
+    receptionDesign: sanitizeReceptionDesign(ev.reception_design),
+    venueSetting: typeof ev.venue_setting === 'string' && ev.venue_setting ? ev.venue_setting : 'banquet_hall',
   };
 }
 

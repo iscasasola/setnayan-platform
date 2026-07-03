@@ -16,6 +16,7 @@ import type {
   Lab3DCocktail,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
+import type { ReceptionDesign } from '@/lib/reception-scene';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import type { Plan3DWalkRequest, Plan3DRoamRequest } from './plan3d-scene';
 
@@ -49,6 +50,8 @@ export function Plan3DSceneLoader(props: {
   signs?: Lab3DSign[];
   cocktail?: Lab3DCocktail;
   rolePalette?: RolePalette;
+  receptionDesign?: ReceptionDesign;
+  venueSetting?: string;
   onGuestClick?: (guestId: string) => void;
   walkTarget?: Plan3DWalkRequest;
   onWalkComplete?: () => void;

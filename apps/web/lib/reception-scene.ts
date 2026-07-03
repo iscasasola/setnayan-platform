@@ -255,6 +255,45 @@ export function sel(design: ReceptionDesign, part: PartId, attr: string): string
   return design[part]?.[attr] ?? DEFAULT_DESIGN[part][attr]!;
 }
 
+/** Fast lookup of every VALID option id per part → attribute, built once from
+ *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids. */
+const VALID_OPTIONS: Record<string, Record<string, Set<string>>> = (() => {
+  const out: Record<string, Record<string, Set<string>>> = {};
+  for (const part of RECEPTION_PARTS) {
+    out[part.id] = {};
+    for (const attr of part.attributes) {
+      out[part.id]![attr.id] = new Set(attr.options.map((o) => o.id));
+    }
+  }
+  return out;
+})();
+
+/**
+ * Coerce an arbitrary JSONB blob (e.g. `events.reception_design`) into a clean
+ * `ReceptionDesign` — keeping ONLY known part → attribute → valid-option-id
+ * triples and dropping everything else. `sel()` already falls back per-attribute,
+ * so an empty result is safe (renders DEFAULT_DESIGN). Pure + total: never throws
+ * on a malformed value, always returns a usable object. This is the single
+ * trust boundary every 3D/SVG consumer of the stored design should pass through.
+ */
+export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const src = raw as Record<string, unknown>;
+  const out: ReceptionDesign = {};
+  for (const [partId, attrs] of Object.entries(VALID_OPTIONS)) {
+    const partVal = src[partId];
+    if (!partVal || typeof partVal !== 'object' || Array.isArray(partVal)) continue;
+    const partSrc = partVal as Record<string, unknown>;
+    const kept: Record<string, string> = {};
+    for (const [attrId, allowed] of Object.entries(attrs)) {
+      const v = partSrc[attrId];
+      if (typeof v === 'string' && allowed.has(v)) kept[attrId] = v;
+    }
+    if (Object.keys(kept).length > 0) out[partId as PartId] = kept;
+  }
+  return out;
+}
+
 // ---- palette ----
 const DEFAULTS = ['#C9A059', '#8C6BA6', '#D98BA6', '#9CB29A', '#F3ECE0'];
 const LINEN = '#FBF7F0';

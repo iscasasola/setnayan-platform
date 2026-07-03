@@ -11,6 +11,7 @@
  * and scoped under `.home-reskin` (see home-reskin.css).
  */
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 
 export type PillarHero = {
   /** stable tile id (also the admin background-video slot key) */
@@ -189,21 +190,21 @@ const AlaEditorial = (
   <div className="hr-pmock hr-me-ed" data-i="1">
     <div className="hr-me-mast">
       <span className="hr-nm">Alaala</span>
-      <span className="hr-dt">The Reyes Wedding · Edition 01</span>
+      <span className="hr-dt">Maria &amp; Juan · Edition 01</span>
     </div>
-    <div className="hr-me-beat">Beat 03 · The Ceremony</div>
-    <h3 className="hr-me-hl">The first look.</h3>
+    <div className="hr-me-beat">Beat 02 · The first look</div>
+    <h3 className="hr-me-hl">The exact second his composure gave up.</h3>
     <div className="hr-me-spread">
       <div className="hr-me-fig" />
       <p className="hr-me-narr">
-        He turned, and the whole room went quiet. <b>Twenty-two years</b> of friends and family,
-        holding one breath at once.
+        Juan waited at the end of the garden path with his back turned. He heard her step on the
+        gravel — and <b>nobody coached what happened next</b>.
       </p>
     </div>
     <div className="hr-me-quote">
       <span className="hr-qm">“</span>
-      <p>I have never seen Lolo cry like that. The boy he raised, all grown — at the end of the aisle.</p>
-      <span className="hr-att">— Tita Let, on the bride’s side</span>
+      <p>When Maria walked in, the whole garden went quiet. Even the birds.</p>
+      <span className="hr-att">— Ate Celine, Maid of Honor</span>
     </div>
     <div className="hr-me-share">
       <span className="hr-lb">Share</span>
@@ -211,7 +212,16 @@ const AlaEditorial = (
       <span className="hr-si">◎</span>
       <span className="hr-si">𝕏</span>
       <span className="hr-si">↗</span>
-      <span className="hr-more">Read full edition →</span>
+      {/* Two COMPLETE sample editorials (owner 2026-07-03) — these are real,
+          readable pages at /realstories, not mock chrome. */}
+      <Link className="hr-more" href="/realstories/maria-and-juan-tagaytay-garden-wedding">
+        Read full edition →
+      </Link>
+    </div>
+    <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
+      <Link href="/realstories/sofia-reyes-makati-debut" style={{ color: 'inherit' }}>
+        Also complete: Sofia&rsquo;s debut · Edition 06 →
+      </Link>
     </div>
   </div>
 );
@@ -1119,7 +1129,17 @@ export const PILLARS: Pillar[] = [
       {
         ic: '¶',
         fn: 'Editorials',
-        fl: 'Far more memorable than scribbling in a photo album. Every event becomes an editorial — a real storyline you can relive, as if you were there again: write-ups, photos, what your guests said, and short clips (not full films) — shareable straight to your socials. The front-page story of your life.',
+        fl: (
+          <>
+            Far more memorable than scribbling in a photo album. Every event becomes an editorial —
+            a real storyline you can relive, as if you were there again: write-ups, photos, what
+            your guests said, and short clips (not full films) — shareable straight to your socials.
+            The front-page story of your life.{' '}
+            <em>
+              Read two complete sample editions now — a Tagaytay wedding and a Makati debut.
+            </em>
+          </>
+        ),
       },
       {
         ic: '▦',

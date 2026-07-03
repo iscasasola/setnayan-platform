@@ -2390,9 +2390,10 @@ function jackAndRose(): EditorialData {
 // exact same EditorialData shape so it flows through the real EditorialContent
 // engine like every other sample. Debut-true throughout: eighteen roses, a
 // cotillion, eighteen candles — never vows, never a bridal march. Content mined
-// from lib/real-weddings.ts (sofia-reyes-makati-debut). Only ONE still exists
-// for this sample (sofia-reyes-makati.jpg); the day chapters lean on the two
-// generated Ken Burns clips + that still so the edition still reads as living.
+// from lib/real-weddings.ts (sofia-reyes-makati-debut). Only ONE source still
+// exists for this sample (sofia-reyes-makati.jpg); the edition varies it via
+// two generated Ken Burns clips + three distinct crops (sofia-reyes-c1/c2/c3)
+// so no two adjacent surfaces show the same frame.
 function sofiaReyes(): EditorialData {
   const guests = 200;
   return {
@@ -2478,11 +2479,19 @@ function sofiaReyes(): EditorialData {
       { author: 'Bea', role: 'best friend, eighteenth candle', quote: 'The dessert bar had her baby pictures on it. Genius. Devastating. Genius.', stars: 5 },
     ],
     servicesAvailed: ['Animated Monogram', 'Papic', 'Setnayan AI'],
+    // Three distinct crops cut from the single ballroom still (different regions
+    // AND zoom levels — c1 chandelier + upper landing · c2 left sweep + dance
+    // floor · c3 tight right curl + candle table) so adjacent surfaces never
+    // repeat the same frame. The uncropped original stays the hero + clip poster.
     galleryPhotos: [
-      '/realstories/sofia-reyes-makati.jpg',
+      '/realstories/sofia-reyes-c2.jpg',
+      '/realstories/sofia-reyes-c3.jpg',
+      '/realstories/sofia-reyes-c1.jpg',
     ],
     essayPhotos: [
-      '/realstories/sofia-reyes-makati.jpg',
+      '/realstories/sofia-reyes-c1.jpg',
+      '/realstories/sofia-reyes-c2.jpg',
+      '/realstories/sofia-reyes-c3.jpg',
     ],
     dayChapters: [
       {
@@ -2502,7 +2511,7 @@ function sofiaReyes(): EditorialData {
           'Her father first, then grandfathers, uncles, cousins, and the family friends who taught her to bike, to swim, to drive. Each rose came with a dance and a sentence or two — some rehearsed, the best ones not.',
         leadId: 'sample-sofia-ch2',
         media: [
-          { type: 'photo', url: '/realstories/sofia-reyes-makati.jpg', posterUrl: null, id: 'sample-sofia-ch2' },
+          { type: 'photo', url: '/realstories/sofia-reyes-c1.jpg', posterUrl: null, id: 'sample-sofia-ch2' },
         ],
       },
       {
@@ -2512,7 +2521,7 @@ function sofiaReyes(): EditorialData {
           'Eight couples, three months of Sunday rehearsals, one waltz that broke into a track nobody over forty recognized and everybody under twenty knew by heart. It brought the entire ballroom to its feet.',
         leadId: 'sample-sofia-ch3',
         media: [
-          { type: 'photo', url: '/realstories/sofia-reyes-makati.jpg', posterUrl: null, id: 'sample-sofia-ch3' },
+          { type: 'photo', url: '/realstories/sofia-reyes-c2.jpg', posterUrl: null, id: 'sample-sofia-ch3' },
         ],
       },
       {
@@ -2522,7 +2531,7 @@ function sofiaReyes(): EditorialData {
           'The women who raised her — mother, lola, titas, teachers, her best friend since grade two — each lit a candle and left a wish. By the twelfth, half the ballroom had given up pretending they weren’t crying.',
         leadId: 'sample-sofia-ch4',
         media: [
-          { type: 'photo', url: '/realstories/sofia-reyes-makati.jpg', posterUrl: null, id: 'sample-sofia-ch4' },
+          { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg', posterUrl: null, id: 'sample-sofia-ch4' },
         ],
       },
       {

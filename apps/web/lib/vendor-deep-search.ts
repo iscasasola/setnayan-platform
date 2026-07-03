@@ -171,6 +171,41 @@ export function buildDeepSearchChatPrompt(inputs: DeepSearchInputs): string {
   ].join('\n');
 }
 
+/**
+ * A staff-facing "study this vendor before the interview" prompt (owner
+ * 2026-07-03). Distinct from the verification dossier: this is for the Setnayan
+ * team to judge whether a vendor is a good FIT to onboard and to walk into the
+ * interview prepared. Copy → paste into any web-browsing AI chat (free), read
+ * the brief. No JSON, no paste-back — it's prep to read, not a record to store.
+ * Vendors are public businesses (never private individuals), so open-web
+ * research here is proportionate.
+ */
+export function buildVendorStudyPrompt(inputs: DeepSearchInputs): string {
+  const ads = adTransparencyLinks(inputs.business_name || 'this vendor');
+  return [
+    'You are helping the Setnayan team — a premium Philippines events & wedding marketplace — study a vendor BEFORE an interview, to judge whether they are a good fit to onboard and to prepare sharp, specific interview questions. Use web search / browsing to research them.',
+    '',
+    'VENDOR:',
+    `• Business name: ${inputs.business_name || '(none given)'}`,
+    `• Services they offer: ${inputs.claimed_services.length > 0 ? inputs.claimed_services.join(', ') : '(none listed)'}`,
+    `• Location: ${inputs.location_city ?? '(not given)'}`,
+    `• Website: ${inputs.website ?? '(not given)'}`,
+    `• Social link: ${inputs.social_url ?? '(not given)'}`,
+    '',
+    'Research their website, public Facebook/Instagram, Google results, Philippine wedding/event directories, and review sites. Then write a study brief for the team with these sections:',
+    '',
+    '1. WHAT THEY ARE — a plain 2–4 sentence picture of the business: how established they look, how long they seem to have operated, and their apparent price tier (budget / mid / premium).',
+    '2. QUALITY & REPUTATION SIGNALS — portfolio quality, review sentiment (quote one or two real snippets with the source), notable clients or press, how consistent and professional their brand is.',
+    '3. STRENGTHS — the concrete reasons they could be a strong addition to a premium marketplace.',
+    '4. CONCERNS / RED FLAGS — anything that argues against a fit: thin or dated portfolio, poor reviews, inactive pages, unclear pricing, unprofessional presence, or signs they resell others’ work or are not who they claim.',
+    '5. FIT VERDICT — one line: Strong fit / Possible fit / Weak fit — plus the single biggest reason.',
+    '6. INTERVIEW QUESTIONS — 6–8 specific questions to ask THIS vendor, drawn from what you found: probe the concerns, confirm capacity and availability, clarify pricing, and verify the work shown is genuinely theirs.',
+    '',
+    'Be factual and cite-driven — only report what you actually find; never invent reviews, clients, or prices. If their social content is login-walled, say so. You can also check their ads directly (public, no login needed):',
+    ...ads.map((a) => `• ${a.label}: ${a.href}`),
+  ].join('\n');
+}
+
 function buildUserPrompt(inputs: DeepSearchInputs): string {
   const lines = [
     `Vendor claimed on Setnayan:`,

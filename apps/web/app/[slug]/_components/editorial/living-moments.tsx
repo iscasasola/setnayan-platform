@@ -236,8 +236,9 @@ function Chapter({
       {/* ── Mobile (< lg): full-bleed story panel ─────────────────────────── */}
       <div className="lg:hidden">
         {/* Negative-margin breakout to the article-card edge. The card padding
-            is px-5 (20px) on mobile, so -mx-5 reaches the card edge. */}
-        <div className="relative -mx-5 min-h-[88svh] overflow-hidden bg-ink/10">
+            is px-5 (20px) at base and sm:px-10 (40px) from sm up (see
+            editorial-content.tsx), so the breakout mirrors both. */}
+        <div className="relative -mx-5 min-h-[88svh] overflow-hidden bg-ink/10 sm:-mx-10">
           {lead ? (
             <LeadMedia
               media={lead}
@@ -246,8 +247,10 @@ function Chapter({
               className="absolute inset-0 h-full w-full [&>video]:h-full [&>img]:h-full"
             />
           ) : null}
-          {/* Bottom scrim + kicker */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-ink/80 via-ink/25 to-transparent px-5 pb-6 pt-24">
+          {/* Bottom scrim + kicker. Scrim inner padding mirrors the card's
+              px-5/sm:px-10 so the kicker stays aligned with the card's text
+              column at every breakpoint. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-ink/80 via-ink/25 to-transparent px-5 pb-6 pt-24 sm:px-10">
             {chapter.time ? (
               <span className="font-mono text-xs uppercase tracking-[0.24em] text-cream/90">
                 {chapter.time}

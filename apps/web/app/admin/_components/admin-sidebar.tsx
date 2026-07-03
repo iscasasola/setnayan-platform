@@ -119,7 +119,6 @@ import {
   Wallet,
   ShoppingBag,
   Bell,
-  SlidersHorizontal,
   UserX,
   PartyPopper,
   Newspaper,
@@ -676,12 +675,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/event-types',
         icon: PartyPopper,
       },
-      {
-        key: 'refinements',
-        label: 'Refinements',
-        href: '/admin/refinements',
-        icon: SlidersHorizontal,
-      },
+      // 'refinements' sidebar item REMOVED 2026-07-03 — /admin/refinements was
+      // retired to a redirect(/admin/taxonomy); refinements are now edited in the
+      // Taxonomy Studio inspector's Refinements tab (reachable via the Taxonomy
+      // item above). Dedicated nav item dropped so it stops surfacing here + in
+      // /admin/menus. The redirect page stays for old bookmarks.
       {
         // Onboarding-flow config (background music + future per-flow knobs),
         // grouped by onboarding type. Scales as new event-type onboardings ship.

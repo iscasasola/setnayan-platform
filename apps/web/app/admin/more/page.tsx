@@ -8,9 +8,10 @@
  * and Data Structure (Taxonomy · Event Types · …), mirroring the desktop
  * sidebar (keys 'media' + 'settings-group') per
  * [[feedback_setnayan_orphan_prevention]]. Mobile carries a pre-existing
- * SUBSET — menus · refinements · hero-video · reveal-studio · recaps ·
- * patiktok are desktop-only and stay so (a parity gap that predates this
- * respine, not introduced by it).
+ * SUBSET — menus · hero-video · reveal-studio · recaps · patiktok are
+ * desktop-only and stay so (a parity gap that predates this respine, not
+ * introduced by it). (The 'refinements' surface was retired 2026-07-03 to a
+ * redirect(/admin/taxonomy) — its nav item is gone from both sidebars.)
  *
  * SCOPE: server component. Hidden at lg+ via lg:hidden — desktop reaches
  * these through the sidebar groups.

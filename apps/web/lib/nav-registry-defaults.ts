@@ -2457,18 +2457,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 39,
   },
-  {
-    key: "admin.sidebar.refinements",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/refinements",
-    label: "Refinements",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "SlidersHorizontal",
-    customRef: null,
-    sortOrder: 40,
-  },
+  // admin.sidebar.refinements REMOVED 2026-07-03 — /admin/refinements was retired
+  // to a redirect(/admin/taxonomy); refinements are now edited in the Taxonomy
+  // Studio inspector's Refinements tab. Seed default dropped so it stops seeding
+  // into /admin/menus. Any stale nav_slot_override row for this key is inert — the
+  // renderer iterates code defaults and overlays overrides (lib/nav-registry.ts),
+  // so an override with no matching default is never rendered.
   {
     key: "admin.sidebar.website",
     scope: "admin",

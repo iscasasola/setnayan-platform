@@ -179,7 +179,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/menus',
       '/admin/taxonomy',
       '/admin/event-types',
-      '/admin/refinements',
+      // '/admin/refinements' REMOVED 2026-07-03 — route retired to a
+      // redirect(/admin/taxonomy); refinements now live in the Taxonomy Studio
+      // inspector's Refinements tab. Dedicated nav entry dropped.
       '/admin/onboarding',
       '/admin/wedding-types',
       '/admin/wedding-traditions',

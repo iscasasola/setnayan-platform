@@ -85,7 +85,6 @@ import {
   ShieldCheck,
   Shirt,
   ShoppingBag,
-  SlidersHorizontal,
   Sparkles,
   Star,
   Tag,
@@ -146,7 +145,8 @@ export const routeMeta = {
     realStories: { icon: Newspaper, label: 'Real Stories' },
     recaps: { icon: Images, label: 'Recaps' },
     receipts: { icon: Receipt, label: 'Receipts' },
-    refinements: { icon: SlidersHorizontal, label: 'Refinements' },
+    // 'refinements' route-meta REMOVED 2026-07-03 — mirrors routes.ts; the
+    // /admin/refinements route was retired to a redirect(/admin/taxonomy).
     reviews: { icon: Star, label: 'Reviews' },
     settings: {
       index: { icon: Settings, label: 'Settings' },

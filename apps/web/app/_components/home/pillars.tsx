@@ -11,6 +11,7 @@
  * and scoped under `.home-reskin` (see home-reskin.css).
  */
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 
 export type PillarHero = {
   /** stable tile id (also the admin background-video slot key) */
@@ -189,21 +190,21 @@ const AlaEditorial = (
   <div className="hr-pmock hr-me-ed" data-i="1">
     <div className="hr-me-mast">
       <span className="hr-nm">Alaala</span>
-      <span className="hr-dt">The Reyes Wedding · Edition 01</span>
+      <span className="hr-dt">Maria &amp; Juan · Edition 01</span>
     </div>
-    <div className="hr-me-beat">Beat 03 · The Ceremony</div>
-    <h3 className="hr-me-hl">The first look.</h3>
+    <div className="hr-me-beat">Beat 02 · The first look</div>
+    <h3 className="hr-me-hl">The exact second his composure gave up.</h3>
     <div className="hr-me-spread">
       <div className="hr-me-fig" />
       <p className="hr-me-narr">
-        He turned, and the whole room went quiet. <b>Twenty-two years</b> of friends and family,
-        holding one breath at once.
+        Juan waited at the end of the garden path with his back turned. He heard her step on the
+        gravel — and <b>nobody coached what happened next</b>.
       </p>
     </div>
     <div className="hr-me-quote">
       <span className="hr-qm">“</span>
-      <p>I have never seen Lolo cry like that. The boy he raised, all grown — at the end of the aisle.</p>
-      <span className="hr-att">— Tita Let, on the bride’s side</span>
+      <p>When Maria walked in, the whole garden went quiet. Even the birds.</p>
+      <span className="hr-att">— Ate Celine, Maid of Honor</span>
     </div>
     <div className="hr-me-share">
       <span className="hr-lb">Share</span>
@@ -211,7 +212,16 @@ const AlaEditorial = (
       <span className="hr-si">◎</span>
       <span className="hr-si">𝕏</span>
       <span className="hr-si">↗</span>
-      <span className="hr-more">Read full edition →</span>
+      {/* Two COMPLETE sample editorials (owner 2026-07-03) — these are real,
+          readable pages at /realstories, not mock chrome. */}
+      <Link className="hr-more" href="/realstories/maria-and-juan-tagaytay-garden-wedding">
+        Read full edition →
+      </Link>
+    </div>
+    <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
+      <Link href="/realstories/sofia-reyes-makati-debut" style={{ color: 'inherit' }}>
+        Also complete: Sofia&rsquo;s debut · Edition 06 →
+      </Link>
     </div>
   </div>
 );
@@ -413,8 +423,28 @@ const LikhaanPapic = (
         </span>
       </div>
     </div>
-    <div className="hr-mk-h" style={{ margin: '12px 0 0', color: '#97742f' }}>
-      Tag by QR today · auto face-tagging rolling out
+    <div style={{ display: 'flex', gap: 5, marginTop: 10, flexWrap: 'wrap' }}>
+      {['Orig', 'Retro', 'Mono', 'Cine', 'Lomo'].map((s, i) => (
+        <span
+          key={s}
+          style={{
+            fontFamily: 'var(--hr-mono)',
+            fontSize: 8.5,
+            letterSpacing: '.06em',
+            textTransform: 'uppercase',
+            padding: '3px 9px',
+            borderRadius: 'var(--hr-r20)',
+            border: '1px solid var(--hr-line)',
+            background: i === 0 ? '#2f2d2a' : 'transparent',
+            color: i === 0 ? '#f2f0ec' : 'var(--hr-grey)',
+          }}
+        >
+          {s}
+        </span>
+      ))}
+    </div>
+    <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
+      Five looks · face tagging on the phone · try it live from the Papic tile
     </div>
   </div>
 );
@@ -472,7 +502,7 @@ const LikhaanLiveStudio = (
       <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
     </div>
     <div className="hr-mk-h" style={{ margin: '11px 0 0', color: '#97742f' }}>
-      For everyone who couldn’t make the trip · live streaming rolling out
+      A real control room — cut between phone cameras live · try it from the Panood tile
     </div>
   </div>
 );
@@ -545,7 +575,7 @@ const Likhaan3D = (
       </span>
     </div>
     <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
-      2D live today · 3D walk-to-seat on the roadmap
+      Click a guest → their phone walks entrance to seat · try it from the 3D Plan tile
     </div>
   </div>
 );
@@ -1099,7 +1129,17 @@ export const PILLARS: Pillar[] = [
       {
         ic: '¶',
         fn: 'Editorials',
-        fl: 'Far more memorable than scribbling in a photo album. Every event becomes an editorial — a real storyline you can relive, as if you were there again: write-ups, photos, what your guests said, and short clips (not full films) — shareable straight to your socials. The front-page story of your life.',
+        fl: (
+          <>
+            Far more memorable than scribbling in a photo album. Every event becomes an editorial —
+            a real storyline you can relive, as if you were there again: write-ups, photos, what
+            your guests said, and short clips (not full films) — shareable straight to your socials.
+            The front-page story of your life.{' '}
+            <em>
+              Read two complete sample editions now — a Tagaytay wedding and a Makati debut.
+            </em>
+          </>
+        ),
       },
       {
         ic: '▦',
@@ -1140,9 +1180,9 @@ export const PILLARS: Pillar[] = [
         fn: 'Papic',
         fl: (
           <>
-            Modern event capture — themes, face-blocking, and face tagging. Tag by QR today; auto
-            face-tagging is rolling out. Either way, every photo lands in your gallery.{' '}
-            <em>Auto-tagging rolling out</em>
+            Modern candid capture — five looks (Original · Retro · Mono · Cine · Lomo), face tagging
+            that happens right on the phone, and every photo lands in your gallery, tagged or not.{' '}
+            <em>Try it live from the Papic tile — you and a friend, right now.</em>
           </>
         ),
       },
@@ -1151,8 +1191,9 @@ export const PILLARS: Pillar[] = [
         fn: 'Live Studio',
         fl: (
           <>
-            Document the event without high-end cameras — stream it live to everyone who couldn’t be
-            there. <em>Live streaming rolling out</em>
+            Your phones become the cameras, and you get a real control room — cut between angles
+            live for everyone who couldn’t make the trip. <em>Try the control room from the Panood
+            tile — two phones.</em> Full event livestream rolling out.
           </>
         ),
       },
@@ -1161,9 +1202,9 @@ export const PILLARS: Pillar[] = [
         fn: '3D Plan',
         fl: (
           <>
-            Your 2D seat plan, guest list, and mood board are free. The full 3D Plan — a 3D
-            walk-to-seat your guests open right on your website — is the paid unlock. 2D live today;{' '}
-            <em>3D on the roadmap</em>.
+            Click a guest and their phone walks them from the entrance to their seat — in a real 3D
+            room, right on your website. <em>Try it from the 3D Plan tile.</em> Your 2D seat plan,
+            guest list, and mood board stay free; the full 3D Plan is the paid unlock.
           </>
         ),
       },

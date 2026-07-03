@@ -50,7 +50,12 @@ export async function signUp(formData: FormData) {
   // checked, omit the field when unchecked. See login/actions.ts for the
   // canonical HTML form contract note.
   const remember = String(formData.get('remember') ?? '') === 'on';
-  const next = safeNext(formData.get('next'));
+  // Fresh VENDOR signups with no explicit destination land on the onboarding
+  // wizard (shop name · primary service · location · contacts · socials) —
+  // it forwards to My Shop once the shop is named (owner 2026-07-03). An
+  // explicit ?next= (deep-link/QR flows) still wins.
+  const rawNext = safeNext(formData.get('next'));
+  const next = accountType === 'vendor' && rawNext === '/' ? '/open-shop' : rawNext;
   // Guest → host growth-loop attribution (no PII). Set by the guest-page CTA,
   // carried through the form as hidden inputs. Only `ref=guest` with a present
   // `src_event` (a public_id, text) is attributable.
@@ -262,7 +267,10 @@ export async function signUp(formData: FormData) {
       // two operations.
 
       const accountKindLabel = accountType === 'vendor' ? 'vendor' : 'couple';
-      const landingPath = accountType === 'vendor' ? '/vendor-dashboard' : '/dashboard';
+      // Vendors land on the onboarding wizard (shop name · primary service ·
+      // location · contacts · socials); it forwards to My Shop once the shop
+      // is named (owner 2026-07-03).
+      const landingPath = accountType === 'vendor' ? '/open-shop' : '/dashboard';
 
       const consentPromise = publicSummaryConsent
         ? (async () => {

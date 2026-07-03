@@ -512,6 +512,33 @@ export function HomeReskin({
           {hero?.role === 'Setnayan AI' && (
             <SetnayanAiHeroStory pricing={pricing} onCompare={() => setOverlay('setnayan-ai')} />
           )}
+          {/* Live product demos (owner 2026-07-03, demos program): every tile's
+              demo button uses the SAME treatment + placement as Suri's
+              comparator CTA (.hr-ai-cta) — the subtle glass accent sitting
+              between the hero copy and the standard Start-planning/Learn-more
+              CTAs (owner 2026-07-03: "apply this kind of placement for all
+              5"). Ala ala's showcases the editorial — two complete sample
+              editions (owner 2026-07-03). */}
+          {hero?.name === 'Ala ala' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('alaala-editorial')}>
+              Read two sample editions&nbsp;·&nbsp;the editorial
+            </button>
+          )}
+          {hero?.name === 'Papic' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('papic-demo')}>
+              Try the live demo — you and a friend, right now
+            </button>
+          )}
+          {hero?.name === 'Panood' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('panood-demo')}>
+              Try the control room&nbsp;·&nbsp;two phones
+            </button>
+          )}
+          {hero?.name === '3D Plan' && (
+            <button className="hr-ai-cta" onClick={() => setOverlay('plan3d-demo')}>
+              Find your seat&nbsp;·&nbsp;try it live
+            </button>
+          )}
           <div className="hr-hctas">
             <Link className="hr-pill-cta hr-glass-dark" href="/onboarding/wedding">
               Start planning&nbsp;·&nbsp;free
@@ -520,24 +547,6 @@ export function HomeReskin({
               Learn more{' '}
               <span className="hr-arr">{hero ? '→' : '↓'}</span>
             </button>
-            {/* Live product demos (owner 2026-07-03, demos program): all three
-                — Papic, Panood/Live Studio, 3D Plan — share the demo_sessions
-                scaffold and each shows its own button on its own hero. */}
-            {hero?.name === 'Papic' && (
-              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('papic-demo')}>
-                Try the live demo
-              </button>
-            )}
-            {hero?.name === 'Panood' && (
-              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('panood-demo')}>
-                Try the control room&nbsp;·&nbsp;two phones
-              </button>
-            )}
-            {hero?.name === '3D Plan' && (
-              <button className="hr-pill-cta hr-glass-dark" onClick={() => setOverlay('plan3d-demo')}>
-                Find your seat&nbsp;·&nbsp;try it
-              </button>
-            )}
           </div>
         </div>
 

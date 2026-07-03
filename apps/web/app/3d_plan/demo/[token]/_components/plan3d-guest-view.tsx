@@ -21,10 +21,11 @@ import type { Plan3DScene, Plan3DGuest } from '@/app/_actions/plan3d-demo-action
 
 type Phase = 'idle' | 'walking' | 'arrived' | 'roam';
 
+// Pills use the `rounded-full` utility (not an inline borderRadius literal) —
+// the radius-token lint guard forbids hardcoded radii (main hotfix 5f7bd92dd).
 const PILL: React.CSSProperties = {
   minWidth: 220,
   padding: '14px 24px',
-  borderRadius: 999,
   border: 'none',
   background: '#2a2925',
   color: '#faf7f2',
@@ -82,12 +83,13 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
                 type="button"
                 disabled={phase === 'walking'}
                 onClick={() => setPhase('walking')}
+                className="rounded-full"
                 style={{ ...PILL, opacity: phase === 'walking' ? 0.6 : 1 }}
               >
                 {phase === 'walking' ? 'Walking you in…' : 'Where am I seated?'}
               </button>
               {phase === 'idle' ? (
-                <button type="button" onClick={() => setPhase('roam')} style={PILL_GHOST}>
+                <button type="button" onClick={() => setPhase('roam')} className="rounded-full" style={PILL_GHOST}>
                   Walk around
                 </button>
               ) : null}
@@ -103,7 +105,7 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
               A sample guest, on a sample table — every real Setnayan guest gets this on the day.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
-              <button type="button" onClick={() => setPhase('roam')} style={PILL_GHOST}>
+              <button type="button" onClick={() => setPhase('roam')} className="rounded-full" style={PILL_GHOST}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <Footprints aria-hidden className="h-4 w-4" strokeWidth={2} />
                   Walk around

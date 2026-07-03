@@ -65,6 +65,7 @@ import {
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
+import { GuestPhotoAvatar, preloadGuestPhotos } from './guest-avatar';
 
 const NEUTRAL_PALETTE = resolvePalette([]); // the lab's warm-neutral default
 
@@ -111,10 +112,14 @@ function TableMesh({
 function GuestToken({
   position,
   color,
+  name,
+  photoUrl,
   onClick,
 }: {
   position: Vec2;
   color: string;
+  name: string;
+  photoUrl?: string | null;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -132,10 +137,16 @@ function GuestToken({
         <cylinderGeometry args={[0.16, 0.19, 0.5, 10]} />
         <meshStandardMaterial color={color} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
       </mesh>
-      <mesh position={[0, 0.78, 0]} castShadow>
-        <sphereGeometry args={[0.15, 12, 12]} />
-        <meshStandardMaterial color={color} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
-      </mesh>
+      {photoUrl ? (
+        // Instant guest recognition: the guest's photo billboards where the head
+        // would be. Shared cache/fallback keeps big guest lists fast.
+        <GuestPhotoAvatar photoUrl={photoUrl} name={name} ringColor={color} height={0.82} radius={0.18} />
+      ) : (
+        <mesh position={[0, 0.78, 0]} castShadow>
+          <sphereGeometry args={[0.15, 12, 12]} />
+          <meshStandardMaterial color={color} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -365,6 +376,13 @@ export function Plan3DScene({
     [rolePalette],
   );
 
+  // Warm the texture cache for every seated guest's photo up front so the first
+  // painted frame shows faces, not tokens. Shared decode with the mounting
+  // avatars; failures cache to a fast initials fallback (no retry storm).
+  useEffect(() => {
+    preloadGuestPhotos(guests.map((g) => g.photoUrl));
+  }, [guests]);
+
   const walkGuest = walkTarget ? guests.find((g) => g.id === walkTarget.guestId) ?? null : null;
   const walkTable = walkGuest ? tablesById.get(walkGuest.tableId) ?? null : null;
 
@@ -495,6 +513,8 @@ export function Plan3DScene({
             key={g.id}
             position={pos}
             color={SIDE_COLOR[g.side]}
+            name={g.name}
+            photoUrl={g.photoUrl}
             onClick={
               interactive && onGuestClick
                 ? (e) => {

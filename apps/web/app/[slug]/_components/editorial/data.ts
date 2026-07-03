@@ -1835,6 +1835,7 @@ const SAMPLE_EDITORIALS: Record<string, () => EditorialData> = {
   'sample-john-and-jane': johnAndJane,
   'sample-peter-and-mary': peterAndMary,
   'sample-jack-and-rose': jackAndRose,
+  'sample-sofia-reyes': sofiaReyes,
 };
 
 // /realstories wedding slug → sample sentinel id. Drives the detail page.
@@ -1844,6 +1845,7 @@ export const SAMPLE_EDITORIAL_IDS: Record<string, string> = {
   'john-and-jane-manila-rooftop-wedding': 'sample-john-and-jane',
   'peter-and-mary-tagaytay-estate-wedding': 'sample-peter-and-mary',
   'jack-and-rose-baguio-forest-wedding': 'sample-jack-and-rose',
+  'sofia-reyes-makati-debut': 'sample-sofia-reyes',
 };
 
 // Back-compat: original single-sample export still points at Maria & Juan.
@@ -1939,7 +1941,61 @@ function mariaAndJuan(): EditorialData {
       '/realstories/maria-juan-g2.jpg',
       '/realstories/maria-juan-g3.jpg',
     ],
-    dayChapters: [],
+    dayChapters: [
+      {
+        time: '11:20 in the morning',
+        title: 'The Getting Ready',
+        writeUp:
+          'The suite smelled of gardenias and hairspray. Maria sat still while her ninang pinned the last sprig into place, and for one quiet minute nobody said anything at all — the calm before a very loud, very happy afternoon.',
+        leadId: 'sample-mj-ch1',
+        media: [
+          { type: 'photo', url: '/realstories/maria-juan-v2.jpg', posterUrl: null, id: 'sample-mj-ch1' },
+          { type: 'photo', url: '/realstories/maria-juan-v1.jpg', posterUrl: null, id: 'sample-mj-ch1b' },
+        ],
+      },
+      {
+        time: '2:38 in the afternoon',
+        title: 'The Garden March',
+        writeUp:
+          'The path was lined white with blooms and the whole lawn rose at once. She walked it slowly, on her father’s arm, past every face that had ever mattered — and by the time she reached Juan, neither of them was hiding the tears.',
+        leadId: 'sample-mj-ch2',
+        media: [
+          { type: 'clip', url: '/realstories/clips/mj-garden-march.mp4', posterUrl: '/realstories/maria-juan-tagaytay.jpg', id: 'sample-mj-ch2' },
+        ],
+      },
+      {
+        time: '3:04 in the afternoon',
+        title: 'The Vows',
+        writeUp:
+          'They traded promises in a near-whisper, foreheads almost touching. The front rows swore they could hear the kiss. Taal held the light behind them like a held breath, and then everyone was on their feet.',
+        leadId: 'sample-mj-ch3',
+        media: [
+          { type: 'clip', url: '/realstories/clips/mj-the-vows.mp4', posterUrl: '/realstories/maria-juan-g1.jpg', id: 'sample-mj-ch3' },
+          { type: 'photo', url: '/realstories/maria-juan-g1.jpg', posterUrl: null, id: 'sample-mj-ch3b' },
+        ],
+      },
+      {
+        time: '7:12 in the evening',
+        title: 'The First Dance',
+        writeUp:
+          'Under strings of warm light they danced to the kundiman that has followed them since a despedida in Quezon City. Slow, unhurried, foreheads together again — the same two people, a lifetime further in.',
+        leadId: 'sample-mj-ch4',
+        media: [
+          { type: 'clip', url: '/realstories/clips/mj-first-dance.mp4', posterUrl: '/realstories/maria-juan-g2.jpg', id: 'sample-mj-ch4' },
+        ],
+      },
+      {
+        time: '9:47 in the evening',
+        title: 'The Money Dance',
+        writeUp:
+          'Titos and titas pinned bills to the couple while the band played faster and faster. Somebody’s lolo out-danced everyone half his age. The lawn was pure noise and light, and nobody was in any hurry for the day to end.',
+        leadId: 'sample-mj-ch5',
+        media: [
+          { type: 'clip', url: '/realstories/clips/mj-money-dance.mp4', posterUrl: '/realstories/maria-juan-g3.jpg', id: 'sample-mj-ch5' },
+          { type: 'photo', url: '/realstories/maria-juan-g3.jpg', posterUrl: null, id: 'sample-mj-ch5b' },
+        ],
+      },
+    ],
     song: { url: null, label: 'their kundiman' },
     photoWallPhotos: [],
     photoWallActive: false,
@@ -2326,6 +2382,176 @@ function jackAndRose(): EditorialData {
     vendorMedia: [
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-rose-v1.jpg', boomerangUrl: '/realstories/jack-rose-vclip.mp4', caption: 'Greens in the mist' },
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-rose-v2.jpg', boomerangUrl: null, caption: 'Just the two of them, in the fog' },
+    ],
+  };
+}
+
+// Sofia Reyes — an 18th-birthday DEBUT (not a wedding). Rendered through the
+// exact same EditorialData shape so it flows through the real EditorialContent
+// engine like every other sample. Debut-true throughout: eighteen roses, a
+// cotillion, eighteen candles — never vows, never a bridal march. Content mined
+// from lib/real-weddings.ts (sofia-reyes-makati-debut). Only ONE source still
+// exists for this sample (sofia-reyes-makati.jpg); the edition varies it via
+// two generated Ken Burns clips + three distinct crops (sofia-reyes-c1/c2/c3)
+// so no two adjacent surfaces show the same frame.
+function sofiaReyes(): EditorialData {
+  const guests = 200;
+  return {
+    displayName: 'Sofia Reyes',
+    firstNames: 'Sofia Reyes',
+    slug: null, // sample has no real event row → editorial render skips the share bar
+    eventDate: '2026-03-14',
+    eventDateFormatted: formatPhDate('2026-03-14'),
+    editionNo: 6,
+    venueName: 'a grand ballroom in the heart of Makati',
+    venueCity: 'Makati',
+    venueAddress: 'Makati, Metro Manila',
+    monogramText: 'SR',
+    monogramColor: '#C8697A',
+    // A debut has no couple love-story; we repurpose the narrative fields to
+    // carry Sofia's coming-of-age story truthfully — first person, family voice.
+    loveStory: {
+      how_we_met:
+        'Sofia wanted the night to feel like a homecoming — every person who shaped her early life in the same room, dressed in their best',
+      met_year: '2008',
+      spark: 'the way one girl’s eighteenth birthday could gather a whole life into one room',
+      spark_why: 'every rose and every candle carried someone who helped raise her',
+      milestones: [
+        { year: '2008', title: 'A girl on her father’s shoes', note: 'Learning to dance at five' },
+        { year: '2020', title: 'Grade-two best friends, still', note: 'Bea, later the eighteenth candle' },
+        { year: '2025', title: 'The cotillion begins', note: 'Three months of Sunday rehearsals' },
+        { year: '2026', title: 'The debut', note: 'Eighteen roses, eighteen candles, Makati' },
+      ],
+      anchors: {
+        song: 'the waltz that broke into a track only the under-twenties knew',
+        place: 'Makati',
+        injoke: 'crown slightly crooked',
+        food: 'a dessert bar of her baby pictures',
+      },
+    },
+    specialMessage:
+      'To everyone who carried a rose or lit a candle for me tonight — you have been doing that my whole life. Thank you for being in the room the night I arrived.',
+    togetherSince: null,
+    tone: 'warm',
+    draft: {
+      superKicker: 'A Debut',
+      headline: 'Sofia Turns Eighteen',
+      deck:
+        'Chandeliers, eighteen roses, and eighteen candles — a Makati debut that turned one family’s love into a room of ceremony.',
+      byline: 'Setnayan Editorial',
+      pullQuote: 'I wanted the people who shaped me in the same room on the same night.',
+      leadParagraphs: [
+        'The ballroom doors opened on the first chord and Sofia came down the staircase in a rose-gold gown her lola had quietly helped choose. Two hundred people stood without being asked to. It was, by design, a homecoming: every person who had a hand in raising her, gathered under one set of chandeliers to watch her step into adulthood.',
+        'What followed moved with the grace of a program rehearsed for months and the warmth of a family that needed no rehearsal at all. Her father took the first rose, then grandfathers, uncles, cousins, and the friends who had taught her to bike, to swim, to drive — each rose paired with a dance and a sentence or two, the best of them unrehearsed.',
+        'Then the eighteen candles: the women who raised her, each leaving a wish, until half the ballroom had given up pretending not to cry. A cotillion of eight couples brought the house down, the formal program ended at eleven, and nobody left. The last picture of the night is Sofia, barefoot and crown askew, dancing with her lola to a song older than both of them put together.',
+      ],
+    },
+    published: true,
+    heroPhotoUrl: '/realstories/sofia-reyes-makati.jpg',
+    heroVideoUrl: null, // no baked boomerang for this sample → still hero
+    metrics: {
+      servicesSetnayan: 3,
+      servicesTotalDenominator: null,
+      firstPickNum: 4,
+      firstPickDen: 7,
+      hoursSaved: TIME_SAVED_PER_VENDOR_HOURS * 7 + TIME_SAVED_BASE_HOURS,
+      guests,
+      attending: 188,
+      replied: 196,
+      rsvpPct: 98,
+      photos: null,
+    },
+    archetype: computeArchetype(guests, null),
+    vendors: [
+      { name: 'BGC Grand Ballroom', category: 'Venue', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Marquesa Catering', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Rose & Gold Studios', category: 'Photography & Video', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Step & Sway Cotillion', category: 'Cotillion Choreography', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Debut by Dana', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+    ],
+    vendorsWeLoved: [
+      { vendorProfileId: 'sample-sofia-1', businessName: 'Step & Sway Cotillion', endorsement: 'They turned eight nervous couples into the moment everyone still talks about.', logoUrl: null, href: null },
+      { vendorProfileId: 'sample-sofia-2', businessName: 'Rose & Gold Studios', endorsement: 'They caught every candle and every crooked crown. We have the whole night forever.', logoUrl: null, href: null },
+    ],
+    reviews: [
+      { author: 'Ninong Ernesto', role: 'fourth rose', quote: 'I’ve watched her grow up. This night, I watched her arrive.', stars: 5 },
+      { author: 'Lola Remedios', role: 'eighteenth candle', quote: 'She danced with me last, barefoot, past midnight. I will keep that dance my whole life.', stars: 5 },
+      { author: 'Bea', role: 'best friend, eighteenth candle', quote: 'The dessert bar had her baby pictures on it. Genius. Devastating. Genius.', stars: 5 },
+    ],
+    servicesAvailed: ['Animated Monogram', 'Papic', 'Setnayan AI'],
+    // Three distinct crops cut from the single ballroom still (different regions
+    // AND zoom levels — c1 chandelier + upper landing · c2 left sweep + dance
+    // floor · c3 tight right curl + candle table) so adjacent surfaces never
+    // repeat the same frame. The uncropped original stays the hero + clip poster.
+    galleryPhotos: [
+      '/realstories/sofia-reyes-c2.jpg',
+      '/realstories/sofia-reyes-c3.jpg',
+      '/realstories/sofia-reyes-c1.jpg',
+    ],
+    essayPhotos: [
+      '/realstories/sofia-reyes-c1.jpg',
+      '/realstories/sofia-reyes-c2.jpg',
+      '/realstories/sofia-reyes-c3.jpg',
+    ],
+    dayChapters: [
+      {
+        time: '6:40 in the evening',
+        title: 'The Staircase Entrance',
+        writeUp:
+          'The doors opened on the first chord and Sofia came down the staircase in the rose-gold gown her lola helped choose. Two hundred people rose without being asked to — the night’s first, unplanned standing ovation.',
+        leadId: 'sample-sofia-ch1',
+        media: [
+          { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-makati.jpg', id: 'sample-sofia-ch1' },
+        ],
+      },
+      {
+        time: '7:25 in the evening',
+        title: 'The Eighteen Roses',
+        writeUp:
+          'Her father first, then grandfathers, uncles, cousins, and the family friends who taught her to bike, to swim, to drive. Each rose came with a dance and a sentence or two — some rehearsed, the best ones not.',
+        leadId: 'sample-sofia-ch2',
+        media: [
+          { type: 'photo', url: '/realstories/sofia-reyes-c1.jpg', posterUrl: null, id: 'sample-sofia-ch2' },
+        ],
+      },
+      {
+        time: '8:10 in the evening',
+        title: 'The Cotillion',
+        writeUp:
+          'Eight couples, three months of Sunday rehearsals, one waltz that broke into a track nobody over forty recognized and everybody under twenty knew by heart. It brought the entire ballroom to its feet.',
+        leadId: 'sample-sofia-ch3',
+        media: [
+          { type: 'photo', url: '/realstories/sofia-reyes-c2.jpg', posterUrl: null, id: 'sample-sofia-ch3' },
+        ],
+      },
+      {
+        time: '9:05 in the evening',
+        title: 'The Eighteen Candles',
+        writeUp:
+          'The women who raised her — mother, lola, titas, teachers, her best friend since grade two — each lit a candle and left a wish. By the twelfth, half the ballroom had given up pretending they weren’t crying.',
+        leadId: 'sample-sofia-ch4',
+        media: [
+          { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg', posterUrl: null, id: 'sample-sofia-ch4' },
+        ],
+      },
+      {
+        time: '12:20 past midnight',
+        title: 'The Last Dance',
+        writeUp:
+          'The formal program ended at eleven; nobody left. The last picture of the night is Sofia — barefoot, crown slightly crooked — dancing with her lola to a song older than both of them put together.',
+        leadId: 'sample-sofia-ch5',
+        media: [
+          { type: 'clip', url: '/realstories/clips/sofia-last-dance.mp4', posterUrl: '/realstories/sofia-reyes-makati.jpg', id: 'sample-sofia-ch5' },
+        ],
+      },
+    ],
+    song: { url: null, label: 'the waltz that broke into a track only the under-twenties knew' },
+    photoWallPhotos: [],
+    photoWallActive: false,
+    pabatiClips: [],
+    pabatiActive: false,
+    vendorMedia: [
+      { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },
     ],
   };
 }

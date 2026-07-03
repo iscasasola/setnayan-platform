@@ -59,6 +59,10 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           tables={scene.tables}
           floor={scene.floor}
           guests={scene.guests}
+          // The guest arrives into the room themed to the couple's mood board —
+          // "the place is themed" (owner 2026-07-03). Falls back to neutral when
+          // the sample event never set a palette.
+          rolePalette={scene.rolePalette}
           walkTarget={phase === 'walking' || phase === 'arrived' ? { guestId: guest.id } : null}
           onWalkComplete={() => setPhase('arrived')}
           roam={phase === 'roam' ? { guestId: guest.id } : null}

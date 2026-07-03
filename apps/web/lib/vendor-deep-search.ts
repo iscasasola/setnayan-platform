@@ -108,15 +108,15 @@ export const DEEP_SEARCH_LITE_MODEL = 'lite';
 
 const MAX_CONTINUATIONS = 4;
 
-const SYSTEM_PROMPT = `You are a due-diligence researcher for Setnayan, a Philippines events-vendor marketplace. An admin is verifying a vendor's application and needs an honest picture of the vendor's real-world business footprint.
+/** Marker stored in vendor_web_dossiers.model for a dossier pasted back from a free AI chat. */
+export const DEEP_SEARCH_CHAT_MODEL = 'manual-chat';
 
-Research the vendor on the live web using web search. Prioritize: their own website, their public Facebook/Instagram pages (read what is publicly visible without logging in), Google results, PH wedding/event directories, and review sites. Look specifically for: what the business actually does, the services it advertises, ANY published prices or package rates (quote them exactly and keep the source URL), other places it exists online, and anything inconsistent with what they claimed on Setnayan (different business name, different services, dead links, signs the business is inactive or that the website belongs to someone else).
-
-Be factual and cite-driven — only report what you actually found; never invent prices or pages. If Facebook/Instagram content is login-walled, say so rather than guessing.
-
-End your reply with EXACTLY one fenced json block matching this shape (no prose after it):
-
-\`\`\`json
+/**
+ * The exact JSON shape both the API dossier AND the copy-paste chat prompt ask
+ * for — ONE source so parseDossierText can read either result back. Shared by
+ * SYSTEM_PROMPT and buildDeepSearchChatPrompt so the two can never drift.
+ */
+export const DOSSIER_JSON_SCHEMA_BLOCK = `\`\`\`json
 {
   "business_summary": "2-4 sentence plain-English summary of what this business is",
   "detected_services": ["service the web says they offer", "..."],
@@ -128,6 +128,48 @@ End your reply with EXACTLY one fenced json block matching this shape (no prose 
   "confidence": "high | medium | low"
 }
 \`\`\``;
+
+const SYSTEM_PROMPT = `You are a due-diligence researcher for Setnayan, a Philippines events-vendor marketplace. An admin is verifying a vendor's application and needs an honest picture of the vendor's real-world business footprint.
+
+Research the vendor on the live web using web search. Prioritize: their own website, their public Facebook/Instagram pages (read what is publicly visible without logging in), Google results, PH wedding/event directories, and review sites. Look specifically for: what the business actually does, the services it advertises, ANY published prices or package rates (quote them exactly and keep the source URL), other places it exists online, and anything inconsistent with what they claimed on Setnayan (different business name, different services, dead links, signs the business is inactive or that the website belongs to someone else).
+
+Be factual and cite-driven — only report what you actually found; never invent prices or pages. If Facebook/Instagram content is login-walled, say so rather than guessing.
+
+End your reply with EXACTLY one fenced json block matching this shape (no prose after it):
+
+${DOSSIER_JSON_SCHEMA_BLOCK}`;
+
+/**
+ * A fully self-contained research prompt the admin can COPY and paste into any
+ * web-browsing AI chat (Gemini, ChatGPT, Copilot, etc.) to get the dossier for
+ * FREE — no API key, no per-run cost. The vendor's facts are baked in, the
+ * ad-library links are included, and it ends with the exact JSON schema so the
+ * chat's answer pastes straight back into "Save pasted result" (parseDossierText
+ * reads the fenced json block). This is the third, zero-cost research tier
+ * alongside Lite (keyless fetch) and the AI dossier (paid API).
+ */
+export function buildDeepSearchChatPrompt(inputs: DeepSearchInputs): string {
+  const ads = adTransparencyLinks(inputs.business_name || 'this vendor');
+  return [
+    'You are a due-diligence researcher helping verify an events vendor in the Philippines. Use web search / browsing to research the business below and give an honest picture of its real footprint.',
+    '',
+    'VENDOR (as claimed on our platform):',
+    `• Business name: ${inputs.business_name || '(none given)'}`,
+    `• Claimed services: ${inputs.claimed_services.length > 0 ? inputs.claimed_services.join(', ') : '(none listed)'}`,
+    `• Location: ${inputs.location_city ?? '(not given)'}`,
+    `• Website: ${inputs.website ?? '(not given)'}`,
+    `• Social link: ${inputs.social_url ?? '(not given)'}`,
+    '',
+    'Research their own website, public Facebook/Instagram pages (only what is visible without logging in), Google results, Philippine wedding/event directories, and review sites. Find: what the business actually does, the services it advertises, ANY published prices or package rates (quote them exactly and keep the source URL), other places it exists online, and anything inconsistent with the claim above (different name or services, dead links, signs the business is inactive or the website belongs to someone else). Only report what you actually find — never invent prices or pages. If Facebook/Instagram content is login-walled, say so.',
+    '',
+    'You can also check their ads directly (public, no login needed):',
+    ...ads.map((a) => `• ${a.label}: ${a.href}`),
+    '',
+    'End your reply with EXACTLY one fenced json block in this shape and nothing after it:',
+    '',
+    DOSSIER_JSON_SCHEMA_BLOCK,
+  ].join('\n');
+}
 
 function buildUserPrompt(inputs: DeepSearchInputs): string {
   const lines = [

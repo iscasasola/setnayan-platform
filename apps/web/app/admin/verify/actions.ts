@@ -17,7 +17,10 @@ import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
+  DEEP_SEARCH_CHAT_MODEL,
   runDeepSearchOrLite,
+  buildDeepSearchChatPrompt,
+  parseDossierText,
   type DeepSearchInputs,
 } from '@/lib/vendor-deep-search';
 
@@ -749,37 +752,10 @@ export async function runVendorDeepSearchAction(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // Snapshot the search inputs from the profile + the application's social slot.
-  const { data: vendorRow, error: vendorErr } = await admin
-    .from('vendor_profiles')
-    .select('business_name, website, location_city, services')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  if (vendorErr || !vendorRow) {
-    redirect(
-      `/admin/verify?error=${encodeURIComponent(vendorErr?.message ?? 'Vendor not found.')}`,
-    );
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
+  if (!inputs) {
+    redirect(`/admin/verify?error=${encodeURIComponent('Vendor not found.')}`);
   }
-
-  let socialUrl: string | null = null;
-  if (applicationId) {
-    const { data: appRow } = await admin
-      .from('vendor_verification_applications')
-      .select('doc_uploads')
-      .eq('application_id', applicationId)
-      .maybeSingle();
-    const uploads = (appRow as { doc_uploads?: Record<string, unknown> } | null)?.doc_uploads;
-    const social = uploads?.social_media as { url?: unknown } | undefined;
-    if (social && typeof social.url === 'string') socialUrl = social.url;
-  }
-
-  const inputs: DeepSearchInputs = {
-    business_name: (vendorRow.business_name as string | null) ?? '',
-    website: (vendorRow.website as string | null) ?? null,
-    social_url: socialUrl,
-    location_city: (vendorRow.location_city as string | null) ?? null,
-    claimed_services: ((vendorRow.services as string[] | null) ?? []).filter(Boolean),
-  };
   if (!inputs.business_name && !inputs.website && !inputs.social_url) {
     redirect(
       `/admin/verify?error=${encodeURIComponent(
@@ -825,6 +801,115 @@ export async function runVendorDeepSearchAction(formData: FormData) {
       .eq('id', dossierId);
     revalidatePath('/admin/verify');
     redirect(`/admin/verify?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?deep_search=1');
+}
+
+/**
+ * Resolve the deep-search inputs for a vendor: the profile snapshot + the social
+ * link from the application's doc uploads. Shared by the run action, the
+ * copy-prompt action, and the manual-paste action. Returns null if the vendor
+ * profile is gone.
+ */
+async function resolveDeepSearchInputs(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<DeepSearchInputs | null> {
+  const { data: vendorRow, error: vendorErr } = await admin
+    .from('vendor_profiles')
+    .select('business_name, website, location_city, services')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (vendorErr || !vendorRow) return null;
+
+  let socialUrl: string | null = null;
+  if (applicationId) {
+    const { data: appRow } = await admin
+      .from('vendor_verification_applications')
+      .select('doc_uploads')
+      .eq('application_id', applicationId)
+      .maybeSingle();
+    const uploads = (appRow as { doc_uploads?: Record<string, unknown> } | null)?.doc_uploads;
+    const social = uploads?.social_media as { url?: unknown } | undefined;
+    if (social && typeof social.url === 'string') socialUrl = social.url;
+  }
+
+  return {
+    business_name: (vendorRow.business_name as string | null) ?? '',
+    website: (vendorRow.website as string | null) ?? null,
+    social_url: socialUrl,
+    location_city: (vendorRow.location_city as string | null) ?? null,
+    claimed_services: ((vendorRow.services as string[] | null) ?? []).filter(Boolean),
+  };
+}
+
+/**
+ * Build the free "run it in your own AI chat" research prompt for a vendor and
+ * return it to the client to copy. No API cost — the admin pastes it into
+ * Gemini / ChatGPT / Copilot, which does the web research, then pastes the JSON
+ * result back via saveManualDossierAction. Returns { ok, prompt } or { ok:false }.
+ */
+export async function getDeepSearchChatPromptAction(
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
+  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    return {
+      ok: false,
+      error: 'Nothing to search — this vendor has no name, website, or social link yet.',
+    };
+  }
+  return { ok: true, prompt: buildDeepSearchChatPrompt(inputs) };
+}
+
+/**
+ * Store a dossier the admin got for FREE by pasting the copy-prompt into an AI
+ * chat and pasting the chat's JSON answer back. Parses the fenced json block
+ * (same parser the API path uses) and saves it as a completed dossier tagged
+ * with the manual-chat model. Mirrors the run action's insert.
+ */
+export async function saveManualDossierAction(formData: FormData) {
+  const adminUser = await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  const pasted = readFormString(formData, 'pasted_result');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+  if (!pasted || pasted.trim().length === 0) {
+    redirect(`/admin/verify?error=${encodeURIComponent('Paste the AI chat’s result first.')}`);
+  }
+
+  const dossier = parseDossierText(pasted);
+  if (!dossier) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(
+        'Could not read a dossier from that paste — make sure you copied the whole reply, including the ```json { … } ``` block at the end.',
+      )}`,
+    );
+  }
+
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
+
+  const { error: insErr } = await admin.from('vendor_web_dossiers').insert({
+    vendor_profile_id: vendorProfileId,
+    application_id: applicationId || null,
+    status: 'complete',
+    requested_by: adminUser.user_id,
+    inputs: inputs ?? {},
+    model: DEEP_SEARCH_CHAT_MODEL,
+    dossier,
+    completed_at: new Date().toISOString(),
+  });
+  if (insErr) {
+    redirect(`/admin/verify?error=${encodeURIComponent(insErr.message)}`);
   }
 
   revalidatePath('/admin/verify');

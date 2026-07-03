@@ -54,6 +54,7 @@ import {
   type DossierRow,
   type VendorDossier,
 } from '@/lib/vendor-deep-search';
+import { DeepSearchChat } from './_components/deep-search-chat';
 
 export const metadata = { title: 'Verification queue · Admin' };
 
@@ -998,6 +999,11 @@ function DeepSearchBlock({
           </span>
         ))}
       </p>
+
+      <DeepSearchChat
+        vendorProfileId={application.vendor_profile_id}
+        applicationId={application.application_id}
+      />
     </div>
   );
 }

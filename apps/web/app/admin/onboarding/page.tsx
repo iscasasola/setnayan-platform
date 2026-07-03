@@ -139,10 +139,10 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
               sub="Now in the Taxonomy Studio — per-category facets + sample photos"
             />
             <RelatedLink
-              href="/admin/wedding-types"
+              href="/admin/taxonomy?view=vocab-faith"
               icon={<Church className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
               label="Wedding types"
-              sub="Which religions the flow offers"
+              sub="Now in the Taxonomy Studio — faith launch gate + readiness"
             />
           </div>
         </div>

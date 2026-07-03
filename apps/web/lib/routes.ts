@@ -105,7 +105,9 @@ export const routes = {
     verify: () => `/admin/verify`,
     website: () => `/admin/website`,
     weddingTraditions: () => `/admin/wedding-traditions`,
-    weddingTypes: () => `/admin/wedding-types`,
+    // weddingTypes REMOVED 2026-07-03 — /admin/wedding-types retired to a
+    // redirect(/admin/taxonomy?view=vocab-faith); the faith launch gate now lives
+    // in the Taxonomy Studio Vocabularies rail.
     work: () => `/admin/work`,
   },
   api: {

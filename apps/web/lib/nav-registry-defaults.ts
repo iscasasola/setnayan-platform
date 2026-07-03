@@ -2571,18 +2571,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 48,
   },
-  {
-    key: "admin.sidebar.wedding-types",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/wedding-types",
-    label: "Wedding types",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Church",
-    customRef: null,
-    sortOrder: 49,
-  },
+  // admin.sidebar.wedding-types REMOVED 2026-07-03 — /admin/wedding-types was
+  // retired to a redirect(/admin/taxonomy?view=vocab-faith); the per-faith launch
+  // gate now lives in the Taxonomy Studio's Vocabularies → Faiths rail. Seed
+  // default dropped so it stops seeding into /admin/menus. Any stale
+  // nav_slot_override row for this key is inert — the renderer iterates code
+  // defaults and overlays overrides (lib/nav-registry.ts), so an override with no
+  // matching default is never rendered.
   {
     key: "admin.sidebar.wedding-traditions",
     scope: "admin",

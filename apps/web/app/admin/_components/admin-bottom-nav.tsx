@@ -183,7 +183,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // redirect(/admin/taxonomy); refinements now live in the Taxonomy Studio
       // inspector's Refinements tab. Dedicated nav entry dropped.
       '/admin/onboarding',
-      '/admin/wedding-types',
+      // '/admin/wedding-types' REMOVED 2026-07-03 — route retired to a
+      // redirect(/admin/taxonomy?view=vocab-faith); the per-faith launch gate now
+      // lives in the Taxonomy Studio Vocabularies → Faiths rail.
       '/admin/wedding-traditions',
       '/admin/brain',
     ],

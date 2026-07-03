@@ -34,7 +34,6 @@ import {
   CalendarDays,
   Camera,
   CheckCheck,
-  Church,
   CircleUser,
   ClipboardList,
   Coins,
@@ -166,7 +165,8 @@ export const routeMeta = {
     verify: { icon: BadgeCheck, label: 'Verify' },
     website: { icon: Globe, label: 'Website' },
     weddingTraditions: { icon: BookOpen, label: 'Wedding traditions' },
-    weddingTypes: { icon: Church, label: 'Wedding types' },
+    // weddingTypes REMOVED 2026-07-03 — /admin/wedding-types retired to a
+    // redirect(/admin/taxonomy?view=vocab-faith); folded into the Taxonomy Studio.
     work: { icon: ListChecks, label: 'Work' },
   },
   api: {

@@ -21,4 +21,9 @@ table instead of around it, and the room needed a mood-board toggle.
   couple-facing venue walk uses. Desktop overlay gets a default-on toggle
   (themed ↔ neutral); the phone walk arrives into the themed room.
 
+Reconciled with #2699's free-roam "Walk around" (merged in parallel): the fixes
+apply to BOTH the scripted seat walk AND every roam tap — each roam path now
+carries its obstacle discs, so roam rounds tables too — and the themed palette
+flows through both modes.
+
 SPEC IMPACT: None (demo polish; reuses shipped seating-3d + mood-board engines).

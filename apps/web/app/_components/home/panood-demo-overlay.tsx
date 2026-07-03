@@ -168,13 +168,13 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
       <div className="hr-ov-eyebrow">Live Studio · live demo</div>
       <h2 className="hr-ov-title">Two phones. One control room.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
-        Scan the code with two phones — each becomes a live camera. Then cut
+        Scan the code with two phones, each becomes a live camera. Then cut
         between them right here. Live only: nothing is recorded.
       </p>
 
       {failed ? (
         <p style={{ marginTop: 24, fontSize: 13, color: '#8c8884' }}>
-          Couldn&rsquo;t start the demo right now — close this and try again in
+          Couldn&rsquo;t start the demo right now. Close this and try again in
           a moment.
         </p>
       ) : pending || !pair ? (
@@ -206,11 +206,11 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
           <p style={{ marginTop: 6, fontSize: 12, color: '#a8a4a0', textAlign: 'center' }}>
             {slotStates.a === 'connecting' || slotStates.b === 'connecting'
               ? 'A camera is connecting…'
-              : 'This code is fresh for this open — it expires in 20 minutes.'}
+              : 'This code is fresh for this open. It expires in 20 minutes.'}
           </p>
           {anyFailed && (
             <p style={{ marginTop: 10, fontSize: 12, color: '#8c8884', textAlign: 'center' }}>
-              Video couldn&rsquo;t connect on this network — phone and computer
+              Video couldn&rsquo;t connect on this network. Phone and computer
               on the same Wi-Fi usually does it.
             </p>
           )}
@@ -258,7 +258,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
                   type="button"
                   onClick={() => live && cut(slot)}
                   disabled={!live}
-                  aria-label={live ? `Cut to ${SLOT_LABEL[slot]}` : `${SLOT_LABEL[slot]} — waiting`}
+                  aria-label={live ? `Cut to ${SLOT_LABEL[slot]}` : `${SLOT_LABEL[slot]}, waiting`}
                   style={{
                     position: 'relative',
                     flex: 1,
@@ -338,10 +338,10 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
 
           <p style={{ marginTop: 14, fontSize: 12, color: '#a8a4a0', textAlign: 'center' }}>
             {bothLive
-              ? 'Click a camera to cut — that’s the control room.'
+              ? 'Click a camera to cut. That’s the control room.'
               : anyFailed
-                ? 'Video couldn’t connect on this network — phone and computer on the same Wi-Fi usually does it.'
-                : 'One camera live — add the second phone for the full cut.'}
+                ? 'Video couldn’t connect on this network. Phone and computer on the same Wi-Fi usually does it.'
+                : 'One camera live. Add the second phone for the full cut.'}
           </p>
         </>
       )}

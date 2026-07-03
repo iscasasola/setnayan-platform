@@ -186,8 +186,8 @@ function PricesOverlay({
           <div className="hr-t">Free</div>
           <div className="hr-p">₱0</div>
           <div className="hr-d">
-            The full Plano planner, the free Likha studio, a live event page, and Ala Ala basics
-            — enough to plan a real event, end to end, and start keeping it.
+            The full Plano planner, the free Likha studio, a live event page, and Ala Ala basics,
+            enough to plan a real event, end to end, and start keeping it.
           </div>
         </div>
         <div className="hr-pr-tier hr-hot">
@@ -200,13 +200,13 @@ function PricesOverlay({
             {pricing.aiIntroPrice} on your first 28 days
           </div>
           <div className="hr-d">
-            Adds Suri — the planning brain that filters the vendors that fit you, paces your
+            Adds Suri, the planning brain that filters the vendors that fit you, paces your
             checklist, and guides your budget.
           </div>
         </div>
       </div>
 
-      <div className="hr-pr-alh">Free — yours, always</div>
+      <div className="hr-pr-alh">Free, yours always</div>
       <div className="hr-pr-free">
         {pricing.freeChips.map((c) => (
           <span key={c} className="hr-pr-f">
@@ -250,7 +250,7 @@ function PricesOverlay({
         </div>
         <div className="hr-hint">
           Per-guest and per-day lines update live; flat items don’t change. Papic is per guest,
-          capped at ₱15,000/day. Rough estimate — set exact pax, days &amp; options in the app.
+          capped at ₱15,000/day. Rough estimate. Set exact pax, days &amp; options in the app.
         </div>
       </div>
 
@@ -274,7 +274,7 @@ function PricesOverlay({
           </div>
           {g.title.startsWith('Couple Website') && (
             <div className="hr-pr-hubnote">
-              Your site is a hub —{' '}
+              Your site is a hub:{' '}
               <strong>
                 Papic gallery · Live Photo Wall · livestream · Pakanta · Animated Monogram · 3D Plan
               </strong>{' '}
@@ -387,11 +387,11 @@ function VendorsOverlay({
       <h2 className="hr-ov-title">Get found by couples planning right now.</h2>
       <p className="hr-ov-sub">
         List your business, get matched to the couples who actually fit, and run every booking, chat,
-        and calendar in one place. Free while we launch — and 0% commission, always.
+        and calendar in one place. Free while we launch, and 0% commission, always.
       </p>
       <div className="hr-vb-stat">
         <b>Everything below, by account type.</b> A free verified account is already a whole
-        business — 0% commission, direct payouts, matchmaking, your dashboard, and analytics. The
+        business: 0% commission, direct payouts, matchmaking, your dashboard, and analytics. The
         paid tiers add more as you grow, and each one includes everything in the tier before it.{' '}
         <span className="hr-soonkey">“Soon” = in active build; it clears as features ship.</span>
       </div>
@@ -399,7 +399,7 @@ function VendorsOverlay({
       <div className="hr-vb-legend">
         <b>How the tiers stack.</b> <b>Free</b> is the whole ops spine. <b>Solo</b> adds your
         business analytics. <b>Pro</b> adds a team, wider reach, and premium market intel.{' '}
-        <b>Enterprise</b> lifts every limit — seats, photos, events, nationwide reach.{' '}
+        <b>Enterprise</b> lifts every limit: seats, photos, events, nationwide reach.{' '}
         <Link className="hr-vb-legend-link" href="/for-vendors" onClick={onClose}>
           See the full comparison →
         </Link>
@@ -543,7 +543,7 @@ function SignInOverlay({
       <div className="hr-si-foot">
         No account yet?{' '}
         <Link href="/signup" className="hr-si-link" onClick={onClose}>
-          Create one — free
+          Create one, free
         </Link>
       </div>
     </OverlayShell>
@@ -636,7 +636,7 @@ function SetnayanAiOverlay({
           themPct: frac * 100,
           usLabel: `Setnayan AI · ${peso(mine)}`,
           usPct: Math.max((mine / AI_COMPARE_TEAM_MAX_PHP) * 100, 1.2),
-          foot: 'Bars drawn to one scale — both grow with your timeline. Setnayan AI ends on your wedding day.',
+          foot: 'Bars drawn to one scale. Both grow with your timeline. Setnayan AI ends on your wedding day.',
         }
       : mode === 'apps'
         ? {
@@ -646,7 +646,7 @@ function SetnayanAiOverlay({
             themPct: frac * 100,
             usLabel: `Setnayan AI · ${peso(mine)}`,
             usPct: Math.max((mine / AI_COMPARE_APPS_MAX_PHP) * 100, 1.2),
-            foot: 'Drawn to one scale — and theirs waits for your questions; it doesn’t watch your vendors.',
+            foot: 'Drawn to one scale, and theirs waits for your questions; it doesn’t watch your vendors.',
           }
         : {
             // "What is your hour worth?" — value the DIY hours at the rate the
@@ -659,7 +659,7 @@ function SetnayanAiOverlay({
             themPct: frac * 100,
             usLabel: `Setnayan AI · ${peso(mine)}`,
             usPct: Math.max((mine / (AI_COMPARE_DIY_MAX_HOURS * rate)) * 100, 1.2),
-            foot: `${Math.round(diyHours).toLocaleString()} h by hand × ${peso(rate)}/hr, illustrative — Setnayan AI runs it in the background instead.`,
+            foot: `${Math.round(diyHours).toLocaleString()} h by hand × ${peso(rate)}/hr, illustrative. Setnayan AI runs it in the background instead.`,
           };
 
   return (
@@ -676,7 +676,7 @@ function SetnayanAiOverlay({
       <div className="hr-ov-eyebrow">Setnayan AI · your planning brain</div>
       <h2 className="hr-ov-title">Stop remembering to check on everything.</h2>
       <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.55, color: '#2a2925' }}>
-        It watches the vendors you’re eyeing and the ones you’ve booked — and taps you only when something needs you.
+        It watches the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.
         Most weeks, it stays quiet.
       </p>
 

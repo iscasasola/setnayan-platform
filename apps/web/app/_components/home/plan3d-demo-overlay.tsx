@@ -76,13 +76,13 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
       <h2 className="hr-ov-title">Click a guest. See their seat, in their pocket.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
         This is Maria &amp; Jose&rsquo;s sample room. Tap anyone seated and we&rsquo;ll hand you a QR that opens
-        the room, in 3D, from that guest&rsquo;s phone — walk straight to their seat, or wander the whole
+        the room, in 3D, from that guest&rsquo;s phone. Walk straight to their seat, or wander the whole
         room.
       </p>
 
       {failed ? (
         <p style={{ marginTop: 24, fontSize: 13, color: '#8c8884' }}>
-          Couldn&rsquo;t load the room right now — close this and try again in a moment.
+          Couldn&rsquo;t load the room right now. Close this and try again in a moment.
         </p>
       ) : pending || !scene ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24, color: '#8c8884', fontSize: 13 }}>
@@ -201,13 +201,13 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
                     Scan as {qr.guestName}
                   </div>
                   <div style={{ fontSize: 11.5, color: '#a8a4a0', marginTop: 2 }}>
-                    Fresh code — expires in 20 minutes.
+                    Fresh code. Expires in 20 minutes.
                   </div>
                 </div>
               </div>
             ) : qrFailed ? (
               <span style={{ fontSize: 13, color: '#8c8884' }}>
-                Couldn&rsquo;t mint that QR — click the guest again.
+                Couldn&rsquo;t mint that QR. Click the guest again.
               </span>
             ) : (
               <>

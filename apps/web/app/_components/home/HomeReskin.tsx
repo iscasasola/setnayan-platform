@@ -62,12 +62,12 @@ const HOME_HERO = {
  * the owner-locked positioning statement — presentation only changes here.
  */
 const MANIFESTO: Array<{ t: string; b?: boolean; fin?: boolean }> = [
-  { t: 'Setnayan is where the memories of every event in your life are kept — the ones you' },
+  { t: 'Setnayan is where the memories of every event in your life are kept, the ones you' },
   { t: 'hold', b: true },
   { t: 'and the ones you' },
   { t: 'attend.', b: true },
   {
-    t: 'Most tools you open for one event and close. This is the place your celebrations live, so you come back for the next one. Plan it, run it, remember it — and',
+    t: 'Most tools you open for one event and close. This is the place your celebrations live, so you come back for the next one. Plan it, run it, remember it, and',
   },
   { t: 'keep it, for life.', fin: true },
 ];
@@ -529,7 +529,7 @@ export function HomeReskin({
           )}
           {hero?.name === 'Papic' && (
             <button className="hr-ai-cta" onClick={() => setOverlay('papic-demo')}>
-              Try the live demo — you and a friend, right now
+              Try the live demo, you and a friend, right now
             </button>
           )}
           {hero?.name === 'Panood' && (
@@ -662,7 +662,7 @@ export function HomeReskin({
           <div className="hr-pnum">Real Stories</div>
           <h2 className="hr-pname">The front-page story of your day.</h2>
           <p className="hr-pdef" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
-            A living archive of real celebrations — each one unique in feeling, faith, and place.
+            A living archive of real celebrations, each one unique in feeling, faith, and place.
           </p>
           <div className="hr-grid2">
             {STORIES.map((s) => (
@@ -685,7 +685,7 @@ export function HomeReskin({
           <div className="hr-pnum">Pricing</div>
           <h2 className="hr-pname">Start free. Stay if it earns you.</h2>
           <p className="hr-pdef">
-            No tricks at the floor — the free tier is a real planner, not a demo: the full Plano
+            No tricks at the floor. The free tier is a real planner, not a demo: the full Plano
             suite, the free Likha studio, a live event page, and Ala Ala basics. Add Suri and
             premium Likha when you want the brain and the polish. The full breakdown lives on the
             pricing page.
@@ -700,7 +700,7 @@ export function HomeReskin({
           <div className="hr-pnum">Get the app</div>
           <h2 className="hr-pname">Laptop at midnight. Phone in the venue.</h2>
           <p className="hr-pdef">
-            Tablet on the couch a year later, walking back through it. Browser, phone, tablet — the
+            Tablet on the couch a year later, walking back through it. Browser, phone, tablet, the
             same plan and the same memories, in sync. One account, every screen.
           </p>
           <div className="hr-dlrow">

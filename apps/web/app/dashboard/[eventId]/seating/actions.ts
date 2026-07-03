@@ -556,6 +556,45 @@ export async function saveFloorPlan(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Host choice for guest PHOTOS in the public 3D venue walk (owner 2026-07-03).
+// Persists event_floor_plan.venue_photo_visibility ∈ {'table','all','none'} —
+// 'table' (default) shows own-tablemate faces, 'all' shows every seated face,
+// 'none' shows no photos. The public_venue_scene RPC still hard-gates photos
+// behind a valid per-guest token; this only widens/narrows WHICH seats it lets
+// through. Lock-gated like every seating mutation.
+const VALID_PHOTO_VISIBILITY = new Set(['table', 'all', 'none']);
+
+export async function saveVenuePhotoVisibility(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const value = formData.get('venue_photo_visibility');
+  if (typeof value !== 'string' || !VALID_PHOTO_VISIBILITY.has(value)) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  // Upsert just this column on the per-event floor-plan singleton. onConflict
+  // keeps every other floor-plan field intact; a first-time row gets the DB
+  // defaults for everything else.
+  const { error } = await supabase.from('event_floor_plan').upsert(
+    { event_id: eventId, venue_photo_visibility: value, updated_at: new Date().toISOString() },
+    { onConflict: 'event_id' },
+  );
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Save the couple's draggable seating-priority tier order (smart seat-plan
 // Phase 2). Upserts just the priority_order column on the per-event floor-plan
 // singleton (other columns keep their DB defaults / existing values). The client

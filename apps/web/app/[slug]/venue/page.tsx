@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import type { VenueScene } from './_components/guest-venue-3d';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
@@ -29,7 +30,27 @@ export default async function VenuePage({
     admin.from('events').select('role_palette').eq('slug', slug).maybeSingle(),
   ]);
   const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
-  const scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
+  let scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
+
+  // The RPC returns guest photos as RAW stored refs (r2:// or bare URL) — the
+  // client can't resolve an r2:// ref, so we do it HERE. Mirrors the 3D-demo
+  // resolver (`plan3d-demo-actions.ts`): dedupe the distinct refs, resolve them
+  // all in parallel via `displayUrlForStoredAsset`, drop any that fail, then
+  // rewrite each seat's `photoUrl` to its display URL. The RPC already privacy-
+  // gates which photos appear (token-only, host setting) — this step is purely
+  // ref → URL. `photos` is null/absent for 'none' and the tokenless view.
+  if (scene?.photos && scene.photos.length > 0) {
+    const distinctRefs = [...new Set(scene.photos.map((p) => p.photoUrl).filter((r): r is string => !!r))];
+    const resolved: Record<string, string> = Object.fromEntries(
+      (
+        await Promise.all(distinctRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
+      ).filter((e): e is [string, string] => e[1] !== null),
+    );
+    scene = {
+      ...scene,
+      photos: scene.photos.map((p) => ({ ...p, photoUrl: p.photoUrl ? resolved[p.photoUrl] ?? null : null })),
+    };
+  }
 
   if (error || !scene || !scene.published) {
     return (

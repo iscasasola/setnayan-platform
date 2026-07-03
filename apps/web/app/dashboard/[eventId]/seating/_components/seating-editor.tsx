@@ -8,6 +8,7 @@ import {
   Armchair,
   CakeSlice,
   Camera,
+  Check,
   ChevronDown,
   ChevronUp,
   GripVertical,
@@ -103,6 +104,7 @@ import {
   saveFloorPlan,
   savePriorityOrder,
   saveSigns,
+  saveVenuePhotoVisibility,
   seatRoleAtTable,
   setGuestSeatingPriority,
   setTableSeat,
@@ -406,6 +408,11 @@ export function SeatingEditor({
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  // Guest-photo visibility in the public 3D venue walk (owner 2026-07-03).
+  // Optimistic local mirror of floorPlan.venue_photo_visibility so the choice
+  // reflects instantly; the server persist reconciles on revalidation.
+  const [showPhotoVis, setShowPhotoVis] = useState(false);
+  const [photoVis, setPhotoVis] = useState<'table' | 'all' | 'none'>(floorPlan.venue_photo_visibility);
   // The booth whose type-picker is open (place-then-pick). null = none.
   const [boothPickerFor, setBoothPickerFor] = useState<string | null>(null);
   const [canvasW, setCanvasW] = useState(0);
@@ -1024,6 +1031,32 @@ export function SeatingEditor({
     }));
     const rule = relaxLowestPriorityRule(violatedRules, asAuto, priorityOrder, roleSet);
     if (rule) removeKeepApart(rule);
+  };
+
+  // Set the guest-photo visibility for the public 3D venue walk. Optimistic:
+  // the choice flips instantly, then persists lock-gated (runGated drops us to
+  // view-only + reverts if a peer took the editor). Reverts on any error too.
+  const setPhotoVisibility = (next: 'table' | 'all' | 'none') => {
+    if (!canEdit || next === photoVis) {
+      setShowPhotoVis(false);
+      return;
+    }
+    const prev = photoVis;
+    setPhotoVis(next);
+    setShowPhotoVis(false);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('venue_photo_visibility', next);
+    startTransition(async () => {
+      try {
+        const res = await runGated(() => saveVenuePhotoVisibility(fd));
+        if (res === null) setPhotoVis(prev); // lock lost — revert to server truth.
+      } catch {
+        setPhotoVis(prev);
+        setNotice('Couldn’t save the photo setting — please try again.');
+      }
+    });
   };
 
   // Publish the seating pack + open the printable sign sheets. The print route
@@ -3169,6 +3202,90 @@ export function SeatingEditor({
                     <p className="px-3 py-1.5 text-[10px] text-ink/45">
                       A4 PDF · floor plan + seating arrangements · with your monogram &amp; website QR.
                     </p>
+                  </div>
+                </>
+              ) : null}
+            </div>
+            {/* Guest-photo visibility in the public 3D venue walk (owner
+                2026-07-03). Same popover pattern as Export PDF next door: a
+                toggle + click-away backdrop + role="menu". Photos are always
+                token-gated server-side; this only sets which faces a guest sees.
+                Free — the seat plan has no paywall. */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowPhotoVis((v) => !v)}
+                disabled={!canEdit}
+                aria-haspopup="menu"
+                aria-expanded={showPhotoVis}
+                title={!canEdit ? 'View only — someone else is editing this seat plan' : 'Choose which guest photos show in the 3D venue walk'}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
+              >
+                {photoVis === 'none' ? <EyeOff className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
+                Guest photos
+                <ChevronDown className="h-3 w-3 text-ink/40" />
+              </button>
+              {showPhotoVis ? (
+                <>
+                  <button
+                    type="button"
+                    aria-hidden
+                    tabIndex={-1}
+                    onClick={() => setShowPhotoVis(false)}
+                    className="fixed inset-0 z-30 cursor-default"
+                  />
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-40 mt-1 w-72 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+                  >
+                    <p className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink/45">
+                      Photos in the 3D venue walk
+                    </p>
+                    {(
+                      [
+                        {
+                          value: 'table' as const,
+                          Icon: Eye,
+                          label: 'Own table only',
+                          hint: 'Each guest sees the faces at their own table — the rest stay anonymous. (Default.)',
+                        },
+                        {
+                          value: 'all' as const,
+                          Icon: Camera,
+                          label: 'All guests',
+                          hint: 'Every seated guest’s photo shows, so anyone can recognise faces around the room.',
+                        },
+                        {
+                          value: 'none' as const,
+                          Icon: EyeOff,
+                          label: 'No photos',
+                          hint: 'Seats show as plain markers — no guest photos anywhere in the walk.',
+                        },
+                      ]
+                    ).map((opt) => {
+                      const active = photoVis === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => setPhotoVisibility(opt.value)}
+                          className={`flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04] ${
+                            active ? 'bg-mulberry/[0.06]' : ''
+                          }`}
+                        >
+                          <opt.Icon className={`mt-0.5 h-4 w-4 shrink-0 ${active ? 'text-mulberry' : 'text-ink/55'}`} />
+                          <span className="flex flex-col gap-0.5">
+                            <span className={`text-sm font-medium ${active ? 'text-mulberry' : 'text-ink'}`}>
+                              {opt.label}
+                              {active ? <Check aria-hidden className="ml-1.5 inline h-3.5 w-3.5" /> : null}
+                            </span>
+                            <span className="text-[11px] leading-snug text-ink/55">{opt.hint}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </>
               ) : null}

@@ -19,6 +19,7 @@
 
 import { type ReactElement, type ReactNode } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
+import { LivingMoments } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -254,10 +255,20 @@ export async function EditorialContent({
           </>
         ) : null}
 
-        {/* The 10 moments — a photo-essay spread of the day's captures. Distinct
-            from the gallery grid below: a larger, paced spread. Auto-filled from
-            the day's Papic photos when the couple didn't curate one. ---------- */}
-        {isOn('gallery') && data.essayPhotos.length ? (
+        {/* As the Day Unfolded — the living story, in the order it happened.
+            Photos AND Papic 5-second clips woven into chapters (clock-time
+            kickers, no moment-name claims). When there are no Papic media the
+            server sends dayChapters=[] and we keep the legacy paced photo-essay
+            (built from manual uploads) so no shipped editorial loses Moments. -- */}
+        {isOn('gallery') && data.dayChapters.length ? (
+          <>
+            <SectionRule title="As the Day Unfolded" />
+            <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+              photos and living moments, in the order they happened
+            </p>
+            <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
+          </>
+        ) : isOn('gallery') && data.essayPhotos.length ? (
           <>
             <SectionRule title="Moments" />
             <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />

@@ -61,6 +61,12 @@ export const EDITORIAL_PAPIC_GALLERY_CAP = 24;
 /** How many Papic captures to back the "10 moments" / photo-essay spread. */
 export const EDITORIAL_PAPIC_ESSAY_CAP = 10;
 
+/** How many "As the Day Unfolded" chapters to emit (an even time-order split). */
+export const EDITORIAL_DAY_CHAPTER_CAP = 10;
+
+/** How many clean Papic 5-second clips to pull into the day timeline. */
+export const EDITORIAL_PAPIC_CLIP_CAP = 14;
+
 /** Display labels for in-app Setnayan service_keys (the "Powered by Setnayan"
  * strip). Unknown keys fall back to prettyServiceKey(). */
 const SERVICE_LABELS: Record<string, string> = {
@@ -204,6 +210,26 @@ export type VendorMediaItem = {
   caption: string | null;
 };
 
+// ── "As the Day Unfolded" living-story chapters ──────────────────────────────
+// A single medium (photo or a 5-second Papic clip) inside a chapter. `url` is a
+// presigned display URL (a still image for a photo, the playable MP4 for a clip);
+// `posterUrl` is the clip's freeze-frame poster (null for photos / clips with no
+// baked poster).
+export type ChapterMedia = {
+  type: 'photo' | 'clip';
+  url: string;
+  posterUrl?: string | null;
+};
+
+// One chapter of the day. `time` is a clock-time kicker ("4:12 in the
+// afternoon") derived from the lead media's captured_at — NEVER a moment name
+// (no "First Kiss"); factual naming waits for couple curation. `media[0]` is the
+// lead (a clip when the bucket has one), followed by ≤2 supporting photos.
+export type DayChapter = {
+  time: string | null;
+  media: ChapterMedia[];
+};
+
 export type EditorialData = {
   displayName: string;
   firstNames: string; // best-effort "A & B" for headline
@@ -270,6 +296,13 @@ export type EditorialData = {
   // list is empty (the normal case — it has no writer yet). A best-effort spread,
   // not a per-moment mapping. Empty when there are no Papic photos.
   essayPhotos: string[];
+  // "As the Day Unfolded" — the living story, in the order it happened. Up to 10
+  // chapters built from the Papic timeline (clean photos + 5s clips, captured_at
+  // ASC). Each chapter carries a clock-time kicker + a lead medium (a clip when
+  // one is in the bucket) + ≤2 supporting photos. Empty when there are no Papic
+  // media → the renderer falls back to the legacy `essayPhotos` treatment, so no
+  // shipped editorial loses its Moments section.
+  dayChapters: DayChapter[];
   // The couple's song for the recap. When the delivered Pakanta song is present
   // (events.pakanta_song_r2_key), `url` is its presigned audio URL and `label`
   // credits it as "their song". Otherwise `url` is null and `label` falls back
@@ -360,6 +393,41 @@ function formatPhDate(iso: string | null): string | null {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return null;
     return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A chapter's clock-time kicker — e.g. "4:12 in the afternoon" / "8:03 in the
+ * evening" — formatted in the Philippine local sense (Asia/Manila). This carries
+ * NO factual claim about what the moment was (no "First Kiss"); it's a clock time
+ * only. Returns null when there's no timestamp. Best-effort: any error → null.
+ */
+function formatClockKicker(iso: string | null): string | null {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    // Read the 24-hour clock in Manila local time, then render a warm "h:mm in
+    // the <part of day>" phrase. Intl handles the timezone shift for us.
+    const parts = new Intl.DateTimeFormat('en-PH', {
+      timeZone: 'Asia/Manila',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+    const hour24 = Number(parts.find((p) => p.type === 'hour')?.value ?? NaN);
+    const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
+    if (!Number.isFinite(hour24)) return null;
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    let partOfDay: string;
+    if (hour24 < 5) partOfDay = 'in the small hours';
+    else if (hour24 < 12) partOfDay = 'in the morning';
+    else if (hour24 < 17) partOfDay = 'in the afternoon';
+    else if (hour24 < 21) partOfDay = 'in the evening';
+    else partOfDay = 'at night';
+    return `${hour12}:${minute} ${partOfDay}`;
   } catch {
     return null;
   }
@@ -659,12 +727,12 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // verdict set as the photo COUNT above). A missing table/column (pre-Papic
   // event, 42P01/42703) degrades to an empty list → every consumer falls back
   // to its prior source exactly as before.
-  type PapicRow = { photoId: string; key: string };
+  type PapicRow = { photoId: string; key: string; capturedAt: string | null };
   let papicRows: PapicRow[] = [];
   try {
     const { data: rows, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key')
+      .select('photo_id, r2_object_key, captured_at')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
@@ -677,11 +745,55 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       .limit(EDITORIAL_PAPIC_GALLERY_CAP);
     if (!error && Array.isArray(rows)) {
       papicRows = (rows as Array<Record<string, unknown>>)
-        .map((r) => ({ photoId: asString(r.photo_id), key: asString(r.r2_object_key) }))
+        .map((r) => ({
+          photoId: asString(r.photo_id),
+          key: asString(r.r2_object_key),
+          capturedAt: asString(r.captured_at) ?? null,
+        }))
         .filter((r): r is PapicRow => Boolean(r.photoId && r.key));
     }
   } catch {
     papicRows = [];
+  }
+
+  // 5b-bis. The day's Papic 5-second CLIPS (photo_type='clip'). Same fail-closed
+  // moderation filter as the photos above, ordered oldest-first so they slot into
+  // the "As the Day Unfolded" timeline in the order they happened. The playable
+  // MP4 lives at r2_object_key; poster_r2_key is the freeze-frame. A missing
+  // table/column (pre-Papic event) degrades to an empty list.
+  type PapicClipRow = {
+    photoId: string;
+    key: string;
+    posterKey: string | null;
+    capturedAt: string | null;
+  };
+  let papicClipRows: PapicClipRow[] = [];
+  try {
+    const { data: rows, error } = await admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, poster_r2_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'clip')
+      .is('hidden_at', null)
+      .not(
+        'moderation_state',
+        'in',
+        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+      )
+      .order('captured_at', { ascending: true })
+      .limit(EDITORIAL_PAPIC_CLIP_CAP);
+    if (!error && Array.isArray(rows)) {
+      papicClipRows = (rows as Array<Record<string, unknown>>)
+        .map((r) => ({
+          photoId: asString(r.photo_id),
+          key: asString(r.r2_object_key),
+          posterKey: asString(r.poster_r2_key) ?? null,
+          capturedAt: asString(r.captured_at) ?? null,
+        }))
+        .filter((r): r is PapicClipRow => Boolean(r.photoId && r.key));
+    }
+  } catch {
+    papicClipRows = [];
   }
 
   // Presign the Papic captures once; reused by gallery + essay (and the hero
@@ -1066,6 +1178,166 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     }
   }
 
+  // ── "As the Day Unfolded" living-story chapters ──────────────────────────────
+  // Weave the day's clean photos + 5-second clips into ONE captured_at-ASC
+  // timeline, then bucket into up to 10 chapters by an even time-order split.
+  // Each chapter leads with a clip when its bucket has one (else the most-tagged
+  // photo, mirroring the hero auto-pick), plus ≤2 supporting photos. Read-time
+  // only — no writer, no migration. Empty → the renderer keeps the legacy essay.
+  let dayChapters: DayChapter[] = [];
+
+  // Presign the clips once (playable MP4 + optional poster).
+  const clipUrlByPhotoId = new Map<string, { url: string; posterUrl: string | null }>();
+  if (papicClipRows.length > 0) {
+    await Promise.all(
+      papicClipRows.map(async (r) => {
+        const url = await displayUrlForStoredAsset(r.key);
+        if (!url) return;
+        const posterUrl = r.posterKey ? await displayUrlForStoredAsset(r.posterKey) : null;
+        clipUrlByPhotoId.set(r.photoId, { url, posterUrl });
+      }),
+    );
+  }
+
+  // Best-effort tag counts for the day's photos → prefer the most-tagged photo as
+  // a chapter's lead (the frame with the most people reads as the key image),
+  // exactly like the hero auto-pick. A missing tags table (42P01) → all zero,
+  // and buckets fall back to first-in-bucket order.
+  const photoTagCount = new Map<string, number>();
+  if (papicRows.length > 0) {
+    try {
+      const { data: tagRows, error } = await admin
+        .from('photo_tags')
+        .select('source_id')
+        .eq('event_id', eventId)
+        .eq('source_table', 'papic_photos')
+        .in(
+          'source_id',
+          papicRows.map((r) => r.photoId),
+        );
+      if (!error && Array.isArray(tagRows)) {
+        for (const t of tagRows as Array<Record<string, unknown>>) {
+          const id = asString(t.source_id);
+          if (id) photoTagCount.set(id, (photoTagCount.get(id) ?? 0) + 1);
+        }
+      }
+    } catch {
+      // untagged fallback → first-in-bucket ordering
+    }
+  }
+
+  // A unified timeline item. Photos carry a presigned still URL + tag count;
+  // clips carry a playable URL + optional poster. `ts` is captured_at ms (NaN
+  // when absent → sorts last so timestamped media leads the timeline).
+  type TimelineItem = {
+    kind: 'photo' | 'clip';
+    url: string;
+    posterUrl: string | null;
+    ts: number;
+    tsRaw: string | null;
+    tagCount: number;
+  };
+  const tsMs = (raw: string | null): number => {
+    if (!raw) return Number.NaN;
+    const n = new Date(raw).getTime();
+    return Number.isFinite(n) ? n : Number.NaN;
+  };
+  const timeline: TimelineItem[] = [];
+  for (const r of papicRows) {
+    const url = papicUrlByPhotoId.get(r.photoId);
+    if (!url) continue;
+    timeline.push({
+      kind: 'photo',
+      url,
+      posterUrl: null,
+      ts: tsMs(r.capturedAt),
+      tsRaw: r.capturedAt,
+      tagCount: photoTagCount.get(r.photoId) ?? 0,
+    });
+  }
+  for (const r of papicClipRows) {
+    const resolved = clipUrlByPhotoId.get(r.photoId);
+    if (!resolved) continue;
+    timeline.push({
+      kind: 'clip',
+      url: resolved.url,
+      posterUrl: resolved.posterUrl,
+      ts: tsMs(r.capturedAt),
+      tsRaw: r.capturedAt,
+      tagCount: 0,
+    });
+  }
+  // captured_at ASC; rows without a timestamp (NaN) sink to the end.
+  timeline.sort((a, b) => {
+    const aN = Number.isNaN(a.ts);
+    const bN = Number.isNaN(b.ts);
+    if (aN && bN) return 0;
+    if (aN) return 1;
+    if (bN) return -1;
+    return a.ts - b.ts;
+  });
+
+  const toChapterMedia = (it: TimelineItem): ChapterMedia => ({
+    type: it.kind,
+    url: it.url,
+    posterUrl: it.kind === 'clip' ? it.posterUrl : null,
+  });
+
+  // Build one chapter from a bucket of timeline items: lead = a clip if present
+  // (prefer the earliest clip so the kicker time matches the moment), else the
+  // most-tagged photo (tie → earliest). Then ≤2 supporting PHOTOS (never the
+  // lead), in timeline order. `time` = the lead's clock-time kicker.
+  const buildChapter = (bucket: TimelineItem[]): DayChapter | null => {
+    const first = bucket[0];
+    if (!first) return null;
+    const firstClip = bucket.find((b) => b.kind === 'clip');
+    // Lead = the earliest clip in the bucket (bucket is captured_at ASC), else
+    // the most-tagged photo (tie → earliest, since reduce keeps the incumbent).
+    const lead: TimelineItem = firstClip
+      ? firstClip
+      : bucket.reduce((best, cur) => (cur.tagCount > best.tagCount ? cur : best), first);
+    const supporting = bucket
+      .filter((b) => b !== lead && b.kind === 'photo')
+      .slice(0, 2)
+      .map(toChapterMedia);
+    return {
+      time: formatClockKicker(lead.tsRaw),
+      media: [toChapterMedia(lead), ...supporting],
+    };
+  };
+
+  if (essayIds.length > 0 && essayPhotos.length > 0) {
+    // Respect couple curation: one chapter per curated essay photo, in order, no
+    // clips injected. `time` is null (curated URLs carry no captured_at here).
+    dayChapters = essayPhotos.map((url) => ({
+      time: null,
+      media: [{ type: 'photo', url, posterUrl: null }],
+    }));
+  } else if (timeline.length > 0) {
+    if (timeline.length < 4) {
+      // Too few media to bucket meaningfully → one chapter per item.
+      dayChapters = timeline
+        .map((it) => buildChapter([it]))
+        .filter((c): c is DayChapter => Boolean(c));
+    } else {
+      // Even time-order split into ≤10 buckets (same decile approach as the
+      // essay sampler). Only emit non-empty buckets → never an empty frame.
+      const n = timeline.length;
+      const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
+      const buckets: TimelineItem[][] = [];
+      for (let i = 0; i < chapterCount; i += 1) {
+        const start = Math.floor((i * n) / chapterCount);
+        const end = Math.floor(((i + 1) * n) / chapterCount);
+        if (end > start) buckets.push(timeline.slice(start, end));
+      }
+      dayChapters = buckets
+        .map((b) => buildChapter(b))
+        .filter((c): c is DayChapter => Boolean(c));
+    }
+  }
+  // Fallback: zero Papic media but curation empty → dayChapters stays [], and the
+  // renderer keeps the legacy essay (built from manual `our_photos` above).
+
   // ── Their song ──────────────────────────────────────────────────────────────
   // Prefer the DELIVERED Pakanta song (events.pakanta_song_r2_key) — presign it
   // so the recap plays/credits the couple's actual song. The column is read by
@@ -1121,6 +1393,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     servicesAvailed,
     galleryPhotos,
     essayPhotos,
+    dayChapters,
     song,
     photoWallPhotos,
     photoWallActive,
@@ -1310,6 +1583,7 @@ function mariaAndJuan(): EditorialData {
       '/realstories/maria-juan-g2.jpg',
       '/realstories/maria-juan-g3.jpg',
     ],
+    dayChapters: [],
     song: { url: null, label: 'their kundiman' },
     photoWallPhotos: [],
     photoWallActive: false,
@@ -1403,6 +1677,7 @@ function jackAndJill(): EditorialData {
       '/realstories/jack-jill-g2.jpg',
       '/realstories/jack-jill-g3.jpg',
     ],
+    dayChapters: [],
     song: { url: null, label: 'their road-trip anthem' },
     photoWallPhotos: [],
     photoWallActive: false,
@@ -1496,6 +1771,7 @@ function johnAndJane(): EditorialData {
       '/realstories/john-jane-g2.jpg',
       '/realstories/john-jane-g3.jpg',
     ],
+    dayChapters: [],
     song: { url: null, label: 'their slow song' },
     photoWallPhotos: [],
     photoWallActive: false,
@@ -1590,6 +1866,7 @@ function peterAndMary(): EditorialData {
       '/realstories/peter-mary-g2.jpg',
       '/realstories/peter-mary-g3.jpg',
     ],
+    dayChapters: [],
     song: { url: null, label: 'their parents’ favourite' },
     photoWallPhotos: [],
     photoWallActive: false,
@@ -1684,6 +1961,7 @@ function jackAndRose(): EditorialData {
       '/realstories/jack-rose-g2.jpg',
       '/realstories/jack-rose-g3.jpg',
     ],
+    dayChapters: [],
     song: { url: null, label: 'their rainy-day record' },
     photoWallPhotos: [],
     photoWallActive: false,

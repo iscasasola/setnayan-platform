@@ -1,0 +1,2 @@
+## 2026-07-03 · feat(editorial): "As the Day Unfolded" living story chapters — Papic 5s clips join the editorial (desktop spreads + mobile full-bleed story panels)
+SPEC IMPACT: Editorial_Experience_Spec_2026-06-18.md §3/§4 — auto-filled chapters use clock-time kickers (no moment-name claims) until couple curation lands; clips now render in the editorial under the Daily-Prophet rule (muted loop, tap-for-sound, ≤3 concurrent).

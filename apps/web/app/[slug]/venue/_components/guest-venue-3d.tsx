@@ -138,6 +138,8 @@ function GuestAvatar({
   seatObstacles: { c: Vec2; r: number }[];
   /** Obstacle set with the guest's own table skipped, for free-roam taps. */
   roamObstacles: { c: Vec2; r: number }[];
+  /** Fired once when a walk-to-seat reaches the chair — hides the beacon. */
+  onArrive?: () => void;
   palette: Lab3DPalette;
 }) {
   const ref = useRef<THREE.Group>(null);
@@ -145,6 +147,7 @@ function GuestAvatar({
   const idx = useRef(0);
   const t = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
+  const arrivedRef = useRef(false);
 
   useEffect(() => {
     const start = pos.current;
@@ -156,6 +159,7 @@ function GuestAvatar({
         ? seatApproachPath(start, seat.table, seat.seatNumber, room, seatObstacles, 0.2)
         : steerPath(start, target, roamObstacles, 0.2);
     idx.current = 0;
+    arrivedRef.current = false; // a new destination → not there yet
   }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles]);
 
   useFrame((_, delta) => {
@@ -181,6 +185,11 @@ function GuestAvatar({
       g.position.y = Math.abs(Math.sin(t.current * 9)) * 0.06;
     } else {
       g.position.y += (0 - g.position.y) * Math.min(1, delta * 6);
+      // Reached the end of the path — if it was a seat walk, retire the beacon.
+      if (isSeatTarget && !arrivedRef.current) {
+        arrivedRef.current = true;
+        onArrive?.();
+      }
     }
     pos.current = { x: g.position.x, z: g.position.z };
   });
@@ -196,6 +205,41 @@ function GuestAvatar({
         <meshStandardMaterial color={palette.table} roughness={0.5} />
       </mesh>
       <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
+    </group>
+  );
+}
+
+/**
+ * A pulsing "you're headed here" beacon on the target chair, shown while the
+ * guest's avatar walks to it so they can SEE their seat before it arrives. A
+ * pulsing floor ring + a faint light column + a bobbing downward pin, in the
+ * palette accent — the same gold vocabulary as the static "your seat" ring.
+ */
+function SeatDestinationMarker({ position, color }: { position: Vec2; color: string }) {
+  const ring = useRef<THREE.Mesh>(null);
+  const pin = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const s = 1 + Math.sin(clock.elapsedTime * 3.2) * 0.16;
+    if (ring.current) ring.current.scale.set(s, s, 1);
+    if (pin.current) pin.current.position.y = 1.6 + Math.sin(clock.elapsedTime * 3.2) * 0.12;
+  });
+  return (
+    <group position={[position.x, 0, position.z]}>
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+        <ringGeometry args={[0.34, 0.52, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.85} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 1.0, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 2.0, 8, 1, true]} />
+        <meshBasicMaterial color={color} transparent opacity={0.13} side={THREE.DoubleSide} />
+      </mesh>
+      <group ref={pin} position={[0, 1.6, 0]}>
+        <mesh rotation={[Math.PI, 0, 0]}>
+          <coneGeometry args={[0.15, 0.34, 4]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} />
+        </mesh>
+      </group>
+      <pointLight position={[0, 1.3, 0]} intensity={0.4} distance={3} color={color} />
     </group>
   );
 }
@@ -269,7 +313,14 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
 
   // The avatar's live target: their seat on open, then wherever they tap.
   const [target, setTarget] = useState<Vec2 | null>(seatTarget);
-  useEffect(() => setTarget(seatTarget), [seatTarget]);
+  // Whether the avatar has reached its seat — hides the destination beacon once
+  // it's standing there. Reset whenever the seat walk (re)starts.
+  const [seatReached, setSeatReached] = useState(false);
+  useEffect(() => {
+    setTarget(seatTarget);
+    setSeatReached(false);
+  }, [seatTarget]);
+  const isSeatTarget = target === seatTarget;
 
   const stage = pctToWorld(floor.stage.xPct, floor.stage.yPct, room);
   const stageW = Math.max(1.5, (floor.stage.wPct / 100) * room.w);
@@ -315,15 +366,21 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           />
         ))}
 
+        {/* Destination beacon: where the avatar is walking, shown until it sits. */}
+        {seatTarget && isSeatTarget && !seatReached ? (
+          <SeatDestinationMarker position={seatTarget} color={palette.accent} />
+        ) : null}
+
         {target ? (
           <GuestAvatar
             entrance={entrance}
             target={target}
             seat={youSeat}
-            isSeatTarget={target === seatTarget}
+            isSeatTarget={isSeatTarget}
             room={room}
             seatObstacles={seatObstacles}
             roamObstacles={roamObstacles}
+            onArrive={() => setSeatReached(true)}
             palette={palette}
           />
         ) : null}

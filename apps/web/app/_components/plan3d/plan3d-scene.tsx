@@ -159,6 +159,44 @@ function EntranceMark({ position, palette }: { position: Vec2; palette: Lab3DPal
   );
 }
 
+/**
+ * A pulsing "you're headed here" beacon planted on the target chair while the
+ * guest walks to it — so they can SEE their destination before the avatar
+ * arrives. Reuses the roam seat's gold ring + floating dot vocabulary, animated,
+ * and topped with a downward pin + a faint light column legible across the room.
+ */
+function SeatDestinationMarker({ position, color }: { position: Vec2; color: string }) {
+  const ring = useRef<THREE.Mesh>(null);
+  const pin = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const pulse = 1 + Math.sin(t * 3.2) * 0.16;
+    if (ring.current) ring.current.scale.set(pulse, pulse, 1);
+    if (pin.current) pin.current.position.y = 1.55 + Math.sin(t * 3.2) * 0.12;
+  });
+  return (
+    <group position={[position.x, 0, position.z]}>
+      {/* pulsing floor ring on the chair */}
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[0.32, 0.5, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.85} side={THREE.DoubleSide} />
+      </mesh>
+      {/* faint light column so the destination reads from across the room */}
+      <mesh position={[0, 0.95, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 1.9, 8, 1, true]} />
+        <meshBasicMaterial color={color} transparent opacity={0.13} side={THREE.DoubleSide} />
+      </mesh>
+      {/* bobbing downward pin marking the exact seat */}
+      <group ref={pin} position={[0, 1.55, 0]}>
+        <mesh rotation={[Math.PI, 0, 0]}>
+          <coneGeometry args={[0.15, 0.34, 4]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 /** Arc-length-even sample along a waypoint path at t ∈ [0,1] + the facing (radians). */
 function sampleAlongPath(path: Vec2[], t: number): { p: Vec2; heading: number } {
   if (path.length < 2) {
@@ -354,7 +392,16 @@ export function Plan3DScene({
     return t ? seatWorld(t, roamGuest.seatNumber ?? 0, room) : null;
   }, [roamGuest, tablesById, room]);
 
+  // The seat the scripted walk is heading to — drives the destination beacon.
+  const walkSeat = useMemo(
+    () => (walkGuest && walkTable ? seatWorld(walkTable, walkGuest.seatNumber ?? 0, room) : null),
+    [walkGuest, walkTable, room],
+  );
+
   const [walk, setWalk] = useState<WalkState | null>(null);
+  // True once the scripted walk has reached the chair — hides the destination
+  // beacon (the avatar now stands there) while the walk state itself persists.
+  const [arrived, setArrived] = useState(false);
   // Where the figure currently stands — written every frame by <Walker>, read
   // when a roam tap needs a start point (or the seat/entrance before any walk).
   const walkerPosRef = useRef<Vec2 | null>(null);
@@ -365,20 +412,25 @@ export function Plan3DScene({
       setWalk(null);
       return;
     }
+    setArrived(false); // fresh walk → show the destination beacon again
     const dest = seatWorld(walkTable, walkGuest.seatNumber ?? 0, room);
     // Route AROUND every table (the destination included) and step in to the
     // chair from outside — a guest walks around their table, never across it.
     const obstacles = floorObstacles(floor, tables, room, []);
     const path = seatApproachPath(entranceWorld, walkTable, walkGuest.seatNumber ?? 0, room, obstacles, AVATAR_BODY_R);
+    const markArrived = () => {
+      setArrived(true);
+      onWalkComplete?.();
+    };
     if (reducedMotion) {
       // Respect reduced motion: no animated walk, just settle on the seat.
       walkerPosRef.current = dest;
-      onWalkComplete?.();
+      markArrived();
       setWalk(null);
       return;
     }
     const durationMs = Math.max(WALK_MIN_MS, (pathLength(path) / WALK_SPEED_MPS) * 1000);
-    setWalk({ path, obstacles, startedAt: performance.now(), durationMs, onComplete: onWalkComplete });
+    setWalk({ path, obstacles, startedAt: performance.now(), durationMs, onComplete: markArrived });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walkGuest?.id, walkTable?.id, Boolean(roam)]);
 
@@ -471,6 +523,15 @@ export function Plan3DScene({
           />
         );
       })}
+
+      {/* Destination beacon: where the scripted walk is headed, shown until the
+          avatar arrives so the guest can see their seat before the figure lands. */}
+      {!roam && walk && walkSeat && !arrived ? (
+        <SeatDestinationMarker
+          position={walkSeat}
+          color={walkGuest ? SIDE_COLOR[walkGuest.side] : palette.accent}
+        />
+      ) : null}
 
       {/* The roaming guest's own seat, marked in gold — "find my seat" still
           works inside free roam by just walking to the ring. */}

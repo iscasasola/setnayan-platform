@@ -31,3 +31,25 @@ that the naive straight line does breach it.
 
 SPEC IMPACT: None (throwaway/flag-gated 3D spike + demo pathing; no schema, SKU, or
 pricing change).
+
+## 2026-07-03 · feat(seating-3d): destination beacon showing where the avatar is walking
+
+Follow-up to the walk-around fix (owner: "maybe we want an indicator where the
+avatar is going?"). During the "take me to my seat" walk the guest could see the
+figure move but nothing marked its destination until it arrived. Added a
+`SeatDestinationMarker` — a pulsing gold floor ring + a faint light column + a
+bobbing downward pin — planted on the target chair while the avatar walks, then
+retired on arrival (the figure now stands there; the static "your seat" ring
+remains). Reuses the existing roam-seat gold-ring vocabulary, animated.
+
+- `app/_components/plan3d/plan3d-scene.tsx` — beacon shown while the scripted
+  walk runs (`walk && !arrived && !roam`); `arrived` flips in the walk's
+  onComplete, resets on each new walk. Coloured by the guest's side.
+- `app/[slug]/venue/_components/guest-venue-3d.tsx` — beacon at the guest's
+  seat while walking to it; `GuestAvatar` gained an `onArrive` callback that
+  fires when the path completes on a seat walk, hiding the beacon.
+
+Couple lab left out on purpose — Populate-Play walks the whole crowd in at once,
+so per-destination beacons would clutter. Render-only; no lib/schema change.
+
+SPEC IMPACT: None.

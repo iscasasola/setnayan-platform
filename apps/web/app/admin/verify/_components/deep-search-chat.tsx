@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { getDeepSearchChatPromptAction, saveManualDossierAction } from '../actions';
+import {
+  getDeepSearchChatPromptAction,
+  getVendorStudyPromptAction,
+  saveManualDossierAction,
+} from '../actions';
 
 /**
  * Free "run it in your own AI chat" deep-search tier. The admin copies a ready
@@ -16,23 +20,26 @@ export function DeepSearchChat({
   vendorProfileId: string;
   applicationId: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'dossier' | 'study' | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [showPaste, setShowPaste] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function copyPrompt() {
+  function copyPrompt(kind: 'dossier' | 'study') {
     setCopyError(null);
     startTransition(async () => {
-      const res = await getDeepSearchChatPromptAction(vendorProfileId, applicationId);
+      const res =
+        kind === 'study'
+          ? await getVendorStudyPromptAction(vendorProfileId, applicationId)
+          : await getDeepSearchChatPromptAction(vendorProfileId, applicationId);
       if (!res.ok) {
         setCopyError(res.error);
         return;
       }
       try {
         await navigator.clipboard.writeText(res.prompt);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
+        setCopied(kind);
+        setTimeout(() => setCopied(null), 2500);
       } catch {
         setCopyError('Could not reach the clipboard — copy is blocked in this browser.');
       }
@@ -44,18 +51,26 @@ export function DeepSearchChat({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={copyPrompt}
+          onClick={() => copyPrompt('dossier')}
           disabled={pending}
           className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5 disabled:opacity-60"
         >
-          {copied ? 'Copied ✓' : pending ? 'Preparing…' : 'Copy prompt for your AI chat'}
+          {copied === 'dossier' ? 'Copied ✓' : 'Copy verification prompt'}
+        </button>
+        <button
+          type="button"
+          onClick={() => copyPrompt('study')}
+          disabled={pending}
+          className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5 disabled:opacity-60"
+        >
+          {copied === 'study' ? 'Copied ✓' : 'Copy study prompt (for interview)'}
         </button>
         <button
           type="button"
           onClick={() => setShowPaste((v) => !v)}
           className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink/80"
         >
-          {showPaste ? 'Hide paste box' : 'Paste the result back →'}
+          {showPaste ? 'Hide paste box' : 'Paste a result back →'}
         </button>
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/40">
           Free · Gemini / ChatGPT / any AI chat
@@ -63,8 +78,10 @@ export function DeepSearchChat({
       </div>
 
       <p className="text-[11px] leading-snug text-ink/50">
-        Copy the prompt, paste it into a web-browsing AI chat, then paste its reply
-        back here to save it as a dossier — no API key, no cost.
+        <b>Verification prompt</b> → paste into a web-browsing AI chat, then paste
+        its reply back here to save a dossier. <b>Study prompt</b> → a fit brief +
+        interview questions for the team to read before meeting the vendor. Both
+        free — no API key, no cost.
       </p>
 
       {copyError ? (

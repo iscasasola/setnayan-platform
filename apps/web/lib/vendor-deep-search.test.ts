@@ -18,6 +18,7 @@ import {
   runLiteDeepSearch,
   runDeepSearchOrLite,
   buildDeepSearchChatPrompt,
+  buildVendorStudyPrompt,
   parseDossierText,
   DEEP_SEARCH_LITE_MODEL,
   type DeepSearchInputs,
@@ -203,4 +204,24 @@ test('buildDeepSearchChatPrompt handles a bare vendor with no links', () => {
   assert.ok(prompt.includes('(none given)'));
   assert.ok(prompt.includes('(none listed)'));
   assert.ok(prompt.includes('```json')); // schema still present
+});
+
+test('buildVendorStudyPrompt is a fit-brief + interview prompt (no JSON schema)', () => {
+  const prompt = buildVendorStudyPrompt({
+    business_name: 'Aurora Blooms',
+    website: 'https://aurorablooms.ph',
+    social_url: 'https://facebook.com/aurora',
+    location_city: 'Cebu City',
+    claimed_services: ['florist'],
+  });
+  assert.ok(prompt.includes('Aurora Blooms'));
+  assert.ok(prompt.includes('https://aurorablooms.ph'));
+  // it's a fit-assessment + interview-prep brief, not a stored dossier
+  assert.ok(/FIT VERDICT/i.test(prompt));
+  assert.ok(/INTERVIEW QUESTIONS/i.test(prompt));
+  assert.ok(/CONCERNS|RED FLAGS/i.test(prompt));
+  // ad-transparency links still included for the free "search their ads" path
+  assert.ok(prompt.includes('facebook.com/ads/library'));
+  // deliberately NOT a JSON-schema prompt (it's read, not parsed back)
+  assert.ok(!prompt.includes('```json'));
 });

@@ -20,6 +20,7 @@ import {
   DEEP_SEARCH_CHAT_MODEL,
   runDeepSearchOrLite,
   buildDeepSearchChatPrompt,
+  buildVendorStudyPrompt,
   parseDossierText,
   type DeepSearchInputs,
 } from '@/lib/vendor-deep-search';
@@ -868,6 +869,30 @@ export async function getDeepSearchChatPromptAction(
     };
   }
   return { ok: true, prompt: buildDeepSearchChatPrompt(inputs) };
+}
+
+/**
+ * Build the staff "study this vendor for fit + interview prep" prompt and return
+ * it to the client to copy. Same free web-research idea as the dossier prompt,
+ * but the output is a readable fit brief + interview questions (no JSON,
+ * no paste-back). Vendors are public businesses, so this is proportionate.
+ */
+export async function getVendorStudyPromptAction(
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
+  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    return {
+      ok: false,
+      error: 'Nothing to study — this vendor has no name, website, or social link yet.',
+    };
+  }
+  return { ok: true, prompt: buildVendorStudyPrompt(inputs) };
 }
 
 /**

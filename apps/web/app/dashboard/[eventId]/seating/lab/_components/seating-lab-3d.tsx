@@ -15,8 +15,11 @@
  * view near top-down while arranging (Sims-style) and frees to a cinematic
  * orbit in Play mode. Mood-board palette drives lighting + materials.
  *
- * Performance: DPR capped, fake contact shadows, lightweight waypoint steering.
- * GLTF furniture + NavMesh + instancing + post-processing are the v2 upgrades.
+ * Performance: DPR capped, lightweight waypoint steering, per-table
+ * InstancedChairs (2 draw calls a table — the Wave 2a instancing collapse),
+ * real soft shadow maps via the shared SceneLighting rig ('high' quality:
+ * 2048 map + procedural Lightformer IBL, no HDRI/network assets).
+ * GLTF furniture + NavMesh + post-processing remain the v2 upgrades.
  * Known v1 limit: a FREE board (no venue size) maps 0–100% onto a fixed room,
  * so widely-spread tables (percent > 100) can render off the visible floor —
  * a fit-frame transform (like the 2D editor's) is the documented follow-up.
@@ -25,10 +28,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, ContactShadows } from '@react-three/drei';
+import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
+import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
+import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -90,9 +95,7 @@ import {
   pctToWorld,
   tableDims,
   checkPlacement,
-  chairLocalPositions,
   serpentineBand,
-  serpentineChairs,
   seatWorld,
   floorObstacles,
   sceneObjectObstacles,
@@ -166,14 +169,17 @@ function deriveSeatsFromGuests(guests: Lab3DGuest[]): Map<string, SeatRef> {
   return m;
 }
 
-// Shared GPU buffers reused by every chair across every table (module-level
-// constants are never disposed by R3F — safe to share). The big draw-call
-// collapse (one InstancedMesh per shape) is the documented v2 upgrade.
+// Shared GPU buffers reused across every table (module-level constants are
+// never disposed by R3F — safe to share). Chairs themselves now render through
+// the shared per-table `InstancedChairs` (2 draw calls a table — the draw-call
+// collapse this comment used to promise as "the documented v2 upgrade"); only
+// the removed-seat GHOSTS keep individual meshes (they need per-ghost
+// transparency + a tap-to-restore handler, and there are few of them).
 const PEDESTAL_GEO = new THREE.CylinderGeometry(0.12, 0.16, 0.72, 12);
-// Real-furniture parts (shared buffers): a chair = seat + backrest; a seated
-// guest = body + head; a centerpiece = vase + bloom. Instancing is the v2 win.
-const CHAIR_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
-const CHAIR_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
+const GHOST_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
+const GHOST_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
+// Real-furniture parts (shared buffers): a seated guest = body + head; a
+// centerpiece = vase + bloom.
 const TOKEN_BODY_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
 const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.12, 12, 12);
 // Attire silhouettes for seated guests: a gown flares to a wide skirt, a suit is
@@ -222,10 +228,11 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
   const bodyY = tok.attire === 'gown' ? 0.72 : 0.7;
   return (
     <group position={[0, 0, -0.04]}>
-      <mesh geometry={bodyGeo} position={[0, bodyY, 0]} material={bodyMat} />
+      <mesh geometry={bodyGeo} position={[0, bodyY, 0]} material={bodyMat} castShadow />
       {tok.photoUrl ? (
         // Shared photo disc: billboarded selfie, ringed in the RSVP colour, with
-        // an initials fallback baked in if the texture fails to load.
+        // an initials fallback baked in if the texture fails to load. The disc
+        // must NOT cast a shadow — a billboard would shadow as a floating circle.
         <GuestPhotoAvatar
           photoUrl={tok.photoUrl}
           name={tok.name}
@@ -235,7 +242,7 @@ function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Materia
           opacity={tok.opacity}
         />
       ) : (
-        <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} />
+        <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} castShadow />
       )}
     </group>
   );
@@ -1448,17 +1455,18 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   return (
     <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl border border-ink/10 bg-[#11131a]">
       <Canvas
-        shadows={false}
+        shadows
         dpr={[1, 1.5]}
         camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: true, powerPreference: 'high-performance', ...RECOMMENDED_TONEMAP }}
       >
         <color attach="background" args={[mode === 'play' ? '#0c0e14' : '#13151c']} />
         <fog attach="fog" args={[mode === 'play' ? '#0c0e14' : '#13151c', room.d * 1.4, room.d * 3.2]} />
 
-        <ambientLight intensity={0.75} color={palette.ambient} />
-        <hemisphereLight intensity={0.45} color={palette.ambient} groundColor={palette.floor} />
-        <directionalLight position={[room.w * 0.5, room.d + 8, room.d * 0.4]} intensity={1.15} color="#fff6ea" />
+        {/* Shared rig (Wave 2a): procedural Lightformer IBL + one warm shadow
+            key, 2048 map fitted to the room. Replaces the flat ambient +
+            hemisphere + bare directional and the fake ContactShadows. */}
+        <SceneLighting palette={palette} quality="high" room={room} />
 
         <RoomShell
           room={room}
@@ -1468,16 +1476,6 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           monogram={monogram}
           animatedMonogram={animatedMonogram}
           playSettled={mode === 'play' && !camBusy}
-        />
-
-        <ContactShadows
-          position={[0, 0.01, 0]}
-          scale={Math.max(room.w, room.d) * 1.4}
-          opacity={0.34}
-          blur={2.4}
-          far={6}
-          resolution={512}
-          color="#000000"
         />
 
         {tables.map((t) => (
@@ -1888,10 +1886,11 @@ function RoomShell({
 
   return (
     <group>
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+      {/* Floor — receives the room's real shadows; the shared procedural
+          roughness map breaks up the uniform sheen (Wave 2a materials pass). */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[room.w, room.d]} />
-        <meshStandardMaterial color={palette.floor} roughness={0.92} metalness={0.02} />
+        <meshStandardMaterial color={palette.floor} roughness={0.92} metalness={0.02} roughnessMap={floorRoughnessMap()} />
       </mesh>
 
       {/* Build grid (brighter while building) */}
@@ -1927,7 +1926,7 @@ function RoomShell({
       ) : null}
 
       {/* Stage */}
-      <mesh position={[stage.x, 0.15, stage.z]}>
+      <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
         <boxGeometry args={[stageW, 0.3, stageD]} />
         <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
@@ -2019,17 +2018,11 @@ function TableMesh({
 }) {
   const ref = useRef<THREE.Group>(null);
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
-  // Chair centres + facing. Serpentine carries its own per-chair facing (outer
-  // chairs look inward onto the band, inner chairs outward); every other shape
-  // faces the table-local origin via atan2, matching the rendered geometry.
-  const chairs = useMemo(() => {
-    if (table.shape === 'serpentine') return serpentineChairs(table.capacity);
-    return chairLocalPositions(table.shape, table.capacity).map((c) => ({
-      x: c.x,
-      z: c.z,
-      faceY: Math.atan2(c.x, c.z),
-    }));
-  }, [table.shape, table.capacity]);
+  // Chair centres + facing — the shared `chairPlacements` (serpentine carries
+  // its own per-chair facing; every other shape faces the table-local origin).
+  const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
+  // Occupied seat indices — drives the instanced chairs' per-instance tint.
+  const occupiedSeats = useMemo(() => new Set(seated?.keys() ?? []), [seated]);
   // The serpentine table top is a real curved ribbon (104° quarter-donut),
   // extruded from the canonical outline. Built once per shape and laid flat
   // (extrude axis → world +Y), rising from the floor to the tabletop height.
@@ -2047,15 +2040,16 @@ function TableMesh({
     return geo;
   }, [table.shape]);
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
-  // Share materials by reference (one per table, not one per chair/token) — the
-  // cheap pre-instancing win. Full InstancedMesh is the documented v2 collapse.
+  // Share materials by reference (one per table, not one per token). Chairs
+  // themselves are instanced now (see InstancedChairs below); the pedestal
+  // still borrows this wood-grade material.
   const chairMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.7 }),
+    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.6 }),
     [palette.wall],
   );
   // Removed chairs render as faint ghosts (tap to restore).
   const ghostMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.7, transparent: true, opacity: 0.16 }),
+    () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.6, transparent: true, opacity: 0.16 }),
     [palette.wall],
   );
   const tokenMats = useRef<Map<string, THREE.MeshStandardMaterial>>(new Map());
@@ -2123,22 +2117,23 @@ function TableMesh({
       ) : showCloth ? (
         dims.round ? (
           <group>
-            <mesh position={[0, 0.37, 0]}>
+            {/* Linen drape — high roughness so it reads soft under the IBL. */}
+            <mesh position={[0, 0.37, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[dims.w / 2, dims.w / 2 + 0.04, 0.74, 32]} />
               <meshStandardMaterial color={clothColor} roughness={0.85} />
             </mesh>
-            <mesh position={[0, 0.745, 0]}>
+            <mesh position={[0, 0.745, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.04, 32]} />
               <meshStandardMaterial color={clothColor} roughness={0.85} />
             </mesh>
           </group>
         ) : (
           <group>
-            <mesh position={[0, 0.37, 0]}>
+            <mesh position={[0, 0.37, 0]} castShadow receiveShadow>
               <boxGeometry args={[dims.w, 0.74, dims.d]} />
               <meshStandardMaterial color={clothColor} roughness={0.85} />
             </mesh>
-            <mesh position={[0, 0.745, 0]}>
+            <mesh position={[0, 0.745, 0]} castShadow receiveShadow>
               <boxGeometry args={[dims.w + 0.04, 0.04, dims.d + 0.04]} />
               <meshStandardMaterial color={clothColor} roughness={0.85} />
             </mesh>
@@ -2146,7 +2141,7 @@ function TableMesh({
         )
       ) : (
         <group>
-          <mesh position={[0, 0.74, 0]} castShadow>
+          <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
             {dims.round ? (
               <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 36]} />
             ) : (
@@ -2171,19 +2166,38 @@ function TableMesh({
         </group>
       ) : null}
 
-      {/* Chairs (seat + backrest, oriented to face the table) + seated guests */}
+      {/* Chairs — 2 instanced draw calls per table (Wave 2a collapse), occupied
+          seats tinted via instanceColor, removed seats zero-scaled out. Taps
+          resolve the chair index from `instanceId` so remove-a-chair still
+          works; removed seats keep individual GHOST meshes for the restore tap. */}
+      <InstancedChairs
+        chairs={chairs}
+        removedSeats={table.removedSeats}
+        occupiedSeats={occupiedSeats}
+        color={palette.wall}
+        accent={palette.accent}
+        onSeatDown={
+          removable
+            ? (i, e) => {
+                e.stopPropagation();
+                onToggleSeat(i);
+              }
+            : undefined
+        }
+      />
+      {/* Removed-seat ghosts (tap to restore) + seated guests. */}
       {chairs.map((c, i) => {
         const ang = c.faceY;
         const tok = seated?.get(i);
         const isRemoved = table.removedSeats.includes(i);
-        const mat = isRemoved ? ghostMat : chairMat;
+        if (!isRemoved && !tok) return null;
         return (
           <group
             key={i}
             position={[c.x, 0, c.z]}
             rotation={[0, ang, 0]}
             onPointerDown={
-              removable
+              removable && isRemoved
                 ? (e) => {
                     e.stopPropagation();
                     onToggleSeat(i);
@@ -2191,8 +2205,12 @@ function TableMesh({
                 : undefined
             }
           >
-            <mesh geometry={CHAIR_SEAT_GEO} position={[0, 0.46, 0]} material={mat} />
-            <mesh geometry={CHAIR_BACK_GEO} position={[0, 0.69, 0.19]} material={mat} />
+            {isRemoved ? (
+              <>
+                <mesh geometry={GHOST_SEAT_GEO} position={[0, 0.46, 0]} material={ghostMat} />
+                <mesh geometry={GHOST_BACK_GEO} position={[0, 0.69, 0.19]} material={ghostMat} />
+              </>
+            ) : null}
             {tok && !isRemoved ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.attireColor ?? tok.color, tok.opacity)} /> : null}
           </group>
         );
@@ -2299,11 +2317,11 @@ function Walker({
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <mesh position={[0, 0.55, 0]}>
+      <mesh position={[0, 0.55, 0]} castShadow>
         <capsuleGeometry args={[0.18, 0.5, 6, 12]} />
         <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.1} emissive={palette.accent} emissiveIntensity={0.25} />
       </mesh>
-      <mesh position={[0, 1.0, 0]}>
+      <mesh position={[0, 1.0, 0]} castShadow>
         <sphereGeometry args={[0.16, 16, 16]} />
         <meshStandardMaterial color={palette.table} roughness={0.5} />
       </mesh>
@@ -2468,11 +2486,11 @@ function Crowd({
             groups.current[i] = el;
           }}
         >
-          <mesh position={[0, 0.5, 0]}>
+          <mesh position={[0, 0.5, 0]} castShadow>
             <capsuleGeometry args={[0.15, 0.4, 5, 9]} />
             <meshStandardMaterial color={a.color} roughness={0.55} />
           </mesh>
-          <mesh position={[0, 0.9, 0]}>
+          <mesh position={[0, 0.9, 0]} castShadow>
             <sphereGeometry args={[0.13, 12, 12]} />
             <meshStandardMaterial color={palette.table} roughness={0.55} />
           </mesh>
@@ -2540,10 +2558,10 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
   const transparent = mover.opacity < 1;
   return (
     <group ref={ref} position={[start.x, 0, start.z]}>
-      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.62, 0]}>
+      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.62, 0]} castShadow>
         <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} emissive={mover.color} emissiveIntensity={0.22} />
       </mesh>
-      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 0.92, 0]}>
+      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 0.92, 0]} castShadow>
         <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} />
       </mesh>
     </group>

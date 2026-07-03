@@ -16,10 +16,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
+  EDITORIAL_ORDERABLE_KEYS,
   EDITORIAL_SECTION_KEYS,
   type ChapterOverride,
   type EditorialSections,
+  type Review,
 } from '@/app/[slug]/_components/editorial/data';
+import { isEditorialProActive } from '@/lib/couple-website-pro';
 
 async function hostUserId(eventId: string): Promise<string | null> {
   const supabase = await createClient();
@@ -59,6 +62,11 @@ export type EditorialEditorInput = {
   // chosen chapter order; only rows that DIFFER from the auto default are sent (an
   // untouched chapter carries no override row). Each targets a chapter by leadId.
   chapterOverrides: ChapterOverride[];
+  // PRO — the couple's chosen order of the reorderable content sections (a
+  // string[] of EditorialOrderKey values). `null`/empty → default order.
+  sectionOrder: string[] | null;
+  // PRO — the manual "What They Said" guest-wishes list (draft_json.reviews).
+  reviews: Review[];
   publish: boolean;
 };
 
@@ -97,6 +105,66 @@ function sanitizeChapterOverrides(input: ChapterOverride[]): ChapterOverride[] {
       ...(writeUp ? { writeUp } : {}),
       ...(hidden ? { hidden: true } : {}),
     });
+  }
+  return out;
+}
+
+/** Cap the manual guest-wishes list. */
+const REVIEWS_MAX = 12;
+/** Cap a single wish quote (mirrors the editor's soft cap; hard ceiling here). */
+const REVIEW_QUOTE_MAX = 280;
+const REVIEW_AUTHOR_MAX = 80;
+const REVIEW_ROLE_MAX = 40;
+
+/**
+ * Sanitize + cap the client's section ORDER before persisting (PRO). Keep only
+ * KNOWN orderable keys (EDITORIAL_ORDERABLE_KEYS), deduped, in the client's order.
+ * The two locked-close keys (fromTheCouple/song) are NOT orderable keys, so they
+ * are dropped defensively even if a client sends them. Anything non-array or an
+ * order identical-after-clean to the canonical default → `null` (delete the key,
+ * revert to default). Never trusts the client.
+ */
+function sanitizeSectionOrder(input: string[] | null): string[] | null {
+  if (!Array.isArray(input)) return null;
+  const known = new Set<string>(EDITORIAL_ORDERABLE_KEYS);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (typeof raw !== 'string') continue;
+    if (!known.has(raw) || seen.has(raw)) continue; // drops unknown + locked-close + dupes
+    seen.add(raw);
+    out.push(raw);
+  }
+  if (out.length === 0) return null;
+  // If the cleaned order (once missing keys append in canonical order) matches the
+  // canonical default exactly, persist nothing — keeps default editorials clean.
+  const full = [...out, ...EDITORIAL_ORDERABLE_KEYS.filter((k) => !seen.has(k))];
+  const isDefault = full.every((k, i) => k === EDITORIAL_ORDERABLE_KEYS[i]);
+  return isDefault ? null : out;
+}
+
+/**
+ * Sanitize + cap the client's manual guest-wishes (PRO). Trim each field, cap
+ * lengths, DROP rows with an empty quote (a wish with no words), coerce stars to
+ * 1–5 or null, and cap the list at REVIEWS_MAX. Anything non-array → []. Author is
+ * kept even if blank-ish? No — a wish needs a quote; author may be blank (the
+ * public render already requires BOTH quote+author, so a blank author simply
+ * won't render, but we persist what the couple typed rather than silently drop).
+ */
+function sanitizeReviews(input: Review[]): Review[] {
+  if (!Array.isArray(input)) return [];
+  const out: Review[] = [];
+  for (const raw of input) {
+    if (out.length >= REVIEWS_MAX) break;
+    const quote = typeof raw?.quote === 'string' ? raw.quote.trim().slice(0, REVIEW_QUOTE_MAX) : '';
+    if (!quote) continue; // a wish with no words is dropped
+    const author =
+      typeof raw.author === 'string' ? raw.author.trim().slice(0, REVIEW_AUTHOR_MAX) : '';
+    const roleRaw = typeof raw.role === 'string' ? raw.role.trim().slice(0, REVIEW_ROLE_MAX) : '';
+    const starsNum = Number(raw.stars);
+    const stars =
+      Number.isFinite(starsNum) && starsNum >= 1 ? Math.min(5, Math.round(starsNum)) : null;
+    out.push({ author, role: roleRaw || null, quote, stars });
   }
   return out;
 }
@@ -147,11 +215,35 @@ export async function saveEditorial(
   for (const key of EDITORIAL_SECTION_KEYS) sections[key] = input.sections[key] !== false;
   draft.sections = sections;
 
-  // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
-  // set; an empty result deletes the key so the chapters revert to pure auto.
-  const chapterOverrides = sanitizeChapterOverrides(input.chapterOverrides);
-  if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
-  else delete draft.chapterOverrides;
+  // ── Editorial PRO authorship (server-side enforcement — never trust client) ──
+  // The "Editor's Desk" — per-chapter curation (chapterOverrides), section order,
+  // and the manual guest-wishes list — is PRO. Word fields + section toggles above
+  // stay FREE (today's editor). When the couple is NOT PRO we STRIP these three
+  // keys from the incoming input BEFORE merge, so a hand-crafted request can't
+  // author them — but we do NOT delete any values already saved on `base` (a
+  // formerly-PRO couple keeps their existing overrides/order/wishes; we just
+  // decline NEW ones). `draft` starts as a spread of `base`, so leaving a key
+  // untouched preserves it.
+  const isPro = await isEditorialProActive(admin, eventId);
+  if (isPro) {
+    // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
+    // set; an empty result deletes the key so the chapters revert to pure auto.
+    const chapterOverrides = sanitizeChapterOverrides(input.chapterOverrides);
+    if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
+    else delete draft.chapterOverrides;
+
+    // Section order (PRO reorder). null → delete (revert to default order).
+    const sectionOrder = sanitizeSectionOrder(input.sectionOrder);
+    if (sectionOrder) draft.sectionOrder = sectionOrder;
+    else delete draft.sectionOrder;
+
+    // Manual guest-wishes (PRO). Empty → delete the key.
+    const reviews = sanitizeReviews(input.reviews);
+    if (reviews.length) draft.reviews = reviews;
+    else delete draft.reviews;
+  }
+  // else: not PRO — leave draft.chapterOverrides / draft.sectionOrder /
+  // draft.reviews exactly as they were on `base` (spread into `draft` already).
 
   const nowIso = new Date().toISOString();
   const { error } = await admin.from('event_editorial').upsert(

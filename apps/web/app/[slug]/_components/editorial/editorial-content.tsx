@@ -18,7 +18,12 @@
 // ============================================================================
 
 import { type ReactElement, type ReactNode } from 'react';
-import { loadEditorialData, type EditorialData } from './data';
+import {
+  loadEditorialData,
+  resolveSectionOrder,
+  type EditorialData,
+  type EditorialOrderKey,
+} from './data';
 import { LivingMoments } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -237,123 +242,128 @@ export async function EditorialContent({
           ) : null}
         </div>
 
-        {/* From the couple (pull from special_message) ------------------------ */}
+        {/* ── The reorderable content run (Editorial PRO — "the Editor's Desk")
+            ────────────────────────────────────────────────────────────────────
+            Every reorderable section is built as a keyed node, then rendered in
+            the couple's saved order (resolveSectionOrder — default order when no
+            PRO order is saved, which is the case for every older editorial + all
+            samples). The LOCKED CLOSE — "From the Couple" then "Their Song" — is
+            NOT part of this run; it is appended AFTER it, always the last two
+            content sections before the colophon (Editorial_Experience_Spec §7).
+            A section whose data is absent renders null and simply drops out. --- */}
+        {(() => {
+          // Keyed nodes for the reorderable run. Each carries the SAME gating it
+          // had inline; an absent-data section is `null` and contributes nothing.
+          const nodes: Record<EditorialOrderKey, ReactNode> = {
+            // "As the Day Unfolded" (living chapters) or the legacy "Moments"
+            // essay fallback — one block, gated by the `gallery` toggle.
+            chapters:
+              isOn('gallery') && data.dayChapters.length ? (
+                <div key="chapters">
+                  <SectionRule title="As the Day Unfolded" />
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                    photos and living moments, in the order they happened
+                  </p>
+                  <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
+                </div>
+              ) : isOn('gallery') && data.essayPhotos.length ? (
+                <div key="chapters">
+                  <SectionRule title="Moments" />
+                  <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
+                </div>
+              ) : null,
+            // What They Whispered — approved Kwento guest wishes.
+            kwento:
+              isOn('kwento') && data.kwentoQuotes.length ? (
+                <div key="kwento">
+                  <SectionRule title="What They Whispered" />
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                    best wishes, captured on the day
+                  </p>
+                  <KwentoWall quotes={data.kwentoQuotes} />
+                </div>
+              ) : null,
+            // Shared photos from the day ("From the Day").
+            gallery:
+              isOn('gallery') && data.galleryPhotos.length ? (
+                <div key="gallery">
+                  <SectionRule title="From the Day" />
+                  <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+                </div>
+              ) : null,
+            // From your vendors — day-of media from the recommended vendor.
+            fromVendors:
+              isOn('fromVendors') && data.vendorMedia.length ? (
+                <div key="fromVendors">
+                  <SectionRule title="From Your Vendors" />
+                  <VendorMediaStrip items={data.vendorMedia} />
+                </div>
+              ) : null,
+            // Live Photo Wall (LIVE_WALL SKU).
+            liveWall:
+              isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
+                <div key="liveWall">
+                  <SectionRule title="Live Photo Wall" />
+                  <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
+                </div>
+              ) : null,
+            // Video guestbook (PABATI SKU) — fails closed.
+            videoGuestbook:
+              isOn('videoGuestbook') && data.pabatiActive && data.pabatiClips.length ? (
+                <div key="videoGuestbook">
+                  <SectionRule title="Video Guestbook" />
+                  <VideoGuestbookWall clips={data.pabatiClips} />
+                </div>
+              ) : null,
+            // Watch the Film — Live Studio (Panood) replay, gated in data.ts.
+            watchFilm:
+              isOn('watchFilm') && data.watchFilmEmbedUrl ? (
+                <div key="watchFilm">
+                  <SectionRule title="Watch the Film" />
+                  <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                </div>
+              ) : null,
+            // What they said (reviews). Renders even when empty (empty state).
+            reviews: isOn('reviews') ? (
+              <div key="reviews">
+                <SectionRule title="What They Said" />
+                {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+              </div>
+            ) : null,
+            // Powered by Setnayan — the in-app services the couple availed.
+            poweredBy:
+              isOn('poweredBy') && data.servicesAvailed.length ? (
+                <div key="poweredBy">
+                  <SectionRule title="Powered by Setnayan" />
+                  <SetnayanExperience services={data.servicesAvailed} />
+                </div>
+              ) : null,
+            // Vendors we loved — the couple's opt-in recommendations.
+            vendorsWeLoved:
+              isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
+                <div key="vendorsWeLoved">
+                  <SectionRule title="Vendors We Loved" />
+                  <VendorsWeLoved vendors={data.vendorsWeLoved} />
+                </div>
+              ) : null,
+          };
+          return resolveSectionOrder(data.sectionOrder).map((k) => nodes[k]);
+        })()}
+
+        {/* LOCKED CLOSE — always the last two content sections, in this order
+            (Editorial_Experience_Spec §7: every editorial closes with the
+            couple's words then their song). Pinned after the reorderable run;
+            excluded from sectionOrder so no reorder can move them. ------------- */}
         {isOn('fromTheCouple') && data.specialMessage ? (
           <>
             <SectionRule title="From the Couple" />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
           </>
         ) : null}
-
-        {/* Their song — plays the couple's DELIVERED Pakanta song when present;
-            otherwise credits the typed title. Rendered only when there's
-            something to surface (a playable song or a named title). ---------- */}
         {data.song.url || data.song.label ? (
           <>
             <SectionRule title="Their Song" />
             <TheirSong song={data.song} names={data.firstNames} />
-          </>
-        ) : null}
-
-        {/* As the Day Unfolded — the living story, in the order it happened.
-            Photos AND Papic 5-second clips woven into chapters (clock-time
-            kickers, no moment-name claims). When there are no Papic media the
-            server sends dayChapters=[] and we keep the legacy paced photo-essay
-            (built from manual uploads) so no shipped editorial loses Moments. -- */}
-        {isOn('gallery') && data.dayChapters.length ? (
-          <>
-            <SectionRule title="As the Day Unfolded" />
-            <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-              photos and living moments, in the order they happened
-            </p>
-            <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
-          </>
-        ) : isOn('gallery') && data.essayPhotos.length ? (
-          <>
-            <SectionRule title="Moments" />
-            <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
-          </>
-        ) : null}
-
-        {/* What They Whispered — approved Kwento guest wishes, sitting beside the
-            Papic photo each anchors to when present. Fails closed in data.ts
-            (approved + clean + not author-hidden). ------------------------------ */}
-        {isOn('kwento') && data.kwentoQuotes.length ? (
-          <>
-            <SectionRule title="What They Whispered" />
-            <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-              best wishes, captured on the day
-            </p>
-            <KwentoWall quotes={data.kwentoQuotes} />
-          </>
-        ) : null}
-
-        {/* Shared photos from the day ----------------------------------------- */}
-        {isOn('gallery') && data.galleryPhotos.length ? (
-          <>
-            <SectionRule title="From the Day" />
-            <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
-          </>
-        ) : null}
-
-        {/* From your vendors — day-of media submitted by the couple's
-            recommended vendor. Clips are baked boomerangs (editorial rule). --- */}
-        {isOn('fromVendors') && data.vendorMedia.length ? (
-          <>
-            <SectionRule title="From Your Vendors" />
-            <VendorMediaStrip items={data.vendorMedia} />
-          </>
-        ) : null}
-
-        {/* Live Photo Wall (LIVE_WALL SKU) — a dense masonry of the day's
-            candid photos, surfaced only when the couple availed the wall. ---- */}
-        {isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
-          <>
-            <SectionRule title="Live Photo Wall" />
-            <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
-          </>
-        ) : null}
-
-        {/* Video guestbook (PABATI SKU) — the day's 5-second video greetings.
-            Fails closed: owned-but-empty / not-owned → section omitted. -------- */}
-        {isOn('videoGuestbook') && data.pabatiActive && data.pabatiClips.length ? (
-          <>
-            <SectionRule title="Video Guestbook" />
-            <VideoGuestbookWall clips={data.pabatiClips} />
-          </>
-        ) : null}
-
-        {/* Watch the Film — the Live Studio (Panood) broadcast replay. Gated in
-            data.ts on a valid watch URL + an active PANOOD_SYSTEM SKU; the value
-            is already a youtube-nocookie embed (normalize-or-rejected). --------- */}
-        {isOn('watchFilm') && data.watchFilmEmbedUrl ? (
-          <>
-            <SectionRule title="Watch the Film" />
-            <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
-          </>
-        ) : null}
-
-        {/* What they said (reviews from guests / vendors / the couple) -------- */}
-        {isOn('reviews') ? (
-          <>
-            <SectionRule title="What They Said" />
-            {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
-          </>
-        ) : null}
-
-        {/* The Setnayan experience — in-app services the couple availed ------- */}
-        {isOn('poweredBy') && data.servicesAvailed.length ? (
-          <>
-            <SectionRule title="Powered by Setnayan" />
-            <SetnayanExperience services={data.servicesAvailed} />
-          </>
-        ) : null}
-
-        {/* Vendors we loved — the couple's opt-in recommendations (referral loop) */}
-        {isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
-          <>
-            <SectionRule title="Vendors We Loved" />
-            <VendorsWeLoved vendors={data.vendorsWeLoved} />
           </>
         ) : null}
 

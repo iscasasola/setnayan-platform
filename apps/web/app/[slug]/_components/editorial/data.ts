@@ -88,6 +88,7 @@ const SERVICE_LABELS: Record<string, string> = {
   ANIMATED_MONOGRAM: 'Animated Monogram',
   CAMERA_BRIDGE: 'Camera Bridge',
   CUSTOM_QR_GUEST: 'Custom Guest QR',
+  EDITORIAL_PRO: 'Editorial PRO',
   EVENT_WEBSITE: 'Event Website',
   LIVE_BACKGROUND: 'Live Background',
   LIVE_WALL: 'Live Photo Wall',
@@ -224,6 +225,19 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'kwento',
   'watchFilm',
 ];
+
+// ── Section ORDER (Editorial PRO — "the Editor's Desk") ──────────────────────
+// The reorderable-section registry + resolver live in the PURE, client-safe
+// module editorial-order.ts (data.ts imports `server-only` via lib/uploads, so a
+// CLIENT component can't import runtime values from here). Re-exported so existing
+// `from './data'` imports keep working; the couple-dashboard editor imports the
+// pure module directly. See editorial-order.ts for the locked-close rule.
+export {
+  EDITORIAL_ORDERABLE_KEYS,
+  EDITORIAL_LOCKED_CLOSE_KEYS,
+  resolveSectionOrder,
+  type EditorialOrderKey,
+} from './editorial-order';
 
 // "From your vendors" — day-of media the couple's RECOMMENDED vendor
 // (event_vendors.selection_match_rank = 1) submitted for this event. Clips are
@@ -389,6 +403,12 @@ export type EditorialData = {
   // Section visibility from the editorial editor. Optional → a block shows
   // unless its key is explicitly false (samples omit it = everything on).
   sections?: Partial<EditorialSections>;
+  // Couple-chosen ORDER of the reorderable content sections (Editorial PRO). A
+  // string[] of EditorialOrderKey values (draft_json.sectionOrder); the renderer
+  // resolves it via resolveSectionOrder(). `null`/absent → the canonical default
+  // order (older editorials + the samples). The locked-close sections
+  // (fromTheCouple + song) are pinned separately and are never in this list.
+  sectionOrder?: string[] | null;
 };
 
 export type Review = {
@@ -1832,6 +1852,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     kwentoQuotes,
     watchFilmEmbedUrl,
     sections: readSections(draftJson),
+    sectionOrder: readSectionOrder(draftJson),
   };
 }
 
@@ -2025,6 +2046,17 @@ function readSections(draftJson: Record<string, unknown>): Partial<EditorialSect
     if (raw[key] === false) out[key] = false;
   }
   return out;
+}
+
+// draft_json.sectionOrder → a validated string[] of orderable section keys (or
+// null when absent). Only strings kept; the renderer's resolveSectionOrder()
+// strips unknown/locked-close keys and dedupes, so this is a light pass-through.
+// `null` (the normal case + the samples) → the canonical default order.
+function readSectionOrder(draftJson: Record<string, unknown>): string[] | null {
+  const raw = (draftJson as Record<string, unknown>).sectionOrder;
+  if (!Array.isArray(raw)) return null;
+  const out = raw.filter((v): v is string => typeof v === 'string');
+  return out.length ? out : null;
 }
 
 // draft_json.chapterOverrides → an ordered, validated list of ChapterOverride.

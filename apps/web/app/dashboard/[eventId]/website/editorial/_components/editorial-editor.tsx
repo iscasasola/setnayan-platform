@@ -10,21 +10,79 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, ChevronDown, ChevronUp, Eye, EyeOff, Film, Lock } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Film,
+  Lock,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import {
   saveEditorial,
   setStoryShowcase,
   type EditorialEditorInput,
 } from '../actions';
+import {
+  EDITORIAL_ORDERABLE_KEYS,
+  resolveSectionOrder,
+  type EditorialOrderKey,
+} from '@/app/[slug]/_components/editorial/editorial-order';
 import type {
   ChapterCard,
   ChapterOverride,
   EditorialSections,
+  Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { useToast } from '@/app/_components/toast/toast-provider';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
+
+// Upgrade destination for the PRO authorship perks. No dedicated Couple-Website /
+// Editorial PRO buy route exists yet, so we point at the website dashboard hub
+// (the surface that owns the website + its upgrade). One place → easy to retarget
+// when a real checkout route lands.
+const editorialProUpgradeHref = (eventId: string) => `/dashboard/${eventId}/website`;
+
+// Display labels for the reorderable content sections (Editorial PRO section
+// order). Keys mirror EDITORIAL_ORDERABLE_KEYS exactly. The two locked-close rows
+// (couple's words + song) are shown separately, pinned, non-reorderable.
+const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
+  chapters: 'As the Day Unfolded',
+  kwento: 'What They Whispered',
+  gallery: 'From the Day (photos)',
+  fromVendors: 'From Your Vendors',
+  liveWall: 'Live Photo Wall',
+  videoGuestbook: 'Video Guestbook',
+  watchFilm: 'Watch the Film',
+  reviews: 'What They Said',
+  poweredBy: 'Powered by Setnayan',
+  vendorsWeLoved: 'Vendors We Loved',
+};
+
+// Which on/off toggle governs each orderable section — shown as its live state in
+// the order card so the couple sees which are currently off.
+const ORDERABLE_SECTION_TOGGLE: Record<EditorialOrderKey, keyof EditorialSections> = {
+  chapters: 'gallery',
+  kwento: 'kwento',
+  gallery: 'gallery',
+  fromVendors: 'fromVendors',
+  liveWall: 'liveWall',
+  videoGuestbook: 'videoGuestbook',
+  watchFilm: 'watchFilm',
+  reviews: 'reviews',
+  poweredBy: 'poweredBy',
+  vendorsWeLoved: 'vendorsWeLoved',
+};
+
+// Soft cap for a guest wish quote (server hard-caps at 280).
+const WISH_QUOTE_SOFT_CAP = 280;
+const WISHES_MAX = 12;
 
 const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: string }> = [
   { key: 'byTheNumbers', label: 'By the Numbers', help: 'Your day in stats — guests, vendors, time saved.' },
@@ -71,6 +129,15 @@ type ChapterRow = {
   hidden: boolean;
 };
 
+// One editable guest-wish row (manual "What They Said" editor). Mirrors the
+// Review shape but keeps stars as a string for the <select>.
+type WishRow = {
+  author: string;
+  role: string;
+  quote: string;
+  stars: string; // '' | '1'..'5'
+};
+
 type FieldProps = {
   label: string;
   help?: string;
@@ -89,12 +156,42 @@ function Field({ label, help, children }: FieldProps) {
 const inputCls =
   'w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-burgundy/50';
 
+// A small gold "PRO" chip — marks an authorship perk gated on Editorial PRO.
+function ProChip() {
+  return (
+    <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#C5A059]/50 bg-[#C5A059]/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-[#8A6A2F]">
+      <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+      Pro
+    </span>
+  );
+}
+
+// The one-line benefits + upgrade prompt shown on every PRO-gated card when the
+// couple isn't PRO. Benefit-forward (not a paywall wall) — the free couple still
+// sees their content below, read-only.
+function ProUpsellLine({ eventId, children }: { eventId: string; children: React.ReactNode }) {
+  return (
+    <p className="mt-1 text-xs text-ink/60">
+      {children}{' '}
+      <Link
+        href={editorialProUpgradeHref(eventId)}
+        className="font-medium text-[#8A6A2F] underline underline-offset-2 hover:text-[#6E5323]"
+      >
+        Unlock Editorial PRO
+      </Link>
+    </p>
+  );
+}
+
 export function EditorialEditor({
   eventId,
   slug,
   initial,
+  isPro = false,
   chapterCards = [],
   chapterOverrides = [],
+  savedSectionOrder = null,
+  savedReviews = [],
   shareUrl = null,
   showcaseOptedIn = false,
   landingVisibility = 'public',
@@ -103,10 +200,18 @@ export function EditorialEditor({
   eventId: string;
   slug: string | null;
   initial: EditorialEditorInput;
+  /** Editorial PRO active (à-la-carte EDITORIAL_PRO OR Couple Website PRO). Gates
+   *  the authorship perks — chapter curation, section order, guest wishes. When
+   *  false, those render read-only with an upgrade prompt; the server re-checks. */
+  isPro?: boolean;
   /** Auto-built "As the Day Unfolded" chapters (unfiltered, timeline order). */
   chapterCards?: ChapterCard[];
   /** The couple's current per-chapter overrides (draft_json.chapterOverrides). */
   chapterOverrides?: ChapterOverride[];
+  /** The couple's saved section order (draft_json.sectionOrder) or null. */
+  savedSectionOrder?: string[] | null;
+  /** The couple's saved manual guest wishes (draft_json.reviews). */
+  savedReviews?: Review[];
   /** Absolute canonical URL of the public story — what the couple shares. */
   shareUrl?: string | null;
   /** Whether this couple has already opted into the Real Stories showcase. */
@@ -152,6 +257,24 @@ export function EditorialEditor({
   // The canonical (auto) order — used to detect whether the couple reordered.
   const defaultOrder = useMemo(() => chapterCards.map((c) => c.leadId), [chapterCards]);
   const [rows, setRows] = useState<ChapterRow[]>(initialRows);
+
+  // ── PRO: section order ────────────────────────────────────────────────────
+  // Working order of the reorderable content sections. Resolved once from the
+  // saved order (default order when none saved), reordered by up/down buttons.
+  const [sectionOrder, setSectionOrder] = useState<EditorialOrderKey[]>(() =>
+    resolveSectionOrder(savedSectionOrder),
+  );
+
+  // ── PRO: manual guest wishes ("What They Said") ───────────────────────────
+  const [wishes, setWishes] = useState<WishRow[]>(() =>
+    (savedReviews ?? []).map((r) => ({
+      author: typeof r.author === 'string' ? r.author : '',
+      role: typeof r.role === 'string' ? r.role : '',
+      quote: typeof r.quote === 'string' ? r.quote : '',
+      stars: typeof r.stars === 'number' && r.stars >= 1 ? String(Math.min(5, Math.round(r.stars))) : '',
+    })),
+  );
+
   const [phase, setPhase] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   // Real Stories showcase opt-in — local mirror of the per-user consent flag.
@@ -189,6 +312,48 @@ export function EditorialEditor({
     setDirty(true);
   };
 
+  // ── Section-order mutations (PRO) ─────────────────────────────────────────
+  const moveSection = (index: number, dir: -1 | 1) => {
+    setSectionOrder((order) => {
+      const j = index + dir;
+      if (j < 0 || j >= order.length) return order;
+      const next = order.slice();
+      const moved = next[index];
+      if (!moved) return order;
+      next.splice(index, 1);
+      next.splice(j, 0, moved);
+      return next;
+    });
+    setDirty(true);
+  };
+
+  // ── Guest-wish mutations (PRO) ────────────────────────────────────────────
+  const patchWish = (index: number, patch: Partial<WishRow>) => {
+    setWishes((ws) => ws.map((w, i) => (i === index ? { ...w, ...patch } : w)));
+    setDirty(true);
+  };
+  const addWish = () => {
+    setWishes((ws) => (ws.length >= WISHES_MAX ? ws : [...ws, { author: '', role: '', quote: '', stars: '' }]));
+    setDirty(true);
+  };
+  const removeWish = (index: number) => {
+    setWishes((ws) => ws.filter((_, i) => i !== index));
+    setDirty(true);
+  };
+  const moveWish = (index: number, dir: -1 | 1) => {
+    setWishes((ws) => {
+      const j = index + dir;
+      if (j < 0 || j >= ws.length) return ws;
+      const next = ws.slice();
+      const moved = next[index];
+      if (!moved) return ws;
+      next.splice(index, 1);
+      next.splice(j, 0, moved);
+      return next;
+    });
+    setDirty(true);
+  };
+
   // Compute the chapterOverrides to persist. Send an ordered row per chapter ONLY
   // when the couple changed something (reordered, renamed, wrote a story, or hid
   // one) — otherwise `[]`, which reverts to pure auto. Because the loader front-
@@ -210,6 +375,29 @@ export function EditorialEditor({
     });
   };
 
+  // Section order to persist — send it only when it differs from the canonical
+  // default (else null, so a default editorial stays clean). The server sanitizes
+  // again and strips it entirely when the couple isn't PRO.
+  const buildSectionOrder = (): string[] | null => {
+    const isDefault = sectionOrder.every((k, i) => k === EDITORIAL_ORDERABLE_KEYS[i]);
+    return isDefault ? null : sectionOrder.slice();
+  };
+
+  // Guest wishes to persist — drop empty-quote rows (a wish with no words) and map
+  // to the Review shape. The server re-sanitizes + caps and strips when not PRO.
+  const buildReviews = (): Review[] =>
+    wishes
+      .filter((w) => w.quote.trim())
+      .map((w) => {
+        const starsNum = Number(w.stars);
+        return {
+          author: w.author.trim(),
+          role: w.role.trim() || null,
+          quote: w.quote.trim(),
+          stars: Number.isFinite(starsNum) && starsNum >= 1 ? Math.min(5, Math.round(starsNum)) : null,
+        };
+      });
+
   const persist = async (publish: boolean): Promise<boolean> => {
     setPhase('saving');
     setError(null);
@@ -217,6 +405,8 @@ export function EditorialEditor({
       const r = await saveEditorial(eventId, {
         ...form,
         chapterOverrides: buildChapterOverrides(),
+        sectionOrder: buildSectionOrder(),
+        reviews: buildReviews(),
         publish,
       });
       if (!r.ok) throw new Error(r.error);
@@ -376,16 +566,28 @@ export function EditorialEditor({
         </div>
       </section>
 
-      {/* As the Day Unfolded — per-chapter curation. Hidden entirely when the
-          event has no Papic timeline media (nothing to curate). */}
+      {/* As the Day Unfolded — per-chapter curation (Editorial PRO authorship).
+          Hidden entirely when the event has no Papic timeline media (nothing to
+          curate). Free couples see their auto chapters as a READ-ONLY preview
+          (naming / stories / hide / reorder are all PRO). */}
       {rows.length ? (
         <section className={card}>
-          <h2 className="font-display text-lg italic text-ink">As the day unfolded</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-display text-lg italic text-ink">As the day unfolded</h2>
+            {!isPro ? <ProChip /> : null}
+          </div>
           <p className="mt-0.5 text-sm text-ink/60">
             We built these moments from your day&rsquo;s photos and clips, in the order they
-            happened. Name a moment, add a short story, reorder them, or hide any you&rsquo;d
-            rather not show. Leave a moment untouched and it keeps its clock time.
+            happened.{' '}
+            {isPro
+              ? 'Name a moment, add a short story, reorder them, or hide any you’d rather not show. Leave a moment untouched and it keeps its clock time.'
+              : 'They show in clock-time order with the auto floor.'}
           </p>
+          {!isPro ? (
+            <ProUpsellLine eventId={eventId}>
+              Name the moments and tell each story with Editorial PRO.
+            </ProUpsellLine>
+          ) : null}
 
           {/* Shared datalist of the canonical moments — offered to every row's
               name input while still allowing any free text. */}
@@ -437,7 +639,7 @@ export function EditorialEditor({
                           <button
                             type="button"
                             onClick={() => moveRow(i, -1)}
-                            disabled={i === 0}
+                            disabled={!isPro || i === 0}
                             aria-label="Move moment earlier"
                             className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                           >
@@ -446,7 +648,7 @@ export function EditorialEditor({
                           <button
                             type="button"
                             onClick={() => moveRow(i, 1)}
-                            disabled={i === rows.length - 1}
+                            disabled={!isPro || i === rows.length - 1}
                             aria-label="Move moment later"
                             className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                           >
@@ -455,9 +657,10 @@ export function EditorialEditor({
                           <button
                             type="button"
                             onClick={() => patchRow(leadId, { hidden: !r.hidden })}
+                            disabled={!isPro}
                             aria-pressed={r.hidden}
                             aria-label={r.hidden ? 'Show this moment' : 'Hide this moment'}
-                            className={`rounded-md border p-1 transition ${
+                            className={`rounded-md border p-1 transition disabled:opacity-40 ${
                               r.hidden
                                 ? 'border-burgundy/25 bg-burgundy/10 text-burgundy'
                                 : 'border-ink/15 bg-cream text-ink/65 hover:bg-cream/70'
@@ -473,26 +676,30 @@ export function EditorialEditor({
                       </div>
 
                       <input
-                        className={`${inputCls} mt-2`}
+                        className={`${inputCls} mt-2 disabled:bg-ink/5 disabled:text-ink/45`}
                         value={r.title}
                         list="editorial-canonical-moments"
                         onChange={(e) => patchRow(leadId, { title: e.target.value })}
-                        placeholder="Name this moment (e.g. First Kiss)"
+                        disabled={!isPro}
+                        placeholder={isPro ? 'Name this moment (e.g. First Kiss)' : 'Name this moment with Editorial PRO'}
                         aria-label="Moment name"
                       />
 
                       <textarea
-                        className={`${inputCls} mt-2 min-h-[64px] resize-y`}
+                        className={`${inputCls} mt-2 min-h-[64px] resize-y disabled:bg-ink/5 disabled:text-ink/45`}
                         value={r.writeUp}
                         onChange={(e) => patchRow(leadId, { writeUp: e.target.value })}
-                        placeholder="Add a short story for this moment (optional)."
+                        disabled={!isPro}
+                        placeholder={isPro ? 'Add a short story for this moment (optional).' : 'Tell this moment’s story with Editorial PRO.'}
                         aria-label="Moment write-up"
                       />
-                      <span
-                        className={`mt-1 block text-right text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}
-                      >
-                        {count}/{WRITEUP_SOFT_CAP}
-                      </span>
+                      {isPro ? (
+                        <span
+                          className={`mt-1 block text-right text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}
+                        >
+                          {count}/{WRITEUP_SOFT_CAP}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </li>
@@ -501,6 +708,210 @@ export function EditorialEditor({
           </ol>
         </section>
       ) : null}
+
+      {/* Section order — reorder the editorial's content sections (Editorial PRO).
+          The two locked-close sections (your words + your song) always close the
+          paper and can't be moved. Free couples see the order read-only. */}
+      <section className={card}>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="font-display text-lg italic text-ink">Section order</h2>
+          {!isPro ? <ProChip /> : null}
+        </div>
+        <p className="mt-0.5 text-sm text-ink/60">
+          The order your editorial&rsquo;s sections appear in.{' '}
+          {isPro ? 'Move any section up or down.' : 'This is the default order.'} Your words and
+          your song always close the paper.
+        </p>
+        {!isPro ? (
+          <ProUpsellLine eventId={eventId}>
+            Arrange your story your way with Editorial PRO.
+          </ProUpsellLine>
+        ) : null}
+
+        <ol className="mt-4 space-y-1.5">
+          {sectionOrder.map((k, i) => {
+            const on = form.sections[ORDERABLE_SECTION_TOGGLE[k]] !== false;
+            return (
+              <li
+                key={k}
+                className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-2.5"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-ink">
+                    {ORDERABLE_SECTION_LABELS[k]}
+                  </span>
+                  <span className={`block text-xs ${on ? 'text-ink/45' : 'text-burgundy/70'}`}>
+                    {on ? 'Showing' : 'Turned off'}
+                  </span>
+                </span>
+                <span className="flex flex-none items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveSection(i, -1)}
+                    disabled={!isPro || i === 0}
+                    aria-label={`Move ${ORDERABLE_SECTION_LABELS[k]} up`}
+                    className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
+                  >
+                    <ChevronUp aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSection(i, 1)}
+                    disabled={!isPro || i === sectionOrder.length - 1}
+                    aria-label={`Move ${ORDERABLE_SECTION_LABELS[k]} down`}
+                    className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
+                  >
+                    <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </span>
+              </li>
+            );
+          })}
+          {/* Locked close — always the last two, pinned, non-reorderable. */}
+          {(['From the Couple', 'Their Song'] as const).map((label) => (
+            <li
+              key={label}
+              className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-ink/15 bg-cream/50 px-4 py-2.5"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-ink/70">{label}</span>
+                <span className="block text-xs text-ink/45">Always closes the paper</span>
+              </span>
+              <Lock aria-hidden className="h-4 w-4 flex-none text-ink/40" strokeWidth={1.75} />
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* What They Said — the manual guest-wishes editor (Editorial PRO). Free
+          couples see a read-only preview of any existing wishes + an upgrade. */}
+      <section className={card}>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="font-display text-lg italic text-ink">What they said</h2>
+          {!isPro ? <ProChip /> : null}
+        </div>
+        <p className="mt-0.5 text-sm text-ink/60">
+          Add your favourite wishes from guests, vendors, or the two of you.{' '}
+          {isPro ? 'They show in the “What They Said” section.' : ''}
+        </p>
+        {!isPro ? (
+          <ProUpsellLine eventId={eventId}>
+            Feature your guests&rsquo; best wishes with Editorial PRO.
+          </ProUpsellLine>
+        ) : null}
+
+        {wishes.length ? (
+          <ol className="mt-4 space-y-3">
+            {wishes.map((w, i) => {
+              const count = w.quote.length;
+              const over = count > WISH_QUOTE_SOFT_CAP;
+              return (
+                <li key={i} className="rounded-xl border border-ink/10 bg-white p-3">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <input
+                          className={`${inputCls} disabled:bg-ink/5 disabled:text-ink/45`}
+                          value={w.author}
+                          onChange={(e) => patchWish(i, { author: e.target.value })}
+                          disabled={!isPro}
+                          placeholder="Who said it (e.g. Tita Bing)"
+                          aria-label="Author"
+                        />
+                        <input
+                          className={`${inputCls} disabled:bg-ink/5 disabled:text-ink/45`}
+                          value={w.role}
+                          onChange={(e) => patchWish(i, { role: e.target.value })}
+                          disabled={!isPro}
+                          placeholder="Role (guest · vendor · couple)"
+                          aria-label="Role"
+                        />
+                      </div>
+                      <textarea
+                        className={`${inputCls} min-h-[64px] resize-y disabled:bg-ink/5 disabled:text-ink/45`}
+                        value={w.quote}
+                        onChange={(e) => patchWish(i, { quote: e.target.value })}
+                        disabled={!isPro}
+                        placeholder="Their wish, in their words."
+                        aria-label="Wish"
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 text-xs text-ink/55">
+                          Stars
+                          <select
+                            className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm text-ink outline-none focus:border-burgundy/50 disabled:bg-ink/5 disabled:text-ink/45"
+                            value={w.stars}
+                            onChange={(e) => patchWish(i, { stars: e.target.value })}
+                            disabled={!isPro}
+                            aria-label="Stars"
+                          >
+                            <option value="">None</option>
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {isPro ? (
+                          <span className={`text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}>
+                            {count}/{WISH_QUOTE_SOFT_CAP}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="flex flex-none flex-col items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveWish(i, -1)}
+                        disabled={!isPro || i === 0}
+                        aria-label="Move wish up"
+                        className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
+                      >
+                        <ChevronUp aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveWish(i, 1)}
+                        disabled={!isPro || i === wishes.length - 1}
+                        aria-label="Move wish down"
+                        className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
+                      >
+                        <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeWish(i)}
+                        disabled={!isPro}
+                        aria-label="Remove wish"
+                        className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-burgundy/10 hover:text-burgundy disabled:opacity-40"
+                      >
+                        <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className="mt-4 text-sm text-ink/45">No wishes yet.</p>
+        )}
+
+        {isPro && wishes.length < WISHES_MAX ? (
+          <button
+            type="button"
+            onClick={addWish}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/75 transition hover:bg-cream"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Add a wish
+          </button>
+        ) : null}
+        {isPro && wishes.length >= WISHES_MAX ? (
+          <p className="mt-3 text-xs text-ink/45">You&rsquo;ve added the maximum of {WISHES_MAX} wishes.</p>
+        ) : null}
+      </section>
 
       {/* Features */}
       <section className={card}>

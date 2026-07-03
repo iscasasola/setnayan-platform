@@ -41,6 +41,7 @@ import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
+import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 
 export type OverlayId =
   | 'prices'
@@ -51,6 +52,7 @@ export type OverlayId =
   | 'papic-demo'
   | 'panood-demo'
   | 'plan3d-demo'
+  | 'alaala-editorial'
   | null;
 
 /**
@@ -798,6 +800,7 @@ export function HomeOverlays({
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />
       <Plan3DDemoOverlay current={current} onClose={onClose} />
+      <AlaalaEditorialOverlay current={current} onClose={onClose} />
     </>
   );
 }

@@ -45,7 +45,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
         h: 'Look credible & trusted',
         items: [
           { n: 'Verified badge, free', b: 'Pass a 12-doc check free — no copycat can fake your official page.' },
-          { n: 'Search-ready microsite', b: 'A clean public profile built to rank on Google and inside Setnayan.' },
+          { n: 'Your public page, auto-built', b: 'A clean, search-ready public page — auto-composed from your profile and live the moment you set an address. Ranks on Google and inside Setnayan.' },
           { n: 'Fair merit-based rating', b: 'A Bayesian score protects new vendors — stars are earned, never bought.' },
           { n: 'Receipt-backed reviews', b: 'Every rating carries a real “booked through Setnayan” verified mark.' },
           { n: 'Right-of-reply on reviews', b: 'Post one public, professional reply under any review — your side shows.' },
@@ -118,10 +118,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'solo',
     name: 'Solo',
-    tagline: 'Operate friction-free. Everything in Free, plus your own business analytics.',
+    tagline: 'Operate friction-free. Everything in Free, plus a personalized page and your own business analytics.',
     groups: [
       {
         items: [
+          { n: 'Personalize your public page', b: 'Add an About intro, pick an accent colour, feature your top services, and choose which sections show — your page, your look.' },
           { n: 'Unlimited answering', b: 'Answer every matched couple — no weekly cap (Free is capped at 10 a week).' },
           { n: 'Quote-to-booking funnel', b: 'See views → inquiries → signed over time, plus every booking’s source.' },
           { n: 'Won & lost reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
@@ -137,10 +138,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'pro',
     name: 'Pro',
-    tagline: 'Grow — a team, wider reach, and premium market intelligence. Everything in Solo, plus:',
+    tagline: 'Grow — a premium page, a team, wider reach, and market intelligence. Everything in Solo, plus:',
     groups: [
       {
         items: [
+          { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Real Stories.' },
           { n: 'Team sub-accounts (3 seats)', b: 'Give each crew member a login scoped to their services — no shared passwords.' },
           { n: 'One clean business identity', b: 'Crew act under one verified profile — you look like a real studio.' },
           { n: 'Three categories + 50 km reach', b: 'List under three parent categories and serve a wider radius.' },
@@ -164,10 +166,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'enterprise',
     name: 'Enterprise',
-    tagline: 'Scale as an organization. Everything in Pro, plus:',
+    tagline: 'Scale as an organization — with a flagship page. Everything in Pro, plus:',
     groups: [
       {
         items: [
+          { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel — link your YouTube highlight videos and couples watch them right on your page.' },
           { n: 'All categories', b: 'List under every parent category, no cap.' },
           { n: 'Up to 10 team seats + multi-admin', b: 'A full team with shared, voted governance.' },
           { n: 'Nationwide reach', b: 'Serve couples in every region.' },

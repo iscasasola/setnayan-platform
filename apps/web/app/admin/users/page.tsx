@@ -348,7 +348,12 @@ function UsersTable({
                 className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
               >
                 <td className="px-3 py-3">
-                  <p className="font-medium text-ink">{u.email ?? '—'}</p>
+                  <Link
+                    href={`/admin/users/${u.user_id}`}
+                    className="font-medium text-ink underline-offset-2 hover:text-terracotta hover:underline"
+                  >
+                    {u.email ?? '—'}
+                  </Link>
                   {u.display_name ? (
                     <p className="text-xs text-ink/60">{u.display_name}</p>
                   ) : null}

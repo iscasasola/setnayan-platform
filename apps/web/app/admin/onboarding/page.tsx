@@ -133,10 +133,10 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
               sub="The recommended song list in the song step"
             />
             <RelatedLink
-              href="/admin/refinements"
+              href="/admin/taxonomy"
               icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
               label="Refinements"
-              sub="Per-category facets + sample photos"
+              sub="Now in the Taxonomy Studio — per-category facets + sample photos"
             />
             <RelatedLink
               href="/admin/wedding-types"

@@ -74,7 +74,9 @@ export const routes = {
     realStories: () => `/admin/real-stories`,
     recaps: () => `/admin/recaps`,
     receipts: () => `/admin/receipts`,
-    refinements: () => `/admin/refinements`,
+    // 'refinements' route helper REMOVED 2026-07-03 — /admin/refinements retired
+    // to a redirect(/admin/taxonomy); no callers. The redirect page uses a string
+    // literal, not this helper.
     reviews: () => `/admin/reviews`,
     settings: {
       index: () => `/admin/settings`,

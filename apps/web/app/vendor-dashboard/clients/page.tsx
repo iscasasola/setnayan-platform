@@ -12,6 +12,10 @@ import {
 import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import {
+  THREAD_STAGE_LABEL,
+  THREAD_STAGE_TONE,
+} from '@/lib/vendor-thread-stage';
 
 export const metadata = { title: 'Clients · Vendor' };
 
@@ -46,6 +50,20 @@ function fmtDate(iso: string): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+/**
+ * Small pipeline pill per row — the list-level echo of the Customer Card's
+ * stage chip. Tones reuse the cream-card idioms from vendor-thread-stage.ts.
+ */
+function StageChip({ tone, label }: { tone: string; label: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tone}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 export default async function VendorClientsPage({ searchParams }: Props) {
@@ -91,6 +109,24 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     (t) => t.inquiry_status === 'accepted' && !bookedByEvent.has(t.event_id),
   );
 
+  // Quoted probe — ONE batched read across every in-conversation event: which
+  // of them already have a proposal out with the couple (sent/viewed, i.e. not
+  // a draft). Same predicate as deriveThreadStage, but for the whole list in a
+  // single .in() rather than N per-row queries. Graceful-degrades to empty.
+  const quotedEventIds = new Set<string>();
+  const acceptedEventIds = [...new Set(accepted.map((t) => t.event_id))];
+  if (acceptedEventIds.length > 0) {
+    const { data: quoted } = await supabase
+      .from('vendor_proposals')
+      .select('event_id')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .in('event_id', acceptedEventIds)
+      .in('status', ['sent', 'viewed']);
+    for (const row of (quoted ?? []) as { event_id: string }[]) {
+      quotedEventIds.add(row.event_id);
+    }
+  }
+
   // Outside — external-client blocks.
   const externals = blocks.filter((b) => b.source === 'external_client');
 
@@ -103,9 +139,10 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Clients</h1>
         <p className="max-w-prose text-base text-ink/65">
           Your book of business: Setnayan bookings, couples you&rsquo;re talking to,
-          and clients you brought in from outside the app. Outside clients hold
-          dates on your schedule but aren&rsquo;t app clients — no chat thread, no
-          stats, no reviews.
+          and clients you brought in from outside the app. Open a client to see
+          their full customer card — brief, quotes, payments, files, schedule,
+          and your team&rsquo;s notes. Outside clients hold dates on your schedule
+          but aren&rsquo;t app clients — no chat thread, no stats, no reviews.
         </p>
       </header>
 
@@ -142,7 +179,13 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             {[...bookedByEvent.entries()].map(([eventId, group]) => (
               <li key={eventId} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
-                  <p className="text-sm font-medium">{group.eventName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{group.eventName}</p>
+                    <StageChip
+                      tone={THREAD_STAGE_TONE.booked}
+                      label={THREAD_STAGE_LABEL.booked}
+                    />
+                  </div>
                   <p className="text-xs text-ink/55">
                     {group.entries
                       .map((e) => `${fmtDate(e.date)} · ${e.pool}`)
@@ -154,7 +197,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                     href={`/vendor-dashboard/clients/${eventId}`}
                     className="text-sm font-medium text-terracotta underline"
                   >
-                    Event brief
+                    Customer card
                   </Link>
                   {group.threadId ? (
                     <Link
@@ -188,22 +231,39 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
-            {accepted.map((t) => (
-              <li key={t.thread_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div>
-                  <p className="text-sm font-medium">{t.event?.display_name ?? 'A Setnayan event'}</p>
-                  <p className="text-xs text-ink/55">
-                    {t.event?.event_date ? fmtDate(t.event.event_date) : 'Date not set yet'}
-                  </p>
-                </div>
-                <Link
-                  href={`/vendor-dashboard/messages/${t.thread_id}`}
-                  className="text-sm font-medium text-terracotta underline"
-                >
-                  Open chat
-                </Link>
-              </li>
-            ))}
+            {accepted.map((t) => {
+              const isQuoted = quotedEventIds.has(t.event_id);
+              return (
+                <li key={t.thread_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{t.event?.display_name ?? 'A Setnayan event'}</p>
+                      <StageChip
+                        tone={isQuoted ? THREAD_STAGE_TONE.quoted : THREAD_STAGE_TONE.inquiry}
+                        label={isQuoted ? THREAD_STAGE_LABEL.quoted : 'In conversation'}
+                      />
+                    </div>
+                    <p className="text-xs text-ink/55">
+                      {t.event?.event_date ? fmtDate(t.event.event_date) : 'Date not set yet'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Link
+                      href={`/vendor-dashboard/clients/${t.event_id}`}
+                      className="text-sm font-medium text-terracotta underline"
+                    >
+                      Customer card
+                    </Link>
+                    <Link
+                      href={`/vendor-dashboard/messages/${t.thread_id}`}
+                      className="text-sm font-medium text-terracotta underline"
+                    >
+                      Open chat
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -236,7 +296,10 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             {externals.map((b) => (
               <li key={b.blockId} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
-                  <p className="text-sm font-medium">{b.clientName ?? b.label}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{b.clientName ?? b.label}</p>
+                    <StageChip tone="border-ink/15 bg-ink/[0.04] text-ink/70" label="Imported" />
+                  </div>
                   <p className="text-xs text-ink/55">
                     {b.startDate === b.endDate
                       ? fmtDate(b.startDate)

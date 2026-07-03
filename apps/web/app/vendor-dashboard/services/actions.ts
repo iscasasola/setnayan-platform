@@ -16,6 +16,7 @@ import {
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
+import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { TILE_PARENT } from '@/lib/taxonomy';
 import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
 import {
@@ -45,6 +46,46 @@ function parentsOfCategory(category: VendorCategory): string[] {
   return tilesForVendorCategory(category)
     .map((tile) => TILE_PARENT[tile] as string)
     .filter(Boolean);
+}
+
+/**
+ * The tier-1 parent folders already claimed by the vendor's COVERAGES
+ * (`vendor_coverages` rows), resolved canonical_service → tier-1 folder via the
+ * live taxonomy tree. Coverage is becoming the source of truth for what a
+ * vendor offers (owner-locked 2026-07-02 "coverage drives Explore"), so the
+ * parent-category cap must count coverage parents alongside legacy
+ * vendor_services.category parents — otherwise a coverage-first vendor gets a
+ * FREE ride past the cap (or, inversely, a service under an already-covered
+ * parent gets wrongly blocked). Tier-1 `service_categories.id` values ARE the
+ * TILE_PARENT folder vocabulary ('venue', 'planning', …), so the union is
+ * apples-to-apples. FAIL-SOFT: any read error returns [] → the check degrades
+ * to the legacy services-only behavior instead of blocking an honest save.
+ */
+async function coverageParents(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<string[]> {
+  try {
+    const [{ data: covs }, tree] = await Promise.all([
+      supabase
+        .from('vendor_coverages')
+        .select('canonical_service')
+        .eq('vendor_profile_id', vendorProfileId),
+      getCoverageTaxonomy(),
+    ]);
+    const covered = new Set(
+      ((covs ?? []) as { canonical_service: string }[]).map((r) => r.canonical_service),
+    );
+    if (covered.size === 0) return [];
+    const parents = new Set<string>();
+    for (const p of tree)
+      for (const b of p.branches)
+        for (const l of b.leaves)
+          if (covered.has(l.canonicalService)) parents.add(p.folderId);
+    return Array.from(parents);
+  } catch {
+    return []; // fail-soft → legacy services-only counting
+  }
 }
 
 /**
@@ -87,54 +128,10 @@ function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null 
 const DISCOUNT_TYPES = ['early_booking', 'off_peak', 'bundle', 'promo', 'returning'] as const;
 type DiscountType = (typeof DISCOUNT_TYPES)[number];
 
-/** Parse optional discount fields from formData. Throws on invalid combos. */
-function parseDiscountFields(formData: FormData): {
-  discount_type: DiscountType | null;
-  discount_value: number | null;
-  discount_expires_at: string | null;
-  discount_conditions_md: string | null;
-} {
-  const typeRaw = formData.get('discount_type');
-  const discount_type =
-    typeof typeRaw === 'string' && (DISCOUNT_TYPES as readonly string[]).includes(typeRaw)
-      ? (typeRaw as DiscountType)
-      : null;
-
-  const valueRaw = formData.get('discount_value');
-  let discount_value: number | null = null;
-  if (typeof valueRaw === 'string' && valueRaw.trim().length > 0) {
-    const n = Number(valueRaw.trim());
-    if (!Number.isFinite(n) || n <= 0) {
-      throw new Error('Discount amount must be a positive number.');
-    }
-    discount_value = n;
-  }
-
-  if (discount_type !== null && discount_value === null) {
-    throw new Error('A discount amount is required when a discount type is selected.');
-  }
-
-  const expiresRaw = formData.get('discount_expires_at');
-  let discount_expires_at: string | null = null;
-  if (typeof expiresRaw === 'string' && expiresRaw.trim().length > 0) {
-    const d = new Date(expiresRaw.trim());
-    if (isNaN(d.getTime())) {
-      throw new Error('Discount expiry must be a valid date.');
-    }
-    discount_expires_at = d.toISOString();
-  }
-  if (discount_type === 'promo' && discount_expires_at === null) {
-    throw new Error('Limited-Time Promo discounts require an expiry date.');
-  }
-
-  const condRaw = formData.get('discount_conditions_md');
-  const discount_conditions_md =
-    typeof condRaw === 'string' && condRaw.trim().length > 0
-      ? condRaw.trim().slice(0, 1000)
-      : null;
-
-  return { discount_type, discount_value, discount_expires_at, discount_conditions_md };
-}
+// (The legacy single-discount parser — discount_type/discount_value scalar
+// fields — was removed 2026-07-03 with wizard parity: the wizard now submits
+// the same multi-discount arrays as the inline form, parsed by
+// parseDiscountRows below.)
 
 // ── List editors (service-card redesign · Phase 3b) ─────────────────────────
 // Three repeatable child-table lists submitted as parallel, index-aligned
@@ -685,11 +682,14 @@ export async function createVendorService(formData: FormData) {
   // (2) Parent-category cap (Phase B): distinct parents of the 10 — FREE 1 ·
   // VERIFIED 3 · PRO 3 · ENTERPRISE ∞. Only blocks when this service introduces
   // a NEW parent beyond the allowance (adding within covered parents is free).
+  // Counts the UNION of legacy service-category parents ∪ coverage parents —
+  // coverage is becoming the source of truth (see coverageParents).
   const newParents = parentsOfCategory(category);
   if (caps.parentCategories !== Infinity && newParents.length > 0) {
-    const existingParents = new Set(
-      existing.flatMap((r) => parentsOfCategory(r.category)),
-    );
+    const existingParents = new Set([
+      ...existing.flatMap((r) => parentsOfCategory(r.category)),
+      ...(await coverageParents(supabase, profile.vendor_profile_id)),
+    ]);
     const introducesNew = newParents.some((p) => !existingParents.has(p));
     const wouldBe = new Set(existingParents);
     newParents.forEach((p) => wouldBe.add(p));
@@ -1341,10 +1341,16 @@ export async function commitVendorService(formData: FormData) {
       : baseCaps;
 
   // ---- Parse the vendor_services fields (reuse the legacy helpers) ----
+  // Wizard parity 2026-07-03: mirrors createVendorService/updateVendorService —
+  // pricing basis + synced anchor, showcase media, included flags, and the
+  // three replace-all lists (multi-discounts · inclusions · Fixed brackets).
   let category: VendorCategory;
   let fields: Record<string, unknown>;
-  // Hoisted so the multi-discount write below the parse try can read it.
-  let discount: ReturnType<typeof parseDiscountFields>;
+  // Hoisted so the QR guard + RPC payload below the parse try can read them.
+  let showcase: ReturnType<typeof parseShowcaseMedia>;
+  let discountRows: DiscountDraft[];
+  let inclusionRows: InclusionDraft[];
+  let bracketRows: BracketDraft[];
   try {
     // On edit the category is immutable; read it from the existing row instead
     // of trusting the form. On create it comes from the chosen category step.
@@ -1367,26 +1373,51 @@ export async function commitVendorService(formData: FormData) {
       typeof titleRaw === 'string' && titleRaw.trim().length > 0
         ? titleRaw.trim().slice(0, 80)
         : null;
-    discount = parseDiscountFields(formData);
     const branch_id = await resolveBranchId(
       supabase,
       profile.vendor_profile_id,
       formData.get('branch_id'),
     );
 
+    // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
+    const pricing = parsePricingFields(formData);
+    let transport_flat_fee_php = parseInt0OrNull(formData.get('transport_flat_fee_php'));
+    showcase = parseShowcaseMedia(formData);
+    // Phase 3b list editors — brackets only apply to the Fixed basis (the
+    // editor is mounted only there); drop them otherwise.
+    discountRows = parseDiscountRows(formData);
+    inclusionRows = parseInclusionRows(formData);
+    bracketRows =
+      pricing.pricing_basis === 'fixed' ? parseBracketRows(formData) : [];
+    // Fixed basis WITH brackets → the "from ₱X" anchor is the lowest bracket
+    // price (Explore/budget read starting_price_php); else keep the parsed one.
+    if (pricing.pricing_basis === 'fixed' && bracketRows.length > 0) {
+      pricing.starting_price_php = Math.min(...bracketRows.map((b) => b.price_php));
+    }
+    // What's-included flags. crew_meal_required is kept as the INVERSE of
+    // crew_meal_included so the 0007 budget's Crew-Meal line still triggers
+    // (the old wizard's raw crew_meal_required checkbox could contradict the
+    // card); transport fee only applies when transport is NOT included.
+    const crew_meal_included = formData.get('crew_meal_included') === 'on';
+    const transport_included = formData.get('transport_included') === 'on';
+    if (transport_included) transport_flat_fee_php = null;
+
     fields = {
       category,
       title,
-      starting_price_php: parseInt0OrNull(formData.get('starting_price_php')),
-      added_pax_price_php: parseInt0OrNull(formData.get('added_pax_price_php')),
-      base_pax: parseInt0OrNull(formData.get('base_pax')) || null,
+      ...pricing, // pricing_basis + starting_price_php anchor + per-basis scalars
       coverage_id: await resolveOwnedCoverageId(
         supabase,
         profile.vendor_profile_id,
         formData.get('coverage_id'),
       ),
       crew_size: parseInt0OrNull(formData.get('crew_size')),
-      crew_meal_required: formData.get('crew_meal_required') === 'on',
+      crew_meal_included,
+      crew_meal_required: !crew_meal_included, // 0007 budget bridge
+      transport_included,
+      transport_flat_fee_php,
+      showcase_video_r2_key: showcase.showcase_video_r2_key,
+      showcase_photo_r2_keys: showcase.showcase_photo_r2_keys,
       branch_id,
       recommended_lead_time_months: parseLeadTimeMonthsOrNull(
         formData.get('recommended_lead_time_months'),
@@ -1423,6 +1454,29 @@ export async function commitVendorService(formData: FormData) {
     }
   }
 
+  // QR-in-media guard on the showcase photos (parity with the inline actions):
+  // on create everything is new; on edit scan only refs NOT already stored on
+  // this row (an unchanged gallery re-save costs nothing). Fails OPEN.
+  if (showcase.showcase_photo_r2_keys.length > 0) {
+    let fresh = showcase.showcase_photo_r2_keys;
+    if (!isCreate) {
+      const { data: curRow } = await supabase
+        .from('vendor_services')
+        .select('showcase_photo_r2_keys')
+        .eq('vendor_service_id', serviceId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      const stored = new Set(
+        ((curRow as { showcase_photo_r2_keys?: string[] | null } | null)
+          ?.showcase_photo_r2_keys ?? []).filter(Boolean),
+      );
+      fresh = fresh.filter((r) => !stored.has(r));
+    }
+    if (fresh.length > 0 && (await vendorQrGuardRejects(fresh))) {
+      return back(VENDOR_QR_MEDIA_ERROR);
+    }
+  }
+
   // ---- Tier caps on CREATE only (a new row can introduce a new leaf/parent) ----
   if (isCreate) {
     const { data: existingRows } = await supabase
@@ -1439,11 +1493,15 @@ export async function commitVendorService(formData: FormData) {
         );
       }
     }
+    // Parent cap counts the UNION of legacy service-category parents ∪ the
+    // vendor's coverage parents — coverage is becoming the source of truth
+    // (see coverageParents; fail-soft to services-only on read error).
     const newParents = parentsOfCategory(category);
     if (caps.parentCategories !== Infinity && newParents.length > 0) {
-      const existingParents = new Set(
-        existing.flatMap((r) => parentsOfCategory(r.category)),
-      );
+      const existingParents = new Set([
+        ...existing.flatMap((r) => parentsOfCategory(r.category)),
+        ...(await coverageParents(supabase, profile.vendor_profile_id)),
+      ]);
       const introducesNew = newParents.some((p) => !existingParents.has(p));
       const wouldBe = new Set(existingParents);
       newParents.forEach((p) => wouldBe.add(p));
@@ -1488,23 +1546,28 @@ export async function commitVendorService(formData: FormData) {
     return back((e as Error).message);
   }
 
-  // Discount → the multi-discount table via the RPC's replace-all. The single-
-  // discount wizard form carries no unit; derive it with the migration's backfill
-  // heuristic (rate <= 100 ⇒ %, else ₱). p_brackets / p_inclusions are [] until
-  // the Phase-3 UI wires them (nothing to preserve yet · migration 20270502342558).
-  const svcDiscounts =
-    discount.discount_type && discount.discount_value != null
-      ? [
-          {
-            discount_type: discount.discount_type,
-            rate: discount.discount_value,
-            unit: discount.discount_value <= 100 ? 'pct' : 'php',
-            expires_at: discount.discount_expires_at,
-            conditions_md: discount.discount_conditions_md,
-            sort_order: 0,
-          },
-        ]
-      : [];
+  // The three replace-all lists → the RPC's jsonb args (wizard parity: same
+  // rows the inline actions write via replaceServiceLists; sort_order = the
+  // submitted array index, migration 20270502342558).
+  const svcDiscounts = discountRows.map((d, i) => ({
+    discount_type: d.discount_type,
+    rate: d.rate,
+    unit: d.unit,
+    expires_at: d.expires_at,
+    conditions_md: d.conditions_md,
+    sort_order: i,
+  }));
+  const svcBrackets = bracketRows.map((b, i) => ({
+    min_pax: b.min_pax,
+    max_pax: b.max_pax,
+    price_php: b.price_php,
+    sort_order: i,
+  }));
+  const svcInclusions = inclusionRows.map((n, i) => ({
+    label: n.label,
+    worth_php: n.worth_php,
+    sort_order: i,
+  }));
 
   // ---- ONE atomic write ----
   const { data: savedId, error } = await supabase.rpc('save_vendor_service', {
@@ -1514,8 +1577,8 @@ export async function commitVendorService(formData: FormData) {
     p_links: links,
     p_schedule: schedule,
     p_discounts: svcDiscounts,
-    p_brackets: [],
-    p_inclusions: [],
+    p_brackets: svcBrackets,
+    p_inclusions: svcInclusions,
     p_publish: publish,
   });
   if (error) return back(error.message);

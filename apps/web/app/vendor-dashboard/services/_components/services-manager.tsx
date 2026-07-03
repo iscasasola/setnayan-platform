@@ -43,6 +43,7 @@ import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
   SERVICE_GROUPS,
+  groupDisplayOptions,
   type VendorCategory,
   displayServiceLabel,
   formatPhp,
@@ -569,13 +570,18 @@ export async function VendorServicesManager({
                   {group.label}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {group.members.map((cat) => {
-                    const Icon = iconForVendorCategory(cat);
-                    const count = serviceCountByCategory[cat] ?? 0;
+                  {/* Collapse legacy keys that share a taxonomy label (e.g.
+                      photographer + videographer → one "Photo & Video" pill). */}
+                  {groupDisplayOptions(group.members, labelFor).map((opt) => {
+                    const Icon = iconForVendorCategory(opt.primaryKey);
+                    const count = opt.keys.reduce(
+                      (n, k) => n + (serviceCountByCategory[k] ?? 0),
+                      0,
+                    );
                     return (
                       <Link
-                        key={cat}
-                        href={categoryHref(cat)}
+                        key={opt.primaryKey}
+                        href={categoryHref(opt.primaryKey)}
                         className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors"
                         style={{
                           borderColor: count > 0 ? 'var(--m-orange-3)' : 'var(--m-line)',
@@ -584,7 +590,7 @@ export async function VendorServicesManager({
                         }}
                       >
                         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
-                        {labelFor(cat)}
+                        {opt.label}
                         {count > 0 ? (
                           <span className="font-mono text-[10px] uppercase tracking-[0.1em]">{count} added</span>
                         ) : (

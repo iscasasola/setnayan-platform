@@ -43,12 +43,22 @@ import {
   markVendorContactConfirmed,
   rejectApplication,
   rejectVendor,
+  runVendorDeepSearchAction,
   setApplicationInReview,
   verifyVendorExperience,
 } from './actions';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import {
+  adTransparencyLinks,
+  type DossierRow,
+  type VendorDossier,
+} from '@/lib/vendor-deep-search';
 
 export const metadata = { title: 'Verification queue · Admin' };
+
+// Deep search runs a live web research pass inside a server action — give the
+// route enough wall-clock for it (typically 1–3 minutes).
+export const maxDuration = 300;
 
 type Props = {
   searchParams: Promise<{
@@ -62,6 +72,7 @@ type Props = {
     demoted?: string;
     in_review?: string;
     contact_marked?: string;
+    deep_search?: string;
     error?: string;
   }>;
 };
@@ -244,6 +255,13 @@ function FlashBanner({
       </p>
     );
   }
+  if (search.deep_search === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        Deep search complete — the dossier is on the application card.
+      </p>
+    );
+  }
   if (search.approved === '1') {
     return (
       <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
@@ -310,6 +328,24 @@ async function ApplicationsSurface({
     ),
     fetchVendorValidateContacts(admin),
   ]);
+  // Latest deep-search dossier per vendor (soft probe — degrades to empty on a
+  // pre-migration DB). Rows arrive newest-first; first one per vendor wins.
+  const dossierMap: Record<string, DossierRow> = {};
+  if (vendorIds.length > 0) {
+    const { data: dossierRows } = await admin
+      .from('vendor_web_dossiers')
+      .select(
+        'id, vendor_profile_id, application_id, status, inputs, dossier, error, model, created_at, completed_at',
+      )
+      .in('vendor_profile_id', vendorIds)
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .then((r) => (r.error ? { data: null } : r));
+    for (const row of (dossierRows ?? []) as DossierRow[]) {
+      if (!dossierMap[row.vendor_profile_id]) dossierMap[row.vendor_profile_id] = row;
+    }
+  }
+
   // Declared experience (flag + schema gated; soft-probe degrades on 42703 so a
   // pre-migration DB never breaks the queue). Keyed by vendor_profile_id.
   const expMap: Record<string, { year: number | null; verifiedAt: string | null }> = {};
@@ -427,6 +463,7 @@ async function ApplicationsSurface({
                     EMPTY_CONTACT_CONFIRMATION
                   }
                   validateContacts={validateContacts}
+                  dossierRow={dossierMap[r.vendor_profile_id] ?? null}
                 />
               </li>
             ))}
@@ -538,10 +575,12 @@ function ApplicationCard({
   application,
   confirmation,
   validateContacts,
+  dossierRow,
 }: {
   application: ApplicationRow;
   confirmation: ContactConfirmation;
   validateContacts: VendorValidateContacts;
+  dossierRow: DossierRow | null;
 }) {
   const completeCount = countCompleteSlots(application.doc_uploads);
   const slaTone = computeSlaTone(
@@ -684,6 +723,8 @@ function ApplicationCard({
         validateContacts={validateContacts}
       />
 
+      <DeepSearchBlock application={application} dossierRow={dossierRow} />
+
       <ActionRow application={application} />
     </article>
   );
@@ -774,6 +815,201 @@ function ContactChannelMark({
         {label}
       </SubmitButton>
     </form>
+  );
+}
+
+/**
+ * Deep search — live web due-diligence dossier (owner 2026-07-03). Admin
+ * triggers a Claude web_search research pass over the vendor's website +
+ * social link + name + location; the structured result renders here with
+ * source links, plus always-on deterministic deep links into Meta Ad Library
+ * and Google Ads Transparency (the public "search their ads" surfaces).
+ */
+function DeepSearchBlock({
+  application,
+  dossierRow,
+}: {
+  application: ApplicationRow;
+  dossierRow: DossierRow | null;
+}) {
+  const adsLinks = adTransparencyLinks(
+    application.vendor.business_name || 'Setnayan vendor',
+  );
+  const dossier: VendorDossier | null =
+    dossierRow?.status === 'complete' ? dossierRow.dossier : null;
+
+  return (
+    <div className="space-y-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Deep search · AI-generated
+        </p>
+        <form action={runVendorDeepSearchAction}>
+          <input
+            type="hidden"
+            name="application_id"
+            value={application.application_id}
+          />
+          <input
+            type="hidden"
+            name="vendor_profile_id"
+            value={application.vendor_profile_id}
+          />
+          <SubmitButton
+            pendingLabel="Researching… (1–3 min)"
+            className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+          >
+            {dossierRow ? 'Re-run deep search' : 'Run deep search'}
+          </SubmitButton>
+        </form>
+      </div>
+
+      {dossierRow?.status === 'failed' ? (
+        <p className="rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-xs text-terracotta-700">
+          Last run failed: {dossierRow.error ?? 'unknown error'}
+        </p>
+      ) : null}
+
+      {dossierRow?.status === 'running' ? (
+        <p className="text-xs text-ink/55">
+          A run started {new Date(dossierRow.created_at).toLocaleString('en-PH')}{' '}
+          and hasn&rsquo;t finished — if it&rsquo;s been more than a few minutes,
+          re-run it.
+        </p>
+      ) : null}
+
+      {dossier ? (
+        <div className="space-y-2 text-xs text-ink/75">
+          <p>{dossier.business_summary}</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <CategoryMatchBadge value={dossier.category_match} />
+            <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              confidence · {dossier.confidence}
+            </span>
+            {dossierRow?.completed_at ? (
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                {new Date(dossierRow.completed_at).toLocaleString('en-PH')}
+              </span>
+            ) : null}
+          </div>
+
+          {dossier.consistency_flags.length > 0 ? (
+            <ul className="space-y-1 rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-warn-900">
+              {dossier.consistency_flags.map((flag) => (
+                <li key={flag}>⚑ {flag}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-success-700">
+              No inconsistencies flagged between the claim and the web.
+            </p>
+          )}
+
+          {dossier.detected_services.length > 0 ? (
+            <p>
+              <span className="font-medium text-ink">Serves:</span>{' '}
+              {dossier.detected_services.join(' · ')}
+            </p>
+          ) : null}
+
+          {dossier.price_signals.length > 0 ? (
+            <div>
+              <p className="font-medium text-ink">Published prices found:</p>
+              <ul className="mt-1 space-y-0.5">
+                {dossier.price_signals.map((p, i) => (
+                  <li key={`${p.label}-${i}`}>
+                    {p.label} — <span className="font-medium text-ink">{p.price}</span>
+                    {p.source_url ? (
+                      <>
+                        {' '}
+                        <a
+                          href={p.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-terracotta underline"
+                        >
+                          source
+                        </a>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {dossier.web_presence.length > 0 ? (
+            <div>
+              <p className="font-medium text-ink">Web presence:</p>
+              <ul className="mt-1 space-y-0.5">
+                {dossier.web_presence.map((w, i) => (
+                  <li key={`${w.platform}-${i}`}>
+                    {w.url ? (
+                      <a
+                        href={w.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-terracotta underline"
+                      >
+                        {w.platform}
+                      </a>
+                    ) : (
+                      <span className="font-medium">{w.platform}</span>
+                    )}
+                    {w.note ? <> — {w.note}</> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {dossier.ads_findings ? (
+            <p>
+              <span className="font-medium text-ink">Ads:</span>{' '}
+              {dossier.ads_findings}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <p className="text-xs text-ink/55">
+        Check their live ads directly:{' '}
+        {adsLinks.map((l, i) => (
+          <span key={l.href}>
+            {i > 0 ? ' · ' : null}
+            <a
+              href={l.href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-terracotta underline"
+            >
+              {l.label}
+            </a>
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+function CategoryMatchBadge({
+  value,
+}: {
+  value: VendorDossier['category_match'];
+}) {
+  const tone: Record<VendorDossier['category_match'], string> = {
+    match: 'bg-success-100 text-success-800',
+    partial: 'bg-warn-100 text-warn-900',
+    mismatch: 'bg-terracotta/10 text-terracotta-700',
+    unknown: 'bg-ink/8 text-ink/55',
+  };
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[value]}`}
+    >
+      category · {value}
+    </span>
   );
 }
 

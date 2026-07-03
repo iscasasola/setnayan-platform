@@ -306,6 +306,43 @@ export function serviceGroupOf(category: VendorCategory): ServiceGroupKey {
   return CATEGORY_TO_GROUP[category];
 }
 
+/**
+ * One picker option after collapsing legacy categories that DISPLAY the same.
+ *
+ * The admin taxonomy folds several legacy `VENDOR_CATEGORIES` pairs into a
+ * single modern tile — photographer + videographer → "Photo & Video",
+ * makeup_artist + hair_stylist → "HMUA", string_quartet + choir → "Choir".
+ * When a surface renders those legacy keys with the live taxonomy labels, both
+ * keys resolve to the SAME text and show up as two identical checkboxes/pills
+ * (the "duplicate services" bug). This collapses them: same label → one option
+ * carrying every folded key. The FIRST key is the primary/stored value; the
+ * option is "on" when ANY of its keys is present (so a vendor whose legacy row
+ * stored `videographer` still round-trips), and turning it off clears every
+ * folded key. When labels are distinct (e.g. the in-code fallback labels), this
+ * is a pass-through — one option per member, byte-identical to `members`.
+ */
+export type ServiceGroupOption = {
+  label: string;
+  /** The key written when this option is newly ticked. */
+  primaryKey: VendorCategory;
+  /** All legacy keys that render under this label (≥ 1, primary first). */
+  keys: VendorCategory[];
+};
+
+export function groupDisplayOptions(
+  members: ReadonlyArray<VendorCategory>,
+  resolveLabel: (cat: VendorCategory) => string,
+): ServiceGroupOption[] {
+  const byLabel = new Map<string, ServiceGroupOption>();
+  for (const cat of members) {
+    const label = resolveLabel(cat);
+    const existing = byLabel.get(label);
+    if (existing) existing.keys.push(cat);
+    else byLabel.set(label, { label, primaryKey: cat, keys: [cat] });
+  }
+  return [...byLabel.values()];
+}
+
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
 /**

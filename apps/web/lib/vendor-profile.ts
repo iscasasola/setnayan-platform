@@ -384,13 +384,18 @@ export function businessProfileChecklist(
     },
     { key: 'contact_phone', label: L.contact_phone, surface: 'profile', ok: !!profile?.contact_phone?.trim() },
     { key: 'contact_email', label: L.contact_email, surface: 'profile', ok: !!profile?.contact_email?.trim() },
-    { key: 'services', label: L.services, surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
     {
       key: 'in_business_since_year',
       label: L.in_business_since_year,
       surface: 'profile',
       ok: !!profile?.in_business_since_year && profile.in_business_since_year > 1900,
     },
+    // LAST (owner 2026-07-03): "Services covered" is not an inline picker — it
+    // jumps to the taxonomy-driven Coverage flow (/vendor-dashboard/services),
+    // which writes the covered leaves back into vendor_profiles.services[]. So
+    // completeness still reads services[] here; the row just lives at the end
+    // and links out. Everything a vendor serves is admin-taxonomy-driven.
+    { key: 'services', label: L.services, surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
   ];
   const done = items.filter((i) => i.ok).length;
   return {

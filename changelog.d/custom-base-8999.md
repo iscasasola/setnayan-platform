@@ -8,3 +8,9 @@ SPEC IMPACT: corpus `DECISION_LOG.md` — row appended (2026-07-04, Custom base 
 
 - §11 gains an **Extended reach** line: **+₱499 per +100 km · Nationwide flat +₱2,499**, 100 km included in the base; added as a slider to the configurator spec + prototype.
 - ⚠ Surfaces a load-bearing contradiction as sign-off item 4: Enterprise's 2026-07-01 cap says "nationwide reach" (which would make a paid reach line meaningless) vs code/§6 marketing Enterprise at 100 km + §1's Local→20→50→100 boost ladder. Owner picks: re-cap Enterprise at 100 km, or keep nationwide and drop the line.
+
+## 2026-07-04 · docs(vendor-tiers): Custom rate card FULLY SIGNED (owner)
+
+- All remaining numbers locked: **Enterprise reach re-capped at 100 km** (nationwide sold in Custom: +₱499/100km · flat +₱2,499) · **extra seat ₱250** (§10's ₱500 dead; PR #2623 merges as-is, auto-merge armed) · slot ₱499 / photos ₱99 · annual = 10×28d + per-answer tokens.
+- §2 Enterprise updated (reach 100 km · seat add-on ₱250); §11 sign-off section replaced with the signed card + build actions.
+- Unblocked: #2623 merge · `TIER_CAPS` enterprise `serviceRadiusKm` ∞→100 + "nationwide" copy sweep · Stage-2 configurator build (Opus brief after this PR + #2623 land).

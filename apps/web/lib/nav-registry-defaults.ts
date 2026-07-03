@@ -2445,18 +2445,15 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 38,
   },
-  {
-    key: "admin.sidebar.event-types",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/event-types",
-    label: "Event Types",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "PartyPopper",
-    customRef: null,
-    sortOrder: 39,
-  },
+  // admin.sidebar.event-types REMOVED 2026-07-03 — /admin/event-types was folded
+  // into the Taxonomy Studio's Vocabularies → Event types rail
+  // (/admin/taxonomy?view=vocab-event); the event-type roster (couple-launch
+  // `enabled` lever + picker-card presentation + retire/un-retire) now lives
+  // there beside category scoping. The standalone page redirects. Seed default
+  // dropped so it stops seeding into /admin/menus. Any stale nav_slot_override
+  // row for this key is inert — the renderer iterates code defaults and overlays
+  // overrides (lib/nav-registry.ts), so an override with no matching default is
+  // never rendered.
   // admin.sidebar.refinements REMOVED 2026-07-03 — /admin/refinements was retired
   // to a redirect(/admin/taxonomy); refinements are now edited in the Taxonomy
   // Studio inspector's Refinements tab. Seed default dropped so it stops seeding

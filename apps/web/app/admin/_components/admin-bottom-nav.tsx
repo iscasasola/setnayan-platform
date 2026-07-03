@@ -178,7 +178,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/money',
       '/admin/menus',
       '/admin/taxonomy',
-      '/admin/event-types',
+      // '/admin/event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+      // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event); the
+      // event-type roster now lives there. The standalone page redirects.
       // '/admin/refinements' REMOVED 2026-07-03 — route retired to a
       // redirect(/admin/taxonomy); refinements now live in the Taxonomy Studio
       // inspector's Refinements tab. Dedicated nav entry dropped.

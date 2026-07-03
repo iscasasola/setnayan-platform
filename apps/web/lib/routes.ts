@@ -42,7 +42,9 @@ export const routes = {
       new: () => `/admin/discount-codes/new`,
     },
     disputes: () => `/admin/disputes`,
-    eventTypes: () => `/admin/event-types`,
+    // eventTypes helper REMOVED 2026-07-03 — /admin/event-types folded into the
+    // Taxonomy Studio's Vocabularies → Event types rail; the standalone page
+    // redirects to /admin/taxonomy?view=vocab-event. Helper was unused.
     events: () => `/admin/events`,
     forceMajeure: {
       index: () => `/admin/force-majeure`,

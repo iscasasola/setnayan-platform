@@ -82,8 +82,8 @@ export default async function ScopeCategoriesPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/admin/event-types" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
-        ← Event Types
+      <Link href="/admin/taxonomy?view=vocab-event" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
+        ← Event types
       </Link>
 
       <header className="mb-6 mt-3 space-y-2">

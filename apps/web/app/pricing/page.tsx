@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins, Radio, Users } from 'lucide-react';
-import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchV2CustomerCatalog,
@@ -938,16 +937,6 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Logo />
-            <p className="text-xs text-ink/55">
-              PHP only · itemized receipts on every software purchase · © Setnayan
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

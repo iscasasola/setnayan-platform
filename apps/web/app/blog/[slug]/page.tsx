@@ -3,7 +3,6 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, ArrowRight, ArrowUpRight, Download } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchApprovedSpotlightsForSlug } from '@/lib/journal-spotlights';
 import { JournalPartnerCredit } from './_components/journal-partner-credit';
@@ -382,7 +381,6 @@ export default async function BlogArticlePage({ params }: Props) {
         </div>
       </article>
 
-      <SiteFooter />
     </main>
   );
 }

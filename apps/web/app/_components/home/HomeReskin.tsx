@@ -26,7 +26,10 @@ import type { OverlayId } from './HomeOverlays';
 import type { PricingData } from './pricing-data';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { SetnayanAiHeroStory } from './setnayan-ai-story';
-import { openConsentManager } from '@/lib/cookie-consent';
+// The shared reskin footer (extracted from the old private HomeFooter 2026-07-03)
+// — the same component the persistent SiteFooterChrome renders on every other
+// marketing page, so the homepage and the rest of the site can never fork.
+import { ReskinFooter } from '@/app/_components/marketing/reskin-footer';
 import dynamic from 'next/dynamic';
 
 // The Sign-in / Prices / vendor / login overlays are CLOSED on first paint
@@ -733,7 +736,7 @@ export function HomeReskin({
           </Link>
         </section>
 
-        <HomeFooter />
+        <ReskinFooter />
       </main>
 
       <HomeOverlays current={overlay} onClose={closeOverlay} pricing={pricing} onOpenStory={openStory} />
@@ -789,88 +792,4 @@ function Mock({ active, children }: { active: boolean; children: ReactNode }) {
   const base = children.props.className ?? '';
   const className = active ? `${base} hr-on` : base;
   return cloneElement(children, { className, 'aria-hidden': !active });
-}
-// The site footer for the homepage. Carries every compliance link (Legal
-// column) plus product/company links, and "crawls in" — translateY + fade,
-// staggered per column — when it scrolls into view. Respects reduced motion.
-function HomeFooter() {
-  const ref = useRef<HTMLElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (reduceMotion()) {
-      setInView(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            setInView(true);
-            io.disconnect();
-          }
-        }
-      },
-      { threshold: 0.12 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  return (
-    <footer ref={ref} className={`hr-footer${inView ? ' hr-foot-in' : ''}`}>
-      <div className="hr-foot-grid">
-        <div className="hr-foot-brand">
-          <span className="hr-foot-mark">
-            <SetnayanMark />
-          </span>
-          <span className="hr-foot-word">Setnayan</span>
-          <p className="hr-foot-tag">
-            One place that plans it, runs it, remembers it — and keeps it, for
-            life. <i>Set na &rsquo;yan.</i>
-          </p>
-        </div>
-
-        <nav className="hr-foot-col" aria-label="Explore">
-          <h3>Explore</h3>
-          <Link href="/pricing">Prices</Link>
-          <Link href="/explore">Vendors</Link>
-          <Link href="/papic">Papic</Link>
-          <Link href="/monogram">Monogram maker</Link>
-          <Link href="/download">Download app</Link>
-        </nav>
-
-        <nav className="hr-foot-col" aria-label="Company">
-          <h3>Company</h3>
-          <Link href="/about">About</Link>
-          <Link href="/blog">Journal</Link>
-          <Link href="/weddings">Real stories</Link>
-          <Link href="/help">Help center</Link>
-          <Link href="/for-vendors">For vendors</Link>
-        </nav>
-
-        <nav className="hr-foot-col" aria-label="Legal">
-          <h3>Legal</h3>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/refunds">Refunds &amp; cancellations</Link>
-          <Link href="/cookies">Cookie policy</Link>
-          <Link href="/acceptable-use">Acceptable use</Link>
-          <button type="button" className="hr-foot-linkbtn" onClick={() => openConsentManager()}>
-            Cookie settings
-          </button>
-        </nav>
-      </div>
-
-      <div className="hr-foot-base">
-        <span>&copy; 2026 Setnayan &middot; Made in the Philippines</span>
-        <span>
-          Data Protection Officer ·{' '}
-          <a href="mailto:dpo@setnayan.com">dpo@setnayan.com</a>
-        </span>
-      </div>
-    </footer>
-  );
 }

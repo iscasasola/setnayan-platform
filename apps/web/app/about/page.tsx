@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { Footer } from '@/app/_components/marketing/_sections';
 import { HELP_TOPICS } from '@/lib/help';
 // Client motion island (the page itself stays a force-static Server Component).
 // Renders the hero so the serif line-reveal ref sits on the real <h1>, and
@@ -291,7 +290,6 @@ export default function AboutPage() {
         </section>
       </main>
 
-      <Footer />
     </>
   );
 }

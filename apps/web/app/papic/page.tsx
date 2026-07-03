@@ -17,7 +17,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import {
   LineRevealHeading,
@@ -299,7 +298,6 @@ export default function PapicLandingPage() {
           </section>
         </Reveal>
       </main>
-      <SiteFooter />
     </>
   );
 }

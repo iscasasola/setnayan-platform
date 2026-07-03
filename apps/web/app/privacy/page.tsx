@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Logo } from '@/app/_components/logo';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
@@ -31,7 +30,6 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <main className="min-h-dvh bg-cream">
-      <Header />
       <article className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -532,35 +530,11 @@ export default function PrivacyPage() {
           </p>
         </Section>
       </article>
-      <Footer />
     </main>
   );
 }
 
-function Header() {
-  return (
-    <header className="border-b border-ink/5">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center text-ink">
-          <Logo height={32} withWordmark />
-        </Link>
-      </div>
-    </header>
-  );
-}
 
-function Footer() {
-  return (
-    <footer className="border-t border-ink/5">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-8 text-xs text-ink/55 sm:px-6 lg:px-8">
-        <Link href="/" className="hover:text-ink">Home</Link>
-        <Link href="/help" className="hover:text-ink">Help</Link>
-        <Link href="/terms" className="hover:text-ink">Terms</Link>
-        <Link href="/privacy" className="hover:text-ink">Privacy</Link>
-      </div>
-    </footer>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

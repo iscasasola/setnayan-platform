@@ -772,7 +772,13 @@ export function HomeOverlays({
 }: {
   current: OverlayId;
   onClose: () => void;
-  pricing: PricingData;
+  // Nullable so the persistent marketing chrome (SiteChrome) can mount this
+  // BEFORE its lazy /api/home-pricing fetch resolves — the pricing-free
+  // overlays (Download / Sign in / the demos) then work instantly, and the
+  // pricing-dependent ones (Prices / Setnayan AI / Vendors) render as soon as
+  // pricing lands. The homepage always passes a resolved value, so its
+  // behavior is unchanged.
+  pricing: PricingData | null;
   onOpenStory?: () => void;
 }) {
   // OAuth visibility, resolved client-side (this overlay is ssr:false). Computed
@@ -792,10 +798,18 @@ export function HomeOverlays({
 
   return (
     <>
-      <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
-      <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
+      {/* Pricing-dependent overlays — mount only once pricing has resolved (on
+          the homepage that's always; on marketing pages it's after the lazy
+          fetch). A press before pricing lands is a brief no-op that resolves
+          itself the instant the fetch completes. */}
+      {pricing && <PricesOverlay current={current} onClose={onClose} pricing={pricing} />}
+      {pricing && (
+        <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
+      )}
+      {pricing && <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />}
+      {/* Pricing-free overlays — always mounted, so Download / Sign in / the
+          demos work immediately regardless of the pricing fetch. */}
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />
-      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       <SignInOverlay current={current} onClose={onClose} oauth={oauth} />
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />

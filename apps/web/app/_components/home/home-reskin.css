@@ -2770,3 +2770,84 @@ html.hr-snap {
     display: none;
   }
 }
+
+/* ── Marketing chrome (2026-07-03) — the shared glass nav + footer that pull
+   every public marketing page onto the new website's shell. Two thin wrappers
+   reuse this stylesheet's scoped rules outside the homepage:
+     .hr-chrome-nav   → site-nav.tsx     (contains only the fixed .hr-nav)
+     .hr-chrome-foot  → site-footer-chrome.tsx (contains only footer.hr-footer)
+   Both carry `home-reskin hr-open` so the nav wears the unlocked ink-glass
+   state on the light marketing pages. ─────────────────────────────────────── */
+
+/* The nav's .hr-nav pill is position:fixed (out of flow), so — UNLIKE the
+   homepage, whose hero is designed full-bleed under the floating pill — a
+   marketing/legal page's content would slide up under it. The wrapper reserves
+   the pill's band as real in-flow height (top 22px + ~46px pill + breathing
+   room) so the page body below it clears the nav. Paint stays transparent so
+   no greige strip shows. */
+.home-reskin.hr-chrome-nav {
+  background: transparent;
+  height: 92px;
+}
+@media (max-width: 480px) {
+  .home-reskin.hr-chrome-nav {
+    height: 84px;
+  }
+}
+/* /explore: its marketplace search bar owns the sticky top — the glass nav
+   sits IN FLOW there (relative, reserving its own height) and scrolls away with
+   the page, preserving the old `sticky={false}` intent so two pinned bars never
+   stack. The centered pill is achieved with justify-content (not the fixed
+   left:50%/translateX trick, which needs the shrink-wrapped fixed box). */
+.home-reskin.hr-chrome-nav.hr-nav-unfixed {
+  height: auto;
+}
+.home-reskin.hr-chrome-nav.hr-nav-unfixed .hr-nav {
+  position: relative;
+  top: 0;
+  left: 0;
+  transform: none;
+  justify-content: center;
+  margin: 14px auto 0;
+}
+
+/* The footer wrapper sits after the page body in normal flow. */
+.home-reskin.hr-chrome-foot {
+  background: transparent;
+}
+
+/* Pinned bottom sheet — the "footer stays available" state after a footer
+   link is clicked. Slides up on arrival, slides back down when the top nav is
+   pressed (site-footer-chrome.tsx drives the classes). z-index 80 sits it ABOVE
+   the site-wide cookie-consent banner (z 70) — both are bottom-anchored fixed
+   surfaces, and while the footer is pinned it must be the one the user can act
+   on; the banner reappears the moment the footer unpins. Still below the nav
+   overlays (z 200). */
+.home-reskin.hr-chrome-foot.hr-foot-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  background: var(--hr-bg);
+  border-top: 1px solid var(--hr-line);
+  box-shadow: 0 -18px 60px rgba(42, 43, 46, 0.16);
+  transform: translateY(102%);
+  transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.home-reskin.hr-chrome-foot.hr-foot-sheet-in {
+  transform: translateY(0);
+}
+/* Inside the sheet the footer needs no extra top border (the sheet has one)
+   and a little less air so it reads as a panel, not a full page section. */
+.home-reskin.hr-chrome-foot.hr-foot-sheet footer.hr-footer {
+  border-top: none;
+  padding: 40px 24px 28px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-reskin.hr-chrome-foot.hr-foot-sheet {
+    transition: none;
+  }
+}

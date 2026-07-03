@@ -28,6 +28,7 @@ import { NavProgress } from './_components/nav-progress';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
+import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
@@ -573,6 +574,14 @@ export default async function RootLayout({
         <Providers brandMarkUrl={brandMarkUrl}>
           <SiteChrome navSlots={navSlots} />
           {children}
+          {/* SiteFooterChrome = the ONE persistent reskin footer, mounted
+              AFTER {children} so it sits at the end of every marketing page in
+              normal flow, gated by the same route predicate as SiteChrome.
+              Because it survives navigations it also powers the pinned-footer
+              interaction: a footer link keeps the footer riding along as a
+              bottom sheet until a top-nav press slides it away (owner
+              2026-07-03). */}
+          <SiteFooterChrome />
           {/* @modal parallel slot — the intercepted /login overlay slides in
               here over the current page on soft nav; null elsewhere. Inside
               <Providers> so it shares the same theme/brand context. */}

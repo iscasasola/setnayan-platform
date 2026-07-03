@@ -3750,6 +3750,7 @@ export function OnboardingShell({
                 max={500}
                 value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
                 className="paxslider"
+                data-sn-hint
                 aria-label="Guest count slider"
                 style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
                 onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
@@ -3823,6 +3824,7 @@ export function OnboardingShell({
                     step={10000}
                     value={budgetSet ? budgetSliderVal : budgetFloorV}
                     className="paxslider"
+                    data-sn-hint
                     aria-label="Working budget slider"
                     style={{
                       background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,

@@ -27,7 +27,7 @@
  * threaded in via the `oauth` prop, mirroring /login's getClientShell() logic.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -229,6 +229,7 @@ function PricesOverlay({
             value={guests}
             onChange={(e) => setGuests(+e.target.value)}
             aria-label="Number of guests"
+            data-sn-hint
           />
         </div>
         <div className="hr-grp">
@@ -244,6 +245,7 @@ function PricesOverlay({
             value={days}
             onChange={(e) => setDays(+e.target.value)}
             aria-label="Number of event days"
+            data-sn-hint
           />
         </div>
         <div className="hr-hint">
@@ -698,7 +700,8 @@ function SetnayanAiOverlay({
           value={months}
           onChange={(e) => setMonths(Number(e.target.value))}
           aria-label="Months until your wedding"
-          style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
+          className="sn-range"
+          style={{ '--sn-p': `${((months - 1) / 25) * 100}%` } as CSSProperties}
         />
       </div>
 
@@ -744,7 +747,8 @@ function SetnayanAiOverlay({
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
               aria-label="What your time is worth per hour"
-              style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
+              className="sn-range"
+              style={{ '--sn-p': `${((rate - 100) / 900) * 100}%` } as CSSProperties}
             />
           </div>
         )}

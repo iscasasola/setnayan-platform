@@ -2229,3 +2229,76 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
 .perf-reanim.perf-play { animation: perf-fade-rise 0.4s ease-out both; }
 .perf-play .perf-bar-grow { animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .perf-play .perf-bar-grow-y { animation: perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Range-slider idle "drag me" hint (owner 2026-07-03) ──────────────────
+ * When no one is touching a line slider, its knob does a small periodic
+ * left↔right shake so first-time users understand it drags sideways. The
+ * shake is added by <GlobalSliderHint> (app-wide client effect) as the
+ * `.sn-shake` class and removed the instant that slider is touched. Native
+ * `accent-color` thumbs CANNOT be transform-animated, so the animation lives
+ * on the thumb pseudo-element, which requires a custom (appearance:none)
+ * thumb — `.sn-range` provides one that matches the brand gold knob; sliders
+ * that already have a custom thumb (`.hr-pr-est`, `.paxslider`) opt in with a
+ * `data-sn-hint` attribute and keep their own look, gaining only the shake.
+ * prefers-reduced-motion is handled for free by the universal freeze block
+ * above (animation-iteration-count:1 !important) AND by GlobalSliderHint,
+ * which never adds the class under reduced motion. */
+@keyframes sn-slider-shake {
+  0%, 26%, 100% { transform: translateX(0); }
+  4%  { transform: translateX(-5px); }
+  8%  { transform: translateX(5px); }
+  12% { transform: translateX(-4px); }
+  16% { transform: translateX(4px); }
+  20% { transform: translateX(-2px); }
+  23% { transform: translateX(2px); }
+}
+input[type='range'].sn-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  margin-top: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range'].sn-range:focus { outline: none; }
+/* Keyboard focus ring on the knob (`:focus-visible` = keyboard only, not a
+ * mouse press) — `.sn-range` sets appearance:none, which drops the native
+ * outline, and the site's universal focus rule doesn't match range inputs, so
+ * without this keyboard users lose the focus indicator (WCAG 2.4.7). */
+input[type='range'].sn-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(166, 124, 61, 0.5);
+}
+input[type='range'].sn-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(166, 124, 61, 0.5);
+}
+input[type='range'].sn-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #a67c3d 0 var(--sn-p, 50%), rgba(42, 43, 46, 0.16) var(--sn-p, 50%) 100%);
+}
+input[type='range'].sn-range::-moz-range-track { height: 3px; border-radius: 999px; background: rgba(42, 43, 46, 0.16); }
+input[type='range'].sn-range::-moz-range-progress { height: 3px; border-radius: 999px; background: #a67c3d; }
+input[type='range'].sn-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -7.5px;
+  border-radius: 50%;
+  background: #a67c3d;
+  border: 2px solid #f3f1ec;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+input[type='range'].sn-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #a67c3d;
+  border: 2px solid #f3f1ec;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+/* The shake itself — layered onto any custom thumb carrying `.sn-shake`; sets
+ * only `animation`, so a slider's own thumb size/colour rules still win. */
+input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
+input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }

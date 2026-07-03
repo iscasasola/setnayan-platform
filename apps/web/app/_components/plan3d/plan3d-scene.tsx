@@ -64,6 +64,7 @@ import {
   pushOutOfDiscs,
   steerPath,
   seatApproachPath,
+  boothApproach,
   resolvePalette,
   resolvePaletteFromRoles,
   SIDE_COLOR,
@@ -76,6 +77,8 @@ import {
   type Lab3DCocktail,
   type Vec2,
 } from '@/lib/seating-3d';
+import { useLookGesture, type LookState } from '@/app/_components/plan3d/use-look-gesture';
+import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { GuestPhotoAvatar, preloadGuestPhotos } from './guest-avatar';
@@ -305,21 +308,37 @@ type WalkState = {
   onComplete?: () => void;
 };
 
+// Seconds of no look-input before the chase camera eases its facing back to
+// the walker's auto-heading (owner: "blend the auto-facing back in ONLY when the
+// user hasn't swiped for a few seconds — ease, don't snap").
+const LOOK_RELEASE_MS = 2600;
+
 function Walker({
   walk,
   color,
   posRef,
+  look,
+  reducedMotion,
 }: {
   walk: WalkState;
   color: string;
   /** Live walker position, shared out so roam taps can path FROM wherever the figure stands. */
   posRef?: React.MutableRefObject<Vec2 | null>;
+  /** Shared swipe-to-look state (yaw offset + pitch + last-look timestamp). When
+   *  absent, the camera behaves exactly as before (pure auto-facing chase). */
+  look?: React.MutableRefObject<LookState> | null;
+  reducedMotion?: boolean;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const firedRef = useRef(false);
   const headingRef = useRef<number | null>(null);
   const bobRef = useRef(0);
   const camReady = useRef(false);
+  // The user's applied yaw offset, blended toward `look.yawOffset` while they're
+  // actively looking and eased back to 0 once they stop — kept separate from the
+  // raw ref so the ease-back is smooth regardless of frame rate.
+  const appliedYaw = useRef(0);
+  const appliedPitch = useRef(0);
 
   // Re-clamp discs carry the avatar's body radius on top of each obstacle's
   // own clearance, so the *edge* of the walker (not just its centre) clears.
@@ -347,28 +366,60 @@ function Walker({
         : lerpAngle(headingRef.current, targetHeading, damp(0.015, delta));
     const h = headingRef.current;
 
-    // Subtle walk bob while moving; settles to the floor on arrival.
+    // ── Swipe-to-look: while the user is actively looking, their yaw offset takes
+    // priority over the chase camera's auto-facing; once they've been idle for a
+    // beat, ease the offset back to 0 so the camera resumes trailing the walk.
+    let lookYaw = 0;
+    let lookPitch = 0;
+    if (look) {
+      const l = look.current;
+      const idleMs = performance.now() - l.lastLookAt;
+      // Follow the raw user input snappily while they're dragging.
+      appliedYaw.current += (l.yawOffset - appliedYaw.current) * damp(0.0001, delta);
+      appliedPitch.current += (l.pitch - appliedPitch.current) * damp(0.0001, delta);
+      if (reducedMotion) {
+        // No continuous ease-back animation under reduced motion: hold the
+        // user's chosen offset (they can straighten up by dragging back).
+        appliedYaw.current = l.yawOffset;
+        appliedPitch.current = l.pitch;
+      } else if (idleMs > LOOK_RELEASE_MS) {
+        // Idle long enough → gently drain both the applied AND the source offset
+        // back toward the auto-facing.
+        const k = damp(0.35, delta);
+        l.yawOffset += (0 - l.yawOffset) * k;
+        l.pitch += (0 - l.pitch) * k;
+        appliedYaw.current += (0 - appliedYaw.current) * k;
+        appliedPitch.current += (0 - appliedPitch.current) * k;
+      }
+      lookYaw = appliedYaw.current;
+      lookPitch = appliedPitch.current;
+    }
+    const camH = h + lookYaw;
+
+    // Subtle walk bob while moving; settles to the floor on arrival. Honoured off
+    // under reduced motion (the person still relocates, just no bob animation).
     bobRef.current += delta * (raw < 1 ? 9 : 0);
-    const bob = raw < 1 ? Math.abs(Math.sin(bobRef.current)) * 0.045 : 0;
+    const bob = raw < 1 && !reducedMotion ? Math.abs(Math.sin(bobRef.current)) * 0.045 : 0;
 
     if (groupRef.current) {
       groupRef.current.position.set(p.x, bob, p.z);
-      groupRef.current.rotation.y = h;
+      groupRef.current.rotation.y = h; // the avatar always faces its walk heading
     }
 
     // Third-person chase camera: trails behind + above, looking a little ahead
-    // so "walking into the room" reads. Snap into place on the first frame
-    // (else it eases in from the fixed initial pose), then damp thereafter.
+    // so "walking into the room" reads. The user's look rotates the trailing
+    // angle (camH) and lifts/drops the height a touch (pitch). Snap into place on
+    // the first frame (else it eases in from the fixed initial pose), then damp.
     const camDist = 3.6;
-    const camHeight = 2.5;
-    const camTarget = new THREE.Vector3(p.x - Math.sin(h) * camDist, camHeight, p.z - Math.cos(h) * camDist);
+    const camHeight = 2.5 - lookPitch * 2.0;
+    const camTarget = new THREE.Vector3(p.x - Math.sin(camH) * camDist, camHeight, p.z - Math.cos(camH) * camDist);
     if (!camReady.current) {
       camera.position.copy(camTarget);
       camReady.current = true;
     } else {
       camera.position.lerp(camTarget, damp(0.0015, delta));
     }
-    camera.lookAt(p.x + Math.sin(h) * 1.4, 0.9, p.z + Math.cos(h) * 1.4);
+    camera.lookAt(p.x + Math.sin(camH) * 1.4, 0.9 + lookPitch * 1.6, p.z + Math.cos(camH) * 1.4);
 
     if (raw >= 1 && !firedRef.current) {
       firedRef.current = true;
@@ -511,6 +562,34 @@ export function Plan3DScene({
   // when a roam tap needs a start point (or the seat/entrance before any walk).
   const walkerPosRef = useRef<Vec2 | null>(null);
 
+  // Swipe-to-look: a drag on the canvas rotates the chase camera (yaw) + tilts
+  // it (clamped pitch) while roaming; a short tap stays "walk here". `handlers`
+  // spread onto the <Canvas>; the in-Canvas <Walker> reads `look` every frame.
+  const { look, handlers: lookHandlers } = useLookGesture();
+
+  // The booth whose vendor card is open (tap a booth → card). Null = closed.
+  const [openBooth, setOpenBooth] = useState<Lab3DBooth | null>(null);
+
+  // Steer the roaming figure to a world point, optionally around obstacles that
+  // already include the fixtures. Shared by roam floor taps, the own-seat tap,
+  // and the booth "walk to" button so they animate identically.
+  const walkToPoint = (dest: Vec2, obstacles: { c: Vec2; r: number }[], speed = ROAM_SPEED) => {
+    // A walk tap COMMITS a direction: release the user's yaw offset so the
+    // chase camera eases back behind the new walk heading. Without this the
+    // retained offset re-applies on top of each new heading, so every
+    // tap-while-looking swings the view further round. (Pitch is kept — a
+    // chosen tilt shouldn't pop just because you started walking.)
+    look.current.yawOffset = 0;
+    const from = walkerPosRef.current ?? entranceWorld;
+    const path = steerPath(from, dest, obstacles, AVATAR_BODY_R);
+    if (reducedMotion) {
+      setWalk({ path: [dest], obstacles: [], startedAt: performance.now(), durationMs: 1 });
+      return;
+    }
+    const durationMs = Math.min(6500, Math.max(500, (pathLength(path) / speed) * 1000));
+    setWalk({ path, obstacles, startedAt: performance.now(), durationMs });
+  };
+
   useEffect(() => {
     if (roam) return; // roam owns the walker — the scripted effect stays out
     if (!walkGuest || !walkTable) {
@@ -553,8 +632,22 @@ export function Plan3DScene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roam?.guestId]);
 
+  // Full obstacle set (tables + fixtures) for a roam walk. Memoised so taps and
+  // the booth walk-to reuse the same array identity per frame.
+  const roamObstacles = useMemo(
+    () => [...floorObstacles(floor, tables, room, []), ...fixtureObstacles],
+    [floor, tables, room, fixtureObstacles],
+  );
+
+  // A press only counts as a TAP when it barely moved: the gesture layer flags
+  // a look-drag via suppressTap, and R3F's e.delta (px between down and up)
+  // covers the orbit view where the look handlers aren't attached.
+  const TAP_MAX_PX = 8;
+
   const handleFloorTap = (e: ThreeEvent<MouseEvent>) => {
     if (!roam) return;
+    // A swipe that ended over the floor is a LOOK, not a walk — swallow it.
+    if (look.current.suppressTap || e.delta > TAP_MAX_PX) return;
     e.stopPropagation();
     // Clamp the tapped point inside the walls with a small margin.
     const margin = 0.4;
@@ -562,15 +655,41 @@ export function Plan3DScene({
       x: Math.max(-room.w / 2 + margin, Math.min(room.w / 2 - margin, e.point.x)),
       z: Math.max(-room.d / 2 + margin, Math.min(room.d / 2 - margin, e.point.z)),
     };
+    walkToPoint(dest, roamObstacles);
+  };
+
+  // Tap the guest's own gold-ringed seat → walk there via the same "Where am I
+  // seated?" approach (route around the table, step in from outside).
+  const handleSeatTap = (e: ThreeEvent<MouseEvent>) => {
+    if (!roam || !roamGuest) return;
+    if (look.current.suppressTap || e.delta > TAP_MAX_PX) return;
+    e.stopPropagation();
+    const t = tablesById.get(roamGuest.tableId);
+    if (!t) return;
+    look.current.yawOffset = 0; // committing to the seat walk releases the look
     const from = walkerPosRef.current ?? entranceWorld;
-    const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
-    const path = steerPath(from, dest, obstacles, AVATAR_BODY_R);
+    const path = seatApproachPath(from, t, roamGuest.seatNumber ?? 0, room, roamObstacles, AVATAR_BODY_R);
     if (reducedMotion) {
-      setWalk({ path: [dest], obstacles: [], startedAt: performance.now(), durationMs: 1 });
+      setWalk({ path: [seatWorld(t, roamGuest.seatNumber ?? 0, room)], obstacles: [], startedAt: performance.now(), durationMs: 1 });
       return;
     }
-    const durationMs = Math.min(6500, Math.max(500, (pathLength(path) / ROAM_SPEED) * 1000));
-    setWalk({ path, obstacles, startedAt: performance.now(), durationMs });
+    const durationMs = Math.min(6500, Math.max(WALK_MIN_MS, (pathLength(path) / WALK_SPEED_MPS) * 1000));
+    setWalk({ path, obstacles: roamObstacles, startedAt: performance.now(), durationMs });
+  };
+
+  // Tap a booth → open its vendor card. (Not gated on `roam`: the desktop
+  // whole-room overlay can inspect booths too.)
+  const handleBoothTap = (booth: Lab3DBooth, e: ThreeEvent<MouseEvent>) => {
+    if (look.current.suppressTap || e.delta > TAP_MAX_PX) return;
+    e.stopPropagation();
+    setOpenBooth(booth);
+  };
+
+  // "Walk to this booth": steer to a point just in front of it, facing it.
+  const handleWalkToBooth = (booth: Lab3DBooth) => {
+    if (!roam) return;
+    const { point } = boothApproach(booth, room);
+    walkToPoint(point, roamObstacles);
   };
 
   const roomSpan = Math.max(room.w, room.d);
@@ -578,7 +697,13 @@ export function Plan3DScene({
     ? [0, roomSpan * 0.62, roomSpan * 0.62]
     : [entranceWorld.x, 1.6, entranceWorld.z + 1.5];
 
+  // Swipe-to-look drives the chase camera only while roaming (the whole-room
+  // orbit view uses OrbitControls). Spread the look handlers onto the Canvas
+  // just in that mode so they never fight OrbitControls' own drag.
+  const canvasLookHandlers = roam ? lookHandlers : undefined;
+
   return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
     <Canvas
       shadows
       dpr={[1, 2]}
@@ -586,6 +711,7 @@ export function Plan3DScene({
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ ...RECOMMENDED_TONEMAP }}
       onPointerMissed={() => {}}
+      {...canvasLookHandlers}
     >
       <color attach="background" args={[bgColor]} />
       <SceneLighting palette={palette} quality={quality} room={room} />
@@ -638,6 +764,13 @@ export function Plan3DScene({
         />
       ) : null}
 
+      {/* Invisible per-booth tap targets over the (shared) BoothMesh visuals —
+          tapping opens the vendor card. Kept separate from VenueFixtures so the
+          shared fixture renderer stays a pure visual (no interaction coupling). */}
+      {booths.map((b) => (
+        <BoothHitTarget key={b.id} booth={b} room={room} onTap={handleBoothTap} interactive={Boolean(roam) || interactive} />
+      ))}
+
       {guests.map((g) => {
         // The guest currently mid-walk (or roaming) is drawn by the Walker instead — never both.
         if (walk && walkGuest && g.id === walkGuest.id) return null;
@@ -674,18 +807,11 @@ export function Plan3DScene({
       ) : null}
 
       {/* The roaming guest's own seat, marked in gold — "find my seat" still
-          works inside free roam by just walking to the ring. */}
+          works inside free roam. Now TAPPABLE: tap the ring (or its chair area)
+          to walk there via the same seat-approach path, with a gentle pulse +
+          hover cursor as the affordance. */}
       {roam && roamSeat ? (
-        <group position={[roamSeat.x, 0, roamSeat.z]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-            <ringGeometry args={[0.26, 0.4, 24]} />
-            <meshBasicMaterial color={palette.accent} />
-          </mesh>
-          <mesh position={[0, 1.25, 0]}>
-            <sphereGeometry args={[0.09, 10, 10]} />
-            <meshBasicMaterial color={palette.accent} />
-          </mesh>
-        </group>
+        <OwnSeatMarker position={roamSeat} color={palette.accent} onTap={handleSeatTap} reducedMotion={reducedMotion} />
       ) : null}
 
       {walk ? (
@@ -693,6 +819,10 @@ export function Plan3DScene({
           walk={walk}
           color={roamGuest ? SIDE_COLOR[roamGuest.side] : walkGuest ? SIDE_COLOR[walkGuest.side] : palette.accent}
           posRef={walkerPosRef}
+          // Swipe-to-look only steers the roam chase camera; the scripted seat
+          // walk keeps its cinematic auto-facing (no look ref passed then).
+          look={roam ? look : null}
+          reducedMotion={reducedMotion}
         />
       ) : null}
 
@@ -706,5 +836,99 @@ export function Plan3DScene({
         />
       ) : null}
     </Canvas>
+
+    {/* Booth vendor card (bottom sheet / side drawer). Outside the Canvas — it's
+        2D chrome. Backdrop-tap / X / ESC close it via the shared Sheet. */}
+    <BoothVendorCard booth={openBooth} onClose={() => setOpenBooth(null)} onWalkTo={handleWalkToBooth} />
+    </div>
+  );
+}
+
+/**
+ * An invisible, slightly-oversized box over a booth's footprint that catches the
+ * tap and opens the vendor card. Separate from the shared `BoothMesh` visual so
+ * the fixture renderer stays interaction-free (the theming branch mounts decor
+ * there). Sets a pointer cursor on hover for a desktop affordance.
+ */
+function BoothHitTarget({
+  booth,
+  room,
+  onTap,
+  interactive,
+}: {
+  booth: Lab3DBooth;
+  room: { w: number; d: number };
+  onTap: (booth: Lab3DBooth, e: ThreeEvent<MouseEvent>) => void;
+  interactive: boolean;
+}) {
+  const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
+  if (!interactive) return null;
+  return (
+    <mesh
+      position={[pos.x, 0.6, pos.z]}
+      onClick={(e) => onTap(booth, e)}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = '';
+      }}
+    >
+      {/* A touch larger than the booth footprint so it's easy to hit; the
+          material is invisible (a pure hit volume, never rendered). */}
+      <boxGeometry args={[2.3, 1.3, 1.3]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
+/**
+ * The roaming guest's own seat marker: a gold floor ring + a floating pip, gently
+ * pulsing so it reads as "tap me to sit". Tapping walks the figure there.
+ */
+function OwnSeatMarker({
+  position,
+  color,
+  onTap,
+  reducedMotion,
+}: {
+  position: Vec2;
+  color: string;
+  onTap: (e: ThreeEvent<MouseEvent>) => void;
+  reducedMotion?: boolean;
+}) {
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (reducedMotion || !ring.current) return;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 2.2) * 0.14;
+    ring.current.scale.set(pulse, pulse, 1);
+  });
+  return (
+    <group
+      position={[position.x, 0, position.z]}
+      onClick={onTap}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = '';
+      }}
+    >
+      {/* An invisible tappable disc over the chair area (easier hit than the thin ring). */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[0.6, 24]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[0.26, 0.4, 24]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+      <mesh position={[0, 1.25, 0]}>
+        <sphereGeometry args={[0.09, 10, 10]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+    </group>
   );
 }

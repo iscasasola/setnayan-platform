@@ -31,6 +31,8 @@ import {
   boothObstacles,
   signObstacles,
   cocktailObstacles,
+  boothApproach,
+  boothTypeLabel,
   BOOTH_FOOTPRINT_M,
   type Lab3DFloor,
   type Lab3DTable,
@@ -373,3 +375,37 @@ test('reconcileGrouping: patches link group + label on known rows, leaves positi
   // No grouping change → same array reference (no needless re-render).
   assert.equal(reconcileGrouping(local, local.map((t) => ({ id: t.id, linkGroupId: t.linkGroupId, label: t.label }))), local);
 })
+
+
+test('boothTypeLabel: catalog types get their human label, unknown kinds title-case', () => {
+  assert.equal(boothTypeLabel('mobile_bar'), 'Mobile bar');
+  assert.equal(boothTypeLabel('photo_booth'), 'Photo booth');
+  assert.equal(boothTypeLabel('dessert_station'), 'Dessert station');
+  // custom / unassigned collapse to a plain "Booth".
+  assert.equal(boothTypeLabel('custom'), 'Booth');
+  assert.equal(boothTypeLabel('unassigned'), 'Booth');
+  // A future/unknown type still reads (title-cased slug), never throws.
+  assert.equal(boothTypeLabel('coffee_cart'), 'Coffee Cart');
+});
+
+test('boothApproach: walk-up point sits outside the booth avoidance ring, on the room-centre side, facing the booth', () => {
+  const room = { w: 20, d: 30 };
+  // A booth on the right wall (x=90%, y=48%) — like the demo's sample bar.
+  const booth = { xPct: 90, yPct: 48 };
+  const c = pctToWorld(booth.xPct, booth.yPct, room);
+  const { point, faceY } = boothApproach(booth, room);
+  // Outside the avoidance disc boothObstacles builds (radius + walker slack).
+  const avoidR = Math.max(BOOTH_FOOTPRINT_M.w, BOOTH_FOOTPRINT_M.d) / 2 + 0.4;
+  const dist = Math.hypot(point.x - c.x, point.z - c.z);
+  assert.ok(dist > avoidR, `approach point must clear the avoidance ring (${dist} <= ${avoidR})`);
+  // On the room-centre side of the booth: closer to the origin than the booth is.
+  assert.ok(Math.hypot(point.x, point.z) < Math.hypot(c.x, c.z));
+  // Facing points from the approach point back at the booth centre.
+  const expect = Math.atan2(c.x - point.x, c.z - point.z);
+  assert.ok(Math.abs(faceY - expect) < 1e-9);
+
+  // Degenerate: a booth dead-centre still gets a sane approach (front-of-house).
+  const centre = boothApproach({ xPct: 50, yPct: 50 }, room);
+  assert.ok(Number.isFinite(centre.point.x) && Number.isFinite(centre.point.z));
+  assert.ok(Math.hypot(centre.point.x, centre.point.z) > avoidR);
+});

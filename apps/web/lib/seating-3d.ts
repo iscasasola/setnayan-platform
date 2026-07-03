@@ -562,6 +562,16 @@ export function sceneObjectObstacles(
 // around the ones that occupy floor space, exactly like it does for tables and
 // venue objects. All pure — unit-tested in lib.
 
+/** The booked vendor running a booth — BUSINESS IDENTITY ONLY (never PII). Joined
+ *  through event_floor_booths.event_vendor_id → event_vendors (+ vendor_profiles
+ *  for the logo). `logoUrl` is already the server-resolved display URL (or null).
+ *  Powers the booth vendor card's "who's here" block. */
+export type BoothVendor = {
+  name: string;
+  category: string;
+  logoUrl: string | null;
+};
+
 /** A placed vendor booth (percent canvas). `kind` mirrors event_floor_booths.booth_type. */
 export type Lab3DBooth = {
   id: string;
@@ -569,6 +579,10 @@ export type Lab3DBooth = {
   label: string;
   xPct: number;
   yPct: number;
+  /** "What they're serving" line (event_floor_booths.offerings), or null. */
+  offerings?: string | null;
+  /** Booked booth vendor's public business identity, or null when unlinked. */
+  vendor?: BoothVendor | null;
 };
 
 /** A wayfinding sign (percent canvas). `rotationDeg` = the arrow heading. */
@@ -595,6 +609,53 @@ export type Lab3DCocktail = {
 // Booths are ~2 m stations regardless of type — a single tasteful size keeps the
 // low-poly render legible without a per-type dimension table.
 export const BOOTH_FOOTPRINT_M = { w: 2.0, d: 1.0 } as const;
+
+/** Human label for an event_floor_booths.booth_type — the booth card's "type"
+ *  line. Mirrors the 2D editor's booth catalog; an unknown/custom type falls
+ *  back to a title-cased slug so a future type still reads. Pure. */
+const BOOTH_TYPE_LABELS: Record<string, string> = {
+  photo_booth: 'Photo booth',
+  mobile_bar: 'Mobile bar',
+  dessert_station: 'Dessert station',
+  gift_table: 'Gift table',
+  souvenir_table: 'Souvenir table',
+  custom: 'Booth',
+  unassigned: 'Booth',
+};
+export function boothTypeLabel(kind: string): string {
+  return (
+    BOOTH_TYPE_LABELS[kind] ??
+    kind.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
+/**
+ * A walk-up point + facing for "Walk to this booth": a spot just OUTSIDE the
+ * booth's avoidance ring, on the bearing from the booth toward the room centre
+ * (guests approach a perimeter booth from the room side, never from the wall),
+ * facing back into the booth. Pure — the renderer steers to `point` then blends
+ * the walker's facing toward `faceY`. When the booth sits dead-centre (no bearing
+ * to the origin) it approaches from the entrance side (−z, "front of house").
+ */
+export function boothApproach(
+  booth: { xPct: number; yPct: number },
+  room: { w: number; d: number },
+): { point: Vec2; faceY: number } {
+  const c = pctToWorld(booth.xPct, booth.yPct, room);
+  let dx = -c.x;
+  let dz = -c.z;
+  let len = Math.hypot(dx, dz);
+  if (len < 1e-3) {
+    dx = 0;
+    dz = 1; // centre booth → stand on its +z (front-of-house) side
+    len = 1;
+  }
+  const rr = Math.max(BOOTH_FOOTPRINT_M.w, BOOTH_FOOTPRINT_M.d) / 2 + 0.9;
+  const point: Vec2 = { x: c.x + (dx / len) * rr, z: c.z + (dz / len) * rr };
+  // Face from the approach point back toward the booth centre.
+  const faceY = Math.atan2(c.x - point.x, c.z - point.z);
+  return { point, faceY };
+}
 // A sign is a slim post — a small clearance disc so walkers don't stand on it.
 const SIGN_AVOID_R = 0.35;
 

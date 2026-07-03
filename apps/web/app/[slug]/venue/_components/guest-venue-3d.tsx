@@ -29,6 +29,7 @@ import {
   boothObstacles,
   signObstacles,
   cocktailObstacles,
+  boothApproach,
   VENUE_OBJECT_CATALOG,
   resolvePalette,
   resolvePaletteFromRoles,
@@ -43,7 +44,9 @@ import {
   type Vec2,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
@@ -67,8 +70,19 @@ export type VenueScene = {
   };
   tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[] }[];
   objects: { kind: string; xPct: number; yPct: number; rotationDeg: number }[];
-  /** Vendor booths (v2 payload; absent on an old cached payload → treated as []). */
-  booths?: { id: string; kind: string; label: string; xPct: number; yPct: number }[];
+  /** Vendor booths (v2 payload; absent on an old cached payload → treated as []).
+   *  v4 adds `offerings` + a PUBLIC booth-vendor block for the booth card (both
+   *  optional so an older cached payload still parses). `logoUrl` is the SERVER-
+   *  RESOLVED display URL (the page rewrites the raw stored ref). */
+  booths?: {
+    id: string;
+    kind: string;
+    label: string;
+    xPct: number;
+    yPct: number;
+    offerings?: string | null;
+    vendor?: { name: string; category: string; logoUrl: string | null } | null;
+  }[];
   /** Wayfinding signs (v2 payload). */
   signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];
   /** Cocktail / waiting room (v2 payload) — null/absent when the couple didn't enable one. */
@@ -368,7 +382,16 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     [scene.objects, knownKinds],
   );
   const booths = useMemo<Lab3DBooth[]>(
-    () => (scene.booths ?? []).map((b) => ({ id: b.id, kind: b.kind, label: b.label, xPct: b.xPct, yPct: b.yPct })),
+    () =>
+      (scene.booths ?? []).map((b) => ({
+        id: b.id,
+        kind: b.kind,
+        label: b.label,
+        xPct: b.xPct,
+        yPct: b.yPct,
+        offerings: b.offerings ?? null,
+        vendor: b.vendor ?? null,
+      })),
     [scene.booths],
   );
   const signs = useMemo<Lab3DSign[]>(
@@ -470,6 +493,23 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   }, [seatTarget]);
   const isSeatTarget = target === seatTarget;
 
+  // The booth whose vendor card is open (tap a booth → card). Null = closed.
+  const [openBooth, setOpenBooth] = useState<Lab3DBooth | null>(null);
+
+  // "Walk to this booth" (from the card): steer to a point just in front of the
+  // booth, facing it — a plain roam target, so the avatar rounds obstacles the
+  // same way a floor tap does.
+  const walkToBooth = (booth: Lab3DBooth) => {
+    setOpenBooth(null);
+    setTarget(boothApproach(booth, room).point);
+  };
+
+  // Tap-vs-drag discrimination: OrbitControls owns the drag (that IS this
+  // surface's drag-to-look), so a floor/booth/seat CLICK only counts when the
+  // pointer barely moved between down and up. R3F's e.delta is that movement
+  // in CSS px.
+  const TAP_MAX_PX = 8;
+
   const stage = pctToWorld(floor.stage.xPct, floor.stage.yPct, room);
   const stageW = Math.max(1.5, (floor.stage.wPct / 100) * room.w);
   const stageD = Math.max(1, (floor.stage.hPct / 100) * room.d);
@@ -492,12 +532,16 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             decor set at 'low' quality for phones. */}
         <VenueShell archetype={archetype} room={room} palette={palette} quality="low" />
 
-        {/* Floor — tap anywhere to walk there (Sims roam). */}
+        {/* Floor — tap anywhere to walk there (Sims roam). Click, not
+            pointer-down: an orbit DRAG that starts on the floor must not also
+            send the avatar walking — only a short press with barely any
+            movement (e.delta ≤ threshold) counts as "walk here". */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, 0]}
           receiveShadow
-          onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+          onClick={(e: ThreeEvent<MouseEvent>) => {
+            if (e.delta > TAP_MAX_PX) return; // that was a look-drag, not a tap
             const x = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
             const z = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
             setTarget({ x, z });
@@ -547,6 +591,49 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           archetype={archetype}
         />
 
+        {/* Invisible per-booth tap targets over the (shared) BoothMesh visuals —
+            tapping opens the vendor card. Kept separate from VenueFixtures so
+            the shared fixture renderer stays a pure visual. */}
+        {booths.map((b) => {
+          const p = pctToWorld(b.xPct, b.yPct, room);
+          return (
+            <mesh
+              key={`hit-${b.id}`}
+              position={[p.x, 0.6, p.z]}
+              onClick={(e: ThreeEvent<MouseEvent>) => {
+                if (e.delta > TAP_MAX_PX) return;
+                e.stopPropagation();
+                setOpenBooth(b);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = '';
+              }}
+            >
+              <boxGeometry args={[2.3, 1.3, 1.3]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+          );
+        })}
+
+        {/* The guest's own seat is TAPPABLE in roam: a soft pulsing halo as the
+            affordance (plus a hover cursor on desktop); tapping walks the avatar
+            back via the same around-the-table seat approach. */}
+        {seatTarget ? (
+          <OwnSeatTapTarget
+            position={seatTarget}
+            color={palette.accent}
+            onTap={() => {
+              setTarget(seatTarget);
+              setSeatReached(false);
+            }}
+            tapMaxPx={TAP_MAX_PX}
+          />
+        ) : null}
+
         {/* Destination beacon: where the avatar is walking, shown until it sits. */}
         {seatTarget && isSeatTarget && !seatReached ? (
           <SeatDestinationMarker position={seatTarget} color={palette.accent} />
@@ -589,13 +676,72 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
                   {scene.you.tablemates.length > 6 ? ' …' : ''}
                 </p>
               ) : null}
-              <p className="mt-1 text-xs text-white/75">Tap the floor to walk around · drag to look · pinch to zoom</p>
+              <p className="mt-1 text-xs text-white/75">
+                Tap the floor to walk · tap your gold seat to sit · tap a booth to see who&rsquo;s there · drag to look
+              </p>
             </>
           ) : (
             <p className="text-[12px] text-white/75">Open your personal invite link to find your seat · tap the floor to explore</p>
           )}
         </div>
       </div>
+
+      {/* Booth vendor card (bottom sheet / side drawer) — shared overlay chrome. */}
+      <BoothVendorCard booth={openBooth} onClose={() => setOpenBooth(null)} onWalkTo={walkToBooth} />
     </div>
+  );
+}
+
+/**
+ * The guest's own-seat tap affordance: an invisible tap disc over the chair plus
+ * a soft pulsing halo ring (outside the static "your seat" ring GuestTable draws)
+ * so the seat reads as tappable. Desktop gets a pointer cursor on hover.
+ */
+function OwnSeatTapTarget({
+  position,
+  color,
+  onTap,
+  tapMaxPx,
+}: {
+  position: Vec2;
+  color: string;
+  onTap: () => void;
+  tapMaxPx: number;
+}) {
+  const halo = useRef<THREE.Mesh>(null);
+  const reducedMotion = usePrefersReducedMotion();
+  useFrame(({ clock }) => {
+    if (reducedMotion || !halo.current) return;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 2.2) * 0.12;
+    halo.current.scale.set(pulse, pulse, 1);
+    (halo.current.material as THREE.MeshBasicMaterial).opacity = 0.28 + Math.sin(clock.elapsedTime * 2.2) * 0.12;
+  });
+  return (
+    <group
+      position={[position.x, 0, position.z]}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        if (e.delta > tapMaxPx) return;
+        e.stopPropagation();
+        onTap();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = '';
+      }}
+    >
+      {/* Invisible hit disc — a generous target over the chair + avatar area. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[0.6, 24]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      {/* Soft pulsing halo just outside GuestTable's static ring. */}
+      <mesh ref={halo} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]}>
+        <ringGeometry args={[0.46, 0.56, 28]} />
+        <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
   );
 }

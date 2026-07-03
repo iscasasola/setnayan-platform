@@ -224,12 +224,29 @@ export default async function SeatingLabPage({ params }: Props) {
       yPct: o.y_pct,
       rotationDeg: o.rotation_deg,
     }));
+  // Booths carry their offerings copy + booked-vendor business identity (Slice
+  // B fields) so the lab's scene data matches the guest surfaces. Logo refs
+  // resolve to display URLs the same way guest photos do above.
+  const boothLogoRefs = [...new Set(boothsRaw.map((b) => b.vendor?.logo_url).filter((r): r is string => !!r))];
+  const boothLogoUrls: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
   const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
     id: b.booth_id,
     kind: b.booth_type,
     label: b.label,
     xPct: b.x_pos,
     yPct: b.y_pos,
+    offerings: b.offerings,
+    vendor: b.vendor
+      ? {
+          name: b.vendor.vendor_name,
+          category: b.vendor.category,
+          logoUrl: b.vendor.logo_url ? boothLogoUrls[b.vendor.logo_url] ?? null : null,
+        }
+      : null,
   }));
   const signs: Lab3DSign[] = signsRaw.map((s) => ({
     id: s.sign_id,

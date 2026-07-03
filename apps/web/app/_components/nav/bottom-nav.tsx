@@ -90,6 +90,10 @@ type AccordionProps = {
 type Props = FlatProps | AccordionProps;
 
 function matchesPath(pathname: string, item: BottomNavItem): boolean {
+  // Exact-only extras first (activeMatchAlsoExact) — lets a merged hub tab
+  // combine an exact landing (`/admin`) with prefix umbrellas without
+  // flipping every match to exact via activeMatchExact.
+  if (item.activeMatchAlsoExact?.some((p) => pathname === p)) return true;
   const matches = Array.isArray(item.activeMatch)
     ? item.activeMatch
     : [item.activeMatch];

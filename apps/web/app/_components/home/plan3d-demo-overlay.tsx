@@ -72,7 +72,8 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
       <h2 className="hr-ov-title">Click a guest. See their seat, in their pocket.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
         This is Maria &amp; Jose&rsquo;s sample room. Tap anyone seated and we&rsquo;ll hand you a QR that opens
-        the room, in 3D, from that guest&rsquo;s phone.
+        the room, in 3D, from that guest&rsquo;s phone — walk straight to their seat, or wander the whole
+        room.
       </p>
 
       {failed ? (

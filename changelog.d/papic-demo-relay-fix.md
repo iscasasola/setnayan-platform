@@ -26,6 +26,13 @@ one-PR, self-diagnosing fix:
   ("Waiting for your friend's face to sync" / "No face in the frame" / "So close — best match 0.58"
   / "Face matching is warming up") on both the phone and the desktop mirror, so a single live
   two-phone test names the failing stage instead of hiding four failure modes behind one caption.
+- **Presence latch — the tile can't revert to "Waiting" under live activity.** Owner observed the
+  desktop QR tile flip to joined on scan, then return to "Waiting for a scan…" after the face was
+  saved. The socket is up the whole time (photos arrive), but mobile Realtime presence flaps during
+  the heavy on-device face step and the desktop was un-joining the tile on any sync that omitted the
+  phone. Fix: once a role has proven it's in the session — a presence hit OR any photo/face traffic
+  from it — it LATCHES joined for the session; a later flap only updates `registered`, never
+  un-joins. A fresh overlay open (new sessionId → new subscription) resets the latch.
 - **Threshold — `DEMO_TAG_MAX_DISTANCE = 0.60` (demo-only).** Real Papic auto-tags at 0.50 and
   SUGGESTS 0.50–0.60 for a human to confirm; the demo has no confirm step, so it tags at face-api's
   native 0.60 line — still ~0.19 below the validated impostor floor (0.79). `face-match-core.ts`'s

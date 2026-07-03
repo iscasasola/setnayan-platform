@@ -210,36 +210,22 @@ function GuestAvatar({
 }
 
 /**
- * A pulsing "you're headed here" beacon on the target chair, shown while the
- * guest's avatar walks to it so they can SEE their seat before it arrives. A
- * pulsing floor ring + a faint light column + a bobbing downward pin, in the
- * palette accent — the same gold vocabulary as the static "your seat" ring.
+ * A pulsing gold floor ring on the target chair, shown while the guest's avatar
+ * walks to it so they can SEE their seat before it arrives. Sized as an outer
+ * halo around the static "your seat" ring so the two read as one growing mark.
  */
 function SeatDestinationMarker({ position, color }: { position: Vec2; color: string }) {
   const ring = useRef<THREE.Mesh>(null);
-  const pin = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     const s = 1 + Math.sin(clock.elapsedTime * 3.2) * 0.16;
     if (ring.current) ring.current.scale.set(s, s, 1);
-    if (pin.current) pin.current.position.y = 1.6 + Math.sin(clock.elapsedTime * 3.2) * 0.12;
   });
   return (
     <group position={[position.x, 0, position.z]}>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <ringGeometry args={[0.34, 0.52, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0.85} side={THREE.DoubleSide} />
+        <ringGeometry args={[0.44, 0.6, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.9} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, 1.0, 0]}>
-        <cylinderGeometry args={[0.06, 0.06, 2.0, 8, 1, true]} />
-        <meshBasicMaterial color={color} transparent opacity={0.13} side={THREE.DoubleSide} />
-      </mesh>
-      <group ref={pin} position={[0, 1.6, 0]}>
-        <mesh rotation={[Math.PI, 0, 0]}>
-          <coneGeometry args={[0.15, 0.34, 4]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} />
-        </mesh>
-      </group>
-      <pointLight position={[0, 1.3, 0]} intensity={0.4} distance={3} color={color} />
     </group>
   );
 }

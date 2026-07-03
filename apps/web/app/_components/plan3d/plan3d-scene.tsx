@@ -160,39 +160,22 @@ function EntranceMark({ position, palette }: { position: Vec2; palette: Lab3DPal
 }
 
 /**
- * A pulsing "you're headed here" beacon planted on the target chair while the
- * guest walks to it — so they can SEE their destination before the avatar
- * arrives. Reuses the roam seat's gold ring + floating dot vocabulary, animated,
- * and topped with a downward pin + a faint light column legible across the room.
+ * A pulsing gold floor ring on the target chair, shown while the guest walks to
+ * it — so they can SEE their destination before the avatar arrives. Same gold
+ * ring vocabulary as the roam "find my seat" marker, gently pulsing.
  */
 function SeatDestinationMarker({ position, color }: { position: Vec2; color: string }) {
   const ring = useRef<THREE.Mesh>(null);
-  const pin = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    const pulse = 1 + Math.sin(t * 3.2) * 0.16;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 3.2) * 0.16;
     if (ring.current) ring.current.scale.set(pulse, pulse, 1);
-    if (pin.current) pin.current.position.y = 1.55 + Math.sin(t * 3.2) * 0.12;
   });
   return (
     <group position={[position.x, 0, position.z]}>
-      {/* pulsing floor ring on the chair */}
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <ringGeometry args={[0.32, 0.5, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0.85} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={color} transparent opacity={0.9} side={THREE.DoubleSide} />
       </mesh>
-      {/* faint light column so the destination reads from across the room */}
-      <mesh position={[0, 0.95, 0]}>
-        <cylinderGeometry args={[0.06, 0.06, 1.9, 8, 1, true]} />
-        <meshBasicMaterial color={color} transparent opacity={0.13} side={THREE.DoubleSide} />
-      </mesh>
-      {/* bobbing downward pin marking the exact seat */}
-      <group ref={pin} position={[0, 1.55, 0]}>
-        <mesh rotation={[Math.PI, 0, 0]}>
-          <coneGeometry args={[0.15, 0.34, 4]} />
-          <meshBasicMaterial color={color} />
-        </mesh>
-      </group>
     </group>
   );
 }

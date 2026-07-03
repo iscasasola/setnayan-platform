@@ -35,12 +35,12 @@ pricing change).
 ## 2026-07-03 · feat(seating-3d): destination beacon showing where the avatar is walking
 
 Follow-up to the walk-around fix (owner: "maybe we want an indicator where the
-avatar is going?"). During the "take me to my seat" walk the guest could see the
-figure move but nothing marked its destination until it arrived. Added a
-`SeatDestinationMarker` — a pulsing gold floor ring + a faint light column + a
-bobbing downward pin — planted on the target chair while the avatar walks, then
-retired on arrival (the figure now stands there; the static "your seat" ring
-remains). Reuses the existing roam-seat gold-ring vocabulary, animated.
+avatar is going?" → "gold floor ring"). During the "take me to my seat" walk the
+guest could see the figure move but nothing marked its destination until it
+arrived. Added a `SeatDestinationMarker` — a pulsing gold floor ring — planted on
+the target chair while the avatar walks, then retired on arrival (the figure now
+stands there; the static "your seat" ring remains). Reuses the existing roam-seat
+gold-ring vocabulary, animated.
 
 - `app/_components/plan3d/plan3d-scene.tsx` — beacon shown while the scripted
   walk runs (`walk && !arrived && !roam`); `arrived` flips in the walk's

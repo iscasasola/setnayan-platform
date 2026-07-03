@@ -18,6 +18,12 @@
  * simple primitives, no textures, no monogram, reuses the pure geometry math
  * from `lib/seating-3d.ts` (the couple lab's engine) so table shapes/seat
  * positions match the real product exactly.
+ *
+ * ROAM mode (owner 2026-07-03 "show my seat OR walk around the event"): when
+ * `roam` is set, the guest's figure stands in the room and every tap on the
+ * floor steers them there — same `steerPath` obstacle avoidance and the same
+ * chase camera as the scripted walk, just re-aimed per tap. Their own seat is
+ * marked with a gold ring so "find my seat" still works inside free roam.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -159,13 +165,23 @@ function sampleAlongPath(path: Vec2[], t: number): { p: Vec2; heading: number } 
 
 type WalkState = { path: Vec2[]; startedAt: number; durationMs: number; onComplete?: () => void };
 
-function Walker({ walk, color }: { walk: WalkState; color: string }) {
+function Walker({
+  walk,
+  color,
+  posRef,
+}: {
+  walk: WalkState;
+  color: string;
+  /** Live walker position, shared out so roam taps can path FROM wherever the figure stands. */
+  posRef?: React.MutableRefObject<Vec2 | null>;
+}) {
   const groupRef = useRef<THREE.Group>(null);
   const firedRef = useRef(false);
   useFrame(({ camera }) => {
     const elapsed = performance.now() - walk.startedAt;
     const t = Math.min(1, elapsed / walk.durationMs);
     const { p, heading } = sampleAlongPath(walk.path, t);
+    if (posRef) posRef.current = p;
     if (groupRef.current) {
       groupRef.current.position.set(p.x, 0, p.z);
       groupRef.current.rotation.y = heading;
@@ -199,6 +215,19 @@ function Walker({ walk, color }: { walk: WalkState; color: string }) {
 }
 
 export type Plan3DWalkRequest = { guestId: string } | null;
+export type Plan3DRoamRequest = { guestId: string } | null;
+
+/** Constant roam walking speed (world units/s) — tuned so a cross-room tap
+ *  takes about as long as the scripted seat walk does. */
+const ROAM_SPEED = 1.7;
+
+function pathLength(path: Vec2[]): number {
+  let len = 0;
+  for (let i = 1; i < path.length; i++) {
+    len += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.z - path[i - 1]!.z);
+  }
+  return len;
+}
 
 export function Plan3DScene({
   tables,
@@ -207,6 +236,7 @@ export function Plan3DScene({
   onGuestClick,
   walkTarget,
   onWalkComplete,
+  roam,
   interactive = true,
 }: {
   tables: Lab3DTable[];
@@ -215,6 +245,9 @@ export function Plan3DScene({
   onGuestClick?: (guestId: string) => void;
   walkTarget?: Plan3DWalkRequest;
   onWalkComplete?: () => void;
+  /** Free-roam mode: the guest stands in the room and every floor tap steers
+   *  them there. Mutually exclusive with `walkTarget` (callers pass one). */
+  roam?: Plan3DRoamRequest;
   interactive?: boolean;
 }) {
   const reducedMotion = usePrefersReducedMotion();
@@ -225,9 +258,20 @@ export function Plan3DScene({
   const walkGuest = walkTarget ? guests.find((g) => g.id === walkTarget.guestId) ?? null : null;
   const walkTable = walkGuest ? tablesById.get(walkGuest.tableId) ?? null : null;
 
+  const roamGuest = roam ? guests.find((g) => g.id === roam.guestId) ?? null : null;
+  const roamSeat = useMemo(() => {
+    if (!roamGuest) return null;
+    const t = tablesById.get(roamGuest.tableId);
+    return t ? seatWorld(t, roamGuest.seatNumber ?? 0, room) : null;
+  }, [roamGuest, tablesById, room]);
+
   const [walk, setWalk] = useState<WalkState | null>(null);
+  // Where the figure currently stands — written every frame by <Walker>, read
+  // when a roam tap needs a start point (or the seat/entrance before any walk).
+  const walkerPosRef = useRef<Vec2 | null>(null);
 
   useEffect(() => {
+    if (roam) return; // roam owns the walker — the scripted effect stays out
     if (!walkGuest || !walkTable) {
       setWalk(null);
       return;
@@ -237,13 +281,48 @@ export function Plan3DScene({
     const path = steerPath(entranceWorld, dest, obstacles, tableAvoidR(walkTable) * 0.4);
     if (reducedMotion) {
       // Respect reduced motion: no animated walk, just settle on the seat.
+      walkerPosRef.current = dest;
       onWalkComplete?.();
       setWalk(null);
       return;
     }
     setWalk({ path, startedAt: performance.now(), durationMs: 5200, onComplete: onWalkComplete });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walkGuest?.id, walkTable?.id]);
+  }, [walkGuest?.id, walkTable?.id, Boolean(roam)]);
+
+  // ── ROAM: entering the mode takes a small step-in from wherever the figure
+  // is (seat after a finished walk, entrance on a fresh start) so the chase
+  // camera settles behind them facing INTO the room, not at a wall.
+  useEffect(() => {
+    if (!roam) return;
+    const start = walkerPosRef.current ?? entranceWorld;
+    const toCenter = Math.hypot(start.x, start.z) || 1;
+    const nudge = { x: start.x - (start.x / toCenter) * 1.2, z: start.z - (start.z / toCenter) * 1.2 };
+    const obstacles = floorObstacles(floor, tables, room, []);
+    const path = steerPath(start, nudge, obstacles, 0.35);
+    setWalk({ path, startedAt: performance.now(), durationMs: reducedMotion ? 1 : 900 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roam?.guestId]);
+
+  const handleFloorTap = (e: ThreeEvent<MouseEvent>) => {
+    if (!roam) return;
+    e.stopPropagation();
+    // Clamp the tapped point inside the walls with a small margin.
+    const margin = 0.4;
+    const dest: Vec2 = {
+      x: Math.max(-room.w / 2 + margin, Math.min(room.w / 2 - margin, e.point.x)),
+      z: Math.max(-room.d / 2 + margin, Math.min(room.d / 2 - margin, e.point.z)),
+    };
+    const from = walkerPosRef.current ?? entranceWorld;
+    const obstacles = floorObstacles(floor, tables, room, []);
+    const path = steerPath(from, dest, obstacles, 0.35);
+    if (reducedMotion) {
+      setWalk({ path: [dest], startedAt: performance.now(), durationMs: 1 });
+      return;
+    }
+    const durationMs = Math.min(6500, Math.max(500, (pathLength(path) / ROAM_SPEED) * 1000));
+    setWalk({ path, startedAt: performance.now(), durationMs });
+  };
 
   const roomSpan = Math.max(room.w, room.d);
   const initialCamPos: [number, number, number] = interactive
@@ -259,7 +338,7 @@ export function Plan3DScene({
     >
       <ambientLight intensity={0.75} />
       <directionalLight position={[room.w * 0.4, 10, room.d * 0.3]} intensity={1.05} castShadow />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={roam ? handleFloorTap : undefined}>
         <planeGeometry args={[room.w, room.d]} />
         <meshStandardMaterial color={PALETTE.floor} />
       </mesh>
@@ -278,8 +357,9 @@ export function Plan3DScene({
       ))}
 
       {guests.map((g) => {
-        // The guest currently mid-walk is drawn by the Walker instead — never both.
+        // The guest currently mid-walk (or roaming) is drawn by the Walker instead — never both.
         if (walk && walkGuest && g.id === walkGuest.id) return null;
+        if (roamGuest && g.id === roamGuest.id) return null;
         const table = tablesById.get(g.tableId);
         if (!table) return null;
         const pos = seatWorld(table, g.seatNumber ?? 0, room);
@@ -300,9 +380,30 @@ export function Plan3DScene({
         );
       })}
 
-      {walk ? <Walker walk={walk} color={walkGuest ? SIDE_COLOR[walkGuest.side] : PALETTE.accent} /> : null}
+      {/* The roaming guest's own seat, marked in gold — "find my seat" still
+          works inside free roam by just walking to the ring. */}
+      {roam && roamSeat ? (
+        <group position={[roamSeat.x, 0, roamSeat.z]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+            <ringGeometry args={[0.26, 0.4, 24]} />
+            <meshBasicMaterial color={PALETTE.accent} />
+          </mesh>
+          <mesh position={[0, 1.25, 0]}>
+            <sphereGeometry args={[0.09, 10, 10]} />
+            <meshBasicMaterial color={PALETTE.accent} />
+          </mesh>
+        </group>
+      ) : null}
 
-      {interactive && !walk ? (
+      {walk ? (
+        <Walker
+          walk={walk}
+          color={roamGuest ? SIDE_COLOR[roamGuest.side] : walkGuest ? SIDE_COLOR[walkGuest.side] : PALETTE.accent}
+          posRef={walkerPosRef}
+        />
+      ) : null}
+
+      {interactive && !walk && !roam ? (
         <OrbitControls
           target={[0, 0.6, 0]}
           maxPolarAngle={Math.PI / 2.15}

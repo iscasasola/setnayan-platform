@@ -699,6 +699,53 @@ export function steerPath(
   return out;
 }
 
+/**
+ * Full "walk up to my seat" path. A person walks AROUND their own table and sits
+ * from the outside — they never cross the tabletop. The naive approach was to
+ * drop the destination table from the obstacle set so the walker "could reach
+ * its chair", but that let the straight line from the entrance cut clean across
+ * the tabletop whenever the seat sat on the far side (owner 2026-07-03: "still
+ * walks through the table not around it").
+ *
+ * The fix routes in TWO legs:
+ *   1. Steer from `start` around EVERY table — the destination included — to an
+ *      approach point just OUTSIDE the destination table's avoidance ring, on the
+ *      chair's bearing (the direction from the table centre out through the seat).
+ *   2. Step straight in from that approach point to the chair. Both points lie on
+ *      the outward radial, so this final leg never re-enters the footprint.
+ *
+ * `obstacles` MUST be the FULL set with the destination table PRESENT — build it
+ * with `floorObstacles(floor, tables, room, [])`. Pure; unit-tested.
+ */
+export function seatApproachPath(
+  start: Vec2,
+  table: Lab3DTable,
+  seatNumber: number,
+  room: { w: number; d: number },
+  obstacles: { c: Vec2; r: number }[],
+  skipR = 0,
+): Vec2[] {
+  const centre = pctToWorld(table.xPct, table.yPct, room);
+  const chair = seatWorld(table, seatNumber, room);
+  let dx = chair.x - centre.x;
+  let dz = chair.z - centre.z;
+  let len = Math.hypot(dx, dz);
+  if (len < 1e-3) {
+    // Degenerate: the seat resolves to the table centre (e.g. a 1-seat
+    // sweetheart at origin) — approach along the incoming heading instead.
+    dx = centre.x - start.x;
+    dz = centre.z - start.z;
+    len = Math.hypot(dx, dz) || 1;
+  }
+  // Approach point sits just beyond the table's avoidance ring, so leg 1 ends
+  // clear of the footprint and leg 2 is a clean radial step-in to the chair.
+  const rr = tableAvoidR(table) + skipR + 0.35;
+  const approach: Vec2 = { x: centre.x + (dx / len) * rr, z: centre.z + (dz / len) * rr };
+  const leg = steerPath(start, approach, obstacles, skipR);
+  leg.push(chair);
+  return leg;
+}
+
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 /** Pick a usable scene palette from the mood-board hex list, with warm fallbacks. */

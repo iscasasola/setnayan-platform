@@ -24,6 +24,7 @@ import {
   chairLocalPositions,
   seatWorld,
   steerPath,
+  seatApproachPath,
   floorObstacles,
   resolvePalette,
   resolvePaletteFromRoles,
@@ -119,12 +120,24 @@ function GuestTable({
 function GuestAvatar({
   entrance,
   target,
-  obstacles,
+  seat,
+  isSeatTarget,
+  room,
+  seatObstacles,
+  roamObstacles,
   palette,
 }: {
   entrance: Vec2;
   target: Vec2;
-  obstacles: { c: Vec2; r: number }[];
+  /** The guest's own table + seat, so the seat walk can route around it. */
+  seat: { table: Lab3DTable; seatNumber: number } | null;
+  /** True when `target` is the guest's seat (walk-to-seat), false for a roam tap. */
+  isSeatTarget: boolean;
+  room: { w: number; d: number };
+  /** Full obstacle set (destination table INCLUDED) for the seat walk. */
+  seatObstacles: { c: Vec2; r: number }[];
+  /** Obstacle set with the guest's own table skipped, for free-roam taps. */
+  roamObstacles: { c: Vec2; r: number }[];
   palette: Lab3DPalette;
 }) {
   const ref = useRef<THREE.Group>(null);
@@ -135,9 +148,15 @@ function GuestAvatar({
 
   useEffect(() => {
     const start = pos.current;
-    path.current = steerPath(start, target, obstacles, 0.2);
+    // Walking to my seat: route AROUND my own table and step in from outside.
+    // Free-roam tap: steer straight to the tapped point (own table skipped so I
+    // can stand right by my chair).
+    path.current =
+      isSeatTarget && seat
+        ? seatApproachPath(start, seat.table, seat.seatNumber, room, seatObstacles, 0.2)
+        : steerPath(start, target, roamObstacles, 0.2);
     idx.current = 0;
-  }, [target, obstacles]);
+  }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles]);
 
   useFrame((_, delta) => {
     const g = ref.current;
@@ -219,18 +238,34 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
     [floor, room],
   );
-  // Obstacles the avatar steers around: every table except the guest's OWN (so
-  // they can reach their chair), plus the stage + dance floor (via floorObstacles).
-  // Venue-object discs slot in here once the object render lands.
-  const obstacles = useMemo(
+  // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
+  // venue-object discs slot in once the object render lands):
+  //  · seatObstacles = EVERY table, so the walk-to-seat routes around the guest's
+  //    own table and steps in from outside (no more cutting across the tabletop).
+  //  · roamObstacles skips the guest's own table so a free-roam tap can land them
+  //    right at their chair.
+  const seatObstacles = useMemo(
+    () => floorObstacles(floor, tables, room, []),
+    [floor, tables, room],
+  );
+  const roamObstacles = useMemo(
     () => floorObstacles(floor, tables, room, [scene.you?.table]),
     [floor, tables, room, scene.you],
   );
-  const seatTarget = useMemo<Vec2 | null>(() => {
-    if (!scene.you) return null;
-    const t = tables.find((x) => x.id === scene.you!.table);
-    return t ? seatWorld(t, scene.you.seatNumber, room) : null;
-  }, [scene, tables, room]);
+  const youTable = useMemo<Lab3DTable | null>(
+    () => (scene.you ? tables.find((x) => x.id === scene.you!.table) ?? null : null),
+    [scene.you, tables],
+  );
+  const seatTarget = useMemo<Vec2 | null>(
+    () => (scene.you && youTable ? seatWorld(youTable, scene.you.seatNumber, room) : null),
+    [scene.you, youTable, room],
+  );
+  // Stable seat descriptor so the avatar's pathing effect only re-runs when the
+  // guest's actual table/seat changes (not on every unrelated parent re-render).
+  const youSeat = useMemo(
+    () => (youTable && scene.you ? { table: youTable, seatNumber: scene.you.seatNumber } : null),
+    [youTable, scene.you],
+  );
 
   // The avatar's live target: their seat on open, then wherever they tap.
   const [target, setTarget] = useState<Vec2 | null>(seatTarget);
@@ -280,7 +315,18 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           />
         ))}
 
-        {target ? <GuestAvatar entrance={entrance} target={target} obstacles={obstacles} palette={palette} /> : null}
+        {target ? (
+          <GuestAvatar
+            entrance={entrance}
+            target={target}
+            seat={youSeat}
+            isSeatTarget={target === seatTarget}
+            room={room}
+            seatObstacles={seatObstacles}
+            roamObstacles={roamObstacles}
+            palette={palette}
+          />
+        ) : null}
 
         <OrbitControls
           makeDefault

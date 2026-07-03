@@ -93,6 +93,7 @@ import {
   separateAgents,
   walkVector,
   steerPath,
+  seatApproachPath,
   resolvePalette,
   resolvePaletteFromRoles,
   DEMO_PALETTES,
@@ -1170,11 +1171,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!seat) return false;
       const table = tablesById.get(seat.tableId);
       if (!table) return false;
-      const end = seatWorld(table, seat.seatNumber, room);
-      // Clear every fixed object — other tables, the stage, the dance floor —
-      // not just the tables, so the walker never cuts across the stage.
-      const obstacles = floorObstacles(floor, tables, room, [seat.tableId]);
-      const path = steerPath(entranceWorld, end, obstacles, 0.2);
+      // Route AROUND every fixed object — other tables, the walker's OWN table,
+      // the stage, the dance floor — then step in to the chair from outside, so
+      // the walker never cuts across its own tabletop (or anything else).
+      const obstacles = floorObstacles(floor, tables, room, []);
+      const path = seatApproachPath(entranceWorld, table, seat.seatNumber, room, obstacles, 0.2);
       setMode('play');
       setArrived(null);
       setCrowd(null); // a single walk-in supersedes any populated crowd
@@ -1196,9 +1197,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!g || seatStatusOf(g.rsvp) === 'hidden') continue; // declined seats are freed
       const table = tablesById.get(s.tableId);
       if (!table) continue;
-      const end = seatWorld(table, s.seatNumber, room);
+      // The PATH routes around every table (own included) so the walk-in never
+      // crosses a tabletop; the per-frame obstacle set still SKIPS the guest's own
+      // table so that, once arrived, the seated avatar isn't shoved off its chair.
+      const walkAround = floorObstacles(floor, tables, room, []);
       const obstacles = floorObstacles(floor, tables, room, [s.tableId]);
-      const path = steerPath(entranceWorld, end, obstacles, 0.2);
+      const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
       const style = guestTokenStyle(g);
       const color = style?.attireColor ?? style?.color ?? SIDE_COLOR[g.side];
       agents.push({ id: gid, name: g.name, path, color, startDelay: i * 0.16, obstacles });

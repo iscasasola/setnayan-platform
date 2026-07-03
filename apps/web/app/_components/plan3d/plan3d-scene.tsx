@@ -54,6 +54,7 @@ import {
   floorObstacles,
   pushOutOfDiscs,
   steerPath,
+  seatApproachPath,
   resolvePalette,
   resolvePaletteFromRoles,
   SIDE_COLOR,
@@ -365,9 +366,10 @@ export function Plan3DScene({
       return;
     }
     const dest = seatWorld(walkTable, walkGuest.seatNumber ?? 0, room);
-    // Skip the destination table so the guest can reach their own chair.
-    const obstacles = floorObstacles(floor, tables, room, [walkTable.id]);
-    const path = steerPath(entranceWorld, dest, obstacles, AVATAR_BODY_R);
+    // Route AROUND every table (the destination included) and step in to the
+    // chair from outside — a guest walks around their table, never across it.
+    const obstacles = floorObstacles(floor, tables, room, []);
+    const path = seatApproachPath(entranceWorld, walkTable, walkGuest.seatNumber ?? 0, room, obstacles, AVATAR_BODY_R);
     if (reducedMotion) {
       // Respect reduced motion: no animated walk, just settle on the seat.
       walkerPosRef.current = dest;

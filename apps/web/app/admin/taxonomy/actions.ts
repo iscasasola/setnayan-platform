@@ -21,6 +21,14 @@ import {
   type LeafAttributeMap,
   type SchemaMutationResult,
 } from '@/lib/leaf-attribute-schema';
+import {
+  setWeddingTypeStatusCore,
+  setWeddingTypeThresholdCore,
+  LAUNCH_STATUSES,
+  type LaunchStatus,
+} from '@/lib/wedding-types-mutations';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 
 const BASE = '/admin/taxonomy';
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
@@ -43,7 +51,7 @@ export type StudioActionResult = { ok: true; message: string } | { ok: false; er
 const VALID_PHOTO = /^(\/[\w./-]+\.(?:webp|jpe?g|png)|r2:\/\/[\w./-]+)$/i;
 
 const SAFE_ANCHOR = /[^a-z0-9_-]/g;
-const VIEWS = new Set(['faith', 'scoped', 'unfiled']);
+const VIEWS = new Set(['faith', 'scoped', 'unfiled', 'vocab-event', 'vocab-faith']);
 
 /**
  * Redirect back to the spot the form was submitted from (the admin/users
@@ -1934,5 +1942,588 @@ export async function retireLeafAttributeOptionAction(formData: FormData): Promi
     'taxonomy.leaf_attr_retire_option',
     (attrs, v) => retireLeafAttributeOption(attrs, v, { fieldKey, option, retired }),
     () => `${retired ? 'Retired' : 'Restored'} option "${option}".`,
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// VOCABULARIES — the scoping vocab tables folded into the Studio (PR 6).
+//
+// Two additive-only vocabularies power classification scoping:
+//   • event_type_vocab — validates applicable_event_types on tiles + canonicals.
+//   • faith_vocab      — the FK/CHECK target for canonical faith tags (Title-Case).
+//
+// Additive-only contract (mirrors the leaf-attribute + refinement editors):
+//   - KEYS are IMMUTABLE once minted; rows are NEVER deleted.
+//   - "deactivate" = soft (status → inactive/retired); existing arrays keep the
+//     key and behavior stays fail-open. Only add-new + relabel + reorder + status.
+//
+// Event-type vocab edits here touch ONLY event_type_vocab. They NEVER touch the
+// `events.event_type` enum/CHECK (rebuilt by swap migrations) nor the couple-
+// side Event-Type Engine gating — a vocab row is for CATEGORY SCOPING, not a
+// couple-facing launch. That separation is intentional.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Slugify a label into a stable snake_case key (event-type vocab convention:
+ *  lowercase letters/numbers/underscores, starts with a letter). */
+function slugifyEventTypeKey(label: string): string {
+  const base = label
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return base;
+}
+
+/**
+ * Admin: relabel an event-type vocab row (label_en only — the key is permanent).
+ * Redirect-back to the Vocabularies → Event types view.
+ */
+export async function relabelEventTypeVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const label = String(formData.get('label_en') ?? '').trim();
+  if (!key) redirectBack(formData, 'error', 'Missing event type.');
+  if (label.length < 2 || label.length > 80) {
+    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
+  }
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('event_type_vocab')
+    .select('label_en')
+    .eq('event_type', key)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Event type not found.');
+  const { error } = await admin
+    .from('event_type_vocab')
+    .update({ label_en: label, updated_at: new Date().toISOString() })
+    .eq('event_type', key);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_event_relabel',
+    target_table: 'event_type_vocab',
+    target_id: key,
+    before_json: { label_en: before.label_en },
+    after_json: { label_en: label },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', `Renamed to "${label}".`);
+}
+
+/**
+ * Admin: activate / deactivate an event-type vocab row. Deactivate is SOFT
+ * (status → 'retired') — existing `applicable_event_types` arrays keep the key
+ * and scoping stays fail-open; it just drops out of the admin scoping pickers.
+ * Does NOT touch the couple-side create-event picker (that's the `enabled`
+ * launch lever on /admin/event-types) or the events.event_type enum.
+ */
+export async function setEventTypeVocabStatus(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const active = String(formData.get('active') ?? '') === '1';
+  if (!key) redirectBack(formData, 'error', 'Missing event type.');
+  if (key === 'wedding' && !active) {
+    redirectBack(formData, 'error', 'Wedding is the base event type — it stays active.');
+  }
+  const nextStatus = active ? 'active' : 'retired';
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('event_type_vocab')
+    .select('status')
+    .eq('event_type', key)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Event type not found.');
+  if (before.status === nextStatus) redirectBack(formData, 'ok', 'Status unchanged.');
+  const { error } = await admin
+    .from('event_type_vocab')
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .eq('event_type', key);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_event_status',
+    target_table: 'event_type_vocab',
+    target_id: key,
+    before_json: { status: before.status },
+    after_json: { status: nextStatus },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(
+    formData,
+    'ok',
+    active
+      ? `"${key}" is active — available for category scoping.`
+      : `"${key}" hidden from scoping pickers (existing scopes keep working).`,
+  );
+}
+
+/**
+ * Admin: nudge an event-type vocab row up or down in sort order (swap with its
+ * neighbor). Sort order drives the order it appears in scoping pickers.
+ */
+export async function reorderEventTypeVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const dir = String(formData.get('dir') ?? '').trim();
+  if (!key || (dir !== 'up' && dir !== 'down')) redirectBack(formData, 'error', 'Bad move.');
+  const admin = createAdminClient();
+  const { data: rows } = await admin
+    .from('event_type_vocab')
+    .select('event_type, sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true });
+  const list = (rows ?? []) as { event_type: string; sort_order: number }[];
+  const idx = list.findIndex((r) => r.event_type === key);
+  if (idx === -1) redirectBack(formData, 'error', 'Event type not found.');
+  const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) redirectBack(formData, 'ok', 'Already at the edge.');
+  const a = list[idx]!;
+  const b = list[swapIdx]!;
+  const { error: e1 } = await admin
+    .from('event_type_vocab')
+    .update({ sort_order: b.sort_order, updated_at: new Date().toISOString() })
+    .eq('event_type', a.event_type);
+  const { error: e2 } = await admin
+    .from('event_type_vocab')
+    .update({ sort_order: a.sort_order, updated_at: new Date().toISOString() })
+    .eq('event_type', b.event_type);
+  if (e1 || e2) redirectBack(formData, 'error', (e1 ?? e2)!.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_event_reorder',
+    target_table: 'event_type_vocab',
+    target_id: key,
+    before_json: { [a.event_type]: a.sort_order, [b.event_type]: b.sort_order },
+    after_json: { [a.event_type]: b.sort_order, [b.event_type]: a.sort_order },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', 'Reordered.');
+}
+
+/**
+ * Admin: mint a new event-type vocab row. Key = slugified snake_case from the
+ * label, IMMUTABLE once created. Additive-only — this only makes the type
+ * available for CATEGORY SCOPING; it does NOT surface a new couple-facing event
+ * type (that's the gated Event-Type Engine + the `enabled` lever on
+ * /admin/event-types). New rows sort after every existing one.
+ */
+export async function createEventTypeVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const label = String(formData.get('label_en') ?? '').trim();
+  if (label.length < 2 || label.length > 80) {
+    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
+  }
+  const key = slugifyEventTypeKey(label);
+  if (!key || !/^[a-z][a-z0-9_]{1,30}$/.test(key)) {
+    redirectBack(formData, 'error', 'Label needs to start with a letter and yield a valid key.');
+  }
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('event_type_vocab')
+    .select('event_type')
+    .eq('event_type', key)
+    .maybeSingle();
+  if (existing) {
+    redirectBack(formData, 'error', `An event type "${key}" already exists.`);
+  }
+  const { data: last } = await admin
+    .from('event_type_vocab')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = ((last?.sort_order as number | undefined) ?? -1) + 1;
+  const row = { event_type: key, label_en: label, sort_order: nextSort, status: 'active' };
+  const { error } = await admin.from('event_type_vocab').insert(row);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_event_create',
+    target_table: 'event_type_vocab',
+    target_id: key,
+    after_json: row,
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', `Added event type "${label}" (${key}) for scoping.`);
+}
+
+// ── Faith vocabulary ─────────────────────────────────────────────────────────
+//
+// ⚠ FAITH LANDMINE: faith_vocab.faith_key is TITLE-CASE and compared with strict
+// `===`. NEVER lowercase, re-case, or normalize a faith key — the add-new mint
+// preserves the admin's casing from the label; storage + comparisons stay
+// Title-Case. New keys are Title-Cased for a clean default but the raw label
+// wins if it already contains casing (e.g. 'INC').
+
+/** Faith launch key = the LOWERCASE ceremony_type that wedding_type_launch_status
+ *  rows on, derived from a Title-Case faith_key via the faith registry (NEVER by
+ *  lowercasing the faith_key blindly — 'Born Again' → 'born_again', not
+ *  'born again'). Falls back to a conservative lowercase+underscore for keys the
+ *  registry doesn't row (a freshly-minted faith), which matches the launch seed
+ *  convention. */
+function faithKeyToCeremonyType(faithKey: string): string {
+  if (faithKey === 'Civil') return 'civil';
+  const entry = FAITH_REGISTRY.find((f) => f.faithCol === faithKey);
+  if (entry) return entry.key;
+  return faithKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+/** Title-Case a fresh faith key from a label — capitalizes each word. Preserves
+ *  an all-caps acronym the admin typed (INC, LDS, SDA, JW). */
+function titleCaseFaithKey(label: string): string {
+  return label
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w === w.toUpperCase() ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(' ');
+}
+
+/** Admin: relabel a faith vocab row (label_en only — faith_key is permanent). */
+export async function relabelFaithVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('faith_key') ?? '').trim();
+  const label = String(formData.get('label_en') ?? '').trim();
+  if (!key) redirectBack(formData, 'error', 'Missing faith.');
+  if (label.length < 2 || label.length > 80) {
+    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
+  }
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('faith_vocab')
+    .select('label_en')
+    .eq('faith_key', key)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Faith not found.');
+  const { error } = await admin
+    .from('faith_vocab')
+    .update({ label_en: label, updated_at: new Date().toISOString() })
+    .eq('faith_key', key);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_faith_relabel',
+    target_table: 'faith_vocab',
+    target_id: key,
+    before_json: { label_en: before.label_en },
+    after_json: { label_en: label },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', `Renamed to "${label}".`);
+}
+
+/**
+ * Admin: activate / deactivate a faith vocab row (SOFT — status → 'retired').
+ * Existing canonical faith tags keep the key; it just drops out of the faith
+ * scoping pickers. The couple-facing launch is governed separately by the
+ * launch-gate rows (below), not by this taxonomy status.
+ */
+export async function setFaithVocabStatus(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('faith_key') ?? '').trim();
+  const active = String(formData.get('active') ?? '') === '1';
+  if (!key) redirectBack(formData, 'error', 'Missing faith.');
+  const nextStatus = active ? 'active' : 'retired';
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('faith_vocab')
+    .select('status')
+    .eq('faith_key', key)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Faith not found.');
+  if (before.status === nextStatus) redirectBack(formData, 'ok', 'Status unchanged.');
+  const { error } = await admin
+    .from('faith_vocab')
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .eq('faith_key', key);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_faith_status',
+    target_table: 'faith_vocab',
+    target_id: key,
+    before_json: { status: before.status },
+    after_json: { status: nextStatus },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(
+    formData,
+    'ok',
+    active
+      ? `"${key}" is active for faith scoping.`
+      : `"${key}" hidden from scoping pickers (existing tags keep working).`,
+  );
+}
+
+/** Admin: swap a faith vocab row's sort order with its neighbor. */
+export async function reorderFaithVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('faith_key') ?? '').trim();
+  const dir = String(formData.get('dir') ?? '').trim();
+  if (!key || (dir !== 'up' && dir !== 'down')) redirectBack(formData, 'error', 'Bad move.');
+  const admin = createAdminClient();
+  const { data: rows } = await admin
+    .from('faith_vocab')
+    .select('faith_key, sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true });
+  const list = (rows ?? []) as { faith_key: string; sort_order: number }[];
+  const idx = list.findIndex((r) => r.faith_key === key);
+  if (idx === -1) redirectBack(formData, 'error', 'Faith not found.');
+  const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) redirectBack(formData, 'ok', 'Already at the edge.');
+  const a = list[idx]!;
+  const b = list[swapIdx]!;
+  const { error: e1 } = await admin
+    .from('faith_vocab')
+    .update({ sort_order: b.sort_order, updated_at: new Date().toISOString() })
+    .eq('faith_key', a.faith_key);
+  const { error: e2 } = await admin
+    .from('faith_vocab')
+    .update({ sort_order: a.sort_order, updated_at: new Date().toISOString() })
+    .eq('faith_key', b.faith_key);
+  if (e1 || e2) redirectBack(formData, 'error', (e1 ?? e2)!.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_faith_reorder',
+    target_table: 'faith_vocab',
+    target_id: key,
+    before_json: { [a.faith_key]: a.sort_order, [b.faith_key]: b.sort_order },
+    after_json: { [a.faith_key]: b.sort_order, [b.faith_key]: a.sort_order },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', 'Reordered.');
+}
+
+/**
+ * Admin: mint a new faith vocab row. The Title-Case key is derived from the
+ * label (acronyms preserved) and is IMMUTABLE. Additive-only. A matching
+ * launch-gate row (region 'all', status 'coming_soon') is seeded so the new
+ * faith is immediately gate-able. ⚠ NEVER lowercase the minted key.
+ */
+export async function createFaithVocab(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const label = String(formData.get('label_en') ?? '').trim();
+  if (label.length < 2 || label.length > 80) {
+    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
+  }
+  const key = titleCaseFaithKey(label);
+  if (!key || key.length > 40) redirectBack(formData, 'error', 'Could not derive a faith key.');
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('faith_vocab')
+    .select('faith_key')
+    .eq('faith_key', key)
+    .maybeSingle();
+  if (existing) redirectBack(formData, 'error', `A faith "${key}" already exists.`);
+  const { data: last } = await admin
+    .from('faith_vocab')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = ((last?.sort_order as number | undefined) ?? -1) + 1;
+  const row = { faith_key: key, label_en: label, sort_order: nextSort, status: 'active', is_civil: false };
+  const { error } = await admin.from('faith_vocab').insert(row);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  // Seed a launch-gate row (coming_soon) so the new faith is immediately
+  // gate-able from the readiness panel. Non-fatal if it collides.
+  const ceremonyType = faithKeyToCeremonyType(key);
+  await admin
+    .from('wedding_type_launch_status')
+    .upsert(
+      { ceremony_type: ceremonyType, region: 'all', status: 'coming_soon', updated_at: new Date().toISOString() },
+      { onConflict: 'ceremony_type,region', ignoreDuplicates: true },
+    );
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_faith_create',
+    target_table: 'faith_vocab',
+    target_id: key,
+    after_json: { ...row, launch_ceremony_type: ceremonyType },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', `Added faith "${label}" (${key}). Gate it live from its readiness panel.`);
+}
+
+// ── Faith launch gate (folded from /admin/wedding-types) ─────────────────────
+
+/**
+ * Admin: flip a faith's launch status (Live / Coming soon / Disabled). Delegates
+ * to the shared launch-gate core. The form carries the TITLE-CASE faith_key; we
+ * map it to the lowercase ceremony_type via the registry (never lowercase the
+ * key). Refreshes the couple-facing picker surfaces too.
+ */
+export async function setFaithLaunchStatus(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const faithKey = String(formData.get('faith_key') ?? '').trim();
+  const status = String(formData.get('status') ?? '').trim();
+  if (!faithKey || !LAUNCH_STATUSES.includes(status as LaunchStatus)) {
+    redirectBack(formData, 'error', 'Invalid input.');
+  }
+  const admin = createAdminClient();
+  const ceremonyType = faithKeyToCeremonyType(faithKey);
+  const res = await setWeddingTypeStatusCore(
+    admin,
+    user.id,
+    ceremonyType,
+    'all',
+    status as LaunchStatus,
+  );
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  revalidatePath(BASE);
+  revalidatePath('/dashboard/create-event');
+  revalidatePath('/onboarding/wedding');
+  const label =
+    status === 'active' ? 'live' : status === 'coming_soon' ? 'coming soon' : 'disabled';
+  redirectBack(formData, 'ok', `${faithKey} is now ${label} for couples.`);
+}
+
+/** Admin: set a faith's vendor-readiness threshold. Delegates to the shared
+ *  launch-gate core; maps faith_key → ceremony_type via the registry. */
+export async function setFaithLaunchThreshold(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const faithKey = String(formData.get('faith_key') ?? '').trim();
+  const threshold = Number(formData.get('threshold'));
+  if (!faithKey) redirectBack(formData, 'error', 'Missing faith.');
+  const admin = createAdminClient();
+  const ceremonyType = faithKeyToCeremonyType(faithKey);
+  const res = await setWeddingTypeThresholdCore(admin, user.id, ceremonyType, 'all', threshold);
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  revalidatePath(BASE);
+  redirectBack(formData, 'ok', `Threshold saved for ${faithKey}.`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LEAF FLAGS — the per-canonical scoping/marketplace flags, editable after
+// creation (PR 6). These were settable ONLY at leaf creation before.
+//   is_tradition · is_ph · is_rental · marketplace_hidden  (booleans)
+//   secondary_tiles (text[] — cross-listing on additional tiles)
+// The `dietary` column stays READ-ONLY here (a dietary canonical must never be
+// faith-gated — mirrors setServiceFaith's de-faith guard; dietary is a per-vendor
+// grade, edited elsewhere). Every write is audit-logged + redirect-back.
+// ════════════════════════════════════════════════════════════════════════════
+
+const SERVICE_BOOLEAN_FLAGS: Record<string, string> = {
+  is_tradition: 'Cultural / tradition',
+  is_ph: 'PH-specific',
+  is_rental: 'Rental',
+  marketplace_hidden: 'Hidden from marketplace',
+};
+
+/**
+ * Admin: toggle ONE boolean scoping flag on a canonical. The form carries the
+ * flag name + the desired value. Audit-logged, redirect-back to the tile.
+ */
+export async function setServiceFlag(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const canonical = String(formData.get('canonical_service') ?? '').trim();
+  const flag = String(formData.get('flag') ?? '').trim();
+  const value = String(formData.get('value') ?? '') === '1';
+  if (!canonical) redirectBack(formData, 'error', 'Missing canonical_service.');
+  if (!(flag in SERVICE_BOOLEAN_FLAGS)) redirectBack(formData, 'error', 'Unknown flag.');
+
+  const admin = createAdminClient();
+  // Select all four boolean flags (static columns) rather than a dynamic column
+  // name — the typed query builder can't accept an interpolated select string.
+  const { data: before } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service, is_tradition, is_ph, is_rental, marketplace_hidden')
+    .eq('canonical_service', canonical)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Canonical not found.');
+  const beforeVal = Boolean((before as Record<string, unknown>)[flag]);
+  if (beforeVal === value) redirectBack(formData, 'ok', 'Flag unchanged.');
+
+  const { error } = await admin
+    .from('canonical_service_taxonomy')
+    .update({ [flag]: value, updated_at: new Date().toISOString() })
+    .eq('canonical_service', canonical);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_service_flag',
+    target_table: 'canonical_service_taxonomy',
+    target_id: canonical,
+    before_json: { [flag]: beforeVal },
+    after_json: { [flag]: value },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(
+    formData,
+    'ok',
+    `${SERVICE_BOOLEAN_FLAGS[flag]} ${value ? 'on' : 'off'} for ${canonical}.`,
+  );
+}
+
+/**
+ * Admin: set a canonical's `secondary_tiles` (cross-listing on additional tiles
+ * beyond its home tile). Values are validated against the live tile catalog
+ * (WEDDING_TILE_ORDER) — the home tile is excluded (it's not a "secondary").
+ * Empty selection clears the array to NULL. Audit-logged, redirect-back.
+ */
+export async function setServiceSecondaryTiles(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const canonical = String(formData.get('canonical_service') ?? '').trim();
+  if (!canonical) redirectBack(formData, 'error', 'Missing canonical_service.');
+  const selected = Array.from(
+    new Set(
+      formData
+        .getAll('secondary_tiles')
+        .map((v) => String(v).trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service, tile_id, secondary_tiles')
+    .eq('canonical_service', canonical)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Canonical not found.');
+
+  // Validate every selected tile is a real tile; never let the home tile be its
+  // own secondary.
+  const validTiles = new Set<string>(WEDDING_TILE_ORDER as readonly string[]);
+  const homeTile = (before as { tile_id: string | null }).tile_id;
+  const cleaned = selected.filter((t) => t !== homeTile);
+  const unknown = cleaned.filter((t) => !validTiles.has(t));
+  if (unknown.length > 0) {
+    redirectBack(formData, 'error', 'Unknown tile(s): ' + unknown.join(', '));
+  }
+  const next = cleaned.length > 0 ? cleaned.sort() : null;
+
+  const { error } = await admin
+    .from('canonical_service_taxonomy')
+    .update({ secondary_tiles: next, updated_at: new Date().toISOString() })
+    .eq('canonical_service', canonical);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_secondary_tiles',
+    target_table: 'canonical_service_taxonomy',
+    target_id: canonical,
+    before_json: { secondary_tiles: (before as { secondary_tiles: string[] | null }).secondary_tiles ?? null },
+    after_json: { secondary_tiles: next },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  redirectBack(
+    formData,
+    'ok',
+    next ? `Cross-listed on ${next.length} more ${next.length === 1 ? 'tile' : 'tiles'}.` : 'Cross-listing cleared.',
   );
 }

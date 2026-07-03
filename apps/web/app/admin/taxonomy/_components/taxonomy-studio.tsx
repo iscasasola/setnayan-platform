@@ -42,6 +42,10 @@ import {
   Pencil,
   Undo2,
   Archive,
+  CalendarDays,
+  Church,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { Sheet } from '@/app/_components/sheet';
@@ -74,6 +78,18 @@ import {
   relabelLeafAttributeFieldAction,
   retireLeafAttributeFieldAction,
   retireLeafAttributeOptionAction,
+  relabelEventTypeVocab,
+  setEventTypeVocabStatus,
+  reorderEventTypeVocab,
+  createEventTypeVocab,
+  relabelFaithVocab,
+  setFaithVocabStatus,
+  reorderFaithVocab,
+  createFaithVocab,
+  setFaithLaunchStatus,
+  setFaithLaunchThreshold,
+  setServiceFlag,
+  setServiceSecondaryTiles,
   type StudioActionResult,
 } from '../actions';
 
@@ -131,6 +147,13 @@ export type StudioService = {
   setnayan: boolean;
   rental: boolean;
   hidden: boolean;
+  /** Cultural / tradition facet (is_tradition). Editable in the inspector. */
+  tradition: boolean;
+  /** Dietary grade (halal / alcohol_free) — READ-ONLY here; a dietary canonical
+   *  must never be faith-gated (mirrors setServiceFaith's de-faith guard). */
+  dietary: string | null;
+  /** Tiles this canonical is cross-listed on beyond its home tile. */
+  secondaryTiles: string[];
   /** Current schema_version — every refinement edit bumps this +1. */
   schemaVersion: number;
   /** Cross-category shared groups (faith / dietary / pricing) — read-only here;
@@ -148,6 +171,43 @@ export type StudioRequest = {
 };
 
 export type VocabItem = { key: string; label: string };
+
+/** One event-type vocab row for the Vocabularies rail editor. */
+export type StudioEventTypeVocab = {
+  key: string;
+  label: string;
+  status: string;
+  /** How many tiles + canonicals explicitly scope to this event type. */
+  usage: number;
+  /** `wedding` is the base type — it can't be deactivated. */
+  isBase: boolean;
+};
+
+/** The per-faith launch-gate readiness (folded from /admin/wedding-types). */
+export type StudioFaithLaunch = {
+  status: string;
+  threshold: number;
+  vendorCount: number;
+  venueCount: number;
+  total: number;
+  ready: boolean;
+};
+
+/** One faith vocab row for the Vocabularies rail editor. */
+export type StudioFaithVocab = {
+  /** TITLE-CASE faith_key — never lowercase it. */
+  key: string;
+  label: string;
+  status: string;
+  isCivil: boolean;
+  /** How many canonicals carry this faith tag. */
+  usage: number;
+  /** Launch gate + readiness, or null if no launch row maps to this faith. */
+  launch: StudioFaithLaunch | null;
+};
+
+/** A tile option for the secondary-tiles cross-listing picker. */
+export type StudioTileOption = { id: string; label: string };
 
 export type StudioRefinementOption = {
   optionKey: string;
@@ -181,6 +241,12 @@ export type StudioData = {
   services: StudioService[];
   eventVocab: VocabItem[];
   faithVocab: VocabItem[];
+  /** Full event-type vocab (all statuses) + usage counts — the Vocabularies rail. */
+  eventTypeVocab: StudioEventTypeVocab[];
+  /** Full faith vocab (all statuses) + usage + launch gate — the Vocabularies rail. */
+  faithVocabFull: StudioFaithVocab[];
+  /** Tile catalog for the secondary-tiles cross-listing picker. */
+  tileOptions: StudioTileOption[];
   requests: StudioRequest[];
   iconNames: string[];
   /** Couple-facing default folder icon (Lucide name) — matches /explore. */
@@ -196,7 +262,14 @@ export type StudioData = {
 
 export type InspectorTab = 'details' | 'services' | 'refinements';
 
-export type StudioView = 'all' | 'faith' | 'scoped' | 'unfiled' | 'requests';
+export type StudioView =
+  | 'all'
+  | 'faith'
+  | 'scoped'
+  | 'unfiled'
+  | 'requests'
+  | 'vocab-event'
+  | 'vocab-faith';
 
 const PHASE_TONE_BASE = 'bg-ink/5 text-ink/70';
 
@@ -489,6 +562,10 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
         <UnfiledTray unfiled={unfiled.filter(svcMatch)} data={data} />
       ) : view === 'requests' ? (
         <RequestsQueue requests={data.requests} data={data} />
+      ) : view === 'vocab-event' ? (
+        <EventTypeVocabPanel rows={data.eventTypeVocab} query={q} />
+      ) : view === 'vocab-faith' ? (
+        <FaithVocabPanel rows={data.faithVocabFull} query={q} />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(180px,220px)_1fr]">
           {/* ── Left rail — folders + pseudo-buckets ─────────────────────── */}
@@ -556,6 +633,34 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
                   {data.requests.length}
                 </span>
               ) : null}
+            </button>
+
+            {/* ── Vocabularies — the scoping vocab tables ─────────────────── */}
+            <div className="my-1 hidden h-px bg-ink/10 lg:block" aria-hidden />
+            <p className="hidden px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40 lg:block">
+              Vocabularies
+            </p>
+            <button
+              type="button"
+              onClick={() => onViewChange('vocab-event')}
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-ink/10 bg-cream px-3 py-2 text-left text-sm text-ink/70 hover:bg-ink/5 lg:w-full"
+            >
+              <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate font-medium">Event types</span>
+              <span className="shrink-0 font-mono text-[11px] text-ink/40">
+                {data.eventTypeVocab.filter((v) => v.status === 'active').length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewChange('vocab-faith')}
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-ink/10 bg-cream px-3 py-2 text-left text-sm text-ink/70 hover:bg-ink/5 lg:w-full"
+            >
+              <Church className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate font-medium">Faiths</span>
+              <span className="shrink-0 font-mono text-[11px] text-ink/40">
+                {data.faithVocabFull.filter((f) => f.status === 'active').length}
+              </span>
             </button>
           </nav>
 
@@ -1259,6 +1364,10 @@ function ServicesTab({
 
               {/* Leaf refinements (vendor attribute schema) editor */}
               <LeafRefinementsPanel tile={tile} service={s} />
+
+              {/* Leaf scoping flags (is_tradition / is_ph / is_rental /
+                  marketplace_hidden) + secondary-tiles cross-listing. */}
+              <ServiceFlagsPanel tile={tile} service={s} tileOptions={data.tileOptions} />
             </li>
           ))}
         </ul>
@@ -1429,6 +1538,138 @@ function LeafRefinementsPanel({ tile, service }: { tile: StudioTile; service: St
 
           {/* Add a field */}
           <AddLeafFieldForm tile={tile} service={service} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Service scoping flags panel ──────────────────────────────────────────────
+//
+// The per-canonical scoping/marketplace flags, now editable after creation:
+//   is_tradition · is_ph · is_rental · marketplace_hidden  (quiet toggles)
+//   secondary_tiles (cross-listing checkboxes)
+// dietary stays READ-ONLY (a dietary canonical must never be faith-gated —
+// mirrors setServiceFaith's de-faith guard; dietary is a per-vendor grade). Kept
+// as a quiet collapsible so it never adds badge noise to the row.
+
+const SERVICE_FLAG_DEFS: { flag: string; label: string; get: (s: StudioService) => boolean }[] = [
+  { flag: 'is_tradition', label: 'Cultural / tradition', get: (s) => s.tradition },
+  { flag: 'is_ph', label: 'PH-specific', get: (s) => s.ph },
+  { flag: 'is_rental', label: 'Rental', get: (s) => s.rental },
+  { flag: 'marketplace_hidden', label: 'Hidden from marketplace', get: (s) => s.hidden },
+];
+
+function ServiceFlagsPanel({
+  tile,
+  service,
+  tileOptions,
+}: {
+  tile: StudioTile;
+  service: StudioService;
+  tileOptions: StudioTileOption[];
+}) {
+  const [open, setOpen] = useState(false);
+  const onCount = SERVICE_FLAG_DEFS.filter((d) => d.get(service)).length;
+  const secondarySet = new Set(service.secondaryTiles);
+  // Cross-list candidates = every tile except this service's home tile.
+  const crossListOptions = tileOptions.filter((t) => t.id !== service.tileId);
+
+  return (
+    <div className="mt-2 rounded-lg border border-ink/10 bg-cream/50">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
+        )}
+        <Tag className="h-3.5 w-3.5 shrink-0 text-ink/45" aria-hidden />
+        <span className="text-xs font-medium text-ink/80">Scoping flags</span>
+        <span className="ml-auto flex items-center gap-1">
+          {onCount > 0 ? <Badge tone="bg-ink/5 text-ink/60">{onCount} on</Badge> : null}
+          {service.secondaryTiles.length > 0 ? (
+            <Badge tone="bg-sky-50 text-sky-700">
+              +{service.secondaryTiles.length} tile{service.secondaryTiles.length === 1 ? '' : 's'}
+            </Badge>
+          ) : null}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="space-y-3 border-t border-ink/10 px-2.5 py-3">
+          {/* Boolean toggles — each is a one-field redirect-back form. */}
+          <div className="flex flex-wrap gap-1.5">
+            {SERVICE_FLAG_DEFS.map((d) => {
+              const on = d.get(service);
+              return (
+                <form key={d.flag} action={setServiceFlag}>
+                  <input type="hidden" name="canonical_service" value={service.canonical} />
+                  <input type="hidden" name="flag" value={d.flag} />
+                  <input type="hidden" name="value" value={on ? '0' : '1'} />
+                  <input type="hidden" name="_anchor" value={`t-${tile.id}`} />
+                  <input type="hidden" name="_opentab" value="services" />
+                  <SubmitButton
+                    className={
+                      on
+                        ? 'inline-flex items-center gap-1 rounded-full border border-terracotta/40 bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta hover:bg-terracotta/15'
+                        : 'inline-flex items-center gap-1 rounded-full border border-ink/12 bg-white px-2 py-0.5 text-[10px] font-medium text-ink/50 hover:border-ink/30 hover:text-ink/70'
+                    }
+                    pendingLabel="…"
+                  >
+                    <span
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${on ? 'bg-terracotta' : 'bg-ink/20'}`}
+                      aria-hidden
+                    />
+                    {d.label}
+                  </SubmitButton>
+                </form>
+              );
+            })}
+          </div>
+
+          {/* Dietary — read-only (dietary services stay universal). */}
+          {service.dietary ? (
+            <p className="flex items-center gap-1.5 text-[10px] text-ink/50">
+              <Lock className="h-2.5 w-2.5" aria-hidden />
+              Dietary: <span className="font-mono text-ink/70">{service.dietary}</span> — stays
+              universal (a per-vendor grade, edited elsewhere).
+            </p>
+          ) : null}
+
+          {/* Secondary tiles — cross-listing checkboxes. */}
+          <form action={setServiceSecondaryTiles} className="space-y-2">
+            <input type="hidden" name="canonical_service" value={service.canonical} />
+            <input type="hidden" name="_anchor" value={`t-${tile.id}`} />
+            <input type="hidden" name="_opentab" value="services" />
+            <p className="text-[10px] uppercase tracking-wide text-ink/40">
+              Cross-list on other tiles
+            </p>
+            <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto rounded-md border border-ink/10 bg-white p-2 sm:grid-cols-2">
+              {crossListOptions.map((t) => (
+                <label key={t.id} className="flex items-center gap-1.5 text-[11px] text-ink/70">
+                  <input
+                    type="checkbox"
+                    name="secondary_tiles"
+                    value={t.id}
+                    defaultChecked={secondarySet.has(t.id)}
+                    className="h-3 w-3"
+                  />
+                  <span className="truncate">{t.label}</span>
+                </label>
+              ))}
+            </div>
+            <SubmitButton
+              className="rounded-md border border-ink/15 bg-white px-2.5 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+              pendingLabel="Saving…"
+            >
+              Save cross-listing
+            </SubmitButton>
+          </form>
         </div>
       ) : null}
     </div>
@@ -2326,6 +2567,475 @@ function RefThumb({ url, className }: { url: string | null; className: string })
     >
       <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
     </span>
+  );
+}
+
+// ── Vocabularies · Event types ──────────────────────────────────────────────
+//
+// The event_type_vocab editor: relabel, reorder, activate/deactivate, add-new.
+// Additive-only — keys are permanent, rows never delete, deactivate is soft.
+// Copy is deliberately explicit that a vocab row is for CATEGORY SCOPING, NOT a
+// couple-facing launch (that's the separate gated Event-Type Engine). Usage
+// counts make deactivation informed.
+
+function VocabRowShell({
+  title,
+  subtitle,
+  statusPill,
+  usagePill,
+  reorder,
+  children,
+}: {
+  title: React.ReactNode;
+  subtitle: React.ReactNode;
+  statusPill: React.ReactNode;
+  usagePill: React.ReactNode;
+  reorder: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="rounded-xl border border-ink/10 bg-white p-3">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="mt-0.5 flex shrink-0 flex-col gap-0.5">{reorder}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {title}
+            {statusPill}
+            {usagePill}
+          </div>
+          <p className="mt-0.5 text-[11px] text-ink/50">{subtitle}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">{children}</div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function ReorderButtons({
+  action,
+  keyField,
+  keyValue,
+  view,
+}: {
+  action: (fd: FormData) => void | Promise<void>;
+  keyField: string;
+  keyValue: string;
+  view: string;
+}) {
+  const btn =
+    'rounded border border-ink/12 bg-cream p-0.5 text-ink/50 hover:border-terracotta/40 hover:text-terracotta disabled:opacity-40';
+  return (
+    <>
+      <form action={action}>
+        <input type="hidden" name={keyField} value={keyValue} />
+        <input type="hidden" name="dir" value="up" />
+        <input type="hidden" name="_view" value={view} />
+        <button type="submit" className={btn} aria-label="Move up" title="Move up">
+          <ArrowUp className="h-3 w-3" aria-hidden />
+        </button>
+      </form>
+      <form action={action}>
+        <input type="hidden" name={keyField} value={keyValue} />
+        <input type="hidden" name="dir" value="down" />
+        <input type="hidden" name="_view" value={view} />
+        <button type="submit" className={btn} aria-label="Move down" title="Move down">
+          <ArrowDown className="h-3 w-3" aria-hidden />
+        </button>
+      </form>
+    </>
+  );
+}
+
+const VOCAB_INPUT =
+  'rounded-md border border-ink/15 bg-white px-2 py-1 text-xs text-ink';
+const VOCAB_BTN =
+  'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/70 hover:border-terracotta/50 hover:text-terracotta';
+
+function EventTypeVocabPanel({
+  rows,
+  query,
+}: {
+  rows: StudioEventTypeVocab[];
+  query: string;
+}) {
+  const active = rows.filter((r) => r.status === 'active');
+  const filtered = query
+    ? rows.filter((r) => r.key.includes(query) || r.label.toLowerCase().includes(query))
+    : rows;
+
+  return (
+    <section className="space-y-4">
+      <header className="rounded-xl border border-ink/10 bg-cream/60 p-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-ink/60" aria-hidden />
+          <h2 className="text-base font-semibold text-ink">Event types</h2>
+          <span className="font-mono text-[11px] text-ink/45">{active.length} active · {rows.length} total</span>
+        </div>
+        <p className="mt-1 max-w-prose text-sm text-ink/60">
+          The vocabulary that scopes which categories each event offers. Used for{' '}
+          <strong>category scoping</strong> only — adding one here does not, by itself, put a new
+          event type in front of couples (that&apos;s the separate Event-Type Engine). Keys are
+          permanent; deactivating one just hides it from scoping pickers — existing scopes keep
+          working.
+        </p>
+      </header>
+
+      {/* Add-new */}
+      <form
+        action={createEventTypeVocab}
+        className="flex flex-wrap items-end gap-2 rounded-xl border border-success-200 bg-success-50/30 p-3"
+      >
+        <input type="hidden" name="_view" value="vocab-event" />
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            New event type
+          </span>
+          <input
+            name="label_en"
+            required
+            minLength={2}
+            maxLength={80}
+            placeholder="e.g. House Blessing"
+            className={`${VOCAB_INPUT} w-52`}
+          />
+        </label>
+        <SubmitButton
+          className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
+          pendingLabel="Adding…"
+        >
+          <Plus className="mr-1 inline h-3 w-3" aria-hidden />
+          Add for scoping
+        </SubmitButton>
+        <span className="text-[11px] text-ink/45">Key = snake_case from the label · permanent.</span>
+      </form>
+
+      <ul className="space-y-2">
+        {filtered.map((r) => {
+          const isActive = r.status === 'active';
+          return (
+            <VocabRowShell
+              key={r.key}
+              reorder={
+                isActive ? (
+                  <ReorderButtons
+                    action={reorderEventTypeVocab}
+                    keyField="event_type"
+                    keyValue={r.key}
+                    view="vocab-event"
+                  />
+                ) : null
+              }
+              title={
+                <span className="text-sm font-semibold text-ink">
+                  {r.label}{' '}
+                  <code className="ml-1 font-mono text-[11px] font-normal text-ink/45">{r.key}</code>
+                </span>
+              }
+              statusPill={
+                isActive ? (
+                  <Badge tone="bg-success-100 text-success-800">Active</Badge>
+                ) : (
+                  <Badge tone="bg-ink/10 text-ink/55">Inactive</Badge>
+                )
+              }
+              usagePill={
+                <Badge tone={r.usage > 0 ? 'bg-sky-50 text-sky-700' : 'bg-ink/5 text-ink/45'}>
+                  scoped by {r.usage}
+                </Badge>
+              }
+              subtitle={
+                r.isBase
+                  ? 'The base event type — always active.'
+                  : r.usage > 0
+                    ? `${r.usage} tile${r.usage === 1 ? '' : 's'} / service${r.usage === 1 ? '' : 's'} scope to this type.`
+                    : 'Not referenced by any scoped tile or service.'
+              }
+            >
+              {/* Relabel */}
+              <form action={relabelEventTypeVocab} className="flex items-center gap-1">
+                <input type="hidden" name="event_type" value={r.key} />
+                <input type="hidden" name="_view" value="vocab-event" />
+                <input
+                  name="label_en"
+                  defaultValue={r.label}
+                  required
+                  minLength={2}
+                  maxLength={80}
+                  aria-label={`Rename ${r.key}`}
+                  className={`${VOCAB_INPUT} w-44`}
+                />
+                <SubmitButton className={VOCAB_BTN} pendingLabel="…">
+                  Save name
+                </SubmitButton>
+              </form>
+              {/* Status toggle */}
+              {!r.isBase ? (
+                <form action={setEventTypeVocabStatus}>
+                  <input type="hidden" name="event_type" value={r.key} />
+                  <input type="hidden" name="active" value={isActive ? '0' : '1'} />
+                  <input type="hidden" name="_view" value="vocab-event" />
+                  <SubmitButton
+                    className={
+                      isActive
+                        ? 'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700'
+                        : 'rounded-md border border-success-300 bg-white px-2 py-1 text-[10px] font-medium text-success-700 hover:bg-success-50'
+                    }
+                    pendingLabel="…"
+                  >
+                    {isActive ? 'Deactivate' : 'Reactivate'}
+                  </SubmitButton>
+                </form>
+              ) : null}
+            </VocabRowShell>
+          );
+        })}
+      </ul>
+      {filtered.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-6 text-center text-sm text-ink/55">
+          No event types match “{query}”.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+// ── Vocabularies · Faiths (wedding types) ────────────────────────────────────
+//
+// The faith_vocab editor + the per-faith launch gate folded from
+// /admin/wedding-types (status Live / Coming soon / Disabled + readiness
+// threshold + counts). ⚠ FAITH LANDMINE: keys are TITLE-CASE and compared with
+// strict `===` — the UI never lowercases a key. Additive-only, same as events.
+
+function FaithLaunchPill({ launch }: { launch: StudioFaithLaunch | null }) {
+  if (!launch) return <Badge tone="bg-ink/5 text-ink/45">no launch row</Badge>;
+  if (launch.status === 'active') return <Badge tone="bg-success-100 text-success-800">Live</Badge>;
+  if (launch.status === 'coming_soon')
+    return <Badge tone="bg-warn-100 text-warn-900">Coming soon</Badge>;
+  return <Badge tone="bg-ink/10 text-ink/60">Disabled</Badge>;
+}
+
+function FaithVocabPanel({ rows, query }: { rows: StudioFaithVocab[]; query: string }) {
+  const active = rows.filter((r) => r.status === 'active');
+  const filtered = query
+    ? rows.filter(
+        (r) => r.key.toLowerCase().includes(query) || r.label.toLowerCase().includes(query),
+      )
+    : rows;
+
+  return (
+    <section className="space-y-4">
+      <header className="rounded-xl border border-ink/10 bg-cream/60 p-4">
+        <div className="flex items-center gap-2">
+          <Church className="h-5 w-5 text-ink/60" aria-hidden />
+          <h2 className="text-base font-semibold text-ink">Faiths (wedding types)</h2>
+          <span className="font-mono text-[11px] text-ink/45">{active.length} active · {rows.length} total</span>
+        </div>
+        <p className="mt-1 max-w-prose text-sm text-ink/60">
+          The faith vocabulary that tags services and gates the wedding-type picker. The{' '}
+          <strong>launch gate</strong> (Live / Coming soon / Disabled + a readiness threshold)
+          decides which faiths couples can pick — open one when its vendors can cater it. Faith keys
+          are permanent and case-sensitive; deactivating one hides it from scoping while existing
+          tags keep working.
+        </p>
+      </header>
+
+      {/* Add-new */}
+      <form
+        action={createFaithVocab}
+        className="flex flex-wrap items-end gap-2 rounded-xl border border-success-200 bg-success-50/30 p-3"
+      >
+        <input type="hidden" name="_view" value="vocab-faith" />
+        <label className="space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            New faith
+          </span>
+          <input
+            name="label_en"
+            required
+            minLength={2}
+            maxLength={80}
+            placeholder="e.g. Methodist"
+            className={`${VOCAB_INPUT} w-52`}
+          />
+        </label>
+        <SubmitButton
+          className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
+          pendingLabel="Adding…"
+        >
+          <Plus className="mr-1 inline h-3 w-3" aria-hidden />
+          Add faith
+        </SubmitButton>
+        <span className="text-[11px] text-ink/45">
+          Key = Title-Case from the label · permanent · starts as Coming soon.
+        </span>
+      </form>
+
+      <ul className="space-y-2">
+        {filtered.map((r) => {
+          const isActive = r.status === 'active';
+          return (
+            <VocabRowShell
+              key={r.key}
+              reorder={
+                isActive ? (
+                  <ReorderButtons
+                    action={reorderFaithVocab}
+                    keyField="faith_key"
+                    keyValue={r.key}
+                    view="vocab-faith"
+                  />
+                ) : null
+              }
+              title={
+                <span className="text-sm font-semibold text-ink">
+                  {r.label}{' '}
+                  <code className="ml-1 font-mono text-[11px] font-normal text-ink/45">{r.key}</code>
+                </span>
+              }
+              statusPill={
+                <span className="flex items-center gap-1">
+                  {isActive ? (
+                    <Badge tone="bg-success-100 text-success-800">Active</Badge>
+                  ) : (
+                    <Badge tone="bg-ink/10 text-ink/55">Inactive</Badge>
+                  )}
+                  <FaithLaunchPill launch={r.launch} />
+                  {r.isCivil ? <Badge tone="bg-ink/5 text-ink/50">civil</Badge> : null}
+                </span>
+              }
+              usagePill={
+                <Badge tone={r.usage > 0 ? 'bg-warn-50 text-warn-800' : 'bg-ink/5 text-ink/45'}>
+                  {r.usage} tagged
+                </Badge>
+              }
+              subtitle={
+                r.launch
+                  ? `${r.launch.total} / ${r.launch.threshold} compatible · ${r.launch.vendorCount} vendors · ${r.launch.venueCount} ceremonial venues${r.launch.ready ? ' · ready' : ''}`
+                  : 'No launch-status row maps to this faith.'
+              }
+            >
+              {/* Relabel */}
+              <form action={relabelFaithVocab} className="flex items-center gap-1">
+                <input type="hidden" name="faith_key" value={r.key} />
+                <input type="hidden" name="_view" value="vocab-faith" />
+                <input
+                  name="label_en"
+                  defaultValue={r.label}
+                  required
+                  minLength={2}
+                  maxLength={80}
+                  aria-label={`Rename ${r.key}`}
+                  className={`${VOCAB_INPUT} w-44`}
+                />
+                <SubmitButton className={VOCAB_BTN} pendingLabel="…">
+                  Save name
+                </SubmitButton>
+              </form>
+
+              {/* Launch status flips */}
+              {r.launch ? (
+                <div className="flex flex-wrap items-center gap-1">
+                  {r.launch.status !== 'active' ? (
+                    <FaithLaunchButton faithKey={r.key} status="active" tone="live">
+                      Go live
+                    </FaithLaunchButton>
+                  ) : null}
+                  {r.launch.status !== 'coming_soon' ? (
+                    <FaithLaunchButton faithKey={r.key} status="coming_soon" tone="hold">
+                      Hold
+                    </FaithLaunchButton>
+                  ) : null}
+                  {r.launch.status !== 'disabled' ? (
+                    <FaithLaunchButton faithKey={r.key} status="disabled" tone="disable">
+                      Disable
+                    </FaithLaunchButton>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Readiness threshold */}
+              {r.launch ? (
+                <form action={setFaithLaunchThreshold} className="flex items-center gap-1">
+                  <input type="hidden" name="faith_key" value={r.key} />
+                  <input type="hidden" name="_view" value="vocab-faith" />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                    Ready at
+                  </span>
+                  <input
+                    name="threshold"
+                    type="number"
+                    min={0}
+                    max={100000}
+                    defaultValue={r.launch.threshold}
+                    aria-label={`Readiness threshold for ${r.key}`}
+                    className={`${VOCAB_INPUT} w-16`}
+                  />
+                  <SubmitButton className={VOCAB_BTN} pendingLabel="…">
+                    Save
+                  </SubmitButton>
+                </form>
+              ) : null}
+
+              {/* Status toggle (taxonomy status, distinct from launch) */}
+              {!r.isCivil ? (
+                <form action={setFaithVocabStatus}>
+                  <input type="hidden" name="faith_key" value={r.key} />
+                  <input type="hidden" name="active" value={isActive ? '0' : '1'} />
+                  <input type="hidden" name="_view" value="vocab-faith" />
+                  <SubmitButton
+                    className={
+                      isActive
+                        ? 'rounded-md border border-ink/15 bg-white px-2 py-1 text-[10px] font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700'
+                        : 'rounded-md border border-success-300 bg-white px-2 py-1 text-[10px] font-medium text-success-700 hover:bg-success-50'
+                    }
+                    pendingLabel="…"
+                  >
+                    {isActive ? 'Deactivate' : 'Reactivate'}
+                  </SubmitButton>
+                </form>
+              ) : null}
+            </VocabRowShell>
+          );
+        })}
+      </ul>
+      {filtered.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-6 text-center text-sm text-ink/55">
+          No faiths match “{query}”.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function FaithLaunchButton({
+  faithKey,
+  status,
+  tone,
+  children,
+}: {
+  faithKey: string;
+  status: string;
+  tone: 'live' | 'hold' | 'disable';
+  children: React.ReactNode;
+}) {
+  const cls =
+    tone === 'live'
+      ? 'bg-success-700 text-cream hover:bg-success-800'
+      : tone === 'hold'
+        ? 'border border-ink/15 bg-cream text-ink hover:border-terracotta/40 hover:text-terracotta'
+        : 'border border-ink/15 bg-cream text-ink/60 hover:border-danger-300 hover:text-danger-700';
+  return (
+    <form action={setFaithLaunchStatus}>
+      <input type="hidden" name="faith_key" value={faithKey} />
+      <input type="hidden" name="status" value={status} />
+      <input type="hidden" name="_view" value="vocab-faith" />
+      <SubmitButton
+        className={`rounded-md px-2 py-1 text-[10px] font-medium ${cls}`}
+        pendingLabel="…"
+      >
+        {children}
+      </SubmitButton>
+    </form>
   );
 }
 

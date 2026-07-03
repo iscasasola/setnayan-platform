@@ -27,7 +27,6 @@ import {
   Brain,
   Palette,
   Music,
-  Church,
   BookOpen,
   Bell,
   CircleUser,
@@ -69,14 +68,9 @@ const DATA_STRUCTURE_ITEMS: LandingItem[] = [
     description:
       'New-account onboarding settings grouped by type — background music and future per-flow knobs.',
   },
-  {
-    key: 'wedding-types',
-    label: 'Wedding types',
-    href: '/admin/wedding-types',
-    icon: Church,
-    description:
-      'Per-religion launch gate — vendor and venue readiness vs an editable threshold; open, hold, or disable each wedding religion.',
-  },
+  // 'wedding-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+  // Vocabularies → Faiths rail (/admin/taxonomy?view=vocab-faith), where the
+  // per-faith launch gate now lives. The standalone page redirects there.
   {
     key: 'wedding-traditions',
     label: 'Wedding traditions',

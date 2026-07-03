@@ -93,7 +93,6 @@ import {
   Trophy,
   CalendarDays,
   MapPin,
-  Church,
   BookOpen,
   DollarSign,
   PiggyBank,
@@ -688,12 +687,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/onboarding',
         icon: Compass,
       },
-      {
-        key: 'wedding-types',
-        label: 'Wedding types',
-        href: '/admin/wedding-types',
-        icon: Church,
-      },
+      // 'wedding-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+      // Vocabularies → Faiths rail (/admin/taxonomy?view=vocab-faith). The
+      // standalone page now redirects there.
       {
         key: 'wedding-traditions',
         label: 'Wedding traditions',

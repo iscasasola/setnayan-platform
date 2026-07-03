@@ -11,6 +11,9 @@ import {
 } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PROJECTABLE_LEAVES } from '@/lib/refinements-mutations';
+import { fetchReligionReadiness } from '@/lib/religion-readiness';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { WEDDING_TILE_ORDER, WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import {
   TaxonomyStudio,
   type StudioData,
@@ -19,6 +22,9 @@ import {
   type StudioLeafRefinement,
   type StudioRefinementLeaf,
   type StudioRefinementOption,
+  type StudioEventTypeVocab,
+  type StudioFaithVocab,
+  type StudioTileOption,
 } from './_components/taxonomy-studio';
 
 export const metadata = { title: 'Taxonomy Studio · Admin' };
@@ -122,7 +128,12 @@ export default async function AdminTaxonomyPage({
       : null;
   const viewRaw = first(sp.view);
   const view: StudioView =
-    viewRaw === 'faith' || viewRaw === 'scoped' || viewRaw === 'unfiled' || viewRaw === 'requests'
+    viewRaw === 'faith' ||
+    viewRaw === 'scoped' ||
+    viewRaw === 'unfiled' ||
+    viewRaw === 'requests' ||
+    viewRaw === 'vocab-event' ||
+    viewRaw === 'vocab-faith'
       ? viewRaw
       : 'all';
   const ok = first(sp.ok);
@@ -139,16 +150,18 @@ export default async function AdminTaxonomyPage({
         )
         .order('canonical_service', { ascending: true }),
       getTaxonomy(),
+      // FULL vocab rows (all statuses) — the Vocabularies rail edits these; the
+      // Studio filters to active where it needs the scoping picker set.
       admin
         .from('event_type_vocab')
-        .select('event_type, label_en, sort_order')
-        .eq('status', 'active')
-        .order('sort_order', { ascending: true }),
+        .select('event_type, label_en, sort_order, status, enabled')
+        .order('sort_order', { ascending: true })
+        .order('event_type', { ascending: true }),
       admin
         .from('faith_vocab')
-        .select('faith_key, label_en, sort_order')
-        .eq('status', 'active')
-        .order('sort_order', { ascending: true }),
+        .select('faith_key, label_en, sort_order, status, is_civil')
+        .order('sort_order', { ascending: true })
+        .order('faith_key', { ascending: true }),
       admin
         .from('taxonomy_category_requests')
         .select(
@@ -175,8 +188,20 @@ export default async function AdminTaxonomyPage({
     ]);
 
   const schemas = (schemasRes.data ?? []) as SchemaRow[];
-  const eventTypeVocab = (eventVocabRes.data ?? []) as { event_type: string; label_en: string }[];
-  const faithVocab = (faithRes.data ?? []) as { faith_key: string; label_en: string }[];
+  const eventTypeVocab = (eventVocabRes.data ?? []) as {
+    event_type: string;
+    label_en: string;
+    sort_order: number;
+    status: string;
+    enabled: boolean | null;
+  }[];
+  const faithVocab = (faithRes.data ?? []) as {
+    faith_key: string;
+    label_en: string;
+    sort_order: number;
+    status: string;
+    is_civil: boolean | null;
+  }[];
   const allRequests = (reqRes.data ?? []) as ReqRow[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
   const refLeafRows = (refLeafRes.data ?? []) as RefLeafRow[];
@@ -263,6 +288,9 @@ export default async function AdminTaxonomyPage({
       setnayan: Boolean(meta?.setnayan),
       rental: Boolean(meta?.rental),
       hidden: Boolean(meta?.marketplaceHidden),
+      tradition: Boolean(meta?.tradition),
+      dietary: meta?.dietary ?? null,
+      secondaryTiles: Array.isArray(meta?.secondary_tiles) ? [...meta.secondary_tiles] : [],
       schemaVersion: s.schema_version ?? 1,
       sharedGroups: Array.isArray(s.shared_attribute_groups) ? s.shared_attribute_groups : [],
       refinements: refinementFields,
@@ -276,6 +304,85 @@ export default async function AdminTaxonomyPage({
     serviceCountByTile.set(s.tileId, (serviceCountByTile.get(s.tileId) ?? 0) + 1);
     if (s.faith) faithCountByTile.set(s.tileId, (faithCountByTile.get(s.tileId) ?? 0) + 1);
   }
+
+  // ── Vocabularies rail data ───────────────────────────────────────────────
+  // Two extra parallel reads: (a) canonical-level applicable_event_types so an
+  // event-type's usage count spans tiles AND services; (b) the per-faith launch
+  // readiness rows (counts + status + threshold) folded from /admin/wedding-types.
+  const [canonAetRes, readinessRows] = await Promise.all([
+    admin.from('canonical_service_taxonomy').select('canonical_service, applicable_event_types'),
+    fetchReligionReadiness(admin),
+  ]);
+  const canonAet = (canonAetRes.data ?? []) as {
+    canonical_service: string;
+    applicable_event_types: string[] | null;
+  }[];
+
+  // Event-type usage = how many tiles + canonicals explicitly scope to each key.
+  // (A NULL/empty scope is universal and counts toward NONE — deactivating an
+  // unused key is the safe case the count is meant to surface.) Read tile scoping
+  // straight off the snapshot so this can run before `tiles` is built.
+  const eventUsage = new Map<string, number>();
+  for (const id of tax.tileOrder) {
+    for (const et of tax.tileEventTypes[id] ?? []) {
+      eventUsage.set(et, (eventUsage.get(et) ?? 0) + 1);
+    }
+  }
+  for (const c of canonAet) {
+    for (const et of c.applicable_event_types ?? []) {
+      eventUsage.set(et, (eventUsage.get(et) ?? 0) + 1);
+    }
+  }
+
+  // Faith usage = how many canonicals carry each Title-Case faith tag.
+  const faithUsage = new Map<string, number>();
+  for (const s of services) {
+    if (s.faith) faithUsage.set(s.faith, (faithUsage.get(s.faith) ?? 0) + 1);
+  }
+
+  // Readiness keyed by lowercase ceremony_type → map back onto Title-Case faith
+  // keys via the registry (NEVER lowercase a faith_key to look it up — use the
+  // registry's key field; 'Civil' → 'civil').
+  const faithColToCeremony = new Map<string, string>();
+  for (const f of FAITH_REGISTRY) faithColToCeremony.set(f.faithCol, f.key);
+  faithColToCeremony.set('Civil', 'civil');
+  const readinessByCeremony = new Map(readinessRows.map((r) => [r.ceremonyType, r]));
+
+  const eventTypeVocabFull: StudioEventTypeVocab[] = eventTypeVocab.map((v) => ({
+    key: v.event_type,
+    label: v.label_en,
+    status: v.status,
+    usage: eventUsage.get(v.event_type) ?? 0,
+    isBase: v.event_type === 'wedding',
+  }));
+
+  const faithVocabFull: StudioFaithVocab[] = faithVocab.map((f) => {
+    const ceremony = faithColToCeremony.get(f.faith_key) ?? null;
+    const readiness = ceremony ? readinessByCeremony.get(ceremony) ?? null : null;
+    return {
+      key: f.faith_key,
+      label: f.label_en,
+      status: f.status,
+      isCivil: f.is_civil === true,
+      usage: faithUsage.get(f.faith_key) ?? 0,
+      launch: readiness
+        ? {
+            status: readiness.status,
+            threshold: readiness.threshold,
+            vendorCount: readiness.vendorCount,
+            venueCount: readiness.venueCount,
+            total: readiness.total,
+            ready: readiness.ready,
+          }
+        : null,
+    };
+  });
+
+  // Tile options for the secondary-tiles cross-listing picker (label per tile).
+  const tileOptions: StudioTileOption[] = (WEDDING_TILE_ORDER as readonly WeddingTile[]).map((id) => ({
+    id,
+    label: WEDDING_TILE_LABEL[id] ?? id,
+  }));
 
   // ── Tiles + folders ──
   const tilesRaw = tax.tileOrder.map((id) => ({
@@ -350,8 +457,17 @@ export default async function AdminTaxonomyPage({
     folders,
     tiles,
     services,
-    eventVocab: eventTypeVocab.map((v) => ({ key: v.event_type, label: v.label_en })),
-    faithVocab: faithVocab.map((f) => ({ key: f.faith_key, label: f.label_en })),
+    // Active-only picker sets (Services tab faith/event dropdowns).
+    eventVocab: eventTypeVocab
+      .filter((v) => v.status === 'active')
+      .map((v) => ({ key: v.event_type, label: v.label_en })),
+    faithVocab: faithVocab
+      .filter((f) => f.status === 'active')
+      .map((f) => ({ key: f.faith_key, label: f.label_en })),
+    // Full vocab rows (all statuses) + usage counts for the Vocabularies rail.
+    eventTypeVocab: eventTypeVocabFull,
+    faithVocabFull,
+    tileOptions,
     requests: pendingRequests.map((r) => ({
       requestId: r.request_id,
       proposedLabel: r.proposed_label,

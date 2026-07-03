@@ -567,9 +567,19 @@ function SignInOverlay({
  * (never a named competitor). Desktop fits without scrolling; the overlay
  * wrapper (.home-reskin-ov, overflow-y auto) scrolls on small screens.
  */
-const AI_COMPARE_TEAM_PHP_MO = 50_000; // 2–3-person team · typical PH rates (illustrative)
-const AI_COMPARE_APPS_PHP_MO = 2_900; // planning AIs abroad · top of range
-const AI_COMPARE_DIY_HOURS_MO: [number, number] = [25, 50]; // hands-on checking (illustrative)
+/**
+ * Owner-set MAXIMA (2026-07-03): each compare mode is anchored to a fixed
+ * ceiling — the alternative's value at the slider's 26-month end — and every
+ * position on the slider is that ceiling × months/26. Both bars draw against
+ * this fixed scale, so dragging the slider makes BOTH values (and both bars)
+ * visibly rise instead of the alternative sitting at a static full bar.
+ * Hire ≈ ₱46,667/28d (a 2–3-person team at typical PH rates, prorated);
+ * apps ≈ ₱3,846/28d (planning AIs abroad, top of range); DIY upper ≈ 47 h/28d.
+ */
+const AI_COMPARE_MAX_MONTHS = 26;
+const AI_COMPARE_TEAM_MAX_PHP = 1_213_333;
+const AI_COMPARE_APPS_MAX_PHP = 100_000;
+const AI_COMPARE_DIY_MAX_HOURS = 1_213;
 
 function SetnayanAiOverlay({
   current,
@@ -592,9 +602,8 @@ function SetnayanAiOverlay({
   // Setnayan AI over the window: the ₱499 intro cycle + ₱799 × the rest —
   // raw numbers straight from the catalog resolve (pricing-data.ts).
   const mine = pricing.aiIntroPhp + pricing.aiRegularPhp * Math.max(0, months - 1);
-  // Alternatives are quoted per CALENDAR month → prorate to the 28-day window so
-  // we never overstate them (13 cycles ≈ 12.1 calendar months).
-  const calMonths = (months * 28) / 30;
+  // Every mode scales linearly toward its owner-set ceiling at 26 months.
+  const frac = months / AI_COMPARE_MAX_MONTHS;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
 
   const CHIPS: Array<['hire' | 'apps' | 'diy', string]> = [
@@ -602,27 +611,33 @@ function SetnayanAiOverlay({
     ['apps', 'vs other AI apps'],
     ['diy', 'vs doing it yourself'],
   ];
+  const teamPhp = AI_COMPARE_TEAM_MAX_PHP * frac;
+  const appsPhp = AI_COMPARE_APPS_MAX_PHP * frac;
+  const diyHours = AI_COMPARE_DIY_MAX_HOURS * frac;
   const compare =
     mode === 'hire'
       ? {
           sub: 'A 2–3 person team doing this until your day (typical PH rates, illustrative):',
-          save: `you save ${peso(AI_COMPARE_TEAM_PHP_MO * calMonths - mine)}`,
-          themLabel: `Hired team · ${peso(AI_COMPARE_TEAM_PHP_MO * calMonths)}`,
-          usPct: Math.max((mine / (AI_COMPARE_TEAM_PHP_MO * calMonths)) * 100, 1.2),
-          foot: 'Bars drawn to scale. Setnayan AI ends on your wedding day.',
+          save: `you save ${peso(teamPhp - mine)}`,
+          themLabel: `Hired team · ${peso(teamPhp)}`,
+          themPct: frac * 100,
+          usPct: Math.max((mine / AI_COMPARE_TEAM_MAX_PHP) * 100, 1.2),
+          foot: 'Bars drawn to one scale — both grow with your timeline. Setnayan AI ends on your wedding day.',
         }
       : mode === 'apps'
         ? {
-            sub: `A planning AI abroad until your day (${peso(AI_COMPARE_APPS_PHP_MO)}/mo, top of range):`,
-            save: `you save ${peso(Math.max(0, AI_COMPARE_APPS_PHP_MO * calMonths - mine))}`,
-            themLabel: `Other AI apps · ${peso(AI_COMPARE_APPS_PHP_MO * calMonths)}`,
-            usPct: Math.max((mine / (AI_COMPARE_APPS_PHP_MO * calMonths)) * 100, 1.2),
-            foot: 'Drawn to scale — and theirs waits for your questions; it doesn’t watch your vendors.',
+            sub: `A planning AI abroad until your day (${peso(AI_COMPARE_APPS_MAX_PHP / AI_COMPARE_MAX_MONTHS)}/mo, top of range):`,
+            save: `you save ${peso(Math.max(0, appsPhp - mine))}`,
+            themLabel: `Other AI apps · ${peso(appsPhp)}`,
+            themPct: frac * 100,
+            usPct: Math.max((mine / AI_COMPARE_APPS_MAX_PHP) * 100, 1.2),
+            foot: 'Drawn to one scale — and theirs waits for your questions; it doesn’t watch your vendors.',
           }
         : {
             sub: 'Keeping every vendor, price and deadline current by hand:',
-            save: `you get back ${Math.round(AI_COMPARE_DIY_HOURS_MO[0] * calMonths).toLocaleString()}–${Math.round(AI_COMPARE_DIY_HOURS_MO[1] * calMonths).toLocaleString()} hours`,
-            themLabel: `Your hours · ${Math.round(AI_COMPARE_DIY_HOURS_MO[1] * calMonths).toLocaleString()} h`,
+            save: `you get back ${Math.round(diyHours / 2).toLocaleString()}–${Math.round(diyHours).toLocaleString()} hours`,
+            themLabel: `Your hours · ${Math.round(diyHours).toLocaleString()} h`,
+            themPct: frac * 100,
             usPct: 2,
             foot: '≈ 25–50 hours of checking per month, illustrative — it runs in the background instead.',
           };
@@ -706,7 +721,7 @@ function SetnayanAiOverlay({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
           <span style={{ flex: '0 0 118px', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: '100%', background: '#c5a059', borderRadius: 'var(--m-r-full)' }} />
+            <div style={{ height: '100%', width: `${compare.themPct}%`, background: '#c5a059', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>

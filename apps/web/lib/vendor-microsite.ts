@@ -45,14 +45,19 @@ export type VendorMicrosite = {
   pinnedReviewId: string | null;
   /** Story event_ids featured (first) in the public Editorials section (PRO). */
   featuredEditorialIds: string[];
-  /** Ordered YouTube video IDs for the Enterprise "Films" video portfolio. */
-  videoIds: string[];
+  /**
+   * Ordered video refs for the Enterprise "Films" video portfolio. Each is a
+   * YouTube or Vimeo video (owner decision 2026-07-03: those two providers
+   * ONLY; Google Drive declined). Stored provider-prefixed in the DB, parsed
+   * back to structured refs here.
+   */
+  videos: VideoRef[];
 };
 
 export const MICROSITE_ABOUT_MAX = 600;
 export const MICROSITE_FEATURED_SERVICES_MAX = 3;
 export const MICROSITE_FEATURED_EDITORIALS_MAX = 3;
-export const MICROSITE_VIDEOS_MAX = 6;
+export const MICROSITE_VIDEOS_MAX = 30;
 
 /**
  * Normalize a pasted YouTube link (or bare id) to its canonical 11-char video
@@ -79,14 +84,167 @@ export function parseYouTubeId(input: string | null | undefined): string | null 
   return null;
 }
 
-/** Privacy-preserving embed URL (no cookies until the viewer plays). */
+/** A parsed film reference — YouTube or Vimeo (owner-locked providers). */
+export type VideoRef =
+  | { provider: 'youtube'; id: string }
+  | { provider: 'vimeo'; id: string; hash?: string };
+
+/**
+ * Normalize a pasted link (or bare id) to a structured {@link VideoRef}, or
+ * null if it isn't a recognizable YouTube or Vimeo video. Providers are
+ * owner-locked to YouTube + Vimeo (2026-07-03) — Google Drive and everything
+ * else are rejected via the null return.
+ *
+ * YouTube parsing is delegated to {@link parseYouTubeId} (bare 11-char ids and
+ * all URL forms). Vimeo forms:
+ *   - vimeo.com/{id}                       (numeric id)
+ *   - vimeo.com/{id}/{hash}                (unlisted share link — h= hash)
+ *   - vimeo.com/video/{id}
+ *   - player.vimeo.com/video/{id}[?h={hash}]
+ *   - vimeo.com/channels/{name}/{id}
+ *   - vimeo.com/groups/{name}/videos/{id}
+ *   - a bare numeric id
+ *
+ * Ambiguity: YouTube ids are exactly 11 chars from `[A-Za-z0-9_-]`; Vimeo ids
+ * are purely numeric (typically 6–11 digits). An 11-digit bare number is a
+ * valid YouTube id ONLY by coincidence — but a bare *all-digit* token is never
+ * a real YouTube id in practice and is far more likely a pasted Vimeo id, so
+ * bare all-numeric input resolves to Vimeo. Non-numeric bare 11-char tokens
+ * stay YouTube (backward-compat with existing stored ids).
+ */
+export function parseVideoRef(input: string | null | undefined): VideoRef | null {
+  const raw = (input ?? '').trim();
+  if (!raw) return null;
+
+  const looksLikeUrl = /^(https?:\/\/|www\.)|\//.test(raw) || raw.includes('.');
+
+  // Bare token (no URL/path/dot): all-digits → Vimeo id; else try YouTube id.
+  if (!looksLikeUrl) {
+    if (/^\d{6,15}$/.test(raw)) return { provider: 'vimeo', id: raw };
+    const yt = parseYouTubeId(raw);
+    return yt ? { provider: 'youtube', id: yt } : null;
+  }
+
+  // A Vimeo URL? Match the host explicitly at a real host boundary (start, a
+  // preceding "/" from the scheme, or a "." subdomain) so neither a Drive link
+  // nor a look-alike like "evilvimeo.com" can slip in.
+  if (/(?:^|\/\/|\.)(?:player\.)?vimeo\.com\//i.test(raw)) {
+    // player.vimeo.com/video/{id}[?h={hash}] — hash lives in the query string.
+    const player = raw.match(/player\.vimeo\.com\/video\/(\d+)/i);
+    if (player?.[1]) {
+      const h = raw.match(/[?&]h=([A-Za-z0-9]+)/);
+      return h?.[1]
+        ? { provider: 'vimeo', id: player[1], hash: h[1] }
+        : { provider: 'vimeo', id: player[1] };
+    }
+    // vimeo.com/channels/{x}/{id} and /groups/{x}/videos/{id}
+    const channel = raw.match(/vimeo\.com\/channels\/[^/]+\/(\d+)/i);
+    if (channel?.[1]) return { provider: 'vimeo', id: channel[1] };
+    const group = raw.match(/vimeo\.com\/groups\/[^/]+\/videos\/(\d+)/i);
+    if (group?.[1]) return { provider: 'vimeo', id: group[1] };
+    // vimeo.com/video/{id}
+    const videoPath = raw.match(/vimeo\.com\/video\/(\d+)/i);
+    if (videoPath?.[1]) return { provider: 'vimeo', id: videoPath[1] };
+    // vimeo.com/{id}[/{hash}] — plain + unlisted share link.
+    const plain = raw.match(/vimeo\.com\/(\d+)(?:\/([A-Za-z0-9]+))?/i);
+    if (plain?.[1]) {
+      return plain[2]
+        ? { provider: 'vimeo', id: plain[1], hash: plain[2] }
+        : { provider: 'vimeo', id: plain[1] };
+    }
+    return null;
+  }
+
+  // Otherwise fall back to YouTube URL parsing (rejects Drive / unknown hosts).
+  const yt = parseYouTubeId(raw);
+  return yt ? { provider: 'youtube', id: yt } : null;
+}
+
+/**
+ * Serialize a {@link VideoRef} to its stored string form. YouTube stays a bare
+ * 11-char id (backward-compat with pre-Vimeo rows); Vimeo stores as
+ * `vimeo:{id}` or `vimeo:{id}:{hash}` for unlisted-with-hash links.
+ */
+export function serializeVideoRef(ref: VideoRef): string {
+  if (ref.provider === 'youtube') return ref.id;
+  return ref.hash ? `vimeo:${ref.id}:${ref.hash}` : `vimeo:${ref.id}`;
+}
+
+/**
+ * Parse a stored string back to a {@link VideoRef}. `vimeo:{id}[:{hash}]` →
+ * Vimeo; anything else is run through {@link parseVideoRef} (bare 11-char id →
+ * YouTube, per the backward-compat rule). Returns null for unrecognized data.
+ */
+export function deserializeVideoRef(stored: string | null | undefined): VideoRef | null {
+  const raw = (stored ?? '').trim();
+  if (!raw) return null;
+  if (raw.toLowerCase().startsWith('vimeo:')) {
+    const [, id, hash] = raw.split(':');
+    if (id && /^\d+$/.test(id)) {
+      return hash ? { provider: 'vimeo', id, hash } : { provider: 'vimeo', id };
+    }
+    return null;
+  }
+  return parseVideoRef(raw);
+}
+
+/** Privacy-preserving embed URL (no cookies/tracking until the viewer plays). */
+export function videoEmbedUrl(ref: VideoRef): string {
+  if (ref.provider === 'youtube') {
+    return `https://www.youtube-nocookie.com/embed/${ref.id}`;
+  }
+  const base = `https://player.vimeo.com/video/${ref.id}?dnt=1`;
+  return ref.hash ? `${base}&h=${ref.hash}` : base;
+}
+
+/**
+ * Static thumbnail URL for a video ref, or null when none exists without a
+ * network call. YouTube has a deterministic thumb host; Vimeo does NOT — its
+ * poster requires an oEmbed lookup (see {@link fetchVimeoThumb}), so this
+ * returns null for Vimeo and the UI falls back to a poster-less card.
+ */
+export function videoThumb(ref: VideoRef): string | null {
+  if (ref.provider === 'youtube') {
+    return `https://i.ytimg.com/vi/${ref.id}/hqdefault.jpg`;
+  }
+  return null;
+}
+
+/** Privacy-preserving YouTube embed URL. @deprecated use {@link videoEmbedUrl}. */
 export function youTubeEmbedUrl(id: string): string {
   return `https://www.youtube-nocookie.com/embed/${id}`;
 }
 
-/** Lightweight thumbnail for the editor chips. */
+/** Lightweight YouTube thumbnail. @deprecated use {@link videoThumb}. */
 export function youTubeThumb(id: string): string {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
+
+/**
+ * Fetch a Vimeo poster via the public oEmbed endpoint, with long Next fetch
+ * caching so the public page cost stays near zero. Any failure (outage, private
+ * video, rate limit) degrades to null — the caller renders a poster-less card.
+ * NO third-party thumbnail services; oEmbed is Vimeo's own endpoint.
+ */
+export async function fetchVimeoThumb(
+  id: string,
+  hash?: string,
+): Promise<string | null> {
+  try {
+    const target = hash
+      ? `https://vimeo.com/${id}/${hash}`
+      : `https://vimeo.com/${id}`;
+    const res = await fetch(
+      `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(target)}`,
+      // Cache aggressively — a poster URL is effectively immutable per video.
+      { next: { revalidate: 60 * 60 * 24 * 7 } },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { thumbnail_url?: unknown };
+    return typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -111,7 +269,7 @@ export const DEFAULT_MICROSITE: VendorMicrosite = {
   accent: null,
   pinnedReviewId: null,
   featuredEditorialIds: [],
-  videoIds: [],
+  videos: [],
 };
 
 /** A section renders unless it has been explicitly turned off. */
@@ -250,26 +408,28 @@ export async function fetchVendorMicrosite(
       accent: row.microsite_accent ?? null,
       pinnedReviewId: row.microsite_pinned_review_id ?? null,
       featuredEditorialIds: coerceStringArray(row.microsite_featured_editorial_ids),
-      videoIds: [],
+      videos: [],
     };
   } catch {
     return DEFAULT_MICROSITE;
   }
 
-  // Videos live in a column added later (migration 20270505905788). Fetch it
+  // Videos live in a column added earlier (migration 20270505905788). Fetch it
   // SEPARATELY + defensively so a not-yet-applied migration only empties the
-  // video rack — it can never blank the rest of the microsite above.
+  // video rack — it can never blank the rest of the microsite above. Stored
+  // values are provider-prefixed strings (`vimeo:{id}[:{hash}]`) or bare
+  // 11-char YouTube ids (legacy rows) — deserializeVideoRef handles both.
   try {
     const { data } = await client
       .from('vendor_profiles')
       .select('microsite_video_ids')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    const ids = coerceStringArray((data as MicrositeRow | null)?.microsite_video_ids)
-      .map((v) => parseYouTubeId(v))
-      .filter((v): v is string => Boolean(v))
+    const videos = coerceStringArray((data as MicrositeRow | null)?.microsite_video_ids)
+      .map((v) => deserializeVideoRef(v))
+      .filter((v): v is VideoRef => Boolean(v))
       .slice(0, MICROSITE_VIDEOS_MAX);
-    base = { ...base, videoIds: ids };
+    base = { ...base, videos };
   } catch {
     // Column not applied yet → no videos; the rest of the microsite is intact.
   }

@@ -15,14 +15,25 @@ import {
   MICROSITE_TOGGLEABLE_SECTIONS,
   MICROSITE_VIDEOS_MAX,
   isSectionVisible,
-  parseYouTubeId,
-  youTubeThumb,
+  parseVideoRef,
+  serializeVideoRef,
+  videoThumb,
 } from '@/lib/vendor-microsite';
 
 import { updateVendorWebsiteField } from '../../actions';
 
 export type MicrositePortfolioPhoto = { key: string; url: string };
 export type MicrositeReviewOption = { id: string; label: string };
+/**
+ * One Films entry for the editor grid: the stored provider-prefixed string, its
+ * provider, and a poster URL. Vimeo posters are prefetched server-side (oEmbed)
+ * and passed in; a null thumb renders the poster-less fallback tile.
+ */
+export type MicrositeVideoCard = {
+  stored: string;
+  provider: 'youtube' | 'vimeo';
+  thumb: string | null;
+};
 
 /**
  * My Shop → Website. Direct, on-surface editor (2026-07-02 redesign, owner:
@@ -58,7 +69,7 @@ export function WebsiteEditor({
   pinnedReviewId,
   editorials,
   featuredEditorialIds,
-  videoIds,
+  videos,
 }: {
   publicPath: string | null;
   displayHost: string;
@@ -81,7 +92,7 @@ export function WebsiteEditor({
   pinnedReviewId: string | null;
   editorials: MicrositeReviewOption[];
   featuredEditorialIds: string[];
-  videoIds: string[];
+  videos: MicrositeVideoCard[];
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -213,24 +224,25 @@ export function WebsiteEditor({
     );
   }
 
-  // ── Enterprise: video portfolio (YouTube · add one URL / remove chip) ───────
-  const [vids, setVids] = useState<string[]>(videoIds);
+  // ── Enterprise: video portfolio (YouTube + Vimeo · add one URL / remove) ────
+  const [vids, setVids] = useState<MicrositeVideoCard[]>(videos);
   const [vidUrl, setVidUrl] = useState('');
-  function saveVids(next: string[], was: string[]) {
+  function saveVids(next: MicrositeVideoCard[], was: MicrositeVideoCard[]) {
     setVids(next);
     dispatch(
       'microsite_videos',
-      next.map((id) => ['microsite_videos', id]),
+      next.map((v) => ['microsite_videos', v.stored]),
       { onError: () => setVids(was) },
     );
   }
   function addVideo() {
-    const id = parseYouTubeId(vidUrl);
-    if (!id) {
-      toast.error('Paste a YouTube link (or video id).');
+    const ref = parseVideoRef(vidUrl);
+    if (!ref) {
+      toast.error('Paste a YouTube or Vimeo link (or video id).');
       return;
     }
-    if (vids.includes(id)) {
+    const stored = serializeVideoRef(ref);
+    if (vids.some((v) => v.stored === stored)) {
       toast.error('That video is already in your films.');
       setVidUrl('');
       return;
@@ -240,10 +252,17 @@ export function WebsiteEditor({
       return;
     }
     setVidUrl('');
-    saveVids([...vids, id], vids);
+    // New entries render from the static thumb (YouTube) or the poster-less
+    // fallback tile (Vimeo — its oEmbed poster resolves on the next reload).
+    const card: MicrositeVideoCard = {
+      stored,
+      provider: ref.provider,
+      thumb: videoThumb(ref),
+    };
+    saveVids([...vids, card], vids);
   }
-  function removeVideo(id: string) {
-    saveVids(vids.filter((x) => x !== id), vids);
+  function removeVideo(stored: string) {
+    saveVids(vids.filter((v) => v.stored !== stored), vids);
   }
 
   return (
@@ -623,13 +642,13 @@ export function WebsiteEditor({
               )}
             </Row>
 
-            {/* Enterprise: video portfolio (Films) — YouTube embeds that play on
-                the public page. Real control for Enterprise; a quiet upgrade
-                teaser for Pro. */}
+            {/* Enterprise: video portfolio (Films) — YouTube + Vimeo embeds that
+                play on the public page. Real control for Enterprise; a quiet
+                upgrade teaser for Pro. */}
             {isEnterprise ? (
               <Row
                 title="Films"
-                hint={`${vids.length}/${MICROSITE_VIDEOS_MAX} · YouTube`}
+                hint={`${vids.length}/${MICROSITE_VIDEOS_MAX} · YouTube or Vimeo`}
                 tight
               >
                 <div className="space-y-2.5">
@@ -645,8 +664,8 @@ export function WebsiteEditor({
                           addVideo();
                         }
                       }}
-                      placeholder="Paste a YouTube link…"
-                      aria-label="YouTube video link"
+                      placeholder="Paste a YouTube or Vimeo link…"
+                      aria-label="YouTube or Vimeo video link"
                       disabled={vids.length >= MICROSITE_VIDEOS_MAX}
                       className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
                       style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
@@ -668,21 +687,32 @@ export function WebsiteEditor({
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {vids.map((id) => (
+                      {vids.map((v) => (
                         <div
-                          key={id}
+                          key={v.stored}
                           className="group relative overflow-hidden rounded-lg border"
                           style={{ borderColor: 'var(--m-line)' }}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={youTubeThumb(id)}
-                            alt=""
-                            className="aspect-video w-full object-cover"
-                          />
+                          {v.thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={v.thumb}
+                              alt=""
+                              className="aspect-video w-full object-cover"
+                            />
+                          ) : (
+                            // Poster-less fallback (Vimeo with no resolved oEmbed
+                            // thumb): dark tile, centered play glyph, provider tag.
+                            <div className="flex aspect-video w-full flex-col items-center justify-center gap-1 bg-ink/85 text-white/90">
+                              <Film className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+                              <span className="text-[10px] font-medium uppercase tracking-wide">
+                                {v.provider === 'vimeo' ? 'Vimeo' : 'Video'}
+                              </span>
+                            </div>
+                          )}
                           <button
                             type="button"
-                            onClick={() => removeVideo(id)}
+                            onClick={() => removeVideo(v.stored)}
                             aria-label="Remove film"
                             className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full"
                             style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
@@ -702,7 +732,7 @@ export function WebsiteEditor({
                   style={{ color: 'var(--m-slate-3)' }}
                 >
                   <Film className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Playable YouTube films on your page —{' '}
+                  Playable YouTube &amp; Vimeo films on your page —{' '}
                   <span className="font-medium">Enterprise</span>.
                 </div>
               </Row>

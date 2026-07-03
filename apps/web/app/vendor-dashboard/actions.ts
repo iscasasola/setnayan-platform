@@ -31,7 +31,8 @@ import {
   MICROSITE_VIDEOS_MAX,
   isValidAccentKey,
   micrositeCan,
-  parseYouTubeId,
+  parseVideoRef,
+  serializeVideoRef,
 } from '@/lib/vendor-microsite';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -1191,18 +1192,21 @@ export async function updateVendorWebsiteField(
     }
     case 'microsite_videos': {
       // Enterprise "Films" portfolio — normalize each submitted value to a
-      // canonical YouTube id, drop anything unrecognizable + dupes, cap the rack.
+      // canonical YouTube/Vimeo ref (owner-locked providers; Drive rejected),
+      // serialize provider-prefixed, drop unrecognizable + cross-provider dupes,
+      // cap the combined rack.
       const seen = new Set<string>();
-      const ids: string[] = [];
+      const stored: string[] = [];
       for (const v of formData.getAll('microsite_videos').map(String)) {
-        const id = parseYouTubeId(v);
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          ids.push(id);
-        }
-        if (ids.length >= MICROSITE_VIDEOS_MAX) break;
+        const ref = parseVideoRef(v);
+        if (!ref) continue;
+        const key = serializeVideoRef(ref);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        stored.push(key);
+        if (stored.length >= MICROSITE_VIDEOS_MAX) break;
       }
-      patch = { microsite_video_ids: ids };
+      patch = { microsite_video_ids: stored };
       break;
     }
     default:

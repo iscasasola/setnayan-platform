@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Check, Globe, Lock, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Check, Film, Globe, Lock, Plus, Sparkles, X } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -13,7 +13,10 @@ import {
   MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
+  MICROSITE_VIDEOS_MAX,
   isSectionVisible,
+  parseYouTubeId,
+  youTubeThumb,
 } from '@/lib/vendor-microsite';
 
 import { updateVendorWebsiteField } from '../../actions';
@@ -39,6 +42,7 @@ export function WebsiteEditor({
   websiteLive,
   isPro,
   canPersonalize,
+  isEnterprise,
   about,
   sections,
   featuredServiceIds,
@@ -54,12 +58,14 @@ export function WebsiteEditor({
   pinnedReviewId,
   editorials,
   featuredEditorialIds,
+  videoIds,
 }: {
   publicPath: string | null;
   displayHost: string;
   websiteLive: boolean;
   isPro: boolean;
   canPersonalize: boolean;
+  isEnterprise: boolean;
   about: string | null;
   sections: Record<string, boolean>;
   featuredServiceIds: string[];
@@ -75,6 +81,7 @@ export function WebsiteEditor({
   pinnedReviewId: string | null;
   editorials: MicrositeReviewOption[];
   featuredEditorialIds: string[];
+  videoIds: string[];
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -204,6 +211,39 @@ export function WebsiteEditor({
       next.map((k) => ['microsite_featured_editorials', k]),
       { onError: () => setEdPicked(was) },
     );
+  }
+
+  // ── Enterprise: video portfolio (YouTube · add one URL / remove chip) ───────
+  const [vids, setVids] = useState<string[]>(videoIds);
+  const [vidUrl, setVidUrl] = useState('');
+  function saveVids(next: string[], was: string[]) {
+    setVids(next);
+    dispatch(
+      'microsite_videos',
+      next.map((id) => ['microsite_videos', id]),
+      { onError: () => setVids(was) },
+    );
+  }
+  function addVideo() {
+    const id = parseYouTubeId(vidUrl);
+    if (!id) {
+      toast.error('Paste a YouTube link (or video id).');
+      return;
+    }
+    if (vids.includes(id)) {
+      toast.error('That video is already in your films.');
+      setVidUrl('');
+      return;
+    }
+    if (vids.length >= MICROSITE_VIDEOS_MAX) {
+      toast.error(`Up to ${MICROSITE_VIDEOS_MAX} films.`);
+      return;
+    }
+    setVidUrl('');
+    saveVids([...vids, id], vids);
+  }
+  function removeVideo(id: string) {
+    saveVids(vids.filter((x) => x !== id), vids);
   }
 
   return (
@@ -582,6 +622,91 @@ export function WebsiteEditor({
                 </div>
               )}
             </Row>
+
+            {/* Enterprise: video portfolio (Films) — YouTube embeds that play on
+                the public page. Real control for Enterprise; a quiet upgrade
+                teaser for Pro. */}
+            {isEnterprise ? (
+              <Row
+                title="Films"
+                hint={`${vids.length}/${MICROSITE_VIDEOS_MAX} · YouTube`}
+                tight
+              >
+                <div className="space-y-2.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      inputMode="url"
+                      value={vidUrl}
+                      onChange={(e) => setVidUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addVideo();
+                        }
+                      }}
+                      placeholder="Paste a YouTube link…"
+                      aria-label="YouTube video link"
+                      disabled={vids.length >= MICROSITE_VIDEOS_MAX}
+                      className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+                      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={addVideo}
+                      disabled={vids.length >= MICROSITE_VIDEOS_MAX}
+                      className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-40"
+                      style={{ background: 'var(--m-orange)', color: 'var(--m-paper)' }}
+                    >
+                      <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                      Add
+                    </button>
+                  </div>
+                  {vids.length === 0 ? (
+                    <p className="text-sm text-ink/60">
+                      Add your highlight films — they play right on your page.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {vids.map((id) => (
+                        <div
+                          key={id}
+                          className="group relative overflow-hidden rounded-lg border"
+                          style={{ borderColor: 'var(--m-line)' }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={youTubeThumb(id)}
+                            alt=""
+                            className="aspect-video w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeVideo(id)}
+                            aria-label="Remove film"
+                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full"
+                            style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                          >
+                            <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Row>
+            ) : (
+              <Row title="Films" tight>
+                <div
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: 'var(--m-slate-3)' }}
+                >
+                  <Film className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  Playable YouTube films on your page —{' '}
+                  <span className="font-medium">Enterprise</span>.
+                </div>
+              </Row>
+            )}
           </div>
         ) : (
           <ul className="mt-3 space-y-2">

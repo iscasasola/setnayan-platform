@@ -130,6 +130,7 @@ type ShopData = {
   websiteLive: boolean;
   isProWebsite: boolean;
   canPersonalize: boolean;
+  isEnterpriseWebsite: boolean;
   yearsLabel: string | null;
   microsite: VendorMicrosite;
   portfolioPhotos: { key: string; url: string }[];
@@ -396,6 +397,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const microsite = await fetchVendorMicrosite(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
   const canPersonalize = micrositeCan(tier).canPersonalize;
+  const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
   const yearsLabel = profile.in_business_since_year
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
     : null;
@@ -448,6 +450,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       isPubliclyVisible(profile.public_visibility),
     isProWebsite,
     canPersonalize,
+    isEnterpriseWebsite,
     yearsLabel,
     microsite,
     portfolioPhotos,
@@ -621,6 +624,7 @@ export default async function VendorShopPage({
             websiteLive={data.websiteLive}
             isPro={data.isProWebsite}
             canPersonalize={data.canPersonalize}
+            isEnterprise={data.isEnterpriseWebsite}
             about={data.microsite.about}
             sections={data.microsite.sections}
             featuredServiceIds={data.microsite.featuredServiceIds}
@@ -636,6 +640,7 @@ export default async function VendorShopPage({
             pinnedReviewId={data.microsite.pinnedReviewId}
             editorials={data.editorialOptions}
             featuredEditorialIds={data.microsite.featuredEditorialIds}
+            videoIds={data.microsite.videoIds}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}

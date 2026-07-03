@@ -108,6 +108,7 @@ import {
   micrositeAccentVars,
   micrositeCan,
   orderFeaturedFirst,
+  youTubeEmbedUrl,
 } from '@/lib/vendor-microsite';
 import {
   DEMO_MODE_COOKIE_NAME,
@@ -1683,6 +1684,35 @@ export async function renderVendorBySlug({
                     fill
                     sizes="(max-width: 640px) 50vw, 33vw"
                     className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Films — the Enterprise "Flagship" video portfolio. Playable YouTube
+            embeds (youtube-nocookie, lazy). Enterprise-only + reverts on
+            downgrade (data kept); auto-hidden when empty. */}
+        {isEnterprise && microsite.videoIds.length > 0 ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Films
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {microsite.videoIds.map((id) => (
+                <div
+                  key={id}
+                  className="relative aspect-video overflow-hidden rounded-xl bg-ink/5"
+                >
+                  <iframe
+                    src={youTubeEmbedUrl(id)}
+                    title={`${displayLabel} film`}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    className="absolute inset-0 h-full w-full"
                   />
                 </div>
               ))}

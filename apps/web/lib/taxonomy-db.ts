@@ -45,7 +45,7 @@ export const getTaxonomy = cache(async (): Promise<TaxonomySnapshot> => {
       sb
         .from('service_categories')
         .select(
-          'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key',
+          'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden',
         )
         .lte('tier', 2),
       sb

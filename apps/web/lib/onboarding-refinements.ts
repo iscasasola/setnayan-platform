@@ -59,6 +59,7 @@ type TileRow = {
   parent_id: string | null;
   applicable_event_types: string[] | null;
   sample_photo_r2_key: string | null;
+  marketplace_hidden: boolean | null;
 };
 
 /**
@@ -74,12 +75,15 @@ export const getOnboardingTiles = cache(async (eventType: string = 'wedding'): P
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('service_categories')
-      .select('id,label_en,parent_id,applicable_event_types,sample_photo_r2_key')
+      .select('id,label_en,parent_id,applicable_event_types,sample_photo_r2_key,marketplace_hidden')
       .eq('tier', 2)
       .eq('status', 'active')
       .order('sort_order', { ascending: true });
     if (error || !data || data.length === 0) return [];
     const scoped = (data as TileRow[]).filter((t) => {
+      // Admin-only tiles (tile-level marketplace_hidden) never surface in the
+      // couple-facing onboarding picker.
+      if (t.marketplace_hidden === true) return false;
       const types = t.applicable_event_types;
       return !types || types.length === 0 || types.includes(eventType);
     });

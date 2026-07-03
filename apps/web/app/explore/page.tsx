@@ -3428,6 +3428,12 @@ async function CatalogView({
   for (const tile of WEDDING_TILE_ORDER) {
     const parent = TILE_PARENT[tile];
     if (parent === 'venue') continue;
+    // Tile-level marketplace_hidden (admin-only tile): never surfaces on
+    // /explore. Distinct from the per-canonical marketplaceHidden religion-style
+    // filters below — this hides the whole tile from couples, the vendor picker
+    // and Taxonomy Studio still see it. NULL/false = visible (default; no tile
+    // is hidden today, so this is a no-op until an admin flags one).
+    if (tax.hiddenCategories[tile]) continue;
     // Multi-event applicability (Phase 1 wiring): a tile scoped to specific
     // event types drops out for non-matching events. NULL = universal
     // (fail-open) — today every tile is NULL, so weddings see no change;
@@ -3594,18 +3600,22 @@ async function CatalogView({
   // Tab strip — 10 parent chips. Venue's badge counts its 2 venue tiles
   // (Reception + Ceremony) since those render via the venue pickers, not
   // category buckets.
-  const tabs: FolderTab[] = WEDDING_FOLDER_ORDER.map((folder) => ({
-    folder,
-    label: WEDDING_FOLDER_SHORT_LABEL[folder],
-    slug: WEDDING_FOLDER_SLUG[folder],
-    count:
-      folder === 'venue'
-        ? WEDDING_TILES_BY_PARENT.venue.length
-        : buckets.get(folder)?.length ?? 0,
-    // DB-first folder icon override (fallback-safe: null when unset/unknown →
-    // the strip keeps its hardcoded FOLDER_ICON default).
-    iconName: tax.categoryIcons[folder] ?? null,
-  }));
+  const tabs: FolderTab[] = WEDDING_FOLDER_ORDER
+    // Folder-level marketplace_hidden (admin-only folder): drop the whole
+    // parent chip from the couple-facing tab strip. No folder is hidden today.
+    .filter((folder) => !tax.hiddenCategories[folder])
+    .map((folder) => ({
+      folder,
+      label: WEDDING_FOLDER_SHORT_LABEL[folder],
+      slug: WEDDING_FOLDER_SLUG[folder],
+      count:
+        folder === 'venue'
+          ? WEDDING_TILES_BY_PARENT.venue.length
+          : buckets.get(folder)?.length ?? 0,
+      // DB-first folder icon override (fallback-safe: null when unset/unknown →
+      // the strip keeps its hardcoded FOLDER_ICON default).
+      iconName: tax.categoryIcons[folder] ?? null,
+    }));
 
   // 2026-06-13 search-first reframe — the catalog landing's StickyMarketplaceHeader
   // (pinned search pill + FilterDrawer) is replaced by ExploreSearchHero (one
@@ -3752,6 +3762,9 @@ async function CatalogView({
           // every other parent section so couples landing on one parent
           // (e.g. Venue) don't also see the rest.
           if (scopedFolder !== null && folder !== scopedFolder) return null;
+          // Folder-level marketplace_hidden (admin-only folder) — never render
+          // the section to couples. No folder is hidden today (no-op).
+          if (tax.hiddenCategories[folder]) return null;
 
           // VENUE parent — venues are NOT modeled as bookable vendor_profiles
           // in V1, so this folder shows ceremony GUIDANCE only (how to handle

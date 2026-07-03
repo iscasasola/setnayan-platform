@@ -1,5 +1,6 @@
 /**
- * Unit suite for buildShortlistFolders' "Your plan" marking (2026-06-28).
+ * Unit suite for buildShortlistFolders' "Your plan" marking (2026-06-28) +
+ * tile-level marketplace_hidden handling (2026-07-04).
  * The couple's onboarding picks (style_preferences.interested_categories, which
  * are taxonomy tile ids) flag the matching Shortlist tiles `planned` so the
  * Vendors surface can surface + act on them. Uses the wedding fallback taxonomy
@@ -8,6 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildShortlistFolders } from './shortlist-taxonomy';
+import { fallbackSnapshot } from './taxonomy-snapshot';
 
 const BASE = {
   vendorRows: [] as [],
@@ -51,4 +53,33 @@ test('an unknown planned id flags nothing (harmless)', () => {
     0,
     'unmatched ids never flag a tile',
   );
+});
+
+test('tile-level marketplace_hidden drops an EMPTY tile from the Shortlist', () => {
+  const taxonomy = { ...fallbackSnapshot(), hiddenCategories: { brides_attire: true as const } };
+  const folders = buildShortlistFolders({ ...BASE, taxonomy });
+  const allTiles = folders.flatMap((f) => f.tiles.map((t) => t.tile));
+  assert.ok(
+    !allTiles.includes('brides_attire' as never),
+    'a hidden tile with no considered vendors never surfaces',
+  );
+});
+
+test('tile-level marketplace_hidden still surfaces the tile when the couple already has a vendor there', () => {
+  const taxonomy = { ...fallbackSnapshot(), hiddenCategories: { brides_attire: true as const } };
+  const folders = buildShortlistFolders({
+    ...BASE,
+    taxonomy,
+    vendorRows: [
+      {
+        vendor_id: 'v1',
+        vendor_name: 'Couture Atelier',
+        category: 'gown_designer',
+        status: 'considering',
+      },
+    ] as never,
+  });
+  const tile = folders.flatMap((f) => f.tiles).find((t) => t.tile === 'brides_attire');
+  assert.ok(tile, 'a hidden tile with an existing considered vendor still surfaces');
+  assert.equal(tile!.vendors.length, 1, 'the couple\'s own vendor stays visible in the Shortlist');
 });

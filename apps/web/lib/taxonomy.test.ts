@@ -89,6 +89,50 @@ test('fallback snapshot carries EMPTY icon/photo maps and source=fallback', () =
   assert.equal(snap.source, 'fallback');
   assert.deepEqual(snap.categoryIcons, {}, 'fallback categoryIcons must be empty');
   assert.deepEqual(snap.categoryPhotos, {}, 'fallback categoryPhotos must be empty');
+  assert.deepEqual(snap.hiddenCategories, {}, 'fallback hiddenCategories must be empty');
+});
+
+test('DB snapshot flags tile-level marketplace_hidden (sparse — only true ids present)', () => {
+  const cats: CategoryRow[] = [
+    {
+      id: 'officiants',
+      parent_id: 'ceremony',
+      tier: 2,
+      label_en: 'Officiants',
+      label_short: null,
+      slug: 'officiants',
+      sort_order: 0,
+      applicable_event_types: null,
+      icon_name: null,
+      sample_photo_r2_key: null,
+      marketplace_hidden: true, // admin-only tile
+    },
+    {
+      id: 'reception',
+      parent_id: 'venue',
+      tier: 2,
+      label_en: 'Reception',
+      label_short: null,
+      slug: 'reception',
+      sort_order: 1,
+      applicable_event_types: null,
+      icon_name: null,
+      sample_photo_r2_key: null,
+      marketplace_hidden: false, // visible (default)
+    },
+  ];
+  const snap = snapshotFromRows(cats, []);
+  assert.equal(snap.hiddenCategories.officiants, true, 'hidden tile must be flagged true');
+  // Sparse map: a visible tile is absent (never true).
+  assert.notEqual(snap.hiddenCategories.reception, true, 'visible tile must not be flagged true');
+  assert.ok(!('reception' in snap.hiddenCategories), 'visible tile is absent from the sparse map');
+  // The snapshot itself NEVER drops a hidden tile — admin consumers need the full
+  // tree; only couple-facing consumers filter on hiddenCategories.
+  assert.ok(snap.tileOrder.includes('officiants' as never), 'hidden tile stays in tileOrder');
+  assert.ok(
+    (snap.tilesByParent.ceremony ?? []).includes('officiants' as never),
+    'hidden tile stays under its parent in tilesByParent',
+  );
 });
 
 test('DB snapshot carries icon/photo maps keyed by category id for BOTH tiers', () => {
@@ -104,6 +148,7 @@ test('DB snapshot carries icon/photo maps keyed by category id for BOTH tiers', 
       applicable_event_types: null,
       icon_name: 'Building2', // folder-level override
       sample_photo_r2_key: null,
+      marketplace_hidden: false,
     },
     {
       id: 'reception',
@@ -116,6 +161,7 @@ test('DB snapshot carries icon/photo maps keyed by category id for BOTH tiers', 
       applicable_event_types: null,
       icon_name: null, // no icon override → stored as null (falls back in the consumer)
       sample_photo_r2_key: 'r2://event-media/reception.webp', // tile-level photo
+      marketplace_hidden: false,
     },
   ];
   const maps: MapRow[] = [];

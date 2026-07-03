@@ -188,6 +188,7 @@ export function buildShortlistFolders(args: {
   const tileLabelMap = taxonomy?.tileLabel ?? WEDDING_TILE_LABEL;
   const tileSlugMap = taxonomy?.tileSlug ?? WEDDING_TILE_SLUG;
   const tileEventTypes = taxonomy?.tileEventTypes ?? {};
+  const hiddenCategories = taxonomy?.hiddenCategories ?? {};
   const map = taxonomy?.map ?? TAXONOMY_MAP;
 
   // Bucket considered vendors by tile (exhaustive bridge → never dropped).
@@ -231,10 +232,17 @@ export function buildShortlistFolders(args: {
     let pickCount = 0;
     let plannedCount = 0;
     for (const tile of tileIds) {
+      const vendors = byTile.get(tile) ?? [];
+      // Tile-level marketplace_hidden (admin-only tile) — dropped from the
+      // couple-facing Shortlist (it deep-links to /explore, where the tile is
+      // also hidden) UNLESS the couple already has a vendor of their own
+      // shortlisted/booked under it. A couple's existing pick must never
+      // vanish from their own Shortlist just because an admin later hid the
+      // tile from marketplace browsing. No tile is hidden today (no-op).
+      if (hiddenCategories[tile] && vendors.length === 0) continue;
       // Event-type scope (tile-grain primary control) + faith scope.
       if (!passesEventTypeFilter(tileEventTypes[tile] ?? null, eventType)) continue;
       if (!tilePassesFaith(tile, faithSet, map)) continue;
-      const vendors = byTile.get(tile) ?? [];
       pickCount += vendors.length;
       const planned = plannedTiles?.has(tile) ?? false;
       if (planned) plannedCount += 1;

@@ -1,0 +1,2 @@
+## 2026-07-04 · feat(pricing): Editorial PRO à-la-carte SKU ₱3,499 + Couple Website PRO repriced ₱4,999 (umbrella: STD · RSVP · on-the-day · Editorial)
+SPEC IMPACT: Pricing.md § 00.F — Couple Website PRO ₱1,999 → ₱4,999; new EDITORIAL_PRO ₱3,499 (owner-locked 2026-07-04).

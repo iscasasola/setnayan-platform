@@ -103,11 +103,24 @@ export async function eventCompActiveSkus(
  * Keyed by CANONICAL service_key → the alternate purchase keys that grant it.
  *
  * (Patiktok — the original live case for this map — was RETIRED 2026-06-29, so
- * its alias entry was removed. The generic machinery is kept for the next SKU
- * that needs a purchase-key→canonical bridge.)
+ * its alias entry was removed.)
+ *
+ * EDITORIAL_PRO ← COUPLE_WEBSITE_PRO (owner-locked 2026-07-04) · the UMBRELLA.
+ * Couple Website PRO (₱4,999) is the one upgrade that unlocks the pro touches
+ * across the whole site lifecycle — Save the Date, RSVP, on-the-day, AND the
+ * Editorial front page. The new à-la-carte EDITORIAL_PRO (₱3,499) is the
+ * standalone way to buy JUST the editorial authoring perk. So an order placed
+ * under COUPLE_WEBSITE_PRO must ALSO confer EDITORIAL_PRO ownership: a couple
+ * who bought the umbrella never needs to buy Editorial PRO separately. This is
+ * the exact purchase-key→canonical bridge the alias map exists for — no new
+ * framework, and it can't be expressed via BUNDLE_CHILD_SKUS because
+ * COUPLE_WEBSITE_PRO is itself a CHILD of GUIDED_PACK/MEDIA_PACK and the
+ * bundle-map linter (GUARD 2) forbids a bundle code nesting as a child.
  */
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
-  Object.freeze({});
+  Object.freeze({
+    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
+  });
 
 /**
  * Every service_key that confers ownership of `serviceKey` — the canonical key

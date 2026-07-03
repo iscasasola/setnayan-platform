@@ -24,25 +24,25 @@ const PILLARS = [
   {
     n: '01',
     title: 'Set your price once. Never recompute again.',
-    body: 'Set your base price, and a price for extra guests if you need one. That’s it — couples see your range instantly, with no waiting and no re-quoting for every new inquiry. Your final price is always yours to decide, couple by couple, based only on what they actually need. We’ll never force you into a fixed public rate, because every couple wants the best wedding they can afford — and a copy-paste rate card doesn’t honor that.',
+    body: 'Set your base price, and a price for extra guests if you need one. That’s it. Couples see your range instantly, with no waiting and no re-quoting for every new inquiry. Your final price is always yours to decide, couple by couple, based only on what they actually need. We’ll never force you into a fixed public rate, because every couple wants the best wedding they can afford. And a copy-paste rate card doesn’t honor that.',
   },
   {
     n: '02',
     title: 'Every inquiry counts.',
-    body: 'As business owners ourselves, we’ve paid for ads and watched almost all of it go to people who were never going to book us. That ends here. You don’t pay to be listed, you don’t pay for ads that miss, and you never pay a commission on your sale. You spend only when we bring you an inquiry that actually fits your business. No fit, no inquiry, no cost — the market that reaches you is smaller, better, and built for your range.',
+    body: 'As business owners ourselves, we’ve paid for ads and watched almost all of it go to people who were never going to book us. That ends here. You don’t pay to be listed, you don’t pay for ads that miss, and you never pay a commission on your sale. You spend only when we bring you an inquiry that actually fits your business. No fit, no inquiry, no cost. The market that reaches you is smaller, better, and built for your range.',
   },
   {
     n: '03',
     title: 'We never abuse your business.',
-    body: 'Other apps let you pay to fake your success. We don’t — and neither can anyone else. You rise by doing the work well: respond fast, complete your service, earn honest reviews from the couples you served, and build a fuller set of services. The better you are, the more we put you in front of couples. We grow when you grow.',
+    body: 'Other apps let you pay to fake your success. We don’t. And neither can anyone else. You rise by doing the work well: respond fast, complete your service, earn honest reviews from the couples you served, and build a fuller set of services. The better you are, the more we put you in front of couples. We grow when you grow.',
   },
 ];
 
 const DISCOVERY = [
   ['Matched on fit, not fame', 'A new vendor who’s right for a couple ranks above a famous one who’s booked or out of budget.'],
-  ['No track record doesn’t bury you', '“No reviews yet” reads as unknown, never as bad — it costs you nothing in the rankings.'],
-  ['Weekly unlocks to start', 'Verified vendors get up to 10 couple unlocks a week (each burns 1–3 region-banded tokens on accept); Solo, Pro, and Enterprise unlock uncapped — every tier burns per accept, so a new vendor can start answering matched couples right away.'],
-  ['Hidden until you reply', 'Your name stays private until you answer, so couples choose you for the fit — before they’ve heard of you.'],
+  ['No track record doesn’t bury you', '“No reviews yet” reads as unknown, never as bad. It costs you nothing in the rankings.'],
+  ['Weekly unlocks to start', 'Verified vendors get up to 10 couple unlocks a week (each burns 1–3 region-banded tokens on accept); Solo, Pro, and Enterprise unlock uncapped. Every tier burns per accept, so a new vendor can start answering matched couples right away.'],
+  ['Hidden until you reply', 'Your name stays private until you answer, so couples choose you for the fit, before they’ve heard of you.'],
   ['Every search shows real matches', 'Couples always get a fillable shortlist, so new vendors get real attention from day one.'],
   ['You climb by merit', 'Reply fast, finish well, earn real reviews. Nail your first five couples and you rise fast. No budget can fake that.'],
 ];
@@ -70,10 +70,10 @@ export function VendorVision() {
           <span style={{ color: 'var(--m-orange-2)' }}>We give you back your time.</span>
         </h2>
         <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: 'var(--m-slate)', lineHeight: 1.6, marginTop: 24, maxWidth: 720 }}>
-          Every couple deserves your best work — and every couple is hours of it. The hardest part isn’t the
+          Every couple deserves your best work. And every couple is hours of it. The hardest part isn’t the
           service. It’s that every conversation starts from zero: the same questions, the same back-and-forth,
           before you even know if it’s a real fit. Setnayan changes <em>where you start</em>. By the time a couple
-          reaches you, we’ve already done the matching — so you begin at <strong style={{ color: 'var(--m-ink)' }}>“here’s what I need”</strong>, not
+          reaches you, we’ve already done the matching. So you begin at <strong style={{ color: 'var(--m-ink)' }}>“here’s what I need”</strong>, not
           <strong style={{ color: 'var(--m-ink)' }}> “how much, and are you even free?”</strong>
         </p>
 
@@ -121,7 +121,7 @@ export function VendorVision() {
             You’re not buried. You’re discoverable from day one.
           </h3>
           <p style={{ fontSize: 16, color: 'var(--m-slate)', lineHeight: 1.6, marginTop: 14, maxWidth: 680 }}>
-            Here, being good is the growth strategy. There’s no “who’s-been-here-longest” leaderboard — we put
+            Here, being good is the growth strategy. There’s no “who’s-been-here-longest” leaderboard. We put
             you in front of couples you genuinely fit, then let your work do the rest.
           </p>
           <div className="m-vv-disc" style={{ display: 'grid', gap: 'clamp(16px, 2.5vw, 28px)', marginTop: 28 }}>

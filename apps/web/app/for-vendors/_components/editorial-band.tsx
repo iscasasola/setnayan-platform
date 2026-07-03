@@ -49,10 +49,10 @@ export function EditorialBand() {
           className="m-display"
           style={{ fontSize: 'clamp(26px, 4vw, 46px)', lineHeight: 1.06, margin: '14px 0 0', color: '#FBFBFA', maxWidth: 560 }}
         >
-          The inquiries never stop — and most were never going to book you.
+          The inquiries never stop. And most were never going to book you.
         </h2>
         <p style={{ fontSize: 'clamp(15px, 1.7vw, 17px)', lineHeight: 1.55, margin: '16px 0 0', color: 'rgba(251,251,250,0.82)', maxWidth: 480 }}>
-          That’s the part we fix. You focus on the craft — we bring you the couples who actually fit.
+          That’s the part we fix. You focus on the craft. We bring you the couples who actually fit.
         </p>
       </div>
     </section>

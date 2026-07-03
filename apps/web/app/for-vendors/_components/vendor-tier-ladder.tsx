@@ -34,15 +34,15 @@ export interface VendorTierLadderPrices {
 }
 
 const FREE_A = [
-  ['Appear in every matched search', 'Couples looking for your category find you — matched on fit, not fame.'],
-  ['Verified badge — free', 'ID, DTI, and sample work checked by hand. The trust stamp couples look for.'],
+  ['Appear in every matched search', 'Couples looking for your category find you, matched on fit, not fame.'],
+  ['Verified badge, free', 'ID, DTI, and sample work checked by hand. The trust stamp couples look for.'],
   ['Couples message you first', 'In-app chat. Your name stays private until you choose to reply.'],
-  ['Your own microsite + 50-photo portfolio', 'A branded page with your work and packages — no website needed.'],
+  ['Your own microsite + 50-photo portfolio', 'A branded page with your work and packages, no website needed.'],
 ];
 const FREE_B = [
-  ['Real reviews, ratings & badges', 'From actual Setnayan weddings — plus earned badges and an experience tier.'],
-  ['Bring your past clients — free', 'Import your book of business; their reviews and "verified wedding" proof come with them.'],
-  ['Your own Performance panel', 'See your reply time, completion rate, and ranking signal — and improve them.'],
+  ['Real reviews, ratings & badges', 'From actual Setnayan weddings, plus earned badges and an experience tier.'],
+  ['Bring your past clients, free', 'Import your book of business; their reviews and "verified wedding" proof come with them.'],
+  ['Your own Performance panel', 'See your reply time, completion rate, and ranking signal, and improve them.'],
   ['0% commission, always', 'The couple pays you directly. You keep 100% of every booking.'],
 ];
 
@@ -65,7 +65,7 @@ const TIERS: Tier[] = [
     note: 'operate, friction-free',
     plus: 'Everything in Free, plus',
     benefits: [
-      'Answer unlimited couples — no weekly cap',
+      'Answer unlimited couples, no weekly cap',
       'Your real business name shown from day one',
       'Up to 3 service listings per category',
     ],
@@ -74,14 +74,14 @@ const TIERS: Tier[] = [
     key: 'pro',
     label: '★ Pro',
     priceKey: 'pro',
-    note: 'grow — team, reach, data',
+    note: 'grow: team, reach, data',
     plus: 'Everything in Solo, plus',
     benefits: [
       '3 categories + 3 team seats',
       'Full written reviews on your profile',
       'Your own link · setnayan.com/v/you',
       '50 km reach + multiple events per day',
-      'Grow with data — Demand Radar, your funnel & price position',
+      'Grow with data: Demand Radar, your funnel & price position',
       '100-photo portfolio + editorial features',
     ],
     ink: true,
@@ -90,7 +90,7 @@ const TIERS: Tier[] = [
     key: 'enterprise',
     label: '⬢ Enterprise',
     priceKey: 'enterprise',
-    note: 'scale — a governed org',
+    note: 'scale: a governed org',
     plus: 'Everything in Pro, plus',
     benefits: [
       'List under every category',
@@ -166,13 +166,13 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
               className="m-serif"
               style={{ fontSize: 'clamp(30px, 5vw, 52px)', lineHeight: 1.04, margin: '14px 0 10px', color: 'var(--m-paper)', fontWeight: 400 }}
             >
-              Everything you need to get booked —{' '}
+              Everything you need to get booked,{' '}
               <em style={{ fontStyle: 'italic', color: 'var(--m-orange-3)' }}>for ₱0.</em>
             </h2>
             <p style={{ fontSize: 15, color: 'var(--m-slate-4)', lineHeight: 1.55, margin: 0 }}>
               No card, no trial clock, no commission. List your verified business today and couples can
               find you, message you, and book you. You only pay per lead when a matched couple reaches
-              you — never a fee just to be here.
+              you, never a fee just to be here.
             </p>
           </div>
           <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
@@ -225,7 +225,7 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
 
         <div style={{ marginTop: 24, position: 'relative' }}>
           <Link href="/open-shop" className="m-btn m-btn-orange m-btn-lg" style={{ justifyContent: 'center' }}>
-            Register your business — free
+            Register your business, free
           </Link>
         </div>
       </div>
@@ -304,7 +304,7 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
 
       <p className="m-mono" style={{ fontSize: 10.5, color: 'var(--m-slate-3)', marginTop: 16, lineHeight: 1.5, maxWidth: 720 }}>
         Prices read the live catalog and are billed per 28-day cycle (annual saves ~23%). Answering a
-        matched couple uses a region-banded lead token on every tier — you pay per real inquiry, not to
+        matched couple uses a region-banded lead token on every tier. You pay per real inquiry, not to
         be listed. 0% commission on every booking. Enterprise is a bounded plan; franchises and
         multi-location go Custom.
       </p>

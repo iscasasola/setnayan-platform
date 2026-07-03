@@ -44,13 +44,13 @@ const ADVANTAGES = [
     num: '1',
     tag: '🔗 The couples',
     title: 'Matched to couples by fit',
-    body: 'Couples reach you matched on what actually fits — style, budget, faith, coverage — not lead-gen ads and not who-paid-most. You start at "here’s what I need."',
+    body: 'Couples reach you matched on what actually fits (style, budget, faith, coverage), not lead-gen ads and not who-paid-most. You start at "here’s what I need."',
   },
   {
     num: '2',
     tag: '🏅 Earned, never bought',
     title: 'Your ranking is earned',
-    body: 'Top Pick and Most Booked badges come from real reviews and real bookings — never paid placement. Do great work and rise; no one can buy their way over you.',
+    body: 'Top Pick and Most Booked badges come from real reviews and real bookings, never paid placement. Do great work and rise; no one can buy their way over you.',
   },
   {
     num: '3',
@@ -62,13 +62,13 @@ const ADVANTAGES = [
     num: '4',
     tag: '📇 Your book',
     title: 'Bring your business with you',
-    body: 'Import your past clients for free — their reviews and a "verified wedding" proof come with them. Start with a real reputation on day one, not an empty profile.',
+    body: 'Import your past clients for free. Their reviews and a "verified wedding" proof come with them. Start with a real reputation on day one, not an empty profile.',
   },
   {
     num: '5',
     tag: '🤝 The network',
     title: 'Partner with other vendors',
-    body: 'Declare working partnerships with other Setnayan vendors (HQ-verified) so couples see your trusted circle — only possible because we see the whole marketplace.',
+    body: 'Declare working partnerships with other Setnayan vendors (HQ-verified) so couples see your trusted circle, only possible because we see the whole marketplace.',
   },
 ];
 
@@ -76,33 +76,33 @@ const ADVANTAGES = [
 const ESSENTIALS = [
   {
     tag: 'Lead capture',
-    title: 'Couples find you, message you, book you — without leaving Setnayan.',
+    title: 'Couples find you, message you, book you, without leaving Setnayan.',
     body: "Show up in every couple's vendor finder for your category. No third-party fees, no inboxes to juggle.",
   },
   {
     tag: 'Bid pipeline',
     title: 'Request bid → Chat → Quote → Accept in one rail.',
-    body: 'Couples request a bid through your microsite, you spend 1 token to open the thread, you chat and finalize pricing together, customer accepts. Reply-time stats show on your public profile — fast vendors get more bookings.',
+    body: 'Couples request a bid through your microsite, you spend 1 token to open the thread, you chat and finalize pricing together, customer accepts. Reply-time stats show on your public profile. Fast vendors get more bookings.',
   },
   {
     tag: 'Calendar that means something',
     title: 'Agent-redacted booking calendar with team roles + per-service scoping.',
-    body: 'Your team sees what they need to see — service captains see crew counts, dispatch sees addresses, accounts sees the invoice. No more shared Google sheets.',
+    body: 'Your team sees what they need to see: service captains see crew counts, dispatch sees addresses, accounts sees the invoice. No more shared Google sheets.',
   },
   {
     tag: 'Trust, free',
-    title: 'Verified badge + reviews from real couples — at no cost.',
-    body: 'Verification is free during launch. Your badge and your 0–5★ reviews come only from couples who actually booked you through Setnayan — no fakes, no pay-to-play.',
+    title: 'Verified badge + reviews from real couples, at no cost.',
+    body: 'Verification is free during launch. Your badge and your 0–5★ reviews come only from couples who actually booked you through Setnayan, no fakes, no pay-to-play.',
   },
   {
     tag: 'Grow with the platform',
-    title: 'Wedding today. Debut, birthday, corporate, anniversaries — yours next.',
-    body: 'Every event type opens as our verified vendor count crosses the threshold in your area. Your verification, reviews, and CRM history carry into each one — no second listing, no second login.',
+    title: 'Wedding today. Debut, birthday, corporate, anniversaries, yours next.',
+    body: 'Every event type opens as our verified vendor count crosses the threshold in your area. Your verification, reviews, and CRM history carry into each one, no second listing, no second login.',
   },
   {
     tag: 'Manpower marketplace',
     title: 'Pick up paid gigs from events already on Setnayan.',
-    body: "Browse open crew gigs — service captains, photographers, AV ops — posted by hosts on events you're tied to. Accept the ones that fit; the couple pays your crew directly, off-platform.",
+    body: "Browse open crew gigs (service captains, photographers, AV ops) posted by hosts on events you're tied to. Accept the ones that fit; the couple pays your crew directly, off-platform.",
   },
 ];
 
@@ -152,7 +152,7 @@ export async function ForVendorsDeepDive() {
           }}
         >
           You&apos;re already great at the work. We just want fewer DMs, cleaner
-          books, and more couples knowing you exist. Free to start — upgrade
+          books, and more couples knowing you exist. Free to start. Upgrade
           only when you&apos;re ready for more reach.
         </p>
       </div>
@@ -211,7 +211,7 @@ export async function ForVendorsDeepDive() {
             Vendor and couple agree on the price. Couple pays the vendor directly.
             Setnayan doesn&apos;t see the money, doesn&apos;t middleman the
             contract, doesn&apos;t take a cut. We make money on subscriptions,
-            tokens, and our own Productions services — not on your bookings.
+            tokens, and our own Productions services, not on your bookings.
             Vendor keeps <strong style={{ color: 'var(--m-ink)' }}>100%</strong>.
           </div>
         </div>
@@ -364,7 +364,7 @@ export async function ForVendorsDeepDive() {
       {/* Pricing — value first, price after. Tier intro + 3-tier matrix. */}
       <div style={{ marginBottom: 14, marginTop: 48 }}>
         <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
-          Free · Solo · Pro · Enterprise · Custom — one tier for every stage
+          Free · Solo · Pro · Enterprise · Custom, one tier for every stage
         </div>
         <div
           style={{
@@ -375,8 +375,8 @@ export async function ForVendorsDeepDive() {
             lineHeight: 1.5,
           }}
         >
-          Free gets you found, trusted, and messaged — forever, at no cost. The paid
-          tiers don&rsquo;t unlock your craft — they expand it: unlimited answering, your
+          Free gets you found, trusted, and messaged, forever, at no cost. The paid
+          tiers don&rsquo;t unlock your craft. They expand it: unlimited answering, your
           real name up front, more categories, more team, wider reach, and the data to
           grow. Every one of them is{' '}
           <em style={{ color: 'var(--m-ink)' }}>only possible because Setnayan</em>{' '}
@@ -422,7 +422,7 @@ export async function ForVendorsDeepDive() {
               maxWidth: 520,
             }}
           >
-            Profile, photos, services, calendar — get listed today. Verification
+            Profile, photos, services, calendar. Get listed today. Verification
             in 24 hours. First proposal in your inbox by next week.
           </div>
         </div>
@@ -432,7 +432,7 @@ export async function ForVendorsDeepDive() {
             className="m-btn m-btn-orange m-btn-lg"
             style={{ justifyContent: 'center' }}
           >
-            Register your business — free
+            Register your business, free
           </Link>
           <Link
             href="/help#contact"

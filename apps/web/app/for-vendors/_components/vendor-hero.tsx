@@ -91,12 +91,12 @@ export async function VendorHero() {
               marginTop: 28,
             }}
           >
-            A verified profile + in-app chat + real reviews — free, forever.{' '}
+            A verified profile + in-app chat + real reviews, free, forever.{' '}
             <strong style={{ color: 'var(--m-ink)' }}>
               0% commission · Setnayan never takes a cut of your bookings.
             </strong>{' '}
             Pro at <strong style={{ color: 'var(--m-ink)' }}>{p.proMonthly}/28 days</strong>{' '}
-            adds a team, wider reach, full reviews, and the data to grow —
+            adds a team, wider reach, full reviews, and the data to grow:
             Demand Radar, your funnel, and price position.
           </p>
           <div
@@ -111,7 +111,7 @@ export async function VendorHero() {
               href="/open-shop"
               className="m-btn m-btn-primary m-btn-lg"
             >
-              Register your business — free
+              Register your business, free
             </Link>
             <Link
               href="/help#contact"
@@ -164,7 +164,7 @@ export async function VendorHero() {
         <div className="m-hero-photo" style={{ position: 'relative', overflow: 'hidden', minHeight: 'clamp(360px, 50vh, 560px)' }}>
           <Image
             src="/for-vendors/vendor-success.avif"
-            alt="A happy, confident Filipino wedding florist laughing in her sunlit studio surrounded by fresh flowers — a vendor thriving with Setnayan"
+            alt="A happy, confident Filipino wedding florist laughing in her sunlit studio surrounded by fresh flowers, a vendor thriving with Setnayan"
             fill
             priority
             sizes="(max-width: 1023px) 100vw, 46vw"
@@ -192,10 +192,10 @@ export async function VendorHero() {
           },
           {
             title: '0% commission',
-            body: 'Couples pay you directly. You keep 100% of every booking — Setnayan never takes a cut.',
+            body: 'Couples pay you directly. You keep 100% of every booking. Setnayan never takes a cut.',
           },
           {
-            title: 'Verified badge — free',
+            title: 'Verified badge, free',
             body: 'ID, DTI, sample work, references. An official stamp of legitimacy, free during launch.',
           },
           {

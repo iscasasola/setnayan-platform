@@ -678,16 +678,12 @@ function SetnayanAiOverlay({
         Most weeks, it stays quiet.
       </p>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
-        <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
-        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
-          {pricing.aiIntroPrice} your first 28 days
-        </span>
-      </div>
-
       {/* ── the savings comparator ── */}
-      <div style={{ marginTop: 18 }}>
+      {/* Value-first order (owner 2026-07-03): the calculator + savings come
+          FIRST; the price + CTA move to the bottom as the "offer," so you see
+          what you save before what it costs — and the ₱ total in the bar sits
+          right next to the /28-day price it's built from. */}
+      <div style={{ marginTop: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
           <span>My wedding is in</span>
           <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
@@ -704,13 +700,10 @@ function SetnayanAiOverlay({
           aria-label="Months until your wedding"
           style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#a8a4a0' }}>
-          <span>1 month · a month = 28 days</span>
-          <span>2 years</span>
-        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+      <div style={{ marginTop: 10, fontSize: 12, color: '#6c675e' }}>Compared to</div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
         {CHIPS.map(([k, label]) => (
           <button
             key={k}
@@ -732,11 +725,11 @@ function SetnayanAiOverlay({
       </div>
 
       <div>
-        <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
         {/* "What is your hour worth?" — the person sets their own rate; the DIY
             hours are valued at it (owner 2026-07-03). DIY-only control. */}
         {mode === 'diy' && (
-          <div style={{ margin: '8px 0 6px' }}>
+          <div style={{ margin: '6px 0 4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
               <span>My time is worth</span>
               <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
@@ -761,7 +754,7 @@ function SetnayanAiOverlay({
         {/* One shared label-column width, sized for the longest label at the
             26-month max ("Hired team · ₱1,213,333"), and no wrapping — both
             rows stay single-line and their bars start at the same x. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
           <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${compare.themPct}%`, background: '#c5a059', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
@@ -773,10 +766,21 @@ function SetnayanAiOverlay({
             <div style={{ height: '100%', width: `${compare.usPct}%`, background: '#2a2925', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>
         </div>
-        <p style={{ margin: '8px 0 0', fontSize: 10.5, color: '#a8a4a0' }}>{compare.foot}</p>
+        <p style={{ margin: '6px 0 0', fontSize: 10.5, color: '#a8a4a0' }}>{compare.foot}</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+      {/* The offer — price + act, LAST (owner 2026-07-03). The muted total ties
+          the /28-day price to the ₱ figure in the Setnayan AI bar just above. */}
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(42,43,46,.1)', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
+        <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
+        <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
+          {pricing.aiIntroPrice} your first 28 days
+        </span>
+        <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} across your {months} {months === 1 ? 'month' : 'months'}</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
         <Link
           href="/onboarding/wedding?from=setnayan-ai"
           onClick={onClose}

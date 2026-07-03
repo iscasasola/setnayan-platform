@@ -781,12 +781,12 @@ const PlanScheduler = (
 /* ── Suri mocks ───────────────────────────────────────────────────── */
 const SurianFilter = (
   <div className="hr-pmock" data-i="0">
-    <div className="hr-mk-h">Smart filtering · photography</div>
+    <div className="hr-mk-h">Filtering &amp; sorting · photography</div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 13 }}>
       <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 28, color: '#2f2d2a' }}>
         6
       </span>
-      <span style={{ fontSize: 11, color: 'var(--hr-grey)' }}>of 847 vendors fit your plan</span>
+      <span style={{ fontSize: 11, color: 'var(--hr-grey)' }}>of 847 vendors fit your plan — ranked</span>
     </div>
     <div className="hr-mrow">
       <span className="hr-mdot" />
@@ -801,7 +801,7 @@ const SurianFilter = (
       North Light Co.<span className="hr-mchip hr-ok">85% fit</span>
     </div>
     <div className="hr-mk-h" style={{ margin: '13px 0 0', color: '#97742f' }}>
-      Budget · date · style — every option checked instantly
+      Budget · date · venue · style — checked and ranked in an instant
     </div>
   </div>
 );
@@ -880,8 +880,33 @@ const SurianBudget = (
   </div>
 );
 
-const SurianAutoBuild = (
+const SurianWatch = (
   <div className="hr-pmock" data-i="3">
+    <div className="hr-mk-h">The watch system · standing guard</div>
+    <div className="hr-mrow">
+      <span className="hr-mdot" />
+      Deposit due Friday · Bloom &amp; Co.<span className="hr-mchip hr-ok">tapped you</span>
+    </div>
+    <div className="hr-mrow">
+      <span className="hr-mdot" />
+      Quote changed −₱8,000 · Lumière<span className="hr-mchip hr-ok">flagged</span>
+    </div>
+    <div className="hr-mrow">
+      <span className="hr-mdot" />
+      Double-booking risk · Dec 12<span className="hr-mchip hr-ok">caught</span>
+    </div>
+    <div className="hr-mrow">
+      <span className="hr-mdot" />
+      Everything else<span className="hr-mchip">quiet</span>
+    </div>
+    <div className="hr-mk-h" style={{ margin: '13px 0 0', color: '#97742f' }}>
+      One calm weekly digest — loud only when it can&rsquo;t wait
+    </div>
+  </div>
+);
+
+const SurianAutoBuild = (
+  <div className="hr-pmock" data-i="4">
     <div className="hr-mk-h">Auto Build · 150 pax</div>
     <div className="hr-mrow">
       Venue<span className="hr-mchip">from ₱120,000</span>
@@ -1241,29 +1266,35 @@ export const PILLARS: Pillar[] = [
     def: (
       <>
         <em>Suri</em> means “to analyze closely.” The quiet planning brain — it checks every option
-        against your budget, date, and venue in an instant, hands you a short list worth choosing
-        from, reshapes your checklist, and watches for hidden risks before they happen. You choose
-        instead of drown. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
+        against your budget, date, and venue in an instant and ranks the short list worth choosing
+        from, reshapes your checklist and budget as things change, and stands watch over every
+        vendor you’re eyeing or booked — catching risks before they happen. You choose instead of
+        drown. <span style={{ opacity: 0.7 }}>Unlocks with a paid tier.</span>
       </>
     ),
     widgetId: 'hr-awSurian',
     barUrl: 'setnayan.com/surian',
-    mocks: [SurianFilter, SurianChecklist, SurianBudget, SurianAutoBuild],
+    mocks: [SurianFilter, SurianChecklist, SurianBudget, SurianWatch, SurianAutoBuild],
     features: [
       {
         ic: '⌖',
-        fn: 'Smart filtering',
-        fl: 'Thinking of many things at once is hard. The adaptive system paces and adjusts itself to filter your planning, so any service you pick fits your plan — no more inquiring into dead ends and losing hours.',
+        fn: 'Filtering & sorting',
+        fl: 'Thinking of many things at once is hard. Every option is checked against your budget, date, venue, and style in an instant — then ranked, so the best fits surface first. No more inquiring into dead ends and losing hours.',
       },
       {
         ic: '✓',
         fn: 'Adaptive checklist',
-        fl: 'An advanced checklist that adjusts and computes all your steps, for steady-paced planning with far less stress.',
+        fl: 'The adaptive system reshapes your checklist as things change — every step re-paced and recomputed around your date, guest count, and picks, so planning stays steady instead of frantic.',
       },
       {
         ic: '₱',
         fn: 'Smart budgeting',
-        fl: 'Always know exactly where your budget stands, and it adjusts properly as guests, dates, and choices shift.',
+        fl: 'The budget planner always knows where you stand. Allocations adjust on their own as guests, dates, and choices shift — every peso visible, nothing recomputed by hand.',
+      },
+      {
+        ic: '◉',
+        fn: 'The watch system',
+        fl: 'It watches the vendors you’re eyeing and the ones you’ve booked — a deposit due, a price change, a double-booking, a deadline about to slip. One calm weekly digest; loud only when it can’t wait.',
       },
       {
         ic: '◆',

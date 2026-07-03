@@ -17,6 +17,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventSkuActive } from '@/lib/entitlements';
+import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   fetchEventRecommendations,
@@ -63,6 +64,9 @@ export const EDITORIAL_PAPIC_ESSAY_CAP = 10;
 
 /** How many "As the Day Unfolded" chapters to emit (an even time-order split). */
 export const EDITORIAL_DAY_CHAPTER_CAP = 10;
+
+/** How many Kwento guest wishes to surface in "What They Whispered". */
+export const EDITORIAL_KWENTO_CAP = 8;
 
 /** How many clean Papic 5-second clips to pull into the day timeline. */
 export const EDITORIAL_PAPIC_CLIP_CAP = 14;
@@ -147,6 +151,20 @@ export type ImpactMetrics = {
   replied: number; // attending + declined + maybe (non-pending)
   rsvpPct: number | null; // replied / guests when guests > 0
   photos: number | null; // null = omit the photo stat
+  clips: number | null; // Papic 5-second clips (living moments); null = omit
+  chapters: number | null; // "As the Day Unfolded" chapter count; null = omit
+};
+
+// "What They Whispered" — a Kwento guest wish (photo_messages). `body` is the
+// approved, screen-cleared message text; `author` is the guest's display name
+// (null when the guest opted their name off / has no name). `photoUrl` is the
+// presigned display image of the Papic capture the wish anchors to, carried only
+// when that anchor is already presigned in the loader (else text-only).
+export type KwentoQuote = {
+  body: string;
+  author: string | null;
+  role: string | null;
+  photoUrl: string | null;
 };
 
 export type ArchetypeKey = 'hand-picked' | 'jewel-box' | 'big-hearted' | 'sweeping';
@@ -188,6 +206,8 @@ export type EditorialSections = {
   fromTheCouple: boolean;
   fromVendors: boolean;
   vendorsWeLoved: boolean;
+  kwento: boolean;
+  watchFilm: boolean;
 };
 
 export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
@@ -201,6 +221,8 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'fromTheCouple',
   'fromVendors',
   'vendorsWeLoved',
+  'kwento',
+  'watchFilm',
 ];
 
 // "From your vendors" — day-of media the couple's RECOMMENDED vendor
@@ -352,6 +374,18 @@ export type EditorialData = {
   pabatiActive: boolean;
   // Day-of media from the couple's recommended vendor (see VendorMediaItem).
   vendorMedia: VendorMediaItem[];
+  // "What They Whispered" — approved, screen-cleared Kwento guest wishes
+  // (photo_messages). Fail-closed like every other public block: only
+  // status='approved' + moderation_state='clean' + not author-hidden. Each
+  // carries the author's display name (when set) and, when the wish anchors to a
+  // Papic capture already presigned in the loader, that anchor photo's URL. []
+  // when the couple has no Kwento or the table is absent (section then hidden).
+  kwentoQuotes: KwentoQuote[];
+  // Live Studio replay — "Watch the Film". The youtube-nocookie EMBED URL for
+  // the couple's Panood broadcast replay, gated on: a valid events.panood_watch_url
+  // (normalize-or-rejected) AND an ACTIVE Panood/Live Studio SKU. Null → the
+  // section is hidden (fail-closed on all three).
+  watchFilmEmbedUrl: string | null;
   // Section visibility from the editorial editor. Optional → a block shows
   // unless its key is explicitly false (samples omit it = everything on).
   sections?: Partial<EditorialSections>;
@@ -755,6 +789,28 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     photos = null;
   }
 
+  // 5-bis. Living-moments (Papic 5-second CLIPS) count — the count companion to
+  // the photo count above, same fail-closed moderation filter. Feeds "By the
+  // Numbers" (photos & moments sum + a living-moments cell). Best-effort → null
+  // omits the clip stat, exactly like the photo stat.
+  let clips: number | null = null;
+  try {
+    const { count, error } = await admin
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('photo_type', 'clip')
+      .is('hidden_at', null)
+      .not(
+        'moderation_state',
+        'in',
+        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+      );
+    if (!error && typeof count === 'number') clips = count;
+  } catch {
+    clips = null;
+  }
+
   // 5b. The day's Papic captures (best-effort, shared by hero + gallery +
   // essay). Clean, non-hidden, type 'photo' only (never a clip), most-recent
   // first. PUBLIC surface → moderation-withheld captures are excluded (same
@@ -864,6 +920,116 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     }
   } catch {
     timelinePhotoRows = [];
+  }
+
+  // 5b-quater. Papic GUEST captures (papic_guest_captures — the disposable-camera
+  // SKU) join the day. PUBLIC surface → these fail closed on the SAME double gate
+  // the Alaala public showcase enforces (lib/alaala-orb.ts): a guest photo surfaces
+  // ONLY when the GUEST opted in (consent_to_public) AND the couple picked it
+  // (couple_approved_for_showcase) AND it isn't hidden. This table carries NO NSFW
+  // moderation_state — the two approval/consent gates ARE its public gate, so we
+  // never include a raw/unapproved guest shot. Photos only (media_type='photo';
+  // guest clips stay to the Alaala orb path). A missing table/column (pre-SKU
+  // event, 42P01/42703) degrades to [] → the day is exactly Papic-only as before.
+  // These are UNIONED into both the recency gallery slice and the captured_at-ASC
+  // timeline below; deduped by r2 key against papic_photos just in case.
+  type GuestCaptureRow = { captureId: string; key: string; capturedAt: string | null };
+  let guestGalleryRows: GuestCaptureRow[] = [];
+  let guestTimelineRows: GuestCaptureRow[] = [];
+  try {
+    // Recency slice (gallery) — captured_at DESC, same cap as the seat photos.
+    const { data: rows, error } = await admin
+      .from('papic_guest_captures')
+      .select('capture_id, r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('media_type', 'photo')
+      .eq('consent_to_public', true)
+      .eq('couple_approved_for_showcase', true)
+      .is('hidden_at', null)
+      .order('captured_at', { ascending: false })
+      .limit(EDITORIAL_PAPIC_GALLERY_CAP);
+    if (!error && Array.isArray(rows)) {
+      guestGalleryRows = (rows as Array<Record<string, unknown>>)
+        .map((r) => ({
+          captureId: asString(r.capture_id),
+          key: asString(r.r2_object_key),
+          capturedAt: asString(r.captured_at) ?? null,
+        }))
+        .filter((r): r is GuestCaptureRow => Boolean(r.captureId && r.key));
+    }
+  } catch {
+    guestGalleryRows = [];
+  }
+  try {
+    // Timeline sweep — captured_at ASC across the day, same cap as seat timeline.
+    const { data: rows, error } = await admin
+      .from('papic_guest_captures')
+      .select('capture_id, r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('media_type', 'photo')
+      .eq('consent_to_public', true)
+      .eq('couple_approved_for_showcase', true)
+      .is('hidden_at', null)
+      .order('captured_at', { ascending: true })
+      .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
+    if (!error && Array.isArray(rows)) {
+      guestTimelineRows = (rows as Array<Record<string, unknown>>)
+        .map((r) => ({
+          captureId: asString(r.capture_id),
+          key: asString(r.r2_object_key),
+          capturedAt: asString(r.captured_at) ?? null,
+        }))
+        .filter((r): r is GuestCaptureRow => Boolean(r.captureId && r.key));
+    }
+  } catch {
+    guestTimelineRows = [];
+  }
+
+  // Merge guest captures into the seat-photo lists, deduped by r2 key (a guest
+  // shot should never collide with a seat shot, but guard anyway), then re-cap.
+  // GALLERY: union then re-sort by captured_at DESC, cap at the gallery cap.
+  if (guestGalleryRows.length > 0) {
+    const seenKeys = new Set(papicRows.map((r) => r.key));
+    const merged = [
+      ...papicRows,
+      ...guestGalleryRows
+        .filter((g) => !seenKeys.has(g.key))
+        .map((g) => ({ photoId: g.captureId, key: g.key, capturedAt: g.capturedAt })),
+    ];
+    merged.sort((a, b) => {
+      const at = a.capturedAt ? new Date(a.capturedAt).getTime() : Number.NaN;
+      const bt = b.capturedAt ? new Date(b.capturedAt).getTime() : Number.NaN;
+      const aN = Number.isNaN(at);
+      const bN = Number.isNaN(bt);
+      if (aN && bN) return 0;
+      if (aN) return 1;
+      if (bN) return -1;
+      return bt - at; // DESC (most-recent first, like the seat gallery)
+    });
+    papicRows = merged.slice(0, EDITORIAL_PAPIC_GALLERY_CAP);
+  }
+  // TIMELINE: union guest photos into the seat timeline rows, dedupe by key, cap
+  // at 48 total across both tables (final sort happens in the timeline builder).
+  if (guestTimelineRows.length > 0) {
+    const seenKeys = new Set(timelinePhotoRows.map((r) => r.key));
+    const mergedTimeline = [
+      ...timelinePhotoRows,
+      ...guestTimelineRows
+        .filter((g) => !seenKeys.has(g.key))
+        .map((g) => ({ photoId: g.captureId, key: g.key, capturedAt: g.capturedAt })),
+    ];
+    // Cap by captured_at ASC (untimed sink last) so the 48-cap keeps the day's arc.
+    mergedTimeline.sort((a, b) => {
+      const at = a.capturedAt ? new Date(a.capturedAt).getTime() : Number.NaN;
+      const bt = b.capturedAt ? new Date(b.capturedAt).getTime() : Number.NaN;
+      const aN = Number.isNaN(at);
+      const bN = Number.isNaN(bt);
+      if (aN && bN) return 0;
+      if (aN) return 1;
+      if (bN) return -1;
+      return at - bt;
+    });
+    timelinePhotoRows = mergedTimeline.slice(0, EDITORIAL_TIMELINE_PHOTO_CAP);
   }
 
   // Presign the Papic captures once; reused by gallery + essay (and the hero
@@ -1170,6 +1336,10 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     replied,
     rsvpPct: typeof frozen.rsvp_pct === 'number' ? (frozen.rsvp_pct as number) : rsvpPct,
     photos: typeof frozen.photos === 'number' ? (frozen.photos as number) : photos,
+    clips: typeof frozen.clips === 'number' ? (frozen.clips as number) : clips,
+    // `chapters` is finalized after the timeline is built (dayChapters.length);
+    // prefer a frozen value when present, else fill from the live count below.
+    chapters: typeof frozen.chapters === 'number' ? (frozen.chapters as number) : null,
   };
 
   // Per-guest spend is not cheaply available (vendor money is off-platform by
@@ -1492,6 +1662,111 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // Fallback: zero Papic media AND curation empty → dayChapters stays [], and the
   // renderer keeps the legacy essay (built from manual `our_photos` above).
 
+  // Backfill the "By the Numbers" chapters cell with the live count now that the
+  // timeline is built (a frozen impact_metrics.chapters, when present, already
+  // won). Only when there actually are chapters — else leave null → cell omitted.
+  if (metrics.chapters == null && dayChapters.length > 0) {
+    metrics.chapters = dayChapters.length;
+  }
+
+  // ── "What They Whispered" — Kwento guest wishes ──────────────────────────────
+  // Approved, screen-cleared guest wishes (photo_messages). PUBLIC surface → FAILS
+  // CLOSED exactly like every other editorial block: status='approved' +
+  // moderation_state='clean' + author not publicly hidden. Ordered by submission
+  // time, capped. When a wish anchors to a Papic capture already presigned in this
+  // loader (gallery/timeline slice), we carry that anchor photo's URL so the quote
+  // can sit beside its image; otherwise it renders text-only. The author's display
+  // name comes from the linked guest row (photo_messages has no name column). A
+  // missing table/column (pre-Kwento event, 42P01/42703) degrades to [] → section
+  // hidden.
+  const kwentoQuotes: KwentoQuote[] = [];
+  try {
+    const { data: rows, error } = await admin
+      .from('photo_messages')
+      .select('body_text, guest_id, source_table, source_id, submitted_at')
+      .eq('event_id', eventId)
+      .eq('status', 'approved')
+      .eq('moderation_state', 'clean')
+      .eq('author_publicly_hidden', false)
+      .order('submitted_at', { ascending: true })
+      .limit(EDITORIAL_KWENTO_CAP);
+    const msgRows = !error && Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+    if (msgRows.length > 0) {
+      // Resolve author display names in one read (guests.display_name, else the
+      // first+last name). Best-effort: no names → quotes render unattributed.
+      const guestIds = Array.from(
+        new Set(msgRows.map((r) => asString(r.guest_id)).filter((v): v is string => Boolean(v))),
+      );
+      const nameByGuest = new Map<string, string>();
+      if (guestIds.length > 0) {
+        try {
+          const { data: gRows } = await admin
+            .from('guests')
+            .select('guest_id, display_name, first_name, last_name')
+            .in('guest_id', guestIds);
+          for (const g of (gRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(g.guest_id);
+            if (!id) continue;
+            const name =
+              asString(g.display_name) ??
+              [asString(g.first_name), asString(g.last_name)].filter(Boolean).join(' ').trim();
+            if (name) nameByGuest.set(id, name);
+          }
+        } catch {
+          // no guest names → quotes render unattributed
+        }
+      }
+      for (const r of msgRows) {
+        const body = asString(r.body_text);
+        if (!body) continue;
+        const guestId = asString(r.guest_id);
+        // Anchor photo — only if it's a papic_photos capture already presigned in
+        // this loader (gallery/timeline slice). Guest-capture anchors + un-sliced
+        // photos stay text-only (we don't presign extra just for a Kwento anchor).
+        const anchorTable = asString(r.source_table);
+        const anchorId = asString(r.source_id);
+        const photoUrl =
+          anchorTable === 'papic_photos' && anchorId
+            ? papicUrlByPhotoId.get(anchorId) ?? null
+            : null;
+        kwentoQuotes.push({
+          body,
+          author: guestId ? nameByGuest.get(guestId) ?? null : null,
+          role: null,
+          photoUrl,
+        });
+      }
+    }
+  } catch {
+    // table absent (pre-Kwento) or any error → no whispers section
+  }
+
+  // ── "Watch the Film" — Live Studio (Panood) replay ───────────────────────────
+  // The couple's broadcast replay, embedded via youtube-nocookie. Gated on ALL
+  // THREE, fail-closed: (1) events.panood_watch_url present + (2) it normalizes to
+  // a real YouTube video id via the panood-watch injection barrier + (3) the couple
+  // holds an ACTIVE Panood/Live Studio SKU (eventSkuActive('PANOOD_SYSTEM')). Any
+  // gate failing → null → section hidden. Mirrors the recap's panood replay
+  // (lib/auto-recap.ts) — never embeds a raw URL. Best-effort: 42703/parse error →
+  // null, never throws.
+  let watchFilmEmbedUrl: string | null = null;
+  try {
+    if (await eventSkuActive(admin, eventId, 'PANOOD_SYSTEM')) {
+      const { data, error } = await admin
+        .from('events')
+        .select('panood_watch_url')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (!error && data) {
+        const watchUrl = asString((data as Record<string, unknown>).panood_watch_url);
+        const videoId = watchUrl ? parseYouTubeVideoId(watchUrl) : null;
+        if (videoId) watchFilmEmbedUrl = youTubeEmbedUrl(videoId);
+      }
+    }
+  } catch {
+    watchFilmEmbedUrl = null;
+  }
+
   // ── Their song ──────────────────────────────────────────────────────────────
   // Prefer the DELIVERED Pakanta song (events.pakanta_song_r2_key) — presign it
   // so the recap plays/credits the couple's actual song. The column is read by
@@ -1554,6 +1829,8 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     pabatiClips,
     pabatiActive,
     vendorMedia,
+    kwentoQuotes,
+    watchFilmEmbedUrl,
     sections: readSections(draftJson),
   };
 }
@@ -1913,7 +2190,9 @@ function mariaAndJuan(): EditorialData {
       attending: 108,
       replied: 116,
       rsvpPct: 97,
-      photos: null,
+      photos: 342,
+      clips: 48,
+      chapters: 5,
     },
     archetype: computeArchetype(guests, null),
     vendors: [
@@ -2005,6 +2284,12 @@ function mariaAndJuan(): EditorialData {
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/maria-juan-v1.jpg', boomerangUrl: '/realstories/maria-juan-vclip.mp4', caption: 'The rings, in close' },
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
     ],
+    kwentoQuotes: [
+      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, photoUrl: '/realstories/maria-juan-g1.jpg' },
+      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, photoUrl: null },
+      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, photoUrl: '/realstories/maria-juan-g2.jpg' },
+    ],
+    watchFilmEmbedUrl: null,
   };
 }
 
@@ -2066,6 +2351,8 @@ function jackAndJill(): EditorialData {
       replied: 78,
       rsvpPct: 98,
       photos: null,
+      clips: null,
+      chapters: null,
     },
     archetype: computeArchetype(guests, null),
     vendors: [
@@ -2099,6 +2386,8 @@ function jackAndJill(): EditorialData {
       { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-jill-v1.jpg', boomerangUrl: '/realstories/jack-jill-vclip.mp4', caption: 'Toes in the sand' },
       { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-jill-v2.jpg', boomerangUrl: null, caption: 'Down the shoreline at sunset' },
     ],
+    kwentoQuotes: [],
+    watchFilmEmbedUrl: null,
   };
 }
 
@@ -2160,6 +2449,8 @@ function johnAndJane(): EditorialData {
       replied: 59,
       rsvpPct: 98,
       photos: null,
+      clips: null,
+      chapters: null,
     },
     archetype: computeArchetype(guests, null),
     vendors: [
@@ -2193,6 +2484,8 @@ function johnAndJane(): EditorialData {
       { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/john-jane-v1.jpg', boomerangUrl: '/realstories/john-jane-vclip.mp4', caption: 'A toast at blue hour' },
       { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/john-jane-v2.jpg', boomerangUrl: null, caption: 'Their first dance, up high' },
     ],
+    kwentoQuotes: [],
+    watchFilmEmbedUrl: null,
   };
 }
 
@@ -2254,6 +2547,8 @@ function peterAndMary(): EditorialData {
       replied: 146,
       rsvpPct: 97,
       photos: null,
+      clips: null,
+      chapters: null,
     },
     archetype: computeArchetype(guests, null),
     vendors: [
@@ -2288,6 +2583,8 @@ function peterAndMary(): EditorialData {
       { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/peter-mary-v1.jpg', boomerangUrl: '/realstories/peter-mary-vclip.mp4', caption: 'The tables in bloom' },
       { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/peter-mary-v2.jpg', boomerangUrl: null, caption: 'The whole table, raised' },
     ],
+    kwentoQuotes: [],
+    watchFilmEmbedUrl: null,
   };
 }
 
@@ -2349,6 +2646,8 @@ function jackAndRose(): EditorialData {
       replied: 97,
       rsvpPct: 97,
       photos: null,
+      clips: null,
+      chapters: null,
     },
     archetype: computeArchetype(guests, null),
     vendors: [
@@ -2383,6 +2682,8 @@ function jackAndRose(): EditorialData {
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-rose-v1.jpg', boomerangUrl: '/realstories/jack-rose-vclip.mp4', caption: 'Greens in the mist' },
       { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-rose-v2.jpg', boomerangUrl: null, caption: 'Just the two of them, in the fog' },
     ],
+    kwentoQuotes: [],
+    watchFilmEmbedUrl: null,
   };
 }
 
@@ -2459,7 +2760,9 @@ function sofiaReyes(): EditorialData {
       attending: 188,
       replied: 196,
       rsvpPct: 98,
-      photos: null,
+      photos: 511,
+      clips: 62,
+      chapters: 5,
     },
     archetype: computeArchetype(guests, null),
     vendors: [
@@ -2553,5 +2856,11 @@ function sofiaReyes(): EditorialData {
     vendorMedia: [
       { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },
     ],
+    kwentoQuotes: [
+      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, photoUrl: '/realstories/sofia-reyes-c1.jpg' },
+      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, photoUrl: null },
+      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, photoUrl: '/realstories/sofia-reyes-c3.jpg' },
+    ],
+    watchFilmEmbedUrl: null,
   };
 }

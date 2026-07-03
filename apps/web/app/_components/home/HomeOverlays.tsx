@@ -738,7 +738,7 @@ function SetnayanAiOverlay({
             </div>
             <input
               type="range"
-              min={50}
+              min={100}
               max={1000}
               step={50}
               value={rate}

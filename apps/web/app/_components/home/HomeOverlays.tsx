@@ -718,14 +718,17 @@ function SetnayanAiOverlay({
         <p style={{ margin: '2px 0 0', fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 26, color: '#3f6b3f' }}>
           {compare.save}
         </p>
+        {/* One shared label-column width, sized for the longest label at the
+            26-month max ("Hired team · ₱1,213,333"), and no wrapping — both
+            rows stay single-line and their bars start at the same x. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-          <span style={{ flex: '0 0 118px', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
+          <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${compare.themPct}%`, background: '#c5a059', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          <span style={{ flex: '0 0 118px', fontSize: 11, fontWeight: 600, color: '#2a2925' }}>Setnayan AI · {peso(mine)}</span>
+          <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 600, color: '#2a2925' }}>Setnayan AI · {peso(mine)}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${compare.usPct}%`, background: '#2a2925', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>

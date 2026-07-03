@@ -157,7 +157,7 @@ export async function getHomePricingData(): Promise<PricingData> {
 
   const groups: PriceGroup[] = [
     {
-      title: 'Papic — candid capture, all in one place',
+      title: 'Papic: candid capture, all in one place',
       tinted: true,
       rows: [
         { n: 'Gallery view · camera filters', v: 'Free', free: true },
@@ -203,7 +203,7 @@ export async function getHomePricingData(): Promise<PricingData> {
       ],
     },
     {
-      title: 'Couple Website — one site · Save-the-Date · RSVP · Event · Editorial',
+      title: 'Couple Website: one site · Save-the-Date · RSVP · Event · Editorial',
       tinted: true,
       rows: [
         { n: 'The whole 4-in-1 site + unlimited RSVP', v: 'Free', free: true },

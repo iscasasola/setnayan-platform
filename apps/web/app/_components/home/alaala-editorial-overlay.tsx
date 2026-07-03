@@ -119,7 +119,7 @@ export function AlaalaEditorialOverlay({ current, onClose }: { current: OverlayI
       <div className="hr-ov-eyebrow">Ala ala · Editorials</div>
       <h2 className="hr-ov-title">Every event becomes a front-page story.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
-        Not a photo dump — a real storyline you can relive: the write-up, the
+        Not a photo dump, a real storyline you can relive: the write-up, the
         photos, what your guests said. Read two complete sample editions.
       </p>
 
@@ -130,7 +130,7 @@ export function AlaalaEditorialOverlay({ current, onClose }: { current: OverlayI
       </div>
 
       <p style={{ margin: '16px 0 0', fontSize: 10.5, color: '#a8a4a0', textAlign: 'center' }}>
-        Sample editions — real editorials publish only with each family&rsquo;s consent.
+        Sample editions. Real editorials publish only with each family&rsquo;s consent.
       </p>
     </OverlayShell>
   );

@@ -151,13 +151,13 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
       <div className="hr-ov-eyebrow">Papic · live demo</div>
       <h2 className="hr-ov-title">Grab a friend and try it live.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
-        Scan one code each. No app, no sign-up — just your phone&rsquo;s
+        Scan one code each. No app, no sign-up, just your phone&rsquo;s
         camera.
       </p>
 
       {failed ? (
         <p style={{ marginTop: 24, fontSize: 13, color: '#8c8884' }}>
-          Couldn&rsquo;t start the demo right now — close this and try again in
+          Couldn&rsquo;t start the demo right now. Close this and try again in
           a moment.
         </p>
       ) : pending || !pair ? (
@@ -234,8 +234,8 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
               </div>
               <p style={{ marginTop: 8, fontSize: 11.5, color: '#8c8884', textAlign: 'center' }}>
                 {remaining > 0
-                  ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left — the style you pick here bakes into their saves.`
-                  : 'Demo roll finished — the real Papic is unlimited, every guest, all day.'}
+                  ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left. The style you pick here bakes into their saves.`
+                  : 'Demo roll finished. The real Papic is unlimited, every guest, all day.'}
               </p>
             </>
           )}
@@ -244,7 +244,7 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
             <p style={{ marginTop: 18, fontSize: 12, color: '#a8a4a0', textAlign: 'center' }}>
               {bothJoined
                 ? 'You’re both in! Shots from your phones appear here, live.'
-                : 'This code refreshes every time you open this demo — it expires in 20 minutes.'}
+                : 'This code refreshes every time you open this demo. It expires in 20 minutes.'}
             </p>
           )}
         </>

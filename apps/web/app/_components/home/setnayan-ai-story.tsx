@@ -43,7 +43,7 @@ export function SetnayanAiHeroStory({
         ))}
       </div>
       <p className="hr-ai-quiet">
-        One calm weekly digest — loud only when it can&rsquo;t wait. No spam, no fake countdowns.
+        One calm weekly digest, loud only when it can&rsquo;t wait. No spam, no fake countdowns.
       </p>
       {onCompare && (
         <button className="hr-ai-cta" onClick={onCompare}>

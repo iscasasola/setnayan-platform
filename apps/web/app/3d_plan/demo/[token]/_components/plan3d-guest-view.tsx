@@ -144,10 +144,10 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           <>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#2a2925', fontSize: 14, fontWeight: 500 }}>
               <Footprints aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Tap anywhere on the floor to walk there
+              Tap the floor to walk · swipe to look around
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 12, color: '#a8a4a0' }}>
-              Your seat is the gold ring{table?.label ? ` — ${table.label}` : ''}.
+              Tap the gold ring to take your seat{table?.label ? ` at ${table.label}` : ''} · tap a booth to meet the vendor.
             </p>
             <Link
               href="/"

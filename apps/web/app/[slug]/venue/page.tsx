@@ -52,6 +52,30 @@ export default async function VenuePage({
     };
   }
 
+  // Booth VENDOR logos ride as RAW stored refs too (v4 RPC) — resolve them the
+  // same way, so the booth vendor card shows the business logo, not an r2:// ref.
+  // Public business info (no token gate); this is purely ref → display URL.
+  if (scene?.booths && scene.booths.length > 0) {
+    const logoRefs = [
+      ...new Set(scene.booths.map((b) => b.vendor?.logoUrl).filter((r): r is string => !!r)),
+    ];
+    if (logoRefs.length > 0) {
+      const resolvedLogos: Record<string, string> = Object.fromEntries(
+        (
+          await Promise.all(logoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
+        ).filter((e): e is [string, string] => e[1] !== null),
+      );
+      scene = {
+        ...scene,
+        booths: scene.booths.map((b) =>
+          b.vendor?.logoUrl
+            ? { ...b, vendor: { ...b.vendor, logoUrl: resolvedLogos[b.vendor.logoUrl] ?? null } }
+            : b,
+        ),
+      };
+    }
+  }
+
   if (error || !scene || !scene.published) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#0b0d12] p-6 text-center">

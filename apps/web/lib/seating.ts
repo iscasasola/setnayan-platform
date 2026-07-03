@@ -1382,6 +1382,12 @@ export type FloorBoothRow = {
   // on the 3D venue-walk booth card. Written by the couple here or the booth's
   // vendor in the cocktail editor. Null when unset.
   offerings: string | null;
+  // The booked vendor's PUBLIC business identity (name/category/logo) for the
+  // booth card, or null/absent when the booth is unlinked. Joined server-side by
+  // fetchBooths; carries zero personal PII. `logo_url` is a RAW stored ref —
+  // resolve before display. Optional so 2D-editor local rows (which never join)
+  // don't have to carry it.
+  vendor?: { vendor_name: string; category: string; logo_url: string | null } | null;
 };
 
 export async function fetchBooths(
@@ -1390,22 +1396,66 @@ export async function fetchBooths(
 ): Promise<FloorBoothRow[]> {
   const { data, error } = await supabase
     .from('event_floor_booths')
-    .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings')
+    .select(
+      // The vendor_profiles embed MUST name its FK column: event_vendors has
+      // TWO relationships to vendor_profiles (linked_vendor_profile_id and
+      // marketplace_vendor_id) and an unhinted embed errors as ambiguous.
+      'booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings,' +
+        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url))',
+    )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   // Graceful-degrade (same contract as fetchFloorPlan): a not-yet-migrated
-  // table or RLS hiccup renders a booth-less plan, never a crashed page.
-  if (error || !data) return [];
-  return (data as FloorBoothRow[]).map((b) => ({
-    ...b,
-    x_pos: Number(b.x_pos),
-    y_pos: Number(b.y_pos),
-    // Pre-migration rows lack these columns; default sensibly.
-    zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
-    event_vendor_id: b.event_vendor_id ?? null,
-    offerings: b.offerings ?? null,
-  }));
+  // table or RLS hiccup renders a booth-less plan, never a crashed page. The
+  // vendor EMBED is the most fragile piece (it needs the FK relationship
+  // metadata) — if the joined select errors, fall back to the plain columns so
+  // booths still render, just without the vendor block on their cards.
+  if (error || !data) {
+    const lean = await supabase
+      .from('event_floor_booths')
+      .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings')
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (lean.error || !lean.data) return [];
+    return (lean.data as Omit<FloorBoothRow, 'vendor'>[]).map((b) => ({
+      ...b,
+      x_pos: Number(b.x_pos),
+      y_pos: Number(b.y_pos),
+      zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
+      event_vendor_id: b.event_vendor_id ?? null,
+      offerings: b.offerings ?? null,
+      vendor: null,
+    }));
+  }
+  type Joined = Omit<FloorBoothRow, 'vendor'> & {
+    event_vendors:
+      | { vendor_name: string; category: string; vendor_profiles: { logo_url: string | null } | null }
+      | { vendor_name: string; category: string; vendor_profiles: { logo_url: string | null } | null }[]
+      | null;
+  };
+  return (data as unknown as Joined[]).map((b) => {
+    // PostgREST returns an embedded to-one as an object, but typings sometimes
+    // widen it to an array — normalise to the first row either way.
+    const ev = Array.isArray(b.event_vendors) ? b.event_vendors[0] ?? null : b.event_vendors;
+    const vp = ev ? (Array.isArray(ev.vendor_profiles) ? ev.vendor_profiles[0] ?? null : ev.vendor_profiles) : null;
+    return {
+      booth_id: b.booth_id,
+      event_id: b.event_id,
+      booth_type: b.booth_type,
+      label: b.label,
+      x_pos: Number(b.x_pos),
+      y_pos: Number(b.y_pos),
+      sort_order: b.sort_order,
+      zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
+      event_vendor_id: b.event_vendor_id ?? null,
+      offerings: (b.offerings ?? null) as string | null,
+      vendor: ev
+        ? { vendor_name: ev.vendor_name, category: ev.category, logo_url: vp?.logo_url ?? null }
+        : null,
+    };
+  });
 }
 
 // --- wayfinding signs -------------------------------------------------------

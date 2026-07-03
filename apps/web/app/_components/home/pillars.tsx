@@ -413,8 +413,28 @@ const LikhaanPapic = (
         </span>
       </div>
     </div>
-    <div className="hr-mk-h" style={{ margin: '12px 0 0', color: '#97742f' }}>
-      Tag by QR today · auto face-tagging rolling out
+    <div style={{ display: 'flex', gap: 5, marginTop: 10, flexWrap: 'wrap' }}>
+      {['Orig', 'Retro', 'Mono', 'Cine', 'Lomo'].map((s, i) => (
+        <span
+          key={s}
+          style={{
+            fontFamily: 'var(--hr-mono)',
+            fontSize: 8.5,
+            letterSpacing: '.06em',
+            textTransform: 'uppercase',
+            padding: '3px 9px',
+            borderRadius: 'var(--hr-r20)',
+            border: '1px solid var(--hr-line)',
+            background: i === 0 ? '#2f2d2a' : 'transparent',
+            color: i === 0 ? '#f2f0ec' : 'var(--hr-grey)',
+          }}
+        >
+          {s}
+        </span>
+      ))}
+    </div>
+    <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
+      Five looks · face tagging on the phone · try it live from the Papic tile
     </div>
   </div>
 );
@@ -472,7 +492,7 @@ const LikhaanLiveStudio = (
       <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
     </div>
     <div className="hr-mk-h" style={{ margin: '11px 0 0', color: '#97742f' }}>
-      For everyone who couldn’t make the trip · live streaming rolling out
+      A real control room — cut between phone cameras live · try it from the Panood tile
     </div>
   </div>
 );
@@ -545,7 +565,7 @@ const Likhaan3D = (
       </span>
     </div>
     <div className="hr-mk-h" style={{ margin: '10px 0 0', color: '#97742f' }}>
-      2D live today · 3D walk-to-seat on the roadmap
+      Click a guest → their phone walks entrance to seat · try it from the 3D Plan tile
     </div>
   </div>
 );
@@ -1140,9 +1160,9 @@ export const PILLARS: Pillar[] = [
         fn: 'Papic',
         fl: (
           <>
-            Modern event capture — themes, face-blocking, and face tagging. Tag by QR today; auto
-            face-tagging is rolling out. Either way, every photo lands in your gallery.{' '}
-            <em>Auto-tagging rolling out</em>
+            Modern candid capture — five looks (Original · Retro · Mono · Cine · Lomo), face tagging
+            that happens right on the phone, and every photo lands in your gallery, tagged or not.{' '}
+            <em>Try it live from the Papic tile — you and a friend, right now.</em>
           </>
         ),
       },
@@ -1151,8 +1171,9 @@ export const PILLARS: Pillar[] = [
         fn: 'Live Studio',
         fl: (
           <>
-            Document the event without high-end cameras — stream it live to everyone who couldn’t be
-            there. <em>Live streaming rolling out</em>
+            Your phones become the cameras, and you get a real control room — cut between angles
+            live for everyone who couldn’t make the trip. <em>Try the control room from the Panood
+            tile — two phones.</em> Full event livestream rolling out.
           </>
         ),
       },
@@ -1161,9 +1182,9 @@ export const PILLARS: Pillar[] = [
         fn: '3D Plan',
         fl: (
           <>
-            Your 2D seat plan, guest list, and mood board are free. The full 3D Plan — a 3D
-            walk-to-seat your guests open right on your website — is the paid unlock. 2D live today;{' '}
-            <em>3D on the roadmap</em>.
+            Click a guest and their phone walks them from the entrance to their seat — in a real 3D
+            room, right on your website. <em>Try it from the 3D Plan tile.</em> Your 2D seat plan,
+            guest list, and mood board stay free; the full 3D Plan is the paid unlock.
           </>
         ),
       },

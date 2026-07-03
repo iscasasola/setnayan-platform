@@ -204,6 +204,88 @@ export async function assignGuest(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Atomically SWAP two seated guests (3D lab · tap guest A then guest B). Both
+// guests must already be seated somewhere in the event. Replaces the old
+// two-independent-`assignGuest`-upserts path, which was neither atomic (a crash
+// between writes left a half-swap) nor collision-safe (two guests could land on
+// one chair). The swap_seat_assignments RPC exchanges (table_id, seat_number)
+// inside ONE transaction, guarded by the new physical-chair unique index.
+// Lock-gated like every seating mutation.
+export async function swapSeats(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const guestA = formData.get('guest_a_id');
+  const guestB = formData.get('guest_b_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof guestA !== 'string' ||
+    typeof guestB !== 'string' ||
+    !UUID_RE.test(guestA) ||
+    !UUID_RE.test(guestB) ||
+    guestA === guestB
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase.rpc('swap_seat_assignments', {
+    p_event_id: eventId,
+    p_guest_a: guestA,
+    p_guest_b: guestB,
+  });
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Atomically SWAP every occupant between two tables (3D lab · arm table A, tap
+// table B). Seat numbers travel with each guest. Replaces the old per-seat loop
+// of independent `assignGuest` writes with the single swap_table_assignments
+// RPC, so the exchange is all-or-nothing and never transiently double-seats a
+// chair. Lock-gated like every seating mutation.
+export async function swapTableOccupants(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableA = formData.get('table_id_a');
+  const tableB = formData.get('table_id_b');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof tableA !== 'string' ||
+    typeof tableB !== 'string' ||
+    tableA.length === 0 ||
+    tableB.length === 0 ||
+    tableA === tableB
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase.rpc('swap_table_assignments', {
+    p_event_id: eventId,
+    p_table_a: tableA,
+    p_table_b: tableB,
+  });
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Seat a whole custom group at one table in a single tap. Seats every member
 // who isn't already there into the table's open chairs, in the order given.
 // Capacity is enforced server-side (seat-what-fits): if the group is bigger

@@ -2009,3 +2009,56 @@ export function roundKissSnap(
   }
   return best;
 }
+
+// ---------------------------------------------------------------------------
+// Atomic swap logic (iteration 0008 · 3D lab). These pure functions mirror,
+// on the client, exactly what the DB RPCs swap_seat_assignments /
+// swap_table_assignments do server-side, so the two can be kept in lock-step
+// and unit-pinned. They compute the FINAL (table_id, seat_number) each affected
+// guest should end up with — the server transaction is what actually persists it
+// atomically (and the physical-chair unique index is what guarantees no two
+// guests share a chair). The NULL-park intermediate the RPCs use is an
+// implementation detail of staying inside the un-deferrable index; the OBSERVED
+// end state is exactly what these functions return.
+// ---------------------------------------------------------------------------
+
+export type SeatPlacement = { tableId: string; seatNumber: number | null };
+
+// Exchange the (table_id, seat_number) of two guests. Returns the resulting
+// placement for each, or null if either guest has no assignment (matching the
+// RPC, which raises in that case — the caller should treat null as "can't swap").
+export function computeGuestSwap(
+  assignments: ReadonlyArray<SeatAssignmentRow>,
+  guestA: string,
+  guestB: string,
+): { a: SeatPlacement; b: SeatPlacement } | null {
+  if (guestA === guestB) return null;
+  const ra = assignments.find((r) => r.guest_id === guestA);
+  const rb = assignments.find((r) => r.guest_id === guestB);
+  if (!ra || !rb) return null;
+  // A takes B's chair; B takes A's chair.
+  return {
+    a: { tableId: rb.table_id, seatNumber: rb.seat_number },
+    b: { tableId: ra.table_id, seatNumber: ra.seat_number },
+  };
+}
+
+// Swap every occupant between two tables: each guest keeps their seat_number,
+// only their table_id flips A<->B. Assignments on other tables are untouched.
+// Returns { guest_id → new placement } for just the guests that moved.
+export function computeTableSwap(
+  assignments: ReadonlyArray<SeatAssignmentRow>,
+  tableA: string,
+  tableB: string,
+): Map<string, SeatPlacement> {
+  const out = new Map<string, SeatPlacement>();
+  if (tableA === tableB) return out;
+  for (const r of assignments) {
+    if (r.table_id === tableA) {
+      out.set(r.guest_id, { tableId: tableB, seatNumber: r.seat_number });
+    } else if (r.table_id === tableB) {
+      out.set(r.guest_id, { tableId: tableA, seatNumber: r.seat_number });
+    }
+  }
+  return out;
+}

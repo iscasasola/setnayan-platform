@@ -66,6 +66,7 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
+import { FilmsRack } from './_components/films-rack';
 import {
   InquiryComposer,
   type InquiryComposerService,
@@ -104,11 +105,13 @@ import {
 } from '@/lib/realstories-vendor';
 import {
   fetchVendorMicrosite,
+  fetchVimeoThumb,
   isSectionVisible,
   micrositeAccentVars,
   micrositeCan,
   orderFeaturedFirst,
-  youTubeEmbedUrl,
+  videoEmbedUrl,
+  videoThumb,
 } from '@/lib/vendor-microsite';
 import {
   DEMO_MODE_COOKIE_NAME,
@@ -915,6 +918,28 @@ export async function renderVendorBySlug({
   // photo (else it falls back to the standard banner + identity block).
   const isEnterprise = asVendorTier(vendor.tier_state ?? null) === 'enterprise';
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
+  // Films rack — resolve each ref to a click-to-play facade card (poster +
+  // embed URL). The rack renders thumbnail facades, NOT live iframes, and only
+  // injects the real player on click — so a vendor with up to 30 films costs one
+  // <img> each, not 30 embeds. YouTube posters are deterministic; Vimeo posters
+  // come from a 7-day-cached oEmbed lookup fetched CONCURRENTLY (Promise.all) so
+  // 30 Vimeo links add no serial latency, degrading to a poster-less facade on
+  // any failure. Only built when the rack will actually render.
+  const filmCards =
+    isEnterprise && microsite.videos.length > 0
+      ? await Promise.all(
+          microsite.videos.map(async (ref) => ({
+            key: `${ref.provider}:${ref.id}`,
+            provider: ref.provider,
+            embedUrl: videoEmbedUrl(ref),
+            poster:
+              videoThumb(ref) ??
+              (ref.provider === 'vimeo'
+                ? await fetchVimeoThumb(ref.id, ref.hash)
+                : null),
+          })),
+        )
+      : [];
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
     vendor.location_city,
@@ -1691,33 +1716,12 @@ export async function renderVendorBySlug({
           </section>
         ) : null}
 
-        {/* Films — the Enterprise "Flagship" video portfolio. Playable YouTube
-            embeds (youtube-nocookie, lazy). Enterprise-only + reverts on
-            downgrade (data kept); auto-hidden when empty. */}
-        {isEnterprise && microsite.videoIds.length > 0 ? (
-          <section className="space-y-3 border-b border-ink/10 py-8">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Films
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {microsite.videoIds.map((id) => (
-                <div
-                  key={id}
-                  className="relative aspect-video overflow-hidden rounded-xl bg-ink/5"
-                >
-                  <iframe
-                    src={youTubeEmbedUrl(id)}
-                    title={`${displayLabel} film`}
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    className="absolute inset-0 h-full w-full"
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
+        {/* Films — the Enterprise "Flagship" video portfolio. Click-to-play
+            thumbnail facades (YouTube-nocookie + Vimeo dnt=1 injected on click),
+            first ~6 shown with a "Show all" expander. Enterprise-only + reverts
+            on downgrade (data kept); auto-hidden when empty. */}
+        {filmCards.length > 0 ? (
+          <FilmsRack films={filmCards} title={displayLabel} />
         ) : null}
 
         {/* Editorials ("Real Stories") — the vendor's published, couple-consented

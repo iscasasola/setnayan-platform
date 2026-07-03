@@ -64,7 +64,14 @@ import {
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
-import { fetchVendorMicrosite, micrositeCan, type VendorMicrosite } from '@/lib/vendor-microsite';
+import {
+  fetchVendorMicrosite,
+  fetchVimeoThumb,
+  micrositeCan,
+  serializeVideoRef,
+  videoThumb,
+  type VendorMicrosite,
+} from '@/lib/vendor-microsite';
 
 import { ManageTiles } from './_components/manage-tiles';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
@@ -548,6 +555,24 @@ export default async function VendorShopPage({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
+  // Films editor cards — resolve each stored ref to a poster. YouTube posters
+  // are deterministic; Vimeo needs a cached oEmbed lookup (fetched server-side
+  // here, degrading to null → the editor's poster-less fallback tile). Only the
+  // Enterprise editor renders the grid, so skip the work otherwise.
+  const videoCards = data.isEnterpriseWebsite
+    ? await Promise.all(
+        data.microsite.videos.map(async (ref) => ({
+          stored: serializeVideoRef(ref),
+          provider: ref.provider,
+          thumb:
+            videoThumb(ref) ??
+            (ref.provider === 'vimeo'
+              ? await fetchVimeoThumb(ref.id, ref.hash)
+              : null),
+        })),
+      )
+    : [];
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <HeroCard data={data} publicPath={publicPath} />
@@ -640,7 +665,7 @@ export default async function VendorShopPage({
             pinnedReviewId={data.microsite.pinnedReviewId}
             editorials={data.editorialOptions}
             featuredEditorialIds={data.microsite.featuredEditorialIds}
-            videoIds={data.microsite.videoIds}
+            videos={videoCards}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}

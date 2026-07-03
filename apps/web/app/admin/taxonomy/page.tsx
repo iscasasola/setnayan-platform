@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { validateVendorCategoryMapping } from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -15,6 +16,7 @@ import {
   type StudioData,
   type StudioView,
   type StudioService,
+  type StudioLeafRefinement,
   type StudioRefinementLeaf,
   type StudioRefinementOption,
 } from './_components/taxonomy-studio';
@@ -28,6 +30,9 @@ type SchemaRow = {
   canonical_service: string;
   display_name_en: string;
   display_name_tl: string | null;
+  schema_version: number;
+  shared_attribute_groups: string[] | null;
+  category_specific_attributes: Record<string, AttributeFieldDef> | null;
 };
 
 type DeadlineRow = {
@@ -129,7 +134,9 @@ export default async function AdminTaxonomyPage({
     await Promise.all([
       admin
         .from('canonical_service_schemas')
-        .select('canonical_service, display_name_en, display_name_tl')
+        .select(
+          'canonical_service, display_name_en, display_name_tl, schema_version, shared_attribute_groups, category_specific_attributes',
+        )
         .order('canonical_service', { ascending: true }),
       getTaxonomy(),
       admin
@@ -224,9 +231,27 @@ export default async function AdminTaxonomyPage({
   }
 
   // ── Services (canonical schema + live taxonomy placement) ──
+  // Each service carries its full leaf-refinement schema (the vendor
+  // attribute fields in category_specific_attributes) so the Services tab can
+  // edit them inline. Fields are serialized to a stable array (JSONB key order
+  // isn't guaranteed to survive the client boundary otherwise).
   const services: StudioService[] = schemas.map((s) => {
     const meta = tax.map[s.canonical_service] ?? null;
     const tileId = meta?.tile && tax.tileLabel[meta.tile] ? meta.tile : null;
+    const catAttrs = (s.category_specific_attributes ?? {}) as Record<string, AttributeFieldDef>;
+    const refinementFields: StudioLeafRefinement[] = Object.entries(catAttrs).map(([key, def]) => {
+      const d = def as AttributeFieldDef & { retired?: boolean; retired_options?: string[] };
+      const retiredOptions = Array.isArray(d.retired_options) ? d.retired_options : [];
+      return {
+        key,
+        type: d.type,
+        label: d.label ?? key,
+        retired: d.retired === true,
+        options: Array.isArray(d.options)
+          ? d.options.map((value) => ({ value, retired: retiredOptions.includes(value) }))
+          : [],
+      };
+    });
     return {
       canonical: s.canonical_service,
       displayEn: s.display_name_en,
@@ -238,6 +263,9 @@ export default async function AdminTaxonomyPage({
       setnayan: Boolean(meta?.setnayan),
       rental: Boolean(meta?.rental),
       hidden: Boolean(meta?.marketplaceHidden),
+      schemaVersion: s.schema_version ?? 1,
+      sharedGroups: Array.isArray(s.shared_attribute_groups) ? s.shared_attribute_groups : [],
+      refinements: refinementFields,
     };
   });
 

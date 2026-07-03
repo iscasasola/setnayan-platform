@@ -12,11 +12,23 @@ import {
   updateLeafCore,
   updateOptionCore,
 } from '@/lib/refinements-mutations';
+import {
+  addLeafAttributeField,
+  addLeafAttributeOption,
+  relabelLeafAttributeField,
+  retireLeafAttributeField,
+  retireLeafAttributeOption,
+  type LeafAttributeMap,
+  type SchemaMutationResult,
+} from '@/lib/leaf-attribute-schema';
 
 const BASE = '/admin/taxonomy';
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
  *  revalidate it alongside /admin/taxonomy so a refinement edit shows up live. */
 const ONBOARDING_PATH = '/onboarding/wedding';
+/** The vendor form that renders these leaf refinements (fetchSchemaWithSharedGroups
+ *  is a server read) — revalidate it so a schema edit surfaces to vendors live. */
+const VENDOR_ATTR_PATH = '/vendor-dashboard/attributes';
 
 /** JSON result for the Studio's drag actions — they cannot redirect (they fire
  *  from `fetch`/`useTransition`, not a form navigation), so they hand the client
@@ -1765,4 +1777,162 @@ export async function reorderRefinementOptions(
   revalidatePath(BASE);
   revalidatePath(ONBOARDING_PATH);
   return { ok: true, message: 'Order saved.' };
+}
+
+// ── Leaf REFINEMENTS (vendor attribute schema) ──────────────────────────────
+//
+// The owner-clarified "refinements" = the per-leaf vendor attributes stored in
+// `canonical_service_schemas.category_specific_attributes` (shooting_style,
+// cuisine, coverage_hours, …). These redirect-back form actions are the Studio's
+// FIRST editor for them. Every write is ADDITIVE-ONLY (0044 never-orphan
+// contract, enforced in lib/leaf-attribute-schema.ts): keys + option VALUES are
+// immutable, retire is soft, and each write bumps schema_version +1. The pure
+// module does all the JSONB shaping + validation; these actions only load the
+// row, apply the result, audit before/after of the touched field, and
+// revalidate the Studio + the vendor form that renders the schema.
+
+/**
+ * Shared spine for the five leaf-refinement form actions. Loads the schema row,
+ * runs the caller's pure mutation, writes `category_specific_attributes` +
+ * `schema_version` in one UPDATE, and audits the before/after of just the
+ * touched field so the log stays legible. Redirect-back keeps the inspector on
+ * the Services tab (`_opentab=services`) so a save re-opens where the admin was.
+ */
+async function applyLeafAttributeMutation(
+  formData: FormData,
+  fieldKeyForAudit: string,
+  auditAction: string,
+  mutate: (attrs: LeafAttributeMap, version: number) => SchemaMutationResult,
+  successMsg: (result: Extract<SchemaMutationResult, { ok: true }>) => string,
+): Promise<never> {
+  const user = await requireAdmin();
+  const canonical = String(formData.get('canonical_service') ?? '').trim();
+  if (!canonical) redirectBack(formData, 'error', 'Missing service.');
+
+  const admin = createAdminClient();
+  const { data: row, error: readErr } = await admin
+    .from('canonical_service_schemas')
+    .select('canonical_service, schema_version, category_specific_attributes')
+    .eq('canonical_service', canonical)
+    .maybeSingle();
+  if (readErr) redirectBack(formData, 'error', readErr.message);
+  if (!row) redirectBack(formData, 'error', `Unknown service "${canonical}".`);
+
+  const before = (row.category_specific_attributes ?? {}) as LeafAttributeMap;
+  const version = (row.schema_version as number) ?? 1;
+  const result = mutate(before, version);
+  if (!result.ok) redirectBack(formData, 'error', result.error);
+
+  const { error: writeErr } = await admin
+    .from('canonical_service_schemas')
+    .update({
+      category_specific_attributes: result.attributes,
+      schema_version: result.schemaVersion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('canonical_service', canonical);
+  if (writeErr) redirectBack(formData, 'error', writeErr.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: auditAction,
+    target_table: 'canonical_service_schemas',
+    target_id: canonical,
+    before_json: {
+      schema_version: version,
+      field: fieldKeyForAudit || null,
+      def: fieldKeyForAudit ? before[fieldKeyForAudit] ?? null : null,
+    },
+    after_json: {
+      schema_version: result.schemaVersion,
+      field: fieldKeyForAudit || null,
+      def: fieldKeyForAudit ? result.attributes[fieldKeyForAudit] ?? null : null,
+    },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath(VENDOR_ATTR_PATH);
+  revalidatePath('/explore');
+  redirectBack(formData, 'ok', successMsg(result), {
+    anchor: `t-${String(formData.get('tile_id') ?? '')}`,
+  });
+}
+
+/**
+ * Admin: add a NEW refinement (attribute field) to a leaf. Label → immutable
+ * snake_case key (collision-checked against every existing field, retired or
+ * not). Type is one of the vendor-form-supported shapes; enum / multi_select
+ * carry an initial comma-separated option list.
+ */
+export async function addLeafAttributeFieldAction(formData: FormData): Promise<never> {
+  const label = String(formData.get('field_label') ?? '').trim();
+  const type = String(formData.get('field_type') ?? '').trim();
+  const optionsRaw = String(formData.get('field_options') ?? '').trim();
+  const options = optionsRaw
+    ? optionsRaw.split(',').map((o) => o.trim()).filter(Boolean)
+    : [];
+  const key = slugify(label, '_');
+  return applyLeafAttributeMutation(
+    formData,
+    key,
+    'taxonomy.leaf_attr_add_field',
+    (attrs, v) => addLeafAttributeField(attrs, v, { label, type, options }),
+    () => `Added refinement "${label}".`,
+  );
+}
+
+/** Admin: add an option to an existing pick-one / pick-many refinement. */
+export async function addLeafAttributeOptionAction(formData: FormData): Promise<never> {
+  const fieldKey = String(formData.get('field_key') ?? '').trim();
+  const label = String(formData.get('option_label') ?? '').trim();
+  return applyLeafAttributeMutation(
+    formData,
+    fieldKey,
+    'taxonomy.leaf_attr_add_option',
+    (attrs, v) => addLeafAttributeOption(attrs, v, { fieldKey, label }),
+    () => `Added option to "${fieldKey}".`,
+  );
+}
+
+/** Admin: relabel a refinement's display label. Key is never touched (safe —
+ *  the payload keys on the field key, never the label). */
+export async function relabelLeafAttributeFieldAction(formData: FormData): Promise<never> {
+  const fieldKey = String(formData.get('field_key') ?? '').trim();
+  const label = String(formData.get('field_label') ?? '').trim();
+  return applyLeafAttributeMutation(
+    formData,
+    fieldKey,
+    'taxonomy.leaf_attr_relabel_field',
+    (attrs, v) => relabelLeafAttributeField(attrs, v, { fieldKey, label }),
+    () => `Renamed "${fieldKey}".`,
+  );
+}
+
+/** Admin: soft-retire OR un-retire a whole refinement. The def + its options
+ *  stay in the schema so saved vendor payloads keep validating. */
+export async function retireLeafAttributeFieldAction(formData: FormData): Promise<never> {
+  const fieldKey = String(formData.get('field_key') ?? '').trim();
+  const retired = String(formData.get('retired') ?? '') === 'true';
+  return applyLeafAttributeMutation(
+    formData,
+    fieldKey,
+    'taxonomy.leaf_attr_retire_field',
+    (attrs, v) => retireLeafAttributeField(attrs, v, { fieldKey, retired }),
+    () => `${retired ? 'Retired' : 'Restored'} "${fieldKey}".`,
+  );
+}
+
+/** Admin: soft-retire OR un-retire a single option VALUE. The value stays inside
+ *  `options` (validation survives); only the render layer hides it. */
+export async function retireLeafAttributeOptionAction(formData: FormData): Promise<never> {
+  const fieldKey = String(formData.get('field_key') ?? '').trim();
+  const option = String(formData.get('option') ?? '').trim();
+  const retired = String(formData.get('retired') ?? '') === 'true';
+  return applyLeafAttributeMutation(
+    formData,
+    fieldKey,
+    'taxonomy.leaf_attr_retire_option',
+    (attrs, v) => retireLeafAttributeOption(attrs, v, { fieldKey, option, retired }),
+    () => `${retired ? 'Retired' : 'Restored'} option "${option}".`,
+  );
 }

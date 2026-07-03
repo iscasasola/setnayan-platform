@@ -10,6 +10,7 @@ import {
   type ResolvedSchema,
   type VendorAttributePayload,
 } from '@/lib/vendor-service-attributes';
+import { visibleLeafAttributesForPayload } from '@/lib/leaf-attribute-schema';
 import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './actions';
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -297,6 +298,10 @@ function ServiceForm({
   const completeness = payload?.completeness_score ?? 0;
   const meetsVisibility = payload?.meets_visibility_minimum ?? false;
   const facetSet = new Set(schema.filter_facets);
+  // Hide refinements (or options) an admin RETIRED in the Taxonomy Studio — but
+  // keep any the vendor already answered so their saved value is never dropped
+  // on the next save (0044 never-orphan contract).
+  const visibleFields = visibleLeafAttributesForPayload(schema.fields, initialPayload);
 
   return (
     <article
@@ -342,7 +347,7 @@ function ServiceForm({
       <form action={saveVendorServiceAttribute} className="space-y-5">
         <input type="hidden" name="canonical_service" value={schema.canonical_service} />
 
-        {Object.entries(schema.fields).map(([fieldKey, def]) => (
+        {Object.entries(visibleFields).map(([fieldKey, def]) => (
           <AttributeFieldRenderer
             key={fieldKey}
             fieldKey={fieldKey}

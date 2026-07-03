@@ -28,8 +28,10 @@ import {
   MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
+  MICROSITE_VIDEOS_MAX,
   isValidAccentKey,
   micrositeCan,
+  parseYouTubeId,
 } from '@/lib/vendor-microsite';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -1011,6 +1013,8 @@ const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_accent',
   'microsite_pinned_review',
   'microsite_featured_editorials',
+  // ENTERPRISE control (gated on micrositeCan().isEnterprise).
+  'microsite_videos',
 ]);
 
 /** SOLO+-gated website fields — personalizing the page (tier ladder 2026-07-03).
@@ -1029,6 +1033,10 @@ const PRO_WEBSITE_FIELDS = new Set([
   'microsite_pinned_review',
   'microsite_featured_editorials',
 ]);
+
+/** ENTERPRISE-gated website fields — the "Flagship" 4th-tier differentiators
+ *  (owner 2026-07-03). The video portfolio is Enterprise-only. */
+const ENTERPRISE_WEBSITE_FIELDS = new Set(['microsite_videos']);
 
 /**
  * Save one FREE microsite field from the My Shop → Website editor. Mirrors
@@ -1089,6 +1097,18 @@ export async function updateVendorWebsiteField(
   // the server-side backstop.
   if (PRO_WEBSITE_FIELDS.has(field) && !caps.customWebsiteName) {
     return { ok: false, error: 'This is a Pro feature — upgrade to customize.' };
+  }
+
+  // ENTERPRISE gate — the video portfolio is a Flagship differentiator. UI hides
+  // it below Enterprise; server-side backstop.
+  if (
+    ENTERPRISE_WEBSITE_FIELDS.has(field) &&
+    !micrositeCan(rowTyped?.tier_state).isEnterprise
+  ) {
+    return {
+      ok: false,
+      error: 'Video portfolio is an Enterprise feature — upgrade to add films.',
+    };
   }
 
   // Slug edits change the public path — revalidate BOTH the old and the new.
@@ -1167,6 +1187,22 @@ export async function updateVendorWebsiteField(
         .filter(Boolean)
         .slice(0, MICROSITE_FEATURED_EDITORIALS_MAX);
       patch = { microsite_featured_editorial_ids: featured };
+      break;
+    }
+    case 'microsite_videos': {
+      // Enterprise "Films" portfolio — normalize each submitted value to a
+      // canonical YouTube id, drop anything unrecognizable + dupes, cap the rack.
+      const seen = new Set<string>();
+      const ids: string[] = [];
+      for (const v of formData.getAll('microsite_videos').map(String)) {
+        const id = parseYouTubeId(v);
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          ids.push(id);
+        }
+        if (ids.length >= MICROSITE_VIDEOS_MAX) break;
+      }
+      patch = { microsite_video_ids: ids };
       break;
     }
     default:

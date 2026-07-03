@@ -56,14 +56,14 @@ export const dynamic = 'force-dynamic';
 // hardcoded") — the Pro price comes from getVendorPrices().
 export async function generateMetadata() {
   const p = await getVendorPrices();
-  const title = `Setnayan for Vendors — Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
+  const title = `Setnayan for Vendors · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
   return {
     title,
-    description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews.`,
+    description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d. 0% commission on bookings. We never touch the money. In-app chat, pipeline, reviews.`,
     alternates: { canonical: '/for-vendors' },
     openGraph: {
       title,
-      description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money.`,
+      description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d. 0% commission on bookings. We never touch the money.`,
       url: '/for-vendors',
       type: 'website',
       siteName: 'Setnayan',
@@ -98,7 +98,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: `Setnayan for vendors — Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
+      name: `Setnayan for vendors · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
@@ -112,7 +112,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#solo-vendor-subscription`,
       name: 'Solo Vendor (28-day prepaid block)',
       description:
-        '1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. 0% commission — Setnayan never touches the money between you and your couples.',
+        '1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. 0% commission. Setnayan never touches the money between you and your couples.',
       price: String(p.num.soloMonthly),
       priceCurrency: 'PHP',
       priceSpecification: {

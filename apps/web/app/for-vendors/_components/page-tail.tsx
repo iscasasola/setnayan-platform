@@ -94,8 +94,8 @@ export function Voices() {
             maxWidth: 480,
           }}
         >
-          We invited the couples and vendors on the platform to talk to you —
-          these are the ones who said yes.
+          We invited the couples and vendors on the platform to talk to you.
+          These are the ones who said yes.
         </p>
       </div>
 
@@ -318,11 +318,11 @@ export function Pricing() {
           lineHeight: 1.55,
         }}
       >
-        The planning tools are free forever. Every service is free to use —
-        mood board, basic schedule, single-camera livestream — and some have
+        The planning tools are free forever. Every service is free to use
+        (mood board, basic schedule, single-camera livestream) and some have
         pay-per-use upgrades (multicam livestream control room, paparazzi,
         highlight reel). No subscription, no per-guest fee, no checkout
-        surprises — what you see is what you pay.
+        surprises. What you see is what you pay.
       </p>
 
       <div
@@ -337,7 +337,7 @@ export function Pricing() {
           {
             tag: 'Free forever',
             title: 'Planning, every surface.',
-            body: 'Guest list, RSVP, seating, budget, mood board, schedule — every planning tool is free. Pakulay mood board is free too. No paywall, no per-guest fee.',
+            body: 'Guest list, RSVP, seating, budget, mood board, schedule. Every planning tool is free. Pakulay mood board is free too. No paywall, no per-guest fee.',
             amount: '₱0',
             sub: 'every month, every guest',
             accent: false,
@@ -345,7 +345,7 @@ export function Pricing() {
           {
             tag: 'Bid · unlimited',
             title: 'Every vendor. Free to ask.',
-            body: "Send as many bid requests as you want, to as many vendors as you want, at no cost. Every quote that comes back is designed for you — because every wedding is unique and special, and a copy-paste rate card doesn't honor that.",
+            body: "Send as many bid requests as you want, to as many vendors as you want, at no cost. Every quote that comes back is designed for you, because every wedding is unique and special, and a copy-paste rate card doesn't honor that.",
             amount: '₱0',
             sub: 'unlimited requests · custom quotes',
             accent: false,
@@ -444,21 +444,21 @@ export function Pricing() {
 const FAQ_ITEMS = [
   {
     q: 'How do payments work during the pilot?',
-    a: 'Temporarily, every in-app service payment uses a QR-code method — GCash QR or Maya QR. At checkout you scan the QR, pay from your wallet, and the Setnayan team confirms the booking within minutes. This keeps payments fully traceable and zero-Apple-fee while we finalize the Xendit / InstaPay integrations. Card payments and direct bank transfers ship later this year.',
+    a: 'Temporarily, every in-app service payment uses a QR-code method: GCash QR or Maya QR. At checkout you scan the QR, pay from your wallet, and the Setnayan team confirms the booking within minutes. This keeps payments fully traceable and zero-Apple-fee while we finalize the Xendit / InstaPay integrations. Card payments and direct bank transfers ship later this year.',
   },
   {
-    q: 'Where do I pay — in the app or on the web?',
-    a: 'On the web. The Setnayan iOS, Android, Mac, and Windows apps are great for planning, RSVPs, messaging, and uploading photos — but every purchase (vendor booking, milestone payment, in-app service like Panood) opens a secure Safari/Chrome window to setnayan.com to complete. This keeps your receipts, dispute protection, and milestone payment trails all in one place — and avoids the 15–30% surcharge mobile app stores add to in-app purchases. One transaction layer, one source of truth.',
+    q: 'Where do I pay, in the app or on the web?',
+    a: 'On the web. The Setnayan iOS, Android, Mac, and Windows apps are great for planning, RSVPs, messaging, and uploading photos. But every purchase (vendor booking, milestone payment, in-app service like Panood) opens a secure Safari/Chrome window to setnayan.com to complete. This keeps your receipts, dispute protection, and milestone payment trails all in one place. And avoids the 15–30% surcharge mobile app stores add to in-app purchases. One transaction layer, one source of truth.',
   },
   {
     // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP, the wedding website,
     // and QR invitations are paid SKUs — no longer promised as free.
     q: 'Is the planning really free?',
-    a: 'Starting is free, and the planning workspace stays free — guest list, seating chart, budget, mood board, and schedule, with no subscription and no per-guest fee. Optional paid software (Setnayan AI matchmaking, the wedding website and RSVP, QR invitations, and the Productions services) is added only when the couple chooses it.',
+    a: 'Starting is free, and the planning workspace stays free: guest list, seating chart, budget, mood board, and schedule, with no subscription and no per-guest fee. Optional paid software (Setnayan AI matchmaking, the wedding website and RSVP, QR invitations, and the Productions services) is added only when the couple chooses it.',
   },
   {
     q: 'Do I have to be the bride or groom to sign up?',
-    a: 'No. Anyone planning can start an event — a parent, a maid of honor, a wedding coordinator. Once your event exists you can invite co-hosts: each one signs in with their own account and gets the same dashboard, the same vendor chats, the same calendar. Roles are scoped, so you can let someone handle the guest list without giving them payment access.',
+    a: 'No. Anyone planning can start an event: a parent, a maid of honor, a wedding coordinator. Once your event exists you can invite co-hosts: each one signs in with their own account and gets the same dashboard, the same vendor chats, the same calendar. Roles are scoped, so you can let someone handle the guest list without giving them payment access.',
   },
   {
     q: 'How does Setnayan make money?',
@@ -466,11 +466,11 @@ const FAQ_ITEMS = [
     // DB-driven vendor prices (getVendorPrices) — see the map below. Kept
     // price-free so a stale hardcode can never resurface if the override is
     // removed (the old ₱6,000/₱10,000 Ladder-A figures were a stale landmine).
-    a: "Three ways. (1) Getting verified costs nothing — a free business profile and a free verified badge. Vendors who want extra reach take an optional 28-day prepaid subscription (Solo, Pro, or Enterprise — current prices on /pricing; annual prepay saves ~25%). (2) Tokens: a token unlocks a matched couple — you spend 1–3 tokens (banded by the wedding's region) when you accept, and one unlock covers every service you offer for that wedding. Verified is capped at up to 10 unlocks a week and each one still burns tokens; Solo, Pro, and Enterprise get uncapped unlocks, also token-burning. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    a: "Three ways. (1) Getting verified costs nothing, a free business profile and a free verified badge. Vendors who want extra reach take an optional 28-day prepaid subscription (Solo, Pro, or Enterprise, current prices on /pricing; annual prepay saves ~25%). (2) Tokens: a token unlocks a matched couple. You spend 1–3 tokens (banded by the wedding's region) when you accept, and one unlock covers every service you offer for that wedding. Verified is capped at up to 10 unlocks a week and each one still burns tokens; Solo, Pro, and Enterprise get uncapped unlocks, also token-burning. (3) Setnayan Productions (the in-app services like Editorial Website, Panood livestream, Papic, Live Background) are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',
-    a: "Every Setnayan vendor goes through verification before they earn the verified badge — DTI registration, BIR papers, mayor's permit, and sample work all checked by hand. Unverified vendors are marked \"Coming soon\". Reviews from real Setnayan couples sit on every vendor's profile, so you can see how their last few weddings actually went.",
+    a: "Every Setnayan vendor goes through verification before they earn the verified badge: DTI registration, BIR papers, mayor's permit, and sample work all checked by hand. Unverified vendors are marked \"Coming soon\". Reviews from real Setnayan couples sit on every vendor's profile, so you can see how their last few weddings actually went.",
   },
   {
     q: 'Do I need to download anything?',
@@ -488,7 +488,7 @@ export function FAQ({
     item.q === 'How does Setnayan make money?'
       ? {
           ...item,
-          a: `Two ways. (1) Vendor subscriptions — Solo at ${vendorPrices.soloMonthly}/28d, Pro at ${vendorPrices.proMonthly}/28d, Enterprise at ${vendorPrices.enterpriseMonthly}/28d (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and Solo/Pro/Enterprise vendors spend 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them — one unlock covers every service they offer for that wedding. Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
+          a: `Two ways. (1) Vendor subscriptions: Solo at ${vendorPrices.soloMonthly}/28d, Pro at ${vendorPrices.proMonthly}/28d, Enterprise at ${vendorPrices.enterpriseMonthly}/28d (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and Solo/Pro/Enterprise vendors spend 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them. One unlock covers every service they offer for that wedding. Setnayan Productions (the in-app services like Editorial Website, Panood livestream, Papic, Live Background) are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
         }
       : item,
   );
@@ -694,7 +694,7 @@ export function ClosingCTA() {
             lineHeight: 1.5,
           }}
         >
-          Nothing else like it in the Philippines. Apply now — the Setnayan team
+          Nothing else like it in the Philippines. Apply now. The Setnayan team
           contacts you within 24 hours with your activation link.
         </p>
         <div

@@ -204,9 +204,9 @@ export async function StackCloseVendor() {
             maxWidth: 520,
           }}
         >
-          Most vendors run their business on a Frankenstein stack — a Kasal
+          Most vendors run their business on a Frankenstein stack: a Kasal
           listing here, a Pixieset there, a calendar somewhere else.
-          Setnayan&apos;s free tier replaces every tool below —{' '}
+          Setnayan&apos;s free tier replaces every tool below:{' '}
           <strong style={{ color: 'var(--m-ink)' }}>
             one login, free to start.
           </strong>
@@ -389,7 +389,7 @@ export async function StackCloseVendor() {
               }}
             >
               Profile, inbox, pipeline, calendar, contracts, payments,
-              reviews — one login.{' '}
+              reviews, one login.{' '}
               <strong style={{ color: 'var(--m-paper)' }}>
                 The verified badge is free; Pro at {p.proMonthly}/28d
               </strong>{' '}

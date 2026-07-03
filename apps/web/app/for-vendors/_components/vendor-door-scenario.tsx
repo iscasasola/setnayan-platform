@@ -45,48 +45,48 @@ type Beat = {
 const BEATS: Beat[] = [
   {
     pos: 6, l: 0.35, r: 1, noise: 0.5,
-    stat: { v: '30', label: 'weddings a year — and never an app' },
+    stat: { v: '30', label: 'weddings a year, and never an app' },
     tag: null,
     title: 'And he’s right.',
-    body: 'Marco shoots 30 weddings a year on referrals alone. The meeting — the talk, the tiwala — is the whole job. Nothing should touch that.',
+    body: 'Marco shoots 30 weddings a year on referrals alone. The meeting (the talk, the tiwala) is the whole job. Nothing should touch that.',
   },
   {
     pos: 6, l: 0.9, r: 0.4, noise: 1,
-    stat: { v: '1st', label: 'fastest reply wins — not the best fit' },
+    stat: { v: '1st', label: 'fastest reply wins, not the best fit' },
     tag: { kind: 'cost', text: 'the real problem' },
     title: 'But the right couples can’t find him.',
-    body: 'They message ten suppliers at once and book whoever replies first — not whoever’s best. Marco never even hears about them.',
+    body: 'They message ten suppliers at once and book whoever replies first, not whoever’s best. Marco never even hears about them.',
   },
   {
     pos: 20, l: 1, r: 0.3, noise: 1,
-    stat: { v: '₱0', label: 'to list — and he can leave anytime' },
+    stat: { v: '₱0', label: 'to list, and he can leave anytime' },
     tag: { kind: 'app', text: 'Setnayan handles this' },
-    title: 'So he tries it — free, braced for the worst.',
+    title: 'So he tries it, free, braced for the worst.',
     body: 'A feed of hagglers and “magkano?” messages that vanish. That’s what he expects to see.',
   },
   {
     pos: 38, l: 1, r: 0.3, noise: 0.3,
-    stat: { v: '1', label: 'couple left — matched to Marco' },
+    stat: { v: '1', label: 'couple left, matched to Marco' },
     tag: { kind: 'app', text: 'Setnayan handles this' },
     title: 'Instead, the wrong inquiries never arrive.',
-    body: 'Setnayan quietly matches on his date, his price, his style. One couple is left — already serious, already a fit for him.',
+    body: 'Setnayan quietly matches on his date, his price, his style. One couple is left, already serious, already a fit for him.',
   },
   {
     pos: 50, l: 0.55, r: 0.85, noise: 0.12,
     stat: null,
     tag: { kind: 'door', text: 'the handshake' },
     title: 'Then it does the part he didn’t expect.',
-    body: 'It steps back. “They’re yours now.” No middleman in the room — walang namamagitan.',
+    body: 'It steps back. “They’re yours now.” No middleman in the room, walang namamagitan.',
   },
   {
     pos: 80, l: 0.3, r: 1, noise: 0,
     stat: null,
     tag: { kind: 'vendor', text: 'yours, start to finish' },
     title: 'He meets them. His price. His contract.',
-    body: 'They pay him directly — 0% commission. The personal touch was never ours to replace. We just brought the right couple to his door.',
+    body: 'They pay him directly, 0% commission. The personal touch was never ours to replace. We just brought the right couple to his door.',
     chips: ['0% commission', 'Paid straight to you', 'Your price, your terms', 'Free during launch'],
     peer: {
-      quote: 'I thought it would get between me and the couple. It just opened the door — then disappeared.',
+      quote: 'I thought it would get between me and the couple. It just opened the door, then disappeared.',
       who: 'Marco, after his first booking',
     },
     reassure: 'List free during launch · leave anytime · nothing about how you work changes.',
@@ -167,7 +167,7 @@ export function VendorDoorScenario() {
           borderLeft: '2px solid var(--m-orange-3)',
         }}
       >
-        “I believe in the personal touch — meeting people, talking with them. That’s why I never
+        “I believe in the personal touch, meeting people, talking with them. That’s why I never
         used an online app.”
       </blockquote>
       <div className="m-mono" style={{ fontSize: 11, color: 'var(--m-slate-3)', letterSpacing: '0.06em' }}>

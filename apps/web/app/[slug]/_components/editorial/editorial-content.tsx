@@ -275,6 +275,19 @@ export async function EditorialContent({
           </>
         ) : null}
 
+        {/* What They Whispered — approved Kwento guest wishes, sitting beside the
+            Papic photo each anchors to when present. Fails closed in data.ts
+            (approved + clean + not author-hidden). ------------------------------ */}
+        {isOn('kwento') && data.kwentoQuotes.length ? (
+          <>
+            <SectionRule title="What They Whispered" />
+            <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+              best wishes, captured on the day
+            </p>
+            <KwentoWall quotes={data.kwentoQuotes} />
+          </>
+        ) : null}
+
         {/* Shared photos from the day ----------------------------------------- */}
         {isOn('gallery') && data.galleryPhotos.length ? (
           <>
@@ -307,6 +320,16 @@ export async function EditorialContent({
           <>
             <SectionRule title="Video Guestbook" />
             <VideoGuestbookWall clips={data.pabatiClips} />
+          </>
+        ) : null}
+
+        {/* Watch the Film — the Live Studio (Panood) broadcast replay. Gated in
+            data.ts on a valid watch URL + an active PANOOD_SYSTEM SKU; the value
+            is already a youtube-nocookie embed (normalize-or-rejected). --------- */}
+        {isOn('watchFilm') && data.watchFilmEmbedUrl ? (
+          <>
+            <SectionRule title="Watch the Film" />
+            <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
           </>
         ) : null}
 
@@ -652,6 +675,13 @@ function VendorsWeLoved({
 
 function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
   const m = data.metrics;
+  // "Photos & moments" sums the day's stills + living-moment clips when either is
+  // known; the photos cell reads that combined figure. "Living moments" surfaces
+  // the clip count on its own, and "Chapters" the number of story chapters. Each
+  // is omitted (— / hidden) when its underlying count is null, exactly like the
+  // photos stat has always been.
+  const photosAndMoments =
+    m.photos != null || m.clips != null ? (m.photos ?? 0) + (m.clips ?? 0) : null;
   return (
     <div className="border-2 border-ink">
       <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">
@@ -689,18 +719,26 @@ function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
         note="estimated"
       />
 
-      {/* Supporting count strip (2×2): guests · photos · #1 picks · replied */}
+      {/* Supporting count strip (2×2). Row 1: guests · photos & moments (stills +
+          living-moment clips; falls back to attending when neither is known).
+          Row 2: living moments (clip count; falls back to #1 picks) · replied. */}
       <div className="text-center">
         <div className="grid grid-cols-2 border-b border-ink/15">
           <StripCell value={fmt(m.guests)} label="Guests" />
-          {m.photos != null ? (
-            <StripCell value={fmt(m.photos)} label="Photos" last />
+          {photosAndMoments != null ? (
+            <StripCell value={fmt(photosAndMoments)} label="Photos & moments" last />
           ) : (
             <StripCell value={m.attending ? fmt(m.attending) : '—'} label="Attending" last />
           )}
         </div>
         <div className="grid grid-cols-2 border-b border-ink/15">
-          <StripCell value={m.firstPickDen > 0 ? fmt(m.firstPickNum) : '—'} label="#1 Picks" />
+          {m.clips != null ? (
+            <StripCell value={fmt(m.clips)} label="Living moments" />
+          ) : m.chapters != null ? (
+            <StripCell value={fmt(m.chapters)} label="Chapters" />
+          ) : (
+            <StripCell value={m.firstPickDen > 0 ? fmt(m.firstPickNum) : '—'} label="#1 Picks" />
+          )}
           <StripCell value={m.rsvpPct != null ? `${m.rsvpPct}%` : '—'} label="Replied" last />
         </div>
       </div>
@@ -1048,6 +1086,88 @@ function VideoGuestbookWall({ clips }: { clips: string[] }): ReactElement {
             />
           </figure>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "What They Whispered" — approved Kwento guest wishes (photo_messages). A
+ * 2-column masonry (single column on mobile): each wish is a serif-italic quote
+ * opened by a large gold quotation glyph, attributed in mono, and — when the wish
+ * anchored to a Papic capture that the loader already presigned — sat above a small
+ * anchor-photo figure. Text-only wishes render without a figure. Fails closed
+ * upstream (approved + clean + not author-hidden), so this only paints safe wishes.
+ */
+function KwentoWall({ quotes }: { quotes: EditorialData['kwentoQuotes'] }): ReactElement {
+  return (
+    <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
+      {quotes.slice(0, 8).map((q, i) => (
+        <figure
+          key={i}
+          className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
+        >
+          {q.photoUrl ? (
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-sm bg-ink/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={q.photoUrl}
+                alt=""
+                aria-hidden
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          ) : null}
+          <blockquote className="m-0 font-serif text-base italic leading-snug text-ink/85">
+            <span aria-hidden className="mr-1 font-display text-3xl leading-none text-terracotta">
+              &ldquo;
+            </span>
+            {q.body}
+          </blockquote>
+          {q.author ? (
+            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+              {q.author}
+              {q.role ? ` · ${q.role}` : ''}
+            </figcaption>
+          ) : null}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * "Watch the Film" — the Live Studio (Panood) broadcast replay. The couple's
+ * ceremony as it was broadcast, embedded in a Daily-Prophet double-border frame
+ * (matching the living-moments clip frame) with a paper shadow. The URL is already
+ * a youtube-nocookie embed (normalize-or-rejected in lib/panood-watch), so the
+ * iframe never carries a raw pasted URL. Lazy-loaded, titled.
+ */
+function WatchTheFilm({
+  embedUrl,
+  names,
+}: {
+  embedUrl: string;
+  names: string;
+}): ReactElement {
+  return (
+    <div className="mt-4">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+        the ceremony, as it was broadcast
+      </p>
+      <div className="mx-auto max-w-3xl border-double border-[3px] border-ink/80 p-1.5 shadow-[0_10px_30px_-12px_rgba(20,16,12,0.35)]">
+        <div className="relative aspect-video w-full overflow-hidden bg-ink">
+          <iframe
+            src={embedUrl}
+            title={`${names} — the ceremony broadcast replay`}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+          />
+        </div>
       </div>
     </div>
   );

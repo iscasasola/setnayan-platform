@@ -125,6 +125,7 @@ function GuestAvatar({
   room,
   seatObstacles,
   roamObstacles,
+  onArrive,
   palette,
 }: {
   entrance: Vec2;

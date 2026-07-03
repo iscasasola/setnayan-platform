@@ -435,7 +435,7 @@ function VendorsOverlay({
       </div>
 
       <div className="hr-vd-cta">
-        <Link className="hr-vd-btn" href="/for-vendors" onClick={onClose}>
+        <Link className="hr-vd-btn" href="/open-shop" onClick={onClose}>
           Register your business · free
         </Link>
         <button className="hr-vd-link" onClick={onClose}>

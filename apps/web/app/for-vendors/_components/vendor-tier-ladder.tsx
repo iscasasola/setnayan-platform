@@ -224,7 +224,7 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
         </div>
 
         <div style={{ marginTop: 24, position: 'relative' }}>
-          <Link href="/signup?as=vendor" className="m-btn m-btn-orange m-btn-lg" style={{ justifyContent: 'center' }}>
+          <Link href="/open-shop" className="m-btn m-btn-orange m-btn-lg" style={{ justifyContent: 'center' }}>
             Register your business — free
           </Link>
         </div>

@@ -163,7 +163,7 @@ type ShopData = {
   team: TeamMember[];
 };
 
-async function loadShopData(): Promise<ShopData | null> {
+async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -171,7 +171,11 @@ async function loadShopData(): Promise<ShopData | null> {
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return null;
+  // Signed in but no shop (owned OR via team) — send them to the one-button
+  // "Open your shop" gate instead of a dead fallback (owner gap-fix
+  // 2026-07-03). Distinct from the error path: the caller's catch keeps the
+  // degraded fallback for genuine load failures.
+  if (!profile) return 'no-vendor';
 
   const vendorId = profile.vendor_profile_id;
   const businessName = profile.business_name ?? 'Your shop';
@@ -492,14 +496,23 @@ export default async function VendorShopPage({
 }: {
   searchParams: Promise<ServicesManagerSearch>;
 }) {
-  let data: ShopData | null;
+  let data: ShopData | 'no-vendor' | null;
   try {
     data = await loadShopData();
   } catch (err) {
+    // Re-throw Next's control-flow errors (redirect/notFound) so the /login
+    // redirect inside the loader still navigates.
+    const digest = (err as { digest?: unknown } | null)?.digest;
+    if (typeof digest === 'string' && digest.startsWith('NEXT_')) {
+      throw err;
+    }
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard/shop] loader failed', err);
     data = null;
   }
+
+  // Signed in without a shop → the one-button "Open your shop" gate.
+  if (data === 'no-vendor') redirect('/open-shop');
 
   if (!data) {
     return (

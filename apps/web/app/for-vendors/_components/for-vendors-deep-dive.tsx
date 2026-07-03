@@ -428,7 +428,7 @@ export async function ForVendorsDeepDive() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Link
-            href="/signup?as=vendor"
+            href="/open-shop"
             className="m-btn m-btn-orange m-btn-lg"
             style={{ justifyContent: 'center' }}
           >

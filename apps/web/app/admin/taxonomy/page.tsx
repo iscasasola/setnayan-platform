@@ -9,11 +9,14 @@ import {
   clearLastMinuteStart,
 } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PROJECTABLE_LEAVES } from '@/lib/refinements-mutations';
 import {
   TaxonomyStudio,
   type StudioData,
   type StudioView,
   type StudioService,
+  type StudioRefinementLeaf,
+  type StudioRefinementOption,
 } from './_components/taxonomy-studio';
 
 export const metadata = { title: 'Taxonomy Studio · Admin' };
@@ -48,6 +51,27 @@ type ReqRow = {
   proposed_by_vendor_id: string;
 };
 
+type RefLeafRow = {
+  leaf_key: string;
+  label_en: string;
+  description_en: string | null;
+  main_photo: string | null;
+  is_dynamic_ceremony: boolean | null;
+  sort_order: number;
+  status: string;
+  tile_id: string | null;
+};
+
+type RefOptionRow = {
+  leaf_key: string;
+  option_key: string;
+  emoji: string | null;
+  label_en: string;
+  photo: string | null;
+  sort_order: number;
+  status: string;
+};
+
 /** Couple-facing default folder icon per parent — mirrors the /explore strip's
  *  FOLDER_ICON map so the Studio's fallback icon matches what couples see. */
 const FOLDER_DEFAULT_ICON: Record<string, string> = {
@@ -78,11 +102,19 @@ async function toDisplay(raw: string | null): Promise<string | null> {
 export default async function AdminTaxonomyPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<'ok' | 'error' | 'q' | 'view', string | string[] | undefined>>;
+  searchParams: Promise<
+    Record<'ok' | 'error' | 'q' | 'view' | 'open' | 'opentab', string | string[] | undefined>
+  >;
 }) {
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const q = (first(sp.q) ?? '').trim().slice(0, 80);
+  const openTileId = (first(sp.open) ?? '').trim() || null;
+  const openTabRaw = first(sp.opentab);
+  const openTab =
+    openTabRaw === 'refinements' || openTabRaw === 'services' || openTabRaw === 'details'
+      ? openTabRaw
+      : null;
   const viewRaw = first(sp.view);
   const view: StudioView =
     viewRaw === 'faith' || viewRaw === 'scoped' || viewRaw === 'unfiled' || viewRaw === 'requests'
@@ -93,7 +125,7 @@ export default async function AdminTaxonomyPage({
 
   const admin = createAdminClient();
 
-  const [schemasRes, tax, eventVocabRes, faithRes, reqRes, deadlinesRes, refCountRes] =
+  const [schemasRes, tax, eventVocabRes, faithRes, reqRes, deadlinesRes, refLeafRes, refOptRes] =
     await Promise.all([
       admin
         .from('canonical_service_schemas')
@@ -123,8 +155,16 @@ export default async function AdminTaxonomyPage({
         )
         .order('kind', { ascending: true })
         .order('offset_value', { ascending: false }),
-      // Refinement counts per tile — the tile_id anchor on onboarding_refinements.
-      admin.from('onboarding_refinements').select('tile_id'),
+      // Full refinement leaves anchored to tiles (tile_id) — the Studio's
+      // Refinements tab edits these; counts derive from the same rows.
+      admin
+        .from('onboarding_refinements')
+        .select('leaf_key,label_en,description_en,main_photo,is_dynamic_ceremony,sort_order,status,tile_id')
+        .order('sort_order', { ascending: true }),
+      admin
+        .from('onboarding_refinement_options')
+        .select('leaf_key,option_key,emoji,label_en,photo,sort_order,status')
+        .order('sort_order', { ascending: true }),
     ]);
 
   const schemas = (schemasRes.data ?? []) as SchemaRow[];
@@ -132,11 +172,55 @@ export default async function AdminTaxonomyPage({
   const faithVocab = (faithRes.data ?? []) as { faith_key: string; label_en: string }[];
   const allRequests = (reqRes.data ?? []) as ReqRow[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
-  const refRows = (refCountRes.data ?? []) as { tile_id: string | null }[];
+  const refLeafRows = (refLeafRes.data ?? []) as RefLeafRow[];
+  const refOptRows = (refOptRes.data ?? []) as RefOptionRow[];
 
   const refinementCountByTile = new Map<string, number>();
-  for (const r of refRows) {
+  for (const r of refLeafRows) {
     if (r.tile_id) refinementCountByTile.set(r.tile_id, (refinementCountByTile.get(r.tile_id) ?? 0) + 1);
+  }
+
+  // ── Refinement leaves + options → StudioRefinementLeaf[] keyed by tile ──
+  // Presign every distinct photo ref ONCE (main photos + option photos), in
+  // parallel; a failed presign degrades to null (emoji fallback) so a broken
+  // r2:// ref never renders a dead <img>.
+  const refPhotoRefs = new Set<string>();
+  for (const l of refLeafRows) if (l.main_photo) refPhotoRefs.add(l.main_photo);
+  for (const o of refOptRows) if (o.photo) refPhotoRefs.add(o.photo);
+  const refUrlByRef = new Map(
+    await Promise.all([...refPhotoRefs].map(async (r) => [r, await toDisplay(r)] as const)),
+  );
+
+  const optsByLeaf = new Map<string, StudioRefinementOption[]>();
+  for (const o of refOptRows) {
+    const list = optsByLeaf.get(o.leaf_key) ?? [];
+    list.push({
+      optionKey: o.option_key,
+      emoji: o.emoji ?? '',
+      label: o.label_en,
+      status: o.status,
+      photoRaw: o.photo,
+      photoUrl: o.photo ? refUrlByRef.get(o.photo) ?? null : null,
+    });
+    optsByLeaf.set(o.leaf_key, list);
+  }
+
+  const refinementsByTile = new Map<string, StudioRefinementLeaf[]>();
+  for (const l of refLeafRows) {
+    if (!l.tile_id) continue;
+    const list = refinementsByTile.get(l.tile_id) ?? [];
+    list.push({
+      leafKey: l.leaf_key,
+      label: l.label_en,
+      description: l.description_en ?? '',
+      status: l.status,
+      dynamic: l.is_dynamic_ceremony === true,
+      isProjectable: PROJECTABLE_LEAVES.has(l.leaf_key),
+      mainPhotoRaw: l.main_photo,
+      mainPhotoUrl: l.main_photo ? refUrlByRef.get(l.main_photo) ?? null : null,
+      options: optsByLeaf.get(l.leaf_key) ?? [],
+    });
+    refinementsByTile.set(l.tile_id, list);
   }
 
   // ── Services (canonical schema + live taxonomy placement) ──
@@ -248,8 +332,11 @@ export default async function AdminTaxonomyPage({
     })),
     iconNames: [], // filled below (import kept server-side)
     folderDefaultIcon: FOLDER_DEFAULT_ICON,
+    refinementsByTile: Object.fromEntries(refinementsByTile),
     initialQ: q,
     initialView: view,
+    initialOpenTileId: openTileId,
+    initialOpenTab: openTab,
   };
 
   // Icon allowlist for the picker (server-imported to keep the client bundle lean).

@@ -30,10 +30,13 @@ import {
   ImageIcon,
   X,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GripVertical,
   MoveRight,
   Trash2,
   Circle,
+  Lock,
 } from 'lucide-react';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { Sheet } from '@/app/_components/sheet';
@@ -55,6 +58,13 @@ import {
   promoteCategoryRequest,
   mapCategoryRequest,
   resolveCategoryRequest,
+  updateRefinementLeaf,
+  updateRefinementOption,
+  addRefinementOption,
+  removeRefinementOption,
+  reorderRefinementLeaves,
+  reorderRefinementOptions,
+  type StudioActionResult,
 } from '../actions';
 
 // ── Serializable prop shapes (mirror the server page's derivations) ───────────
@@ -103,6 +113,31 @@ export type StudioRequest = {
 
 export type VocabItem = { key: string; label: string };
 
+export type StudioRefinementOption = {
+  optionKey: string;
+  emoji: string;
+  label: string;
+  status: string;
+  photoRaw: string | null;
+  /** Presigned display URL (r2:// refs) or /public path; null if presign failed. */
+  photoUrl: string | null;
+};
+
+export type StudioRefinementLeaf = {
+  leafKey: string;
+  label: string;
+  description: string;
+  status: string;
+  /** Faith-adaptive ceremony leaf — options come from the couple's faith pick. */
+  dynamic: boolean;
+  /** Projectable leaf (ceremony / catering / photo_video) — option keys feed
+   *  vendor matching, so add/remove is locked (label/emoji/photo stay editable). */
+  isProjectable: boolean;
+  mainPhotoRaw: string | null;
+  mainPhotoUrl: string | null;
+  options: StudioRefinementOption[];
+};
+
 export type StudioData = {
   source: 'db' | 'fallback';
   folders: StudioFolder[];
@@ -114,9 +149,16 @@ export type StudioData = {
   iconNames: string[];
   /** Couple-facing default folder icon (Lucide name) — matches /explore. */
   folderDefaultIcon: Record<string, string>;
+  /** Refinement leaves anchored to each tile (tile id → leaves, sort-ordered). */
+  refinementsByTile: Record<string, StudioRefinementLeaf[]>;
   initialQ: string;
   initialView: StudioView;
+  /** Deep-link: tile to auto-open (`?open=`) + which inspector tab (`?opentab=`). */
+  initialOpenTileId: string | null;
+  initialOpenTab: InspectorTab | null;
 };
+
+export type InspectorTab = 'details' | 'services' | 'refinements';
 
 export type StudioView = 'all' | 'faith' | 'scoped' | 'unfiled' | 'requests';
 
@@ -156,10 +198,16 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
 
   const [query, setQuery] = useState(data.initialQ);
   const [view, setView] = useState<StudioView>(data.initialView);
+  const initialOpenParent = data.initialOpenTileId
+    ? data.tiles.find((t) => t.id === data.initialOpenTileId)?.parentId
+    : undefined;
   const [selectedFolder, setSelectedFolder] = useState<string>(
-    data.folders[0]?.id ?? '',
+    initialOpenParent ?? data.folders[0]?.id ?? '',
   );
-  const [openTileId, setOpenTileId] = useState<string | null>(null);
+  // Deep-link open: a redirect-back refinement save lands on ?open=<tile> so the
+  // inspector re-opens where the admin left off; ?opentab picks the tab.
+  const [openTileId, setOpenTileId] = useState<string | null>(data.initialOpenTileId);
+  const [openTab, setOpenTab] = useState<InspectorTab | null>(data.initialOpenTab);
   const [dragTileId, setDragTileId] = useState<string | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
   const [dropTileIdx, setDropTileIdx] = useState<number | null>(null);
@@ -485,7 +533,14 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
                   idx={idx}
                   dragging={dragTileId === tile.id}
                   dropBefore={dropTileIdx === idx && dragTileId != null && dragTileId !== tile.id}
-                  onSelect={() => setOpenTileId(tile.id)}
+                  onSelect={() => {
+                    setOpenTileId(tile.id);
+                    setOpenTab('details');
+                  }}
+                  onOpenRefinements={() => {
+                    setOpenTileId(tile.id);
+                    setOpenTab('refinements');
+                  }}
                   onDragStart={onTileDragStart(tile.id)}
                   onDragEnd={onTileDragEnd}
                   onDragOverCard={(e) => {
@@ -548,7 +603,10 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
       {/* ── Right inspector ──────────────────────────────────────────────── */}
       <Sheet
         open={openTile != null}
-        onClose={() => setOpenTileId(null)}
+        onClose={() => {
+          setOpenTileId(null);
+          setOpenTab(null);
+        }}
         labelledById="tile-inspector-title"
         title="Tile inspector"
       >
@@ -558,9 +616,12 @@ export function TaxonomyStudio({ data }: { data: StudioData }) {
             tile={openTile}
             data={data}
             services={servicesByTile.get(openTile.id) ?? []}
+            refinements={data.refinementsByTile[openTile.id] ?? []}
+            initialTab={openTab ?? 'details'}
             eventLabel={eventLabel}
             onDeleted={() => {
               setOpenTileId(null);
+              setOpenTab(null);
               router.refresh();
             }}
             onDeleteRequest={async (destTileId) => {
@@ -586,6 +647,7 @@ function TileCard({
   dragging,
   dropBefore,
   onSelect,
+  onOpenRefinements,
   onDragStart,
   onDragEnd,
   onDragOverCard,
@@ -599,6 +661,7 @@ function TileCard({
   dragging: boolean;
   dropBefore: boolean;
   onSelect: () => void;
+  onOpenRefinements: () => void;
   onDragStart: (e: DragEvent) => void;
   onDragEnd: () => void;
   onDragOverCard: (e: DragEvent) => void;
@@ -668,7 +731,17 @@ function TileCard({
       <div className="mt-auto flex flex-wrap gap-1">
         <Badge tone="bg-ink/5 text-ink/60">{tile.serviceCount} svc</Badge>
         {tile.refinementCount > 0 ? (
-          <Badge tone="bg-violet-50 text-violet-700">{tile.refinementCount} ref</Badge>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenRefinements();
+            }}
+            title="Edit refinements"
+            className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-violet-700 transition hover:bg-violet-100 hover:ring-1 hover:ring-violet-300"
+          >
+            {tile.refinementCount} ref
+          </button>
         ) : null}
         {scoped ? (
           <Badge tone="bg-sky-50 text-sky-700">
@@ -693,6 +766,8 @@ function Inspector({
   tile,
   data,
   services,
+  refinements,
+  initialTab,
   eventLabel,
   onDeleteRequest,
   confirm,
@@ -701,6 +776,8 @@ function Inspector({
   tile: StudioTile;
   data: StudioData;
   services: StudioService[];
+  refinements: StudioRefinementLeaf[];
+  initialTab: InspectorTab;
   eventLabel: (e: string) => string;
   onDeleted: () => void;
   onDeleteRequest: (
@@ -709,7 +786,7 @@ function Inspector({
   confirm: ReturnType<typeof useConfirm>['confirm'];
   onServiceDragStart: (canonical: string) => (e: DragEvent) => void;
 }) {
-  const [tab, setTab] = useState<'details' | 'services'>('details');
+  const [tab, setTab] = useState<InspectorTab>(initialTab);
   const [iconDraft, setIconDraft] = useState<string | null>(tile.iconName);
   const [photoDraft, setPhotoDraft] = useState<string | null>(tile.photoUrl);
   const [iconQuery, setIconQuery] = useState('');
@@ -785,7 +862,7 @@ function Inspector({
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-ink/10 px-5 pt-3">
-        {(['details', 'services'] as const).map((t) => (
+        {(['details', 'services', 'refinements'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -798,6 +875,7 @@ function Inspector({
           >
             {t}
             {t === 'services' ? <span className="ml-1 text-ink/40">{services.length}</span> : null}
+            {t === 'refinements' ? <span className="ml-1 text-ink/40">{refinements.length}</span> : null}
           </button>
         ))}
       </div>
@@ -966,13 +1044,15 @@ function Inspector({
               </button>
             </div>
           </>
-        ) : (
+        ) : tab === 'services' ? (
           <ServicesTab
             tile={tile}
             data={data}
             services={services}
             onServiceDragStart={onServiceDragStart}
           />
+        ) : (
+          <RefinementsTab tile={tile} refinements={refinements} />
         )}
       </div>
     </div>
@@ -1198,6 +1278,652 @@ function ServicesTab({
         </form>
       </details>
     </div>
+  );
+}
+
+// ── Refinements tab ─────────────────────────────────────────────────────────────
+//
+// Edits the onboarding "what kind of X?" leaves anchored to this tile
+// (onboarding_refinements.tile_id) + their option grids. Leaf CRUD + option CRUD
+// fire as redirect-back <form action> (carrying `_anchor=t-<tile>` +
+// `_opentab=refinements` so a save re-opens right here). Reorder — both leaves
+// within the tile and options within a leaf — uses drag OR up/down buttons and
+// calls the JSON reorder actions, then router.refresh(). PROJECTABLE leaves keep
+// their add/remove lock; dynamic-ceremony leaves show the faith-driven note.
+
+const IMG_TYPES = ['image/webp', 'image/jpeg', 'image/png'];
+
+function RefinementsTab({
+  tile,
+  refinements,
+}: {
+  tile: StudioTile;
+  refinements: StudioRefinementLeaf[];
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [openLeaf, setOpenLeaf] = useState<string | null>(
+    refinements.length === 1 ? refinements[0]!.leafKey : null,
+  );
+  const [flash, setFlash] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [dragLeaf, setDragLeaf] = useState<string | null>(null);
+  const [dropLeafIdx, setDropLeafIdx] = useState<number | null>(null);
+
+  const runReorder = useCallback(
+    (fn: () => Promise<StudioActionResult>) => {
+      startTransition(async () => {
+        const res = await fn();
+        if (res.ok) {
+          setFlash({ kind: 'ok', text: res.message });
+          router.refresh();
+        } else {
+          setFlash({ kind: 'error', text: res.error });
+        }
+      });
+    },
+    [router],
+  );
+
+  const leafKeys = refinements.map((l) => l.leafKey);
+
+  const moveLeaf = (leafKey: string, dir: -1 | 1) => {
+    const from = leafKeys.indexOf(leafKey);
+    const to = from + dir;
+    if (from === -1 || to < 0 || to >= leafKeys.length) return;
+    const next = leafKeys.slice();
+    [next[from], next[to]] = [next[to]!, next[from]!];
+    runReorder(() => reorderRefinementLeaves(tile.id, next));
+  };
+
+  const onLeafDrop = (idx: number) => (e: DragEvent) => {
+    e.preventDefault();
+    setDropLeafIdx(null);
+    const leafKey = e.dataTransfer.getData('text/leaf') || dragLeaf;
+    setDragLeaf(null);
+    if (!leafKey) return;
+    const from = leafKeys.indexOf(leafKey);
+    if (from === -1) return;
+    const next = leafKeys.slice();
+    next.splice(from, 1);
+    const insertAt = from < idx ? idx - 1 : idx;
+    next.splice(insertAt, 0, leafKey);
+    if (next.join() === leafKeys.join()) return;
+    runReorder(() => reorderRefinementLeaves(tile.id, next));
+  };
+
+  if (refinements.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-3 py-4 text-center text-sm text-ink/55">
+        No refinements anchored to this tile. Refinements are the couple-facing “what kind of{' '}
+        {tile.label}?” cards in onboarding.
+      </p>
+    );
+  }
+
+  return (
+    <div className={`space-y-3 ${pending ? 'opacity-60' : ''}`}>
+      {flash ? (
+        <div
+          role={flash.kind === 'error' ? 'alert' : 'status'}
+          className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
+            flash.kind === 'ok'
+              ? 'border-success-200 bg-success-50 text-success-800'
+              : 'border-danger-200 bg-danger-50 text-danger-800'
+          }`}
+        >
+          <span>
+            {flash.kind === 'ok' ? '✓ ' : '⚠ '}
+            {flash.text}
+          </span>
+          <button
+            type="button"
+            onClick={() => setFlash(null)}
+            aria-label="Dismiss"
+            className="rounded p-0.5 hover:bg-black/5"
+          >
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
+      <p className="text-[11px] text-ink/50">
+        The “what kind of {tile.label}?” cards couples see in onboarding. Drag or use ↑↓ to reorder.
+      </p>
+
+      {refinements.map((leaf, idx) => (
+        <LeafBlock
+          key={leaf.leafKey}
+          tile={tile}
+          leaf={leaf}
+          open={openLeaf === leaf.leafKey}
+          onToggle={() => setOpenLeaf((o) => (o === leaf.leafKey ? null : leaf.leafKey))}
+          canMoveUp={idx > 0}
+          canMoveDown={idx < refinements.length - 1}
+          onMoveUp={() => moveLeaf(leaf.leafKey, -1)}
+          onMoveDown={() => moveLeaf(leaf.leafKey, 1)}
+          dragging={dragLeaf === leaf.leafKey}
+          dropBefore={dropLeafIdx === idx && dragLeaf != null && dragLeaf !== leaf.leafKey}
+          onDragStart={(e) => {
+            setDragLeaf(leaf.leafKey);
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/leaf', leaf.leafKey);
+          }}
+          onDragEnd={() => {
+            setDragLeaf(null);
+            setDropLeafIdx(null);
+          }}
+          onDragOver={(e) => {
+            if (dragLeaf && dragLeaf !== leaf.leafKey) {
+              e.preventDefault();
+              setDropLeafIdx(idx);
+            }
+          }}
+          onDrop={onLeafDrop(idx)}
+          runReorder={runReorder}
+        />
+      ))}
+    </div>
+  );
+}
+
+function LeafBlock({
+  tile,
+  leaf,
+  open,
+  onToggle,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  dragging,
+  dropBefore,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  runReorder,
+}: {
+  tile: StudioTile;
+  leaf: StudioRefinementLeaf;
+  open: boolean;
+  onToggle: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  dragging: boolean;
+  dropBefore: boolean;
+  onDragStart: (e: DragEvent) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: DragEvent) => void;
+  onDrop: (e: DragEvent) => void;
+  runReorder: (fn: () => Promise<StudioActionResult>) => void;
+}) {
+  const activeOpts = leaf.options.filter((o) => o.status === 'active').length;
+  const anchor = `t-${tile.id}`;
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`rounded-xl border bg-white transition ${
+        dragging ? 'opacity-40' : 'border-ink/10'
+      } ${dropBefore ? 'ring-2 ring-terracotta ring-offset-1' : ''} ${
+        leaf.status === 'retired' ? 'opacity-60' : ''
+      }`}
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <span className="shrink-0 cursor-grab text-ink/25" aria-hidden title="Drag to reorder">
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
+        <RefThumb url={leaf.mainPhotoUrl} className="h-10 w-12" />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="min-w-0 flex-1 text-left"
+        >
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-ink">{leaf.label}</span>
+            {leaf.status === 'retired' ? (
+              <Badge tone="bg-ink/10 text-ink/50">retired</Badge>
+            ) : null}
+            {leaf.dynamic ? (
+              <Badge tone="bg-terracotta/10 text-terracotta">faith-adaptive</Badge>
+            ) : null}
+            {leaf.isProjectable ? <Badge tone="bg-sky-50 text-sky-700">matched</Badge> : null}
+          </span>
+          <span className="mt-0.5 block truncate font-mono text-[10px] text-ink/45">
+            {leaf.leafKey} · {leaf.dynamic ? 'faith-driven options' : `${activeOpts} option${activeOpts === 1 ? '' : 's'}`}
+          </span>
+        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            aria-label="Move up"
+            className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+          >
+            <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            aria-label="Move down"
+            className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+          >
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={open ? 'Collapse' : 'Expand'}
+            className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink"
+          >
+            <ChevronDown className={`h-4 w-4 transition ${open ? 'rotate-180' : ''}`} aria-hidden />
+          </button>
+        </div>
+      </div>
+
+      {open ? (
+        <div className="space-y-4 border-t border-ink/10 px-3 py-3">
+          {/* Leaf fields (label / description / status / main photo) */}
+          <form action={updateRefinementLeaf.bind(null, leaf.leafKey)} className="space-y-2.5">
+            <input type="hidden" name="main_photo_current" value={leaf.mainPhotoRaw ?? ''} />
+            <input type="hidden" name="_anchor" value={anchor} />
+            <input type="hidden" name="_opentab" value="refinements" />
+            <label className="block space-y-1">
+              <span className="block text-[11px] font-medium text-ink/70">Label</span>
+              <input
+                name="label_en"
+                required
+                defaultValue={leaf.label}
+                className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="block text-[11px] font-medium text-ink/70">
+                Description <span className="text-ink/45">(under the main photo)</span>
+              </span>
+              <input
+                name="description_en"
+                defaultValue={leaf.description}
+                placeholder="e.g. The centerpiece sweet of your reception."
+                className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              />
+            </label>
+            <div className="flex items-start gap-3">
+              <div className="space-y-1">
+                <span className="block text-[11px] font-medium text-ink/70">Main photo</span>
+                <RefThumb url={leaf.mainPhotoUrl} className="h-14 w-[4.67rem]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <FileUpload
+                  bucket="samples"
+                  pathPrefix={`refinements/${leaf.leafKey}`}
+                  name="main_photo_url"
+                  maxSizeMB={5}
+                  acceptedTypes={IMG_TYPES}
+                  variant="wide"
+                  label="Replace"
+                  help="Leave empty to keep the current one."
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-ink/70">
+              <input
+                type="checkbox"
+                name="status"
+                value="retired"
+                defaultChecked={leaf.status === 'retired'}
+                className="h-3.5 w-3.5"
+              />
+              Retire (hide from onboarding)
+            </label>
+            <SubmitButton
+              className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
+              pendingLabel="Saving…"
+            >
+              Save refinement
+            </SubmitButton>
+          </form>
+
+          {/* Options */}
+          {leaf.dynamic ? (
+            <p className="rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-[11px] text-ink/60">
+              This refinement is <strong>faith-adaptive</strong> — its options (church / mosque / temple /
+              garden / beach / civil …) come from the couple’s faith pick, with photos from the shared{' '}
+              <code className="font-mono">/onboarding/prefs</code> set. Edit the label / description / main
+              photo above.
+            </p>
+          ) : (
+            <OptionGrid tile={tile} leaf={leaf} runReorder={runReorder} />
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function OptionGrid({
+  tile,
+  leaf,
+  runReorder,
+}: {
+  tile: StudioTile;
+  leaf: StudioRefinementLeaf;
+  runReorder: (fn: () => Promise<StudioActionResult>) => void;
+}) {
+  const [dragOpt, setDragOpt] = useState<string | null>(null);
+  const [dropOptIdx, setDropOptIdx] = useState<number | null>(null);
+  const optKeys = leaf.options.map((o) => o.optionKey);
+
+  const moveOpt = (optionKey: string, dir: -1 | 1) => {
+    const from = optKeys.indexOf(optionKey);
+    const to = from + dir;
+    if (from === -1 || to < 0 || to >= optKeys.length) return;
+    const next = optKeys.slice();
+    [next[from], next[to]] = [next[to]!, next[from]!];
+    runReorder(() => reorderRefinementOptions(leaf.leafKey, next));
+  };
+
+  const onOptDrop = (idx: number) => (e: DragEvent) => {
+    e.preventDefault();
+    setDropOptIdx(null);
+    const optionKey = e.dataTransfer.getData('text/option') || dragOpt;
+    setDragOpt(null);
+    if (!optionKey) return;
+    const from = optKeys.indexOf(optionKey);
+    if (from === -1) return;
+    const next = optKeys.slice();
+    next.splice(from, 1);
+    const insertAt = from < idx ? idx - 1 : idx;
+    next.splice(insertAt, 0, optionKey);
+    if (next.join() === optKeys.join()) return;
+    runReorder(() => reorderRefinementOptions(leaf.leafKey, next));
+  };
+
+  return (
+    <div className="space-y-2">
+      <h4 className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Options</h4>
+      {leaf.options.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-3 py-3 text-center text-[11px] text-ink/55">
+          No options yet.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {leaf.options.map((o, idx) => (
+            <OptionCard
+              key={o.optionKey}
+              tile={tile}
+              leaf={leaf}
+              option={o}
+              canDelete={!leaf.isProjectable}
+              canMoveUp={idx > 0}
+              canMoveDown={idx < leaf.options.length - 1}
+              onMoveUp={() => moveOpt(o.optionKey, -1)}
+              onMoveDown={() => moveOpt(o.optionKey, 1)}
+              dragging={dragOpt === o.optionKey}
+              dropBefore={dropOptIdx === idx && dragOpt != null && dragOpt !== o.optionKey}
+              onDragStart={(e) => {
+                setDragOpt(o.optionKey);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/option', o.optionKey);
+              }}
+              onDragEnd={() => {
+                setDragOpt(null);
+                setDropOptIdx(null);
+              }}
+              onDragOver={(e) => {
+                if (dragOpt && dragOpt !== o.optionKey) {
+                  e.preventDefault();
+                  setDropOptIdx(idx);
+                }
+              }}
+              onDrop={onOptDrop(idx)}
+            />
+          ))}
+        </div>
+      )}
+
+      {leaf.isProjectable ? (
+        <p className="flex items-start gap-1.5 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-[11px] text-ink/60">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
+          <span>
+            These options are <strong>reserved</strong> — their keys drive vendor matching, so the set is
+            fixed. You can edit each option’s label, emoji, and photo above, but can’t add or remove options
+            here.
+          </span>
+        </p>
+      ) : (
+        <AddOptionForm tile={tile} leaf={leaf} />
+      )}
+    </div>
+  );
+}
+
+function OptionCard({
+  tile,
+  leaf,
+  option,
+  canDelete,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  dragging,
+  dropBefore,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+}: {
+  tile: StudioTile;
+  leaf: StudioRefinementLeaf;
+  option: StudioRefinementOption;
+  canDelete: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  dragging: boolean;
+  dropBefore: boolean;
+  onDragStart: (e: DragEvent) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: DragEvent) => void;
+  onDrop: (e: DragEvent) => void;
+}) {
+  const anchor = `t-${tile.id}`;
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`rounded-lg border bg-white p-2.5 transition ${
+        dragging ? 'opacity-40' : 'border-ink/10'
+      } ${dropBefore ? 'ring-2 ring-terracotta ring-offset-1' : ''} ${
+        option.status === 'retired' ? 'opacity-60' : ''
+      }`}
+    >
+      <form
+        action={updateRefinementOption.bind(null, leaf.leafKey, option.optionKey)}
+        className="space-y-2"
+      >
+        <input type="hidden" name="photo_current" value={option.photoRaw ?? ''} />
+        <input type="hidden" name="_anchor" value={anchor} />
+        <input type="hidden" name="_opentab" value="refinements" />
+        <div className="flex items-start gap-2">
+          <span className="shrink-0 cursor-grab pt-1 text-ink/25" aria-hidden title="Drag to reorder">
+            <GripVertical className="h-3.5 w-3.5" />
+          </span>
+          <RefThumb url={option.photoUrl} className="h-12 w-12" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex gap-1.5">
+              <input
+                name="emoji"
+                maxLength={4}
+                defaultValue={option.emoji}
+                aria-label="Emoji"
+                placeholder="🎂"
+                className="w-12 shrink-0 rounded-md border border-ink/15 bg-white px-1 py-1 text-center text-sm"
+              />
+              <input
+                name="label_en"
+                required
+                defaultValue={option.label}
+                aria-label="Option label"
+                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+              />
+            </div>
+            <FileUpload
+              bucket="samples"
+              pathPrefix={`refinements/${leaf.leafKey}`}
+              name="photo_url"
+              maxSizeMB={5}
+              acceptedTypes={IMG_TYPES}
+              variant="square"
+              label="Replace photo"
+            />
+          </div>
+          <div className="flex shrink-0 flex-col items-center gap-0.5">
+            <button
+              type="button"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              aria-label="Move option up"
+              className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+            >
+              <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              aria-label="Move option down"
+              className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+            >
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <label className="flex items-center gap-1.5 text-[11px] text-ink/70">
+            <input
+              type="checkbox"
+              name="status"
+              value="retired"
+              defaultChecked={option.status === 'retired'}
+              className="h-3.5 w-3.5"
+            />
+            Retire
+          </label>
+          <SubmitButton
+            className="rounded-md bg-mulberry px-2.5 py-1 text-[11px] font-medium text-cream hover:bg-mulberry-600"
+            pendingLabel="…"
+          >
+            Save
+          </SubmitButton>
+        </div>
+      </form>
+      {canDelete ? (
+        <form
+          action={removeRefinementOption.bind(null, leaf.leafKey, option.optionKey)}
+          className="mt-1.5 text-right"
+        >
+          <input type="hidden" name="_anchor" value={anchor} />
+          <input type="hidden" name="_opentab" value="refinements" />
+          <SubmitButton
+            className="inline-flex items-center gap-1 text-[10px] text-ink/45 hover:text-danger-700"
+            pendingLabel="Deleting…"
+          >
+            <Trash2 className="h-3 w-3" aria-hidden /> Delete option
+          </SubmitButton>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+/** Add-option form — photo REQUIRED (owner 2026-06-10). The submit is disabled
+ *  until a photo is uploaded so the required-photo rule surfaces before the POST
+ *  (the server action also re-checks). */
+function AddOptionForm({ tile, leaf }: { tile: StudioTile; leaf: StudioRefinementLeaf }) {
+  const [hasPhoto, setHasPhoto] = useState(false);
+  const anchor = `t-${tile.id}`;
+  return (
+    <form
+      action={addRefinementOption.bind(null, leaf.leafKey)}
+      className="space-y-2 rounded-lg border border-dashed border-success-300 bg-success-50/30 p-2.5"
+    >
+      <input type="hidden" name="_anchor" value={anchor} />
+      <input type="hidden" name="_opentab" value="refinements" />
+      <p className="text-[11px] font-medium text-success-800">Add an option</p>
+      <div className="flex gap-1.5">
+        <input
+          name="emoji"
+          maxLength={4}
+          aria-label="Emoji"
+          placeholder="🎂"
+          className="w-12 shrink-0 rounded-md border border-ink/15 bg-white px-1 py-1 text-center text-sm"
+        />
+        <input
+          name="label_en"
+          required
+          aria-label="New option label"
+          placeholder="e.g. Glazed"
+          className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+        />
+      </div>
+      <div className="space-y-1">
+        <span className="block text-[11px] font-medium text-ink/70">
+          Photo <span className="text-danger-600">*required</span>
+        </span>
+        <FileUpload
+          bucket="samples"
+          pathPrefix={`refinements/${leaf.leafKey}`}
+          name="photo_url"
+          maxSizeMB={5}
+          acceptedTypes={IMG_TYPES}
+          variant="square"
+          onChange={(v) => setHasPhoto(typeof v === 'string' && v.length > 0)}
+        />
+      </div>
+      <SubmitButton
+        disabled={!hasPhoto}
+        className="inline-flex items-center gap-1.5 rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-40"
+        pendingLabel="Adding…"
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden /> Add option
+      </SubmitButton>
+      {!hasPhoto ? (
+        <span className="ml-2 text-[10px] text-ink/45">Upload a photo to enable — every new option needs one.</span>
+      ) : null}
+    </form>
+  );
+}
+
+function RefThumb({ url, className }: { url: string | null; className: string }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      className={`shrink-0 rounded-md object-cover ring-1 ring-ink/10 ${className}`}
+      aria-hidden
+    />
+  ) : (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-md bg-ink/5 text-ink/30 ring-1 ring-ink/10 ${className}`}
+      aria-hidden
+    >
+      <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
+    </span>
   );
 }
 

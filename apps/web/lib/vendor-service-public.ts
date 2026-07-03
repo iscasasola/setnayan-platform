@@ -93,6 +93,43 @@ export async function fetchPriceBracketsByService(
   return out;
 }
 
+// ── Serves (coverage event types + faiths, couple-facing) ───────────────────
+/** The who-they-serve declaration behind a service card's `coverage_id`. */
+export type VendorServiceCoverage = {
+  id: number;
+  /** event_type_vocab keys (never empty — DB CHECK). */
+  event_types: string[];
+  /** TITLE-CASE faithCol values; EMPTY = all faiths welcomed (column contract,
+   *  migration 20270502342558). */
+  faiths: string[];
+};
+
+/**
+ * Coverage rows (event_types + faiths) for a set of `coverage_id`s, keyed by
+ * id — feeds the public service card's "Serves" line. Fail-soft to an empty
+ * map (services without a coverage / a missing table just render no line).
+ */
+export async function fetchCoveragesByIdPublic(
+  supabase: SupabaseClient,
+  coverageIds: number[],
+): Promise<Map<number, VendorServiceCoverage>> {
+  const out = new Map<number, VendorServiceCoverage>();
+  if (coverageIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from('vendor_coverages')
+    .select('id,event_types,faiths')
+    .in('id', coverageIds);
+  if (error) return out;
+  for (const row of (data ?? []) as VendorServiceCoverage[]) {
+    out.set(row.id, {
+      id: row.id,
+      event_types: row.event_types ?? [],
+      faiths: row.faiths ?? [],
+    });
+  }
+  return out;
+}
+
 // ── Discounts (couple sees the single BEST applicable one) ──────────────────
 /**
  * Discounts for a set of service ids, grouped by service (public read path).

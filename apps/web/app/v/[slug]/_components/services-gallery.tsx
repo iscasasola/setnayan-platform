@@ -13,7 +13,8 @@
  */
 
 import { useState } from 'react';
-import { BadgePercent, Check, Info } from 'lucide-react';
+import Image from 'next/image';
+import { BadgePercent, Check, Info, Users } from 'lucide-react';
 
 export type ServiceCard = {
   id: string;
@@ -34,6 +35,18 @@ export type ServiceCard = {
   /** "Not included" expectation flags, pre-formatted server-side
    *  ("Crew meal not included", "Transport: ₱1,500"). Empty → row hidden. */
   notIncluded: string[];
+  // ── Couple-side serves payoff (2026-07-03) ─────────────────────────────────
+  /** Pricing-basis detail under the "from ₱X" anchor, pre-formatted server-side
+   *  ("₱350 / guest · min 50 guests", "₱15,000 for 4 hrs · +₱2,000/extra hr").
+   *  null → fixed basis / nothing extra to explain. */
+  priceDetail: string | null;
+  /** Who this service serves, pre-formatted server-side from the coverage row
+   *  ("Wedding · Debut — All faiths"). null → no coverage declared → no line. */
+  serves: string | null;
+  /** Showcase photo display URLs (≤5, presigned server-side). Empty → no strip. */
+  photos: string[];
+  /** Showcase clip display URL (presigned server-side). null → no video. */
+  videoUrl: string | null;
 };
 
 export type ServiceGroup = {
@@ -104,8 +117,9 @@ export function ServicesGallery({ groups }: { groups: ServiceGroup[] }) {
  * stated worth, the crew/meal meta line, and the "not included" expectation
  * flags. All copy is pre-formatted server-side; this stays a dumb view.
  *
- * Layout order top→bottom: title + price · discount badge · inclusions ·
- * crew/meal meta · not-included flags — value story first, caveats last.
+ * Layout order top→bottom: title + price (+ pricing-basis detail) · discount
+ * badge · showcase media (photo strip + clip) · inclusions · crew/meal meta ·
+ * not-included flags · serves line — value story first, caveats + scope last.
  */
 function ServiceCardView({ card: c }: { card: ServiceCard }) {
   return (
@@ -115,11 +129,53 @@ function ServiceCardView({ card: c }: { card: ServiceCard }) {
         <p className="font-mono text-sm text-ink/80">{c.priceLabel}</p>
       </div>
 
+      {/* Pricing-basis detail — how the anchor is computed (per-guest / per-hour).
+          Right-aligned so it reads as a footnote to the "from ₱X" anchor above. */}
+      {c.priceDetail ? (
+        <p className="text-right font-mono text-[11px] text-ink/50">{c.priceDetail}</p>
+      ) : null}
+
       {c.discountLabel ? (
         <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-terracotta/30 bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
           <BadgePercent className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
           {c.discountLabel}
         </span>
+      ) : null}
+
+      {/* Showcase media — the vendor's own gallery for THIS service (≤5 photos
+          + one ≤30s clip). Rendered small + horizontal so the card stays a
+          card; empty media renders nothing (no placeholders). */}
+      {c.photos.length > 0 ? (
+        <div className="mt-3 flex gap-1.5 overflow-x-auto">
+          {c.photos.map((url, idx) => (
+            <div
+              key={url}
+              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink/5"
+            >
+              <Image
+                src={url}
+                alt={`${c.label} showcase ${idx + 1}`}
+                fill
+                sizes="64px"
+                className="object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {c.videoUrl ? (
+        /* Poster-first: preload="metadata" shows the first frame without
+           downloading the clip; muted + playsInline keep mobile behavior tame. */
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video
+          src={c.videoUrl}
+          controls
+          preload="metadata"
+          playsInline
+          muted
+          className="mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover"
+        />
       ) : null}
 
       {c.inclusions.length > 0 ? (
@@ -156,6 +212,16 @@ function ServiceCardView({ card: c }: { card: ServiceCard }) {
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {/* Serves — who this service is declared for (coverage event types +
+          faiths). Subtle closing line; services without a coverage row show
+          nothing rather than guessing. */}
+      {c.serves ? (
+        <p className="mt-2 inline-flex items-start gap-1.5 text-[11px] text-ink/50">
+          <Users className="mt-0.5 h-3 w-3 shrink-0 text-ink/35" strokeWidth={2} aria-hidden />
+          <span>Serves: {c.serves}</span>
+        </p>
       ) : null}
     </div>
   );

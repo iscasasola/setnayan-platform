@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Martini, Maximize2, Navigation, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
+import { Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
 import { BOOTH_CATALOG, type BoothType } from '@/lib/seating';
 import {
   deleteCocktailBooth,
@@ -17,6 +17,7 @@ type Booth = {
   booth_id: string;
   booth_type: BoothType;
   label: string;
+  offerings: string | null;
   x: number;
   y: number;
   is_mine: boolean;
@@ -70,6 +71,9 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   const [signs, setSigns] = useState<Sign[]>(data.signs);
   const [notice, setNotice] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // The booth whose offerings copy is being edited (inline panel), + its draft.
+  const [editingBooth, setEditingBooth] = useState<string | null>(null);
+  const [offeringsDraft, setOfferingsDraft] = useState('');
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const roomRef = useRef<Room>(room);
@@ -180,7 +184,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     }
     setBooths((bs) => [
       ...bs,
-      { booth_id: res.boothId!, booth_type: type, label, x: room.x, y: room.y, is_mine: true, vendor_name: null },
+      { booth_id: res.boothId!, booth_type: type, label, offerings: null, x: room.x, y: room.y, is_mine: true, vendor_name: null },
     ]);
   };
 
@@ -191,6 +195,29 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     const res = await deleteCocktailBooth(eventId, b.booth_id);
     if (!res.ok) {
       setBooths(prev);
+      setNotice(res.error);
+    }
+  };
+
+  // Open / close the inline "what does this booth serve" editor for a booth.
+  const openOfferings = (b: Booth) => {
+    if (!(b.is_mine || canArrange)) return;
+    setEditingBooth(b.booth_id);
+    setOfferingsDraft(b.offerings ?? '');
+  };
+
+  // Persist the offerings copy via the same upsert RPC (label + position are
+  // re-sent unchanged; the RPC trims/caps to 280 server-side). Optimistic, with
+  // rollback on failure — mirrors the drag/relabel paths.
+  const saveOfferings = async (b: Booth) => {
+    const next = offeringsDraft.trim().slice(0, 280);
+    const value = next.length > 0 ? next : null;
+    setEditingBooth(null);
+    if (value === (b.offerings ?? null)) return;
+    setBooths((bs) => bs.map((x) => (x.booth_id === b.booth_id ? { ...x, offerings: value } : x)));
+    const res = await upsertCocktailBooth(eventId, b.booth_id, b.booth_type, b.label, b.x, b.y, value);
+    if (!res.ok) {
+      setBooths((bs) => bs.map((x) => (x.booth_id === b.booth_id ? { ...x, offerings: b.offerings } : x)));
       setNotice(res.error);
     }
   };
@@ -442,7 +469,9 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             >
               <span
                 onPointerDown={startBooth(b)}
-                title={b.vendor_name ? `${b.label} · ${b.vendor_name}` : b.label}
+                title={
+                  [b.label, b.vendor_name, b.offerings].filter(Boolean).join(' · ') || b.label
+                }
                 className={`flex select-none items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold shadow-sm ${
                   b.is_mine
                     ? 'border-terracotta bg-terracotta text-cream'
@@ -452,15 +481,89 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                 {b.label}
               </span>
               {editable ? (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => removeBooth(b)}
-                  aria-label={`Remove ${b.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => openOfferings(b)}
+                    aria-label={`Edit what ${b.label} serves`}
+                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => removeBooth(b)}
+                    aria-label={`Remove ${b.label}`}
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </>
+              ) : null}
+
+              {/* inline offerings editor — what this booth serves (3D walk card) */}
+              {editingBooth === b.booth_id ? (
+                <>
+                  <button
+                    type="button"
+                    aria-hidden
+                    tabIndex={-1}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      setEditingBooth(null);
+                    }}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    role="dialog"
+                    aria-label={`What does ${b.label} serve?`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="absolute left-1/2 top-full z-50 mt-2 w-60 -translate-x-1/2 rounded-xl border border-ink/10 bg-cream p-2.5 shadow-lg"
+                  >
+                    <label
+                      htmlFor={`v-booth-offerings-${b.booth_id}`}
+                      className="mb-1 block font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45"
+                    >
+                      What does this booth serve?
+                    </label>
+                    <textarea
+                      id={`v-booth-offerings-${b.booth_id}`}
+                      value={offeringsDraft}
+                      onChange={(e) => setOfferingsDraft(e.target.value.slice(0, 280))}
+                      maxLength={280}
+                      rows={3}
+                      autoFocus
+                      placeholder="e.g. Espresso martinis & mocktails"
+                      className="w-full resize-none rounded-lg border border-ink/15 bg-white/90 px-2 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+                    />
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-[10px] text-ink/45">
+                        Guests see this when they tap your booth in the 3D venue walk.
+                      </span>
+                      <span className="ml-2 shrink-0 text-[10px] tabular-nums text-ink/40">
+                        {offeringsDraft.length}/280
+                      </span>
+                    </div>
+                    <div className="mt-2 flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditingBooth(null)}
+                        className="rounded-lg px-2.5 py-1 text-xs font-medium text-ink/55 hover:bg-ink/[0.04]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveOfferings(b)}
+                        className="rounded-lg bg-terracotta px-2.5 py-1 text-xs font-semibold text-cream hover:opacity-90"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </>
               ) : null}
             </div>
           );

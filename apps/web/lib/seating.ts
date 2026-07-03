@@ -1378,6 +1378,10 @@ export type FloorBoothRow = {
   // The booked vendor running this booth (set for vendor-placed cocktail
   // booths so a booth vendor may only move/delete their own); null otherwise.
   event_vendor_id: string | null;
+  // Guest-facing "what this booth serves / offers" copy (<=280 chars) surfaced
+  // on the 3D venue-walk booth card. Written by the couple here or the booth's
+  // vendor in the cocktail editor. Null when unset.
+  offerings: string | null;
 };
 
 export async function fetchBooths(
@@ -1386,7 +1390,7 @@ export async function fetchBooths(
 ): Promise<FloorBoothRow[]> {
   const { data, error } = await supabase
     .from('event_floor_booths')
-    .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id')
+    .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings')
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -1400,6 +1404,7 @@ export async function fetchBooths(
     // Pre-migration rows lack these columns; default sensibly.
     zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
     event_vendor_id: b.event_vendor_id ?? null,
+    offerings: b.offerings ?? null,
   }));
 }
 

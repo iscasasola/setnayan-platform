@@ -59,6 +59,7 @@ export async function upsertCocktailBooth(
   label: string,
   x: number,
   y: number,
+  offerings: string | null = null,
 ): Promise<Result> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('vendor_upsert_cocktail_booth', {
@@ -68,6 +69,7 @@ export async function upsertCocktailBooth(
     p_label: label,
     p_x: x,
     p_y: y,
+    p_offerings: offerings,
   });
   return error
     ? { ok: false, error: rpcError(error.message) }

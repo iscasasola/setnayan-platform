@@ -1357,6 +1357,8 @@ type BoothPayload = {
   sort_order: number;
   zone: 'reception' | 'cocktail';
   event_vendor_id: string | null;
+  // Guest-facing "what this booth serves / offers" copy (<=280, or null).
+  offerings: string | null;
 };
 
 // Parse + clamp the booths JSON. Throws on anything malformed — the editor
@@ -1385,6 +1387,12 @@ function parseBoothsPayload(raw: unknown): BoothPayload[] {
       typeof o.event_vendor_id === 'string' && o.event_vendor_id.length > 0
         ? o.event_vendor_id
         : null;
+    // Offerings: trimmed + capped at 280 (mirrors the DB CHECK / vendor RPC);
+    // blank -> null so an empty field clears the copy on the next save.
+    const offerings =
+      typeof o.offerings === 'string' && o.offerings.trim().length > 0
+        ? o.offerings.trim().slice(0, 280)
+        : null;
     // Cocktail booths can sit in a room docked OUTSIDE the reception walls
     // (off the 0–100 canvas), so they clamp to the same widened band as the
     // cocktail room; reception booths stay on-canvas.
@@ -1401,6 +1409,7 @@ function parseBoothsPayload(raw: unknown): BoothPayload[] {
       sort_order: i,
       zone: zone as 'reception' | 'cocktail',
       event_vendor_id: vendorId,
+      offerings,
     };
   });
 }
@@ -1428,6 +1437,7 @@ async function persistBooths(
       sort_order: b.sort_order,
       zone: b.zone,
       event_vendor_id: b.event_vendor_id,
+      offerings: b.offerings,
     };
     const { error } = b.booth_id
       ? await supabase.from('event_floor_booths').update(row).eq('booth_id', b.booth_id).eq('event_id', eventId)

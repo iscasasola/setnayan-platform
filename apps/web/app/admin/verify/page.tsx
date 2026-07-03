@@ -50,6 +50,7 @@ import {
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
   adTransparencyLinks,
+  DEEP_SEARCH_LITE_MODEL,
   type DossierRow,
   type VendorDossier,
 } from '@/lib/vendor-deep-search';
@@ -837,12 +838,20 @@ function DeepSearchBlock({
   );
   const dossier: VendorDossier | null =
     dossierRow?.status === 'complete' ? dossierRow.dossier : null;
+  // Which mode ran (or will run): AI when the key is configured, else the free
+  // keyless Lite pass. For a completed row, trust the stored model; otherwise
+  // reflect what the next run will do based on the environment.
+  const aiConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
+  const ranLite = dossierRow?.model === DEEP_SEARCH_LITE_MODEL;
+  const modeLabel = dossierRow?.status === 'complete'
+    ? (ranLite ? 'Lite · no AI (free)' : 'AI-generated')
+    : (aiConfigured ? 'AI-generated' : 'Lite · free · no AI');
 
   return (
     <div className="space-y-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Deep search · AI-generated
+          Deep search · {modeLabel}
         </p>
         <form action={runVendorDeepSearchAction}>
           <input

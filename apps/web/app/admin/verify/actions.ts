@@ -16,7 +16,8 @@ import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
   DEEP_SEARCH_MODEL,
-  runDeepSearch,
+  DEEP_SEARCH_LITE_MODEL,
+  runDeepSearchOrLite,
   type DeepSearchInputs,
 } from '@/lib/vendor-deep-search';
 
@@ -796,7 +797,10 @@ export async function runVendorDeepSearchAction(formData: FormData) {
       status: 'running',
       requested_by: adminUser.user_id,
       inputs,
-      model: DEEP_SEARCH_MODEL,
+      // Planned model — the AI dossier (Haiku) when the key is configured,
+      // otherwise the free keyless Lite pass. The completion update below
+      // overwrites this with whatever actually ran.
+      model: process.env.ANTHROPIC_API_KEY ? DEEP_SEARCH_MODEL : DEEP_SEARCH_LITE_MODEL,
     })
     .select('id')
     .single();
@@ -808,10 +812,10 @@ export async function runVendorDeepSearchAction(formData: FormData) {
   const dossierId = (inserted as { id: number }).id;
 
   try {
-    const dossier = await runDeepSearch(inputs);
+    const { dossier, model } = await runDeepSearchOrLite(inputs);
     await admin
       .from('vendor_web_dossiers')
-      .update({ status: 'complete', dossier, completed_at: new Date().toISOString() })
+      .update({ status: 'complete', dossier, model, completed_at: new Date().toISOString() })
       .eq('id', dossierId);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Deep search failed.';

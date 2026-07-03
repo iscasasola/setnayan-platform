@@ -577,15 +577,17 @@ function SignInOverlay({
  * visibly rise instead of the alternative sitting at a static full bar.
  * Hire ≈ ₱46,667/28d (a 2–3-person team at typical PH rates, prorated);
  * apps ≈ ₱3,846/28d (planning AIs abroad, top of range); DIY upper ≈ 47 h/28d.
- * The DIY mode compares hours-to-hours (never hours-to-pesos): Setnayan AI's own
- * side is the ~2 h/28d it still asks of you to act on the taps it sends, so both
- * bars read in hours and both rise with the slider (owner 2026-07-03).
+ * The DIY mode answers "what is your hour worth?": the person sets their OWN
+ * hourly rate, the DIY hours are valued in pesos at that rate, and — like the
+ * other two modes — the result reads "you save ₱X" against Setnayan AI's price
+ * (owner 2026-07-03). All three modes are peso-to-peso; only the alternative's
+ * ceiling differs.
  */
 const AI_COMPARE_MAX_MONTHS = 26;
 const AI_COMPARE_TEAM_MAX_PHP = 1_213_333;
 const AI_COMPARE_APPS_MAX_PHP = 100_000;
 const AI_COMPARE_DIY_MAX_HOURS = 1_213;
-const AI_COMPARE_MINE_MAX_HOURS = 52; // ~2 h / 28-day cycle acting on its taps
+const AI_COMPARE_RATE_DEFAULT_PHP = 150; // ₱/hr starting point; user-adjustable
 
 function SetnayanAiOverlay({
   current,
@@ -603,6 +605,8 @@ function SetnayanAiOverlay({
   // A "month" here = the house 28-DAY cycle (13 ≈ 1 year — owner 2026-07-03).
   const [months, setMonths] = useState(13);
   const [mode, setMode] = useState<'hire' | 'apps' | 'diy'>('hire');
+  // "What is your hour worth?" — the DIY mode values your own time in pesos.
+  const [rate, setRate] = useState(AI_COMPARE_RATE_DEFAULT_PHP);
 
   const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
   // Setnayan AI over the window: the ₱499 intro cycle + ₱799 × the rest —
@@ -620,7 +624,7 @@ function SetnayanAiOverlay({
   const teamPhp = AI_COMPARE_TEAM_MAX_PHP * frac;
   const appsPhp = AI_COMPARE_APPS_MAX_PHP * frac;
   const diyHours = AI_COMPARE_DIY_MAX_HOURS * frac;
-  const myHours = AI_COMPARE_MINE_MAX_HOURS * frac;
+  const diyWorth = diyHours * rate; // your DIY hours valued at your own rate
   const compare =
     mode === 'hire'
       ? {
@@ -643,15 +647,17 @@ function SetnayanAiOverlay({
             foot: 'Drawn to one scale — and theirs waits for your questions; it doesn’t watch your vendors.',
           }
         : {
-            // Hours-to-hours: your hours by hand vs the hours Setnayan AI still
-            // asks of you — never hours-to-pesos (owner 2026-07-03).
+            // "What is your hour worth?" — value the DIY hours at the rate the
+            // person sets, then read "you save ₱X" like the other two modes.
+            // Both bars share one peso scale (ceiling = the hours' worth at the
+            // 26-month end), so raising the rate visibly shrinks Setnayan's bar.
             sub: 'Keeping every vendor, price and deadline current by hand:',
-            save: `you get back ${Math.round(diyHours - myHours).toLocaleString()} hours`,
-            themLabel: `Your hours · ${Math.round(diyHours).toLocaleString()} h`,
+            save: `you save ${peso(Math.max(0, diyWorth - mine))}`,
+            themLabel: `Your time · ${peso(diyWorth)}`,
             themPct: frac * 100,
-            usLabel: `Setnayan AI · ${Math.round(myHours).toLocaleString()} h`,
-            usPct: Math.max((myHours / AI_COMPARE_DIY_MAX_HOURS) * 100, 1.2),
-            foot: '≈ 25–50 hours of checking a month by hand vs a couple acting on its taps — illustrative; it runs in the background instead.',
+            usLabel: `Setnayan AI · ${peso(mine)}`,
+            usPct: Math.max((mine / (AI_COMPARE_DIY_MAX_HOURS * rate)) * 100, 1.2),
+            foot: `${Math.round(diyHours).toLocaleString()} h by hand × ${peso(rate)}/hr, illustrative — Setnayan AI runs it in the background instead.`,
           };
 
   return (
@@ -727,6 +733,28 @@ function SetnayanAiOverlay({
 
       <div>
         <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#6c675e' }}>{compare.sub}</p>
+        {/* "What is your hour worth?" — the person sets their own rate; the DIY
+            hours are valued at it (owner 2026-07-03). DIY-only control. */}
+        {mode === 'diy' && (
+          <div style={{ margin: '8px 0 6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, color: '#6c675e' }}>
+              <span>My time is worth</span>
+              <span style={{ fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 19, color: '#2a2925' }}>
+                {peso(rate)}/hr
+              </span>
+            </div>
+            <input
+              type="range"
+              min={50}
+              max={1000}
+              step={50}
+              value={rate}
+              onChange={(e) => setRate(Number(e.target.value))}
+              aria-label="What your time is worth per hour"
+              style={{ width: '100%', marginTop: 2, accentColor: '#a67c3d' }}
+            />
+          </div>
+        )}
         <p style={{ margin: '2px 0 0', fontFamily: 'var(--hr-serif)', fontStyle: 'italic', fontSize: 26, color: '#3f6b3f' }}>
           {compare.save}
         </p>

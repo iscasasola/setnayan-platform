@@ -23,162 +23,16 @@ import { cache } from 'react';
 
 import { createClient } from './supabase/server';
 import {
-  WEDDING_FOLDER_ORDER,
-  WEDDING_FOLDER_LABEL,
-  WEDDING_FOLDER_SHORT_LABEL,
-  WEDDING_FOLDER_SLUG,
-  WEDDING_TILE_ORDER,
-  TILE_PARENT,
-  WEDDING_TILE_LABEL,
-  WEDDING_TILE_SLUG,
-  WEDDING_TILES_BY_PARENT,
-  TAXONOMY_MAP,
-  type WeddingFolder,
-  type WeddingTile,
-  type TaxonomyPhase,
-  type TaxonomyEntry,
-} from './taxonomy';
+  fallbackSnapshot,
+  snapshotFromRows,
+  type CategoryRow,
+  type MapRow,
+  type TaxonomySnapshot,
+} from './taxonomy-snapshot';
 
-/**
- * Plain, fully-serializable mirror of the taxonomy constants — safe to pass
- * from a server component into a client component (Phase 2b provider).
- */
-export type TaxonomySnapshot = {
-  /** 'db' when reconstructed from the tables, 'fallback' when the constant was used. */
-  source: 'db' | 'fallback';
-  folderOrder: WeddingFolder[];
-  folderLabel: Record<string, string>;
-  folderShortLabel: Record<string, string>;
-  folderSlug: Record<string, string>;
-  tileOrder: WeddingTile[];
-  tileParent: Record<string, WeddingFolder>;
-  tileLabel: Record<string, string>;
-  tileSlug: Record<string, string>;
-  tilesByParent: Record<string, WeddingTile[]>;
-  /** tile id → applicable event_type_vocab keys. null / [] = universal (serves all events). */
-  tileEventTypes: Record<string, string[] | null>;
-  /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
-  map: Record<string, TaxonomyEntry>;
-};
-
-/** Build the snapshot straight from the lib/taxonomy.ts constants. */
-function fallbackSnapshot(): TaxonomySnapshot {
-  return {
-    source: 'fallback',
-    folderOrder: [...WEDDING_FOLDER_ORDER],
-    folderLabel: { ...WEDDING_FOLDER_LABEL },
-    folderShortLabel: { ...WEDDING_FOLDER_SHORT_LABEL },
-    folderSlug: { ...WEDDING_FOLDER_SLUG },
-    tileOrder: [...WEDDING_TILE_ORDER],
-    tileParent: { ...TILE_PARENT },
-    tileLabel: { ...WEDDING_TILE_LABEL },
-    tileSlug: { ...WEDDING_TILE_SLUG },
-    tilesByParent: Object.fromEntries(
-      Object.entries(WEDDING_TILES_BY_PARENT).map(([k, v]) => [k, [...v]]),
-    ),
-    tileEventTypes: {}, // constant fallback has no event scoping → all universal
-    map: { ...TAXONOMY_MAP },
-  };
-}
-
-type CategoryRow = {
-  id: string;
-  parent_id: string | null;
-  tier: number;
-  label_en: string;
-  label_short: string | null;
-  slug: string;
-  sort_order: number;
-  applicable_event_types: string[] | null;
-};
-
-type MapRow = {
-  canonical_service: string;
-  folder_id: string;
-  tile_id: string | null;
-  phase: string;
-  faith: string | null;
-  is_ph: boolean;
-  is_setnayan: boolean;
-  is_rental: boolean;
-  dietary: string | null;
-  is_tradition: boolean;
-  marketplace_hidden: boolean;
-  secondary_tiles: string[] | null;
-};
-
-/** Reconstruct the snapshot from DB rows. Pure — no I/O. */
-function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomySnapshot {
-  const parents = cats
-    .filter((c) => c.tier === 1)
-    .sort((a, b) => a.sort_order - b.sort_order);
-  const tiles = cats
-    .filter((c) => c.tier === 2)
-    .sort((a, b) => a.sort_order - b.sort_order);
-
-  const folderLabel: Record<string, string> = {};
-  const folderShortLabel: Record<string, string> = {};
-  const folderSlug: Record<string, string> = {};
-  for (const p of parents) {
-    folderLabel[p.id] = p.label_en;
-    folderShortLabel[p.id] = p.label_short ?? p.label_en;
-    folderSlug[p.id] = p.slug;
-  }
-
-  const tileParent: Record<string, WeddingFolder> = {};
-  const tileLabel: Record<string, string> = {};
-  const tileSlug: Record<string, string> = {};
-  const tilesByParent: Record<string, WeddingTile[]> = {};
-  const tileEventTypes: Record<string, string[] | null> = {};
-  for (const p of parents) tilesByParent[p.id] = [];
-  for (const t of tiles) {
-    if (t.parent_id) {
-      tileParent[t.id] = t.parent_id as WeddingFolder;
-      (tilesByParent[t.parent_id] ??= []).push(t.id as WeddingTile);
-    }
-    tileLabel[t.id] = t.label_en;
-    tileSlug[t.id] = t.slug;
-    tileEventTypes[t.id] =
-      t.applicable_event_types && t.applicable_event_types.length > 0
-        ? t.applicable_event_types
-        : null; // null = universal (serves all events)
-  }
-
-  const map: Record<string, TaxonomyEntry> = {};
-  for (const m of maps) {
-    const entry: TaxonomyEntry = {
-      folder: m.folder_id as WeddingFolder,
-      phase: m.phase as TaxonomyPhase,
-    };
-    if (m.tile_id) entry.tile = m.tile_id as WeddingTile;
-    if (m.marketplace_hidden) entry.marketplaceHidden = true;
-    if (m.faith) entry.faith = m.faith as TaxonomyEntry['faith'];
-    if (m.is_ph) entry.ph = true;
-    if (m.is_setnayan) entry.setnayan = true;
-    if (m.is_rental) entry.rental = true;
-    if (m.dietary) entry.dietary = m.dietary as TaxonomyEntry['dietary'];
-    if (m.is_tradition) entry.tradition = true;
-    if (m.secondary_tiles && m.secondary_tiles.length > 0) {
-      entry.secondary_tiles = m.secondary_tiles as WeddingTile[];
-    }
-    map[m.canonical_service] = entry;
-  }
-
-  return {
-    source: 'db',
-    folderOrder: parents.map((p) => p.id as WeddingFolder),
-    folderLabel,
-    folderShortLabel,
-    folderSlug,
-    tileOrder: tiles.map((t) => t.id as WeddingTile),
-    tileParent,
-    tileLabel,
-    tileSlug,
-    tilesByParent,
-    tileEventTypes,
-    map,
-  };
-}
+// Re-export the snapshot type from its old home so existing importers
+// (`import { type TaxonomySnapshot } from '@/lib/taxonomy-db'`) keep working.
+export type { TaxonomySnapshot } from './taxonomy-snapshot';
 
 /**
  * The taxonomy as it currently lives in the DB (or the constant fallback).
@@ -190,7 +44,9 @@ export const getTaxonomy = cache(async (): Promise<TaxonomySnapshot> => {
     const [catsRes, mapsRes] = await Promise.all([
       sb
         .from('service_categories')
-        .select('id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types')
+        .select(
+          'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key',
+        )
         .lte('tier', 2),
       sb
         .from('canonical_service_taxonomy')

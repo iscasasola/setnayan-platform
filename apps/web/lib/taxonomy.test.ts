@@ -21,6 +21,13 @@ import {
   WEDDING_TILE_ORDER,
   WEDDING_TILES_BY_PARENT,
 } from './taxonomy';
+import {
+  fallbackSnapshot,
+  snapshotFromRows,
+  type CategoryRow,
+  type MapRow,
+} from './taxonomy-snapshot';
+import { normalizeIconName } from './taxonomy-icon-name';
 
 const FOLDERS = new Set<string>(WEDDING_FOLDER_ORDER as readonly string[]);
 const TILES = new Set<string>(WEDDING_TILE_ORDER as readonly string[]);
@@ -73,6 +80,67 @@ test('faith keys are title-case (lowercasing breaks the === marketplace filter)'
     assert.equal(key.charAt(0), key.charAt(0).toUpperCase(), `faith key "${key}" must start upper-case`);
   }
   assert.equal(new Set(WEDDING_FAITH_KEYS).size, WEDDING_FAITH_KEYS.length, 'faith keys must be unique');
+});
+
+// ── Taxonomy Studio · representation layer (icons + photos) ──────────────────
+
+test('fallback snapshot carries EMPTY icon/photo maps and source=fallback', () => {
+  const snap = fallbackSnapshot();
+  assert.equal(snap.source, 'fallback');
+  assert.deepEqual(snap.categoryIcons, {}, 'fallback categoryIcons must be empty');
+  assert.deepEqual(snap.categoryPhotos, {}, 'fallback categoryPhotos must be empty');
+});
+
+test('DB snapshot carries icon/photo maps keyed by category id for BOTH tiers', () => {
+  const cats: CategoryRow[] = [
+    {
+      id: 'venue',
+      parent_id: null,
+      tier: 1,
+      label_en: 'Venue',
+      label_short: 'Venue',
+      slug: 'venue',
+      sort_order: 0,
+      applicable_event_types: null,
+      icon_name: 'Building2', // folder-level override
+      sample_photo_r2_key: null,
+    },
+    {
+      id: 'reception',
+      parent_id: 'venue',
+      tier: 2,
+      label_en: 'Reception',
+      label_short: null,
+      slug: 'reception',
+      sort_order: 0,
+      applicable_event_types: null,
+      icon_name: null, // no icon override → stored as null (falls back in the consumer)
+      sample_photo_r2_key: 'r2://event-media/reception.webp', // tile-level photo
+    },
+  ];
+  const maps: MapRow[] = [];
+  const snap = snapshotFromRows(cats, maps);
+
+  assert.equal(snap.source, 'db');
+  // Icon map covers both tiers, keyed by id; null preserved for the un-set tile.
+  assert.equal(snap.categoryIcons.venue, 'Building2');
+  assert.equal(snap.categoryIcons.reception, null);
+  // Photo map likewise; the folder has none, the tile carries its r2:// ref.
+  assert.equal(snap.categoryPhotos.venue, null);
+  assert.equal(snap.categoryPhotos.reception, 'r2://event-media/reception.webp');
+});
+
+test('normalizeIconName: empty clears, valid name passes, bogus name rejects', () => {
+  // Empty / whitespace → deliberate clear (fall back to code default).
+  assert.equal(normalizeIconName(''), '');
+  assert.equal(normalizeIconName('   '), '');
+  // A real Lucide allowlist name is accepted and trimmed.
+  assert.equal(normalizeIconName('Camera'), 'Camera');
+  assert.equal(normalizeIconName('  LayoutGrid  '), 'LayoutGrid');
+  // Off-allowlist / made-up names are REJECTED (null → the action errors).
+  assert.equal(normalizeIconName('NotARealIcon'), null);
+  assert.equal(normalizeIconName('camera'), null, 'case-sensitive: lowercase is not on the allowlist');
+  assert.equal(normalizeIconName('<script>'), null);
 });
 
 test('TILE_PARENT and WEDDING_TILES_BY_PARENT are mutually consistent', () => {

@@ -3575,6 +3575,9 @@ async function CatalogView({
       folder === 'venue'
         ? WEDDING_TILES_BY_PARENT.venue.length
         : buckets.get(folder)?.length ?? 0,
+    // DB-first folder icon override (fallback-safe: null when unset/unknown →
+    // the strip keeps its hardcoded FOLDER_ICON default).
+    iconName: tax.categoryIcons[folder] ?? null,
   }));
 
   // 2026-06-13 search-first reframe — the catalog landing's StickyMarketplaceHeader

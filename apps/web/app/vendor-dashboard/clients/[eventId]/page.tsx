@@ -97,6 +97,10 @@ type Brief = {
   booked_categories: string[];
   pax: { invited: number; attending: number; maybe: number; pending: number; declined: number };
   dietary: { meal_counts: Record<string, number>; restriction_notes: number } | null;
+  // Couple opt-in budget RANGE for this vendor's category (Customer Card respine
+  // PR-5). NULL unless the couple opted in AND allocated to the vendor's
+  // category(ies). Range-only — the exact figure is never recoverable.
+  budget_band: { lo_centavos: number; hi_centavos: number } | null;
   palette: Record<string, string[]>;
   attire_guide: Record<string, unknown>;
   monogram: {
@@ -231,6 +235,12 @@ function fmtPeso(php: number | null): string {
     minimumFractionDigits: php % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/** Whole-peso label from a centavos amount (bands are always ₱5,000-quantized). */
+function fmtPesoCentavos(centavos: number | null): string {
+  if (centavos == null || !Number.isFinite(centavos)) return '—';
+  return `₱${Math.round(centavos / 100).toLocaleString('en-PH')}`;
 }
 
 /** Initials for the avatar — from the event display name (never a guest name). */
@@ -1147,6 +1157,34 @@ function OverviewTab(props: {
           >
             Open mood board →
           </Link>
+        </Card>
+
+        {/* Budget — couple opt-in range for THIS vendor's category (PR-5).
+         *  Rendered at both stages; it's a quote input, most useful at inquiry.
+         *  Present → a rounded range; absent → the couple hasn't opted in (or has
+         *  no allocation for this category). Never an exact figure. */}
+        <Card>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
+            <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> Budget
+          </h2>
+          {brief.budget_band ? (
+            <>
+              <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
+                {fmtPesoCentavos(brief.budget_band.lo_centavos)}
+                <span className="mx-1.5 text-ink/40">–</span>
+                {fmtPesoCentavos(brief.budget_band.hi_centavos)}
+              </p>
+              <p className="mt-2 text-xs text-ink/55">
+                Shared by the couple · for your category. A range to quote against —
+                never their exact number.
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-cream px-3 py-2.5 text-sm text-ink/55">
+              <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
+              the couple hasn&rsquo;t opted into budget sharing.
+            </p>
+          )}
         </Card>
       </div>
 

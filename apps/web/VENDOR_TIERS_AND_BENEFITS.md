@@ -61,7 +61,7 @@ Tier identities: **Solo = operate · Pro = grow · Enterprise = scale.**
 _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 2026-07-01: 10 seats / 300 photos / 8 events per category.** `agentAccounts` is now the finite **10** in code (`vendor-tier-caps.ts`); extra seats beyond 10 are a **+₱500/28d** paid add-on (owner 2026-07-02 · billing flow pending)._
 > **All tier caps are MAXIMUM CEILINGS, not defaults** (owner 2026-07-01). A higher tier only *raises the limit* — the vendor operates below it by choice; nothing is forced. The events cap is scoped **per category** (⚠ code's current axis is `slotsPerDay` = per-day; dashboard to reconcile "events per category" vs the per-day slot model when wiring).
 
-### ✦ CUSTOM — "Talk to us" (negotiated · from ₱14,999/28d)
+### ✦ CUSTOM — "Talk to us" (negotiated · from ₱8,999/28d)
 For franchises and chains beyond Enterprise caps: **more branches · more seats · more capacity**, plus a dedicated account manager. Composed as **Enterprise + ₱999 branches + overflow units + white-glove** (owner 2026-07-03). Multi-brand houses are NOT a Custom composition — one vendor account per brand. **Quotes are computed from the §11 rate card (numbers partially owner-decided; remainder pending sign-off), not invented per deal.**
 
 ---
@@ -131,6 +131,8 @@ _Append a dated entry whenever you change something the other session relies on.
 - **2026-07-03 · strategy session — CUSTOM RATE CARD REVISED per owner (2 decisions).** (1) **Branch = ₱999/28d listing-only, shared cap pool** — the v1 "fully-loaded ₱2,499 location with its own Enterprise caps" unit is DELETED; franchises scale caps via overflow units. Also settles the old Pricing.md § 0.C ₱999-vs-₱1,000 branch flag → ₱999. (2) **"Additional brand" line DROPPED** — multi-brand houses register one vendor account per brand. §11 model line, table, examples, and sign-off list rewritten; §2 Custom card updated. Remaining sign-offs: base composition (₱14,999 incl. 3 branches) · extra-seat ₱250 vs ₱500 · overflow unit prices · annual/token treatment.
 
 - **2026-07-04 · strategy session — CUSTOM CONFIGURATOR = SLIDERS ON BOTH SIDES (owner).** §11 Stage 2 rewritten: the Custom composer is a **two-surface slider configurator**, not an admin-only quote tool — vendors move the line sliders themselves on `/vendor-dashboard/subscription` (live charm-rounded price, floored at base, 28d/annual toggle, submit → apply-then-pay + admin review handshake) and HQ admin has the same sliders per org plus unit-price control via the admin catalog. Provisioning = `tier_state='custom'` + effective caps = base + purchased units. Interactive prototype delivered to the owner for the remaining 4 number sign-offs. **Dashboard session:** no action until sign-off; the Opus build brief will cover both surfaces.
+
+- **2026-07-04 · strategy session — CUSTOM BASE REPRICED ₱14,999 → ₱8,999, LEAN (owner: "shouldn't custom start a bit above enterprise?").** Base = Enterprise ₱7,499 + ₱1,500 white-glove premium (account manager · QBR · priority disputes · negotiated onboarding); main address included, NO bundled extra branches — every additional branch is +₱999 from the 2nd. Kills the dead zone between Enterprise ₱7,499 and the old ₱14,999 floor; supersedes the 2026-07-01 "~₱15,000" number. New worked example: 5-branch franchise = **₱12,999/28d · ₱129,999/yr**. §11 table/formula/examples + §2 Custom card updated; sign-off prototype re-published with the new base. Remaining sign-offs (3): extra-seat ₱250 vs ₱500 · overflow units (slot ₱499 / photos ₱99) · annual + token treatment.
 
 ## 6 · Verification audit (2026-07-01 · origin/main HEAD `3dec2cb`)
 
@@ -214,8 +216,8 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 
 | Component | Price/28d | What it includes |
 |---|---|---|
-| **Custom base** | **₱14,999** | Everything in Enterprise · **3 branches included** · dedicated account manager · quarterly business review · priority dispute handling · negotiated onboarding |
-| Additional branch (4th onward) | **+₱999** ✅ | Another address / service-area listing; shares the org's cap pool (**owner-decided 2026-07-03**) |
+| **Custom base** | **₱8,999** ✅ | Everything in Enterprise (main address included; no bundled extra branches) · dedicated account manager · quarterly business review · priority dispute handling · negotiated onboarding (**owner-decided 2026-07-04**: lean base = Enterprise ₱7,499 + ₱1,500 white-glove premium; the ₱14,999 "incl. 3 branches" base is DELETED — it created a dead zone above Enterprise) |
+| Additional branch (2nd onward) | **+₱999** ✅ | Another address / service-area listing; shares the org's cap pool (**owner-decided 2026-07-03**) |
 | Extra seat (beyond the org's 10) | +₱250 ⚠ | Reuses the Enterprise extra-seat add-on — ⚠ price conflict ₱250 (PR #2623) vs ₱500 (§10); inherits whichever the owner picks |
 | +1 event slot per category | +₱499 | Capacity on the shared pool |
 | +100 portfolio photos | +₱99 | Deliberately near-cost — storage is a retention convenience, **never a profit line** (tax-aware-floor lock) |
@@ -224,15 +226,15 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 
 1. `raw = base + Σ(units)`
 2. **Charm-round UP** to the next ‑99 ending (e.g. ₱19,997 → ₱19,999).
-3. **Floor:** never below the ₱14,999 base (the white-glove premium is the point of Custom).
+3. **Floor:** never below the ₱8,999 base (the white-glove premium is the point of Custom).
 4. **Annual = 10 × the 28-day quote** — same 13-cycles-pay-10 (3 free cycles) math as the rest of the ladder. Annual-first sales motion for Custom.
 5. **Tax-aware floor check** (`price ≥ (cost + margin) ÷ 0.663`): trivially cleared — branches/seats are pure-margin digital; the photo unit is the sole near-cost line and is priced as such on purpose.
 
 ### Worked examples
 
-- **5-branch catering franchise (standard caps):** 14,999 + 2 × 999 = 16,997 → **₱16,999/28d · ₱169,999/yr**.
-- **5-branch franchise scaling up** (30 seats · 600 photos): 16,997 + 20 × 250 + 3 × 99 = 22,294 → **₱22,299/28d** (seat line pending the ₱250/₱500 pick).
-- **Single-brand studio needing 12 events/category + 400 photos:** NOT Custom — Enterprise 7,499 + 4 × 499 + 1 × 99 = 9,594 → **₱9,599/28d** as Enterprise + overflow units.
+- **5-branch catering franchise (standard caps):** 8,999 + 4 × 999 = 12,995 → **₱12,999/28d · ₱129,999/yr**.
+- **5-branch franchise scaling up** (30 seats · 600 photos): 12,995 + 20 × 250 + 3 × 99 = 18,292 → **₱18,299/28d** (seat line pending the ₱250/₱500 pick).
+- **Single-brand studio needing 12 events/category + 400 photos:** NOT Custom — Enterprise 7,499 + 4 × 499 + 1 × 99 = 9,594 → **₱9,599/28d** as Enterprise + overflow units. (The same composition inside Custom = 8,999 + 4 × 499 + 99 = ₱11,099 — the ₱1,500 delta is the white-glove premium, as intended.)
 - **Multi-brand house:** not a Custom composition — one vendor account per brand, each on its own tier (owner 2026-07-03).
 
 ### What Custom does NOT change
@@ -256,7 +258,7 @@ Brief goes to an Opus implementation agent once the remaining sign-off numbers a
 ### ⚠ Owner sign-off — remaining items
 
 - ✅ **DECIDED 2026-07-03 (owner):** additional branch **+₱999** (listing-only, shared cap pool; ₱2,499 fully-loaded location DELETED) · **"additional brand" DROPPED** (one account per brand).
-1. **Base ₱14,999** (charm form of the "~₱15,000" you set 2026-07-01) **including 3 branches**.
-2. **Extra-seat price:** ₱250 (open PR #2623) vs ₱500 (§10) — pick one.
-3. **Overflow units:** +1 event slot/category ₱499 · +100 photos ₱99.
-4. **Custom keeps the ladder's annual math** (annual = 10 × 28d, 3 free cycles) **and burns tokens like every tier** (no bulk discount in v1).
+- ✅ **DECIDED 2026-07-04 (owner):** **base ₱8,999, lean** — Enterprise + ₱1,500 white-glove (account manager · QBR · priority disputes · negotiated onboarding), main address included, every additional branch +₱999. Supersedes the ₱14,999-incl-3-branches base AND the 2026-07-01 "~₱15,000" floor (owner: Custom should start "a bit above Enterprise").
+1. **Extra-seat price:** ₱250 (open PR #2623) vs ₱500 (§10) — pick one.
+2. **Overflow units:** +1 event slot/category ₱499 · +100 photos ₱99.
+3. **Custom keeps the ladder's annual math** (annual = 10 × 28d, 3 free cycles) **and burns tokens like every tier** (no bulk discount in v1).

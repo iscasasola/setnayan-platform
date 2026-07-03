@@ -1,11 +1,14 @@
 /**
- * /admin/directory — mobile overflow landing for the Directory group.
+ * /admin/directory — mobile overflow landing for the Accounts group
+ * (6-menu respine 2026-07-03; route kept for bookmark continuity, the group
+ * key stays 'directory').
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the directory
- * surfaces compress into a card grid behind the Directory bottom-nav tab.
- * Per [[feedback_setnayan_orphan_prevention]] every NavItem here maps 1:1
- * to a sidebar entry in apps/web/app/admin/_components/admin-sidebar.tsx
- * Directory group.
+ * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the account
+ * record surfaces compress into a card grid behind the Accounts bottom-nav
+ * tab. Per [[feedback_setnayan_orphan_prevention]] every NavItem here maps
+ * 1:1 to a sidebar entry in apps/web/app/admin/_components/admin-sidebar.tsx
+ * Accounts group. (Spotlight Awards + Journal Spotlights moved to
+ * /admin/marketing with their group.)
  */
 
 import {
@@ -17,7 +20,7 @@ import {
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
-export const metadata = { title: 'Directory · Admin' };
+export const metadata = { title: 'Accounts · Admin' };
 
 const DIRECTORY_ITEMS: LandingItem[] = [
   {
@@ -67,7 +70,7 @@ const DIRECTORY_ITEMS: LandingItem[] = [
 export default function AdminDirectoryLanding() {
   return (
     <MobileLandingGrid
-      title="Directory"
+      title="Accounts"
       subtitle="People and places on the platform. Search users, vendors, events, and venues."
       items={DIRECTORY_ITEMS}
     />

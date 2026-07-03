@@ -310,13 +310,15 @@ export default async function AdminOverview() {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">Home</h1>
+        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">Overview</h1>
         <p className="text-base text-ink/65">
-          What needs admin action right now — every pending queue at a glance,
-          grouped the way <strong className="text-ink">Work</strong> is. Tap a
-          card to clear it, or use <strong className="text-ink">Directory</strong>{' '}
-          to look people up and <strong className="text-ink">More</strong> for
-          money &amp; catalog config, insights, and platform settings.
+          Everything that needs admin action right now — requests, transactions
+          awaiting approval, reports, and disputes at a glance. Tap a card to
+          clear it. <strong className="text-ink">Accounts</strong> looks people
+          up, <strong className="text-ink">Performance</strong> carries the
+          cockpit and platform upgrades, and{' '}
+          <strong className="text-ink">System Settings</strong> holds the
+          catalog and engine-room config.
         </p>
       </header>
 
@@ -358,6 +360,17 @@ export default async function AdminOverview() {
             >
               <ListChecks aria-hidden className="h-3.5 w-3.5" />
               Open the work list
+            </Link>
+            {/* Ongoing platform work — the owner's "things we need to upgrade"
+                lives in the App Performance Action Center (AI credits, plan
+                limits, renewals, rotations). Linked rather than duplicated so
+                the cockpit stays the one source for those items. */}
+            <Link
+              href="/admin/app-performance"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-terracotta-700 hover:text-terracotta-800"
+            >
+              <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
+              Platform upgrades
             </Link>
           </div>
         </div>

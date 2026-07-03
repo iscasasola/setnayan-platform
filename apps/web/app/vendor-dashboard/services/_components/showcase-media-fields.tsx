@@ -108,6 +108,7 @@ export function ShowcaseMediaFields({
         maxSizeMB={200}
         acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
         compressVideo
+        maxVideoDurationS={SHOWCASE_VIDEO_MAX_SECONDS}
         validateFile={validateShowcaseVideo}
         qrGuard
         variant="wide"

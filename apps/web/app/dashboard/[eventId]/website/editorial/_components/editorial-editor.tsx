@@ -7,16 +7,20 @@
 // photos, thank-you note) and writes content + section visibility to draft_json.
 // ============================================================================
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Lock } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, Eye, EyeOff, Film, Lock } from 'lucide-react';
 import {
   saveEditorial,
   setStoryShowcase,
   type EditorialEditorInput,
 } from '../actions';
-import type { EditorialSections } from '@/app/[slug]/_components/editorial/data';
+import type {
+  ChapterCard,
+  ChapterOverride,
+  EditorialSections,
+} from '@/app/[slug]/_components/editorial/data';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { useToast } from '@/app/_components/toast/toast-provider';
 
@@ -34,6 +38,36 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },
   { key: 'vendorsWeLoved', label: 'Vendors we loved', help: 'The vendors you recommended — your endorsements, shown to future couples.' },
 ];
+
+// The 10 canonical LOCKED moments (Editorial_Experience_Spec §3). Offered as a
+// datalist so the couple can pick a familiar name in one tap — while still typing
+// any free text (the input is not constrained to the list).
+const CANONICAL_MOMENTS = [
+  'Bridal March',
+  'Exchange of Vows',
+  'Veil & Cord (Yugal)',
+  'First Kiss',
+  'Leaving the Church',
+  'Cocktail Hour',
+  'Newlywed Entrance',
+  'First Dance',
+  'Cake Cutting',
+  'Money Dance (Pera-Pera)',
+] as const;
+
+// Soft cap for the per-moment write-up — a live counter warns past this, but the
+// textarea never hard-blocks typing (the server hard-caps at 600).
+const WRITEUP_SOFT_CAP = 400;
+
+// One editable chapter row in the curation panel — a card (thumb/time/leadId)
+// plus the couple's working title / write-up / hidden state. `order` is the
+// couple's chosen position; reorder buttons swap it.
+type ChapterRow = {
+  card: ChapterCard;
+  title: string;
+  writeUp: string;
+  hidden: boolean;
+};
 
 type FieldProps = {
   label: string;
@@ -57,6 +91,8 @@ export function EditorialEditor({
   eventId,
   slug,
   initial,
+  chapterCards = [],
+  chapterOverrides = [],
   shareUrl = null,
   showcaseOptedIn = false,
   landingVisibility = 'public',
@@ -65,6 +101,10 @@ export function EditorialEditor({
   eventId: string;
   slug: string | null;
   initial: EditorialEditorInput;
+  /** Auto-built "As the Day Unfolded" chapters (unfiltered, timeline order). */
+  chapterCards?: ChapterCard[];
+  /** The couple's current per-chapter overrides (draft_json.chapterOverrides). */
+  chapterOverrides?: ChapterOverride[];
   /** Absolute canonical URL of the public story — what the couple shares. */
   shareUrl?: string | null;
   /** Whether this couple has already opted into the Real Stories showcase. */
@@ -79,6 +119,37 @@ export function EditorialEditor({
   const router = useRouter();
   const toast = useToast();
   const [form, setForm] = useState<EditorialEditorInput>(initial);
+
+  // ── "As the Day Unfolded" curation rows ──────────────────────────────────
+  // Build the couple's working rows by applying their saved overrides on top of
+  // the auto cards, MIRRORING the public loader's order: overridden chapters
+  // first (in override-array order), then the rest in timeline order. Stale
+  // overrides (leadId no longer a live card) are ignored. Computed once.
+  const initialRows = useMemo<ChapterRow[]>(() => {
+    const byLead = new Map(chapterCards.map((c) => [c.leadId, c] as const));
+    const rows: ChapterRow[] = [];
+    const taken = new Set<string>();
+    for (const ov of chapterOverrides) {
+      const card = byLead.get(ov.leadId);
+      if (!card || taken.has(ov.leadId)) continue;
+      taken.add(ov.leadId);
+      rows.push({
+        card,
+        title: typeof ov.title === 'string' ? ov.title : '',
+        writeUp: typeof ov.writeUp === 'string' ? ov.writeUp : '',
+        hidden: ov.hidden === true,
+      });
+    }
+    for (const card of chapterCards) {
+      if (taken.has(card.leadId)) continue;
+      rows.push({ card, title: '', writeUp: '', hidden: false });
+    }
+    return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // The canonical (auto) order — used to detect whether the couple reordered.
+  const defaultOrder = useMemo(() => chapterCards.map((c) => c.leadId), [chapterCards]);
+  const [rows, setRows] = useState<ChapterRow[]>(initialRows);
   const [phase, setPhase] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   // Real Stories showcase opt-in — local mirror of the per-user consent flag.
@@ -97,11 +168,55 @@ export function EditorialEditor({
     setDirty(true);
   };
 
+  // ── Chapter-row mutations ────────────────────────────────────────────────
+  const patchRow = (leadId: string, patch: Partial<Omit<ChapterRow, 'card'>>) => {
+    setRows((rs) => rs.map((r) => (r.card.leadId === leadId ? { ...r, ...patch } : r)));
+    setDirty(true);
+  };
+  const moveRow = (index: number, dir: -1 | 1) => {
+    setRows((rs) => {
+      const j = index + dir;
+      if (j < 0 || j >= rs.length) return rs;
+      const next = rs.slice();
+      const moved = next[index];
+      if (!moved) return rs;
+      next.splice(index, 1);
+      next.splice(j, 0, moved);
+      return next;
+    });
+    setDirty(true);
+  };
+
+  // Compute the chapterOverrides to persist. Send an ordered row per chapter ONLY
+  // when the couple changed something (reordered, renamed, wrote a story, or hid
+  // one) — otherwise `[]`, which reverts to pure auto. Because the loader front-
+  // loads overridden chapters in array order, ANY change sends the FULL ordered
+  // set (bare `{ leadId }` rows hold position for untouched chapters).
+  const buildChapterOverrides = (): ChapterOverride[] => {
+    const reordered = rows.some((r, i) => r.card.leadId !== defaultOrder[i]);
+    const edited = rows.some((r) => r.title.trim() || r.writeUp.trim() || r.hidden);
+    if (!reordered && !edited) return [];
+    return rows.map((r) => {
+      const title = r.title.trim();
+      const writeUp = r.writeUp.trim();
+      return {
+        leadId: r.card.leadId,
+        ...(title ? { title } : {}),
+        ...(writeUp ? { writeUp } : {}),
+        ...(r.hidden ? { hidden: true } : {}),
+      };
+    });
+  };
+
   const persist = async (publish: boolean): Promise<boolean> => {
     setPhase('saving');
     setError(null);
     try {
-      const r = await saveEditorial(eventId, { ...form, publish });
+      const r = await saveEditorial(eventId, {
+        ...form,
+        chapterOverrides: buildChapterOverrides(),
+        publish,
+      });
       if (!r.ok) throw new Error(r.error);
       // Direct setForm (not `set`) so the publish flag doesn't re-mark dirty.
       setForm((f) => ({ ...f, publish }));
@@ -258,6 +373,132 @@ export function EditorialEditor({
           </Field>
         </div>
       </section>
+
+      {/* As the Day Unfolded — per-chapter curation. Hidden entirely when the
+          event has no Papic timeline media (nothing to curate). */}
+      {rows.length ? (
+        <section className={card}>
+          <h2 className="font-display text-lg italic text-ink">As the day unfolded</h2>
+          <p className="mt-0.5 text-sm text-ink/60">
+            We built these moments from your day&rsquo;s photos and clips, in the order they
+            happened. Name a moment, add a short story, reorder them, or hide any you&rsquo;d
+            rather not show. Leave a moment untouched and it keeps its clock time.
+          </p>
+
+          {/* Shared datalist of the canonical moments — offered to every row's
+              name input while still allowing any free text. */}
+          <datalist id="editorial-canonical-moments">
+            {CANONICAL_MOMENTS.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+
+          <ol className="mt-4 space-y-3">
+            {rows.map((r, i) => {
+              const leadId = r.card.leadId;
+              const count = r.writeUp.length;
+              const over = count > WRITEUP_SOFT_CAP;
+              return (
+                <li
+                  key={leadId}
+                  className={`rounded-xl border border-ink/10 bg-white p-3 transition ${r.hidden ? 'opacity-60' : ''}`}
+                >
+                  <div className="flex gap-3">
+                    {/* Thumbnail — the lead's still, or a film glyph for a
+                        posterless clip. Presigned URL, plain <img> (never
+                        next/image on this surface). */}
+                    <div className="relative h-16 w-16 flex-none overflow-hidden rounded-lg bg-ink/10">
+                      {r.card.thumbUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={r.card.thumbUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-ink/40">
+                          <Film aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs uppercase tracking-[0.16em] text-ink/50">
+                          {r.card.time ?? 'A moment from the day'}
+                          {r.card.isClip ? ' · clip' : ''}
+                        </span>
+                        {/* Reorder + hide controls */}
+                        <span className="flex flex-none items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveRow(i, -1)}
+                            disabled={i === 0}
+                            aria-label="Move moment earlier"
+                            className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
+                          >
+                            <ChevronUp aria-hidden className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveRow(i, 1)}
+                            disabled={i === rows.length - 1}
+                            aria-label="Move moment later"
+                            className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
+                          >
+                            <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => patchRow(leadId, { hidden: !r.hidden })}
+                            aria-pressed={r.hidden}
+                            aria-label={r.hidden ? 'Show this moment' : 'Hide this moment'}
+                            className={`rounded-md border p-1 transition ${
+                              r.hidden
+                                ? 'border-burgundy/25 bg-burgundy/10 text-burgundy'
+                                : 'border-ink/15 bg-cream text-ink/65 hover:bg-cream/70'
+                            }`}
+                          >
+                            {r.hidden ? (
+                              <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />
+                            ) : (
+                              <Eye aria-hidden className="h-4 w-4" strokeWidth={2} />
+                            )}
+                          </button>
+                        </span>
+                      </div>
+
+                      <input
+                        className={`${inputCls} mt-2`}
+                        value={r.title}
+                        list="editorial-canonical-moments"
+                        onChange={(e) => patchRow(leadId, { title: e.target.value })}
+                        placeholder="Name this moment (e.g. First Kiss)"
+                        aria-label="Moment name"
+                      />
+
+                      <textarea
+                        className={`${inputCls} mt-2 min-h-[64px] resize-y`}
+                        value={r.writeUp}
+                        onChange={(e) => patchRow(leadId, { writeUp: e.target.value })}
+                        placeholder="Add a short story for this moment (optional)."
+                        aria-label="Moment write-up"
+                      />
+                      <span
+                        className={`mt-1 block text-right text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}
+                      >
+                        {count}/{WRITEUP_SOFT_CAP}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
 
       {/* Features */}
       <section className={card}>

@@ -17,6 +17,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
   EDITORIAL_SECTION_KEYS,
+  type ChapterOverride,
   type EditorialSections,
 } from '@/app/[slug]/_components/editorial/data';
 
@@ -54,8 +55,51 @@ export type EditorialEditorInput = {
   leadParagraphs: string; // raw textarea — split on blank lines
   pullQuote: string;
   sections: EditorialSections;
+  // "As the Day Unfolded" per-chapter curation. The ARRAY ORDER is the couple's
+  // chosen chapter order; only rows that DIFFER from the auto default are sent (an
+  // untouched chapter carries no override row). Each targets a chapter by leadId.
+  chapterOverrides: ChapterOverride[];
   publish: boolean;
 };
+
+/** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
+ *  The editor soft-caps at ~400 chars with a counter; this is the hard ceiling. */
+const CHAPTER_WRITEUP_MAX = 600;
+/** Cap the moment name. Comfortably past the longest canonical moment. */
+const CHAPTER_TITLE_MAX = 80;
+
+/**
+ * Sanitize + cap the client's chapterOverrides before persisting.
+ *
+ * The client sends an override row per chapter ONLY when the couple has made any
+ * change (rename / write-up / hide / reorder) — and because the loader front-loads
+ * overridden chapters in array order, a reorder REQUIRES the full ordered set (a
+ * bare `{ leadId }` row holds a chapter's position without renaming it). So this
+ * KEEPS bare rows (they carry order), dedupes by leadId, and trims + caps text.
+ * When the couple has made no changes at all the client sends `[]` and the key is
+ * deleted (no override row → pure auto behaviour). Malformed rows are dropped.
+ */
+function sanitizeChapterOverrides(input: ChapterOverride[]): ChapterOverride[] {
+  if (!Array.isArray(input)) return [];
+  const out: ChapterOverride[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    const leadId = typeof raw?.leadId === 'string' ? raw.leadId.trim() : '';
+    if (!leadId || seen.has(leadId)) continue;
+    const title = typeof raw.title === 'string' ? raw.title.trim().slice(0, CHAPTER_TITLE_MAX) : '';
+    const writeUp =
+      typeof raw.writeUp === 'string' ? raw.writeUp.trim().slice(0, CHAPTER_WRITEUP_MAX) : '';
+    const hidden = raw.hidden === true;
+    seen.add(leadId);
+    out.push({
+      leadId,
+      ...(title ? { title } : {}),
+      ...(writeUp ? { writeUp } : {}),
+      ...(hidden ? { hidden: true } : {}),
+    });
+  }
+  return out;
+}
 
 export async function saveEditorial(
   eventId: string,
@@ -102,6 +146,12 @@ export async function saveEditorial(
   const sections: Record<string, boolean> = {};
   for (const key of EDITORIAL_SECTION_KEYS) sections[key] = input.sections[key] !== false;
   draft.sections = sections;
+
+  // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
+  // set; an empty result deletes the key so the chapters revert to pure auto.
+  const chapterOverrides = sanitizeChapterOverrides(input.chapterOverrides);
+  if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
+  else delete draft.chapterOverrides;
 
   const nowIso = new Date().toISOString();
   const { error } = await admin.from('event_editorial').upsert(

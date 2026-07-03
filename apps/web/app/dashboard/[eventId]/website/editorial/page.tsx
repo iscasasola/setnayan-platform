@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   EDITORIAL_SECTION_KEYS,
+  loadEditorialChaptersForEditor,
   loadEditorialData,
   type EditorialSections,
 } from '@/app/[slug]/_components/editorial/data';
@@ -112,6 +113,19 @@ export default async function EditorialEditorPage({
     composed = null;
   }
 
+  // "As the Day Unfolded" chapter cards (auto-built, unfiltered, timeline order)
+  // + the couple's current per-chapter overrides. Best-effort: a non-Papic event
+  // returns no cards and the editor hides the panel.
+  let chapterCards: Awaited<ReturnType<typeof loadEditorialChaptersForEditor>> = {
+    cards: [],
+    overrides: [],
+  };
+  try {
+    chapterCards = await loadEditorialChaptersForEditor(eventId);
+  } catch {
+    chapterCards = { cards: [], overrides: [] };
+  }
+
   const initial: EditorialEditorInput = {
     headline: composed?.headline || str(draft.headline),
     deck: composed?.deck || str(draft.deck),
@@ -123,6 +137,9 @@ export default async function EditorialEditorPage({
     leadParagraphs: leadArr.join('\n\n'),
     pullQuote: composed?.pullQuote || str(draft.pull_quote) || str(draft.pullQuote),
     sections,
+    // The editor derives its own working rows from the cards + overrides below;
+    // `chapterOverrides` in `initial` is only the save-shape default.
+    chapterOverrides: [],
     publish: status === 'published',
   };
 
@@ -156,6 +173,8 @@ export default async function EditorialEditorPage({
         eventId={eventId}
         slug={event.slug ?? null}
         initial={initial}
+        chapterCards={chapterCards.cards}
+        chapterOverrides={chapterCards.overrides}
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}

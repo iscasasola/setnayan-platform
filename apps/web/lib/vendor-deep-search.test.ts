@@ -17,6 +17,8 @@ import {
   stripTags,
   runLiteDeepSearch,
   runDeepSearchOrLite,
+  buildDeepSearchChatPrompt,
+  parseDossierText,
   DEEP_SEARCH_LITE_MODEL,
   type DeepSearchInputs,
 } from './vendor-deep-search';
@@ -144,4 +146,61 @@ test('runDeepSearchOrLite: no API key → Lite mode + lite model marker', async 
   } finally {
     if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
   }
+});
+
+test('buildDeepSearchChatPrompt bakes in the vendor, ad links, and JSON schema', () => {
+  const prompt = buildDeepSearchChatPrompt({
+    business_name: 'Aurora Blooms',
+    website: 'https://aurorablooms.ph',
+    social_url: 'https://facebook.com/aurora',
+    location_city: 'Cebu City',
+    claimed_services: ['florist', 'styling'],
+  });
+  assert.ok(prompt.includes('Aurora Blooms'));
+  assert.ok(prompt.includes('https://aurorablooms.ph'));
+  assert.ok(prompt.includes('florist, styling'));
+  assert.ok(prompt.includes('Cebu City'));
+  // ad-transparency links included for the free "search their ads" path
+  assert.ok(prompt.includes('facebook.com/ads/library'));
+  assert.ok(prompt.includes('adstransparency.google.com'));
+  // ends with the exact JSON schema so the chat's reply parses back
+  assert.ok(prompt.includes('"business_summary"'));
+  assert.ok(prompt.includes('```json'));
+});
+
+test('buildDeepSearchChatPrompt output round-trips through parseDossierText', () => {
+  // Simulate the AI chat answering the prompt with a schema-shaped reply.
+  const reply = [
+    'Here is what I found.',
+    '```json',
+    JSON.stringify({
+      business_summary: 'A Cebu wedding florist.',
+      detected_services: ['florist'],
+      price_signals: [{ label: 'Bridal bouquet', price: '₱7,500', source_url: 'https://x.ph' }],
+      web_presence: [{ platform: 'Website', url: 'https://x.ph', note: 'live' }],
+      ads_findings: null,
+      consistency_flags: [],
+      category_match: 'match',
+      confidence: 'high',
+    }),
+    '```',
+  ].join('\n');
+  const dossier = parseDossierText(reply);
+  assert.ok(dossier);
+  assert.equal(dossier.business_summary, 'A Cebu wedding florist.');
+  assert.equal(dossier.category_match, 'match');
+  assert.equal(dossier.price_signals[0]?.price, '₱7,500');
+});
+
+test('buildDeepSearchChatPrompt handles a bare vendor with no links', () => {
+  const prompt = buildDeepSearchChatPrompt({
+    business_name: '',
+    website: null,
+    social_url: null,
+    location_city: null,
+    claimed_services: [],
+  });
+  assert.ok(prompt.includes('(none given)'));
+  assert.ok(prompt.includes('(none listed)'));
+  assert.ok(prompt.includes('```json')); // schema still present
 });

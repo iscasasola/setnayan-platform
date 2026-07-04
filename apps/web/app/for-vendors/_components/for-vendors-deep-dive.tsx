@@ -31,80 +31,12 @@ import Link from 'next/link';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { VendorTierLadder } from './vendor-tier-ladder';
 
-// PRIMARY — the advantages no directory or SaaS stack can copy, ordered most →
-// least important (owner 2026-06-28 "focus on our advantages as our primary
-// post"). 0% commission leads as its own hero strip below; these are the
-// ecosystem moat. Every one is verified-shipped per the 2026-07-01 origin/main
-// audit (VENDOR_TIERS_AND_BENEFITS.md §6): deterministic fit-matching, earned
-// badges (vendor-badges.ts), the built analytics surfaces (Demand Radar +
-// funnel + price-position), the free import CRM (#2448-2453), and HQ-verified
-// vendor partnerships. No roadmap claims — per [[project_setnayan_public_claims_purge]].
-const ADVANTAGES = [
-  {
-    num: '1',
-    tag: '🔗 The couples',
-    title: 'Matched to couples by fit',
-    body: 'Couples reach you matched on what actually fits (style, budget, faith, coverage), not lead-gen ads and not who-paid-most. You start at "here’s what I need."',
-  },
-  {
-    num: '2',
-    tag: '🏅 Earned, never bought',
-    title: 'Your ranking is earned',
-    body: 'Top Pick and Most Booked badges come from real reviews and real bookings, never paid placement. Do great work and rise; no one can buy their way over you.',
-  },
-  {
-    num: '3',
-    tag: '📊 The data',
-    title: 'Grow with your own data',
-    body: 'See what couples are searching in your area with Demand Radar, your own views → inquiries → booked funnel, and where your price sits in the market. Know before you lose a deal.',
-  },
-  {
-    num: '4',
-    tag: '📇 Your book',
-    title: 'Bring your business with you',
-    body: 'Import your past clients for free. Their reviews and a "verified wedding" proof come with them. Start with a real reputation on day one, not an empty profile.',
-  },
-  {
-    num: '5',
-    tag: '🤝 The network',
-    title: 'Partner with other vendors',
-    body: 'Declare working partnerships with other Setnayan vendors (HQ-verified) so couples see your trusted circle, only possible because we see the whole marketplace.',
-  },
-];
-
-// THE REST — the table-stakes a vendor expects, ordered most → least important.
-const ESSENTIALS = [
-  {
-    tag: 'Lead capture',
-    title: 'Couples find you, message you, book you, without leaving Setnayan.',
-    body: "Show up in every couple's vendor finder for your category. No third-party fees, no inboxes to juggle.",
-  },
-  {
-    tag: 'Bid pipeline',
-    title: 'Request bid → Chat → Quote → Accept in one rail.',
-    body: 'Couples request a bid through your microsite, you spend 1 token to open the thread, you chat and finalize pricing together, customer accepts. Reply-time stats show on your public profile. Fast vendors get more bookings.',
-  },
-  {
-    tag: 'Calendar that means something',
-    title: 'Agent-redacted booking calendar with team roles + per-service scoping.',
-    body: 'Your team sees what they need to see: service captains see crew counts, dispatch sees addresses, accounts sees the invoice. No more shared Google sheets.',
-  },
-  {
-    tag: 'Trust, free',
-    title: 'Verified badge + reviews from real couples, at no cost.',
-    body: 'Verification is free during launch. Your badge and your 0–5★ reviews come only from couples who actually booked you through Setnayan, no fakes, no pay-to-play.',
-  },
-  {
-    tag: 'Grow with the platform',
-    title: 'Wedding today. Debut, birthday, corporate, anniversaries, yours next.',
-    body: 'Every event type opens as our verified vendor count crosses the threshold in your area. Your verification, reviews, and CRM history carry into each one, no second listing, no second login.',
-  },
-  {
-    tag: 'Manpower marketplace',
-    title: 'Pick up paid gigs from events already on Setnayan.',
-    body: "Browse open crew gigs (service captains, photographers, AV ops) posted by hosts on events you're tied to. Accept the ones that fit; the couple pays your crew directly, off-platform.",
-  },
-];
+// The per-benefit "advantages no directory can copy" + "everything else you
+// get" prose-card arrays that used to render here were removed 2026-07-05: the
+// tier-comparison MATRIX + filterable benefit guide (added to /for-vendors this
+// PR) now carry that content in full, sourced from the canonical
+// VENDOR_TIER_SECTIONS. This component keeps the intro, the 0%-commission hero
+// strip, the benefits-forward tier ladder, and the CTA.
 
 export async function ForVendorsDeepDive() {
   const p = await getVendorPrices();
@@ -157,26 +89,13 @@ export async function ForVendorsDeepDive() {
         </p>
       </div>
 
-      {/* PRIMARY — our advantages first (owner 2026-06-28). 0% commission
-          leads as the hero, then the ecosystem moat no directory can copy. */}
+      {/* PRIMARY — 0% commission leads as the hero advantage. The per-benefit
+          detail (the "advantages no directory can copy" + "everything else you
+          get" prose cards) now lives in the far more complete tier-comparison
+          MATRIX + filterable benefit guide on the page below, so those two
+          duplicate prose grids were removed here (owner 2026-07-05 de-dupe). */}
       <div>
         <div className="m-eyebrow">Your edge · only on Setnayan</div>
-        <h3
-          className="m-serif"
-          style={{
-            fontSize: 'clamp(1.75rem, 4vw, 40px)',
-            lineHeight: 1.06,
-            margin: '12px 0 24px',
-            color: 'var(--m-ink)',
-            fontWeight: 400,
-            maxWidth: 760,
-          }}
-        >
-          The advantages no directory can{' '}
-          <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
-            copy.
-          </em>
-        </h3>
       </div>
 
       {/* 0% commission strip — the headline advantage */}
@@ -221,144 +140,6 @@ export async function ForVendorsDeepDive() {
         >
           vendor keeps 100%
         </span>
-      </div>
-
-      {/* Advantages grid — the ecosystem moat, most → least important */}
-      <div
-        className="m-advantages-grid"
-        style={{
-          display: 'grid',
-          gap: 14,
-          marginTop: 16,
-        }}
-      >
-        {ADVANTAGES.map((c) => (
-          <div
-            key={c.num}
-            className="m-card"
-            style={{
-              padding: 22,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              background: 'var(--m-paper)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span
-                className="m-mono"
-                style={{ fontSize: 11, color: 'var(--m-orange-2)' }}
-              >
-                {c.tag}
-              </span>
-              <span
-                className="m-display"
-                style={{ fontSize: 22, color: 'var(--m-orange-3)' }}
-              >
-                {c.num}
-              </span>
-            </div>
-            <div
-              className="m-display"
-              style={{
-                fontSize: 20,
-                color: 'var(--m-ink)',
-                textTransform: 'uppercase',
-                lineHeight: 1.1,
-                marginTop: 4,
-              }}
-            >
-              {c.title}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--m-slate)',
-                lineHeight: 1.5,
-              }}
-            >
-              {c.body}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* SECONDARY — everything else you get, most → least important */}
-      <div style={{ marginTop: 40 }}>
-        <div className="m-eyebrow">Everything else you get</div>
-        <h3
-          className="m-serif"
-          style={{
-            fontSize: 'clamp(1.75rem, 4vw, 40px)',
-            lineHeight: 1.06,
-            margin: '12px 0 24px',
-            color: 'var(--m-ink)',
-            fontWeight: 400,
-            maxWidth: 760,
-          }}
-        >
-          The tools that make the day-to-day{' '}
-          <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
-            run itself.
-          </em>
-        </h3>
-      </div>
-
-      {/* Essentials grid */}
-      <div
-        className="m-benefits-grid"
-        style={{
-          display: 'grid',
-          gap: 16,
-        }}
-      >
-        {ESSENTIALS.map((b) => (
-          <div
-            key={b.tag}
-            className="m-card"
-            style={{
-              padding: 22,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              height: '100%',
-            }}
-          >
-            <span
-              className="m-mono"
-              style={{ fontSize: 11, color: 'var(--m-orange-2)' }}
-            >
-              {b.tag}
-            </span>
-            <div
-              className="m-display"
-              style={{
-                fontSize: 22,
-                color: 'var(--m-ink)',
-                textTransform: 'uppercase',
-                lineHeight: 1.08,
-              }}
-            >
-              {b.title}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--m-slate)',
-                lineHeight: 1.55,
-              }}
-            >
-              {b.body}
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Pricing — value first, price after. Tier intro + 3-tier matrix. */}
@@ -452,22 +233,13 @@ export async function ForVendorsDeepDive() {
       <style>{`
         @media (min-width: 1024px) {
           .m-grid-2 { grid-template-columns: 1fr 1fr; }
-          .m-advantages-grid { grid-template-columns: repeat(3, 1fr); }
-          .m-benefits-grid { grid-template-columns: repeat(3, 1fr); }
           .m-callout { grid-template-columns: auto 1fr auto; }
           .m-vendor-cta-strip { grid-template-columns: 1.4fr 1fr; }
         }
-        @media (min-width: 600px) and (max-width: 1023px) {
-          .m-advantages-grid { grid-template-columns: repeat(2, 1fr); }
-        }
         @media (max-width: 1023px) {
           .m-grid-2 { grid-template-columns: 1fr; }
-          .m-benefits-grid { grid-template-columns: 1fr; }
           .m-callout { grid-template-columns: 1fr; }
           .m-vendor-cta-strip { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 599px) {
-          .m-advantages-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </section>

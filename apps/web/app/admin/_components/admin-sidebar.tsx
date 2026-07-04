@@ -519,12 +519,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       // — the social publishing queue + the two featuring levers + the growth
       // incentives, appended after the Content lane. Item keys/icons unchanged.
       {
-        // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
-        // post couple creations + vendor verification features + take-downs.
-        // Its live count badge follows the item key, not the group.
+        // Repointed to the Studio Studio Social queue tab (slice 4 · final).
+        // matchPrefix keeps this item lit on the legacy /admin/social-queue
+        // path (which now redirects in). Its live count badge follows the item
+        // key ('social-queue', unchanged), not the group, so the badge still
+        // works after the repoint.
         key: 'social-queue',
         label: 'Social queue',
-        href: '/admin/social-queue',
+        href: '/admin/studio?tab=social-queue',
         icon: Share2,
         matchPrefix: '/admin/social-queue',
       },

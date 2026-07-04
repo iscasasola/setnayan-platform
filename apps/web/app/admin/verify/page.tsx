@@ -10,17 +10,18 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import {
-  APPLICATION_TYPE_LABEL,
+  APPLICATION_TYPE_NAME,
   DOC_SLOTS,
   EMPTY_CONTACT_CONFIRMATION,
   computeSlaTone,
   countCompleteSlots,
   expectedValidateToken,
+  feeLabelForCentavos,
   fetchContactConfirmations,
-  formatPhpCentavos,
   formatSlaCountdown,
   parseApplicationStatus,
   parseVerificationState,
+  resolveApplicationFeeCentavos,
   type ApplicationStatus,
   type ContactConfirmation,
   type DocUploadMap,
@@ -437,6 +438,14 @@ async function ApplicationsSurface({
     },
   }));
 
+  // Post-demotion re-verification fee, resolved from service_catalog (retired
+  // inactive by the 20260702 migration → ₱0 / "Free"). Never hardcoded so the
+  // demoted-vendor card can't advertise a fee that no longer exists.
+  const postDemotionFeeCentavos = await resolveApplicationFeeCentavos(
+    admin,
+    'post_demotion',
+  );
+
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
@@ -479,7 +488,10 @@ async function ApplicationsSurface({
               <ul className="grid gap-3 sm:grid-cols-2">
                 {demotedFallback.map((v) => (
                   <li key={v.vendor_profile_id}>
-                    <DemotedVendorCard vendor={v} />
+                    <DemotedVendorCard
+                      vendor={v}
+                      reverificationFeeCentavos={postDemotionFeeCentavos}
+                    />
                   </li>
                 ))}
               </ul>
@@ -604,9 +616,9 @@ function ApplicationCard({
           <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             <span>{application.public_id}</span>
             <span aria-hidden>·</span>
-            <span>{APPLICATION_TYPE_LABEL[application.application_type]}</span>
+            <span>{APPLICATION_TYPE_NAME[application.application_type]}</span>
             <span aria-hidden>·</span>
-            <span>{formatPhpCentavos(application.fee_php_centavos)}</span>
+            <span>{feeLabelForCentavos(application.fee_php_centavos)}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1163,8 +1175,11 @@ function ActionRow({ application }: { application: ApplicationRow }) {
 
 function DemotedVendorCard({
   vendor,
+  reverificationFeeCentavos,
 }: {
   vendor: ApplicationRow['vendor'];
+  /** Resolved from service_catalog (retired → ₱0 renders as "Free"). */
+  reverificationFeeCentavos: number;
 }) {
   return (
     <article className="space-y-2 rounded-xl border border-warn-300/60 bg-warn-50/40 p-4">
@@ -1176,9 +1191,11 @@ function DemotedVendorCard({
       </p>
       <p className="text-xs text-ink/65">
         Re-verification fee:{' '}
-        <span className="font-medium">{formatPhpCentavos(250000)}</span>. Vendor
-        has to submit a new <span className="font-medium">post_demotion</span>{' '}
-        application to climb back.
+        <span className="font-medium">
+          {feeLabelForCentavos(reverificationFeeCentavos)}
+        </span>. Vendor has to submit a new{' '}
+        <span className="font-medium">post_demotion</span> application to climb
+        back.
       </p>
     </article>
   );

@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
-  APPLICATION_FEE_CENTAVOS,
   APPLICATION_TYPES,
   DOC_SLOTS,
   VENDOR_DOC_SLOTS,
   addBusinessDays,
   countCompleteSlots,
   countCompleteVendorSlots,
+  resolveApplicationFeeCentavos,
   type ApplicationType,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
@@ -88,12 +88,16 @@ export async function ensureDraftApplication(
     redirect('/vendor-dashboard/verify');
   }
 
+  // Fee is resolved from service_catalog, not hardcoded — an inactive/missing
+  // SKU (verification went free via the 20260702 migration) resolves to ₱0.
+  const feeCentavos = await resolveApplicationFeeCentavos(supabase, requestedType);
+
   const { error } = await supabase
     .from('vendor_verification_applications')
     .insert({
       vendor_profile_id: profile.vendor_profile_id,
       application_type: requestedType,
-      fee_php_centavos: APPLICATION_FEE_CENTAVOS[requestedType],
+      fee_php_centavos: feeCentavos,
       status: 'draft',
       doc_uploads: {},
     });

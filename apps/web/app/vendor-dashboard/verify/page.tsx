@@ -6,16 +6,18 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
-  APPLICATION_TYPE_LABEL,
+  APPLICATION_TYPES,
   VENDOR_DOC_SLOTS,
   ADMIN_DOC_SLOTS,
+  applicationTypeLabel,
   countCompleteVendorSlots,
+  feeLabelForCentavos,
   fetchLatestApplication,
-  formatPhpCentavos,
   formatSlaCountdown,
   isSlotComplete,
   parseVerificationState,
   recommendedApplicationType,
+  resolveApplicationFeeCentavos,
   type ApplicationType,
   type DocUploadMap,
   type DocSlot,
@@ -77,6 +79,19 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
     profile.vendor_profile_id,
   );
 
+  // Resolve each application type's fee from service_catalog (inactive/missing
+  // SKU → ₱0). Every fee label on this page is built from these — no hardcoded
+  // peso amounts — so a repricing (verification went free 20260702) surfaces
+  // automatically. Catalog is public-read; one round-trip each, in parallel.
+  const feeByType = Object.fromEntries(
+    await Promise.all(
+      APPLICATION_TYPES.map(
+        async (t) =>
+          [t, await resolveApplicationFeeCentavos(supabase, t)] as const,
+      ),
+    ),
+  ) as Record<ApplicationType, number>;
+
   // Resolve presigned display URLs for every R2 ref the vendor has uploaded
   // so the FileUpload widgets render their thumbnails on mount. Each upload
   // bucket needs a separate signing round-trip; do them in parallel.
@@ -131,10 +146,15 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         Verified vendors unlock Pro Vendor and Enterprise subscriptions
         and the verified badge on every listing.
         Initial verification is{' '}
-        <span className="font-medium">free</span>; annual renewal is{' '}
-        <span className="font-medium">{formatPhpCentavos(150000)}</span>;
-        post-demotion re-verification is{' '}
-        <span className="font-medium">{formatPhpCentavos(250000)}</span>.
+        <span className="font-medium">
+          {feeLabelForCentavos(feeByType.initial).toLowerCase()}
+        </span>; annual renewal is{' '}
+        <span className="font-medium">
+          {feeLabelForCentavos(feeByType.annual_renewal).toLowerCase()}
+        </span>; post-demotion re-verification is{' '}
+        <span className="font-medium">
+          {feeLabelForCentavos(feeByType.post_demotion).toLowerCase()}
+        </span>.
       </p>
 
       <article className="flex items-start gap-3 rounded-2xl border border-success-300 bg-success-50 p-4 text-sm text-success-900">
@@ -190,14 +210,17 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
             <p className="text-xs opacity-75">
               Latest application:{' '}
               <span className="font-mono">{application.public_id}</span> ·{' '}
-              {APPLICATION_TYPE_LABEL[application.application_type]}
+              {applicationTypeLabel(
+                application.application_type,
+                application.fee_php_centavos,
+              )}
             </p>
           ) : null
         }
       />
 
       {!application || application.status === 'withdrawn' ? (
-        <StartApplicationCard recommended={recommended} />
+        <StartApplicationCard recommended={recommended} feeByType={feeByType} />
       ) : null}
 
       {hasDraft && application ? (
@@ -205,6 +228,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           completeCount={completeCount}
           totalSlots={totalSlots}
           applicationType={application.application_type}
+          feeCentavos={application.fee_php_centavos}
         />
       ) : null}
 
@@ -238,7 +262,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           <RejectedCard application={application} />
           {/* A rejected vendor must be able to try again — ensureDraftApplication
               creates a fresh draft (no draft exists post-rejection). */}
-          <StartApplicationCard recommended={recommended} />
+          <StartApplicationCard recommended={recommended} feeByType={feeByType} />
         </>
       ) : null}
     </section>
@@ -247,24 +271,26 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
 
 function StartApplicationCard({
   recommended,
+  feeByType,
 }: {
   recommended: ApplicationType | null;
+  feeByType: Record<ApplicationType, number>;
 }) {
   if (!recommended) return null;
+  const recommendedLabel = applicationTypeLabel(
+    recommended,
+    feeByType[recommended],
+  );
   return (
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Start a new application
         </p>
-        <h2 className="text-xl font-semibold">
-          {APPLICATION_TYPE_LABEL[recommended]}
-        </h2>
+        <h2 className="text-xl font-semibold">{recommendedLabel}</h2>
         <p className="text-sm text-ink/65">
           We recommend the{' '}
-          <span className="font-medium">
-            {APPLICATION_TYPE_LABEL[recommended].toLowerCase()}
-          </span>{' '}
+          <span className="font-medium">{recommendedLabel.toLowerCase()}</span>{' '}
           application based on your current state. Picking a different type is
           fine — pricing follows the type you choose.
         </p>
@@ -273,19 +299,19 @@ function StartApplicationCard({
         <fieldset className="grid gap-2 sm:grid-cols-3">
           <TypeOption
             value="initial"
-            label="Initial — FREE"
+            label={applicationTypeLabel('initial', feeByType.initial)}
             help="First-time verification."
             defaultChecked={recommended === 'initial'}
           />
           <TypeOption
             value="annual_renewal"
-            label="Annual renewal — ₱1,500"
+            label={applicationTypeLabel('annual_renewal', feeByType.annual_renewal)}
             help="Renew before next_renewal_due_at."
             defaultChecked={recommended === 'annual_renewal'}
           />
           <TypeOption
             value="post_demotion"
-            label="Post-demotion — ₱2,500"
+            label={applicationTypeLabel('post_demotion', feeByType.post_demotion)}
             help="Re-apply after demotion."
             defaultChecked={recommended === 'post_demotion'}
           />

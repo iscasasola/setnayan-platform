@@ -22,6 +22,7 @@ import { useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import {
   CeremonyTypeRadioGroup,
+  isCeremonyTypeKey,
   type CeremonyTypeKey,
 } from '@/app/_components/ceremony-type-radio-group';
 import { setEventCeremonyType } from '../actions';
@@ -33,19 +34,12 @@ type Props = {
   onClose: () => void;
 };
 
-const ALLOWED_KEYS: CeremonyTypeKey[] = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'mixed',
-];
-
+// Pre-select the current value in edit mode against the SAME 18 keys the radio
+// group renders (was a stale 7-key list that failed to pre-select 'chinese',
+// 'jewish', 'born_again' and the 8 worldwide-expansion faiths).
 function normaliseInitial(value: string | null | undefined): CeremonyTypeKey | null {
   if (!value) return null;
-  return ALLOWED_KEYS.includes(value as CeremonyTypeKey) ? (value as CeremonyTypeKey) : null;
+  return isCeremonyTypeKey(value) ? value : null;
 }
 
 export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
@@ -119,10 +113,11 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* All wedding types — incl. 'chinese' (activated 2026-06-03,
-              migration 20260806000000) — are selectable. setEventCeremonyType's
-              ALLOWED_CEREMONY_TYPES allow-list and the create-event picker now
-              all include chinese. */}
+          {/* All 18 wedding types are selectable here. setEventCeremonyType
+              validates against the faith-registry's ALLOWED_CEREMONY_VALUES —
+              the same keyspace as the events_ceremony_type_check DB CHECK and
+              the onboarding commit's server-side belt — so every registry faith
+              (incl. the 8 worldwide-expansion faiths) is accepted. */}
           <CeremonyTypeRadioGroup
             value={selected}
             onChange={setSelected}

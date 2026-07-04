@@ -1,34 +1,29 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CustomUnitPrices } from '@/lib/vendor-custom-pricing';
-import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
+import type { CustomUnitPrices } from './vendor-custom-pricing';
+import { SEAT_SKU_CODE, SEAT_FEE_PHP } from './vendor-seats';
 
 /**
- * apps/web/lib/vendor-custom-catalog.ts
+ * Custom-tier catalog reader — assembles the 9 per-unit prices the composer +
+ * the pricing lib (lib/vendor-custom-pricing.ts) quote from, ALL read from the
+ * admin-managed `vendor_billing_catalog` so an edit at /admin/pricing flows
+ * through without a code change (owner rule · VENDOR_TIERS_AND_BENEFITS.md §11).
  *
- * Reads the admin-managed per-unit prices the Custom-tier quote math consumes
- * (VENDOR_TIERS_AND_BENEFITS.md §11) from `vendor_billing_catalog`, and owns the
- * `vendor_custom_plan__{vendor_profile_id}` order service-key convention that
- * lets the sku-activation hook map a paid Custom-plan order back to the vendor
- * org to provision. Structural sibling of lib/vendor-seats + lib/vendor-branches.
- *
- * The pricing lib (`computeCustomQuote`) takes the unit prices as an ARGUMENT and
- * never hardcodes a literal — a price edit at /admin/pricing flows through with
- * no code change. This module resolves those prices; the {@link CUSTOM_UNIT_FALLBACK}
- * literals mirror the seed migration (20270512705572) and only kick in when a row
- * is missing / RLS hides it, so the flow degrades gracefully rather than throwing.
- *
- * NOTE: the "additional branch" unit REUSES the existing `vendor_additional_branch`
- * SKU (₱999) — there is no dedicated `vendor_custom_branch` row. The base is the
- * `vendor_custom_base` row; the rest map 1:1 to the composition knobs.
+ * The 7 `custom_addon` SKUs are seeded by migration 20270512705572; the branch
+ * unit reuses the existing `vendor_additional_branch` (₱999 · 20270128654206)
+ * and the seat unit reuses `vendor_extra_seat` (₱250 · 20270511762904, exported
+ * from lib/vendor-seats.ts). Each fallback below matches the seed so the flow
+ * still works at the signed rate card if a row is missing / RLS-hidden / the
+ * seeding migration hasn't been applied — mirrors fetchSeatFeePhp /
+ * fetchBranchFeePhp.
  */
 
-/** Catalog sku_codes for the 9 unit prices (branch reuses the existing SKU). */
+/** SKU codes the 9 unit prices are read from (seeded by the migrations above). */
 export const CUSTOM_SKU_CODES = Object.freeze({
   base: 'vendor_custom_base',
-  branch: BRANCH_SKU_CODE, // reuses vendor_additional_branch
+  branch: 'vendor_additional_branch',
   reachStep: 'vendor_custom_reach_step',
   reachNationwide: 'vendor_custom_reach_nationwide',
-  seat: 'vendor_extra_seat', // reuses the extra-seat add-on
+  seat: SEAT_SKU_CODE, // vendor_extra_seat
   slot: 'vendor_custom_event_slot',
   photoPack: 'vendor_custom_photo_pack',
   includedToken: 'vendor_custom_included_token',
@@ -36,70 +31,77 @@ export const CUSTOM_SKU_CODES = Object.freeze({
 });
 
 /**
- * Fallback unit prices (PHP) mirroring the seed migration values. Only used when
- * a catalog row is missing/unreadable — the live admin-managed prices win.
+ * Fallback unit prices — matches the seed rate card exactly (owner-signed
+ * 2026-07-04). Only ever used per-axis when its catalog row is missing /
+ * unreadable, so a partial catalog still quotes at the signed price.
  */
-export const CUSTOM_UNIT_FALLBACK: Readonly<CustomUnitPrices> = Object.freeze({
+export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   base: 8999,
   branch: 999,
   reachStep: 499,
   reachNationwide: 2499,
-  seat: 250,
+  seat: SEAT_FEE_PHP, // 250
   slot: 499,
   photoPack: 99,
   includedToken: 100,
   domain: 499,
 });
 
+function positivePrice(raw: unknown, fallback: number): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /**
- * Resolve the full Custom rate card (the 9 unit prices) from the admin-managed
- * catalog. Soft: any missing / unreadable row falls back to
- * {@link CUSTOM_UNIT_FALLBACK} for that axis so the composer + quote never break
- * on a partial catalog. One round-trip (all codes in an `in` filter).
+ * Read the 9 Custom-tier unit prices from the admin-managed catalog. One query
+ * for every needed sku_code; any row missing / unreadable falls back to the
+ * signed rate-card literal for that axis only. Soft — never throws.
  */
 export async function fetchCustomUnitPrices(
   supabase: SupabaseClient,
 ): Promise<CustomUnitPrices> {
-  const codes = Object.values(CUSTOM_SKU_CODES);
-  const prices: Record<string, number> = {};
+  const wanted = Object.values(CUSTOM_SKU_CODES);
+  let priceBySku = new Map<string, number>();
   try {
     const { data, error } = await supabase
       .from('vendor_billing_catalog')
       .select('sku_code, price_php')
-      .in('sku_code', codes);
+      .in('sku_code', wanted)
+      .eq('is_active', true);
     if (!error && data) {
-      for (const row of data as Array<{ sku_code: string; price_php: number | string }>) {
-        const n = Number(row.price_php);
-        if (Number.isFinite(n) && n >= 0) prices[row.sku_code] = n;
-      }
+      priceBySku = new Map(
+        (data as { sku_code: string; price_php: number | string }[]).map((r) => [
+          r.sku_code,
+          Number(r.price_php),
+        ]),
+      );
     }
   } catch {
-    // fall through to fallbacks
+    // fall through to all-fallback
   }
 
-  const pick = (
-    code: string,
-    fallback: number,
-  ): number => (prices[code] != null ? prices[code] : fallback);
+  const read = (sku: string, fallback: number) =>
+    positivePrice(priceBySku.get(sku), fallback);
 
+  const c = CUSTOM_SKU_CODES;
+  const f = CUSTOM_UNIT_PRICE_FALLBACK;
   return {
-    base: pick(CUSTOM_SKU_CODES.base, CUSTOM_UNIT_FALLBACK.base),
-    branch: pick(CUSTOM_SKU_CODES.branch, CUSTOM_UNIT_FALLBACK.branch),
-    reachStep: pick(CUSTOM_SKU_CODES.reachStep, CUSTOM_UNIT_FALLBACK.reachStep),
-    reachNationwide: pick(CUSTOM_SKU_CODES.reachNationwide, CUSTOM_UNIT_FALLBACK.reachNationwide),
-    seat: pick(CUSTOM_SKU_CODES.seat, CUSTOM_UNIT_FALLBACK.seat),
-    slot: pick(CUSTOM_SKU_CODES.slot, CUSTOM_UNIT_FALLBACK.slot),
-    photoPack: pick(CUSTOM_SKU_CODES.photoPack, CUSTOM_UNIT_FALLBACK.photoPack),
-    includedToken: pick(CUSTOM_SKU_CODES.includedToken, CUSTOM_UNIT_FALLBACK.includedToken),
-    domain: pick(CUSTOM_SKU_CODES.domain, CUSTOM_UNIT_FALLBACK.domain),
+    base: read(c.base, f.base),
+    branch: read(c.branch, f.branch),
+    reachStep: read(c.reachStep, f.reachStep),
+    reachNationwide: read(c.reachNationwide, f.reachNationwide),
+    seat: read(c.seat, f.seat),
+    slot: read(c.slot, f.slot),
+    photoPack: read(c.photoPack, f.photoPack),
+    includedToken: read(c.includedToken, f.includedToken),
+    domain: read(c.domain, f.domain),
   };
 }
 
 /**
  * Order service_key convention: `vendor_custom_plan__{vendor_profile_id}`. The
- * suffix lets the sku-activation hook map a paid Custom-plan order back to the
- * exact vendor org to provision (mirrors `vendor_extra_seat__{id}` /
- * `vendor_additional_branch__{id}`).
+ * suffix maps the paid order back to the vendor whose Custom plan to activate —
+ * mirrors `vendor_extra_seat__{id}` / `vendor_additional_branch__{id}`.
  */
 export const CUSTOM_PLAN_SERVICE_KEY_PREFIX = 'vendor_custom_plan__';
 

@@ -15,11 +15,16 @@ drift guard so it can never silently diverge again:
   FAQ); single-cam livestream stays free (confirmed in code).
 - **À-la-carte range** — false `₱100 to ₱4,999` endpoints replaced with
   "from ₱30 up into the low thousands" (a hard range drifts on every SKU add).
+- **Frozen taxonomy count** — "192 vendor sub-categories" was a stale frozen
+  LIVE count (prod is at 229 leaves and growing via the Taxonomy Studio) →
+  de-frozen to a "200+" safe floor, matching the file's existing "100+ venues"
+  floor pattern and the de-freezing done in PRs #2773/#2774.
 - New guard: `apps/web/lib/llms-price-drift.test.ts` (runs under `pnpm
   test:unit`) extracts every `₱…` figure from the file body and asserts the set
   equals the explicit allow-list in `apps/web/lib/llms-price-fixture.ts`. Any
-  unapproved figure fails CI. The changelog footer is excluded (it carries
-  historical figures by design).
+  unapproved figure fails CI; a companion assertion also fails if the frozen
+  "192" taxonomy count ever creeps back into the body. The changelog footer is
+  excluded (it carries historical figures by design).
 
 SPEC IMPACT: None to the corpus files. ⚠ Flag for owner: the Enterprise vendor
 tier figure on the public AI-crawler surface was corrected to **₱74,999/yr ·

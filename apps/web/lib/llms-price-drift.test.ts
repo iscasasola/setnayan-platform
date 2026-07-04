@@ -57,6 +57,18 @@ test('llms.txt body prices exactly match the approved fixture', () => {
   );
 });
 
+test('llms.txt body never re-freezes the vendor-taxonomy count', () => {
+  // "192 vendor sub-categories" was a frozen LIVE count (the taxonomy grows as
+  // admins add leaves via the Taxonomy Studio) — de-frozen to a "200+" safe
+  // floor alongside PRs #2773/#2774. Keep any exact snapshot from creeping back.
+  const body = bodyOf(readFileSync(LLMS_PATH, 'utf8'));
+  assert.ok(
+    !/\b192\b/.test(body),
+    'public/llms.txt body contains the frozen taxonomy count "192" again — ' +
+      'use a safe floor ("200+") or count-free phrasing instead.',
+  );
+});
+
 test('the fixture itself has no duplicate figures', () => {
   const list = APPROVED_LLMS_PRICES;
   assert.equal(

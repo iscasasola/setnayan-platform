@@ -39,6 +39,26 @@ export async function canViewSlugEvent(
   } = await supabase.auth.getUser();
   if (!user) return false;
 
+  return await isSignedInEventHost(eventId);
+}
+
+/**
+ * isSignedInEventHost — is the CURRENT signed-in user a host of this event?
+ * (a couple member in event_members, OR an accepted + non-removed moderator).
+ *
+ * Extracted from the inline `event_members` / `event_moderators` check that
+ * app/[slug]/page.tsx runs for its private-gate + `?phase=` preview allowance,
+ * so surfaces that need the same "hosts can preview" rule (e.g. the /[slug]/print
+ * keepsake, which lets hosts preview pre-event) share ONE implementation instead
+ * of re-deriving it. Returns false for anonymous / guest-cookie-only viewers.
+ */
+export async function isSignedInEventHost(eventId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
   const admin = createAdminClient();
   const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([
     admin

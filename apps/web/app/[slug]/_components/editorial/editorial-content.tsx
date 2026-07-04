@@ -18,6 +18,7 @@
 // ============================================================================
 
 import { type ReactElement, type ReactNode } from 'react';
+import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
   resolveSectionOrder,
@@ -368,7 +369,12 @@ export async function EditorialContent({
         ) : null}
 
         {/* Colophon / cross-phase links --------------------------------------- */}
-        <Colophon names={data.displayName} city={data.venueCity} hideWatermark={hideWatermark} />
+        <Colophon
+          names={data.displayName}
+          city={data.venueCity}
+          hideWatermark={hideWatermark}
+          printSlug={data.slug}
+        />
       </article>
     </div>
   );
@@ -1239,6 +1245,7 @@ function Colophon({
   names,
   city,
   hideWatermark = false,
+  printSlug = null,
 }: {
   names: string;
   city: string | null;
@@ -1246,6 +1253,10 @@ function Colophon({
    *  watermark when the event owns the active upgrade. The cross-phase links +
    *  couple names stay; only the freemium credit line goes. */
   hideWatermark?: boolean;
+  /** The couple's real slug → a quiet on-screen "Print the keepsake" link to the
+   *  A3 broadsheet route (/[slug]/print). Null for the curated samples (no real
+   *  event row), which have no print route; the link is then omitted. */
+  printSlug?: string | null;
 }): ReactElement {
   return (
     <footer className="mt-7 border-t-[3px] border-double border-ink pt-3 text-center">
@@ -1260,6 +1271,18 @@ function Colophon({
           Watch the Film
         </a>
       </div>
+      {/* Print the keepsake — a quiet on-screen-only web affordance into the A3
+          broadsheet route. `print:hidden` keeps it off the browser's own print
+          of the editorial page. Omitted for samples (no real slug). */}
+      {printSlug ? (
+        <a
+          href={`/${printSlug}/print`}
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta print:hidden"
+        >
+          <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Print the keepsake
+        </a>
+      ) : null}
       <p className="mt-3 font-serif text-sm italic text-ink/45">
         {hideWatermark ? names : <>Powered by Setnayan{city ? ` · ${city}` : ''} · {names}</>}
       </p>

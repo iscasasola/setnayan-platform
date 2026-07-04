@@ -402,9 +402,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/events',
       },
       {
+        // Repointed to the Accounts Studio Venues tab (slice 2). matchPrefix
+        // keeps this item lit on the legacy /admin/venues path + the standalone
+        // /admin/venues/[id] detail + /admin/venues/new create routes (which
+        // stay standalone).
         key: 'venues',
         label: 'Venues',
-        href: '/admin/venues',
+        href: '/admin/accounts?tab=venues',
         icon: MapPin,
         matchPrefix: '/admin/venues',
       },

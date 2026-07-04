@@ -156,16 +156,19 @@ export type ImpactMetrics = {
   chapters: number | null; // "As the Day Unfolded" chapter count; null = omit
 };
 
-// "What They Whispered" — a Kwento guest wish (photo_messages). `body` is the
+// "What They Whispered" — a Kwento guest wish. Owner (2026-07-04): "kwento are
+// messages with videos or photos" — every wish is a guest MESSAGE attached to its
+// anchor media, so the editorial shows that media beside the words. `body` is the
 // approved, screen-cleared message text; `author` is the guest's display name
-// (null when the guest opted their name off / has no name). `photoUrl` is the
-// presigned display image of the Papic capture the wish anchors to, carried only
-// when that anchor is already presigned in the loader (else text-only).
+// (null when the guest opted their name off / has no name). `media` is the wish's
+// anchor: a photo (still), or a clip (playable MP4 + optional poster). It is null
+// only when the wish has no anchor OR the anchor row is blocked/hidden/ungated
+// (fail-closed) — the words are still approved, so the card renders text-only.
 export type KwentoQuote = {
   body: string;
   author: string | null;
   role: string | null;
-  photoUrl: string | null;
+  media: { type: 'photo' | 'clip'; url: string; posterUrl?: string | null } | null;
 };
 
 export type ArchetypeKey = 'hand-picked' | 'jewel-box' | 'big-hearted' | 'sweeping';
@@ -391,9 +394,11 @@ export type EditorialData = {
   // "What They Whispered" — approved, screen-cleared Kwento guest wishes
   // (photo_messages). Fail-closed like every other public block: only
   // status='approved' + moderation_state='clean' + not author-hidden. Each
-  // carries the author's display name (when set) and, when the wish anchors to a
-  // Papic capture already presigned in the loader, that anchor photo's URL. []
-  // when the couple has no Kwento or the table is absent (section then hidden).
+  // carries the author's display name (when set) and its anchor `media` (a photo
+  // still or a living 5s clip), resolved from the anchor row under the SAME
+  // fail-closed gate that table uses (blocked/hidden/ungated anchor → text-only,
+  // the words still approved). [] when the couple has no Kwento or the table is
+  // absent (section then hidden).
   kwentoQuotes: KwentoQuote[];
   // Live Studio replay — "Watch the Film". The youtube-nocookie EMBED URL for
   // the couple's Panood broadcast replay, gated on: a valid events.panood_watch_url
@@ -1693,12 +1698,24 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // Approved, screen-cleared guest wishes (photo_messages). PUBLIC surface → FAILS
   // CLOSED exactly like every other editorial block: status='approved' +
   // moderation_state='clean' + author not publicly hidden. Ordered by submission
-  // time, capped. When a wish anchors to a Papic capture already presigned in this
-  // loader (gallery/timeline slice), we carry that anchor photo's URL so the quote
-  // can sit beside its image; otherwise it renders text-only. The author's display
-  // name comes from the linked guest row (photo_messages has no name column). A
-  // missing table/column (pre-Kwento event, 42P01/42703) degrades to [] → section
-  // hidden.
+  // time, capped. Owner (2026-07-04): "kwento are messages with videos or photos"
+  // — every wish anchors to a Papic capture (a photo OR a 5s clip), and the
+  // editorial SHOWS that media beside the words. We resolve each anchor from its
+  // source table under the SAME fail-closed gate that table uses on the public
+  // surface, then presign only the resolved anchors:
+  //   • source_table='papic_photos' → look up by source_id, moderation-withheld
+  //     verdicts excluded (nsfw/consent/faceblock) + not hidden. photo_type tells
+  //     photo vs clip; a clip carries a playable MP4 (r2_object_key) + poster.
+  //   • source_table='papic_guest_captures' → look up by source_id under the
+  //     disposable-camera public gate (consent_to_public AND
+  //     couple_approved_for_showcase AND hidden_at IS NULL), consistent with the
+  //     chapter timeline. media_type tells photo vs clip; display_r2_key is the
+  //     playable/still, poster_r2_key the freeze-frame.
+  // A blocked/hidden/ungated anchor (or a missing anchor row) → media=null → the
+  // card renders text-only; the WORDS are still approved. Batched: ONE lookup per
+  // table with `.in(...)`. The author's display name comes from the linked guest
+  // row (photo_messages has no name column). A missing table/column (pre-Kwento
+  // event, 42P01/42703) degrades to [] → section hidden.
   const kwentoQuotes: KwentoQuote[] = [];
   try {
     const { data: rows, error } = await admin
@@ -1736,24 +1753,133 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           // no guest names → quotes render unattributed
         }
       }
+
+      // Collect anchor ids per source table (deduped) so each table is read once.
+      const photoAnchorIds = new Set<string>();
+      const captureAnchorIds = new Set<string>();
+      for (const r of msgRows) {
+        const table = asString(r.source_table);
+        const id = asString(r.source_id);
+        if (!id) continue;
+        if (table === 'papic_photos') photoAnchorIds.add(id);
+        else if (table === 'papic_guest_captures') captureAnchorIds.add(id);
+      }
+
+      // A resolved anchor's raw media (r2 keys + type), keyed by anchor id. Only
+      // rows that PASS the public gate for their table land here.
+      type AnchorMedia = { type: 'photo' | 'clip'; key: string; posterKey: string | null };
+      const photoAnchors = new Map<string, AnchorMedia>();
+      const captureAnchors = new Map<string, AnchorMedia>();
+
+      // papic_photos anchors — SAME fail-closed moderation filter as everywhere
+      // else on this surface (withheld verdicts + hidden excluded).
+      if (photoAnchorIds.size > 0) {
+        try {
+          const { data: pRows } = await admin
+            .from('papic_photos')
+            .select('photo_id, r2_object_key, poster_r2_key, photo_type')
+            .eq('event_id', eventId)
+            .in('photo_id', Array.from(photoAnchorIds))
+            .is('hidden_at', null)
+            .not(
+              'moderation_state',
+              'in',
+              '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+            );
+          for (const p of (pRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(p.photo_id);
+            const key = asString(p.r2_object_key);
+            if (!id || !key) continue;
+            const type = asString(p.photo_type) === 'clip' ? 'clip' : 'photo';
+            photoAnchors.set(id, { type, key, posterKey: asString(p.poster_r2_key) });
+          }
+        } catch {
+          // table/column absent → these anchors resolve to text-only
+        }
+      }
+
+      // papic_guest_captures anchors — the disposable-camera SKU. Public gate is
+      // the consent + couple-approval double gate (no NSFW column on this table),
+      // consistent with the "As the Day Unfolded" timeline read above.
+      if (captureAnchorIds.size > 0) {
+        try {
+          const { data: cRows } = await admin
+            .from('papic_guest_captures')
+            .select('capture_id, r2_object_key, display_r2_key, poster_r2_key, media_type')
+            .eq('event_id', eventId)
+            .in('capture_id', Array.from(captureAnchorIds))
+            .eq('consent_to_public', true)
+            .eq('couple_approved_for_showcase', true)
+            .is('hidden_at', null);
+          for (const c of (cRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(c.capture_id);
+            const type = asString(c.media_type) === 'clip' ? 'clip' : 'photo';
+            // A CLIP must render the playable original (r2_object_key); the
+            // display_r2_key derivative is a still (lightbox image), never a video.
+            // A PHOTO prefers the display derivative, falling back to the original
+            // when derivatives haven't been generated (mirrors lib/papic-gallery).
+            const key =
+              type === 'clip'
+                ? asString(c.r2_object_key)
+                : asString(c.display_r2_key) ?? asString(c.r2_object_key);
+            if (!id || !key) continue;
+            captureAnchors.set(id, { type, key, posterKey: asString(c.poster_r2_key) });
+          }
+        } catch {
+          // table/column absent → these anchors resolve to text-only
+        }
+      }
+
+      // Presign every resolved anchor (main key + poster) ONCE, keyed by r2 key so
+      // a repeated key isn't signed twice. Reuse the gallery's presigned set as a
+      // cache when the key was already signed there.
+      const keysToSign = new Set<string>();
+      for (const a of [...photoAnchors.values(), ...captureAnchors.values()]) {
+        keysToSign.add(a.key);
+        if (a.posterKey) keysToSign.add(a.posterKey);
+      }
+      // Seed the presign cache from the gallery (photoId→url isn't keyed by r2
+      // key, so we re-sign; but skip work when the anchor id already sits in the
+      // gallery-presigned map — that URL is directly reusable for photo anchors).
+      const urlByKey = new Map<string, string>();
+      if (keysToSign.size > 0) {
+        const keys = Array.from(keysToSign);
+        const signed = await Promise.all(keys.map((k) => displayUrlForStoredAsset(k)));
+        keys.forEach((k, i) => {
+          const u = signed[i];
+          if (u) urlByKey.set(k, u);
+        });
+      }
+
+      const resolveAnchor = (
+        table: string | null,
+        id: string | null,
+      ): KwentoQuote['media'] => {
+        if (!id) return null;
+        let a: AnchorMedia | undefined;
+        if (table === 'papic_photos') a = photoAnchors.get(id);
+        else if (table === 'papic_guest_captures') a = captureAnchors.get(id);
+        if (!a) return null;
+        // Reuse the gallery-presigned URL for a papic_photos PHOTO anchor when the
+        // id is already in that map (avoids depending on it, but caches it).
+        const url =
+          (table === 'papic_photos' && a.type === 'photo'
+            ? papicUrlByPhotoId.get(id)
+            : undefined) ?? urlByKey.get(a.key);
+        if (!url) return null;
+        const posterUrl = a.posterKey ? urlByKey.get(a.posterKey) ?? null : null;
+        return { type: a.type, url, posterUrl };
+      };
+
       for (const r of msgRows) {
         const body = asString(r.body_text);
         if (!body) continue;
         const guestId = asString(r.guest_id);
-        // Anchor photo — only if it's a papic_photos capture already presigned in
-        // this loader (gallery/timeline slice). Guest-capture anchors + un-sliced
-        // photos stay text-only (we don't presign extra just for a Kwento anchor).
-        const anchorTable = asString(r.source_table);
-        const anchorId = asString(r.source_id);
-        const photoUrl =
-          anchorTable === 'papic_photos' && anchorId
-            ? papicUrlByPhotoId.get(anchorId) ?? null
-            : null;
         kwentoQuotes.push({
           body,
           author: guestId ? nameByGuest.get(guestId) ?? null : null,
           role: null,
-          photoUrl,
+          media: resolveAnchor(asString(r.source_table), asString(r.source_id)),
         });
       }
     }
@@ -2317,9 +2443,9 @@ function mariaAndJuan(): EditorialData {
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
     ],
     kwentoQuotes: [
-      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, photoUrl: '/realstories/maria-juan-g1.jpg' },
-      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, photoUrl: null },
-      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, photoUrl: '/realstories/maria-juan-g2.jpg' },
+      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g1.jpg' } },
+      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, media: null },
+      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
     ],
     watchFilmEmbedUrl: null,
   };
@@ -2889,9 +3015,9 @@ function sofiaReyes(): EditorialData {
       { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },
     ],
     kwentoQuotes: [
-      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, photoUrl: '/realstories/sofia-reyes-c1.jpg' },
-      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, photoUrl: null },
-      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, photoUrl: '/realstories/sofia-reyes-c3.jpg' },
+      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, media: { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-c1.jpg' } },
+      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, media: null },
+      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
     ],
     watchFilmEmbedUrl: null,
   };

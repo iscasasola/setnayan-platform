@@ -62,8 +62,28 @@ function releasePlay(video: HTMLVideoElement): void {
   video.pause();
 }
 
+// ── Shared reduced-motion hook ───────────────────────────────────────────────
+// Reads prefers-reduced-motion and tracks changes. Exported so other editorial
+// clip surfaces (the Kwento wall) share the identical behaviour without
+// re-implementing the media-query wiring.
+export function useReducedMotion(): boolean {
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return reducedMotion;
+}
+
 // ── A single clip ────────────────────────────────────────────────────────────
-function ClipFrame({
+// Exported so the Kwento wall can render a living clip anchor using the SAME
+// playback machinery (module-level ≤3-concurrent registry + one-audible-at-a-time
+// are shared page-wide across chapters + kwento).
+export function ClipFrame({
   media,
   names,
   className,
@@ -361,16 +381,7 @@ export function LivingMoments({
   chapters: DayChapter[];
   names: string;
 }): ReactElement | null {
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
+  const reducedMotion = useReducedMotion();
 
   if (chapters.length === 0) return null;
 
@@ -385,6 +396,35 @@ export function LivingMoments({
           ) : null}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Kwento anchor clip ───────────────────────────────────────────────────────
+// A small living clip for a Kwento card's anchor media. It's a self-contained
+// client component (owns its own reduced-motion read) so the SERVER-rendered
+// KwentoWall can drop it in without threading state. It reuses ClipFrame — the
+// SAME module-level registry — so the ≤3-concurrent + one-audible caps span
+// chapters and kwento together. Wrapped in the thin Daily-Prophet double border,
+// consistently sized so cards don't jump.
+export function KwentoClip({
+  url,
+  posterUrl,
+  names,
+}: {
+  url: string;
+  posterUrl?: string | null;
+  names: string;
+}): ReactElement {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div className="mb-3 border-double border-[3px] border-ink/80 p-1 shadow-[0_8px_22px_-14px_rgba(20,16,12,0.35)]">
+      <ClipFrame
+        media={{ type: 'clip', url, posterUrl: posterUrl ?? null }}
+        names={names}
+        reducedMotion={reducedMotion}
+        className="aspect-[4/3] [&>video]:h-full [&>video]:w-full [&>video]:object-cover"
+      />
     </div>
   );
 }

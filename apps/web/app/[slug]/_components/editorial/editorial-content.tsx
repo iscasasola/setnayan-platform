@@ -25,7 +25,7 @@ import {
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
-import { LivingMoments } from './living-moments';
+import { LivingMoments, KwentoClip } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -281,7 +281,7 @@ export async function EditorialContent({
                   <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
                     best wishes, captured on the day
                   </p>
-                  <KwentoWall quotes={data.kwentoQuotes} />
+                  <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
                 </div>
               ) : null,
             // Shared photos from the day ("From the Day").
@@ -1108,14 +1108,26 @@ function VideoGuestbookWall({ clips }: { clips: string[] }): ReactElement {
 }
 
 /**
- * "What They Whispered" — approved Kwento guest wishes (photo_messages). A
- * 2-column masonry (single column on mobile): each wish is a serif-italic quote
- * opened by a large gold quotation glyph, attributed in mono, and — when the wish
- * anchored to a Papic capture that the loader already presigned — sat above a small
- * anchor-photo figure. Text-only wishes render without a figure. Fails closed
- * upstream (approved + clean + not author-hidden), so this only paints safe wishes.
+ * "What They Whispered" — approved Kwento guest wishes (photo_messages). Owner
+ * (2026-07-04): "kwento are messages with videos or photos" — every wish shows its
+ * anchor media beside the words. A 2-column masonry (single column on mobile):
+ * each wish is a serif-italic quote opened by a large gold quotation glyph,
+ * attributed in mono, and — when its anchor resolved (fail-closed upstream) — sat
+ * above its media: a photo as a small ~4/3 figure, a clip as a small living frame
+ * (muted loop · tap-for-sound · poster · reduced-motion still) reusing the
+ * page-wide living-moments playback machinery (≤3 concurrent · one audible). The
+ * clip frame's thin Daily-Prophet double border lives in <KwentoClip>. Text-only
+ * wishes keep the pure-quote treatment. Fails closed upstream (approved + clean +
+ * not author-hidden; anchor gated per source table), so this only paints safe
+ * wishes and safe media.
  */
-function KwentoWall({ quotes }: { quotes: EditorialData['kwentoQuotes'] }): ReactElement {
+function KwentoWall({
+  quotes,
+  names,
+}: {
+  quotes: EditorialData['kwentoQuotes'];
+  names: string;
+}): ReactElement {
   return (
     <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
       {quotes.slice(0, 8).map((q, i) => (
@@ -1123,11 +1135,13 @@ function KwentoWall({ quotes }: { quotes: EditorialData['kwentoQuotes'] }): Reac
           key={i}
           className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
         >
-          {q.photoUrl ? (
+          {q.media?.type === 'clip' ? (
+            <KwentoClip url={q.media.url} posterUrl={q.media.posterUrl} names={names} />
+          ) : q.media?.type === 'photo' ? (
             <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-sm bg-ink/10">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={q.photoUrl}
+                src={q.media.url}
                 alt=""
                 aria-hidden
                 className="h-full w-full object-cover"

@@ -11,6 +11,8 @@ import {
   sponsorGuestSide,
   type SponsorTier,
 } from '@/lib/event-sponsors';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 
 /**
  * Iteration · Principal + Secondary Sponsor coordination — server actions.
@@ -361,6 +363,18 @@ export async function markResponse(formData: FormData): Promise<void> {
 
     if (updErr) {
       throw new Error(updErr.message || 'Could not record response.');
+    }
+
+    // Phase 2 (person-graph · flag-off in prod): an accepted PRINCIPAL sponsor
+    // becomes a godparent connection PROPOSAL (ninong/ninang → each principal).
+    // Idempotent + flag-guarded + host-authorized inside the action. Best-effort
+    // — connection generation must never break sponsor acceptance.
+    if (status === 'accepted' && sponsor.sponsor_tier === 'principal' && peopleConnectionsEnabled()) {
+      try {
+        await generateEventConnections(eventId);
+      } catch {
+        /* non-blocking — edges regenerate idempotently on the next accept/edit */
+      }
     }
 
     revalidatePath(`/dashboard/${eventId}/sponsors`);

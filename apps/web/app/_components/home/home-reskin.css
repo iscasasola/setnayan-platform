@@ -2144,11 +2144,17 @@ html.hr-snap {
   color: var(--hr-ink);
   font-weight: 600;
 }
+.home-reskin-ov .hr-pr-cta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  margin-top: 18px;
+}
 .home-reskin-ov .hr-pr-seefull {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 18px;
   background: var(--hr-ink);
   color: #fff;
   font-size: 14px;
@@ -2156,6 +2162,22 @@ html.hr-snap {
   padding: 13px 24px;
   border-radius: var(--hr-r);
   font-family: var(--hr-sans);
+}
+.home-reskin-ov .hr-pr-custom-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--hr-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hr-ink);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(42, 43, 46, 0.25);
+  padding-bottom: 1px;
+  transition: border-color 0.2s ease;
+}
+.home-reskin-ov .hr-pr-custom-link:hover {
+  border-bottom-color: var(--hr-ink);
 }
 .home-reskin-ov .hr-dl-grid {
   display: grid;

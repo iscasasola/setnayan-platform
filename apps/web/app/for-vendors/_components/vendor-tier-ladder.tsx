@@ -7,8 +7,9 @@
  *   - "show the 4 tiers from free to subscription" → Free · Solo · Pro ·
  *     Enterprise, benefit-led "everything below, plus…" cards.
  *   - "not unlimited, just a larger range" → Enterprise is a BOUNDED tier
- *     (10 seats / 300 photos / 8 events per category / nationwide) + a Custom
- *     "Talk to us" tier above it for franchises/multi-location.
+ *     (10 seats / 300 photos / 8 events per category / reach up to 100 km) + a
+ *     Custom tier above it for franchises/multi-location. (Owner re-capped
+ *     Enterprise reach at 100 km 2026-07-04 — nationwide is sold in Custom.)
  *
  * HONESTY: content is limited to what the 2026-07-01 origin/main verification
  * audit (VENDOR_TIERS_AND_BENEFITS.md §6) confirms BUILT. Roadmap items
@@ -95,20 +96,22 @@ const TIERS: Tier[] = [
     benefits: [
       'List under every category',
       'Up to 10 team seats + multi-admin governance',
-      'Nationwide reach + 300-photo portfolio',
+      'Reach up to 100 km + 300-photo portfolio',
       'Up to 8 events per category',
     ],
   },
   {
     key: 'custom',
     label: '✦ Custom',
-    customPrice: 'Talk to us',
-    note: 'franchises & multi-location',
-    plus: 'Everything in Enterprise, plus',
+    customPrice: 'from ₱8,999',
+    note: 'franchises & multi-location · per 28 days',
+    plus: 'Everything in Enterprise, automatically, plus',
     benefits: [
-      'Unlimited seats + multi-region / multi-location',
-      'Beyond-Enterprise caps, custom terms',
-      'A dedicated account team',
+      'More branches, one per address, from ₱999 each',
+      'Reach dialled up to nationwide',
+      'More team seats, event slots & a bigger portfolio',
+      'Monthly included inquiry tokens + your own domain',
+      'A dedicated account manager + quarterly business review',
     ],
   },
 ];
@@ -248,8 +251,13 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
           return (
             <div
               key={t.key}
+              /* id="custom" — deep-link target for /for-vendors#custom (top-nav
+                 Prices → Custom plans, owner 2026-07-04). scroll-margin keeps the
+                 fixed glass nav from covering the card on jump. */
+              id={t.key === 'custom' ? 'custom' : undefined}
               className="m-card"
               style={{
+                ...(t.key === 'custom' ? { scrollMarginTop: 96 } : null),
                 padding: 20,
                 display: 'flex',
                 flexDirection: 'column',
@@ -297,6 +305,24 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
               >
                 {t.key === 'custom' ? 'Talk to us →' : 'Choose ' + t.label.replace(/[★⬢✦]\s*/, '')}
               </Link>
+              {/* Secondary path for existing vendors — build the Custom plan
+                  themselves on the in-app subscription page (owner 2026-07-04;
+                  the slider configurator ships in a sibling PR). */}
+              {t.key === 'custom' && (
+                <Link
+                  href="/vendor-dashboard/subscription"
+                  className="m-mono"
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--m-slate-2)',
+                    textAlign: 'center',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  Already a vendor? Build your plan
+                </Link>
+              )}
             </div>
           );
         })}

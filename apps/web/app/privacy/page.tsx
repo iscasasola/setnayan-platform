@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-06-17 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-04 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -54,13 +54,20 @@ export default function PrivacyPage() {
 
         <Section title="Regulatory posture">
           <p>
-            Setnayan is currently operating in a closed pilot phase
-            (approximately 5–20 households). During pilot, the Personal
-            Information Controller is the platform owner under personal name
-            (DTI Business Name and BIR registration pending; targeted before
-            public launch on December 1, 2026). NPC registration will be filed
-            under the registered business entity at that time. The DPO function
-            during pilot is held by the platform owner directly.
+            Setnayan is operated by <strong>ICASA</strong>, a sole
+            proprietorship registered with the Department of Trade and Industry
+            under the trade name{' '}
+            <strong>&ldquo;SETNAYAN SOFTWARE DEVELOPMENT SERVICE&rdquo;</strong>{' '}
+            (registered 2026-06-25, national scope). Because a sole
+            proprietorship has no legal personality separate from its
+            proprietor, the Personal Information Controller under RA 10173 is the
+            proprietor, who also holds the Data Protection Officer function
+            directly and is reachable at{' '}
+            <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
+              dpo@setnayan.com
+            </a>
+            . BIR registration is under the proprietor&rsquo;s existing TIN.
+            NPC registration will be filed under this business name.
           </p>
           <p className="pt-2">
             Cross-border data transfers — Singapore (Supabase), United States

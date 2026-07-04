@@ -145,8 +145,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
       .then(({ data }) => {
         const s = new Set((data ?? []).map((r: { tile_id: string }) => r.tile_id));
         return s.size;
-      })
-      .catch(() => 0),
+      }, () => 0),
     // folders = tier-1 categories (confirmed live: 10 rows at tier 1).
     headCount(admin, 'service_categories', (q) => q.eq('tier', 1)),
     headCount(admin, 'onboarding_refinements'),
@@ -163,8 +162,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
             sum + (r.purchased_tokens ?? 0) + (r.earned_tokens ?? 0),
           0,
         );
-      })
-      .catch(() => 0),
+      }, () => 0),
   ]);
 
   return {
@@ -659,36 +657,31 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       .select('vendor_profile_id, public_id, business_name, business_slug')
       .or(`business_name.ilike.${like},business_slug.ilike.${like}`)
       .limit(6)
-      .then(({ data }) => data ?? [])
-      .catch(() => []),
+      .then(({ data }) => data ?? [], () => []),
     admin
       .from('events')
       .select('event_id, public_id, display_name, slug')
       .or(`display_name.ilike.${like},slug.ilike.${like}`)
       .limit(6)
-      .then(({ data }) => data ?? [])
-      .catch(() => []),
+      .then(({ data }) => data ?? [], () => []),
     admin
       .from('users')
       .select('user_id, public_id, display_name, email')
       .or(`display_name.ilike.${like},email.ilike.${like}`)
       .limit(6)
-      .then(({ data }) => data ?? [])
-      .catch(() => []),
+      .then(({ data }) => data ?? [], () => []),
     admin
       .from('orders')
       .select('order_id, public_id, reference_code, service_key, status')
       .or(`reference_code.ilike.${like},service_key.ilike.${like}`)
       .limit(6)
-      .then(({ data }) => data ?? [])
-      .catch(() => []),
+      .then(({ data }) => data ?? [], () => []),
     admin
       .from('canonical_service_taxonomy')
       .select('canonical_service, tile_id')
       .ilike('canonical_service', like)
       .limit(6)
-      .then(({ data }) => data ?? [])
-      .catch(() => []),
+      .then(({ data }) => data ?? [], () => []),
   ]);
 
   const groups: UgatSearchGroup[] = [];

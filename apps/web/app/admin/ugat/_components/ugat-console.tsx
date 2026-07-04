@@ -43,7 +43,7 @@ function Ico({ name, cls }: { name: string; cls?: string }) {
       className={`ug-ico${cls ? ' ' + cls : ''}`}
       viewBox="0 0 24 24"
       aria-hidden
-      dangerouslySetInnerHTML={{ __html: UGAT_ICON_PATHS[name] ?? UGAT_ICON_PATHS.tag }}
+      dangerouslySetInnerHTML={{ __html: UGAT_ICON_PATHS[name] ?? UGAT_ICON_PATHS.tag ?? '' }}
     />
   );
 }
@@ -215,7 +215,7 @@ export function UgatConsole({
               className={resolution === r ? 'on' : ''}
               onClick={() => setResolution(r)}
             >
-              {r[0].toUpperCase() + r.slice(1)}
+              {r.charAt(0).toUpperCase() + r.slice(1)}
             </button>
           ))}
         </div>
@@ -529,7 +529,7 @@ function MapCanvas({
                   {showJoints && primary && short && (
                     <g
                       className={`ug-jointmark${joints.length > 1 ? ' multi' : ''}${
-                        primary.healthId ? ' ug-h-' + UGAT_FINDINGS_BY_ID[primary.healthId].sev : ''
+                        primary.healthId ? ' ug-h-' + (UGAT_FINDINGS_BY_ID[primary.healthId]?.sev ?? '') : ''
                       }`}
                       transform={`translate(${cx - chW / 2},${cy - 9})`}
                       onClick={(ev) => {
@@ -546,7 +546,7 @@ function MapCanvas({
                         height={12}
                         className="ug-jm-ic"
                         dangerouslySetInnerHTML={{
-                          __html: joints.length > 1 ? UGAT_ICON_PATHS.layers : UGAT_ICON_PATHS.link,
+                          __html: (joints.length > 1 ? UGAT_ICON_PATHS.layers : UGAT_ICON_PATHS.link) ?? '',
                         }}
                       />
                       <text x={20} y={9} dominantBaseline="central">
@@ -624,7 +624,7 @@ function MapCanvas({
                     width={14}
                     height={14}
                     style={{ stroke: vocab.color, fill: 'none', strokeWidth: 1.75 }}
-                    dangerouslySetInnerHTML={{ __html: UGAT_ICON_PATHS[n.icon] }}
+                    dangerouslySetInnerHTML={{ __html: UGAT_ICON_PATHS[n.icon] ?? '' }}
                   />
                   <text className="ug-chip-lab" x={40} y={h / 2 - 4} dominantBaseline="middle">
                     {n.name}
@@ -639,7 +639,8 @@ function MapCanvas({
                       transform={`translate(${w - 6},6)`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onFindingClick(nodeFindings[0].id);
+                        const f0 = nodeFindings[0];
+                        if (f0) onFindingClick(f0.id);
                       }}
                     >
                       <circle r={8} />
@@ -971,7 +972,7 @@ function EdgeCard({
                     <Ico name="alert" />
                     Health finding {j.healthId} — open the binding trace
                   </div>
-                  <div className="ug-ekv">{UGAT_FINDINGS_BY_ID[j.healthId].title}</div>
+                  <div className="ug-ekv">{UGAT_FINDINGS_BY_ID[j.healthId!]?.title ?? ''}</div>
                 </button>
               )}
             </div>

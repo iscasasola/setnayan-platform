@@ -91,3 +91,19 @@ export async function isEditorialProActive(
   if (await eventSkuActive(supabase, eventId, EDITORIAL_PRO_SERVICE_KEY)) return true;
   return eventCoupleWebsiteProActive(supabase, eventId);
 }
+
+/**
+ * BUY-SURFACE reader for Editorial PRO — bundle- + alias-aware, and it COUNTS a
+ * still-in-reconciliation 'submitted' order as owned so a couple mid-review can't
+ * double-buy. eventOwnsSku(EDITORIAL_PRO) already matches an order under the
+ * COUPLE_WEBSITE_PRO umbrella (SKU_OWNERSHIP_ALIASES), so a couple who bought
+ * the umbrella reads as owning Editorial PRO here too. Drives the Editorial PRO
+ * buy surface (owned/included/pending states); the render/authoring gate stays
+ * isEditorialProActive (admin-approved only).
+ */
+export async function eventOwnsEditorialPro(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventOwnsSku(supabase, eventId, EDITORIAL_PRO_SERVICE_KEY);
+}

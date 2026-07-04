@@ -359,6 +359,63 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // Editorial PRO — the à-la-carte authorship unlock for the Editor's Desk
+    // (named moments · per-moment write-ups · chapter/order/guest-wishes
+    // editors · no watermark). serviceKey EDITORIAL_PRO; the COUPLE_WEBSITE_PRO
+    // umbrella confers it too (SKU_OWNERSHIP_ALIASES). opensDirect → the card
+    // opens this SKU's own /studio/editorial-pro buy surface (which handles
+    // owned / included / pending states), skipping the /about interstitial.
+    key: 'editorial-pro',
+    surface: 'website',
+    opensDirect: true,
+    label: 'Editorial PRO',
+    Icon: Newspaper,
+    iteration: '0038',
+    status: 'live',
+    category: 'digital_services',
+    blurb:
+      'Name every moment, tell each story, arrange your front page, edit the wishes — your wedding editorial, authored by you. Prints clean, no watermark.',
+    cta: 'Unlock Editorial PRO',
+    studioGroup: 'website',
+    serviceKey: 'EDITORIAL_PRO',
+    poster: {
+      motion: 'scan',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #2A2A2E 0%, #121214 80%)',
+      motionBackground:
+        'linear-gradient(90deg, transparent 0%, rgba(197, 160, 89, 0.55) 50%, transparent 100%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
+    },
+  },
+  {
+    // Couple Website PRO — the UMBRELLA unlock. One purchase confers every
+    // premium website touch across the whole lifecycle (Save the Date openings +
+    // RSVP + on-the-day + Editorial PRO) and drops the "Powered by Setnayan"
+    // watermark everywhere. serviceKey COUPLE_WEBSITE_PRO. opensDirect → its own
+    // /studio/website-pro buy surface (owned / pending states handled there).
+    key: 'website-pro',
+    surface: 'website',
+    opensDirect: true,
+    label: 'Website PRO',
+    Icon: Globe2,
+    iteration: '0002',
+    status: 'live',
+    category: 'digital_services',
+    blurb:
+      'Every premium touch across your whole website — Save the Date openings, RSVP, the on-the-day page, and the Editorial — plus the Setnayan watermark removed everywhere.',
+    cta: 'Unlock Website PRO',
+    studioGroup: 'website',
+    serviceKey: 'COUPLE_WEBSITE_PRO',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #1E3A4F 0%, #0F1F2D 80%)',
+      motionBackground:
+        'radial-gradient(circle at 60% 60%, #C5A059 0%, transparent 55%)',
+      iconBadgeClass: 'bg-sky-100/15 text-sky-100',
+    },
+  },
+  {
     key: 'landing-page',
     surface: 'website',
     opensDirect: true,

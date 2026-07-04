@@ -43,11 +43,12 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
 
-// Upgrade destination for the PRO authorship perks. No dedicated Couple-Website /
-// Editorial PRO buy route exists yet, so we point at the website dashboard hub
-// (the surface that owns the website + its upgrade). One place → easy to retarget
-// when a real checkout route lands.
-const editorialProUpgradeHref = (eventId: string) => `/dashboard/${eventId}/website`;
+// Upgrade destination for the PRO authorship perks → the Editorial PRO buy
+// surface (studio/editorial-pro), which fetches the live catalog price + mounts
+// the apply-then-pay drawer and is umbrella-aware (shows "Included in your
+// Website PRO" for umbrella owners). One place → easy to retarget.
+const editorialProUpgradeHref = (eventId: string) =>
+  `/dashboard/${eventId}/studio/editorial-pro`;
 
 // Display labels for the reorderable content sections (Editorial PRO section
 // order). Keys mirror EDITORIAL_ORDERABLE_KEYS exactly. The two locked-close rows

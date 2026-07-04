@@ -89,6 +89,7 @@ export const routes = {
     songs: () => `/admin/songs`,
     subscriptions: () => `/admin/subscriptions`,
     taxonomy: () => `/admin/taxonomy`,
+    ugat: () => `/admin/ugat`,
     priceBands: () => `/admin/price-bands`,
     tokenBands: () => `/admin/token-bands`,
     tokenPurchases: () => `/admin/token-purchases`,

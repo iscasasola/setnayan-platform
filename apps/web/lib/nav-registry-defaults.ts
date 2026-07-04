@@ -2445,6 +2445,22 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 38,
   },
+  // Ugat Console — the live entity map (slice 1 · 2026-07-04). System Settings
+  // engine-room tool that maps the nine platform entity types + their audited
+  // connections. Slot suffix "ugat" matches the admin-sidebar item key 1:1 so
+  // applyAdminRegistry overlays label + icon.
+  {
+    key: "admin.sidebar.ugat",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/ugat",
+    label: "Ugat",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Network",
+    customRef: null,
+    sortOrder: 39,
+  },
   // admin.sidebar.event-types REMOVED 2026-07-03 — /admin/event-types was folded
   // into the Taxonomy Studio's Vocabularies → Event types rail
   // (/admin/taxonomy?view=vocab-event); the event-type roster (couple-launch

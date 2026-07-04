@@ -178,6 +178,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/money',
       '/admin/menus',
       '/admin/taxonomy',
+      // Ugat Console — the live entity map (System Settings group). Lights the
+      // More tab on mobile per feedback_setnayan_orphan_prevention.
+      '/admin/ugat',
       // '/admin/event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
       // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event); the
       // event-type roster now lives there. The standalone page redirects.

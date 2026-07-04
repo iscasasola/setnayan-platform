@@ -125,6 +125,7 @@ import {
   Lightbulb,
   Film,
   Gift,
+  Network,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -664,6 +665,20 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Taxonomy',
         href: '/admin/taxonomy',
         icon: Tag,
+      },
+      {
+        // Ugat Console — the live entity map (slice 1 · 2026-07-04). The
+        // schema/telemetry engine room: the nine platform entity types as
+        // nodes, the audited connections between them as clickable joints, and
+        // the 2026-07-05 audit's health findings as an overlay. Lives in System
+        // Settings alongside Taxonomy + Menus (its taxonomy node deep-links to
+        // /admin/taxonomy). Ported from
+        // 03_Strategy/Jarvis_Console_Prototype_2026-07-04.html.
+        key: 'ugat',
+        label: 'Ugat',
+        href: '/admin/ugat',
+        icon: Network,
+        matchPrefix: '/admin/ugat',
       },
       // 'event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
       // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event), where

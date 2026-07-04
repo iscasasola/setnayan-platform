@@ -123,3 +123,57 @@ export async function declineConnection(connectionId: string): Promise<ActionRes
   revalidatePath('/dashboard/people');
   return { ok: true };
 }
+
+/**
+ * Generate the EVENT-created connection proposals for a ceremony (the locked
+ * "the ceremony creates the edge" model): for a wedding, the spouse edge
+ * (bride ↔ groom) + godparent edges (accepted principal sponsors → each
+ * principal). Delegates the derivation to the idempotent SECURITY-DEFINER
+ * `generate_event_connections` SQL function; the edges land as pending
+ * proposals, still mutually confirmed by the other side.
+ *
+ * Host-only (couple member or accepted moderator — mirrors the event_sponsors
+ * RLS). The SQL fn bypasses RLS, so this authorization gate is load-bearing.
+ * Flag-guarded like every Phase-2 action: a no-op in production until PH counsel
+ * signs off and the flag is flipped. Not yet auto-wired to the sponsor-accept /
+ * role-set flows (a deliberate follow-up, kept off the live path for now).
+ */
+export async function generateEventConnections(
+  eventId: string,
+): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  if (!eventId) return { ok: false, error: 'Missing event.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  const supabase = await createClient();
+
+  // Host-only: an event_members 'couple' row OR an accepted, non-removed
+  // moderator. Read under RLS — if the caller can't see the row, they aren't it.
+  const [{ data: couple }, { data: mod }] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+    supabase
+      .from('event_moderators')
+      .select('moderator_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .not('accepted_at', 'is', null)
+      .is('removed_at', null)
+      .maybeSingle(),
+  ]);
+  if (!couple && !mod) return { ok: false, error: 'Only the couple can do this.' };
+
+  const { data, error } = await supabase.rpc('generate_event_connections', {
+    p_event_id: eventId,
+    p_creator: user.id,
+  });
+  if (error) return { ok: false, error: 'Couldn’t generate connections.' };
+  revalidatePath('/dashboard/people');
+  return { ok: true, created: (data as number | null) ?? 0 };
+}

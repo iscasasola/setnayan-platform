@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { APPLICATION_FEE_CENTAVOS } from '@/lib/vendor-verification';
+import { resolveApplicationFeeCentavos } from '@/lib/vendor-verification';
 import { buildSlotValue } from '@/lib/vendor-verification-slots';
 
 /**
@@ -164,10 +164,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
             .eq('application_id', row.application_id);
         }
       } else if (!row) {
+        // Fee from service_catalog (initial is free — active row at ₱0); the
+        // resolver returns 0 for an inactive/missing row too.
+        const feeCentavos = await resolveApplicationFeeCentavos(admin, 'initial');
         await admin.from('vendor_verification_applications').insert({
           vendor_profile_id: vendorProfileId,
           application_type: 'initial',
-          fee_php_centavos: APPLICATION_FEE_CENTAVOS.initial,
+          fee_php_centavos: feeCentavos,
           status: 'draft',
           doc_uploads: { social_media: slot },
         });

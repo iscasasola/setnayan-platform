@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Vendor Verification flow — shared types + helpers.
  *
  * Anchors the data model from migration
- * `20260516040000_iteration_0006_vendor_verification_flow.sql`:
+ * `20260516050000_iteration_0006_vendor_verification_flow.sql`:
  *
  *   • vendor_profiles.verification_state ENUM('unverified','pending_review',
  *     'verified','demoted','rejected')
@@ -56,22 +56,61 @@ export const APPLICATION_TYPES = [
 ] as const;
 export type ApplicationType = (typeof APPLICATION_TYPES)[number];
 
-export const APPLICATION_TYPE_LABEL: Record<ApplicationType, string> = {
-  initial: 'Initial — FREE',
-  annual_renewal: 'Annual renewal — ₱1,500',
-  post_demotion: 'Post-demotion — ₱2,500',
+/**
+ * Short human name per application type, with NO price baked in. The price is
+ * resolved separately from `service_catalog` at runtime (see
+ * `resolveApplicationFeeCentavos` / `applicationTypeLabel`) so a repricing —
+ * e.g. the 20260702 migration that made verification FREE — can never leave a
+ * stale ₱ amount stranded in code.
+ */
+export const APPLICATION_TYPE_NAME: Record<ApplicationType, string> = {
+  initial: 'Initial',
+  annual_renewal: 'Annual renewal',
+  post_demotion: 'Post-demotion',
 };
 
 /**
- * Fee in PHP centavos per application type. Mirrors the SKU prices seeded in
- * 20260516000000_v1_sku_lock_service_catalog.sql + the alias rows in
- * 20260516040000_iteration_0006_vendor_verification_flow.sql.
+ * Canonical `service_catalog.sku_code` per application type. Locked to the SKUs
+ * seeded in `20260516000000_v1_sku_lock_service_catalog.sql` + the alias rows
+ * in `20260516050000_iteration_0006_vendor_verification_flow.sql`:
+ *
+ *   initial        → vendor_verification_initial   (active · price_centavos 0)
+ *   annual_renewal → verification_annual_renewal   (retired inactive by 20260702)
+ *   post_demotion  → verification_reverification    (retired inactive by 20260702)
+ *
+ * The keys are CHECK-bound to `application_type` in the DB, so this map stays in
+ * code (lock-step key space). Only the *fee* is DB-resolved — never the keys.
  */
-export const APPLICATION_FEE_CENTAVOS: Record<ApplicationType, number> = {
-  initial: 0,
-  annual_renewal: 150000,
-  post_demotion: 250000,
+export const APPLICATION_TYPE_SKU: Record<ApplicationType, string> = {
+  initial: 'vendor_verification_initial',
+  annual_renewal: 'verification_annual_renewal',
+  post_demotion: 'verification_reverification',
 };
+
+/**
+ * Renders a verification fee for display: ₱0 → "Free", anything else → the
+ * peso string. Pure — the single place the "0 means Free" rule lives, so every
+ * fee label reads the same. Negative inputs are clamped to Free (a fee can
+ * never be negative — the catalog CHECK enforces `price_centavos >= 0`).
+ */
+export function feeLabelForCentavos(centavos: number): string {
+  if (!Number.isFinite(centavos) || centavos <= 0) return 'Free';
+  return formatPhpCentavos(centavos);
+}
+
+/**
+ * Builds the "<name> — <fee>" label for an application type from a resolved
+ * fee (in centavos). Pure. Callers pass the fee they resolved from
+ * `service_catalog` (via `resolveApplicationFeeCentavos`); this never invents a
+ * price. Example: `applicationTypeLabel('annual_renewal', 0)` →
+ * `'Annual renewal — Free'`.
+ */
+export function applicationTypeLabel(
+  type: ApplicationType,
+  feeCentavos: number,
+): string {
+  return `${APPLICATION_TYPE_NAME[type]} — ${feeLabelForCentavos(feeCentavos)}`;
+}
 
 export const APPLICATION_STATUSES = [
   'draft',
@@ -539,10 +578,14 @@ export async function fetchTierHistory(
  * Recommends the application type for a vendor's NEXT submission based on
  * their current state + last verification date.
  *
+ * This only picks the TYPE. The fee is resolved separately from
+ * `service_catalog` (see `resolveApplicationFeeCentavos`); post-20260702 every
+ * type resolves to ₱0, so no peso amount is annotated here anymore.
+ *
  * Logic:
- *   • unverified / rejected      → 'initial' (FREE)
- *   • demoted                    → 'post_demotion' (₱2,500)
- *   • verified, ≥ 11 months ago  → 'annual_renewal' (₱1,500) — renewal window
+ *   • unverified / rejected      → 'initial'
+ *   • demoted                    → 'post_demotion'
+ *   • verified, ≥ 11 months ago  → 'annual_renewal' — renewal window
  *   • verified, < 11 months ago  → 'annual_renewal' (renewal still allowed
  *                                 early; vendor may prepay to extend)
  *   • pending_review              → null (already in flight)
@@ -564,4 +607,47 @@ export function formatPhpCentavos(centavos: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/**
+ * Resolves the fee (PHP centavos) an application of the given type should be
+ * STAMPED with at draft-insert time, reading the live `service_catalog` row.
+ *
+ * The rule (Entity Map & Hardcode Audit 2026-07-04, Violation #1): the fee is
+ * whatever the catalog says — and an inactive OR missing SKU row resolves to
+ * ₱0. Verification went free via the 20260702 migration, which set the
+ * renewal / re-verification SKU rows `is_active = FALSE` while keeping
+ * `vendor_verification_initial` active at `price_centavos = 0`. Both shapes of
+ * "free" (inactive row · active-at-zero · row absent) therefore resolve to 0
+ * here, so no draft is ever born with a retired ₱1,500 / ₱2,500 fee again.
+ *
+ * NB: this makes `annual_renewal` and `post_demotion` drafts stamp ₱0 while
+ * their SKUs stay retired — an intentional, owner-flagged behaviour change from
+ * the old hardcoded fees.
+ *
+ * Fail-open to 0 on any read error: the catalog is public-read, but a transient
+ * failure must not birth a draft carrying a stale fee. 0 is the safe default
+ * post-retirement.
+ */
+export async function resolveApplicationFeeCentavos(
+  supabase: SupabaseClient,
+  type: ApplicationType,
+): Promise<number> {
+  const skuCode = APPLICATION_TYPE_SKU[type];
+  try {
+    const { data, error } = await supabase
+      .from('service_catalog')
+      .select('price_centavos, is_active')
+      .eq('sku_code', skuCode)
+      .maybeSingle();
+    // Missing row (null data) or read error → free.
+    if (error || !data) return 0;
+    const row = data as { price_centavos?: number | null; is_active?: boolean | null };
+    // Inactive (retired) row → free, regardless of the stored price_centavos.
+    if (row.is_active !== true) return 0;
+    const price = typeof row.price_centavos === 'number' ? row.price_centavos : 0;
+    return price > 0 ? price : 0;
+  } catch {
+    return 0;
+  }
 }

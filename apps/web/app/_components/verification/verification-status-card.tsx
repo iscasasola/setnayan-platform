@@ -61,7 +61,7 @@ const VENDOR_STATUS_CARD_ICON: Record<VerificationState, ReactNode> = {
 /**
  * The vendor-side verification-status hero card. The "latest application"
  * footer line is role-specific copy and is passed in as `meta` (the vendor
- * page builds it from `APPLICATION_TYPE_LABEL` + the application public id).
+ * page builds it from `applicationTypeLabel()` + the application public id).
  */
 export function VerificationStatusCard({
   verificationState,

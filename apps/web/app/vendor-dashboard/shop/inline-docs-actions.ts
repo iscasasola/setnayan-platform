@@ -10,7 +10,6 @@ import {
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
-  APPLICATION_FEE_CENTAVOS,
   DOC_SLOTS,
   VENDOR_DOC_SLOTS,
   addBusinessDays,
@@ -19,6 +18,7 @@ import {
   fetchLatestApplication,
   parseVerificationState,
   recommendedApplicationType,
+  resolveApplicationFeeCentavos,
   verificationSubmitMissing,
   type ApplicationStatus,
   type DocUploadMap,
@@ -220,12 +220,14 @@ async function resolveEditableDraft(
       verState,
       (vp as { last_verified_at?: string | null } | null)?.last_verified_at ?? null,
     ) ?? 'initial';
+  // Fee comes from service_catalog (inactive/missing SKU → ₱0), never hardcoded.
+  const feeCentavos = await resolveApplicationFeeCentavos(supabase, recType);
   const { data: inserted, error } = await supabase
     .from('vendor_verification_applications')
     .insert({
       vendor_profile_id: vendorProfileId,
       application_type: recType,
-      fee_php_centavos: APPLICATION_FEE_CENTAVOS[recType],
+      fee_php_centavos: feeCentavos,
       status: 'draft',
       doc_uploads: {},
     })

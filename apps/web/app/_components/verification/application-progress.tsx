@@ -19,7 +19,7 @@
  */
 
 import {
-  APPLICATION_TYPE_LABEL,
+  applicationTypeLabel,
   type ApplicationType,
 } from '@/lib/vendor-verification';
 
@@ -27,10 +27,13 @@ export function ApplicationProgress({
   completeCount,
   totalSlots,
   applicationType,
+  feeCentavos,
 }: {
   completeCount: number;
   totalSlots: number;
   applicationType: ApplicationType;
+  /** The application's stored fee (centavos) — ₱0 renders as "Free". */
+  feeCentavos: number;
 }) {
   const pct = Math.round((completeCount / totalSlots) * 100);
   return (
@@ -45,7 +48,7 @@ export function ApplicationProgress({
           </p>
         </div>
         <p className="font-mono text-xs text-ink/65">
-          {APPLICATION_TYPE_LABEL[applicationType]}
+          {applicationTypeLabel(applicationType, feeCentavos)}
         </p>
       </div>
       <div

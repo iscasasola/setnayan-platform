@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Users, Briefcase, TestTube, CalendarDays, MapPin } from 'lucide-react';
 import { UsersSurface } from './_surfaces/users-surface';
+import { VendorsSurface } from './_surfaces/vendors-surface';
 import { EventsSurface } from './_surfaces/events-surface';
 import { VenuesSurface } from './_surfaces/venues-surface';
 
@@ -20,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Accounts · Admin' };
 
 // The WIRED tabs this slice renders inline. Grows to all 5 in later slices.
-const TABS = ['users', 'events', 'venues'] as const;
+const TABS = ['users', 'vendors', 'events', 'venues'] as const;
 type Tab = (typeof TABS)[number];
 
 // First value of a (possibly-array) search param — Next passes ?x=a&x=b as an
@@ -44,7 +45,7 @@ const TAB_STRIP: {
   legacyHref: string;
 }[] = [
   { key: 'users', label: 'Users', icon: Users, wired: true, legacyHref: '/admin/users' },
-  { key: 'vendors', label: 'Vendors', icon: Briefcase, wired: false, legacyHref: '/admin/vendors' },
+  { key: 'vendors', label: 'Vendors', icon: Briefcase, wired: true, legacyHref: '/admin/vendors' },
   { key: 'demo-vendors', label: 'Demo vendors', icon: TestTube, wired: false, legacyHref: '/admin/demo-vendors' },
   { key: 'events', label: 'Events', icon: CalendarDays, wired: true, legacyHref: '/admin/events' },
   { key: 'venues', label: 'Venues', icon: MapPin, wired: true, legacyHref: '/admin/venues' },
@@ -94,6 +95,8 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
         />
       ) : tab === 'events' ? (
         <EventsSurface q={first(search.q) ?? ''} archived={first(search.archived) ?? null} />
+      ) : tab === 'vendors' ? (
+        <VendorsSurface q={first(search.q) ?? ''} status={first(search.status) ?? ''} />
       ) : (
         <UsersSurface
           q={first(search.q) ?? ''}

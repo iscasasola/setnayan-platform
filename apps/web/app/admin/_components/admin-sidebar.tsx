@@ -379,9 +379,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/users',
       },
       {
+        // Repointed to the Accounts Studio Vendors tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/vendors path + the
+        // standalone /admin/vendors/[id]/edit + /tokens + /team detail routes
+        // (which stay standalone).
         key: 'vendors',
         label: 'Vendors',
-        href: '/admin/vendors',
+        href: '/admin/accounts?tab=vendors',
         icon: Briefcase,
         matchPrefix: '/admin/vendors',
       },

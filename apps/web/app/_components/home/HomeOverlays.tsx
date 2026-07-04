@@ -289,9 +289,17 @@ function PricesOverlay({
         livestream and the full Plano planner always stay free. Curated bundles (Essentials &amp;
         Complete) are on the way.
       </p>
-      <Link className="hr-pr-seefull" href="/pricing" onClick={onClose}>
-        See full pricing →
-      </Link>
+      <div className="hr-pr-cta-row">
+        <Link className="hr-pr-seefull" href="/pricing" onClick={onClose}>
+          See full pricing →
+        </Link>
+        {/* Vendor Custom plans deep-link (owner 2026-07-04) — sits beside the
+            Prices menu's primary CTA and jumps straight to the ✦ Custom tier
+            section on /for-vendors. */}
+        <Link className="hr-pr-custom-link" href="/for-vendors#custom" onClick={onClose}>
+          Custom plans for vendors →
+        </Link>
+      </div>
     </OverlayShell>
   );
 }
@@ -399,7 +407,7 @@ function VendorsOverlay({
       <div className="hr-vb-legend">
         <b>How the tiers stack.</b> <b>Free</b> is the whole ops spine. <b>Solo</b> adds your
         business analytics. <b>Pro</b> adds a team, wider reach, and premium market intel.{' '}
-        <b>Enterprise</b> lifts every limit: seats, photos, events, nationwide reach.{' '}
+        <b>Enterprise</b> lifts every limit: seats, photos, events, reach up to 100 km.{' '}
         <Link className="hr-vb-legend-link" href="/for-vendors" onClick={onClose}>
           See the full comparison →
         </Link>

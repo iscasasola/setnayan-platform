@@ -173,7 +173,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
           { n: 'All categories', b: 'List under every parent category, no cap.' },
           { n: 'Up to 10 team seats + multi-admin', b: 'A full team with shared, voted governance.' },
-          { n: 'Nationwide reach', b: 'Serve couples in every region.' },
+          { n: 'Reach up to 100 km', b: 'Serve couples across a wide service area. Nationwide reach is available on Custom.' },
           { n: 'Up to 300 portfolio photos', b: 'A deep portfolio to show your full range.' },
           { n: 'Up to 8 events per category / day', b: 'Run at real studio volume.' },
           { n: 'Quarterly business review', soon: true, b: 'A scheduled review of your numbers with our team.' },
@@ -186,7 +186,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
 
 /** The negotiated tier above Enterprise — rendered as a teaser card, not a benefit list. */
 export const VENDOR_CUSTOM_TIER = {
-  name: 'Custom · Talk to us',
+  name: 'Custom · from ₱8,999 / 28 days',
   tagline:
-    'Franchises, chains and multi-brand houses beyond Enterprise caps: unlimited seats, multi-region, unlimited portfolio. Negotiated pricing.',
+    'Everything in Enterprise, automatically, plus dials for what you need: more branches (₱999 each), reach up to nationwide, more team seats and event slots, a bigger portfolio, monthly included inquiry tokens, and your own domain. A dedicated account manager and quarterly business review come with it.',
 };

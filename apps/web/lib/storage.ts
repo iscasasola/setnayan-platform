@@ -8,12 +8,12 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   R2_BUCKETS,
-  type R2BucketKey,
   type R2BucketName,
   getR2Client,
   isR2Configured,
   publicUrlFor,
 } from '@/lib/r2';
+import { bucketForPrefix } from '@/lib/bucket-routing';
 
 /**
  * Server-side upload helper used by Server Actions (admin merchant-QR,
@@ -57,23 +57,14 @@ export type UploadResult =
   | { ok: false; error: string };
 
 /**
- * Routes a `pathPrefix` to one of the four R2 buckets.
+ * Routes a `pathPrefix` to one of the R2 buckets.
  *
- * V1 rules (mirror the spec in the PR body):
- *   - merchant-qr/*         → media
- *   - vendor-logo/*         → media
- *   - profile-photo/*       → media
- *   - payment-screenshot/*  → thread-files
- *   - everything else       → media (safe default for public assets)
+ * The mapping itself lives in `@/lib/bucket-routing` (pure, client-safe, no
+ * `server-only`) so it can be unit-tested under `tsx --test` — importing this
+ * file into a node:test would throw on the top-of-file `import 'server-only'`.
+ * Re-exported here so existing `@/lib/storage` callers are unchanged.
  */
-function bucketForPrefix(pathPrefix: string): R2BucketKey {
-  const normalized = pathPrefix.replace(/^\/+/, '');
-  if (normalized.startsWith('merchant-qr/')) return 'media';
-  if (normalized.startsWith('vendor-logo/')) return 'media';
-  if (normalized.startsWith('profile-photo/')) return 'media';
-  if (normalized.startsWith('payment-screenshot/')) return 'threadFiles';
-  return 'media';
-}
+export { bucketForPrefix };
 
 /**
  * Uploads a file to Cloudflare R2 and returns the public URL.

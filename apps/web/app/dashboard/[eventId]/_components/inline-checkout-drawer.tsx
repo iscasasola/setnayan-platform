@@ -493,7 +493,11 @@ export function InlineCheckoutDrawer({
                         the dropzone (whose own input is htmlFor-associated),
                         instead of an orphan <label> with no `for` target. */}
                     <FileUpload
-                      bucket="media"
+                      // Privacy-critical: payment proofs are PRIVATE. Route to
+                      // the private thread-files bucket (read only via short-lived
+                      // presigned GETs) — never the public `media` bucket, which
+                      // would leak the screenshot at a permanent public URL.
+                      bucket="thread-files"
                       pathPrefix={`payment-screenshots/inline-checkout/${eventId}`}
                       maxSizeMB={5}
                       acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}

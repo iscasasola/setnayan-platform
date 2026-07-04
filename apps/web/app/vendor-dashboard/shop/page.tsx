@@ -38,7 +38,7 @@ import {
   type VendorBranchView,
 } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
@@ -325,16 +325,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         : teamSeatsLeft > 0
           ? `Add up to ${teamSeatsLeft}`
           : 'Seats full';
-  // Branch headroom: only Enterprise may add locations (each is a paid add-on,
-  // no hard cap), everyone else upgrades to unlock.
-  const branchSub = tier === 'enterprise' ? 'Add locations' : 'Upgrade to add';
+  // Branch headroom: only Enterprise-or-higher may add locations (each is a paid
+  // add-on, no hard cap), everyone else upgrades to unlock. Rank-derived so
+  // Custom (runs as Enterprise) inherits without a hard equality.
+  const branchSub = isTierAtLeast(tier, 'enterprise') ? 'Add locations' : 'Upgrade to add';
 
-  // Branch add/manage data — only Enterprise renders the inline manager, so the
-  // fee + payout accounts are only fetched for that tier (skips two reads for
-  // everyone else).
+  // Branch add/manage data — only Enterprise-or-higher renders the inline
+  // manager, so the fee + payout accounts are only fetched for that tier (skips
+  // two reads for everyone else).
   let branchFeePhp = BRANCH_FEE_PHP;
   let branchPay: PayInfo = { bdoName: null, bdoNumber: null, gcashName: null, gcashNumber: null };
-  if (tier === 'enterprise') {
+  if (isTierAtLeast(tier, 'enterprise')) {
     const [fee, settings] = await Promise.all([
       fetchBranchFeePhp(supabase).catch(() => BRANCH_FEE_PHP),
       fetchPlatformSettings(supabase).catch(() => null),
@@ -993,7 +994,7 @@ function BranchPanel({
   branchAutoRadius: number;
   branchPay: PayInfo;
 }) {
-  const isEnterprise = tier === 'enterprise';
+  const isEnterprise = isTierAtLeast(tier, 'enterprise');
   const hasCoords = hqLat !== null && hqLng !== null;
   const hasRing = Number.isFinite(reachKm) && reachKm > 0;
   const from = city ?? 'your headquarters';

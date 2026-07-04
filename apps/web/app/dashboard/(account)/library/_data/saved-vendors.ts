@@ -67,7 +67,10 @@ type ProfileAnonymityRow = {
   tier_state: string | null;
 };
 
-const PAID_TIERS = new Set(['pro', 'enterprise']);
+// Day-1 real-name reveal tiers. Custom runs as Enterprise → nameMode 'true', so
+// it joins pro/enterprise here. (Solo's separate name-reveal decision is out of
+// scope for the Custom-tier build.)
+const PAID_TIERS = new Set(['pro', 'enterprise', 'custom']);
 
 /** Title-case the saved-row `category` enum (e.g. `wedding_cake`) as a last
  *  resort when the hydrated vendor has no services array to derive a label. */

@@ -12,7 +12,13 @@ import {
   fetchAdminVendorContext,
   type VendorTeamRole,
 } from '@/lib/vendor-team';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import {
+  effectiveSeatCap,
+  fetchExtraAgentSeats,
+  fetchSeatFeePhp,
+  seatServiceKey,
+} from '@/lib/vendor-seats';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
@@ -87,8 +93,12 @@ export async function inviteVendorTeamMember(formData: FormData) {
 
   // Tier seat cap (Vendor_Tier_Capability_Matrix): count every member beyond
   // the founding admin (vendor_profiles.user_id) against the plan's seat
-  // allowance — additional admins consume a seat just like agents do.
-  const seatCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  // allowance — additional admins consume a seat just like agents do. Effective
+  // cap = the tier's base agentAccounts + any paid extra seats (Enterprise/Custom
+  // ₱250/28d add-on, owner 2026-07-02; 0 for every other tier).
+  const baseCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
+  const seatCap = effectiveSeatCap(baseCap, extraSeats);
   if (seatCap !== Infinity) {
     const { count: seatCount } = await supabase
       .from('vendor_team_members')
@@ -96,10 +106,13 @@ export async function inviteVendorTeamMember(formData: FormData) {
       .eq('vendor_profile_id', ctx.vendorProfileId)
       .neq('user_id', ctx.founderUserId);
     if ((seatCount ?? 0) >= seatCap) {
+      const moreHint = canBuyExtraSeats(ctx.tierState)
+        ? 'Add a seat (₱250/28d) for more.'
+        : 'Upgrade for more.';
       return err(
         seatCap === 0
           ? 'Team seats need a paid plan. Get verified or upgrade to add team members.'
-          : `You've reached your plan's limit of ${seatCap} team seat${seatCap === 1 ? '' : 's'}. Upgrade for more.`,
+          : `You've reached your plan's limit of ${seatCap} team seat${seatCap === 1 ? '' : 's'}. ${moreHint}`,
       );
     }
   }
@@ -312,6 +325,77 @@ export async function cancelAdminMotion(formData: FormData) {
 
   revalidatePath(TEAM);
   redirect(`${TEAM}?saved=1`);
+}
+
+// ── Extra team seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ──
+
+/** 'SN' + 8 uppercase hex — matches the couple checkout + branch reference format. */
+function generateSeatReferenceCode(): string {
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  return (
+    'SN' +
+    Array.from(arr)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
+}
+
+/**
+ * Buy one extra team seat beyond the tier's base cap. Enterprise/Custom-only
+ * (the base ladder tops out at 10; extra seats are the paid escape valve).
+ * Apply-then-pay: an `orders` row keyed `vendor_extra_seat__{vendor_profile_id}`
+ * + a pending `payments` row so it lands in /admin/payments. On admin approval
+ * the sku-activation hook recomputes vendor_profiles.extra_agent_seats and the
+ * seat becomes usable. The ongoing ₱250 folds into the Enterprise renewal in PR-B.
+ */
+export async function buyExtraSeat(formData: FormData) {
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
+
+  if (!canBuyExtraSeats(ctx.tierState)) {
+    return err('Extra team seats are an Enterprise add-on. Upgrade to Enterprise first.');
+  }
+
+  const channel = formData.get('channel') === 'gcash' ? 'gcash' : 'bdo';
+  const feePhp = await fetchSeatFeePhp(supabase);
+  const referenceCode = generateSeatReferenceCode();
+
+  const { data: orderRow, error: oErr } = await supabase
+    .from('orders')
+    .insert({
+      event_id: null,
+      user_id: currentUserId,
+      vendor_profile_id: ctx.vendorProfileId,
+      service_key: seatServiceKey(ctx.vendorProfileId),
+      description: 'Extra Team Seat (28-day)',
+      requested_total_php: feePhp,
+      status: 'submitted',
+      reference_code: referenceCode,
+    })
+    .select('order_id')
+    .maybeSingle();
+  if (oErr || !orderRow) {
+    return err('Could not start the seat order. Please try again.');
+  }
+  const orderId = (orderRow as { order_id: string }).order_id;
+
+  const { error: pErr } = await supabase.from('payments').insert({
+    order_id: orderId,
+    user_id: currentUserId,
+    amount_php: feePhp,
+    channel,
+    reference_number: null,
+    screenshot_url: null,
+    paid_at: new Date().toISOString().slice(0, 10),
+  });
+  if (pErr) {
+    await supabase.from('orders').delete().eq('order_id', orderId);
+    return err('Could not start the seat order. Please try again.');
+  }
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?bought=${encodeURIComponent(referenceCode)}`);
 }
 
 /** Step down from the admin role yourself (→ agent). Blocked if you're the last admin. */

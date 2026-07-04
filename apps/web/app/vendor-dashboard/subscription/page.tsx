@@ -227,7 +227,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     new Date(tierExpiresAt).getTime() - now <= fourteenDaysMs &&
     new Date(tierExpiresAt).getTime() > now;
 
-  const isPaid = currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise';
+  // Custom is a paid tier too (composed via the Stage-2 configurator / admin
+  // handshake, not self-serve-buyable from PAID_TIERS below) — include it so the
+  // renewal/expiry chip renders for Custom vendors.
+  const isPaid =
+    currentTier === 'solo' ||
+    currentTier === 'pro' ||
+    currentTier === 'enterprise' ||
+    currentTier === 'custom';
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
@@ -250,15 +257,17 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           >
             <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Current plan:{' '}
-            {currentTier === 'enterprise'
-              ? 'Enterprise'
-              : currentTier === 'pro'
-                ? 'Pro'
-                : currentTier === 'solo'
-                  ? 'Solo'
-                  : currentTier === 'verified'
-                    ? 'Free · Verified'
-                    : 'Free'}
+            {currentTier === 'custom'
+              ? 'Custom'
+              : currentTier === 'enterprise'
+                ? 'Enterprise'
+                : currentTier === 'pro'
+                  ? 'Pro'
+                  : currentTier === 'solo'
+                    ? 'Solo'
+                    : currentTier === 'verified'
+                      ? 'Free · Verified'
+                      : 'Free'}
             {currentCycle ? ` · ${currentCycle}` : ''}
           </span>
           {isPaid && tierExpiresAt && (

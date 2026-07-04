@@ -540,14 +540,17 @@ function LeadArticle({
  *  tier badge OR a #1-match label. Tagged vendors show by default; the rest
  *  (plain credits) collapse under a native "Show more" disclosure. */
 function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
-  return v.tier === 'pro' || v.tier === 'enterprise' || v.isFirstPick;
+  // Pro-or-higher (Custom runs as Enterprise) get the featured editorial
+  // treatment; Solo/Verified render as plain credits.
+  return v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' || v.isFirstPick;
 }
 
 function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement {
   // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
   // a link to their marketplace profile; others render as a plain credit.
   // (Free vendors are already filtered out in data.ts.)
-  const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
+  const featured =
+    (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
   return (
     <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
       {v.logoUrl ? (
@@ -586,7 +589,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           #1 Match
         </span>
       ) : null}
-      {v.tier === 'pro' || v.tier === 'enterprise' ? (
+      {v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' ? (
         <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta">
           {v.tier}
         </span>

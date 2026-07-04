@@ -279,7 +279,9 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
     // Same Pro+ derivation as the queue page: tier_state guarded by
     // tier_expires_at because the downgrade sweep is login-driven.
     const proActive =
-      (vendor.tier_state === 'pro' || vendor.tier_state === 'enterprise') &&
+      (vendor.tier_state === 'pro' ||
+        vendor.tier_state === 'enterprise' ||
+        vendor.tier_state === 'custom') &&
       (!vendor.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > now.getTime());
     const categoryLabel = vendor.services?.[0]
       ? displayServiceLabel(vendor.services[0])

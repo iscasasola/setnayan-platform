@@ -4,60 +4,67 @@
  * AdminSidebar — admin doorway desktop nav (NavGroup[] source of truth).
  *
  * WHY: CLAUDE.md 2026-05-23 row 2 locks the admin console. Originally 8
- * categories (0023 § 1), remapped 2026-06-04 to 6 topic-groups, and re-cut
- * 2026-06-08 by the ops-shaped nav redesign
- * (Admin_Console_Nav_Redesign_2026-06-08.md · owner conditionally signed
- * off 2026-06-08). The console is now grouped by the VERB an admin performs
- * — act / find / tune — instead of by topic, because admin is a work-queue
- * ops console (≈95% of sessions are "clear a queue").
+ * categories (0023 § 1), remapped 2026-06-04 to 6 topic-groups, re-cut
+ * 2026-06-08 by the ops-shaped VERB redesign (act / find / tune ·
+ * Admin_Console_Nav_Redesign_2026-06-08.md), respun 2026-07-03 into 6 topic
+ * menus (Overview · Accounts · Content · Marketing · Performance · System
+ * Settings), and re-cut AGAIN 2026-07-04 by this owner respine below.
  *
  * This file owns the NavGroup[] array consumed by SidebarShell +
  * SidebarSection + SidebarItem from @/app/_components/nav/*. It is the
- * single source of truth for admin nav structure on desktop. The 4-item
- * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
+ * single source of truth for admin nav structure on desktop. The mobile
+ * BottomNav lives in admin-bottom-nav.tsx alongside this file (a SEPARATE
+ * ≤5-tab mobile IA — it does NOT mirror these groups 1:1 and is untouched by
+ * this re-cut).
  *
- * 6 MENUS — the owner's 2026-07-03 topic respine ("Overview · Accounts ·
- * Content · Marketing · Performance · System Settings"). The VERB insight
- * from the 2026-06-08 ops redesign survives INSIDE Overview: the owner
- * declared Overview the task inbox (vendor-home pattern) — the /admin
- * pulse PLUS every act-now queue (requests · approvals · transactions ·
- * reports · disputes), so clear-a-queue work still leads the console.
+ * 6 MENUS — the owner's 2026-07-04 respine (supersedes the 2026-07-03
+ * 6-topic layout). This is the first PR of the HQ studio-consolidation
+ * program; follow-up waves turn these menus into Taxonomy-Studio-style
+ * surfaces. The layout, task-inbox-first → engine-rooms-last:
+ *   1. Overview (key 'queues') — the decision/task inbox (vendor-dashboard
+ *                   home pattern): the /admin pulse · All work · every
+ *                   act-now queue (requests · approvals · transactions ·
+ *                   reports · disputes). UNCHANGED items.
+ *   2. Accounts (key 'directory') — pure record look-up: Users · Vendors ·
+ *                   Demo vendors · Events · Venues. UNCHANGED items.
+ *   3. Studio (key 'media') — everything an admin CURATES or PUBLISHES:
+ *                   the old Content lane (Website · Hero video · Reveal
+ *                   Studio · Real Stories · Recaps · Patiktok · Songs ·
+ *                   Moodboard library) FOLLOWED BY the old Marketing lane
+ *                   (Social queue · Spotlight Awards · Journal Spotlights ·
+ *                   Discount codes · Referrals). The retired 'marketing'
+ *                   group folds in here; its items keep their keys/icons.
+ *   4. Ugat Console (key 'ugat' · NEW) — the data-structure / mapping wing
+ *                   carved OUT of System Settings, anchored by the Taxonomy
+ *                   Studio: Menus & icons · Taxonomy · Onboarding · Wedding
+ *                   traditions · Setnayan AI brain. (Event Types ·
+ *                   Refinements · Wedding types already folded into the
+ *                   Taxonomy Studio 2026-07-03 — no standalone items.)
+ *   5. App Performance (key 'funnels') — growth + stats: the App Performance
+ *                   cockpit · Growth · Intelligence · Funnels · Operations &
+ *                   Hiring · Connection logs · Offline daemon. UNCHANGED
+ *                   items; group label "Performance" → "App Performance".
+ *                   (The first ITEM is also labeled "App Performance" — the
+ *                   label collision is accepted for now.)
+ *   6. Money (key 'settings-group') — the money-config lane (Pricing ·
+ *                   Add-ons · Vendor recommendations · Token bands · Price
+ *                   bands · Budget Planner · Receipts · Payment methods)
+ *                   FIRST, then the small settings tail (Settings ·
+ *                   Notifications · Demo mode · My account).
  *
- * Group KEYS are preserved wherever a group has a predecessor so the
- * setnayan.nav.section.<key>.open localStorage state survives the relabel:
- *   1. Overview (key 'queues' — the old Home + Work merged) — the /admin
- *                   pulse · All work · every act-now queue. (Social queue
- *                   moved to Marketing — it's the marketing task lane.)
- *   2. Accounts (key 'directory') — Users · Vendors · Demo vendors ·
- *                   Events · Venues. (Spotlight Awards + Journal
- *                   Spotlights moved to Marketing — featuring is a
- *                   marketing lever, not record look-up.)
- *   3. Content (key 'media') — Website · Hero video · Reveal Studio ·
- *                   Real Stories · Recaps · Patiktok · Songs ·
- *                   Moodboard library.
- *   4. Marketing (key 'marketing' · NEW — the 6th-HQ marketing module's
- *                   home) — Social queue · Spotlight Awards · Journal
- *                   Spotlights · Discount codes · Referrals.
- *   5. Performance (key 'funnels') — App Performance cockpit · Growth ·
- *                   Intelligence · Funnels · Operations & Hiring ·
- *                   Connection logs · Offline daemon.
- *   6. System Settings (key 'settings-group') — absorbs the dissolved
- *                   Monetization config lane (old key 'money': Pricing ·
- *                   Add-ons · Token bands · Price bands · Budget Planner ·
- *                   Receipts · Payment methods · Vendor recommendations)
- *                   + Data Structure (old key 'content': Menus & icons ·
- *                   Taxonomy · Event Types · Refinements · Onboarding ·
- *                   Wedding types · Wedding traditions · AI brain) +
- *                   Settings. The visit-least engine room, one collapsible.
+ * Group KEYS are preserved for setnayan.nav.section.<key>.open localStorage
+ * continuity — 'queues' · 'directory' · 'media' · 'funnels' ·
+ * 'settings-group' all survive; 'ugat' is new (defaults apply); the old
+ * 'marketing' group key RETIRES (its items live in 'media' now).
  *
  * REQUIRED FOLLOW-UP (carried from 2026-06-08 sign-off): the Work view's
  * Money-lane filter (Payments + Payouts + Token sales surfaced together)
  * ships with the Work master-detail PR, so finance keeps a one-stop money
  * view. RBAC handler-lane scoping is a later, separate build.
  *
- * PAYMENT METHODS: lives with the money config inside System Settings (the
- * data IS money — vendor payouts + customer payment instructions both
- * consume it). Never duplicated.
+ * PAYMENT METHODS: lives with the money config inside Money (the data IS
+ * money — vendor payouts + customer payment instructions both consume it).
+ * Never duplicated.
  *
  * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse keeps its route
  * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
@@ -149,12 +156,11 @@ import type {
 export const ADMIN_NAV_GROUPS: NavGroup[] = [
   // ── SPINE ─────────────────────────────────────────────────────────────
   {
-    // OVERVIEW (key 'queues' kept for localStorage continuity) — the owner's
-    // 2026-07-03 respine merges the old Home + Work groups: Overview IS the
-    // task inbox (vendor-home pattern) — the /admin pulse plus every act-now
-    // queue (requests · approvals · transactions · reports · disputes).
-    // Social queue moved to Marketing. (Two-admin Approvals + Taxonomy-
-    // requests join here once their dedicated surfaces ship.)
+    // OVERVIEW (key 'queues' kept for localStorage continuity) — the decision/
+    // task inbox (vendor-dashboard home pattern): the /admin pulse plus every
+    // act-now queue (requests · approvals · transactions · reports · disputes).
+    // UNCHANGED by the 2026-07-04 respine. (Social queue lives in Studio; two-
+    // admin Approvals + Taxonomy-requests join here once their surfaces ship.)
     key: 'queues',
     label: 'Overview',
     items: [
@@ -357,8 +363,8 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
   },
   {
     // ACCOUNTS (key 'directory' kept for localStorage continuity) — pure
-    // record-lookup. Spotlight Awards + Journal Spotlights moved to Marketing
-    // (featuring is a marketing lever, not look-up) per the 2026-07-03 respine.
+    // record-lookup. UNCHANGED items. (Spotlight Awards + Journal Spotlights
+    // live in Studio — featuring is a curation/publishing lever, not look-up.)
     key: 'directory',
     label: 'Accounts',
     items: [
@@ -399,10 +405,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // CONTENT (key 'media' kept for localStorage continuity — was "Content &
-    // Media"). Every couple-facing publishing surface + asset library.
+    // STUDIO (key 'media' kept for localStorage continuity — was "Content").
+    // Everything an admin CURATES or PUBLISHES: the old Content publishing/
+    // asset lane FIRST, then the old Marketing lane (the retired 'marketing'
+    // group folded in here 2026-07-04 — item keys/icons unchanged).
     key: 'media',
-    label: 'Content',
+    label: 'Studio',
     defaultOpen: false,
     items: [
       {
@@ -464,22 +472,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/moodboard-library',
         icon: Palette,
       },
-    ],
-  },
-  {
-    // MARKETING (NEW key 'marketing' · 2026-07-03 respine) — the 6th-HQ
-    // marketing module's nav home: the social publishing queue + the two
-    // featuring levers + the growth incentives. Ads + campaign surfaces join
-    // here when they ship (Ads blocked on Meta creds).
-    key: 'marketing',
-    label: 'Marketing',
-    defaultOpen: false,
-    items: [
+      // ── old MARKETING lane (retired 'marketing' group · folded in 2026-07-04)
+      // — the social publishing queue + the two featuring levers + the growth
+      // incentives, appended after the Content lane. Item keys/icons unchanged.
       {
         // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
         // post couple creations + vendor verification features + take-downs.
-        // Moved from Work: it's the marketing task lane. Its live count badge
-        // follows the item key, not the group.
+        // Its live count badge follows the item key, not the group.
         key: 'social-queue',
         label: 'Social queue',
         href: '/admin/social-queue',
@@ -516,14 +515,80 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
     ],
   },
-  // ── TUNE GROUPS (collapsible) ─────────────────────────────────────────
+  // ── ENGINE ROOMS (collapsible) ────────────────────────────────────────
   {
-    // PERFORMANCE (key 'funnels' kept for localStorage continuity) — owner
+    // UGAT CONSOLE (NEW key 'ugat' · 2026-07-04 respine) — the data-structure /
+    // mapping wing carved OUT of System Settings, anchored by the Taxonomy
+    // Studio. Every item that configures the platform's data structures and
+    // mappings: Menus & icons · Taxonomy · Onboarding · Wedding traditions ·
+    // Setnayan AI brain. (Event Types · Refinements · Wedding types already
+    // folded into the Taxonomy Studio 2026-07-03 — no standalone items to
+    // carry.) The first PR of the HQ studio-consolidation program will turn
+    // these into Taxonomy-Studio-style surfaces.
+    key: 'ugat',
+    label: 'Ugat Console',
+    defaultOpen: false,
+    items: [
+      {
+        // Nav/icon/menu registry — the single source for the name + icon of
+        // every menu across all account types (foundation 2026-06-16).
+        key: 'menus',
+        label: 'Menus & icons',
+        href: '/admin/menus',
+        icon: Shapes,
+      },
+      {
+        key: 'taxonomy',
+        label: 'Taxonomy',
+        href: '/admin/taxonomy',
+        icon: Tag,
+      },
+      // 'event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+      // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event), where
+      // the event-type roster (couple-launch `enabled` lever + picker-card
+      // presentation + retire/un-retire) now lives beside the category-scoping
+      // controls. The standalone page redirects there.
+      // 'refinements' sidebar item REMOVED 2026-07-03 — /admin/refinements was
+      // retired to a redirect(/admin/taxonomy); refinements are now edited in the
+      // Taxonomy Studio inspector's Refinements tab (reachable via the Taxonomy
+      // item above). Dedicated nav item dropped so it stops surfacing here + in
+      // /admin/menus. The redirect page stays for old bookmarks.
+      {
+        // Onboarding-flow config (background music + future per-flow knobs),
+        // grouped by onboarding type. Scales as new event-type onboardings ship.
+        key: 'onboarding',
+        label: 'Onboarding',
+        href: '/admin/onboarding',
+        icon: Compass,
+      },
+      // 'wedding-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
+      // Vocabularies → Faiths rail (/admin/taxonomy?view=vocab-faith). The
+      // standalone page now redirects there.
+      {
+        key: 'wedding-traditions',
+        label: 'Wedding traditions',
+        href: '/admin/wedding-traditions',
+        icon: BookOpen,
+      },
+      {
+        key: 'brain',
+        label: "Setnayan AI brain",
+        href: '/admin/brain',
+        icon: Brain,
+      },
+    ],
+  },
+  {
+    // APP PERFORMANCE (key 'funnels' kept for localStorage continuity · label
+    // "Performance" → "App Performance" 2026-07-04) — growth + stats. Owner
     // lock 2026-07-03: the App Performance cockpit (/admin/app-performance ·
     // plan: spec corpus 0023_admin_console/App_Performance_Plan_2026-07-03.md)
     // leads the group and the former Insights surfaces are its drill-downs.
+    // NB the first ITEM below is also labeled "App Performance" — the label
+    // collision with the group label is accepted for now (owner). Items
+    // UNCHANGED by the 2026-07-04 respine.
     key: 'funnels',
-    label: 'Performance',
+    label: 'App Performance',
     defaultOpen: false,
     items: [
       {
@@ -574,30 +639,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // SYSTEM SETTINGS (key 'settings-group' kept for localStorage continuity)
-    // — the 2026-07-03 respine's engine room: absorbs the dissolved
-    // Monetization config lane (old key 'money' — act-now money QUEUES stay in
-    // Overview; the Work Money-lane filter reunites them per the 2026-06-08
-    // sign-off condition) and Data Structure (old key 'content'), plus system
-    // + personal config. The visit-least bucket, one collapsible; ordered
-    // system → money config → data structure → personal.
+    // MONEY (key 'settings-group' kept for localStorage continuity · label
+    // "System Settings" → "Money" 2026-07-04) — the money-config lane FIRST
+    // (act-now money QUEUES stay in Overview; the Work Money-lane filter
+    // reunites them per the 2026-06-08 sign-off condition), then the small
+    // settings tail at the bottom. The Data Structure lane carved out to the
+    // Ugat Console. The visit-least bucket, one collapsible; ordered money
+    // config → settings tail.
     key: 'settings-group',
-    label: 'System Settings',
+    label: 'Money',
     defaultOpen: false,
     items: [
-      {
-        key: 'settings',
-        label: 'Settings',
-        href: '/admin/settings',
-        icon: Settings,
-        matchPrefix: '/admin/settings',
-      },
-      {
-        key: 'notifications',
-        label: 'Notifications',
-        href: '/admin/notifications',
-        icon: Bell,
-      },
       {
         key: 'pricing',
         label: 'Pricing',
@@ -651,52 +703,19 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/settings/payment-methods',
         icon: Landmark,
       },
+      // ── SETTINGS TAIL — system + personal config, bottom of the collapsible.
       {
-        // Nav/icon/menu registry — the single source for the name + icon of
-        // every menu across all account types (foundation 2026-06-16).
-        key: 'menus',
-        label: 'Menus & icons',
-        href: '/admin/menus',
-        icon: Shapes,
+        key: 'settings',
+        label: 'Settings',
+        href: '/admin/settings',
+        icon: Settings,
+        matchPrefix: '/admin/settings',
       },
       {
-        key: 'taxonomy',
-        label: 'Taxonomy',
-        href: '/admin/taxonomy',
-        icon: Tag,
-      },
-      // 'event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
-      // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event), where
-      // the event-type roster (couple-launch `enabled` lever + picker-card
-      // presentation + retire/un-retire) now lives beside the category-scoping
-      // controls. The standalone page redirects there.
-      // 'refinements' sidebar item REMOVED 2026-07-03 — /admin/refinements was
-      // retired to a redirect(/admin/taxonomy); refinements are now edited in the
-      // Taxonomy Studio inspector's Refinements tab (reachable via the Taxonomy
-      // item above). Dedicated nav item dropped so it stops surfacing here + in
-      // /admin/menus. The redirect page stays for old bookmarks.
-      {
-        // Onboarding-flow config (background music + future per-flow knobs),
-        // grouped by onboarding type. Scales as new event-type onboardings ship.
-        key: 'onboarding',
-        label: 'Onboarding',
-        href: '/admin/onboarding',
-        icon: Compass,
-      },
-      // 'wedding-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
-      // Vocabularies → Faiths rail (/admin/taxonomy?view=vocab-faith). The
-      // standalone page now redirects there.
-      {
-        key: 'wedding-traditions',
-        label: 'Wedding traditions',
-        href: '/admin/wedding-traditions',
-        icon: BookOpen,
-      },
-      {
-        key: 'brain',
-        label: "Setnayan AI brain",
-        href: '/admin/brain',
-        icon: Brain,
+        key: 'notifications',
+        label: 'Notifications',
+        href: '/admin/notifications',
+        icon: Bell,
       },
       {
         key: 'demo-mode',

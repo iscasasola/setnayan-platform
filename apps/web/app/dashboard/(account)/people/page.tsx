@@ -1,24 +1,126 @@
 import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
 
 export const metadata = {
   title: 'People',
 };
 
 /**
- * People — the reserved home for the person-spine connections layer
- * (owner-locked 2026-07-04, 03_Strategy/People_Graph_and_Lifelong_Identity_
- * 2026-07-04.md). The connect flow (suggest → request → mutually confirm) is
- * Phase 2, gated behind the people graph + PH counsel, so NOTHING here is
- * interactive yet.
+ * People — the person-spine connections layer (owner-locked 2026-07-04,
+ * 03_Strategy/People_Graph_and_Lifelong_Identity_2026-07-04.md).
  *
- * Owner feedback (2026-07-05): the earlier version rendered `+ Spouse` /
- * `+ Parent` chips that *looked* tappable but did nothing ("how do I send an
- * invite?" had no answer). This version is an honest, unmistakable "coming soon"
- * PREVIEW — descriptive, non-interactive — so nobody taps a dead control. It
- * keeps the feature's permanent nav home so the real flow drops in later without
- * a repaint.
+ * Flag-gated (`peopleConnectionsEnabled()`, default OFF — Phase 2 is counsel-
+ * gated). When OFF (production today) this renders the honest "coming soon"
+ * PREVIEW — no interactive controls. When ON (post PH counsel + flag flip) it
+ * renders the functional suggest→confirm flow via <ConnectionsPanel>, wiring the
+ * shipped propose/confirm/decline actions. The preview + functional modes share
+ * this one route so nothing repaints on the flip.
  */
-export default function PeoplePage() {
+export default async function PeoplePage() {
+  if (!peopleConnectionsEnabled()) {
+    return <PeoplePreview />;
+  }
+
+  const user = await getCurrentUser();
+  const { incoming, outgoing, confirmed } = user
+    ? await fetchMyConnections(user.id)
+    : { incoming: [], outgoing: [], confirmed: [] };
+
+  return (
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <header className="mb-6 space-y-1">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
+        <p className="text-base text-ink/60">Your family, godparents, and friends.</p>
+      </header>
+      <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+    </div>
+  );
+}
+
+/**
+ * Fetch the signed-in user's connections, classified into incoming (pending,
+ * I'm the recipient) / outgoing (pending, I proposed) / confirmed. RLS on
+ * `person_connections` already scopes this to edges I'm a participant in.
+ *
+ * Name resolution degrades gracefully: `people` RLS only surfaces people I
+ * claimed or created, so a connected person's name shows for people I added and
+ * falls back to a neutral label otherwise — until the counsel-gated cross-person
+ * name-visibility RLS lands with the flag flip.
+ */
+async function fetchMyConnections(userId: string): Promise<{
+  incoming: ConnectionItem[];
+  outgoing: ConnectionItem[];
+  confirmed: ConnectionItem[];
+}> {
+  const empty = { incoming: [], outgoing: [], confirmed: [] };
+  const supabase = await createClient();
+
+  const { data: me } = await supabase
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', userId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const myPerson = (me as { person_id: string } | null)?.person_id;
+  if (!myPerson) return empty;
+
+  const { data: rowsData } = await supabase
+    .from('person_connections')
+    .select('connection_id, relation, layer, status, from_person_id, to_person_id')
+    .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
+    .is('deleted_at', null)
+    .neq('status', 'declined');
+  const rows = (rowsData ?? []) as Array<{
+    connection_id: string;
+    relation: string;
+    layer: string;
+    status: string;
+    from_person_id: string;
+    to_person_id: string;
+  }>;
+  if (rows.length === 0) return empty;
+
+  const otherIds = [
+    ...new Set(rows.map((r) => (r.from_person_id === myPerson ? r.to_person_id : r.from_person_id))),
+  ];
+  const names = new Map<string, string>();
+  const { data: peopleData } = await supabase
+    .from('people')
+    .select('person_id, display_name, email')
+    .in('person_id', otherIds);
+  for (const p of (peopleData ?? []) as Array<{
+    person_id: string;
+    display_name: string | null;
+    email: string | null;
+  }>) {
+    const label = (p.display_name ?? p.email ?? '').trim();
+    if (label) names.set(p.person_id, label);
+  }
+
+  const incoming: ConnectionItem[] = [];
+  const outgoing: ConnectionItem[] = [];
+  const confirmed: ConnectionItem[] = [];
+  for (const r of rows) {
+    const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
+    const item: ConnectionItem = {
+      connectionId: r.connection_id,
+      relation: r.relation,
+      layer: r.layer,
+      status: r.status,
+      otherName: names.get(otherId) ?? null,
+    };
+    if (r.status === 'confirmed') confirmed.push(item);
+    else if (r.to_person_id === myPerson) incoming.push(item);
+    else outgoing.push(item);
+  }
+  return { incoming, outgoing, confirmed };
+}
+
+/** The honest, non-interactive "coming soon" preview (flag OFF — production today). */
+function PeoplePreview() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-1">
@@ -28,7 +130,6 @@ export default function PeoplePage() {
         </p>
       </header>
 
-      {/* Unmistakable "not yet" state — the whole point of this rewrite. */}
       <div className="mb-8 flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4">
         <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
         <div className="space-y-1">
@@ -78,7 +179,7 @@ export default function PeoplePage() {
   );
 }
 
-/** A descriptive, non-interactive preview row (no button affordance — see file header). */
+/** A descriptive, non-interactive preview row (no button affordance). */
 function PreviewRow({
   icon,
   title,

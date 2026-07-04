@@ -38,6 +38,7 @@ import { buildAccountNavGroups } from './account-nav-config';
  */
 const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   events: 'customer.account.events',
+  people: 'customer.account.people',
   library: 'customer.account.library',
   notifications: 'customer.account.notifications',
   profile: 'customer.account.profile',

@@ -570,7 +570,19 @@ export type BoothVendor = {
   name: string;
   category: string;
   logoUrl: string | null;
+  /** The booked vendor's subscription tier (`vendor_profiles.tier_state`), or
+   *  null. Only pro / enterprise booths brand their 3D booth with the vendor's
+   *  logo (see boothCanBrand); free / verified / solo render the generic booth.
+   *  Optional so an older cached scene payload (pre-tier) still parses. */
+  tier?: string | null;
 };
+
+/** Booth branding is a PRO / ENTERPRISE perk (owner-locked 2026-07-04): those
+ *  tiers texture their logo onto the 3D booth; free / verified / solo stay
+ *  generic. One gate, shared by every 3D surface's BoothMesh. */
+export function boothCanBrand(tier: string | null | undefined): boolean {
+  return tier === 'pro' || tier === 'enterprise';
+}
 
 /** A placed vendor booth (percent canvas). `kind` mirrors event_floor_booths.booth_type. */
 export type Lab3DBooth = {

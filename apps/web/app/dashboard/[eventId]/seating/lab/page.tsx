@@ -245,6 +245,7 @@ export default async function SeatingLabPage({ params }: Props) {
           name: b.vendor.vendor_name,
           category: b.vendor.category,
           logoUrl: b.vendor.logo_url ? boothLogoUrls[b.vendor.logo_url] ?? null : null,
+          tier: b.vendor.tier,
         }
       : null,
   }));

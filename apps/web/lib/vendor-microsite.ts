@@ -16,8 +16,11 @@ export function micrositeCan(tierState: string | null | undefined): {
   canPremium: boolean;
   isEnterprise: boolean;
 } {
+  // Custom runs as Enterprise → same website ceiling (flagship layer). Rank is
+  // the website ladder Free/Verified 0 · Solo 1 · Pro 2 · Enterprise/Custom 3.
   const t = asVendorTier(tierState ?? null);
-  const rank = t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
+  const rank =
+    t === 'custom' || t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
   return { canPersonalize: rank >= 1, canPremium: rank >= 2, isEnterprise: rank >= 3 };
 }
 

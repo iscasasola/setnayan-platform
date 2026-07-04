@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorBranches,
   fetchBranchFeePhp,
@@ -46,7 +47,11 @@ export default async function VendorBranchesPage() {
   } catch {
     tier = null;
   }
-  const isEnterprise = tier === 'enterprise';
+  // Enterprise-or-higher (Custom runs as Enterprise) may manage branches —
+  // rank-derived so Custom inherits without a hard equality. The branches
+  // server action (branches/actions.ts) gates on the same isTierAtLeast, so the
+  // page gate and the action stay consistent for Custom vendors.
+  const isEnterprise = isTierAtLeast(tier, 'enterprise');
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">

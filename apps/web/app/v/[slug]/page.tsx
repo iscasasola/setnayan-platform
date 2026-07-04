@@ -25,7 +25,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
   fetchVendorServices,
@@ -916,7 +916,10 @@ export async function renderVendorBySlug({
   // Enterprise "Flagship" cinematic layer (tier ladder 2026-07-03) — a full,
   // name-overlaid hero. Only when the vendor is Enterprise AND has chosen a hero
   // photo (else it falls back to the standard banner + identity block).
-  const isEnterprise = asVendorTier(vendor.tier_state ?? null) === 'enterprise';
+  // Flagship cinematic layer: Enterprise-or-higher (Custom runs as Enterprise).
+  // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3) so the
+  // Custom tier inherits the flagship hero + films rack without a hard equality.
+  const isEnterprise = micrositeCan(vendor.tier_state ?? null).isEnterprise;
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
   // Films rack — resolve each ref to a click-to-play facade card (poster +
   // embed URL). The rack renders thumbnail facades, NOT live iframes, and only

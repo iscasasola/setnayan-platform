@@ -919,7 +919,9 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
             // guarded by tier_expires_at because the downgrade sweep is
             // login-driven (sweep_vendor_tier_expiry) and may not have run.
             const proActive =
-              (v.tier_state === 'pro' || v.tier_state === 'enterprise') &&
+              (v.tier_state === 'pro' ||
+                v.tier_state === 'enterprise' ||
+                v.tier_state === 'custom') &&
               (!v.tier_expires_at || new Date(v.tier_expires_at).getTime() > Date.now());
             const categoryLabel = v.services[0]
               ? displayServiceLabel(v.services[0])

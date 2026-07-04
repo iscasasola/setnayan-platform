@@ -742,6 +742,7 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
  */
 const TIER_CHIP_TONE: Record<VendorTier, string> = {
   enterprise: 'bg-violet-100 text-violet-800',
+  custom: 'bg-violet-200 text-violet-900',
   pro: 'bg-success-100 text-success-800',
   solo: 'bg-warn-100 text-warn-900',
   verified: 'bg-ink/10 text-ink/70',

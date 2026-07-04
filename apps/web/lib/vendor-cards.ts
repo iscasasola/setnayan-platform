@@ -21,7 +21,11 @@ export type VendorCard = {
   categoryLabel: string | null;
 };
 
-const PAID_TIERS = new Set(['pro', 'enterprise']);
+// Tiers whose real business name is revealed on the card day-1. Pro/Enterprise
+// and Custom (which runs as Enterprise → nameMode 'true'). Solo is deliberately
+// left out here to preserve current behavior — the §6 audit flagged that as a
+// separate owner decision, out of scope for the Custom-tier build.
+const PAID_TIERS = new Set(['pro', 'enterprise', 'custom']);
 
 function fallbackCategoryLabel(category: string | null): string | null {
   if (!category) return null;

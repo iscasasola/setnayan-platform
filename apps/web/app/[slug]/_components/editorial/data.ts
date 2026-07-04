@@ -192,7 +192,7 @@ export type VendorCredit = {
   // tier_state ('free'|'verified'|'solo'|'pro'|'enterprise') or null when the
   // event vendor isn't linked to a marketplace profile. Free vendors are
   // excluded upstream (hidden from the Editorial entirely, per §3).
-  tier: 'free' | 'verified' | 'solo' | 'pro' | 'enterprise' | null;
+  tier: 'free' | 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom' | null;
   logoUrl: string | null;
   slug: string | null;
 };
@@ -750,7 +750,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
             const id = asString(p.vendor_profile_id);
             if (!id) continue;
             const tierRaw = asString(p.tier_state);
-            const tier = (['free', 'verified', 'solo', 'pro', 'enterprise'] as const).find(
+            const tier = (['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const).find(
               (t) => t === tierRaw,
             ) ?? null;
             profiles.set(id, {

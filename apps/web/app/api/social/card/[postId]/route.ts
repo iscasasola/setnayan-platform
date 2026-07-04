@@ -187,7 +187,9 @@ async function vendorFeatureContext(
   // Pro+ derivation mirrors flush.ts / the queue page: tier_state guarded by
   // tier_expires_at (the downgrade sweep is login-driven).
   const proActive =
-    (vendor?.tier_state === 'pro' || vendor?.tier_state === 'enterprise') &&
+    (vendor?.tier_state === 'pro' ||
+      vendor?.tier_state === 'enterprise' ||
+      vendor?.tier_state === 'custom') &&
     (!vendor?.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > Date.now());
   const categoryLabel = vendor?.services?.[0]
     ? displayServiceLabel(vendor.services[0])

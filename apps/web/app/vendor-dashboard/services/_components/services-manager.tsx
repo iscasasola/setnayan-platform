@@ -31,7 +31,7 @@ import {
   formatLeanMonths,
   suggestPromoExpiry,
 } from '@/lib/vendor-lean-months';
-import { tierCaps, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
+import { tierCaps, canPlotTimeSlots, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorTimeSlotsByService,
   formatSlotTime,
@@ -308,7 +308,9 @@ export async function VendorServicesManager({
   // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
   const canPlotSlots = canPlotTimeSlots(tier);
   const branches =
-    tier === 'enterprise'
+    // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
+    // gets the branch picker without a hard equality edit.
+    isTierAtLeast(tier, 'enterprise')
       ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(
           (b) => b.status !== 'cancelled',
         )

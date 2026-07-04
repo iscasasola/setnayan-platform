@@ -11,7 +11,7 @@
  * Numeric caps use `Infinity` for "Unlimited" and `0` for "✗ / none".
  */
 
-export const VENDOR_TIERS = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
+export const VENDOR_TIERS = ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const;
 export type VendorTier = (typeof VENDOR_TIERS)[number];
 
 // Video calls REMOVED 2026-06-09 (owner). ChatLevel is text-only now — no
@@ -262,6 +262,41 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     customWebsiteName: true,
     inquireLink: true,
   },
+  // Custom — the negotiated "Talk to us" tier ABOVE Enterprise (owner-signed
+  // rate card · VENDOR_TIERS_AND_BENEFITS.md §11). Owner rule: "Custom runs as
+  // Enterprise automatically" — so every feature/boolean axis and the base
+  // numeric ceilings are the Enterprise values. The composed plan's extra reach
+  // / seats / slots / photos / tokens / domain are overlaid at read time from an
+  // ACTIVE vendor_custom_plans row by vendorEffectiveCaps() (lib/vendor-effective-
+  // caps.ts) — the static base here is the Enterprise clone, never edited per
+  // vendor. Keep this in lockstep with `enterprise` above on any Enterprise edit.
+  custom: {
+    serviceRadiusKm: 100,
+    marketIntel: true,
+    theftWatch: true,
+    performanceTrends: true,
+    performanceAdvanced: true,
+    soloBusinessTools: true,
+    servicesPerLeaf: Infinity,
+    chat: 'chat',
+    parentCategories: Infinity,
+    agentAccounts: 10,
+    scheduling: 'hybrid',
+    marketplaceSearchable: true,
+    nameMode: 'true',
+    slotsPerDay: 8,
+    slotsTimeBounded: true,
+    inAppCustomersPerWeek: Infinity,
+    inAppGated: true,
+    importCustomerTokenCost: 0,
+    portfolioPhotos: 300,
+    editorialTagged: true,
+    reviewStarsCounted: true,
+    reviewCommentsViewable: true,
+    website: 'custom',
+    customWebsiteName: true,
+    inquireLink: true,
+  },
 };
 
 /**
@@ -282,6 +317,11 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
   solo: { monthly: 999, annual: 9999 },
   pro: { monthly: 2499, annual: 24999 },
   enterprise: { monthly: 7499, annual: 74999 },
+  // Custom is priced PER PLAN (composed 28-day total on vendor_custom_plans,
+  // computed by lib/vendor-custom-pricing.ts). These are the base-only fallback
+  // figures (base ₱8,999/28d · annual = 10× base) for display when no plan is
+  // composed yet; the real quote always comes from the composed plan.
+  custom: { monthly: 8999, annual: 89990 },
 };
 
 /**
@@ -308,6 +348,11 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
   solo: { monthly: 0, annual: 0 },
   pro: { monthly: 5, annual: 50 },
   enterprise: { monthly: 10, annual: 100 },
+  // Custom's included tokens are a composed line (tokensPerCycle on the plan,
+  // priced at a flat face value per the rate card) — NOT a fixed subscription
+  // bundle. This static entry is 0 so no bundle-token path double-grants; the
+  // composed count is handled by the Custom plan flow.
+  custom: { monthly: 0, annual: 0 },
 };
 
 /** Price to buy one additional lifetime (non-expiring) token. */
@@ -334,7 +379,47 @@ export const TIER_LABEL: Record<VendorTier, string> = {
   solo: 'Solo',
   pro: 'Pro',
   enterprise: 'Enterprise',
+  custom: 'Custom',
 };
+
+/**
+ * Ordinal rank of a tier on the value ladder (Free 0 … Custom 5). Use this for
+ * "this tier or higher" gates instead of hard `tier === 'enterprise'` equality
+ * so `custom` — which runs as Enterprise-or-better automatically — inherits
+ * every Enterprise entitlement without a per-site edit. `verified` outranks
+ * `free` but is still a free tier; the paid ladder is solo < pro < enterprise <
+ * custom.
+ */
+const TIER_RANK: Record<VendorTier, number> = {
+  free: 0,
+  verified: 1,
+  solo: 2,
+  pro: 3,
+  enterprise: 4,
+  custom: 5,
+};
+
+export function tierRank(tier: string | null | undefined): number {
+  return TIER_RANK[asVendorTier(tier)];
+}
+
+/** True when `tier` is at or above `min` on the value ladder. */
+export function isTierAtLeast(
+  tier: string | null | undefined,
+  min: VendorTier,
+): boolean {
+  return tierRank(tier) >= TIER_RANK[min];
+}
+
+/**
+ * May this tier buy paid EXTRA team seats beyond its base cap? Enterprise (base
+ * 10) and Custom (runs as Enterprise) — i.e. Enterprise-or-higher. Rank-derived
+ * so Custom inherits automatically. Enforced server-side in team/actions.ts
+ * (`buyExtraSeat`) + the invite guard's "at cap" hint.
+ */
+export function canBuyExtraSeats(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
 
 /** Normalize an arbitrary string (or null) to a VendorTier, defaulting to 'free'. */
 export function asVendorTier(raw: string | null | undefined): VendorTier {
@@ -368,7 +453,9 @@ export function canAcceptInAppInquiries(tier: string | null | undefined): boolea
  * downgrade can't keep adding slots.
  */
 export function canPlotTimeSlots(tier: string | null | undefined): boolean {
-  return asVendorTier(tier) === 'enterprise';
+  // Enterprise-or-higher (rank-derived so Custom, which runs as Enterprise,
+  // inherits automatically) rather than a hard `=== 'enterprise'` equality.
+  return isTierAtLeast(tier, 'enterprise');
 }
 
 /**

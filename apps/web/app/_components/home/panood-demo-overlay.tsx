@@ -27,17 +27,24 @@ const SLOT_LABEL: Record<CamSlot, string> = { a: 'Camera 1', b: 'Camera 2' };
 /**
  * Keeps a <video> element fed with a (possibly changing) MediaStream. Muted by
  * default — only the PROGRAM view opts out (`muted={false}`) so exactly one
- * source is ever audible, mirroring a real control-room monitor. Toggling
- * `muted` re-runs play() so unmuting (a user click) reliably starts audio even
- * where the browser blocked unmuted autoplay.
+ * source is ever audible, mirroring a real control-room monitor: the program
+ * plays the ON-AIR camera's sound and it follows every cut.
+ *
+ * Unmuted autoplay can be blocked before the visitor has interacted (Safari,
+ * strict Chrome). If an unmuted play() rejects we retry MUTED so the video
+ * never goes black, and fire `onAutoplayBlocked` so the control room can drop
+ * back to a muted state with a one-tap "sound" affordance. A later click
+ * (unmuting, or cutting) is a user gesture that lets sound start cleanly.
  */
 function LiveVideo({
   stream,
   muted = true,
+  onAutoplayBlocked,
   style,
 }: {
   stream: MediaStream | null;
   muted?: boolean;
+  onAutoplayBlocked?: () => void;
   style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -46,8 +53,17 @@ function LiveVideo({
     if (!el) return;
     if (el.srcObject !== stream) el.srcObject = stream;
     el.muted = muted;
-    if (stream) void el.play().catch(() => {});
-  }, [stream, muted]);
+    if (!stream) return;
+    el.play().catch(() => {
+      // Most likely an unmuted-autoplay block. Don't lose the video — retry
+      // muted and let the parent surface the tap-for-sound state.
+      if (!muted) {
+        el.muted = true;
+        void el.play().catch(() => {});
+        onAutoplayBlocked?.();
+      }
+    });
+  }, [stream, muted, onAutoplayBlocked]);
   // eslint-disable-next-line jsx-a11y/media-has-caption
   return <video ref={ref} muted={muted} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style }} />;
 }
@@ -105,11 +121,13 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   const [streams, setStreams] = useState<Record<CamSlot, MediaStream | null>>({ a: null, b: null });
   const [slotStates, setSlotStates] = useState<Record<CamSlot, PeerConnectionState>>({ a: 'waiting', b: 'waiting' });
   const [program, setProgram] = useState<CamSlot>('a');
-  // Program-audio monitor, off until the visitor clicks the speaker. Muted by
-  // default keeps a laptop + phone in the same room from howling with feedback
-  // the instant a camera connects, and dodges browsers that block unmuted
-  // autoplay — the click that unmutes is the user gesture that permits sound.
-  const [audioOn, setAudioOn] = useState(false);
+  // The program monitor plays the ON-AIR camera's audio by default (owner:
+  // "we want the demo monitor to play the audio of the chosen camera") — it
+  // follows the cut. A browser that blocks unmuted autoplay flips this off via
+  // LiveVideo's onAutoplayBlocked, leaving a one-tap "sound" affordance; the
+  // speaker toggle also lets a visitor mute if a same-room laptop + phone
+  // start to feed back.
+  const [audioOn, setAudioOn] = useState(true);
   const programRef = useRef(program);
   programRef.current = program;
 
@@ -125,7 +143,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
     setStreams({ a: null, b: null });
     setSlotStates({ a: 'waiting', b: 'waiting' });
     setProgram('a');
-    setAudioOn(false);
+    setAudioOn(true);
     startDemoSession('panood', window.location.origin)
       .then((p) => {
         if (!cancelled) setPair(p);
@@ -170,6 +188,8 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   }, [open, pair]);
 
   const cut = useCallback((slot: CamSlot) => setProgram(slot), []);
+  // Stable so it doesn't re-fire LiveVideo's play() effect every render.
+  const handleAutoplayBlocked = useCallback(() => setAudioOn(false), []);
 
   const anyLive = Boolean(streams.a || streams.b);
   const bothLive = Boolean(streams.a && streams.b);
@@ -251,7 +271,11 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
               background: '#141312',
             }}
           >
-            <LiveVideo stream={programStream} muted={!(audioOn && programHasAudio)} />
+            <LiveVideo
+              stream={programStream}
+              muted={!(audioOn && programHasAudio)}
+              onAutoplayBlocked={handleAutoplayBlocked}
+            />
             <LowerThird />
             <button
               type="button"

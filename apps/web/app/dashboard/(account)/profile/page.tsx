@@ -719,6 +719,27 @@ export default async function ProfilePage({ searchParams }: Props) {
         </div>
 
         {/*
+          LEGACY CONTACT (reserved · person-spine Phase 3, owner-locked
+          2026-07-04). Designate-while-alive — who inherits your memories. Inert
+          placeholder here; the actual flow (memorialization + inheritance) ships
+          in Phase 3 behind PH counsel. Baked in now so the setting has its
+          permanent home. See 03_Strategy/People_Graph_and_Lifelong_Identity_
+          2026-07-04.md.
+        */}
+        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Legacy contact</p>
+            <p className="text-xs text-ink/55">
+              Choose who inherits your memories. You decide, while living, who your
+              archive passes to. Coming soon.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/50">
+            Not set
+          </span>
+        </div>
+
+        {/*
           ACCOUNT-LEVEL FACE PROFILE (owner-locked 2026-06-26 reversal of
           per-event scoping). OPT-IN, OFF by default. Rendered only when the
           feature flag is ON — DPO sign-off on this consent copy + retention is

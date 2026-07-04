@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { InviteLink } from './_components/invite-link';
+import { RegenerateQrButton } from './_components/regenerate-qr-button';
 
 export const metadata = { title: 'Invite guests' };
 
@@ -126,6 +127,13 @@ export default async function GuestInvitePage({ params }: Props) {
                 Send it by text, email, or your group chat — or let guests scan the QR on a
                 printed invite. The same link works for everyone.
               </p>
+              <div className="border-t border-ink/10 pt-3">
+                <RegenerateQrButton eventId={eventId} />
+                <p className="mt-1.5 text-xs leading-relaxed text-ink/45">
+                  Shared the link too widely, or want to shut off an old printed QR? Regenerate to
+                  get a fresh one — the previous link stops working.
+                </p>
+              </div>
             </div>
           </div>
         </div>

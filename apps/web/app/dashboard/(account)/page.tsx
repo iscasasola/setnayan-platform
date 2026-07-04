@@ -6,6 +6,12 @@ import { fetchUserEvents, formatEventDate, type EventWithRole } from '@/lib/even
 import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
+import { getMyLifeStory } from './people/life-stories';
+import {
+  LifeStorySection,
+  type LifeStoryGroup,
+} from './_components/life-story-section';
 
 export const metadata = {
   title: 'Your events',
@@ -139,6 +145,13 @@ export default async function DashboardIndexPage() {
   const upcoming = active.filter((e) => bucketOf(e, todayISO) === 'upcoming');
   const completed = active.filter((e) => bucketOf(e, todayISO) === 'completed');
 
+  // Person-spine · Phase 2 · Life Stories (STAGED / flag-off / counsel-gated).
+  // Runs ONLY when the flag is on; otherwise `lifeStoryGroups` stays null and the
+  // "Your Story" section never renders — zero visible change in production.
+  const lifeStoryGroups = personLifeStoriesEnabled()
+    ? await buildLifeStoryGroups(supabase)
+    : null;
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-1">
@@ -170,6 +183,24 @@ export default async function DashboardIndexPage() {
         </div>
       )}
 
+      {lifeStoryGroups ? (
+        <section className="mt-10">
+          <div className="mb-3 flex items-baseline gap-2">
+            <h2 className="text-base font-semibold text-ink">Your Story</h2>
+            <span className="text-xs text-ink/40">
+              {lifeStoryGroups.length}
+            </span>
+          </div>
+          {lifeStoryGroups.length === 0 ? (
+            <p className="rounded-xl border border-ink/10 bg-white/40 px-4 py-6 text-sm text-ink/60">
+              Photos and clips you appear in will gather here.
+            </p>
+          ) : (
+            <LifeStorySection groups={lifeStoryGroups} />
+          )}
+        </section>
+      ) : null}
+
       {archived.length > 0 ? (
         <details className="mt-10 rounded-lg border border-ink/10 bg-cream p-4 text-sm text-ink/70">
           <summary className="cursor-pointer font-medium">
@@ -191,6 +222,53 @@ export default async function DashboardIndexPage() {
       ) : null}
     </div>
   );
+}
+
+/**
+ * Assemble the signed-in person's life story into per-event groups for the
+ * "Your Story" section. Reads the flag-guarded `getMyLifeStory` action (which
+ * itself returns [] while the flag is off / no person node), then resolves each
+ * event's display_name in ONE `events` lookup and groups items by event,
+ * preserving newest-first order. Only ever called when the flag is on.
+ */
+async function buildLifeStoryGroups(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<LifeStoryGroup[]> {
+  const items = await getMyLifeStory({ includeHidden: true });
+  if (items.length === 0) return [];
+
+  const eventIds = [...new Set(items.map((i) => i.eventId))];
+  const nameById = new Map<string, string | null>();
+  const { data: eventRows } = await supabase
+    .from('events')
+    .select('event_id, display_name')
+    .in('event_id', eventIds);
+  for (const row of (eventRows ?? []) as Array<{
+    event_id: string;
+    display_name: string | null;
+  }>) {
+    nameById.set(row.event_id, row.display_name);
+  }
+
+  // Group by event, keeping the newest-first ordering getMyLifeStory returns.
+  const byEvent = new Map<string, LifeStoryGroup>();
+  for (const item of items) {
+    let group = byEvent.get(item.eventId);
+    if (!group) {
+      group = {
+        eventId: item.eventId,
+        eventName: nameById.get(item.eventId) ?? null,
+        items: [],
+      };
+      byEvent.set(item.eventId, group);
+    }
+    group.items.push({
+      storyItemId: item.storyItemId,
+      itemKind: item.itemKind,
+      hiddenAt: item.hiddenAt,
+    });
+  }
+  return [...byEvent.values()];
 }
 
 function EmptyState() {

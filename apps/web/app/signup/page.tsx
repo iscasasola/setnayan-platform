@@ -46,6 +46,14 @@
  * "BIR-stamped receipts" claim was purged platform-wide (PR #1316), so the
  * bullets + "Free planning forever" line above are superseded — copy now
  * sells the free workspace (guest list · seating · budget · mood board).
+ *
+ * 2026-07-05 frozen-count fix: the "192 verified vendors" bullet was a live
+ * count frozen in copy (fabricated for a founder-only marketplace) — a checkable
+ * public claim that isn't true. It's now a THRESHOLD-GATED live read
+ * (getVerifiedVendorMarketplaceCount, same predicate as the couple-facing
+ * catalog/onboarding counts). The number renders only at/above
+ * VENDOR_COUNT_BRAG_THRESHOLD; below the floor the bullet omits the figure
+ * ("Verified vendor marketplace") so the public-claims lock stays honest.
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -59,6 +67,10 @@ import { safeNext } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
+import {
+  getVerifiedVendorMarketplaceCount,
+  VENDOR_COUNT_BRAG_THRESHOLD,
+} from '@/lib/vendor-counts';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 
@@ -164,9 +176,19 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   // no PII (the signed cookie is the only thing we read).
   const hasGuestSession = (await readGuestSession()) !== null;
 
+  // Vendor-marketplace bullet · threshold-gated LIVE count (never a frozen
+  // number). Below the brag floor — the marketplace is founder-only at launch,
+  // so a live count today is tiny — we drop the figure and just name the
+  // feature, keeping the public-claims lock honest (every checkable claim TRUE).
+  const verifiedVendorCount = await getVerifiedVendorMarketplaceCount();
+  const vendorBullet =
+    verifiedVendorCount >= VENDOR_COUNT_BRAG_THRESHOLD
+      ? `${verifiedVendorCount.toLocaleString('en-PH')} verified vendors`
+      : 'Verified vendor marketplace';
+
   const benefitBullets = [
     'Guest list + schedule · free',
-    '192 verified vendors',
+    vendorBullet,
     'Mood board · free',
     'Budget + seating tools · free',
   ];

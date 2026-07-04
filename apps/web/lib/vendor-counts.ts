@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
+import { createAdminClient } from './supabase/admin';
 import {
   TAXONOMY_MAP,
   TILE_PARENT,
@@ -10,6 +12,63 @@ import {
 } from './taxonomy';
 import { getTaxonomy, type TaxonomySnapshot } from './taxonomy-db';
 import type { VendorPublicVisibility } from './vendor-visibility';
+
+/**
+ * Minimum verified-vendor count before a public marketing surface is allowed to
+ * BRAG the number in copy. The marketplace is founder-only at launch, so a live
+ * count today is tiny (often 1) — a signup page advertising "1 verified vendor"
+ * is worse than no number. Below this floor, count-driven copy must omit the
+ * figure entirely (see getVerifiedVendorMarketplaceCount + its callers). The
+ * public-claims lock requires every checkable claim on a public surface to be
+ * TRUE; a gated live read keeps it true AND non-embarrassing.
+ */
+export const VENDOR_COUNT_BRAG_THRESHOLD = 50;
+
+/**
+ * Live count of VERIFIED, publishable vendors in the public marketplace — the
+ * SAME predicate /explore + the couple-facing catalog/onboarding counts use:
+ *   public_visibility ∈ {verified, coming_soon}
+ *   AND verification_state = 'verified'   (PR-B gate)
+ *   AND is_demo IS NOT TRUE               (demo/seed vendors never counted)
+ *   AND a real business_name.
+ * Reusing the exact predicate keeps every public number in agreement
+ * platform-wide, so this signup count can never contradict the Explore grid.
+ *
+ * Wrapped in `unstable_cache` (1-hour revalidate) so marketing pages don't hit
+ * the DB per request; the RLS-bypassing admin client is required because the
+ * marketplace is anonymous-read. Soft-fails to 0 so a query error just hides
+ * count-driven copy rather than 500-ing a marketing page.
+ *
+ * Callers MUST gate on VENDOR_COUNT_BRAG_THRESHOLD — do NOT render this number
+ * raw. See the constant's doc for why.
+ */
+const loadVerifiedVendorMarketplaceCount = unstable_cache(
+  async (): Promise<number> => {
+    try {
+      const admin = createAdminClient();
+      const { count, error } = await admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id', { count: 'exact', head: true })
+        .in('public_visibility', ['verified', 'coming_soon'])
+        .eq('verification_state', 'verified')
+        // Match /explore + sitemap: demo/seed vendors are never public-counted.
+        .or('is_demo.is.null,is_demo.eq.false')
+        .not('business_name', 'is', null)
+        .neq('business_name', '');
+      if (error || count == null) return 0;
+      return count;
+    } catch {
+      return 0;
+    }
+  },
+  ['verified-vendor-marketplace-count-v1'],
+  { revalidate: 3600 },
+);
+
+/** Per-request memoized live verified-vendor marketplace count. */
+export const getVerifiedVendorMarketplaceCount = cache(
+  loadVerifiedVendorMarketplaceCount,
+);
 
 /**
  * Per-canonical_service vendor count, broken down by publishing state.

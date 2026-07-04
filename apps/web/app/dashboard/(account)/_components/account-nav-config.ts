@@ -21,7 +21,7 @@
  * AccountSidebar and any Server Component can import + call this.
  */
 
-import { CalendarHeart, LayoutGrid, Bell, Settings, Store, Plus, Sparkles } from 'lucide-react';
+import { CalendarHeart, LayoutGrid, Bell, Settings, Store, Plus, Sparkles, Users } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
 export function buildAccountNavGroups(): NavGroup[] {
@@ -39,6 +39,17 @@ export function buildAccountNavGroups(): NavGroup[] {
           href: '/dashboard',
           icon: CalendarHeart,
           matchPrefix: '__home__',
+        },
+        {
+          // People — the person-spine connections home (family · godparents ·
+          // friends), owner-locked 2026-07-04. Reserved slot: the page renders a
+          // "coming with connections (Phase 2)" preview until the people-graph
+          // lands; the nav item gives it its permanent home from day one.
+          key: 'people',
+          label: 'People',
+          href: '/dashboard/people',
+          icon: Users,
+          matchPrefix: '/dashboard/people',
         },
         {
           // Memories Hub — the cross-event lifelong archive (Photos & Videos ·

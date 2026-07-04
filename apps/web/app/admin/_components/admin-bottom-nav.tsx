@@ -19,13 +19,16 @@
  * (inside More), Discount codes + Referrals to Marketing. Content + System
  * Settings live inside More per the ≤5 cap.
  *
- * The desktop sidebar (admin-sidebar.tsx) exposes the same 6 groups:
- * Overview (key 'queues') · Accounts (key 'directory') · Content (key
- * 'media') · Marketing (key 'marketing') · Performance (key 'funnels') ·
- * System Settings (key 'settings-group'). Mobile-overflow landings:
- * /admin/work (All work, linked from Overview) · /admin/directory ·
- * /admin/marketing · /admin/more. Legacy /admin/queues redirects to
- * /admin/work; /admin/money + /admin/insights stay as bookmark landings.
+ * NB the desktop sidebar (admin-sidebar.tsx) was re-cut 2026-07-04 to a
+ * different 6-group IA (Overview · Accounts · Studio · Ugat Console · App
+ * Performance · Money — Studio = old Content + Marketing; Ugat Console = the
+ * data-structure lane). This mobile strip is a SEPARATE ≤5-tab IA and does
+ * NOT mirror those groups 1:1 — its Marketing tab (key 'marketing', route
+ * /admin/marketing) is its own namespace and survives the desktop respine.
+ * Mobile-overflow landings: /admin/work (All work, linked from Overview) ·
+ * /admin/directory · /admin/marketing · /admin/more. Legacy /admin/queues
+ * redirects to /admin/work; /admin/money + /admin/insights stay as bookmark
+ * landings.
  *
  * activeMatch rules:
  *   - Overview    — EXACT /admin (via activeMatchAlsoExact — every other

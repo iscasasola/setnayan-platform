@@ -45,9 +45,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { NavItem, NavBadgeTone } from './types';
 import { BB_TAB_EVENT, goToBuildTab, type BudgetBuildTab } from '@/lib/budget-build';
+import { matchesPath } from './match-path';
 
 type Props = {
   item: NavItem;
@@ -55,27 +57,20 @@ type Props = {
 };
 
 /**
- * True when `pathname` is within this item's route — exact href OR strict
- * prefix-match with a trailing slash (so /budgets doesn't light /budget).
- * Mirrors the established active-detection rule from bottom-nav.tsx +
- * admin-nav.tsx.
- */
-function matchesPath(item: NavItem, pathname: string): boolean {
-  const matchPrefix = item.matchPrefix ?? item.href;
-  return pathname === item.href || pathname.startsWith(matchPrefix + '/');
-}
-
-/**
  * The most-specific matching child's key, or null. "Most specific" = longest
  * matchPrefix, so /guests/invite lights Invite (not Build, even though /guests
  * is a prefix of it) — the same longest-wins rule as lib/guest-journey.
  */
-function activeChildKey(children: NavItem[], pathname: string): string | null {
+function activeChildKey(
+  children: NavItem[],
+  pathname: string,
+  currentParams: URLSearchParams | ReadonlyURLSearchParams | null,
+): string | null {
   let bestKey: string | null = null;
   let bestLen = -1;
   for (const child of children) {
     const matchPrefix = child.matchPrefix ?? child.href;
-    if (matchesPath(child, pathname) && matchPrefix.length > bestLen) {
+    if (matchesPath(child, pathname, currentParams) && matchPrefix.length > bestLen) {
       bestLen = matchPrefix.length;
       bestKey = child.key;
     }
@@ -86,6 +81,12 @@ function activeChildKey(children: NavItem[], pathname: string): string | null {
 export function SidebarItem({ item, pathname }: Props) {
   const children = item.children ?? [];
   const hasTabChildren = children.some((c) => c.tab);
+
+  // Current query — query-aware active-state (e.g. /admin/accounts?tab=users
+  // lights the Users sub-item, not Events). useSearchParams() may be empty on
+  // first paint / before hydration; matchesPath treats that as "no params",
+  // which is safe — it resolves to the correct row once the params arrive.
+  const searchParams = useSearchParams();
 
   // Tab-child active state — seeded from ?tab= on navigation, kept live via BB_TAB_EVENT.
   // Only meaningful when the item has tab-type children (e.g. Explore's 5 tabs).
@@ -111,19 +112,21 @@ export function SidebarItem({ item, pathname }: Props) {
   // Leaf (no children) — unchanged behavior. Vendor + admin sidebars and most
   // customer rows hit this path.
   if (children.length === 0) {
-    return <SidebarRow item={item} active={matchesPath(item, pathname)} />;
+    return <SidebarRow item={item} active={matchesPath(item, pathname, searchParams)} />;
   }
 
   // Parent with a sub-journey — the desktop expansion of the mobile <SubNav>.
   // Tab children use tab-state for active detection; route children use pathname.
-  const routeActiveKey = hasTabChildren ? null : activeChildKey(children, pathname);
+  const routeActiveKey = hasTabChildren
+    ? null
+    : activeChildKey(children, pathname, searchParams);
   const tabActiveKey = hasTabChildren
     ? (children.find((c) => c.tab === activeTab)?.key ??
        children.find((c) => c.tab)?.key ??
        null)
     : null;
   const activeKey = routeActiveKey ?? tabActiveKey;
-  const inSection = matchesPath(item, pathname) || routeActiveKey !== null;
+  const inSection = matchesPath(item, pathname, searchParams) || routeActiveKey !== null;
 
   return (
     <li>

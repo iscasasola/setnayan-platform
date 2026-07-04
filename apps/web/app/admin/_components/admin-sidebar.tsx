@@ -529,30 +529,43 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/social-queue',
       },
       {
+        // Repointed to the Studio Studio Spotlight Awards tab (slice 3).
+        // matchPrefix keeps this item lit on the legacy /admin/spotlight-awards
+        // path (which now redirects in).
         key: 'spotlight-awards',
         label: 'Spotlight Awards',
-        href: '/admin/spotlight-awards',
+        href: '/admin/studio?tab=spotlight-awards',
         icon: Trophy,
         matchPrefix: '/admin/spotlight-awards',
       },
       {
+        // Repointed to the Studio Studio Journal Spotlights tab (slice 3).
+        // matchPrefix keeps this item lit on the legacy
+        // /admin/journal-spotlights path (which now redirects in).
         key: 'journal-spotlights',
         label: 'Journal Spotlights',
-        href: '/admin/journal-spotlights',
+        href: '/admin/studio?tab=journal-spotlights',
         icon: BookOpen,
         matchPrefix: '/admin/journal-spotlights',
       },
       {
+        // Repointed to the Studio Studio Discount codes tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/discount-codes path AND its
+        // standalone /new + /[id]/edit sub-routes (list redirects in; the CRUD
+        // sub-routes stay standalone).
         key: 'discount-codes',
         label: 'Discount codes',
-        href: '/admin/discount-codes',
+        href: '/admin/studio?tab=discount-codes',
         icon: TagIcon,
         matchPrefix: '/admin/discount-codes',
       },
       {
+        // Repointed to the Studio Studio Referrals tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/referrals path (which now
+        // redirects in).
         key: 'referrals',
         label: 'Referrals',
-        href: '/admin/referrals',
+        href: '/admin/studio?tab=referrals',
         icon: Gift,
         matchPrefix: '/admin/referrals',
       },

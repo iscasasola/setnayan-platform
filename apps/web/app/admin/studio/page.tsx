@@ -22,6 +22,10 @@ import { RealStoriesSurface } from './_surfaces/real-stories-surface';
 import { PatiktokSurface } from './_surfaces/patiktok-surface';
 import { SongsSurface } from './_surfaces/songs-surface';
 import { MoodboardLibrarySurface } from './_surfaces/moodboard-library-surface';
+import { SpotlightAwardsSurface } from './_surfaces/spotlight-awards-surface';
+import { JournalSpotlightsSurface } from './_surfaces/journal-spotlights-surface';
+import { DiscountCodesSurface } from './_surfaces/discount-codes-surface';
+import { ReferralsSurface } from './_surfaces/referrals-surface';
 
 /**
  * Studio Studio (slice 1) — the tabbed /admin/studio shell that consolidates
@@ -31,11 +35,11 @@ import { MoodboardLibrarySurface } from './_surfaces/moodboard-library-surface';
  * grouped into two labeled sections (Content · Marketing), mirroring the final
  * IA. On mobile the rail collapses to a single horizontally-scrollable strip.
  *
- * Slice 1 wires the 4 LIGHTEST Content surfaces inline via ?tab= (Website ·
- * Hero video · Reveal Studio · Recaps); the other 9 rail items link OUT to
- * their still-standalone legacy routes (converted in later slices) so the full
- * IA is visible and nothing is a dead link — exactly the Accounts Studio
- * TAB_STRIP pattern.
+ * Slices 1–2 wired all 8 Content surfaces inline via ?tab=; slice 3 wires 4 of
+ * the 5 Marketing surfaces (Spotlight Awards · Journal Spotlights · Discount
+ * codes · Referrals). Only Social queue still links OUT to its still-standalone
+ * legacy route (converted in slice 4) so the full IA is visible and nothing is
+ * a dead link — exactly the Accounts Studio TAB_STRIP pattern.
  *
  * The shared sidebar matcher is query-aware (#2796), so repointing sidebar
  * hrefs to /admin/studio?tab=<key> lights the right item without double-
@@ -57,6 +61,10 @@ const TABS = [
   'patiktok',
   'songs',
   'moodboard-library',
+  'spotlight-awards',
+  'journal-spotlights',
+  'discount-codes',
+  'referrals',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -96,10 +104,10 @@ const RAIL: RailItem[] = [
   { key: 'moodboard-library', label: 'Moodboard library', icon: Palette, group: 'Content', wired: true, legacyHref: '/admin/moodboard-library' },
   // ── Marketing (5) ───────────────────────────────────────────────────────
   { key: 'social-queue', label: 'Social queue', icon: Share2, group: 'Marketing', wired: false, legacyHref: '/admin/social-queue' },
-  { key: 'spotlight-awards', label: 'Spotlight Awards', icon: Trophy, group: 'Marketing', wired: false, legacyHref: '/admin/spotlight-awards' },
-  { key: 'journal-spotlights', label: 'Journal Spotlights', icon: BookOpen, group: 'Marketing', wired: false, legacyHref: '/admin/journal-spotlights' },
-  { key: 'discount-codes', label: 'Discount codes', icon: Tag, group: 'Marketing', wired: false, legacyHref: '/admin/discount-codes' },
-  { key: 'referrals', label: 'Referrals', icon: Gift, group: 'Marketing', wired: false, legacyHref: '/admin/referrals' },
+  { key: 'spotlight-awards', label: 'Spotlight Awards', icon: Trophy, group: 'Marketing', wired: true, legacyHref: '/admin/spotlight-awards' },
+  { key: 'journal-spotlights', label: 'Journal Spotlights', icon: BookOpen, group: 'Marketing', wired: true, legacyHref: '/admin/journal-spotlights' },
+  { key: 'discount-codes', label: 'Discount codes', icon: Tag, group: 'Marketing', wired: true, legacyHref: '/admin/discount-codes' },
+  { key: 'referrals', label: 'Referrals', icon: Gift, group: 'Marketing', wired: true, legacyHref: '/admin/referrals' },
 ];
 
 const GROUPS = ['Content', 'Marketing'] as const;
@@ -177,6 +185,20 @@ export default async function AdminStudioPage({ searchParams }: Props) {
           />
         ) : tab === 'moodboard-library' ? (
           <MoodboardLibrarySurface />
+        ) : tab === 'spotlight-awards' ? (
+          <SpotlightAwardsSurface ok={first(search.ok)} error={first(search.error)} />
+        ) : tab === 'journal-spotlights' ? (
+          <JournalSpotlightsSurface ok={first(search.ok)} error={first(search.error)} />
+        ) : tab === 'discount-codes' ? (
+          <DiscountCodesSurface
+            filter={first(search.filter)}
+            created={first(search.created)}
+            updated={first(search.updated)}
+            disabled={first(search.disabled)}
+            enabled={first(search.enabled)}
+          />
+        ) : tab === 'referrals' ? (
+          <ReferralsSurface />
         ) : (
           <WebsiteSurface page={first(search.page)} />
         )}

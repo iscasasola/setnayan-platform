@@ -4,15 +4,20 @@ import { UsersSurface } from './_surfaces/users-surface';
 import { VendorsSurface } from './_surfaces/vendors-surface';
 import { EventsSurface } from './_surfaces/events-surface';
 import { VenuesSurface } from './_surfaces/venues-surface';
+import { DemoVendorsSurface } from './_surfaces/demo-vendors-surface';
 
 /**
- * Accounts Studio (slice 1) — the tabbed /admin/accounts shell that
+ * Accounts Studio (slice 4, final) — the tabbed /admin/accounts shell that
  * consolidates the Accounts menu (the `directory` group in ADMIN_NAV_GROUPS)
- * into one surface. This slice stands up the shell + wires the two LIST-ONLY
- * surfaces (Users + Events); Vendors, Venues + Demo vendors stay standalone
- * this slice and their tabs link out to their existing routes so nothing is
- * dead. Detail/create sub-routes stay standalone; the legacy list routes
- * (/admin/users, /admin/events) redirect in, forwarding their query params.
+ * into one surface. All five tabs are now wired inline (Users + Vendors +
+ * Events + Venues + Demo vendors); the Accounts menu is fully consolidated.
+ * Detail/create sub-routes stay standalone (incl. the Demo vendors
+ * inquiries + inquiries/[threadId] flows); the legacy list routes
+ * (/admin/users, /admin/vendors, /admin/events, /admin/venues,
+ * /admin/demo-vendors) redirect in, forwarding their query params.
+ *
+ * With every TAB_STRIP entry now wired:true, the legacyHref/wired distinction
+ * is vestigial but left intact (harmless).
  *
  * force-dynamic: the surface bodies do admin-client reads (createAdminClient)
  * so this must never be statically generated.
@@ -20,8 +25,8 @@ import { VenuesSurface } from './_surfaces/venues-surface';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Accounts · Admin' };
 
-// The WIRED tabs this slice renders inline. Grows to all 5 in later slices.
-const TABS = ['users', 'vendors', 'events', 'venues'] as const;
+// The WIRED tabs this slice renders inline. All 5 are now wired (final slice).
+const TABS = ['users', 'vendors', 'events', 'venues', 'demo-vendors'] as const;
 type Tab = (typeof TABS)[number];
 
 // First value of a (possibly-array) search param — Next passes ?x=a&x=b as an
@@ -46,7 +51,7 @@ const TAB_STRIP: {
 }[] = [
   { key: 'users', label: 'Users', icon: Users, wired: true, legacyHref: '/admin/users' },
   { key: 'vendors', label: 'Vendors', icon: Briefcase, wired: true, legacyHref: '/admin/vendors' },
-  { key: 'demo-vendors', label: 'Demo vendors', icon: TestTube, wired: false, legacyHref: '/admin/demo-vendors' },
+  { key: 'demo-vendors', label: 'Demo vendors', icon: TestTube, wired: true, legacyHref: '/admin/demo-vendors' },
   { key: 'events', label: 'Events', icon: CalendarDays, wired: true, legacyHref: '/admin/events' },
   { key: 'venues', label: 'Venues', icon: MapPin, wired: true, legacyHref: '/admin/venues' },
 ];
@@ -87,7 +92,9 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
         })}
       </nav>
 
-      {tab === 'venues' ? (
+      {tab === 'demo-vendors' ? (
+        <DemoVendorsSurface />
+      ) : tab === 'venues' ? (
         <VenuesSurface
           q={first(search.q) ?? ''}
           type={first(search.type) ?? ''}

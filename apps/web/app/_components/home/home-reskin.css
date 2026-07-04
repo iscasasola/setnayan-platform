@@ -1948,7 +1948,7 @@ html.hr-snap {
 .home-reskin-ov .hr-gintro {
   margin: 2px 0 4px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--hr-r14);
   background: rgba(197, 160, 89, 0.1);
   border: 1px solid rgba(197, 160, 89, 0.28);
 }

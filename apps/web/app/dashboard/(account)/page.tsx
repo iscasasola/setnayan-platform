@@ -5,10 +5,52 @@ import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, formatEventDate, type EventWithRole } from '@/lib/events';
 import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { EventMonogram } from '@/app/_components/event-monogram';
 
 export const metadata = {
   title: 'Your events',
 };
+
+/**
+ * Person-shaped account home — Phase 0 of the person-spine model
+ * (03_Strategy/People_Graph_and_Lifelong_Identity_2026-07-04.md, owner-locked
+ * "lock everything" 2026-07-04).
+ *
+ * This surface is the PERSON's home: one individual, and the events that hang
+ * off them, bucketed by lifecycle — Ongoing · Upcoming · Completed. It is NOT a
+ * couple/wedding dashboard (owner "this is not Bride or Groom. just person
+ * because it is events"): the account is a single person, and a wedding is just
+ * one event among any type (birthday, christening, reunion, …). The
+ * AccountSidebar is the rail; this page renders the Home content. Graph-powered
+ * surfaces (People / connections) arrive in Phase 2 and are not built here.
+ *
+ * Landing rule (owner 2026-07-04 — supersedes the 2026-05-20 universal auto-
+ * jump): a single-event, non-console user still jumps straight into their one
+ * event (nothing to pick); everyone else — 2+ events, or any vendor/admin —
+ * lands here on the person-shaped hub.
+ */
+
+type Bucket = 'ongoing' | 'upcoming' | 'completed';
+
+/**
+ * Bucket an event by its date relative to today (date-only compare, in PH
+ * time — the market — to avoid a UTC-midnight off-by-one on "Ongoing").
+ * A null date = still being planned → Upcoming.
+ */
+function bucketOf(event: EventWithRole, todayISO: string): Bucket {
+  const day = event.event_date?.slice(0, 10);
+  if (!day) return 'upcoming';
+  if (day === todayISO) return 'ongoing';
+  return day < todayISO ? 'completed' : 'upcoming';
+}
+
+/** "gender_reveal" → "Gender Reveal", "wedding" → "Wedding". */
+function titleCaseType(type: string): string {
+  return type
+    .split(/[_\s]+/)
+    .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))
+    .join(' ');
+}
 
 export default async function DashboardIndexPage() {
   const user = await getCurrentUser();
@@ -16,18 +58,15 @@ export default async function DashboardIndexPage() {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  // 7th hotfix pass 2026-05-23 — this page runs RIGHT AFTER an OAuth
-  // callback (Google + Facebook social login). The newly-created
-  // auth.users row + the trigger-inserted public.users row can race
-  // with the JWT propagating through the supabase-js session, so the
-  // initial fetchUserEvents call can throw with PGRST 401 / RLS error
-  // for ~1-2 seconds before settling. Migration drift between local +
-  // prod (Path A pending) is a parallel risk. Shielding every query
-  // here with a graceful-degrade fallback eliminates the 5-10s flash
-  // of the global error boundary the owner saw on Facebook OAuth
-  // sign-in. Same defensive pattern as PR #452/#454/#458.
-  const events = await fetchUserEvents(supabase, user.id, 'couple').catch(
-    (err: unknown) => {
+  // OAuth-race graceful-degrade shielding, preserved from the prior picker
+  // (7th hotfix pass 2026-05-23): the users / events rows this page reads are
+  // the SAME rows supabase-auth just inserted via the auth → public.users sync
+  // trigger, so reads can race the JWT/trigger commit for ~1-2s right after a
+  // Google / Facebook OAuth callback. Every query graceful-degrades with a safe
+  // default so the page renders the empty-state / hub instead of flashing the
+  // global error boundary. Same defensive pattern as PR #452/#454/#458.
+  const [events, profileRes, roles] = await Promise.all([
+    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
       logQueryError(
         'DashboardIndex (fetchUserEvents threw)',
         err instanceof Error ? err : new Error(String(err)),
@@ -35,36 +74,7 @@ export default async function DashboardIndexPage() {
         'graceful_degrade',
       );
       return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
-    },
-  );
-  const active = events.filter((e) => !e.archived);
-  const archived = events.filter((e) => e.archived);
-
-  // Universal login-landing rule (locked 2026-05-20). Every user — customer,
-  // vendor, admin — lands on their primary event after login. The admin
-  // (`/admin`) and vendor (`/vendor-dashboard`) consoles are reachable only
-  // via the chrome role-switch pill, never as auto-redirect. Supersedes
-  // the 2026-05-15 row-3 rule that bounced 0-event vendors to /vendor-
-  // dashboard and 0-event admins to /admin. See memory file
-  // `project_setnayan_login_landing.md` for the why.
-  //
-  // Auto-jump order: primary (events.is_primary=true) → first active.
-  // The chrome event-switcher (PR #67) is the only way to hop between
-  // events once landed.
-  if (active.length >= 1) {
-    const primary = active.find((e) => e.is_primary) ?? active[0]!;
-    redirect(`/dashboard/${primary.event_id}`);
-  }
-
-  // 7th hotfix pass 2026-05-23 — same shielding rationale as the
-  // events fetch above. The users SELECT for the display_name greeting
-  // is the SAME row that supabase-auth just inserted via the auth.users
-  // → public.users sync trigger; reads can race against the trigger
-  // commit during OAuth bootstrap. Both queries graceful-degrade with
-  // safe defaults (empty profile + null-role-summary) so the page
-  // still renders the empty-state monogram instead of the global
-  // error boundary.
-  const [profileRes, roles] = await Promise.all([
+    }),
     (async () => {
       try {
         return await supabase
@@ -99,40 +109,65 @@ export default async function DashboardIndexPage() {
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
     }),
   ]);
-  const profile = profileRes.data;
-  const greeting = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
 
-  // Zero-event branch (locked 2026-05-20).
-  //   - Vendor or admin users → redirect to /dashboard/create-event so they
-  //     plan an event first (consoles reached via chrome role-switch pill,
-  //     not via auto-redirect).
-  //   - Customer-only users → fall through to render the existing "+"
-  //     create-event empty-state monogram below (same destination,
-  //     different UX).
-  if (active.length === 0 && (roles.hasVendorAccess || roles.hasAdminAccess)) {
+  const active = events.filter((e) => !e.archived);
+  const archived = events.filter((e) => e.archived);
+  const hasConsole = roles.hasVendorAccess || roles.hasAdminAccess;
+
+  // Landing (owner 2026-07-04, supersedes the 2026-05-20 universal auto-jump):
+  //   - single-event, non-console user → jump straight into their one event
+  //     (nothing to pick; the common couple case is unchanged).
+  //   - 0-event console user → send to create-event (unchanged from 2026-05-20).
+  //   - everyone else (2+ events, or any vendor/admin with events, or a
+  //     0-event couple) → render the person-shaped hub below.
+  if (active.length === 1 && !hasConsole) {
+    redirect(`/dashboard/${active[0]!.event_id}`);
+  }
+  if (active.length === 0 && hasConsole) {
     redirect('/dashboard/create-event');
   }
 
+  const profile = profileRes.data;
+  const greeting =
+    profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
+
+  // PH-local "today" (Asia/Manila) as YYYY-MM-DD for the date-only bucket compare.
+  const todayISO = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Manila',
+  });
+  const ongoing = active.filter((e) => bucketOf(e, todayISO) === 'ongoing');
+  const upcoming = active.filter((e) => bucketOf(e, todayISO) === 'upcoming');
+  const completed = active.filter((e) => bucketOf(e, todayISO) === 'completed');
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Setnayan · dashboard
-        </p>
+      <header className="mb-8 space-y-1">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          {active.length === 0 ? `Welcome, ${greeting}.` : `Hi ${greeting}.`}
+          {active.length === 0 ? `Welcome, ${greeting}.` : `Hi, ${greeting}.`}
         </h1>
         <p className="text-base text-ink/60">
           {active.length === 0
             ? "Let's set up your first event."
-            : 'Which event are you working on?'}
+            : 'Your events, all in one place.'}
         </p>
       </header>
 
       {active.length === 0 ? (
         <EmptyState />
       ) : (
-        <EventList events={active} roles={roles} />
+        <div className="space-y-8">
+          {ongoing.length > 0 ? (
+            <EventBucket title="Ongoing" events={ongoing} live />
+          ) : null}
+          <EventBucket title="Upcoming" events={upcoming} withAdd />
+          {completed.length > 0 ? (
+            <EventBucket title="Completed" events={completed} muted />
+          ) : null}
+
+          <CollectionLink />
+
+          {hasConsole ? <RoleSwitchRows roles={roles} /> : null}
+        </div>
       )}
 
       {archived.length > 0 ? (
@@ -171,82 +206,134 @@ function EmptyState() {
   );
 }
 
-function EventList({
+/**
+ * One lifecycle bucket (Ongoing / Upcoming / Completed) — a sentence-case
+ * heading + a count, and the events as cards. Deliberately NOT an uppercase
+ * letter-spaced label (the site-wide no-eyebrow-kicker rule, 2026-07-02).
+ */
+function EventBucket({
+  title,
   events,
-  roles,
+  withAdd,
+  live,
+  muted,
 }: {
+  title: string;
   events: EventWithRole[];
-  roles: UserRoleSummary;
+  withAdd?: boolean;
+  live?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <div className="space-y-3">
-      <ul className="space-y-3">
+    <section>
+      <div className="mb-3 flex items-baseline gap-2">
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        <span className="text-xs text-ink/40">{events.length}</span>
+      </div>
+      <ul className="space-y-2">
         {events.map((event) => (
           <li key={event.event_id}>
-            <Link
-              href={`/dashboard/${event.event_id}`}
-              className="group flex items-start justify-between gap-4 rounded-lg border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
-            >
-              <div className="space-y-1">
-                <p className="flex items-center gap-2 text-base font-medium text-ink">
-                  {event.is_primary ? (
-                    <span aria-hidden className="text-terracotta">
-                      ★
-                    </span>
-                  ) : null}
-                  <span>{event.display_name}</span>
-                </p>
-                <p className="text-sm text-ink/60">
-                  {[
-                    formatEventDate(event.event_date),
-                    event.venue_name,
-                    event.event_type !== 'wedding' ? event.event_type : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/40">
-                  {event.public_id}
-                </p>
-              </div>
-              <span
-                aria-hidden
-                className="text-2xl text-ink/30 transition-transform group-hover:translate-x-1 group-hover:text-terracotta"
-              >
-                ›
-              </span>
-            </Link>
+            <EventCard event={event} live={live} muted={muted} />
           </li>
         ))}
       </ul>
-      <div className="pt-4">
-        <Link className="button-secondary" href="/dashboard/create-event">
-          + Create another event
+      {withAdd ? (
+        <Link
+          href="/dashboard/create-event"
+          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-terracotta/50 px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta hover:bg-terracotta/5 hover:text-ink"
+        >
+          <span aria-hidden className="text-terracotta">
+            +
+          </span>
+          Add event
         </Link>
-      </div>
-
-      {roles.hasVendorAccess || roles.hasAdminAccess ? (
-        <RoleSwitchRows roles={roles} />
       ) : null}
-    </div>
+    </section>
+  );
+}
+
+function EventCard({
+  event,
+  live,
+  muted,
+}: {
+  event: EventWithRole;
+  live?: boolean;
+  muted?: boolean;
+}) {
+  const meta =
+    [formatEventDate(event.event_date), event.venue_name].filter(Boolean).join(' · ') ||
+    'Date to be confirmed';
+  return (
+    <Link
+      href={`/dashboard/${event.event_id}`}
+      className={`group flex items-center gap-3 rounded-lg border border-ink/10 bg-cream p-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5 ${
+        muted ? 'opacity-75' : ''
+      }`}
+    >
+      <EventMonogram event={event} size="md" className="shrink-0" />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        {live ? (
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-green-700">
+            <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-green-600" />
+            Live now
+          </span>
+        ) : null}
+        <p className="flex min-w-0 items-center gap-2 text-base font-medium text-ink">
+          {event.is_primary ? (
+            <span aria-hidden className="shrink-0 text-terracotta">
+              ★
+            </span>
+          ) : null}
+          <span className="truncate">{event.display_name}</span>
+          <span className="shrink-0 rounded border border-ink/15 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-ink/50">
+            {titleCaseType(event.event_type)}
+          </span>
+        </p>
+        <p className="truncate text-sm text-ink/60">{meta}</p>
+      </div>
+      <span
+        aria-hidden
+        className="shrink-0 text-2xl text-ink/30 transition-transform group-hover:translate-x-1 group-hover:text-terracotta"
+      >
+        ›
+      </span>
+    </Link>
+  );
+}
+
+/** Link into the cross-event Memories Hub (Photos & Videos · Saved Vendors ·
+ *  Editorials) — the account-level "Collection" of the person-spine model. */
+function CollectionLink() {
+  return (
+    <Link
+      href="/dashboard/library"
+      className="group flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+    >
+      <div>
+        <p className="text-sm font-medium text-ink">Memories Hub</p>
+        <p className="text-xs text-ink/55">
+          Photos &amp; videos · editorials · saved vendors — across all your events
+        </p>
+      </div>
+      <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
+        ›
+      </span>
+    </Link>
   );
 }
 
 /**
- * Role-switch rows inside the event list — iteration 0000 § event switcher
- * (locked 2026-05-15). Renders below the event list with a thin separator;
- * Shop console row appears when the user is a vendor owner OR sits on any
- * vendor team; Setnayan HQ row appears when the user has any admin grant.
- *
- * When a user sits across multiple vendors, the Shop console expands into
- * a sub-list — each vendor row routes into that specific shop console.
+ * Role-switch rows — iteration 0000 § event switcher (locked 2026-05-15).
+ * Renders below the events for vendor/admin accounts (who land on this hub per
+ * the 2026-07-04 rule): Shop console when the user owns / sits on any vendor,
+ * Setnayan HQ when the user has any admin grant. Multiple vendors expand into
+ * a sub-list. Preserved from the prior picker.
  */
 function RoleSwitchRows({ roles }: { roles: UserRoleSummary }) {
   return (
-    <div className="mt-6 border-t border-ink/10 pt-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
-        Switch view
-      </p>
+    <div className="border-t border-ink/10 pt-4">
+      <p className="text-sm font-semibold text-ink/70">Switch</p>
       <ul className="mt-3 space-y-2">
         {roles.hasVendorAccess && roles.vendorProfiles.length === 1 ? (
           <li>

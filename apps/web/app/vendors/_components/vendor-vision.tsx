@@ -1,5 +1,5 @@
 /**
- * VendorVision · the "why" spine for /for-vendors.
+ * VendorVision · the "why" spine for /vendors.
  *
  * WHY: owner brief 2026-06-15 — "share our vision to the vendors." Sits between
  * VendorHero (the hook) and StackCloseVendor (the proof): the narrative that

@@ -405,7 +405,7 @@ export const routes = {
   },
   faviconIco: () => `/favicon.ico`,
   features: () => `/features`,
-  forVendors: () => `/for-vendors`,
+  forVendors: () => `/vendors`,
   forgotPassword: () => `/forgot-password`,
   guest: {
     findMyTable: (slug: string) => `/${slug}/find-my-table`,

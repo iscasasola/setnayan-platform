@@ -143,7 +143,7 @@ export const COUPLE_FEATURES = [
 // Vendor-side feature list — v2.1 brief § 4 "For vendors" rows, drift-scrubbed.
 // 2026-06-13: subscription prices removed from these static bullets — vendor
 // tier prices are DB-managed (vendor_billing_catalog via getVendorPrices())
-// and have shifted twice; /for-vendors renders them live. Static marketing
+// and have shifted twice; /vendors renders them live. Static marketing
 // fixtures carry no peso figures so they can never drift again.
 export const VENDOR_FEATURES = [
   'Free listing. Profile, chat with couples, accept bookings — no monthly fee to start.',
@@ -167,7 +167,7 @@ export const LIVE_TODAY = [
 // FAQ — v2.1 brief § 1 + § 7 (with drift scrubs).
 // 2026-06-13 reprice scrub: free-tier answer matches Pricing.md § 00.A
 // (no free RSVP / website / full matching); vendor answer carries no peso
-// figures (tier prices are DB-managed and rendered live on /for-vendors).
+// figures (tier prices are DB-managed and rendered live on /vendors).
 export const FAQ_ITEMS = [
   {
     q: 'Is Setnayan really free for couples?',

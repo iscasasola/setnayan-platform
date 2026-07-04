@@ -243,7 +243,7 @@ export function OpenShopWizard({
         </form>
 
         <p className="mt-4 text-center text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          <Link href="/for-vendors" className="inline-flex items-center gap-1 font-medium text-terracotta hover:underline">
+          <Link href="/vendors" className="inline-flex items-center gap-1 font-medium text-terracotta hover:underline">
             <Globe className="h-3 w-3" strokeWidth={2} aria-hidden />
             See what vendors get
           </Link>

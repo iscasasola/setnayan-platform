@@ -6,7 +6,7 @@
  * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL". Owner
  * directive: port v2.1 visual treatment across marketing surfaces. Signup is
  * the funnel from marketing → dashboard; visual continuity from the homepage
- * + /for-vendors editorial register through the signup door matters.
+ * + /vendors editorial register through the signup door matters.
  *
  * SCOPE — visual treatment ONLY:
  *   - Two-column desktop layout: brand panel (left · 1fr) + form panel

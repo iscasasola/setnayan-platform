@@ -58,9 +58,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   // hreflang reciprocal lives in both pages' metadata.
   { path: '/tl/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
 
-  // /for-vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
+  // /vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).
-  { path: '/for-vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
+  { path: '/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
 
   // /tl/about — Taglish edition of /about (localization first slice,
   // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.

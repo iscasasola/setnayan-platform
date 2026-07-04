@@ -61,6 +61,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'how-it-works',
   'monogram',
   'our-story',
+  'vendors',
   'pa3d',
   'palogo',
   'panood',

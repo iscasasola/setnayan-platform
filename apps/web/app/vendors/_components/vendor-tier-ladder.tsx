@@ -251,7 +251,7 @@ export function VendorTierLadder({ prices }: { prices: VendorTierLadderPrices })
           return (
             <div
               key={t.key}
-              /* id="custom" — deep-link target for /for-vendors#custom (top-nav
+              /* id="custom" — deep-link target for /vendors#custom (top-nav
                  Prices → Custom plans, owner 2026-07-04). scroll-margin keeps the
                  fixed glass nav from covering the card on jump. */
               id={t.key === 'custom' ? 'custom' : undefined}

@@ -78,7 +78,7 @@ const RESERVED_SUBDOMAINS = new Set([
 const APP_EXCLUDED_MARKETING_PATHS = new Set([
   '/',
   '/features',
-  '/for-vendors',
+  '/vendors',
   '/pricing',
   '/how-it-works',
   '/waitlist',
@@ -187,14 +187,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // /vendors → /explore rename (permanent · owner directive 2026-06-14). The
-  // public marketplace moved from /vendors to /explore; redirect the old paths
-  // (with subpaths + query strings) so bookmarks, shared links, and search
-  // equity carry over. 308 = permanent + method-preserving, matching the
+  // /vendors/* → /explore rename (permanent · owner directive 2026-06-14). The
+  // public marketplace moved from /vendors/* to /explore; redirect the old
+  // marketplace SUBPATHS (with query strings) so bookmarks, shared links, and
+  // search equity carry over. 308 = permanent + method-preserving, matching the
   // legacy /services → /add-ons precedent below. Runs AFTER the vendor-
   // subdomain rewrite so slug.setnayan.com still resolves to /v/{slug}; the
   // /v/[slug] vendor PROFILE route is a different prefix and is untouched.
-  if (pathname === '/vendors' || pathname.startsWith('/vendors/')) {
+  //
+  // ⚠ EXACT `/vendors` is DELIBERATELY EXCLUDED (2026-07-05): the vendor
+  // BENEFITS page moved from /for-vendors → /vendors, so bare `/vendors` must
+  // render that page — only the legacy marketplace subpaths still redirect to
+  // /explore. `/for-vendors` → `/vendors` is a permanent redirect in
+  // next.config.ts redirects().
+  if (pathname.startsWith('/vendors/')) {
     // /vendors/compare is still an un-wired orphan (its `ids` param was never
     // honored — Task #12), so it lands on /explore with the explanatory notice
     // banner instead of a bare /explore/compare. Query intentionally dropped.

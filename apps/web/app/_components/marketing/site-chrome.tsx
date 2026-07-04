@@ -57,7 +57,7 @@ const NAV_ROUTES = new Set<string>([
   '/about',
   '/how-it-works',
   '/pricing',
-  '/for-vendors',
+  '/vendors',
   '/our-story',
   '/blog',
   '/realstories',

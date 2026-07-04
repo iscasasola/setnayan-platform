@@ -6,7 +6,7 @@ import { LocaleSwitch, type MarketingLocale } from '@/lib/marketing-i18n';
 // "deep-dive (each tab + service explained more)" surface for couples
 // who want depth before applying. The hero stays restrained: editorial
 // promise, single primary CTA. No vendor toggle here — vendor visitors
-// have their own /for-vendors page.
+// have their own /vendors page.
 //
 // Copy is bilingual (EN + Taglish) — see _copy notes in _PageBody.tsx.
 

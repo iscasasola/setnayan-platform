@@ -88,7 +88,7 @@ export function ReskinFooter() {
           <Link href="/blog">Journal</Link>
           <Link href="/weddings">Real stories</Link>
           <Link href="/help">Help center</Link>
-          <Link href="/for-vendors">For vendors</Link>
+          <Link href="/vendors">For vendors</Link>
         </nav>
 
         <nav className="hr-foot-col" aria-label="Legal" onClick={onFooterLinkClick}>

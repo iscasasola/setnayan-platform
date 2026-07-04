@@ -24,7 +24,7 @@ export const SITE_WIDGET_PAGES: ReadonlyArray<{
   url: string;
 }> = [
   { key: 'home', label: 'Home', url: '/' },
-  { key: 'for_vendors', label: 'For vendors', url: '/for-vendors' },
+  { key: 'for_vendors', label: 'For vendors', url: '/vendors' },
   { key: 'features', label: 'Features', url: '/features' },
   { key: 'about', label: 'About', url: '/about' },
 ];

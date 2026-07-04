@@ -31,7 +31,7 @@ export const metadata = { title: 'Pricing · Admin' };
  *     platform_package_catalog row from a name + price.
  *
  * This surface is the single source of truth for app prices: saves revalidate
- * /pricing + /for-vendors so public prices update within seconds.
+ * /pricing + /vendors so public prices update within seconds.
  *
  * Canonical V2 tables: platform_retail_catalog_v2 · platform_package_catalog ·
  * vendor_billing_catalog · platform_settings.setnayan_pay_fee_pct.
@@ -222,7 +222,7 @@ export default async function AdminPricingPage({ searchParams }: Props) {
           edit any field, then hit <span className="font-medium text-ink">Save all changes</span>{' '}
           once — saves propagate to{' '}
           <Link href="/pricing" className="underline">/pricing</Link> and{' '}
-          <Link href="/for-vendors" className="underline">/for-vendors</Link> within seconds.
+          <Link href="/vendors" className="underline">/vendors</Link> within seconds.
         </p>
       </header>
 
@@ -476,7 +476,7 @@ export default async function AdminPricingPage({ searchParams }: Props) {
           title="Create this bundle?"
           confirmLabel="Add bundle"
           destructive={false}
-          message="This creates a new live bundle product — it appears on the public /pricing and /for-vendors pages right away."
+          message="This creates a new live bundle product — it appears on the public /pricing and /vendors pages right away."
           className="rounded-2xl border border-ink/10 bg-paper p-4 sm:p-5"
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
@@ -579,7 +579,7 @@ function SaveBanner({
       <div className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 p-4">
         <p className="text-sm text-success-900">
           Saved {saved} price change{saved === 1 ? '' : 's'} — now live on /pricing and
-          /for-vendors.{skippedNote}
+          /vendors.{skippedNote}
         </p>
       </div>
     );

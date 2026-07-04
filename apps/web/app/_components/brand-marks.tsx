@@ -11,7 +11,7 @@
  * "SET NA 'YAN" stylization is retired — it read as the old logo; brand lock is
  * SETNAYAN spelled in full).
  *
- * SCOPE: marketing surfaces only (/, /for-vendors, /keynote*, /signup,
+ * SCOPE: marketing surfaces only (/, /vendors, /keynote*, /signup,
  * /login, /pricing, /privacy, etc.). The existing `Logo` in `./logo.tsx` is
  * used in app-chrome surfaces (dashboard, admin, vendor-dashboard); both
  * coexist intentionally and now share the same canonical mark asset

@@ -12,7 +12,7 @@
  * per-day / per-guest-day lines off the CATALOG base rate (never hardcoded).
  *
  * Real navigation: every CTA points at a real route — start planning →
- * /onboarding/wedding, full pricing → /pricing, register → /for-vendors.
+ * /onboarding/wedding, full pricing → /pricing, register → /vendors.
  *
  * SIGN IN (owner 2026-06-30 "login should be like the rest of the upper menu —
  * a popup"): the glass-nav "Sign in" is now a fourth overlay, consistent with
@@ -286,8 +286,8 @@ function DownloadOverlay({
  * VendorsOverlay — the FROSTED-GLASS nav popup (owner 2026-07-04 redesign).
  *
  * Slimmed to ONLY the free-business offering + ONE line-link out to
- * /for-vendors. The full tier ladder + ~90-benefit guide moved OFF the popup
- * onto the /for-vendors page. Renders in the translucent glass card
+ * /vendors. The full tier ladder + ~90-benefit guide moved OFF the popup
+ * onto the /vendors page. Renders in the translucent glass card
  * (`hr-ov-card-glass`) matching the nav's blur(16px). No `pricing` dependency —
  * opens instantly.
  */
@@ -328,7 +328,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       </div>
       <div className="hr-gline">
         <span className="hr-gline-t">Want to upgrade your business?</span>
-        <Link className="hr-gline-a" href="/for-vendors" onClick={onClose}>
+        <Link className="hr-gline-a" href="/vendors" onClick={onClose}>
           See all {FREE_VENDOR_BENEFIT_COUNT} free vendor benefits{' '}
           <span className="hr-gline-arw">→</span>
         </Link>

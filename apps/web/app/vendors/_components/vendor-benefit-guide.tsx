@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * VendorBenefitGuide — the full, filterable ~90-benefit guide for /for-vendors
+ * VendorBenefitGuide — the full, filterable ~90-benefit guide for /vendors
  * (owner 2026-07-04 free-forward redesign · mirrors the full_benefits.html
  * reference structure).
  *
@@ -19,7 +19,7 @@
  * Custom line comes from the shared VENDOR_CUSTOM_TIER constant.
  *
  * Styling uses the Clean Editorial `--m-*` system to match the rest of
- * /for-vendors. Display-only marketing surface — no checkout, no server calls.
+ * /vendors. Display-only marketing surface — no checkout, no server calls.
  */
 
 import { useMemo, useState } from 'react';
@@ -275,7 +275,7 @@ export function VendorBenefitGuide({ prices }: { prices: VendorBenefitGuidePrice
             <p style={{ fontSize: 14, color: 'var(--m-slate)', lineHeight: 1.55, margin: 0, maxWidth: 640 }}>
               {VENDOR_CUSTOM_TIER.tagline}
             </p>
-            <Link href="/for-vendors#custom" className="m-btn m-btn-ghost" style={{ marginTop: 16 }}>
+            <Link href="/vendors#custom" className="m-btn m-btn-ghost" style={{ marginTop: 16 }}>
               See the tier cards →
             </Link>
           </div>

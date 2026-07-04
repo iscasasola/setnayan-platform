@@ -33,7 +33,7 @@ import { VendorTierLadder } from './vendor-tier-ladder';
 
 // The per-benefit "advantages no directory can copy" + "everything else you
 // get" prose-card arrays that used to render here were removed 2026-07-05: the
-// tier-comparison MATRIX + filterable benefit guide (added to /for-vendors this
+// tier-comparison MATRIX + filterable benefit guide (added to /vendors this
 // PR) now carry that content in full, sourced from the canonical
 // VENDOR_TIER_SECTIONS. This component keeps the intro, the 0%-commission hero
 // strip, the benefits-forward tier ladder, and the CTA.

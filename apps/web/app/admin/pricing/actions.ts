@@ -37,7 +37,7 @@ import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
  * skip count is surfaced back in the redirect. Valid rows still save.
  *
  * Auto-update guarantee: one revalidatePath sweep after the batch kicks the
- * three surfaces that read V2 catalog rows (/pricing · /for-vendors ·
+ * three surfaces that read V2 catalog rows (/pricing · /vendors ·
  * /admin/pricing), plus the fee-only surfaces when the fee changed.
  *
  * Audit trail: every changed row writes an admin_audit_log row (per § 9.1)
@@ -463,7 +463,7 @@ export async function saveAllPricing(formData: FormData) {
   // 9 ─ One revalidate sweep. The core three always; the fee additionally
   // touches the payments + vendor-dashboard surfaces.
   revalidatePath('/pricing');
-  revalidatePath('/for-vendors');
+  revalidatePath('/vendors');
   revalidatePath('/admin/pricing');
   if (feeChanged) {
     revalidatePath('/admin/payments');
@@ -554,7 +554,7 @@ export async function createBundle(formData: FormData) {
   }
 
   revalidatePath('/pricing');
-  revalidatePath('/for-vendors');
+  revalidatePath('/vendors');
   revalidatePath('/admin/pricing');
   redirect(`/admin/pricing?created=${encodeURIComponent(code)}`);
 }

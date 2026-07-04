@@ -432,22 +432,34 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       {
+        // Repointed to the Studio Studio Website tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/website path (which now
+        // redirects in).
         key: 'website',
         label: 'Website',
-        href: '/admin/website',
+        href: '/admin/studio?tab=website',
         icon: Globe,
+        matchPrefix: '/admin/website',
       },
       {
+        // Repointed to the Studio Studio Hero video tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/hero-video path (redirects in).
         key: 'hero-video',
         label: 'Hero video',
-        href: '/admin/hero-video',
+        href: '/admin/studio?tab=hero-video',
         icon: Video,
+        matchPrefix: '/admin/hero-video',
       },
       {
+        // Repointed to the Studio Studio Reveal Studio tab (slice 1).
+        // matchPrefix keeps this item lit on the legacy /admin/reveal-studio
+        // path (redirects in). NB /admin/studio and /admin/reveal-studio are
+        // DISTINCT routes — no collision.
         key: 'reveal-studio',
         label: 'Reveal Studio',
-        href: '/admin/reveal-studio',
+        href: '/admin/studio?tab=reveal-studio',
         icon: Sparkles,
+        matchPrefix: '/admin/reveal-studio',
       },
       {
         // Real Stories featuring (PR D) — pin + order which consented wedding
@@ -462,9 +474,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         // Auto-Recap oversight — every couple-published "living recap" (a
         // public page of guest photos + words) + the RA 10173 takedown lever.
+        // Repointed to the Studio Studio Recaps tab (slice 1). matchPrefix
+        // (already present) keeps this item lit on the legacy /admin/recaps
+        // path (which now redirects in).
         key: 'recaps',
         label: 'Recaps',
-        href: '/admin/recaps',
+        href: '/admin/studio?tab=recaps',
         icon: Images,
         matchPrefix: '/admin/recaps',
       },

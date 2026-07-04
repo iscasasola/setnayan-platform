@@ -216,19 +216,37 @@ export async function checkOrderActive(
  * grants a child SKU when the event owns a bundle that contains it. No
  * migration — ownership still IS orders.status, read one extra way.
  *
- * Canonical source of the membership list: BUNDLE_MEMBERS in
- * app/onboarding/wedding/_components/onboarding-pricing.ts (the bundle "what's
- * included" surface the customer actually buys). This map is the entitlement-
- * layer mirror of that fact, kept here so the read-side gate has no app→lib
- * import inversion. KEEP IN SYNC if BUNDLE_MEMBERS changes.
+ * ── SINGLE SOURCE OF TRUTH (Entity Map & Hardcode Audit 2026-07-04 · Violation
+ * #2) ──────────────────────────────────────────────────────────────────────
+ * Bundle composition now lives in ONE place: the public.bundle_components table
+ * (migration 20270511379088), which the DB fn public.bundles_granting_sku() also
+ * reads. The entitlement gates read that table DB-first via
+ * fetchBundleComponents() below, and THIS const is the graceful-degrade
+ * FALLBACK — used only when the table isn't queryable yet (pre-migration deploy
+ * window / a schema-drift error), so the app never mis-gates before the table
+ * lands. When the table IS present it is authoritative; this const does not need
+ * to be edited for a composition change once the table exists (an admin edits
+ * the table). It is kept in sync as a safety net and is asserted equal to the
+ * migration seed by lint:entitlement-gates GUARD 2.
  *
  * Keyed by BUNDLE service_key → the child catalog service_codes it grants.
  */
-export const BUNDLE_CHILD_SKUS: Readonly<{
-  GUIDED_PACK: ReadonlyArray<string>;
-  MEDIA_PACK: ReadonlyArray<string>;
-  PAPIC_UNLOCK: ReadonlyArray<string>;
-}> = Object.freeze({
+
+/**
+ * Bundle composition shape — a plain map of bundle service_key → its child
+ * service_codes. Both the DB-first read (fetchBundleComponents) and the const
+ * fallback (BUNDLE_CHILD_SKUS) produce this shape, so the pure resolvers below
+ * work identically on either source. Data-driven (any bundle key), since the
+ * authoritative source is now the admin-editable public.bundle_components table.
+ */
+export type BundleComposition = Readonly<Record<string, ReadonlyArray<string>>>;
+
+// Concrete literal type preserved (not widened to BundleComposition) so existing
+// consumers that index it by a named key (add-on-state / sku-activation) keep
+// their exact `ReadonlyArray<string>` element type under noUncheckedIndexedAccess.
+// It still structurally satisfies BundleComposition wherever the generic shape
+// is expected (the pure resolvers + fetchBundleComponents fallback).
+export const BUNDLE_CHILD_SKUS = Object.freeze({
   // Essentials — owner's 7 (onboarding-pricing.ts BUNDLE_MEMBERS.essentials).
   GUIDED_PACK: Object.freeze([
     'SETNAYAN_AI',
@@ -273,8 +291,10 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
   // so the guest disposable camera surface unlocks (its cap is then lifted =
   // "unli guests"). PAPIC_SEATS stays OUT — it's the deprecated ₱2,999 crew pack
   // (superseded by the per-camera model, whose cameras the bypass makes
-  // unlimited regardless). Still deferred: the DB-side bundles_granting_sku()
-  // mirror for PAPIC_UNLOCK.
+  // unlimited regardless). The DB-side bundles_granting_sku() mirror for
+  // PAPIC_UNLOCK — once deferred, and the source of a DB↔app disagreement on
+  // PAPIC_GUEST — is now RESOLVED: migration 20270511379088 seeds bundle_components
+  // with this exact 7-child list (PAPIC_GUEST INCLUDED), and the DB fn reads it.
   PAPIC_UNLOCK: Object.freeze([
     'KWENTO',
     'LIVE_WALL',
@@ -286,21 +306,91 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
   ]),
 });
 
+// ===========================================================================
+// Pure composition-resolution logic — operates on a BundleComposition map, with
+// NO I/O, so it's exhaustively unit-testable (entitlements.test.ts) and is the
+// single implementation both the DB-read path and the const-fallback path use.
+// ===========================================================================
+
 /**
- * Reverse index: child service_code → the bundle service_keys that grant it.
- * Built once at module load from BUNDLE_CHILD_SKUS.
+ * Build the reverse index of a composition map: child service_code → the bundle
+ * service_keys that grant it. Sorted for determinism. Pure.
  */
-const BUNDLES_GRANTING_SKU: ReadonlyMap<string, ReadonlyArray<string>> = (() => {
+export function buildBundlesGrantingIndex(
+  composition: BundleComposition,
+): ReadonlyMap<string, ReadonlyArray<string>> {
   const m = new Map<string, string[]>();
-  for (const [bundleKey, children] of Object.entries(BUNDLE_CHILD_SKUS)) {
+  for (const [bundleKey, children] of Object.entries(composition)) {
     for (const child of children) {
       const list = m.get(child) ?? [];
       list.push(bundleKey);
       m.set(child, list);
     }
   }
+  // Deterministic order so callers (and tests) see a stable result regardless of
+  // row/key iteration order (the DB reader can return rows in any order).
+  for (const [child, bundles] of m) m.set(child, [...bundles].sort());
   return m;
-})();
+}
+
+/**
+ * The bundle service_keys that grant `child`, resolved against a composition
+ * map. Empty array (never undefined) when no bundle includes it. Pure — this is
+ * the app mirror of the DB fn public.bundles_granting_sku(child).
+ */
+export function bundlesGrantingSku(
+  composition: BundleComposition,
+  child: string,
+): ReadonlyArray<string> {
+  return buildBundlesGrantingIndex(composition).get(child) ?? [];
+}
+
+/** The child service_codes a given bundle grants, or [] if not a known bundle. Pure. */
+export function childrenOfBundle(
+  composition: BundleComposition,
+  bundleKey: string,
+): ReadonlyArray<string> {
+  return composition[bundleKey] ?? [];
+}
+
+/**
+ * DB-FIRST read of bundle composition from public.bundle_components (the single
+ * source of truth · migration 20270511379088), with the BUNDLE_CHILD_SKUS const
+ * as the graceful-degrade FALLBACK. The house DB-first + const-fallback pattern.
+ *
+ * Returns the const fallback (never throws) when:
+ *   • the table doesn't exist yet — 42P01 (deploy-order safety: the code ships
+ *     BEFORE the migration applies, and must gate correctly in that window);
+ *   • any read error / empty result — a transient failure or an unseeded table
+ *     must not silently strip every bundle child of its entitlement.
+ * Otherwise the table is authoritative — a live row set (even one that differs
+ * from the const) wins, so an admin composition edit takes effect without a
+ * code change.
+ *
+ * Uses whatever client the caller already passes — the table's RLS grants a
+ * public SELECT (USING true), so anon / authenticated / admin all read it.
+ */
+export async function fetchBundleComponents(
+  supabase: SupabaseClient,
+): Promise<BundleComposition> {
+  const { data, error } = await supabase
+    .from('bundle_components')
+    .select('bundle_sku_code, component_service_code');
+
+  // Pre-migration / drift / any error → const fallback. Never throw at a gate.
+  if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;
+
+  const out: Record<string, string[]> = {};
+  for (const row of data) {
+    const bundle = row.bundle_sku_code as string | null;
+    const child = row.component_service_code as string | null;
+    if (!bundle || !child) continue;
+    (out[bundle] ??= []).push(child);
+  }
+  // A well-formed but somehow-childless result → fallback (defense-in-depth).
+  if (Object.keys(out).length === 0) return BUNDLE_CHILD_SKUS;
+  return out;
+}
 
 /**
  * Reverse index: alias purchase key → ALL the CANONICAL service_keys it grants.
@@ -351,12 +441,11 @@ export async function eventOwnsSku(
   //    passed directly).
   if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
 
-  // 2. Any bundle that includes this child SKU, owned by the event.
-  const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
-  if (grantingBundles && grantingBundles.length > 0) {
-    for (const bundleKey of grantingBundles) {
-      if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
-    }
+  // 2. Any bundle that includes this child SKU, owned by the event. Composition
+  //    is read DB-first from bundle_components (const fallback pre-migration).
+  const composition = await fetchBundleComponents(supabase);
+  for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
+    if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
   }
 
   // 3. Admin comp grant — a host of this event was gifted free access covering
@@ -385,11 +474,10 @@ export async function eventSkuActive(
   serviceKey: string,
 ): Promise<boolean> {
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
-  const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
-  if (grantingBundles && grantingBundles.length > 0) {
-    for (const bundleKey of grantingBundles) {
-      if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
-    }
+  // Composition DB-first from bundle_components (const fallback pre-migration).
+  const composition = await fetchBundleComponents(supabase);
+  for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
+    if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
   }
 
   // Admin comp grant — bypass the handshake gate too (a gifted feature is
@@ -446,6 +534,10 @@ export async function eventActiveSkus(
   const active = new Set<string>();
   const pending = new Set<string>();
 
+  // Composition DB-first from bundle_components (const fallback pre-migration),
+  // fetched once for the whole batch.
+  const composition = await fetchBundleComponents(supabase);
+
   const { data, error } = await supabase
     .from('orders')
     .select('service_key, status')
@@ -453,7 +545,7 @@ export async function eventActiveSkus(
     .in('status', ['paid', 'fulfilled', 'submitted', 'awaiting_payment']);
 
   const childrenOf = (key: string): ReadonlyArray<string> =>
-    (BUNDLE_CHILD_SKUS as Record<string, ReadonlyArray<string>>)[key] ?? [];
+    childrenOfBundle(composition, key);
 
   // Populate from orders when available. A missing/legacy orders table must not
   // crash the hub — but it also must NOT skip the comp union below, so we guard

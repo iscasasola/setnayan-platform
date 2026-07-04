@@ -47,6 +47,9 @@ import {
   UserMinus,
   UserPlus,
   X,
+  Music,
+  ChefHat,
+  Mic,
 } from 'lucide-react';
 import {
   BOOTH_CATALOG,
@@ -5182,7 +5185,13 @@ function BoothIcon({ type, className }: { type: BoothType; className?: string })
                 ? Package
                 : type === 'registration_desk'
                   ? ClipboardList
-                  : Store;
+                  : type === 'band'
+                    ? Music
+                    : type === 'live_cooking'
+                      ? ChefHat
+                      : type === 'live_performance'
+                        ? Mic
+                        : Store;
   return <Icon className={className} />;
 }
 

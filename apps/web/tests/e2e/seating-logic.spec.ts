@@ -694,10 +694,15 @@ import { BOOTH_CATALOG as PICKABLE_BOOTHS } from '../../lib/seating';
 test.describe('booth catalog', () => {
   test('the picker offers real kinds and never the unassigned placeholder', () => {
     const types = PICKABLE_BOOTHS.map((b) => b.type);
+    // Order mirrors BOOTH_CATALOG. band / live_cooking / live_performance added
+    // 2026-07-04 for the vendor 3D-Plan booths (migration 20270511347133).
     expect(types).toEqual([
       'photo_booth',
       'mobile_bar',
+      'live_cooking',
       'dessert_station',
+      'band',
+      'live_performance',
       'gift_table',
       'souvenir_table',
       'registration_desk',

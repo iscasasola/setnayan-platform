@@ -1345,6 +1345,12 @@ export type BoothType =
   | 'gift_table'
   | 'souvenir_table'
   | 'registration_desk'
+  // Vendor-run stations added 2026-07-04 (3D-Plan booths, migration
+  // 20270511347133): a band/stage, a live-COOKING action station, and a
+  // live-PERFORMANCE (acoustic act) spot — each with its own 3D silhouette.
+  | 'band'
+  | 'live_cooking'
+  | 'live_performance'
   | 'custom'
   // A blank pin the couple has placed but not yet typed (place-then-pick).
   | 'unassigned';
@@ -1354,7 +1360,10 @@ export type BoothType =
 export const BOOTH_CATALOG: ReadonlyArray<{ type: Exclude<BoothType, 'unassigned'>; label: string }> = [
   { type: 'photo_booth', label: 'Photo Booth' },
   { type: 'mobile_bar', label: 'Mobile Bar' },
+  { type: 'live_cooking', label: 'Live Cooking' },
   { type: 'dessert_station', label: 'Dessert Station' },
+  { type: 'band', label: 'Band / Stage' },
+  { type: 'live_performance', label: 'Live Performance' },
   { type: 'gift_table', label: 'Gift Table' },
   { type: 'souvenir_table', label: 'Souvenir Table' },
   { type: 'registration_desk', label: 'Front Desk' },

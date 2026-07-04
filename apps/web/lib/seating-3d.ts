@@ -619,6 +619,10 @@ const BOOTH_TYPE_LABELS: Record<string, string> = {
   dessert_station: 'Dessert station',
   gift_table: 'Gift table',
   souvenir_table: 'Souvenir table',
+  registration_desk: 'Front desk',
+  band: 'Band / stage',
+  live_cooking: 'Live cooking',
+  live_performance: 'Live performance',
   custom: 'Booth',
   unassigned: 'Booth',
 };

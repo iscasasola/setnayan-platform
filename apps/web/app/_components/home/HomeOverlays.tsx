@@ -37,6 +37,7 @@ import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import type { PricingData } from './pricing-data';
+import { VENDOR_TIER_SECTIONS } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
@@ -152,6 +153,17 @@ export function OverlayShell({
 }
 
 /**
+ * Count of free-tier (Free · Verified) vendor benefits — computed at build time
+ * from the canonical VENDOR_TIER_SECTIONS so the Vendors-popup line-link ("See
+ * all N free vendor benefits →") never goes stale when benefits are added or
+ * removed. 49 today (7 groups); the number tracks the array, not a literal.
+ */
+const FREE_VENDOR_BENEFIT_COUNT = (() => {
+  const free = VENDOR_TIER_SECTIONS.find((s) => s.tier === 'free');
+  return free ? free.groups.reduce((n, g) => n + g.items.length, 0) : 0;
+})();
+
+/**
  * PricesOverlay — the FROSTED-GLASS nav popup (owner 2026-07-04 redesign).
  *
  * A SUMMARY: the free planning offering + a one-line Setnayan AI price intro +
@@ -207,7 +219,7 @@ function PricesOverlay({
       <div className="hr-gline">
         <span className="hr-gline-t">Want more features?</span>
         <Link className="hr-gline-a" href="/pricing" onClick={onClose}>
-          See all prices <span className="hr-gline-arw">→</span>
+          See all free features &amp; prices <span className="hr-gline-arw">→</span>
         </Link>
       </div>
     </OverlayShell>
@@ -317,7 +329,8 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       <div className="hr-gline">
         <span className="hr-gline-t">Want to upgrade your business?</span>
         <Link className="hr-gline-a" href="/for-vendors" onClick={onClose}>
-          See vendor plans <span className="hr-gline-arw">→</span>
+          See all {FREE_VENDOR_BENEFIT_COUNT} free vendor benefits{' '}
+          <span className="hr-gline-arw">→</span>
         </Link>
       </div>
     </OverlayShell>

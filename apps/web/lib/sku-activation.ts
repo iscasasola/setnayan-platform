@@ -6,6 +6,7 @@ import {
   seatServiceKey,
   vendorProfileIdFromSeatServiceKey,
 } from '@/lib/vendor-seats';
+import { vendorProfileIdFromCustomPlanServiceKey } from '@/lib/vendor-custom-catalog';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import {
@@ -380,6 +381,81 @@ const PREFIX_HOOKS: ReadonlyArray<{
           service_key: ctx.serviceKey,
           vendor_profile_id: vendorProfileId,
           extra_agent_seats: paidSeats,
+        },
+      });
+    },
+  },
+  {
+    // 'vendor_custom_plan__{vendor_profile_id}' → PROVISION the negotiated
+    // Custom tier (owner-signed §11). When the admin approves the quote payment,
+    // flip the vendor to tier_state='custom' + promote the org's newest quoted /
+    // pending plan to 'active' so the effective-caps overlay
+    // (lib/vendor-effective-caps.ts) reads the composed ceilings. The one-active-
+    // plan unique index (WHERE status='active') means a stale prior active row
+    // must be demoted first — so this idempotently retires every OTHER active
+    // plan for the org to 'lapsed', then activates this order's plan. Re-approval
+    // is safe (the target is already active → the UPDATEs are no-ops).
+    match: (serviceKey) => vendorProfileIdFromCustomPlanServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
+      if (!vendorProfileId) return;
+
+      // The plan this order quoted — the most-recently-updated non-terminal row
+      // for the org (quoted / pending_payment / active). We activate exactly one.
+      const { data: target } = await ctx.admin
+        .from('vendor_custom_plans')
+        .select('custom_plan_id, status')
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('status', ['quoted', 'pending_payment', 'active'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const targetId = (target as { custom_plan_id?: string } | null)?.custom_plan_id ?? null;
+      if (!targetId) return; // nothing to provision (defensive)
+
+      // Demote any OTHER active plan for the org so the one-active unique index
+      // never conflicts (only touches rows that are NOT our target).
+      await ctx.admin
+        .from('vendor_custom_plans')
+        .update({ status: 'lapsed', updated_at: new Date().toISOString() })
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('status', 'active')
+        .neq('custom_plan_id', targetId);
+
+      // Promote the target to active + stamp a 28-day order window.
+      const { error: planErr } = await ctx.admin
+        .from('vendor_custom_plans')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('custom_plan_id', targetId);
+      if (planErr) {
+        throw new Error(`vendor_custom_plan activation write failed: ${planErr.message}`);
+      }
+
+      // Flip the vendor onto the Custom tier so the caps overlay engages.
+      const { error: tierErr } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ tier_state: 'custom' })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (tierErr) {
+        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
+      }
+
+      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+      await ctx.admin
+        .from('orders')
+        .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
+        .eq('order_id', ctx.orderId);
+
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: vendorProfileId,
+          custom_plan_id: targetId,
+          tier_state: 'custom',
         },
       });
     },

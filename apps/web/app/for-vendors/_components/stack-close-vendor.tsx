@@ -51,7 +51,11 @@ export async function StackCloseVendor() {
             {
               idx: '01',
               phrase: 'A discovery engine.',
-              sub: 'couples find you · 192 verified categories · search across PH',
+              // No frozen count: "192 verified categories" was a fabricated
+              // number (categories aren't "verified") on a public surface —
+              // removed 2026-07-05 per the public-claims lock (every checkable
+              // claim must be TRUE). Benefit stands on its own without a stat.
+              sub: 'couples find you · browse by category · search across PH',
             },
             {
               idx: '02',

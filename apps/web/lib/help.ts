@@ -48,9 +48,17 @@ export const HELP_ROLES: ReadonlyArray<{
 // FAQPage Question + Answer pairs verbatim when responding to "what is
 // X" / "how much does X cost" / "does X support Filipino weddings"
 // queries. Each answer is under ~300 chars so it surfaces cleanly as a
-// SERP snippet and as a structured chunk in AI chat responses. Pricing
-// + features match v2.1 canonical brief reality (CLAUDE.md tenth
-// 2026-05-28 row) + the live /pricing state.
+// SERP snippet and as a structured chunk in AI chat responses.
+//
+// PRICING DISCIPLINE (2026-07-05): article bodies MUST NOT hardcode any
+// peso figure, tier boundary, or per-cycle rate — prices are admin-managed
+// (platform_retail_catalog_v2 + the vendor billing catalog) and drift, so a
+// number baked into this SEO-indexed evergreen corpus goes stale silently
+// and can be acted on by users at /help/[slug]. Point at setnayan.com/pricing
+// (couple SKUs) or the vendor billing hub (vendor tiers) instead of quoting a
+// figure. Same rule for frozen live dates/counts (launch dates, market-size
+// counts). A unit test (lib/help-no-hardcoded-prices.test.ts) guards this —
+// keep it green.
 export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   {
     key: 'about-setnayan',
@@ -65,12 +73,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI — a ₱499 / 28-day subscription that stays active until your wedding day, then ends. Individual services retail ₱999–₱7,999. Vendor side: Verified is free during launch; Pro ₱6,000 and Enterprise ₱10,000 per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a per-cycle subscription that stays active until your wedding day, then ends. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (₱499 / 28 days, active until your wedding day), the Event Website (₱1,999), and premium RSVP are optional paid software. You only pay for what you choose to add.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a per-cycle subscription active until your wedding day), the Event Website, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -80,12 +88,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier, ₱499 per 28-day cycle — a subscription that runs until your event date. Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier — a per-28-day-cycle subscription that runs until your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
         title: 'Does Setnayan support Filipino wedding customs?',
-        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, and bearers. Multi-faith vendor compatibility tagging across 192 vendor sub-categories.',
+        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, and bearers. Multi-faith vendor compatibility tagging across a deep tree of vendor sub-categories.',
       },
       {
         slug: 'what-languages-does-setnayan-support',
@@ -95,7 +103,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'where-does-setnayan-operate',
         title: 'Where does Setnayan operate?',
-        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding vendors serve. Pilot launches 2026-06-01. Public launch 2026-12-01.',
+        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding vendors serve.',
       },
       {
         slug: 'does-setnayan-have-mobile-app',
@@ -110,17 +118,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakanta',
         title: 'What is Pakanta?',
-        body: 'A custom Filipino-style song written for the couple. ₱2,499 one-time per event. Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
+        body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
       },
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (from ₱2,999, scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours). Current prices are on setnayan.com/pricing.',
       },
       {
         slug: 'what-is-panood',
         title: 'What is Panood?',
-        body: 'Live streaming for your wedding, embedded directly on your event website. ₱2,499 per day. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your wedding, embedded directly on your event website — priced per day (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',
@@ -140,7 +148,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'when-does-setnayan-launch',
         title: 'When does Setnayan launch?',
-        body: 'Pilot 2026-06-01 with a small family + friends cohort exercising the full payment cycle on real weddings. Public launch 2026-12-01 alongside the founder\'s wedding (December 18, 2026) — the first event shipped through the platform end-to-end.',
+        body: 'Setnayan is rolling out in phases — a pilot with a small family + friends cohort exercising the full payment cycle on real weddings, followed by public launch alongside the founder\'s own wedding, the first event shipped through the platform end-to-end. See setnayan.com for the latest launch status.',
       },
     ],
   },
@@ -464,7 +472,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1: major decisions need two admins. That means ad-revenue activation, vendor verification override, refund > ₱100,000, force-majeure bulk resolution, payment-method config change, and any blanket policy update. Routine ops (review moderation, user lookup, manual help reply) stay single-admin.',
+        body: 'Per Vendor Agreement § 9.1: major decisions need two admins. That means ad-revenue activation, vendor verification override, a large refund above the policy threshold, force-majeure bulk resolution, payment-method config change, and any blanket policy update. Routine ops (review moderation, user lookup, manual help reply) stay single-admin. The exact refund threshold is set in the Vendor Agreement.',
       },
       {
         slug: 'approving-an-action',
@@ -474,7 +482,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'routine-vs-major',
         title: 'Routine vs major — the rule of thumb',
-        body: 'Routine = reversible by a single admin within 1 business day. Major = affects >100 users, financial impact ≥₱100,000, or touches public trust (verification, refunds, ad activation). When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
+        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has significant financial impact above the policy threshold, or touches public trust (verification, refunds, ad activation). When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
       },
     ],
   },
@@ -515,7 +523,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
 // it in the same edit when an article body materially changes.
 // ───────────────────────────────────────────────────────────────────────────
 
-export const HELP_LASTMOD = '2026-05-28';
+export const HELP_LASTMOD = '2026-07-05';
 
 export type HelpArticleWithTopic = {
   article: HelpArticle;

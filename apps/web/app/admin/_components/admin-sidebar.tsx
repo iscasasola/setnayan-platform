@@ -369,10 +369,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     label: 'Accounts',
     items: [
       {
+        // Repointed to the Accounts Studio Users tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/users path + any future
+        // /admin/users/[id] detail route (which stays standalone).
         key: 'users',
         label: 'Users',
-        href: '/admin/users',
+        href: '/admin/accounts?tab=users',
         icon: Users,
+        matchPrefix: '/admin/users',
       },
       {
         key: 'vendors',
@@ -389,9 +393,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/demo-vendors',
       },
       {
+        // Repointed to the Accounts Studio Events tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/events path.
         key: 'events',
         label: 'Events',
-        href: '/admin/events',
+        href: '/admin/accounts?tab=events',
         icon: CalendarDays,
         matchPrefix: '/admin/events',
       },

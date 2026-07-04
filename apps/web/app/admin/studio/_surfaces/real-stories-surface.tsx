@@ -1,0 +1,287 @@
+import Link from 'next/link';
+import { loadShowcaseCandidatesForAdmin } from '@/lib/showcase-db';
+import { setShowcaseFeatured, setShowcaseRank } from '@/app/admin/real-stories/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+
+/**
+ * RealStoriesSurface — the Real Stories featuring body, re-homed byte-identical
+ * from app/admin/real-stories/page.tsx into the tabbed /admin/studio studio
+ * (Studio Studio slice 2). Behaviour is unchanged: curate which published,
+ * consent-gated wedding editorials get FEATURED (pinned) + in what ORDER on the
+ * public /realstories index, and which fills the hero slot.
+ *
+ * PR D of the Real Stories featuring program. The list mirrors the public
+ * page's order (featured-first by rank, then newest) and only ever surfaces
+ * weddings that already pass the RA 10173 consent gate — featuring is curation
+ * on top of that gate, never a bypass. The curated SAMPLE ("Maria & Juan") is
+ * an in-code constant, not in the database, so it can't be featured here — it
+ * stays clearly labelled "Sample showcase" on the public page.
+ *
+ * Until a real wedding qualifies (first = the founder's Dec 2026 wedding →
+ * editorial ~Jan 2027) this page shows the empty state, and /realstories keeps
+ * showing the sample. Edits revalidate /realstories live — no redeploy.
+ *
+ * Two mechanical changes vs the legacy page:
+ *   1. It accepts the surface's own searchParams (ok, error) as props from the
+ *      /admin/studio shell instead of awaiting them itself.
+ *   2. The outer max-w-5xl container is dropped (the studio shell provides
+ *      layout). The setShowcaseFeatured / setShowcaseRank server actions still
+ *      redirect back to /admin/real-stories?ok=… / ?error= (which now redirects
+ *      in) so their banners surface on the Real Stories tab — no action rewrite
+ *      needed.
+ */
+
+const INPUT =
+  'w-24 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink';
+const BTN_PRIMARY =
+  'rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta/90';
+const BTN_SECONDARY =
+  'rounded-md border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta';
+
+export async function RealStoriesSurface({
+  ok: okRaw,
+  error: errorRaw,
+}: {
+  ok?: string;
+  error?: string;
+}) {
+  const ok = okRaw ? decodeURIComponent(okRaw) : null;
+  const error = errorRaw ? decodeURIComponent(errorRaw) : null;
+
+  const result = await loadShowcaseCandidatesForAdmin();
+  const rows = result.ok ? result.rows : [];
+  const featuredCount = rows.filter((r) => r.featured).length;
+
+  return (
+    <div>
+      <header className="mb-8 space-y-2">
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+          Setnayan HQ · Platform
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Real Stories
+        </h1>
+        <p className="max-w-3xl text-base text-ink/65">
+          Choose which real, consented wedding editorials get{' '}
+          <strong className="font-semibold text-ink">featured</strong> on the
+          public{' '}
+          <Link href="/realstories" className="underline hover:text-terracotta">
+            Real Stories
+          </Link>{' '}
+          page, and in what order. The lowest-numbered featured wedding fills the
+          big hero slot at the top. Only weddings that are already public,
+          finished (past the 30-day grace window), and whose couple opted in to
+          showcasing appear below — featuring is a spotlight on top of their
+          consent, never a way around it.
+        </p>
+      </header>
+
+      {ok ? (
+        <div
+          role="status"
+          className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800"
+        >
+          {ok}
+        </div>
+      ) : null}
+      {error ? (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {/* Migration-not-applied state — the featuring columns don't exist yet. */}
+      {!result.ok && result.reason === 'migration' ? (
+        <div className="rounded-2xl border border-warn-200 bg-warn-50 p-6 text-sm text-warn-900">
+          <p className="font-semibold">Almost there — one database step left.</p>
+          <p className="mt-2">
+            The Real Stories featuring columns haven&rsquo;t been added to the
+            database yet. Run the migration{' '}
+            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
+              20261221000000_realstories_featuring.sql
+            </code>{' '}
+            (
+            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
+              supabase db push --db-url &quot;$SUPABASE_DB_URL&quot;
+            </code>
+            ), then reload this page. Until then, /realstories keeps showing the
+            sample showcase exactly as before.
+          </p>
+        </div>
+      ) : !result.ok ? (
+        <div className="rounded-2xl border border-danger-200 bg-danger-50 p-6 text-sm text-danger-800">
+          Couldn&rsquo;t load showcases right now. Try again in a moment.
+        </div>
+      ) : rows.length === 0 ? (
+        /* Empty state — no qualifying real showcases yet. */
+        <div className="rounded-2xl border border-ink/10 bg-white/60 p-8 text-center">
+          <h2 className="text-lg font-semibold text-ink">
+            No published Real Stories yet
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-ink/65">
+            Couples&rsquo; editorials appear here once they&rsquo;re live and
+            consented — a finished wedding (past its 30-day grace window) with a
+            public page and the couple opted in to showcasing. The public Real
+            Stories page shows the labelled sample meanwhile. The first real one
+            is expected around January 2027.
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="mb-4 text-sm text-ink/55">
+            {rows.length} eligible{' '}
+            {rows.length === 1 ? 'wedding' : 'weddings'} · {featuredCount}{' '}
+            featured
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-ink/10 bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Wedding</th>
+                  <th className="px-4 py-3 font-medium">Featured</th>
+                  <th className="px-4 py-3 font-medium">Order</th>
+                  <th className="px-4 py-3 font-medium" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/8">
+                {rows.map((r) => {
+                  const meta = [r.city, r.dateLabel].filter(Boolean).join(' · ');
+                  return (
+                    <tr
+                      key={r.eventId}
+                      id={`rs-${r.eventId}`}
+                      className={r.featured ? 'bg-terracotta/[0.04]' : undefined}
+                    >
+                      <td className="px-4 py-3 align-top">
+                        <Link
+                          href={`/${r.slug}`}
+                          className="font-medium text-ink hover:text-terracotta hover:underline"
+                        >
+                          {r.coupleNames}
+                        </Link>
+                        {meta ? (
+                          <p className="mt-0.5 text-xs text-ink/55">{meta}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {r.featured ? (
+                          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
+                            Featured
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ink/45">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {r.featured ? (
+                          <div className="space-y-1.5">
+                            {/* Plain-English meaning of the numeric rank, so an
+                                admin knows rank 0 = the hero cover and 1–3 fill
+                                the "Most loved" slots on the public page. */}
+                            <div className="text-[11px] font-medium uppercase tracking-wide">
+                              {r.featureRank == null ? (
+                                <span className="text-ink/45">Unranked</span>
+                              ) : r.featureRank === 0 ? (
+                                <span className="rounded-full bg-terracotta/15 px-2 py-0.5 text-terracotta-700">
+                                  Cover
+                                </span>
+                              ) : r.featureRank <= 3 ? (
+                                <span className="rounded-full bg-mulberry/10 px-2 py-0.5 text-mulberry">
+                                  Most loved #{r.featureRank}
+                                </span>
+                              ) : (
+                                <span className="text-ink/45">Featured · rank {r.featureRank}</span>
+                              )}
+                            </div>
+                            <form
+                              action={setShowcaseRank}
+                              className="flex items-center gap-2"
+                            >
+                              <input
+                                type="hidden"
+                                name="event_id"
+                                value={r.eventId}
+                              />
+                              <input
+                                name="rank"
+                                type="number"
+                                min={0}
+                                max={9999}
+                                defaultValue={r.featureRank ?? ''}
+                                placeholder="—"
+                                aria-label={`Order for ${r.coupleNames} (0 = cover, 1–3 = most loved, lower shows first)`}
+                                className={INPUT}
+                              />
+                              <SubmitButton pendingLabel="Saving…" className={BTN_SECONDARY}>
+                                Save
+                              </SubmitButton>
+                            </form>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-ink/45">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top text-right">
+                        {r.featured ? (
+                          <ConfirmForm
+                            action={setShowcaseFeatured}
+                            title="Remove from Real Stories?"
+                            confirmLabel="Unfeature"
+                            message="This wedding stays published at its own page, but drops off the public Real Stories index. The cover and order reshuffle automatically; the couple isn't notified."
+                          >
+                            <input type="hidden" name="event_id" value={r.eventId} />
+                            <input type="hidden" name="feature" value="0" />
+                            <SubmitButton pendingLabel="Updating…" className={BTN_SECONDARY}>
+                              Unfeature
+                            </SubmitButton>
+                          </ConfirmForm>
+                        ) : (
+                          <ConfirmForm
+                            action={setShowcaseFeatured}
+                            title="Feature on Real Stories?"
+                            confirmLabel="Feature"
+                            destructive={false}
+                            message="This wedding goes live on the public Real Stories page and the couple is notified. You can set its order next."
+                          >
+                            <input type="hidden" name="event_id" value={r.eventId} />
+                            <input type="hidden" name="feature" value="1" />
+                            <SubmitButton pendingLabel="Updating…" className={BTN_PRIMARY}>
+                              Feature
+                            </SubmitButton>
+                          </ConfirmForm>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-4 text-xs text-ink/50">
+            Lower order numbers show first; the lowest-numbered featured wedding
+            is the hero. Leave the order blank to let it sort after the numbered
+            ones (then by most-recently featured). Unfeaturing also clears the
+            order.
+          </p>
+        </>
+      )}
+
+      {/* Honesty note — the curated sample is not in this list. */}
+      <div className="mt-10 rounded-2xl border border-ink/10 bg-white/50 p-5 text-sm text-ink/65">
+        <p className="font-medium text-ink">About the sample showcase</p>
+        <p className="mt-1">
+          The &ldquo;Maria &amp; Juan&rdquo; entry on /realstories is a clearly
+          labelled <strong className="font-semibold">sample</strong> — a built-in
+          illustration of the format, not a real client — so it can&rsquo;t be
+          featured here. It shows only while there are no real published Real
+          Stories, and disappears on its own once a real one is featured.
+        </p>
+      </div>
+    </div>
+  );
+}

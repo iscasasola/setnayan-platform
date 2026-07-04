@@ -464,10 +464,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         // Real Stories featuring (PR D) — pin + order which consented wedding
         // editorials surface (and which is the hero) on the public /realstories
-        // index. Curation on top of the RA 10173 consent gate.
+        // index. Curation on top of the RA 10173 consent gate. Repointed to the
+        // Studio Studio Real Stories tab (slice 2). matchPrefix keeps this item
+        // lit on the legacy /admin/real-stories path (which now redirects in).
         key: 'real-stories',
         label: 'Real Stories',
-        href: '/admin/real-stories',
+        href: '/admin/studio?tab=real-stories',
         icon: Newspaper,
         matchPrefix: '/admin/real-stories',
       },
@@ -485,25 +487,33 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
       {
         // Patiktok template-library oversight + render-job monitor (un-retired
-        // 2026-07-01).
+        // 2026-07-01). Repointed to the Studio Studio Patiktok tab (slice 2).
+        // matchPrefix keeps this item lit on the legacy /admin/patiktok path
+        // (which now redirects in).
         key: 'patiktok',
         label: 'Patiktok',
-        href: '/admin/patiktok',
+        href: '/admin/studio?tab=patiktok',
         icon: Film,
         matchPrefix: '/admin/patiktok',
       },
       {
+        // Repointed to the Studio Studio Songs tab (slice 2). matchPrefix keeps
+        // this item lit on the legacy /admin/songs path (which now redirects in).
         key: 'songs',
         label: 'Songs',
-        href: '/admin/songs',
+        href: '/admin/studio?tab=songs',
         icon: Music,
         matchPrefix: '/admin/songs',
       },
       {
+        // Repointed to the Studio Studio Moodboard library tab (slice 2).
+        // matchPrefix keeps this item lit on the legacy /admin/moodboard-library
+        // path (which now redirects in).
         key: 'moodboard-library',
         label: 'Moodboard library',
-        href: '/admin/moodboard-library',
+        href: '/admin/studio?tab=moodboard-library',
         icon: Palette,
+        matchPrefix: '/admin/moodboard-library',
       },
       // ── old MARKETING lane (retired 'marketing' group · folded in 2026-07-04)
       // — the social publishing queue + the two featuring levers + the growth

@@ -9,15 +9,23 @@ import {
   resolveProfile as resolveEventTypeProfile,
   surfaceEnabled,
 } from '@/lib/event-type-profile';
+import { EventMonogram } from '@/app/_components/event-monogram';
+import { formatEventDate } from '@/lib/events';
 
 // Public account profile · setnayan.com/u/[user-slug].
+//
+// Doubles as the account's public website (owner 2026-07-04): the same surface
+// that lets a signed-out visitor pick among the couple's celebrations IS their
+// personal web presence. The signed-in dashboard keeps its own simple picker +
+// auto-jump (owner ruling 2026-07-04 "keep auto-jump, hub reachable"); this
+// page is the polished public-facing counterpart.
 //
 // Dispatch (owner ruling 2026-07-01):
 //   • exactly 1 ongoing (active + effectively-public) event → redirect straight
 //     to /u/[user-slug]/[event-slug] (mirrors the signed-in dashboard's
 //     single-active-event auto-jump).
-//   • 2+ ongoing events → show a picker.
-//   • 0 ongoing events → show the account's public editorials (past public
+//   • 2+ ongoing events → show the celebrations gallery.
+//   • 0 ongoing events → show the account's published stories (past public
 //     celebrations); empty-state when there are none.
 //
 // Only surfaces events the /[slug] target would actually render — mirrors BOTH
@@ -41,10 +49,17 @@ type ProfileEvent = {
   archived: boolean | null;
   landing_page_visibility: 'public' | 'unlisted' | 'private' | null;
   scheduled_launch_at: string | null;
+  landing_page_hero_image_url: string | null;
+  monogram_text: string | null;
+  monogram_color: string | null;
+  monogram_style: string | null;
+  monogram_font_key: string | null;
+  monogram_frame_key: string | null;
+  monogram_custom_svg: string | null;
 };
 
 const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at';
+  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg';
 
 // Wrapped in cache() so generateMetadata + the page body share one set of
 // queries per request (mirrors fetchEventBySlug on the [slug] page).
@@ -123,90 +138,212 @@ export default async function AccountProfilePage({ params }: Props) {
 
   const displayName = user.display_name?.trim() || 'Their celebrations';
 
-  // 0 ongoing → the couple's published editorials (past public celebrations).
+  // 0 ongoing → the couple's published stories (past public celebrations).
   const editorials = ongoing.length === 0 ? withSlug.filter(isPublicWebsite) : [];
 
   const listed = ongoing.length >= 2 ? ongoing : editorials;
-  const heading = ongoing.length >= 2 ? 'Celebrations' : 'Stories';
+  const mode: 'gallery' | 'stories' | 'empty' =
+    ongoing.length >= 2 ? 'gallery' : listed.length > 0 ? 'stories' : 'empty';
+
+  const subtitle =
+    mode === 'gallery'
+      ? 'A collection of celebrations.'
+      : mode === 'stories'
+        ? 'Stories from celebrations past.'
+        : null;
 
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        background: 'var(--m-paper, #faf7f2)',
-        color: 'var(--m-ink, #1a1a1a)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '4rem 1.5rem',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 640 }}>
-        <header style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <p
-            style={{
-              fontSize: '0.75rem',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              opacity: 0.6,
-              marginBottom: '0.5rem',
-            }}
-          >
-            Setnayan
-          </p>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, lineHeight: 1.2 }}>
-            {displayName}
-          </h1>
+    <main className="uprof">
+      <style>{UPROF_CSS}</style>
+
+      <div className="uprof-inner">
+        <header className="uprof-head">
+          <h1 className="m-serif uprof-name">{displayName}</h1>
+          <span aria-hidden className="uprof-rule" />
+          {subtitle ? <p className="uprof-sub">{subtitle}</p> : null}
         </header>
 
         {listed.length > 0 ? (
-          <>
-            <h2
-              style={{
-                fontSize: '0.8rem',
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                opacity: 0.55,
-                marginBottom: '1rem',
-              }}
-            >
-              {heading}
-            </h2>
-            <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', listStyle: 'none', padding: 0 }}>
-              {listed.map((event) => (
+          <ul className="uprof-grid">
+            {listed.map((event) => {
+              const meta = [event.venue_name, formatEventDate(event.event_date)]
+                .filter(Boolean)
+                .join(' · ');
+              const hero = event.landing_page_hero_image_url?.trim();
+              return (
                 <li key={event.event_id}>
-                  <Link
-                    href={`/u/${canonicalSlug}/${event.slug}`}
-                    style={{
-                      display: 'block',
-                      padding: '1.1rem 1.25rem',
-                      background: 'var(--m-ivory, #fff)',
-                      border: '1px solid var(--m-line, #e7e1d8)',
-                      borderRadius: 'var(--m-r-lg, 14px)',
-                      boxShadow: 'var(--m-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                    }}
-                  >
-                    <span style={{ display: 'block', fontSize: '1.05rem', fontWeight: 600 }}>
-                      {event.display_name?.trim() || 'Celebration'}
-                    </span>
-                    {(event.venue_name || event.event_date) && (
-                      <span style={{ display: 'block', fontSize: '0.85rem', opacity: 0.6, marginTop: '0.2rem' }}>
-                        {[event.venue_name, event.event_date].filter(Boolean).join(' · ')}
+                  <Link href={`/u/${canonicalSlug}/${event.slug}`} className="uprof-card">
+                    {hero ? (
+                      <span className="uprof-cover">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={hero}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="uprof-cover-img"
+                        />
+                      </span>
+                    ) : (
+                      <span className="uprof-mark">
+                        <EventMonogram event={event} size="lg" />
                       </span>
                     )}
+                    <span className="uprof-body">
+                      <span className="m-serif uprof-title">
+                        {event.display_name?.trim() || 'Celebration'}
+                      </span>
+                      {meta ? <span className="uprof-meta">{meta}</span> : null}
+                    </span>
+                    <span aria-hidden className="uprof-chev">
+                      &rsaquo;
+                    </span>
                   </Link>
                 </li>
-              ))}
-            </ul>
-          </>
+              );
+            })}
+          </ul>
         ) : (
-          <p style={{ textAlign: 'center', opacity: 0.6, fontSize: '0.95rem' }}>
-            No public celebrations yet.
-          </p>
+          <div className="uprof-empty">
+            <p className="uprof-empty-title">No public celebrations yet</p>
+            <p className="uprof-empty-sub">
+              When {displayName.split(' ')[0]} launches an invitation, it will appear here.
+            </p>
+          </div>
         )}
+
+        <footer className="uprof-foot">
+          <a href="https://www.setnayan.com" className="uprof-foot-link">
+            Made with Setnayan
+          </a>
+        </footer>
       </div>
     </main>
   );
 }
+
+const UPROF_CSS = `
+  .uprof {
+    min-height: 100dvh;
+    background: var(--m-paper, #FBFBFA);
+    color: var(--m-ink, #1E2229);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(3rem, 9vw, 6rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
+  }
+  .uprof-inner { width: 100%; max-width: 760px; }
+
+  .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
+  .uprof-name {
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    line-height: 1.04;
+    margin: 0;
+    color: var(--m-ink, #1E2229);
+  }
+  .uprof-rule {
+    display: block;
+    width: 44px;
+    height: 1px;
+    margin: 1.25rem auto 0;
+    background: var(--m-orange, #C5A059);
+  }
+  .uprof-sub {
+    margin: 1rem 0 0;
+    font-size: 0.98rem;
+    color: var(--m-slate, #4F535B);
+  }
+
+  .uprof-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+  @media (min-width: 640px) {
+    .uprof-grid { grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+  }
+
+  .uprof-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 100%;
+    padding: 1.1rem 1.2rem;
+    background: #fff;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-lg, 22px);
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,34,41,.05));
+    text-decoration: none;
+    color: inherit;
+    transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
+  }
+  .uprof-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--m-orange, #C5A059);
+    box-shadow: 0 10px 30px -12px rgba(30,34,41,.18);
+  }
+
+  .uprof-cover {
+    flex: 0 0 auto;
+    width: 68px;
+    height: 68px;
+    border-radius: var(--m-r-md, 14px);
+    overflow: hidden;
+    background: var(--m-ivory, #EDEAE0);
+  }
+  .uprof-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .uprof-mark { flex: 0 0 auto; display: inline-flex; }
+
+  .uprof-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1 1 auto; }
+  .uprof-title {
+    font-size: 1.3rem;
+    line-height: 1.15;
+    color: var(--m-ink, #1E2229);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .uprof-meta {
+    font-size: 0.85rem;
+    color: var(--m-slate-2, #6A6E76);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .uprof-chev {
+    flex: 0 0 auto;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--m-slate-2, #6A6E76);
+    opacity: .5;
+    transition: transform .18s cubic-bezier(.2,.7,.2,1), color .18s, opacity .18s;
+  }
+  .uprof-card:hover .uprof-chev {
+    transform: translateX(3px);
+    color: var(--m-orange, #C5A059);
+    opacity: 1;
+  }
+
+  .uprof-empty {
+    text-align: center;
+    border: 1px dashed var(--m-line, #E2DED4);
+    border-radius: var(--m-r-lg, 22px);
+    padding: 2.75rem 1.5rem;
+    background: #fff;
+  }
+  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1E2229); }
+  .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
+
+  .uprof-foot { margin-top: clamp(2.5rem, 7vw, 4rem); text-align: center; }
+  .uprof-foot-link {
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--m-slate-2, #6A6E76);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .uprof-foot-link:hover { color: var(--m-ink, #1E2229); border-color: var(--m-orange, #C5A059); }
+`;

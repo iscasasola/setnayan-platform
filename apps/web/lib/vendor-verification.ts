@@ -203,21 +203,21 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     number: 5,
     label: '5–10 portfolio samples',
     kind: 'upload',
-    hint: 'JPG / PNG / WEBP. We run a reverse image search to flag stolen portfolios.',
+    hint: 'Add 5–10 photos of your work — a new slot opens as you add each one, up to 10. JPG / PNG / WEBP. We run a reverse image search to flag stolen portfolios.',
   },
   {
     key: 'client_references',
     number: 6,
     label: '3–5 past client references',
     kind: 'upload',
-    hint: "Upload a single PDF or image with each reference's name, phone, and event date. Setnayan will randomly call 1–2.",
+    hint: 'Add 3–5 past clients — each with a name, contact number, event, and date. A new blank reference appears as you fill each one, up to 5. Setnayan will randomly call 1–2.',
   },
   {
     key: 'social_media',
     number: 7,
     label: 'Social media presence',
     kind: 'upload',
-    hint: 'Your public Instagram or Facebook business page.',
+    hint: 'Add any of your public links — website, Facebook, Instagram, TikTok, X, YouTube, Snapchat, WhatsApp, Telegram. All optional; even one helps.',
   },
   {
     key: 'google_meet',
@@ -241,14 +241,170 @@ export const REQUIRED_DOC_SLOT_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
+// Structured slot shapes (owner 2026-07-03 field redesign)
+//
+// Three vendor slots outgrew the "one file / one URL" model:
+//   • portfolio_samples  → an ARRAY of R2 refs (add photos one at a time up to
+//     10). The old inline flow only persisted the first ref — this makes the
+//     whole set the source of truth.
+//   • client_references  → an ARRAY of structured entries (name · contact
+//     number · event · date), not a single uploaded PDF. Add up to 5.
+//   • social_media       → a MAP of platform → link, not a single URL. Legacy
+//     `{ url }` values still read (mapped onto their detected platform).
+//
+// All three ride in the existing `doc_uploads` JSONB — no migration. Extra /
+// legacy keys are ignored, so in-flight applications keep working.
+// ---------------------------------------------------------------------------
+
+export const PORTFOLIO_MIN = 5;
+export const PORTFOLIO_MAX = 10;
+export const CLIENT_REFERENCES_MIN = 3;
+export const CLIENT_REFERENCES_MAX = 5;
+
+/** One past-client reference the vendor fills in (Setnayan may spot-call). */
+export type ClientReference = {
+  name: string;
+  contact_number: string;
+  event: string;
+  /** Event date as an ISO `yyyy-mm-dd` string (empty when not provided). */
+  date: string;
+};
+
+export function emptyClientReference(): ClientReference {
+  return { name: '', contact_number: '', event: '', date: '' };
+}
+
+/** A reference "counts" once it carries at least a name and a contact number. */
+export function isFilledReference(r: ClientReference | null | undefined): boolean {
+  return Boolean(r && r.name.trim() && r.contact_number.trim());
+}
+
+export type SocialPlatform = {
+  /** Stored key inside the `social_media` object. */
+  key: string;
+  label: string;
+  placeholder: string;
+  /** Input affordance — `url` renders a url field, others a text field. */
+  kind: 'url' | 'handle' | 'phone';
+};
+
+/**
+ * The public links a vendor can list, in display order. `website` leads; the
+ * rest are socials + messaging handles. Owner list 2026-07-03 (the duplicate
+ * "Website" in the brief is deduped here). All optional.
+ */
+export const SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
+  { key: 'website', label: 'Website', placeholder: 'https://your-brand.com', kind: 'url' },
+  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/your-brand', kind: 'url' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/your-brand', kind: 'url' },
+  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@your-brand', kind: 'url' },
+  { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/your-brand', kind: 'url' },
+  { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@your-brand', kind: 'url' },
+  { key: 'snapchat', label: 'Snapchat', placeholder: 'https://snapchat.com/add/your-brand', kind: 'url' },
+  { key: 'whatsapp', label: 'WhatsApp', placeholder: '+63 9XX XXX XXXX or wa.me/…', kind: 'phone' },
+  { key: 'telegram', label: 'Telegram', placeholder: '@your-brand or t.me/…', kind: 'handle' },
+] as const;
+
+export const SOCIAL_PLATFORM_KEYS: ReadonlySet<string> = new Set(
+  SOCIAL_PLATFORMS.map((p) => p.key),
+);
+
+export const SOCIAL_PLATFORM_LABEL: Record<string, string> = Object.fromEntries(
+  SOCIAL_PLATFORMS.map((p) => [p.key, p.label]),
+);
+
+/** Best-effort platform detection from a link's host — used to place legacy
+ * single-URL social values (and open-shop's seeded link) onto a labeled field. */
+export function detectSocialPlatform(rawUrl: string): string | null {
+  let host: string;
+  try {
+    const u = new URL(rawUrl.includes('://') ? rawUrl : `https://${rawUrl}`);
+    host = u.hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+  if (host.includes('facebook.') || host === 'fb.com' || host.includes('fb.me')) return 'facebook';
+  if (host.includes('instagram.')) return 'instagram';
+  if (host.includes('tiktok.')) return 'tiktok';
+  if (host === 'x.com' || host.includes('twitter.')) return 'x';
+  if (host.includes('youtube.') || host === 'youtu.be') return 'youtube';
+  if (host.includes('snapchat.')) return 'snapchat';
+  if (host.includes('whatsapp.') || host === 'wa.me') return 'whatsapp';
+  if (host.includes('telegram.') || host === 't.me') return 'telegram';
+  return null;
+}
+
+/** Extract the ordered list of R2 refs for a file/portfolio slot value. */
+export function parsePortfolioRefs(entry: DocUpload | null | undefined): string[] {
+  if (!entry) return [];
+  if (Array.isArray(entry)) {
+    return entry
+      .map((e) => (e as { r2_key?: unknown })?.r2_key)
+      .filter((k): k is string => typeof k === 'string' && k.length > 0);
+  }
+  if (typeof entry === 'object' && 'r2_key' in entry && typeof entry.r2_key === 'string') {
+    return entry.r2_key ? [entry.r2_key] : [];
+  }
+  return [];
+}
+
+/** Parse the `client_references` value into structured entries. Legacy file
+ * uploads (`{ r2_key }` / arrays of them) return `[]` here — they still count
+ * as complete via {@link isSlotComplete}, but carry no structured fields. */
+export function parseClientReferences(
+  entry: DocUpload | null | undefined,
+): ClientReference[] {
+  if (!Array.isArray(entry)) return [];
+  const out: ClientReference[] = [];
+  for (const raw of entry) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    // A structured reference has name/contact fields; skip legacy file rows.
+    if (!('name' in r) && !('contact_number' in r)) continue;
+    out.push({
+      name: typeof r.name === 'string' ? r.name : '',
+      contact_number: typeof r.contact_number === 'string' ? r.contact_number : '',
+      event: typeof r.event === 'string' ? r.event : '',
+      date: typeof r.date === 'string' ? r.date : '',
+    });
+  }
+  return out;
+}
+
+/** Parse the `social_media` value into a platform→link map. Merges the modern
+ * per-platform keys with a legacy single `url` (placed on its detected
+ * platform, else Website) so both shapes render in the editor. */
+export function parseSocialLinks(
+  entry: DocUpload | null | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return out;
+  const obj = entry as Record<string, unknown>;
+  for (const platform of SOCIAL_PLATFORMS) {
+    const v = obj[platform.key];
+    if (typeof v === 'string' && v.trim()) out[platform.key] = v.trim();
+  }
+  const legacy = obj.url;
+  if (typeof legacy === 'string' && legacy.trim()) {
+    const target = detectSocialPlatform(legacy) ?? 'website';
+    if (!out[target]) out[target] = legacy.trim();
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Application row + helpers
 // ---------------------------------------------------------------------------
 
 export type DocUpload =
   | { r2_key?: string; uploaded_at?: string; notes?: string }
   | Array<{ r2_key: string; uploaded_at?: string }>
+  // client_references — structured entries (name · contact · event · date).
+  | ClientReference[]
   | { scheduled_at?: string; meet_url?: string }
-  | { url?: string }
+  // social_media — legacy single `url` OR the modern platform→link map
+  // (index signature keeps `website`, `instagram`, … typed without listing all).
+  | { url?: string; updated_at?: string; [platform: string]: string | undefined }
   | { result?: 'clear' | 'flag' | 'pending'; screened_at?: string }
   | { phone_verified?: boolean; email_verified?: boolean }
   | null
@@ -363,8 +519,22 @@ export function countCompleteSlots(uploads: DocUploadMap): number {
 
 export function isSlotComplete(slotKey: string, v: DocUpload): boolean {
   if (v == null) return false;
+  // Structured slots are checked BEFORE the generic array branch: a
+  // client_references array holds name/contact objects (no r2_key), so the
+  // r2_key `.every()` test below would wrongly reject it.
+  if (slotKey === 'client_references') {
+    // Structured entries (≥1 with name + contact) OR a legacy uploaded file.
+    if (parseClientReferences(v).some(isFilledReference)) return true;
+    return parsePortfolioRefs(v).length > 0;
+  }
+  if (slotKey === 'social_media') {
+    return Object.keys(parseSocialLinks(v)).length > 0;
+  }
   if (Array.isArray(v)) {
-    return v.length >= 1 && v.every((it) => typeof it?.r2_key === 'string');
+    return (
+      v.length >= 1 &&
+      v.every((it) => typeof (it as { r2_key?: unknown })?.r2_key === 'string')
+    );
   }
   if (typeof v !== 'object') return false;
   if (slotKey === 'google_meet') {
@@ -373,10 +543,6 @@ export function isSlotComplete(slotKey: string, v: DocUpload): boolean {
   if (slotKey === 'phone_email_otp') {
     const t = v as { phone_verified?: boolean; email_verified?: boolean };
     return !!t.phone_verified && !!t.email_verified;
-  }
-  if (slotKey === 'social_media') {
-    const t = v as { url?: string };
-    return typeof t.url === 'string' && t.url.length > 0;
   }
   if (slotKey === 'amlc_screening') {
     return (v as { result?: string }).result === 'clear';

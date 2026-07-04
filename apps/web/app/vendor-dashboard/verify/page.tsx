@@ -15,6 +15,7 @@ import {
   fetchLatestApplication,
   formatSlaCountdown,
   isSlotComplete,
+  parsePortfolioRefs,
   parseVerificationState,
   recommendedApplicationType,
   resolveApplicationFeeCentavos,
@@ -101,13 +102,10 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
     Object.values(docMap).flatMap((entry) => {
       if (!entry) return [];
       if (Array.isArray(entry)) {
-        return entry
-          .filter((e) => typeof e?.r2_key === 'string')
-          .map(async (e) => {
-            const ref = e.r2_key as string;
-            const url = await displayUrlForStoredAsset(ref);
-            if (url) seedUrlEntries.push([ref, url]);
-          });
+        return parsePortfolioRefs(entry).map(async (ref) => {
+          const url = await displayUrlForStoredAsset(ref);
+          if (url) seedUrlEntries.push([ref, url]);
+        });
       }
       if (typeof entry === 'object' && 'r2_key' in entry && entry.r2_key) {
         return [
@@ -538,9 +536,7 @@ function SlotInputForm({
   const seedValue = !current
     ? null
     : Array.isArray(current)
-      ? current
-          .filter((e) => typeof e?.r2_key === 'string')
-          .map((e) => e.r2_key as string)
+      ? parsePortfolioRefs(current)
       : 'r2_key' in current && typeof current.r2_key === 'string'
         ? current.r2_key
         : null;

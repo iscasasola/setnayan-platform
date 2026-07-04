@@ -13,17 +13,23 @@ import {
   APPLICATION_TYPE_NAME,
   DOC_SLOTS,
   EMPTY_CONTACT_CONFIRMATION,
+  SOCIAL_PLATFORM_LABEL,
   computeSlaTone,
   countCompleteSlots,
   expectedValidateToken,
   feeLabelForCentavos,
   fetchContactConfirmations,
   formatSlaCountdown,
+  isSlotComplete,
   parseApplicationStatus,
+  parseClientReferences,
+  parsePortfolioRefs,
+  parseSocialLinks,
   parseVerificationState,
   resolveApplicationFeeCentavos,
   type ApplicationStatus,
   type ContactConfirmation,
+  type DocUpload,
   type DocUploadMap,
   type SlaTone,
   type VerificationState,
@@ -677,20 +683,24 @@ function ApplicationCard({
         <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
           12-doc checklist
         </summary>
-        <ul className="space-y-1 px-3 pb-3 text-xs">
+        <ul className="space-y-2 px-3 pb-3 text-xs">
           {DOC_SLOTS.map((slot) => {
             const v = application.doc_uploads?.[slot.key];
-            const tone = v
+            const complete = isSlotComplete(slot.key, v);
+            const tone = complete
               ? 'text-success-700'
               : slot.kind === 'upload'
                 ? 'text-warn-700'
                 : 'text-ink/60';
             return (
-              <li key={slot.key} className={`flex items-center gap-2 ${tone}`}>
-                <span className="inline-flex h-4 w-5 items-center justify-center rounded-full bg-ink/5 font-mono text-[9px]">
-                  {slot.number}
-                </span>
-                <span className="font-medium">{slot.label}</span>
+              <li key={slot.key} className="space-y-1">
+                <div className={`flex items-center gap-2 ${tone}`}>
+                  <span className="inline-flex h-4 w-5 items-center justify-center rounded-full bg-ink/5 font-mono text-[9px]">
+                    {slot.number}
+                  </span>
+                  <span className="font-medium">{slot.label}</span>
+                </div>
+                <SlotDetail slotKey={slot.key} value={v} />
               </li>
             );
           })}
@@ -1038,6 +1048,70 @@ function CategoryMatchBadge({
       category · {value}
     </span>
   );
+}
+
+/**
+ * Reviewer-facing detail for the three structured vendor slots (owner
+ * 2026-07-03 field redesign): the client references (name · contact · event ·
+ * date), the social/website links, and the portfolio COUNT. These read from the
+ * doc_uploads JSONB directly — no presigned URL needed (the reviewer opens the
+ * portfolio files from the vendor's own shop). Every other slot renders
+ * nothing extra.
+ */
+function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
+  if (slotKey === 'client_references') {
+    const refs = parseClientReferences(value);
+    if (refs.length === 0) return null;
+    return (
+      <ul className="ml-7 space-y-1">
+        {refs.map((r, i) => (
+          <li
+            key={i}
+            className="rounded-md border border-ink/10 bg-ink/[0.02] px-2 py-1 text-[11px] text-ink/75"
+          >
+            <span className="font-medium text-ink">{r.name || 'Unnamed'}</span>
+            {r.contact_number ? <span> · {r.contact_number}</span> : null}
+            {r.event ? <span> · {r.event}</span> : null}
+            {r.date ? <span> · {r.date}</span> : null}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (slotKey === 'social_media') {
+    const links = parseSocialLinks(value);
+    const entries = Object.entries(links);
+    if (entries.length === 0) return null;
+    return (
+      <ul className="ml-7 space-y-0.5">
+        {entries.map(([key, url]) => (
+          <li key={key} className="text-[11px] text-ink/75">
+            <span className="font-medium text-ink">
+              {SOCIAL_PLATFORM_LABEL[key] ?? key}:
+            </span>{' '}
+            <a
+              href={url.includes('://') ? url : `https://${url}`}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="break-all text-terracotta-700 underline decoration-terracotta/40 underline-offset-2 hover:decoration-terracotta"
+            >
+              {url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (slotKey === 'portfolio_samples') {
+    const count = parsePortfolioRefs(value).length;
+    if (count === 0) return null;
+    return (
+      <p className="ml-7 text-[11px] text-ink/60">
+        {count} photo{count === 1 ? '' : 's'} uploaded — view in the vendor&apos;s shop.
+      </p>
+    );
+  }
+  return null;
 }
 
 function ActionRow({ application }: { application: ApplicationRow }) {

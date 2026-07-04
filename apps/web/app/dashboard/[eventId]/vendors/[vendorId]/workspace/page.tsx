@@ -107,6 +107,10 @@ import {
   fetchMarketplaceServices,
   fetchMarketplaceReviews,
 } from '../../../_components/vendor-marketplace-info';
+// Person-spine · Phase 2 · COUNSEL-GATED · FLAG-OFF. Renders null (no DB read)
+// while NEXT_PUBLIC_PEOPLE_CONNECTIONS !== '1' — production-inert. Fed the true
+// vendor_profiles id (ev.marketplace_vendor_id), never the event_vendors PK.
+import { TrustedCircleBadge } from '../../_components/trusted-circle-badge';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   deriveBookingContractState,
@@ -1362,18 +1366,29 @@ export default async function VendorWorkspacePage({ params }: Props) {
       {/* Marketplace info (marketplace-linked vendors only)              */}
       {/* ============================================================== */}
       {ev.marketplace_vendor_id ? (
-        <VendorMarketplaceInfo
-          services={marketplaceServicesData}
-          contact={marketplaceContactData}
-          reviewsData={marketplaceReviewsData}
-          vendorBusinessName={displayName}
-          vendorProfileSlug={marketplaceProfile?.business_slug ?? null}
-          reviewLinkHref={
-            ev.status === 'delivered' || ev.status === 'complete'
-              ? `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`
-              : null
-          }
-        />
+        <>
+          {/* Person-spine Phase 2 (flag-off · counsel-gated): trusted-circle
+              signal for THIS marketplace vendor. Renders null in production
+              (flag off ⇒ no DB read) and whenever there's no circle trust, so
+              this mount is inert. `ev.marketplace_vendor_id` is the true
+              vendor_profiles id (proven above by the ownership-scoped fetch). */}
+          <TrustedCircleBadge
+            eventId={eventId}
+            vendorProfileId={ev.marketplace_vendor_id}
+          />
+          <VendorMarketplaceInfo
+            services={marketplaceServicesData}
+            contact={marketplaceContactData}
+            reviewsData={marketplaceReviewsData}
+            vendorBusinessName={displayName}
+            vendorProfileSlug={marketplaceProfile?.business_slug ?? null}
+            reviewLinkHref={
+              ev.status === 'delivered' || ev.status === 'complete'
+                ? `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`
+                : null
+            }
+          />
+        </>
       ) : null}
 
       {/* ============================================================== */}

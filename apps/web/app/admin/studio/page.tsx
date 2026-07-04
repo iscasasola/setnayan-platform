@@ -18,6 +18,10 @@ import { WebsiteSurface } from './_surfaces/website-surface';
 import { HeroVideoSurface } from './_surfaces/hero-video-surface';
 import { RevealStudioSurface } from './_surfaces/reveal-studio-surface';
 import { RecapsSurface } from './_surfaces/recaps-surface';
+import { RealStoriesSurface } from './_surfaces/real-stories-surface';
+import { PatiktokSurface } from './_surfaces/patiktok-surface';
+import { SongsSurface } from './_surfaces/songs-surface';
+import { MoodboardLibrarySurface } from './_surfaces/moodboard-library-surface';
 
 /**
  * Studio Studio (slice 1) — the tabbed /admin/studio shell that consolidates
@@ -44,7 +48,16 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Studio · Admin' };
 
 // The WIRED tabs this slice renders inline (grows in later slices).
-const TABS = ['website', 'hero-video', 'reveal-studio', 'recaps'] as const;
+const TABS = [
+  'website',
+  'hero-video',
+  'reveal-studio',
+  'recaps',
+  'real-stories',
+  'patiktok',
+  'songs',
+  'moodboard-library',
+] as const;
 type Tab = (typeof TABS)[number];
 
 // First value of a (possibly-array) search param — Next passes ?x=a&x=b as an
@@ -76,11 +89,11 @@ const RAIL: RailItem[] = [
   { key: 'website', label: 'Website', icon: Globe, group: 'Content', wired: true, legacyHref: '/admin/website' },
   { key: 'hero-video', label: 'Hero video', icon: Video, group: 'Content', wired: true, legacyHref: '/admin/hero-video' },
   { key: 'reveal-studio', label: 'Reveal Studio', icon: Sparkles, group: 'Content', wired: true, legacyHref: '/admin/reveal-studio' },
-  { key: 'real-stories', label: 'Real Stories', icon: Newspaper, group: 'Content', wired: false, legacyHref: '/admin/real-stories' },
+  { key: 'real-stories', label: 'Real Stories', icon: Newspaper, group: 'Content', wired: true, legacyHref: '/admin/real-stories' },
   { key: 'recaps', label: 'Recaps', icon: Images, group: 'Content', wired: true, legacyHref: '/admin/recaps' },
-  { key: 'patiktok', label: 'Patiktok', icon: Film, group: 'Content', wired: false, legacyHref: '/admin/patiktok' },
-  { key: 'songs', label: 'Songs', icon: Music, group: 'Content', wired: false, legacyHref: '/admin/songs' },
-  { key: 'moodboard-library', label: 'Moodboard library', icon: Palette, group: 'Content', wired: false, legacyHref: '/admin/moodboard-library' },
+  { key: 'patiktok', label: 'Patiktok', icon: Film, group: 'Content', wired: true, legacyHref: '/admin/patiktok' },
+  { key: 'songs', label: 'Songs', icon: Music, group: 'Content', wired: true, legacyHref: '/admin/songs' },
+  { key: 'moodboard-library', label: 'Moodboard library', icon: Palette, group: 'Content', wired: true, legacyHref: '/admin/moodboard-library' },
   // ── Marketing (5) ───────────────────────────────────────────────────────
   { key: 'social-queue', label: 'Social queue', icon: Share2, group: 'Marketing', wired: false, legacyHref: '/admin/social-queue' },
   { key: 'spotlight-awards', label: 'Spotlight Awards', icon: Trophy, group: 'Marketing', wired: false, legacyHref: '/admin/spotlight-awards' },
@@ -151,6 +164,19 @@ export default async function AdminStudioPage({ searchParams }: Props) {
           <RevealStudioSurface />
         ) : tab === 'recaps' ? (
           <RecapsSurface ok={first(search.ok) ?? null} error={first(search.error) ?? null} />
+        ) : tab === 'real-stories' ? (
+          <RealStoriesSurface ok={first(search.ok)} error={first(search.error)} />
+        ) : tab === 'patiktok' ? (
+          <PatiktokSurface />
+        ) : tab === 'songs' ? (
+          <SongsSurface
+            q={first(search.q)}
+            merged={first(search.merged)}
+            deleted={first(search.deleted)}
+            error={first(search.error)}
+          />
+        ) : tab === 'moodboard-library' ? (
+          <MoodboardLibrarySurface />
         ) : (
           <WebsiteSurface page={first(search.page)} />
         )}

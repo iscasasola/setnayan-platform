@@ -71,7 +71,17 @@ export type V2VendorSku = {
   // ~17% off vs monthly × 12 · charm-priced -1 endings · same per-tier
   // capability shape as monthly equivalents (max_categories + max_sub_seats
   // identical) · only price + billing cadence differ.
-  offering_type: 'subscription_monthly' | 'subscription_annual' | 'token_pack';
+  // `branch` / `seat` / `custom_addon` extend the union as the vendor add-on
+  // ladder grew (extra branch #20270128654206 · extra seat #20270511762904 ·
+  // Custom-tier composition SKUs #20270512705572). fetchV2VendorCatalog reads
+  // EVERY active row (no offering_type filter), so all of these flow through.
+  offering_type:
+    | 'subscription_monthly'
+    | 'subscription_annual'
+    | 'token_pack'
+    | 'branch'
+    | 'seat'
+    | 'custom_addon';
   token_grant_count: number | null;
   max_categories: number | null;
   max_sub_seats: number | null;
@@ -231,7 +241,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     sku_code: row.sku_code as string,
     title: row.title as string,
     price_php: Number(row.price_php),
-    offering_type: row.offering_type as 'subscription_monthly' | 'subscription_annual' | 'token_pack',
+    offering_type: row.offering_type as V2VendorSku['offering_type'],
     token_grant_count: (row.token_grant_count as number | null) ?? null,
     max_categories: (row.max_categories as number | null) ?? null,
     max_sub_seats: (row.max_sub_seats as number | null) ?? null,

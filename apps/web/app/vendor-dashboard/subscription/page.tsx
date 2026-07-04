@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Crown } from 'lucide-react';
+import { ArrowRight, Crown, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -327,6 +328,34 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           })}
         />
       </div>
+
+      {/* Beyond Enterprise — compose a Custom plan (VENDOR_TIERS §11). Routes to
+          the sub-route configurator; framed as the top-of-ladder escape valve. */}
+      <Link
+        href="/vendor-dashboard/subscription/custom"
+        className="m-card m-card-lift mt-5 flex flex-wrap items-center gap-4 p-5 transition-colors sm:flex-nowrap"
+      >
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <Sparkles className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold text-ink">
+            Beyond Enterprise? Compose a Custom plan.
+          </p>
+          <p className="mt-0.5 text-sm text-ink/60">
+            {currentTier === 'custom'
+              ? 'Review or adjust your Custom plan — dial in branches, reach, seats, listings, photos and tokens.'
+              : 'Everything in Enterprise plus white-glove, then dial in exactly the branches, reach, seats, listings, photos and tokens you need.'}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
+          {currentTier === 'custom' ? 'Manage' : 'Build a Custom plan'}
+          <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+        </span>
+      </Link>
 
       {/* Apply-then-pay payment instructions when an order was just started */}
       {search.ordered && (

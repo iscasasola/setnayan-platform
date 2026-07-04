@@ -197,14 +197,17 @@ function PricesOverlay({
       <h2 className="hr-ov-title">Everything to start — free.</h2>
       <p className="hr-ov-sub">Plan the whole day and share it, without paying a peso.</p>
       <ul className="hr-glist">
-        <li>Schedule, Budget, Guest List, Seat Plan &amp; Mood Board</li>
         <li>
-          Your 4-in-1 wedding website
-          <span>Save-the-Date · RSVP · Event · Editorial</span>
+          Free planning tools
+          <span>Schedule · Budget · Guest List · Seat Plan · Mood Board</span>
         </li>
-        <li>Unlimited RSVP collection</li>
-        <li>Browse vendors + a match preview</li>
-        <li>Single-camera livestream &amp; free Custom QR</li>
+        <li>
+          Free website
+          <span>Save-the-Date · RSVP · Event · Editorial + unlimited RSVP</span>
+        </li>
+        <li>Find only verified vendors</li>
+        <li>Customized QR for each guest</li>
+        <li>Keep all your memories — free</li>
       </ul>
       {/* Quick paid-tier intro — Setnayan AI, priced live from the catalog. */}
       {pricing ? (
@@ -307,15 +310,15 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       </p>
       <ul className="hr-glist">
         <li>
-          Get found by matched couples
-          <span>by faith, region &amp; the dates you&rsquo;re open</span>
+          <b>0% commission</b> — keep 100% of every sale
         </li>
-        <li>Verified badge + an auto-built public page</li>
-        <li>Run every booking — contracts, calendar &amp; proposals</li>
+        <li>Free business public website</li>
+        <li>Get verified — free</li>
         <li>
-          Get paid direct — <b>0% commission</b>, we never hold your money
+          Complete business tools
+          <span>bookings · contracts · calendar · proposals</span>
         </li>
-        <li>Reviews, earned badges &amp; your track record</li>
+        <li>Free sync of all your clients</li>
       </ul>
       {/* Quick tier-stack intro — one line, a summary not the wall. */}
       <div className="hr-gintro">

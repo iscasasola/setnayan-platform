@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Users, Briefcase, TestTube, CalendarDays, MapPin } from 'lucide-react';
 import { UsersSurface } from './_surfaces/users-surface';
 import { EventsSurface } from './_surfaces/events-surface';
+import { VenuesSurface } from './_surfaces/venues-surface';
 
 /**
  * Accounts Studio (slice 1) — the tabbed /admin/accounts shell that
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Accounts · Admin' };
 
 // The WIRED tabs this slice renders inline. Grows to all 5 in later slices.
-const TABS = ['users', 'events'] as const;
+const TABS = ['users', 'events', 'venues'] as const;
 type Tab = (typeof TABS)[number];
 
 // First value of a (possibly-array) search param — Next passes ?x=a&x=b as an
@@ -46,7 +47,7 @@ const TAB_STRIP: {
   { key: 'vendors', label: 'Vendors', icon: Briefcase, wired: false, legacyHref: '/admin/vendors' },
   { key: 'demo-vendors', label: 'Demo vendors', icon: TestTube, wired: false, legacyHref: '/admin/demo-vendors' },
   { key: 'events', label: 'Events', icon: CalendarDays, wired: true, legacyHref: '/admin/events' },
-  { key: 'venues', label: 'Venues', icon: MapPin, wired: false, legacyHref: '/admin/venues' },
+  { key: 'venues', label: 'Venues', icon: MapPin, wired: true, legacyHref: '/admin/venues' },
 ];
 
 type Props = {
@@ -85,7 +86,13 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
         })}
       </nav>
 
-      {tab === 'events' ? (
+      {tab === 'venues' ? (
+        <VenuesSurface
+          q={first(search.q) ?? ''}
+          type={first(search.type) ?? ''}
+          city={first(search.city) ?? ''}
+        />
+      ) : tab === 'events' ? (
         <EventsSurface q={first(search.q) ?? ''} archived={first(search.archived) ?? null} />
       ) : (
         <UsersSurface

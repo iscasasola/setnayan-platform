@@ -414,7 +414,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             </label>
             <div className="sm:col-span-2">
               <FileUpload
-                bucket="media"
+                // Privacy-critical: payment proofs are PRIVATE. Route to the
+                // private thread-files bucket (read only via short-lived presigned
+                // GETs) — never the public `media` bucket.
+                bucket="thread-files"
                 pathPrefix={`payments/${orderId}`}
                 name="screenshot_ref"
                 label="Screenshot"

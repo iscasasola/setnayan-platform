@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -125,6 +126,21 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     payments = (data ?? []) as unknown as PaymentJoined[];
   }
 
+  // Pre-resolve every payment-proof screenshot to a short-lived presigned GET
+  // URL, keyed by payment_id. Payment proofs live in the PRIVATE thread-files
+  // bucket, so the stored `r2://…` ref is NOT publicly readable — it must be
+  // presigned server-side (24h TTL) before it can render in an <img>/<a>.
+  // Legacy plain-URL values pass through unchanged. Doing this on the server
+  // keeps R2 internals off the client and works for both old and new uploads.
+  const screenshotUrlMap: Record<string, string> = {};
+  await Promise.all(
+    payments.map(async (p) => {
+      if (!p.screenshot_url) return;
+      const url = await displayUrlForStoredAsset(p.screenshot_url);
+      if (url) screenshotUrlMap[p.payment_id] = url;
+    }),
+  );
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <header className="mb-6 space-y-2">
@@ -162,7 +178,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       {filter === 'orders_needing_quote' ? (
         <OrdersNeedingQuote orders={unquotedOrders} />
       ) : (
-        <PaymentsList payments={payments} />
+        <PaymentsList payments={payments} screenshotUrlMap={screenshotUrlMap} />
       )}
     </div>
   );
@@ -304,7 +320,19 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
   );
 }
 
-function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
+function PaymentsList({
+  payments,
+  screenshotUrlMap,
+}: {
+  payments: PaymentJoined[];
+  /**
+   * Map of payment_id → presigned display URL for the payment-proof screenshot.
+   * Resolved server-side in the page component because proofs live in the
+   * PRIVATE thread-files bucket and the stored `r2://…` ref is not publicly
+   * readable — it must be presigned before it can render.
+   */
+  screenshotUrlMap: Record<string, string>;
+}) {
   if (payments.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
@@ -401,18 +429,22 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               </p>
             ) : null}
 
-            {p.screenshot_url ? (
+            {p.screenshot_url && screenshotUrlMap[p.payment_id] ? (
               <div className="space-y-1">
-                <a href={p.screenshot_url} target="_blank" rel="noreferrer">
+                <a
+                  href={screenshotUrlMap[p.payment_id]}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={p.screenshot_url}
+                    src={screenshotUrlMap[p.payment_id]}
                     alt="Payment screenshot"
                     className="max-h-64 w-auto rounded-md border border-ink/10 object-contain"
                   />
                 </a>
                 <a
-                  href={p.screenshot_url}
+                  href={screenshotUrlMap[p.payment_id]}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"

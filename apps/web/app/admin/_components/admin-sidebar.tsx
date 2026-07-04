@@ -657,6 +657,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: DollarSign,
       },
       {
+        // Custom-tier composer (VENDOR_TIERS §11) — dial a negotiated Custom
+        // plan for a vendor org, apply a partner discount, send the quote for
+        // apply-then-pay approval. Sits with the money config (its unit prices
+        // ARE the /admin/pricing catalog).
+        key: 'custom-plans',
+        label: 'Custom plans',
+        href: '/admin/custom-plans',
+        icon: BadgeCheck,
+        matchPrefix: '/admin/custom-plans',
+      },
+      {
         key: 'addons',
         label: 'Add-ons',
         href: '/admin/addons',

@@ -32,7 +32,7 @@ import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
-import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
+import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
   VenueShell,
@@ -1927,7 +1927,7 @@ function RoomShell({
           roughness map breaks up the uniform sheen (Wave 2a materials pass). */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[room.w, room.d]} />
-        <meshStandardMaterial color={floorColor} roughness={0.92} metalness={0.02} roughnessMap={floorRoughnessMap()} />
+        <meshStandardMaterial color={floorColor} roughness={0.92} metalness={0.02} roughnessMap={floorRoughnessMap()} map={floorAlbedoMap()} bumpMap={floorBumpMap()} bumpScale={0.02} />
       </mesh>
 
       {/* Build grid (brighter while building) */}
@@ -2144,22 +2144,22 @@ function TableMesh({
             {/* Linen drape — high roughness so it reads soft under the IBL. */}
             <mesh position={[0, 0.37, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[dims.w / 2, dims.w / 2 + 0.04, 0.74, 32]} />
-              <meshStandardMaterial color={clothColor} roughness={0.85} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.008} />
             </mesh>
             <mesh position={[0, 0.745, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.04, 32]} />
-              <meshStandardMaterial color={clothColor} roughness={0.85} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.008} />
             </mesh>
           </group>
         ) : (
           <group>
             <mesh position={[0, 0.37, 0]} castShadow receiveShadow>
               <boxGeometry args={[dims.w, 0.74, dims.d]} />
-              <meshStandardMaterial color={clothColor} roughness={0.85} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.008} />
             </mesh>
             <mesh position={[0, 0.745, 0]} castShadow receiveShadow>
               <boxGeometry args={[dims.w + 0.04, 0.04, dims.d + 0.04]} />
-              <meshStandardMaterial color={clothColor} roughness={0.85} />
+              <meshStandardMaterial color={clothColor} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.008} />
             </mesh>
           </group>
         )

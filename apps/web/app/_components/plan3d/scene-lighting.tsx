@@ -110,6 +110,146 @@ export function floorRoughnessMap(): THREE.CanvasTexture {
   return tex;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared surface DETAIL maps (Wave 2c materials pass) — procedural CanvasTextures
+// that give the big flat surfaces a real material read under the raking key
+// light, without any asset files or fetch. Same lazy module-singleton pattern as
+// floorRoughnessMap: built once per page, shared by every call site.
+//
+//   · floorAlbedoMap  — pale marble/stone with soft veining + a subtle tile
+//     grid. Near-WHITE so it MULTIPLIES the palette floor colour (`map * color`)
+//     — the room stays fully themeable, the pattern only adds richness.
+//   · floorBumpMap    — grayscale grout grooves for the same tile grid so the
+//     seams catch a sliver of shadow (bumpMap; cheaper than a normal map, no
+//     tangents needed).
+//   · fabricBumpMap   — a fine warp/weft weave so tablecloths + drapes read as
+//     cloth, not painted plastic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildCanvasTex(
+  size: number,
+  repeat: number,
+  draw: (ctx: CanvasRenderingContext2D, size: number) => void,
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  draw(ctx, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat, repeat);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+let floorAlbedoTex: THREE.CanvasTexture | null = null;
+export function floorAlbedoMap(): THREE.CanvasTexture {
+  if (floorAlbedoTex) return floorAlbedoTex;
+  floorAlbedoTex = buildCanvasTex(512, 6, (ctx, size) => {
+    // Near-white marble base so it tints, not overrides, the palette floor.
+    ctx.fillStyle = '#f6f4f1';
+    ctx.fillRect(0, 0, size, size);
+    // Soft low-frequency stone mottle.
+    for (let i = 0; i < 44; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const r = 28 + Math.random() * 96;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const a = 0.03 + Math.random() * 0.05;
+      g.addColorStop(0, `rgba(176,170,161,${a})`);
+      g.addColorStop(1, 'rgba(176,170,161,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Faint marble veins — a few meandering polylines.
+    ctx.strokeStyle = 'rgba(150,144,136,0.10)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 14; i++) {
+      let x = Math.random() * size;
+      let y = Math.random() * size;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 6; s++) {
+        x += (Math.random() - 0.5) * 130;
+        y += (Math.random() - 0.5) * 130;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    // Tile grout grid (2 tiles per texture cell → ~1–1.5 m tiles once repeated).
+    ctx.strokeStyle = 'rgba(120,115,108,0.22)';
+    ctx.lineWidth = 3;
+    const cells = 2;
+    const step = size / cells;
+    for (let i = 0; i <= cells; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * step, 0);
+      ctx.lineTo(i * step, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * step);
+      ctx.lineTo(size, i * step);
+      ctx.stroke();
+    }
+  });
+  // Colour map → sRGB so `map * color` stays true to the palette floor tone.
+  // (bump/roughness maps are DATA and correctly stay linear/default.)
+  floorAlbedoTex.colorSpace = THREE.SRGBColorSpace;
+  return floorAlbedoTex;
+}
+
+let floorBumpTex: THREE.CanvasTexture | null = null;
+export function floorBumpMap(): THREE.CanvasTexture {
+  if (floorBumpTex) return floorBumpTex;
+  floorBumpTex = buildCanvasTex(512, 6, (ctx, size) => {
+    // White field = flat; dark grout lines = recessed grooves (bumpMap reads
+    // luminance, low = lower). Matches floorAlbedoMap's grid so relief aligns.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = '#8a8a8a';
+    ctx.lineWidth = 4;
+    const cells = 2;
+    const step = size / cells;
+    for (let i = 0; i <= cells; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * step, 0);
+      ctx.lineTo(i * step, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * step);
+      ctx.lineTo(size, i * step);
+      ctx.stroke();
+    }
+  });
+  return floorBumpTex;
+}
+
+let fabricBumpTex: THREE.CanvasTexture | null = null;
+export function fabricBumpMap(): THREE.CanvasTexture {
+  if (fabricBumpTex) return fabricBumpTex;
+  fabricBumpTex = buildCanvasTex(128, 20, (ctx, size) => {
+    // Mid-grey field, then alternating light/dark warp + weft threads = weave.
+    ctx.fillStyle = '#8f8f8f';
+    ctx.fillRect(0, 0, size, size);
+    const n = 16;
+    const step = size / n;
+    for (let i = 0; i < n; i++) {
+      const p = i * step;
+      // Vertical threads (warp), even = raised, odd = recessed.
+      ctx.fillStyle = i % 2 === 0 ? '#bcbcbc' : '#6f6f6f';
+      ctx.fillRect(p, 0, step * 0.5, size);
+      // Horizontal threads (weft), offset phase for the over/under look.
+      ctx.fillStyle = i % 2 === 0 ? '#6f6f6f' : '#bcbcbc';
+      ctx.fillRect(0, p, size, step * 0.5);
+    }
+  });
+  return fabricBumpTex;
+}
+
 /**
  * Drop inside a <Canvas>. Replaces a surface's ad-hoc ambient + single
  * directional with the shared rig. `room` fits the shadow camera + sizes the

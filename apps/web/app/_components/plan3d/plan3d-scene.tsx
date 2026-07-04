@@ -87,6 +87,9 @@ import {
   SceneLighting,
   RECOMMENDED_TONEMAP,
   floorRoughnessMap,
+  floorAlbedoMap,
+  floorBumpMap,
+  fabricBumpMap,
   type SceneLightingQuality,
 } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
@@ -134,12 +137,12 @@ function TableMesh({
       {dims.round ? (
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.06, 24]} />
-          <meshStandardMaterial color={palette.table} roughness={0.85} />
+          <meshStandardMaterial color={palette.table} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.006} />
         </mesh>
       ) : (
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <boxGeometry args={[dims.w, 0.06, dims.d || dims.w]} />
-          <meshStandardMaterial color={palette.table} roughness={0.85} />
+          <meshStandardMaterial color={palette.table} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.006} />
         </mesh>
       )}
       {/* one leg-post per table, purely for a grounded look at low-poly cost */}
@@ -721,7 +724,14 @@ export function Plan3DScene({
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={roam ? handleFloorTap : undefined}>
         <planeGeometry args={[room.w, room.d]} />
-        <meshStandardMaterial color={floorColor} roughness={0.9} roughnessMap={floorRoughnessMap()} />
+        <meshStandardMaterial
+          color={floorColor}
+          roughness={0.9}
+          roughnessMap={floorRoughnessMap()}
+          map={floorAlbedoMap()}
+          bumpMap={floorBumpMap()}
+          bumpScale={0.02}
+        />
       </mesh>
       <mesh
         position={[pctToWorld(floor.stage.xPct, floor.stage.yPct, room).x, 0.14, pctToWorld(floor.stage.xPct, floor.stage.yPct, room).z]}

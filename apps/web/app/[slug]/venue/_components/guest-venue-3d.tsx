@@ -48,7 +48,7 @@ import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
-import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
+import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
   VenueShell,
@@ -548,7 +548,14 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           }}
         >
           <planeGeometry args={[room.w, room.d]} />
-          <meshStandardMaterial color={archFloorColor} roughness={0.95} roughnessMap={floorRoughnessMap()} />
+          <meshStandardMaterial
+            color={archFloorColor}
+            roughness={0.95}
+            roughnessMap={floorRoughnessMap()}
+            map={floorAlbedoMap()}
+            bumpMap={floorBumpMap()}
+            bumpScale={0.02}
+          />
         </mesh>
 
         {/* Stage */}

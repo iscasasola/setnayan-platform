@@ -15,9 +15,14 @@ derives connection proposals from data a host already filled in:
 
 Paired server action `generateEventConnections(eventId)` in `people/actions.ts`:
 host-only (couple member or accepted moderator — the SQL fn bypasses RLS, so this
-gate is load-bearing), flag-guarded on `NEXT_PUBLIC_PEOPLE_CONNECTIONS`. Not yet
-auto-wired to the live sponsor-accept / role-set flows — deliberately kept off the
-production path until the flag flips.
+gate is load-bearing), flag-guarded on `NEXT_PUBLIC_PEOPLE_CONNECTIONS`.
+
+Auto-wired into the two live host flows, each flag-guarded + best-effort (never
+breaks the host action on failure): accepting a **principal sponsor** (`markResponse`
+in `sponsors/actions.ts`) → godparent proposal; naming a **bride/groom** guest
+(`updateGuest` in `guests/[guestId]/actions.ts`, via `after()`) → spouse proposal.
+Both are dead branches in production while the flag is off, so ceremonies begin
+generating proposals automatically the moment the flag flips — no backfill needed.
 
 Validated in a rolled-back prod transaction: a fabricated wedding (2 principals +
 1 accepted principal sponsor) produced spouse=1, godparent=2, total=3, and a

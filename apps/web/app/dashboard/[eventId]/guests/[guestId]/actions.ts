@@ -20,6 +20,8 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -270,6 +272,20 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       }
       const { rebakeWallForEvent } = await import('@/lib/face-blur');
       await rebakeWallForEvent(eventId);
+    });
+  }
+
+  // Phase 2 (person-graph · flag-off in prod): naming a bride/groom may complete
+  // the SPOUSE connection PROPOSAL (once both principals resolve to a person).
+  // Idempotent + flag-guarded + host-authorized inside the action; runs after
+  // the response so it never delays the save. No-ops until both sides link.
+  if ((role === 'bride' || role === 'groom') && peopleConnectionsEnabled()) {
+    after(async () => {
+      try {
+        await generateEventConnections(eventId);
+      } catch {
+        /* non-blocking — edges regenerate idempotently on the next role/roster edit */
+      }
     });
   }
 

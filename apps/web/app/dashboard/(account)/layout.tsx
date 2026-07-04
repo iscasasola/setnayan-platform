@@ -9,6 +9,7 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountSidebar } from './_components/account-sidebar';
+import { AccountMobileNav } from './_components/account-mobile-nav';
 
 /**
  * Account-scoped dashboard chrome — route group `(account)` (URL-transparent),
@@ -78,16 +79,21 @@ export default async function AccountDashboardLayout({
   // desktop the switcher lives in the sidebar header (AccountSwitcherStandalone).
   // No standalone sign-out button by design (it lives in the switcher panel).
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      <UnreadBellBadge
-        userId={user.id}
-        initialUnread={unreadCount}
-        href="/dashboard/notifications"
-        ariaBaseLabel="Notifications"
-        ariaUnreadSuffix="unread"
-      />
-      <div className="lg:hidden">
-        <AccountSwitcher data={switcherData} />
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      {/* Mobile-only account nav trigger (< lg) — opens the account sidebar as a
+          drawer. On desktop it's hidden and the real sidebar owns nav. */}
+      <AccountMobileNav navSlots={navSlots} />
+      <div className="ml-auto flex items-center gap-2">
+        <UnreadBellBadge
+          userId={user.id}
+          initialUnread={unreadCount}
+          href="/dashboard/notifications"
+          ariaBaseLabel="Notifications"
+          ariaUnreadSuffix="unread"
+        />
+        <div className="lg:hidden">
+          <AccountSwitcher data={switcherData} />
+        </div>
       </div>
     </div>
   );

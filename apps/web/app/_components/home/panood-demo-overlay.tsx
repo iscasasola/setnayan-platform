@@ -17,26 +17,39 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
 import { startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
 import { watchDemoCameras, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
 
 const SLOT_LABEL: Record<CamSlot, string> = { a: 'Camera 1', b: 'Camera 2' };
 
-/** Keeps a <video> element fed with a (possibly changing) MediaStream. */
-function LiveVideo({ stream, style }: { stream: MediaStream | null; style?: React.CSSProperties }) {
+/**
+ * Keeps a <video> element fed with a (possibly changing) MediaStream. Muted by
+ * default — only the PROGRAM view opts out (`muted={false}`) so exactly one
+ * source is ever audible, mirroring a real control-room monitor. Toggling
+ * `muted` re-runs play() so unmuting (a user click) reliably starts audio even
+ * where the browser blocked unmuted autoplay.
+ */
+function LiveVideo({
+  stream,
+  muted = true,
+  style,
+}: {
+  stream: MediaStream | null;
+  muted?: boolean;
+  style?: React.CSSProperties;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (el.srcObject !== stream) {
-      el.srcObject = stream;
-      if (stream) void el.play().catch(() => {});
-    }
-  }, [stream]);
+    if (el.srcObject !== stream) el.srcObject = stream;
+    el.muted = muted;
+    if (stream) void el.play().catch(() => {});
+  }, [stream, muted]);
   // eslint-disable-next-line jsx-a11y/media-has-caption
-  return <video ref={ref} muted autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style }} />;
+  return <video ref={ref} muted={muted} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style }} />;
 }
 
 /** The lower-third: sample monogram + "· LIVE" — pure CSS, sits over the program view. */
@@ -92,6 +105,11 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   const [streams, setStreams] = useState<Record<CamSlot, MediaStream | null>>({ a: null, b: null });
   const [slotStates, setSlotStates] = useState<Record<CamSlot, PeerConnectionState>>({ a: 'waiting', b: 'waiting' });
   const [program, setProgram] = useState<CamSlot>('a');
+  // Program-audio monitor, off until the visitor clicks the speaker. Muted by
+  // default keeps a laptop + phone in the same room from howling with feedback
+  // the instant a camera connects, and dodges browsers that block unmuted
+  // autoplay — the click that unmutes is the user gesture that permits sound.
+  const [audioOn, setAudioOn] = useState(false);
   const programRef = useRef(program);
   programRef.current = program;
 
@@ -107,6 +125,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
     setStreams({ a: null, b: null });
     setSlotStates({ a: 'waiting', b: 'waiting' });
     setProgram('a');
+    setAudioOn(false);
     startDemoSession('panood', window.location.origin)
       .then((p) => {
         if (!cancelled) setPair(p);
@@ -156,6 +175,10 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   const bothLive = Boolean(streams.a && streams.b);
   const anyFailed = slotStates.a === 'failed' || slotStates.b === 'failed';
   const programStream = streams[program] ?? streams[program === 'a' ? 'b' : 'a'];
+  // A phone with no mic (or a blocked mic) publishes a video-only stream — the
+  // monitor toggle stays disabled for that camera so it never promises sound
+  // it can't play.
+  const programHasAudio = Boolean(programStream && programStream.getAudioTracks().length > 0);
 
   return (
     <OverlayShell
@@ -228,8 +251,46 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
               background: '#141312',
             }}
           >
-            <LiveVideo stream={programStream} />
+            <LiveVideo stream={programStream} muted={!(audioOn && programHasAudio)} />
             <LowerThird />
+            <button
+              type="button"
+              onClick={() => setAudioOn((v) => !v)}
+              disabled={!programHasAudio}
+              aria-label={audioOn ? 'Mute program audio' : 'Listen to program audio'}
+              title={
+                programHasAudio
+                  ? audioOn
+                    ? 'Mute program audio'
+                    : 'Listen to program audio'
+                  : 'This camera isn’t sending sound'
+              }
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: 10,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 9px',
+                borderRadius: 'var(--m-r-8, 8px)',
+                background: 'rgba(20,19,18,.62)',
+                color: '#fff',
+                border: 'none',
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '.05em',
+                cursor: programHasAudio ? 'pointer' : 'default',
+                opacity: programHasAudio ? 1 : 0.5,
+              }}
+            >
+              {audioOn && programHasAudio ? (
+                <Volume2 aria-hidden size={14} strokeWidth={2} />
+              ) : (
+                <VolumeX aria-hidden size={14} strokeWidth={2} />
+              )}
+              {audioOn && programHasAudio ? 'SOUND' : 'MUTED'}
+            </button>
             <span
               style={{
                 position: 'absolute',

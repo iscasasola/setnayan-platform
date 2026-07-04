@@ -5,9 +5,11 @@
  * (owner brief, DECISION_LOG 2026-07-03; see memory
  * `project_setnayan_panood_controller_build`).
  *
- * Topology: each phone is a PUBLISHER (getUserMedia → RTCPeerConnection,
- * video only), the desktop control room is the VIEWER (one peer connection
- * per camera slot). Signaling rides an ephemeral Supabase Realtime broadcast
+ * Topology: each phone is a PUBLISHER (getUserMedia camera + mic →
+ * RTCPeerConnection), the desktop control room is the VIEWER (one peer
+ * connection per camera slot; it monitors the on-air camera's audio). This
+ * transport is track-agnostic — it forwards whatever tracks the publisher
+ * adds. Signaling rides an ephemeral Supabase Realtime broadcast
  * channel keyed by the demo session (`demo-rtc:{sessionId}`) — no new infra,
  * same convention family as `demo:{sessionId}` presence and
  * `wall:{eventId}` tiles. Media itself flows peer-to-peer and NEVER touches

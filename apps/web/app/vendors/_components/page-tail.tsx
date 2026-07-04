@@ -1,11 +1,11 @@
 /**
  * PageTail · Voices + Pricing + FAQ + ClosingCTA + Footer composed as one
- * file for /for-vendors only.
+ * file for /vendors only.
  *
  * WHY: marketing homepage parallel-dependency. agent-homepage is porting
  * homepage-* into apps/web/app/_components/marketing/ but those haven't
  * landed as of 2026-05-28 (verified via `git log origin/main`). This file
- * inlines those tail sections specifically for /for-vendors. Once the
+ * inlines those tail sections specifically for /vendors. Once the
  * shared marketing/* components land, this file becomes a candidate for
  * dedupe — flagged in PR body.
  *

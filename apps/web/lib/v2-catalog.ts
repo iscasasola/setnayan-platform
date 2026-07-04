@@ -158,7 +158,7 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
-    // RETIRED SKUs must not surface on /pricing, /for-vendors, the admin discount
+    // RETIRED SKUs must not surface on /pricing, /vendors, the admin discount
     // picker, or the onboarding bundle — honor the is_active flag (owner 2026-06-08:
     // the only way to retire a customer SKU is is_active=false). Previously this
     // reader IGNORED is_active, so admin retirements had NO effect on the live site.
@@ -250,7 +250,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
 }
 
 /**
- * Vendor pricing for the marketing pages — DERIVED FROM THE DB so /for-vendors,
+ * Vendor pricing for the marketing pages — DERIVED FROM THE DB so /vendors,
  * /how-it-works etc. never hardcode vendor prices (owner 2026-06-08 "make sure
  * these prices are based on the admin page and not hardcoded"). `cache()` dedupes
  * to a single query per request even if several server components call it. The
@@ -360,7 +360,7 @@ export const getCustomerSkuPriceLabel = cache(
 
 /**
  * The couple-facing period suffix for a recurring SKU. Verbose "/ 28 days"
- * matches the vendor pricing house style (`/for-vendors` renders "/ 28 days"
+ * matches the vendor pricing house style (`/vendors` renders "/ 28 days"
  * for the prepaid-block subs). `one_time` renders NOTHING, so flat SKUs are
  * byte-identical to the pre-subscription path. The suffix is data-driven off
  * the catalog `billing_period`, never hardcoded per surface.
@@ -465,7 +465,7 @@ export function computePaxPriceCentavos(
 
 /**
  * Human price label for a customer SKU.
- *   • Pax-priced SKU + NO event context (e.g. /pricing, for-vendors catalog)
+ *   • Pax-priced SKU + NO event context (e.g. /pricing, vendors catalog)
  *     → "from ₱X" off the floor (the price genuinely starts there + rises with
  *     guests · honest, not the old bare "₱2,999").
  *   • Pax-priced SKU + a known event pax → the exact "₱X" for that wedding.

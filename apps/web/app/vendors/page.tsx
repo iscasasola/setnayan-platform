@@ -1,5 +1,5 @@
 /**
- * /for-vendors — v2.1 template port from
+ * /vendors — v2.1 template port from
  * /tmp/setnayan-keynote-template/"Setnayan For Vendors.html".
  *
  * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL".
@@ -16,7 +16,7 @@
  * apps/web/app/_components/marketing/ in parallel. As of branch-cut
  * (origin/main @ 06983a8 · 2026-05-28), the shared marketing/* components
  * had NOT landed. Strategy chosen per orchestrator brief: INLINE the
- * specific sections this page needs into apps/web/app/for-vendors/_components/
+ * specific sections this page needs into apps/web/app/vendors/_components/
  * + flag the duplication in PR body for follow-up dedupe PR once
  * agent-homepage's shared components land.
  *
@@ -62,11 +62,11 @@ export async function generateMetadata() {
   return {
     title,
     description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d. 0% commission on bookings. We never touch the money. In-app chat, pipeline, reviews.`,
-    alternates: { canonical: '/for-vendors' },
+    alternates: { canonical: '/vendors' },
     openGraph: {
       title,
       description: `Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d. 0% commission on bookings. We never touch the money.`,
-      url: '/for-vendors',
+      url: '/vendors',
       type: 'website',
       siteName: 'Setnayan',
     },
@@ -98,8 +98,8 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'WebPage',
-      '@id': `${SITE_URL}/for-vendors#webpage`,
-      url: `${SITE_URL}/for-vendors`,
+      '@id': `${SITE_URL}/vendors#webpage`,
+      url: `${SITE_URL}/vendors`,
       name: `Setnayan for vendors · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
@@ -111,7 +111,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#solo-vendor-subscription`,
+      '@id': `${SITE_URL}/vendors#solo-vendor-subscription`,
       name: 'Solo Vendor (28-day prepaid block)',
       description:
         '1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. 0% commission. Setnayan never touches the money between you and your couples.',
@@ -130,7 +130,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
+      '@id': `${SITE_URL}/vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (28-day prepaid block)',
       description:
         "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks. 28-day prepaid blocks (13 cycles/year).",
@@ -149,7 +149,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#enterprise-subscription`,
+      '@id': `${SITE_URL}/vendors#enterprise-subscription`,
       name: 'Enterprise Vendor (28-day prepaid block)',
       description:
         'Multiple marketplace categories · unlimited team accounts · everything in Pro at extended 100km radius. 28-day prepaid blocks (13 cycles/year).',
@@ -178,7 +178,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     // invisible to crawlers without their own Offer entries).
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
+      '@id': `${SITE_URL}/vendors#pro-vendor-annual-subscription`,
       name: 'Pro Vendor (annual subscription · save 23%)',
       description:
         `${p.proAnnual}/year instead of ${p.proMonthly} × 13 cycles · save ${p.proAnnualSave}. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks. Single annual payment.`,
@@ -197,7 +197,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#enterprise-annual-subscription`,
+      '@id': `${SITE_URL}/vendors#enterprise-annual-subscription`,
       name: 'Enterprise Vendor (annual subscription · save 23%)',
       description:
         `${p.enterpriseAnnual}/year instead of ${p.enterpriseMonthly} × 13 cycles · save ${p.enterpriseAnnualSave}. Same Enterprise tier · all marketplace categories · unlimited team accounts · extended 100km radius · Single annual payment.`,
@@ -216,7 +216,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': `${SITE_URL}/for-vendors#breadcrumb`,
+      '@id': `${SITE_URL}/vendors#breadcrumb`,
       itemListElement: [
         {
           '@type': 'ListItem',
@@ -228,7 +228,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
           '@type': 'ListItem',
           position: 2,
           name: 'For Vendors',
-          item: `${SITE_URL}/for-vendors`,
+          item: `${SITE_URL}/vendors`,
         },
       ],
     },

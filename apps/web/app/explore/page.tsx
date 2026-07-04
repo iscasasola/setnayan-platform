@@ -2958,7 +2958,7 @@ function EmptyState({
   // filter away, we point the couple at them rather than asking them to recruit.
   //
   // Routes to the canonical vendor-registration entry (`/signup?as=vendor`,
-  // mirrored from /for-vendors), carrying `next=/vendor-dashboard/profile` so a
+  // mirrored from /vendors), carrying `next=/vendor-dashboard/profile` so a
   // brand-new vendor lands directly on the services picker that already surfaces
   // this leaf as a checkbox. The leaf key rides along as `prefill_service` for
   // future deep-linking + signup-source attribution (harmless today — the
@@ -3067,7 +3067,7 @@ function EmptyState({
               List your business
             </Link>
             <Link
-              href="/for-vendors"
+              href="/vendors"
               className="inline-flex h-10 items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
             >
               How vendor listings work →

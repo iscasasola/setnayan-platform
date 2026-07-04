@@ -1,7 +1,7 @@
 /**
  * VendorDoorScenario · the interactive "we step back at your door" story.
  *
- * WHY: /for-vendors has to convert the relationship-first skeptic — the vendor
+ * WHY: /vendors has to convert the relationship-first skeptic — the vendor
  * who says "I believe in the personal touch; that's why I don't use apps." The
  * research (objection-handling + narrative-transportation + PH market) says the
  * winning move is a SINGLE peer protagonist's story (not a benefit list):

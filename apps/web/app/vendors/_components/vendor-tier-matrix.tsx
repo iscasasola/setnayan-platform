@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * VendorTierMatrix — the tier-comparison MATRIX for /for-vendors (owner
+ * VendorTierMatrix — the tier-comparison MATRIX for /vendors (owner
  * 2026-07-04: "a matrix of the benefits between each tier").
  *
  * Benefits as ROWS × tiers as COLUMNS (Free · Verified / Solo / Pro /

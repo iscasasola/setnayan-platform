@@ -316,6 +316,14 @@ const nextConfig: NextConfig = {
     return [
       { source: '/weddings', destination: '/realstories', permanent: true },
       { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+      // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`
+      // (owner routing change). Permanent (308) so already-indexed URLs,
+      // bookmarks, email links, and QR codes carry their ranking to the new
+      // path. EXACT source only — the static hero art still lives under
+      // `public/for-vendors/*.avif`, so a `:path*` catch-all would break those
+      // asset URLs. Marketplace subpaths (`/vendors/*` → /explore) are handled
+      // separately in middleware.ts.
+      { source: '/for-vendors', destination: '/vendors', permanent: true },
     ];
   },
   async rewrites() {

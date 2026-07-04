@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 // Final CTA — primary "Start planning · free" + soft secondary
-// "I'm a vendor →" linking to /for-vendors. Per the homepage redesign
+// "I'm a vendor →" linking to /vendors. Per the homepage redesign
 // pattern (single primary CTA, visually subordinate secondary).
 
 const COPY: Record<
@@ -45,7 +45,7 @@ export function FinalCTA({ locale }: { locale: MarketingLocale }) {
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
             <Link
-              href="/for-vendors"
+              href="/vendors"
               className="text-sm font-medium text-ink/65 underline-offset-4 hover:text-ink hover:underline"
             >
               {c.ctaSecondary}

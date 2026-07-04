@@ -332,7 +332,7 @@ export default async function PricingPage() {
           category: 'Wedding vendor subscription',
           offers: {
             '@type': 'Offer',
-            url: `${SITE_URL}/for-vendors`,
+            url: `${SITE_URL}/vendors`,
             price: String(Math.round(s.price_php)),
             priceCurrency: 'PHP',
             availability: 'https://schema.org/InStock',
@@ -359,7 +359,7 @@ export default async function PricingPage() {
         category: 'Wedding vendor tokens',
         offers: {
           '@type': 'Offer',
-          url: `${SITE_URL}/for-vendors`,
+          url: `${SITE_URL}/vendors`,
           price: String(Math.round(t.price_php)),
           priceCurrency: 'PHP',
           availability: 'https://schema.org/InStock',
@@ -660,7 +660,7 @@ export default async function PricingPage() {
               Vendor? See the free business offering + your plans.
             </p>
             <Link
-              href="/for-vendors"
+              href="/vendors"
               className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
             >
               For vendors

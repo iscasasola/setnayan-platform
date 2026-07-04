@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Client motion wrapper for /for-vendors. The page stays a Server Component
+ * Client motion wrapper for /vendors. The page stays a Server Component
  * (force-dynamic, owns metadata + JSON-LD); this thin island gives each below-the-fold
  * section ONE quiet entrance without touching the bespoke section components — it just
  * renders the server-passed section as children and reveals the wrapper on scroll-in.

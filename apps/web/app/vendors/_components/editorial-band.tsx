@@ -1,5 +1,5 @@
 /**
- * EditorialBand · the one full-bleed emotional beat on the for-vendors page.
+ * EditorialBand · the one full-bleed emotional beat on the vendors page.
  *
  * Owner 2026-06-15: "make the imagery more relatable — we want them to feel
  * 'yes, that is my problem.'" So this no longer shows the aspirational output

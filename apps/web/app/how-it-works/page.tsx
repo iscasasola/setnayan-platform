@@ -256,7 +256,7 @@ export default async function HowItWorksPage() {
                   Start planning — free
                 </Link>
                 <Link
-                  href="/for-vendors"
+                  href="/vendors"
                   className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
                 >
                   I&rsquo;m a vendor

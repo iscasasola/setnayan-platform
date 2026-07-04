@@ -49,7 +49,7 @@
    * SCOPE: app chrome (dashboard / admin / vendor / marketplace internal +
    * public marketing surfaces consumed via legacy --color-* tokens). The
    * `--m-*` Clean Editorial token family (used by Today page + /pricing +
-   * /for-vendors) is unchanged. Wedding landing page chrome at
+   * /vendors) is unchanged. Wedding landing page chrome at
    * `app/[slug]/page.tsx` remains driven by the couple's mood-board palette
    * per iteration 0010 + 0002 — out of scope for this swap.
    *

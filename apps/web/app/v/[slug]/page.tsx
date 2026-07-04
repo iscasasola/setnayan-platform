@@ -1381,7 +1381,7 @@ export async function renderVendorBySlug({
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
               system. Wordmark from @/app/_components/brand-marks is the
-              canonical brand mark across /, /for-vendors, /login, /signup,
+              canonical brand mark across /, /vendors, /login, /signup,
               /vendors, and all dashboard chromes after V2 cutover Phase B
               (PRs #560-#564 + #572-#580). Matches the marketplace overlay
               pattern from PR #580. */}
@@ -1501,7 +1501,7 @@ export async function renderVendorBySlug({
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches
-                the homepage + /for-vendors + /vendors marketplace headline
+                the homepage + /vendors + /vendors marketplace headline
                 rhythm (PR #580 lineage). Cream + ink + terracotta tokens
                 unchanged. Business name stays the visual anchor — v2.1
                 publisher posture means real vendor names are always visible

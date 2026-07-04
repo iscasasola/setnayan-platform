@@ -2,7 +2,7 @@
  * Vendor-benefits catalog for the "For vendors" overlay — organized BY ACCOUNT
  * TYPE (owner 2026-07-01): Free → Solo → Pro → Enterprise → Custom, each tier
  * showing what it ADDS on top of the one below. Mirrors the tier ladder on
- * /for-vendors and the hybrid gating decision in VENDOR_TIERS_AND_BENEFITS.md
+ * /vendors and the hybrid gating decision in VENDOR_TIERS_AND_BENEFITS.md
  * (§2 allocation + §6 as-built). `soon` = not yet live end-to-end; it clears as
  * the vendor-dashboard session ships. Keep the tier assignments in step with the
  * doc + the coded caps in lib/vendor-tier-caps.ts.

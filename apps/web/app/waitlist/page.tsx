@@ -212,7 +212,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
-            Vendor? <Link href="/for-vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.
+            Vendor? <Link href="/vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.
           </p>
         </div>
       </section>

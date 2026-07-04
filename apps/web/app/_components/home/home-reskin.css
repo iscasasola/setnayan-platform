@@ -1941,6 +1941,32 @@ html.hr-snap {
   font-size: 12.5px;
   color: #4f535b;
 }
+/* Quick paid-tier intro row inside the glass popup — a one-line summary
+   (Setnayan AI price · how the vendor tiers stack), sitting between the free
+   checklist and the single line-link out. Deliberately compact so the popup
+   stays a summary, not the wall. */
+.home-reskin-ov .hr-gintro {
+  margin: 2px 0 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(197, 160, 89, 0.1);
+  border: 1px solid rgba(197, 160, 89, 0.28);
+}
+.home-reskin-ov .hr-gintro-h {
+  display: block;
+  font-family: var(--font-mono-marketing), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a88340;
+}
+.home-reskin-ov .hr-gintro-b {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1e2229;
+}
 /* The single line-link out — "Want more? → See all prices". */
 .home-reskin-ov .hr-gline {
   display: flex;

@@ -154,14 +154,25 @@ export function OverlayShell({
 /**
  * PricesOverlay — the FROSTED-GLASS nav popup (owner 2026-07-04 redesign).
  *
- * Slimmed to ONLY the free planning offering + ONE line-link out to /pricing.
- * The full tier ladder, live estimator and à-la-carte catalog moved OFF the
- * popup onto the /pricing page — the popup's whole job is now "here's what's
- * free, want more? → see all prices". Renders in the translucent glass card
- * (`hr-ov-card-glass`) that matches the nav's blur(16px) exactly. No `pricing`
- * dependency, so it opens instantly.
+ * A SUMMARY: the free planning offering + a one-line Setnayan AI price intro +
+ * ONE line-link out to /pricing. The full tier ladder, live estimator and
+ * à-la-carte catalog live on the /pricing page. Renders in the translucent
+ * glass card (`hr-ov-card-glass`) that matches the nav's blur(16px) exactly.
+ *
+ * `pricing` is OPTIONAL — the free summary + link render instantly with no
+ * pricing; the AI price line (₱799/28d · ₱499 first cycle, both catalog-resolved
+ * via PricingData) fills in the moment the lazy pricing fetch lands, matching
+ * the marketing-chrome pattern. Never hardcodes a price.
  */
-function PricesOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
+function PricesOverlay({
+  current,
+  onClose,
+  pricing,
+}: {
+  current: OverlayId;
+  onClose: () => void;
+  pricing: PricingData | null;
+}) {
   return (
     <OverlayShell
       id="prices"
@@ -183,6 +194,16 @@ function PricesOverlay({ current, onClose }: { current: OverlayId; onClose: () =
         <li>Browse vendors + a match preview</li>
         <li>Single-camera livestream &amp; free Custom QR</li>
       </ul>
+      {/* Quick paid-tier intro — Setnayan AI, priced live from the catalog. */}
+      {pricing ? (
+        <div className="hr-gintro">
+          <span className="hr-gintro-h">Setnayan AI</span>
+          <span className="hr-gintro-b">
+            the planning brain that filters your vendors — {pricing.aiPrice}
+            {pricing.aiPeriod}, {pricing.aiIntroPrice} your first cycle.
+          </span>
+        </div>
+      ) : null}
       <div className="hr-gline">
         <span className="hr-gline-t">Want more features?</span>
         <Link className="hr-gline-a" href="/pricing" onClick={onClose}>
@@ -284,6 +305,15 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         </li>
         <li>Reviews, earned badges &amp; your track record</li>
       </ul>
+      {/* Quick tier-stack intro — one line, a summary not the wall. */}
+      <div className="hr-gintro">
+        <span className="hr-gintro-h">How the tiers stack</span>
+        <span className="hr-gintro-b">
+          Free is the whole ops spine · Solo adds your business analytics · Pro
+          adds a team, wider reach &amp; market intel · Enterprise lifts every
+          limit.
+        </span>
+      </div>
       <div className="hr-gline">
         <span className="hr-gline-t">Want to upgrade your business?</span>
         <Link className="hr-gline-a" href="/for-vendors" onClick={onClose}>
@@ -692,9 +722,10 @@ export function HomeOverlays({
           the homepage that's always; on marketing pages it's after the lazy
           fetch). A press before pricing lands is a brief no-op that resolves
           itself the instant the fetch completes. */}
-      {/* Prices + Vendors popups are now free-only + one line-link out — no
-          pricing dependency, so they mount + open instantly (owner 2026-07-04). */}
-      <PricesOverlay current={current} onClose={onClose} />
+      {/* Prices + Vendors popups are free-summary + a quick tier intro + one
+          line-link out. They mount + open instantly; the Prices popup's AI price
+          line fills in when the lazy `pricing` fetch lands (owner 2026-07-04). */}
+      <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
       <VendorsOverlay current={current} onClose={onClose} />
       {pricing && (
         <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />

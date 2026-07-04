@@ -39,6 +39,7 @@ import { VendorHero } from './_components/vendor-hero';
 import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
+import { VendorTierMatrix } from './_components/vendor-tier-matrix';
 import { VendorBenefitGuide } from './_components/vendor-benefit-guide';
 import { EditorialBand } from './_components/editorial-band';
 import { VendorDoorScenario } from './_components/vendor-door-scenario';
@@ -271,6 +272,22 @@ export default async function ForVendorsPage() {
         </RevealOnView>
         <RevealOnView>
           <ForVendorsDeepDive />
+        </RevealOnView>
+        {/* Tier-comparison MATRIX (owner 2026-07-04 "a matrix of the benefits
+            between each tier") — the PRIORITY comparison view: benefits as rows
+            × tiers as columns (Free·Verified / Solo / Pro / Enterprise) with
+            ✓ / — / value cells + soon markers, from the SAME canonical data
+            (VENDOR_TIER_SECTIONS + TIER_CAPS). Tier price tags read the live DB
+            via getVendorPrices (never hardcoded). The filterable guide below
+            stays as the deep-dive. */}
+        <RevealOnView>
+          <VendorTierMatrix
+            prices={{
+              soloMonthly: p.soloMonthly,
+              proMonthly: p.proMonthly,
+              enterpriseMonthly: p.enterpriseMonthly,
+            }}
+          />
         </RevealOnView>
         {/* Full ~90-benefit guide, filterable by tier (owner 2026-07-04
             free-forward redesign). Content pulled from the canonical

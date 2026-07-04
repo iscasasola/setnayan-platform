@@ -390,9 +390,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/vendors',
       },
       {
+        // Repointed to the Accounts Studio Demo vendors tab (slice 4, final).
+        // matchPrefix keeps this item lit on the legacy /admin/demo-vendors
+        // path + the standalone /admin/demo-vendors/inquiries +
+        // inquiries/[threadId] flows (which stay standalone).
         key: 'demo-vendors',
         label: 'Demo vendors',
-        href: '/admin/demo-vendors',
+        href: '/admin/accounts?tab=demo-vendors',
         icon: TestTube,
         matchPrefix: '/admin/demo-vendors',
       },

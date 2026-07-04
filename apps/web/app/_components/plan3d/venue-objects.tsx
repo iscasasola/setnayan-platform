@@ -26,13 +26,14 @@
  * with the 2D editor + the couple lab's own table tooling.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
 import {
   pctToWorld,
   venueObjectDims,
   BOOTH_FOOTPRINT_M,
+  boothCanBrand,
   type Lab3DPalette,
   type Lab3DSceneObject,
   type Lab3DBooth,
@@ -362,12 +363,80 @@ function boothSilhouette(kind: string, w: number, d: number, palette: Lab3DPalet
   }
 }
 
-/** A vendor booth — silhouette chosen by its type (event_floor_booths.booth_type). */
+/** A PRO / ENTERPRISE vendor's branded backdrop behind their booth: an accent-
+ *  framed board carrying the vendor's logo (loaded from the resolved,
+ *  same-origin display URL). Free / verified / solo booths never render this
+ *  (gated by boothCanBrand at the call site). Manual TextureLoader (no Suspense
+ *  boundary in these scenes); the plane keeps the logo's real aspect ratio so a
+ *  wordmark isn't stretched, and drops silently if the image fails. */
+function BoothSign({ url, w, palette }: { url: string; w: number; palette: Lab3DPalette }) {
+  const [logo, setLogo] = useState<{ tex: THREE.Texture; aspect: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(
+      url,
+      (t) => {
+        if (!live) {
+          t.dispose();
+          return;
+        }
+        t.colorSpace = THREE.SRGBColorSpace;
+        const img = t.image as { width?: number; height?: number } | undefined;
+        const aspect = img?.width && img?.height ? img.width / img.height : 1;
+        setLogo({ tex: t, aspect });
+      },
+      undefined,
+      () => {
+        /* a broken/blocked logo just leaves the booth unbranded */
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [url]);
+
+  // Fit the logo inside a max box, preserving aspect.
+  const maxW = Math.min(w, 1.4);
+  const maxH = 0.62;
+  const logoW = logo ? Math.min(maxW, maxH * logo.aspect) : maxW;
+  const logoH = logo ? logoW / logo.aspect : maxH;
+
+  return (
+    <group position={[0, 0, -0.62]}>
+      {/* Backdrop board */}
+      <mesh position={[0, 1.75, 0]} castShadow>
+        <boxGeometry args={[w + 0.3, 0.9, 0.06]} />
+        <meshStandardMaterial color={palette.table} roughness={0.6} />
+      </mesh>
+      {/* Accent top rail */}
+      <mesh position={[0, 2.24, 0]}>
+        <boxGeometry args={[w + 0.4, 0.08, 0.1]} />
+        <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.2} />
+      </mesh>
+      {/* Logo — once resolved; sits just proud of the board, facing the room. */}
+      {logo ? (
+        <mesh position={[0, 1.75, 0.04]}>
+          <planeGeometry args={[logoW, logoH]} />
+          <meshBasicMaterial map={logo.tex} transparent toneMapped={false} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+/** A vendor booth — silhouette chosen by its type (event_floor_booths.booth_type).
+ *  Pro / enterprise vendors additionally get a branded logo backdrop. */
 export function BoothMesh({ booth, room, palette }: { booth: Lab3DBooth; room: Room; palette: Lab3DPalette }) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
+  const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
   return (
-    <group position={[pos.x, 0, pos.z]}>{boothSilhouette(booth.kind, w, d, palette)}</group>
+    <group position={[pos.x, 0, pos.z]}>
+      {boothSilhouette(booth.kind, w, d, palette)}
+      {branded ? <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} /> : null}
+    </group>
   );
 }
 

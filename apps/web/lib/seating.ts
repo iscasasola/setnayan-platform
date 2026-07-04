@@ -1396,7 +1396,14 @@ export type FloorBoothRow = {
   // fetchBooths; carries zero personal PII. `logo_url` is a RAW stored ref —
   // resolve before display. Optional so 2D-editor local rows (which never join)
   // don't have to carry it.
-  vendor?: { vendor_name: string; category: string; logo_url: string | null } | null;
+  vendor?: {
+    vendor_name: string;
+    category: string;
+    logo_url: string | null;
+    // The vendor's subscription tier — gates 3D booth logo branding to
+    // pro / enterprise (boothCanBrand). Null when the join is absent.
+    tier: string | null;
+  } | null;
 };
 
 export async function fetchBooths(
@@ -1410,7 +1417,7 @@ export async function fetchBooths(
       // TWO relationships to vendor_profiles (linked_vendor_profile_id and
       // marketplace_vendor_id) and an unhinted embed errors as ambiguous.
       'booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings,' +
-        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url))',
+        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url,tier_state))',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -1438,10 +1445,11 @@ export async function fetchBooths(
       vendor: null,
     }));
   }
+  type VP = { logo_url: string | null; tier_state: string | null } | null;
   type Joined = Omit<FloorBoothRow, 'vendor'> & {
     event_vendors:
-      | { vendor_name: string; category: string; vendor_profiles: { logo_url: string | null } | null }
-      | { vendor_name: string; category: string; vendor_profiles: { logo_url: string | null } | null }[]
+      | { vendor_name: string; category: string; vendor_profiles: VP }
+      | { vendor_name: string; category: string; vendor_profiles: VP }[]
       | null;
   };
   return (data as unknown as Joined[]).map((b) => {
@@ -1461,7 +1469,12 @@ export async function fetchBooths(
       event_vendor_id: b.event_vendor_id ?? null,
       offerings: (b.offerings ?? null) as string | null,
       vendor: ev
-        ? { vendor_name: ev.vendor_name, category: ev.category, logo_url: vp?.logo_url ?? null }
+        ? {
+            vendor_name: ev.vendor_name,
+            category: ev.category,
+            logo_url: vp?.logo_url ?? null,
+            tier: vp?.tier_state ?? null,
+          }
         : null,
     };
   });

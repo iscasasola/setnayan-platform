@@ -11,7 +11,7 @@ import {
 } from '@/app/_components/chat/thread-list-card';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { isFollowingVendor } from '@/lib/follow';
-import { resolveVendorDisplayName } from '@/lib/vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { startThreadByVendorEmail } from './actions';
 
@@ -225,6 +225,23 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                   location_city: t.vendor.location_city ?? null,
                 })
               : 'Vendor';
+            // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the
+            // vendor's real logo is as identifying as the business name, so it
+            // must stay masked until the SAME predicate that reveals the name
+            // says reveal. Reuse `isVendorNameRevealed` (the single source of
+            // truth behind `resolveVendorDisplayName`) so the logo and the
+            // label can never drift — pre-reveal we pass null and the avatar
+            // falls back to screen-name initials.
+            const vendorNameRevealed = t.vendor
+              ? isVendorNameRevealed({
+                  name_revealed_at: t.vendor.name_revealed_at ?? null,
+                  isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+                  services: t.vendor.services ?? null,
+                })
+              : false;
+            const vendorLogoUrl = vendorNameRevealed
+              ? t.vendor?.logo_url ?? null
+              : null;
             return (
               <li key={t.thread_id}>
                 <ThreadListCard
@@ -232,7 +249,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                   title={vendorDisplayName}
                   avatar={
                     <ThreadListAvatar
-                      logoUrl={t.vendor?.logo_url ?? null}
+                      logoUrl={vendorLogoUrl}
                       name={vendorDisplayName}
                     />
                   }

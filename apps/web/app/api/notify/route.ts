@@ -21,10 +21,44 @@
 import 'server-only';
 
 import { after, NextResponse, type NextRequest } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// ---------------------------------------------------------------------------
+// Auth — shared-secret header check
+// ---------------------------------------------------------------------------
+
+/**
+ * Constant-time compare of the incoming `x-webhook-secret` header against the
+ * configured `NOTIFY_WEBHOOK_SECRET`.
+ *
+ * Fail policy (Data Flow Map audit gap #3):
+ *  - env var UNSET  → fail OPEN (return true) + console.warn, so a fresh deploy
+ *    doesn't silently break push notifications before the owner configures the
+ *    secret in Vercel + the Supabase webhook config.
+ *  - env var SET, header missing/wrong → fail CLOSED (caller returns 401).
+ *
+ * timingSafeEqual requires equal-length buffers, so the length check is folded
+ * in via an early return — the provided header is never leaked by timing.
+ */
+function isAuthorized(req: NextRequest): boolean {
+  const secret = process.env.NOTIFY_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn(
+      '[notify] NOTIFY_WEBHOOK_SECRET is not set — accepting webhook UNAUTHENTICATED (fail-open). ' +
+        'Set NOTIFY_WEBHOOK_SECRET in Vercel and add the x-webhook-secret header to the Supabase webhook config.',
+    );
+    return true;
+  }
+
+  const provided = req.headers.get('x-webhook-secret') ?? '';
+  const a = Buffer.from(provided);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,13 +171,7 @@ async function sendPushToToken(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.SUPABASE_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error('[notify] SUPABASE_WEBHOOK_SECRET is not set');
-    return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
-  }
-
-  if (req.headers.get('x-webhook-secret') !== secret) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

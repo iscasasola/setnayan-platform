@@ -20,7 +20,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
+import {
+  fetchEventVendors,
+  resolveVendorDisplayName,
+  isVendorNameRevealed,
+} from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import Link from 'next/link';
@@ -306,9 +310,21 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         services: s.services,
         screen_name: a?.screen_name ?? null,
       });
+      // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the vendor's
+      // real logo is as identifying as their business name, so it must stay
+      // masked until the SAME predicate that reveals the name says reveal.
+      // Reuse `isVendorNameRevealed` (the source of truth behind
+      // `resolveVendorDisplayName`) so the shortlist card's logo can never drift
+      // from its label — pre-reveal we drop the logo and the card falls back to
+      // screen-name initials, matching the Messages thread-list fix.
+      const nameRevealed = isVendorNameRevealed({
+        name_revealed_at: a?.name_revealed_at ?? null,
+        isPaidTier: isTrueNameTier(a?.tier_state ?? null),
+        services: s.services,
+      });
       marketplaceCardByVendorId.set(v.vendor_id, {
         name: resolvedName,
-        logo: s.logo_url,
+        logo: nameRevealed ? s.logo_url : null,
         city: s.location_city,
       });
 

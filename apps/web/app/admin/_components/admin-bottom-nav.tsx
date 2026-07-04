@@ -9,36 +9,44 @@
  * conditionally signed off) re-cut it to a 4-tab spine (Home · Work ·
  * Directory · More).
  *
- * 6-MENU RESPINE 2026-07-03 (owner: "Overview · Accounts · Content ·
- * Marketing · Performance · System Settings") under the 2026-06-21 ≤5 mobile
- * ruleset — the strip is 5 tabs:
- *   Overview · Accounts · Marketing · Performance · More
- * Overview = the merged Home+Work task inbox (the /admin pulse + every
- * act-now queue), so the old Work tab dissolves into it and its rolled-up
- * badge moves here. Money's tab dissolves: config went to System Settings
- * (inside More), Discount codes + Referrals to Marketing. Content + System
- * Settings live inside More per the ≤5 cap.
+ * 6-MENU RESPINE 2026-07-04 (owner: "Overview · Accounts · Studio · Ugat
+ * Console · App Performance · Money" — the desktop sidebar IA in
+ * ADMIN_NAV_GROUPS). Owner directive 2026-07-04: mobile menus must carry the
+ * SAME content as desktop, only the orientation differs. The COMPLETE 6-menu
+ * set now lives in the /admin/more full-menu landing (rendered straight from
+ * ADMIN_NAV_GROUPS). This bottom strip is the ≤5-tab SUBSET SHORTCUT (locked
+ * ≤5 primitive) into the daily-driver menus — it is NOT the full menu; More is.
  *
- * NB the desktop sidebar (admin-sidebar.tsx) was re-cut 2026-07-04 to a
- * different 6-group IA (Overview · Accounts · Studio · Ugat Console · App
- * Performance · Money — Studio = old Content + Marketing; Ugat Console = the
- * data-structure lane). This mobile strip is a SEPARATE ≤5-tab IA and does
- * NOT mirror those groups 1:1 — its Marketing tab (key 'marketing', route
- * /admin/marketing) is its own namespace and survives the desktop respine.
- * Mobile-overflow landings: /admin/work (All work, linked from Overview) ·
- * /admin/directory · /admin/marketing · /admin/more. Legacy /admin/queues
- * redirects to /admin/work; /admin/money + /admin/insights stay as bookmark
- * landings.
+ * TAB CHOICE (≤5) — the owner's three "sure" priority menus (Overview · Ugat
+ * Console · App Performance) get their own tab, plus Accounts (record look-up)
+ * and a More tab that opens the complete 6-group menu:
+ *   Overview · Accounts · Ugat Console · App Performance · More
+ * The retired 2026-07-03 "Marketing" tab is GONE — its group folded into Studio
+ * on desktop, so its surfaces are reachable in More → Studio. Studio + Money
+ * (the two non-tab desktop menus) are always one tap away inside More.
+ *
+ * Key CONTINUITY: 'home' · 'directory' · 'performance' · 'more' keep their keys
+ * (localStorage / active-state). The 'marketing' slot is REPLACED by 'ugat'
+ * (new). Overview = the merged Home+Work task inbox (the /admin pulse + every
+ * act-now queue); the old Work tab's rolled-up badge lives on Overview.
+ *
+ * Landings: /admin/directory (Accounts) · /admin/more (full 6-menu). Ugat +
+ * Performance tabs land on real anchor pages (/admin/taxonomy = the Ugat
+ * Console's Taxonomy-Studio anchor · /admin/app-performance = the cockpit), not
+ * overflow grids. Legacy /admin/queues → /admin/work; /admin/marketing +
+ * /admin/money + /admin/insights stay as bookmark landings.
  *
  * activeMatch rules:
- *   - Overview    — EXACT /admin (via activeMatchAlsoExact — every other
- *                   tab's route also starts with /admin/) PLUS every act-now
- *                   queue route as a prefix umbrella.
- *   - Accounts    — /admin/directory OR any account record route
- *   - Marketing   — /admin/marketing OR any marketing surface route
- *   - Performance — /admin/app-performance OR any Performance route
- *   - More        — /admin/more OR any Content / System Settings route.
- *                   /admin/settings umbrella also covers payment-methods.
+ *   - Overview       — EXACT /admin (via activeMatchAlsoExact — every other
+ *                      tab's route also starts with /admin/) PLUS every act-now
+ *                      queue route as a prefix umbrella.
+ *   - Accounts       — /admin/directory OR any account record route
+ *   - Ugat Console   — /admin/taxonomy OR any Ugat data-structure route
+ *   - App Performance— /admin/app-performance OR any Performance route
+ *   - More           — /admin/more OR any Studio / Money route (the two
+ *                      non-tab desktop menus). /admin/settings umbrella also
+ *                      covers payment-methods; /admin/marketing kept as a
+ *                      legacy bookmark landing.
  *
  * BottomNav primitive auto-hides at lg via lg:hidden, so this only renders
  * on mobile + tablet. Desktop uses SidebarShell + AdminSidebar.
@@ -51,7 +59,7 @@
  * Symmetric with admin-sidebar.tsx. Caught + fixed 2026-05-29.
  */
 
-import { Home, Users, Megaphone, Activity, Menu } from 'lucide-react';
+import { Home, Users, Tag, Activity, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -111,20 +119,20 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     ],
   },
   {
-    // MARKETING (2026-07-03 respine) — the social publishing queue + the
-    // featuring levers + growth incentives. /admin/marketing is the card-grid
-    // landing (same renderer as /admin/directory).
-    key: 'marketing',
-    label: 'Marketing',
-    href: '/admin/marketing',
-    icon: Megaphone,
+    // UGAT CONSOLE (2026-07-04 respine · replaces the retired 'marketing' slot)
+    // — the data-structure / mapping wing, an owner "sure" priority menu. Lands
+    // on /admin/taxonomy, the Taxonomy-Studio anchor of the Ugat Console group,
+    // and claims every Ugat data-structure route as its umbrella.
+    key: 'ugat',
+    label: 'Ugat Console',
+    href: '/admin/taxonomy',
+    icon: Tag,
     activeMatch: [
-      '/admin/marketing',
-      '/admin/social-queue',
-      '/admin/spotlight-awards',
-      '/admin/journal-spotlights',
-      '/admin/discount-codes',
-      '/admin/referrals',
+      '/admin/taxonomy',
+      '/admin/menus',
+      '/admin/onboarding',
+      '/admin/wedding-traditions',
+      '/admin/brain',
     ],
   },
   {
@@ -152,13 +160,15 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     label: 'More',
     href: '/admin/more',
     icon: Menu,
-    // More carries the Content group + System Settings (incl. the dissolved
-    // Money-config surfaces). Every route is enumerated so none goes "unlit"
-    // on mobile per [[feedback_setnayan_orphan_prevention]]. /admin/money
-    // stays matched here as a legacy bookmark landing.
+    // More opens the COMPLETE 6-menu landing (rendered from ADMIN_NAV_GROUPS).
+    // As a lit-state umbrella it claims the two desktop menus WITHOUT their own
+    // tab — Studio (old Content + Marketing lanes) + Money — so none goes
+    // "unlit" on mobile per [[feedback_setnayan_orphan_prevention]]. The Ugat
+    // Console routes moved to the dedicated 'ugat' tab above. /admin/marketing
+    // + /admin/money stay matched here as legacy bookmark landings.
     activeMatch: [
       '/admin/more',
-      // Content group
+      // Studio group — Content lane
       '/admin/website',
       '/admin/hero-video',
       '/admin/reveal-studio',
@@ -167,10 +177,16 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/patiktok',
       '/admin/songs',
       '/admin/moodboard-library',
-      // System Settings group (note: /admin/settings also covers
+      // Studio group — Marketing lane (folded into Studio 2026-07-04; the old
+      // standalone Marketing tab retired, its surfaces live here now)
+      '/admin/marketing',
+      '/admin/social-queue',
+      '/admin/spotlight-awards',
+      '/admin/journal-spotlights',
+      '/admin/discount-codes',
+      '/admin/referrals',
+      // Money group — config + settings tail (note: /admin/settings also covers
       // /admin/settings/demo-mode + /admin/settings/payment-methods)
-      '/admin/settings',
-      '/admin/notifications',
       '/admin/pricing',
       '/admin/addons',
       '/admin/vendor-recommendations',
@@ -179,20 +195,8 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/budget-planner',
       '/admin/receipts',
       '/admin/money',
-      '/admin/menus',
-      '/admin/taxonomy',
-      // '/admin/event-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
-      // Vocabularies → Event types rail (/admin/taxonomy?view=vocab-event); the
-      // event-type roster now lives there. The standalone page redirects.
-      // '/admin/refinements' REMOVED 2026-07-03 — route retired to a
-      // redirect(/admin/taxonomy); refinements now live in the Taxonomy Studio
-      // inspector's Refinements tab. Dedicated nav entry dropped.
-      '/admin/onboarding',
-      // '/admin/wedding-types' REMOVED 2026-07-03 — route retired to a
-      // redirect(/admin/taxonomy?view=vocab-faith); the per-faith launch gate now
-      // lives in the Taxonomy Studio Vocabularies → Faiths rail.
-      '/admin/wedding-traditions',
-      '/admin/brain',
+      '/admin/settings',
+      '/admin/notifications',
     ],
   },
 ];

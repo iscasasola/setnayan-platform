@@ -155,4 +155,4 @@ export function MobileLandingGrid({ title, subtitle, items, groups, searchable }
   );
 }
 
-export type { LandingItem };
+export type { LandingItem, LandingGroup };

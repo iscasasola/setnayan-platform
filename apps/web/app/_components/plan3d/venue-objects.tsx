@@ -200,21 +200,174 @@ function renderKind(kind: string, w: number, d: number, palette: Lab3DPalette) {
 }
 
 /** A vendor booth — a compact station block with an accent canopy edge. */
+// Neutral prop tones for the booth silhouettes. A drum kit / range hood / amp
+// reads WRONG if recoloured to the wedding palette, so these stay fixed while
+// counters + risers still take palette.table / palette.accent.
+const BOOTH_METAL = '#6b6f76';
+const BOOTH_CHROME = '#b9bec7';
+const BOOTH_WARM = '#d98a3d'; // cooktop heat + performance spotlight glow
+const BOOTH_DARK = '#2a2c30'; // amps / speakers
+
+/** A slim mic stand (post + ball head + base) — shared by band + performance. */
+function MicStand({ x = 0, z = 0 }: { x?: number; z?: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, 0.62, 0]} castShadow>
+        <cylinderGeometry args={[0.02, 0.02, 1.24, 6]} />
+        <meshStandardMaterial color={BOOTH_METAL} roughness={0.4} metalness={0.6} />
+      </mesh>
+      <mesh position={[0, 1.28, 0]} castShadow>
+        <sphereGeometry args={[0.05, 8, 8]} />
+        <meshStandardMaterial color={BOOTH_DARK} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.02, 0]}>
+        <cylinderGeometry args={[0.14, 0.14, 0.04, 12]} />
+        <meshStandardMaterial color={BOOTH_METAL} roughness={0.5} metalness={0.5} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Per-type booth silhouette. Band / live-cooking / live-performance /
+ *  mobile-bar each get their own read; everything else keeps the generic
+ *  station block + canopy lip. Low-poly, no fetched assets. */
+function boothSilhouette(kind: string, w: number, d: number, palette: Lab3DPalette) {
+  switch (kind) {
+    case 'band':
+      return (
+        <group>
+          {/* Stage riser */}
+          <mesh position={[0, 0.1, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w + 0.4, 0.2, d + 0.4]} />
+            <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+          </mesh>
+          {/* Drum kit — body + two cymbals */}
+          <mesh position={[0, 0.42, -0.1]} castShadow>
+            <cylinderGeometry args={[0.28, 0.28, 0.34, 16]} />
+            <meshStandardMaterial color="#efe7d8" roughness={0.4} />
+          </mesh>
+          <mesh position={[-0.42, 0.7, -0.1]} rotation={[0.2, 0, 0.2]}>
+            <cylinderGeometry args={[0.22, 0.22, 0.015, 16]} />
+            <meshStandardMaterial color={BOOTH_CHROME} roughness={0.3} metalness={0.8} />
+          </mesh>
+          <mesh position={[0.42, 0.66, -0.1]} rotation={[0.2, 0, -0.2]}>
+            <cylinderGeometry args={[0.18, 0.18, 0.015, 16]} />
+            <meshStandardMaterial color={BOOTH_CHROME} roughness={0.3} metalness={0.8} />
+          </mesh>
+          {/* Amp */}
+          <mesh position={[w / 2 - 0.1, 0.42, 0.2]} castShadow>
+            <boxGeometry args={[0.42, 0.44, 0.3]} />
+            <meshStandardMaterial color={BOOTH_DARK} roughness={0.7} />
+          </mesh>
+          <MicStand x={-w / 2 + 0.2} z={0.3} />
+        </group>
+      );
+    case 'live_cooking':
+      return (
+        <group>
+          {/* Stainless counter */}
+          <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w, 0.9, d]} />
+            <meshStandardMaterial color={BOOTH_CHROME} roughness={0.35} metalness={0.6} />
+          </mesh>
+          {/* Warm cooktop heat bar (reads as a live flame/griddle) */}
+          <mesh position={[0, 0.92, 0]}>
+            <boxGeometry args={[w * 0.7, 0.04, d * 0.6]} />
+            <meshStandardMaterial color={BOOTH_WARM} emissive={BOOTH_WARM} emissiveIntensity={0.6} roughness={0.4} />
+          </mesh>
+          {/* Range hood on two posts */}
+          <mesh position={[-w / 2 + 0.08, 1.3, 0]}>
+            <cylinderGeometry args={[0.03, 0.03, 0.8, 6]} />
+            <meshStandardMaterial color={BOOTH_METAL} roughness={0.4} metalness={0.6} />
+          </mesh>
+          <mesh position={[w / 2 - 0.08, 1.3, 0]}>
+            <cylinderGeometry args={[0.03, 0.03, 0.8, 6]} />
+            <meshStandardMaterial color={BOOTH_METAL} roughness={0.4} metalness={0.6} />
+          </mesh>
+          <mesh position={[0, 1.72, 0]} castShadow>
+            <boxGeometry args={[w + 0.1, 0.16, d + 0.1]} />
+            <meshStandardMaterial color={BOOTH_METAL} roughness={0.4} metalness={0.6} />
+          </mesh>
+        </group>
+      );
+    case 'live_performance': {
+      const r = Math.max(w, d) / 2;
+      return (
+        <group>
+          {/* Round riser */}
+          <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[r + 0.2, r + 0.3, 0.16, 24]} />
+            <meshStandardMaterial color={palette.accent} roughness={0.5} />
+          </mesh>
+          <MicStand z={0.1} />
+          {/* Small speaker */}
+          <mesh position={[w / 2, 0.35, 0.2]} castShadow>
+            <boxGeometry args={[0.28, 0.5, 0.26]} />
+            <meshStandardMaterial color={BOOTH_DARK} roughness={0.7} />
+          </mesh>
+          {/* Spotlight glow cone */}
+          <mesh position={[0, 1.5, 0]} rotation={[Math.PI, 0, 0]}>
+            <coneGeometry args={[0.5, 1.1, 20, 1, true]} />
+            <meshStandardMaterial
+              color={BOOTH_WARM}
+              emissive={BOOTH_WARM}
+              emissiveIntensity={0.25}
+              transparent
+              opacity={0.14}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        </group>
+      );
+    }
+    case 'mobile_bar':
+      return (
+        <group>
+          <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w, 1.0, d]} />
+            <meshStandardMaterial color={palette.table} roughness={0.5} />
+          </mesh>
+          <mesh position={[0, 1.06, 0]} castShadow>
+            <boxGeometry args={[w + 0.16, 0.06, d + 0.16]} />
+            <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.2} />
+          </mesh>
+          {/* Back shelf + a row of bottles */}
+          <mesh position={[0, 1.3, -d / 2 + 0.06]}>
+            <boxGeometry args={[w * 0.9, 0.04, 0.18]} />
+            <meshStandardMaterial color={palette.wall} roughness={0.6} />
+          </mesh>
+          {[-0.5, -0.2, 0.1, 0.4].map((bx, i) => (
+            <mesh key={i} position={[bx, 1.44, -d / 2 + 0.06]}>
+              <cylinderGeometry args={[0.04, 0.04, 0.24, 8]} />
+              <meshStandardMaterial color={i % 2 ? '#3a5a4a' : '#6a3a3a'} roughness={0.3} />
+            </mesh>
+          ))}
+        </group>
+      );
+    default:
+      // Generic station block + canopy lip (front desk / dessert / gift /
+      // souvenir / photo booth / custom / unassigned) — unchanged.
+      return (
+        <group>
+          <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w, 1.0, d]} />
+            <meshStandardMaterial color={palette.table} roughness={0.6} />
+          </mesh>
+          <mesh position={[0, 1.06, 0]} castShadow>
+            <boxGeometry args={[w + 0.2, 0.08, d + 0.2]} />
+            <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.15} />
+          </mesh>
+        </group>
+      );
+  }
+}
+
+/** A vendor booth — silhouette chosen by its type (event_floor_booths.booth_type). */
 export function BoothMesh({ booth, room, palette }: { booth: Lab3DBooth; room: Room; palette: Lab3DPalette }) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
   return (
-    <group position={[pos.x, 0, pos.z]}>
-      <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
-        <boxGeometry args={[w, 1.0, d]} />
-        <meshStandardMaterial color={palette.table} roughness={0.6} />
-      </mesh>
-      {/* Canopy lip — reads as a market-stall booth without a full tent. */}
-      <mesh position={[0, 1.06, 0]} castShadow>
-        <boxGeometry args={[w + 0.2, 0.08, d + 0.2]} />
-        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.15} />
-      </mesh>
-    </group>
+    <group position={[pos.x, 0, pos.z]}>{boothSilhouette(booth.kind, w, d, palette)}</group>
   );
 }
 

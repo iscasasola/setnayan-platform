@@ -36,8 +36,7 @@ import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-butto
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
-import type { PricingData, PriceRow } from './pricing-data';
-import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
+import type { PricingData } from './pricing-data';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
@@ -107,6 +106,7 @@ export function OverlayShell({
   onClose,
   label,
   cardStyle,
+  cardClassName,
   children,
 }: {
   id: Exclude<OverlayId, null>;
@@ -114,6 +114,13 @@ export function OverlayShell({
   onClose: () => void;
   label: string;
   cardStyle?: React.CSSProperties;
+  /**
+   * Extra class(es) on the overlay card. The slim free-only nav popups (Prices /
+   * Vendors) pass `hr-ov-card-glass` to switch the card from the opaque greige
+   * panel to a translucent FROSTED-GLASS surface that matches the nav's
+   * blur(16px) exactly (owner 2026-07-04 nav-popup redesign).
+   */
+  cardClassName?: string;
   children: React.ReactNode;
 }) {
   const open = current === id;
@@ -133,7 +140,7 @@ export function OverlayShell({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="hr-ov-card" style={cardStyle}>
+      <div className={`hr-ov-card${cardClassName ? ` ${cardClassName}` : ''}`} style={cardStyle}>
         <button className="hr-ov-x" onClick={onClose} aria-label="Close">
           ✕
         </button>
@@ -144,160 +151,42 @@ export function OverlayShell({
   );
 }
 
-/* ── Live slider recompute (off the catalog base rate) ───────────────── */
-function computeRowValue(row: PriceRow, guests: number, days: number): string {
-  if (!row.model || row.model === 'flat' || row.rate == null) return row.v;
-  const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-  if (row.model === 'perGuestDay') {
-    const cap = row.cap ?? Infinity;
-    const floor = row.floor ?? 0;
-    const raw = row.rate * guests;
-    const pd = Math.max(floor, Math.min(raw, cap));
-    const tag = raw >= cap ? 'daily max' : raw < floor ? 'min' : `${guests} guests`;
-    return `${peso(pd * days)} · ${tag}${days > 1 ? ` × ${days}d` : ''}`;
-  }
-  // perDay
-  return days > 1 ? `${peso(row.rate * days)} · ${days}d` : `${peso(row.rate)}/day`;
-}
-
-function PricesOverlay({
-  current,
-  onClose,
-  pricing,
-}: {
-  current: OverlayId;
-  onClose: () => void;
-  pricing: PricingData;
-}) {
-  const [guests, setGuests] = useState(150);
-  const [days, setDays] = useState(1);
-
+/**
+ * PricesOverlay — the FROSTED-GLASS nav popup (owner 2026-07-04 redesign).
+ *
+ * Slimmed to ONLY the free planning offering + ONE line-link out to /pricing.
+ * The full tier ladder, live estimator and à-la-carte catalog moved OFF the
+ * popup onto the /pricing page — the popup's whole job is now "here's what's
+ * free, want more? → see all prices". Renders in the translucent glass card
+ * (`hr-ov-card-glass`) that matches the nav's blur(16px) exactly. No `pricing`
+ * dependency, so it opens instantly.
+ */
+function PricesOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
   return (
-    <OverlayShell id="prices" current={current} onClose={onClose} label="Pricing">
-      <div className="hr-ov-eyebrow">Pricing · in Philippine pesos</div>
-      <h2 className="hr-ov-title">Plan free. Pay only for what you add.</h2>
-      <p className="hr-ov-sub">
-        Plano, Likha and Ala Ala are free, end to end. Add the planning brain when you want it,
-        and pick up any service à la carte. 0% vendor commission, always.
-      </p>
-
-      <div className="hr-pr-tiers">
-        <div className="hr-pr-tier">
-          <div className="hr-t">Free</div>
-          <div className="hr-p">₱0</div>
-          <div className="hr-d">
-            The full Plano planner, the free Likha studio, a live event page, and Ala Ala basics,
-            enough to plan a real event, end to end, and start keeping it.
-          </div>
-        </div>
-        <div className="hr-pr-tier hr-hot">
-          <div className="hr-t">Setnayan AI</div>
-          <div className="hr-p">
-            {pricing.aiPrice}
-            <span className="hr-per">{pricing.aiPeriod}</span>
-          </div>
-          <div style={{ fontSize: '13px', fontWeight: 500, opacity: 0.72, marginTop: '2px' }}>
-            {pricing.aiIntroPrice} on your first 28 days
-          </div>
-          <div className="hr-d">
-            Adds Suri, the planning brain that filters the vendors that fit you, paces your
-            checklist, and guides your budget.
-          </div>
-        </div>
-      </div>
-
-      <div className="hr-pr-alh">Free, yours always</div>
-      <div className="hr-pr-free">
-        {pricing.freeChips.map((c) => (
-          <span key={c} className="hr-pr-f">
-            {c}
-          </span>
-        ))}
-      </div>
-
-      <div className="hr-pr-est">
-        <div className="hr-grp">
-          <div className="hr-top">
-            <span className="hr-lab">Guests</span>
-            <span className="hr-val">{guests}</span>
-          </div>
-          <input
-            type="range"
-            min={5}
-            max={500}
-            step={5}
-            value={guests}
-            onChange={(e) => setGuests(+e.target.value)}
-            aria-label="Number of guests"
-            data-sn-hint
-          />
-        </div>
-        <div className="hr-grp">
-          <div className="hr-top">
-            <span className="hr-lab">Event days</span>
-            <span className="hr-val">{days === 1 ? '1 day' : `${days} days`}</span>
-          </div>
-          <input
-            type="range"
-            min={1}
-            max={7}
-            step={1}
-            value={days}
-            onChange={(e) => setDays(+e.target.value)}
-            aria-label="Number of event days"
-            data-sn-hint
-          />
-        </div>
-        <div className="hr-hint">
-          Per-guest and per-day lines update live; flat items don’t change. Papic is per guest,
-          capped at ₱15,000/day. Rough estimate. Set exact pax, days &amp; options in the app.
-        </div>
-      </div>
-
-      {pricing.groups.map((g) => (
-        <div key={g.title}>
-          <div className="hr-pr-alh">{g.title}</div>
-          <div className={`hr-pr-grid${g.tinted ? ' hr-pr-papic' : ''}`}>
-            {g.rows.map((row) => (
-              <div className="hr-pr-row" key={row.n}>
-                <span className="hr-n">
-                  {row.n}
-                  {row.note && (
-                    <span style={{ color: '#4F6B4A', fontWeight: 500 }}> {row.note}</span>
-                  )}
-                </span>
-                <span className={`hr-v${row.free ? ' hr-vfree' : ''}`}>
-                  {computeRowValue(row, guests, days)}
-                </span>
-              </div>
-            ))}
-          </div>
-          {g.title.startsWith('Couple Website') && (
-            <div className="hr-pr-hubnote">
-              Your site is a hub:{' '}
-              <strong>
-                Papic gallery · Live Photo Wall · livestream · Pakanta · Animated Monogram · 3D Plan
-              </strong>{' '}
-              auto-appear on it, free or paid. Bought on their own; the website just gathers them.
-            </div>
-          )}
-        </div>
-      ))}
-
-      <p className="hr-pr-foot">
-        Prices render live from the Setnayan catalog and are admin-managed. The free single-camera
-        livestream and the full Plano planner always stay free. Curated bundles (Essentials &amp;
-        Complete) are on the way.
-      </p>
-      <div className="hr-pr-cta-row">
-        <Link className="hr-pr-seefull" href="/pricing" onClick={onClose}>
-          See full pricing →
-        </Link>
-        {/* Vendor Custom plans deep-link (owner 2026-07-04) — sits beside the
-            Prices menu's primary CTA and jumps straight to the ✦ Custom tier
-            section on /for-vendors. */}
-        <Link className="hr-pr-custom-link" href="/for-vendors#custom" onClick={onClose}>
-          Custom plans for vendors →
+    <OverlayShell
+      id="prices"
+      current={current}
+      onClose={onClose}
+      label="Pricing"
+      cardClassName="hr-ov-card-glass"
+    >
+      <div className="hr-ov-eyebrow">Free to plan</div>
+      <h2 className="hr-ov-title">Everything to start — free.</h2>
+      <p className="hr-ov-sub">Plan the whole day and share it, without paying a peso.</p>
+      <ul className="hr-glist">
+        <li>Schedule, Budget, Guest List, Seat Plan &amp; Mood Board</li>
+        <li>
+          Your 4-in-1 wedding website
+          <span>Save-the-Date · RSVP · Event · Editorial</span>
+        </li>
+        <li>Unlimited RSVP collection</li>
+        <li>Browse vendors + a match preview</li>
+        <li>Single-camera livestream &amp; free Custom QR</li>
+      </ul>
+      <div className="hr-gline">
+        <span className="hr-gline-t">Want more features?</span>
+        <Link className="hr-gline-a" href="/pricing" onClick={onClose}>
+          See all prices <span className="hr-gline-arw">→</span>
         </Link>
       </div>
     </OverlayShell>
@@ -360,99 +249,46 @@ function DownloadOverlay({
 }
 
 
-/** DB-driven price block for a vendor tier section (28-day + annual secondary),
- *  resolved from the live catalog via PricingData.vendor — never hardcoded. */
-function tierPriceBlock(tier: string, v: PricingData['vendor']) {
-  const p =
-    tier === 'solo'
-      ? { a: v.soloMonthly, u: '/ 28 days', y: v.soloAnnual }
-      : tier === 'pro'
-        ? { a: v.proMonthly, u: '/ 28 days', y: v.proAnnual }
-        : tier === 'enterprise'
-          ? { a: v.enterpriseMonthly, u: '/ 28 days', y: v.enterpriseAnnual }
-          : { a: '₱0', u: 'free while we launch', y: null as string | null };
+/**
+ * VendorsOverlay — the FROSTED-GLASS nav popup (owner 2026-07-04 redesign).
+ *
+ * Slimmed to ONLY the free-business offering + ONE line-link out to
+ * /for-vendors. The full tier ladder + ~90-benefit guide moved OFF the popup
+ * onto the /for-vendors page. Renders in the translucent glass card
+ * (`hr-ov-card-glass`) matching the nav's blur(16px). No `pricing` dependency —
+ * opens instantly.
+ */
+function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
   return (
-    <div className="hr-vt-price">
-      {p.a}
-      <span className="hr-vt-unit"> {p.u}</span>
-      {p.y ? <span className="hr-vt-annual">or {p.y} / yr</span> : null}
-    </div>
-  );
-}
-
-function VendorsOverlay({
-  current,
-  onClose,
-  pricing,
-}: {
-  current: OverlayId;
-  onClose: () => void;
-  pricing: PricingData;
-}) {
-  return (
-    <OverlayShell id="vendors" current={current} onClose={onClose} label="For vendors">
-      <div className="hr-ov-eyebrow">Setnayan for vendors</div>
-      <h2 className="hr-ov-title">Get found by couples planning right now.</h2>
+    <OverlayShell
+      id="vendors"
+      current={current}
+      onClose={onClose}
+      label="For vendors"
+      cardClassName="hr-ov-card-glass"
+    >
+      <div className="hr-ov-eyebrow">Free for vendors</div>
+      <h2 className="hr-ov-title">A whole business — free.</h2>
       <p className="hr-ov-sub">
-        List your business, get matched to the couples who actually fit, and run every booking, chat,
-        and calendar in one place. Free while we launch, and 0% commission, always.
+        Get found, get booked, keep 100%. Free while we launch.
       </p>
-      <div className="hr-vb-stat">
-        <b>Everything below, by account type.</b> A free verified account is already a whole
-        business: 0% commission, direct payouts, matchmaking, your dashboard, and analytics. The
-        paid tiers add more as you grow, and each one includes everything in the tier before it.{' '}
-        <span className="hr-soonkey">“Soon” = in active build; it clears as features ship.</span>
-      </div>
-
-      <div className="hr-vb-legend">
-        <b>How the tiers stack.</b> <b>Free</b> is the whole ops spine. <b>Solo</b> adds your
-        business analytics. <b>Pro</b> adds a team, wider reach, and premium market intel.{' '}
-        <b>Enterprise</b> lifts every limit: seats, photos, events, reach up to 100 km.{' '}
-        <Link className="hr-vb-legend-link" href="/for-vendors" onClick={onClose}>
-          See the full comparison →
+      <ul className="hr-glist">
+        <li>
+          Get found by matched couples
+          <span>by faith, region &amp; the dates you&rsquo;re open</span>
+        </li>
+        <li>Verified badge + an auto-built public page</li>
+        <li>Run every booking — contracts, calendar &amp; proposals</li>
+        <li>
+          Get paid direct — <b>0% commission</b>, we never hold your money
+        </li>
+        <li>Reviews, earned badges &amp; your track record</li>
+      </ul>
+      <div className="hr-gline">
+        <span className="hr-gline-t">Want to upgrade your business?</span>
+        <Link className="hr-gline-a" href="/for-vendors" onClick={onClose}>
+          See vendor plans <span className="hr-gline-arw">→</span>
         </Link>
-      </div>
-
-      {VENDOR_TIER_SECTIONS.map((section) => (
-        <div className={`hr-vt-section hr-vt-${section.tier}`} key={section.tier}>
-          <div className="hr-vt-head">
-            <div className="hr-vt-name">{section.name}</div>
-            {tierPriceBlock(section.tier, pricing.vendor)}
-          </div>
-          <p className="hr-vt-tagline">{section.tagline}</p>
-          {section.groups.map((group, gi) => (
-            <div className="hr-vt-group" key={group.h ?? gi}>
-              {group.h && <div className="hr-vt-subh">{group.h}</div>}
-              <div className="hr-vb-grid">
-                {group.items.map((it) => (
-                  <div className="hr-vb-item" key={it.n}>
-                    <div className="hr-n">
-                      {it.n}
-                      {it.soon && <span className="hr-soon">Soon</span>}
-                    </div>
-                    <div className="hr-b">{it.b}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-
-      <div className="hr-vt-section hr-vt-custom">
-        <div className="hr-vt-head">
-          <div className="hr-vt-name">{VENDOR_CUSTOM_TIER.name}</div>
-        </div>
-        <p className="hr-vt-tagline">{VENDOR_CUSTOM_TIER.tagline}</p>
-      </div>
-
-      <div className="hr-vd-cta">
-        <Link className="hr-vd-btn" href="/open-shop" onClick={onClose}>
-          Register your business · free
-        </Link>
-        <button className="hr-vd-link" onClick={onClose}>
-          Maybe later
-        </button>
       </div>
     </OverlayShell>
   );
@@ -856,11 +692,13 @@ export function HomeOverlays({
           the homepage that's always; on marketing pages it's after the lazy
           fetch). A press before pricing lands is a brief no-op that resolves
           itself the instant the fetch completes. */}
-      {pricing && <PricesOverlay current={current} onClose={onClose} pricing={pricing} />}
+      {/* Prices + Vendors popups are now free-only + one line-link out — no
+          pricing dependency, so they mount + open instantly (owner 2026-07-04). */}
+      <PricesOverlay current={current} onClose={onClose} />
+      <VendorsOverlay current={current} onClose={onClose} />
       {pricing && (
         <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       )}
-      {pricing && <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />}
       {/* Pricing-free overlays — always mounted, so Download / Sign in / the
           demos work immediately regardless of the pricing fetch. */}
       <DownloadOverlay current={current} onClose={onClose} detected={detected} match={match} />

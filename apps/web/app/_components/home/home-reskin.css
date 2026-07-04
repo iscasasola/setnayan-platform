@@ -1883,6 +1883,122 @@ html.hr-snap {
     opacity: 1;
   }
 }
+/* ── Frosted-glass nav popup (Prices / Vendors) · owner 2026-07-04 ──
+   The slim free-only popups override the opaque greige card with a translucent
+   FROSTED-GLASS surface that matches the floating nav's blur(16px) EXACTLY
+   (.hr-glass-dark uses blur(16px) saturate(1.3)) — deliberately NOT a heavier
+   blur. A narrower max-width fits the short free list. */
+.home-reskin-ov .hr-ov-card.hr-ov-card-glass {
+  max-width: 440px;
+  padding: 30px 28px 24px;
+  background: rgba(251, 251, 250, 0.6);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 40px 90px -24px rgba(18, 13, 9, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+/* On the glass card the close button reads better as translucent-white. */
+.home-reskin-ov .hr-ov-card-glass .hr-ov-x {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(30, 34, 41, 0.14);
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-x:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+/* Free-highlights checklist inside the glass popup. */
+.home-reskin-ov .hr-glist {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.home-reskin-ov .hr-glist li {
+  position: relative;
+  padding-left: 26px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1e2229;
+}
+.home-reskin-ov .hr-glist li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  color: #a88340;
+  font-weight: 700;
+  font-size: 14px;
+}
+.home-reskin-ov .hr-glist li b {
+  font-weight: 600;
+}
+.home-reskin-ov .hr-glist li span {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: #4f535b;
+}
+/* The single line-link out — "Want more? → See all prices". */
+.home-reskin-ov .hr-gline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(30, 34, 41, 0.12);
+}
+.home-reskin-ov .hr-gline-t {
+  font-size: 13.5px;
+  color: #4f535b;
+}
+.home-reskin-ov .hr-gline-a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e2229;
+  text-decoration: none;
+}
+.home-reskin-ov .hr-gline-arw {
+  color: #a88340;
+  transition: transform 0.15s;
+}
+.home-reskin-ov .hr-gline-a:hover .hr-gline-arw {
+  transform: translateX(3px);
+}
+/* The glass popup uses the CLEAN-EDITORIAL serif + palette for its title/eyebrow
+   (prototype used Cormorant + gold), not the greige italic Instrument Serif the
+   opaque overlays use. Scope these overrides to the glass card only. */
+.home-reskin-ov .hr-ov-card-glass .hr-ov-title {
+  font-family: var(--font-serif-marketing), 'Cormorant Garamond', Georgia, serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: clamp(1.7rem, 5vw, 2rem);
+  color: #1e2229;
+  margin: 6px 0 4px;
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #a88340;
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-eyebrow::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: #c5a059;
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-sub {
+  color: #4f535b;
+  margin-bottom: 18px;
+}
 .home-reskin-ov .hr-ov-x {
   position: absolute;
   top: 16px;

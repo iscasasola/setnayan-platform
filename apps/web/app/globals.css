@@ -1055,6 +1055,9 @@ html {
     --sd-ink: #2a2417;
     --sd-dim: #9a8e74;
 
+    /* position:relative so the tap-to-pop children (.sd-pop-mote / .sd-pop-ring,
+       absolutely positioned at the pointer point) anchor to the loader root. */
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1269,7 +1272,116 @@ html {
     color: var(--sd-gold);
   }
 
-  /* App-wide blocking overlay host (LoaderOverlayProvider). */
+  /* ---- Variant layers (owner 2026-07-05) --------------------------------- *
+   * The SAME mark, three treatments. Visibility is driven by the
+   * `[data-loader-variant]` attribute on .sd-loader (mirrored on <html> for the
+   * boot splash). Default / no attribute = `gather` (particles + orbit). */
+
+  /* Aurora — a soft, slowly-rotating blurred champagne sweep behind the mark. */
+  .sd-aurora {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    display: none;
+    filter: blur(20px);
+    opacity: 0.75;
+    background:
+      conic-gradient(
+        from 0deg,
+        transparent 0%,
+        color-mix(in srgb, var(--sd-gold) 55%, transparent) 18%,
+        color-mix(in srgb, var(--sd-gold-lt) 45%, transparent) 34%,
+        transparent 52%,
+        color-mix(in srgb, var(--sd-gold) 40%, transparent) 72%,
+        transparent 90%
+      );
+    -webkit-mask: radial-gradient(circle, #000 42%, transparent 72%);
+    mask: radial-gradient(circle, #000 42%, transparent 72%);
+    animation: sd-aurora-spin 7s linear infinite;
+  }
+
+  /* Pulse — concentric gold rings expanding outward and fading on a stagger. */
+  .sd-pulse {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .sd-pulse i {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 92px;
+    height: 92px;
+    margin-left: -46px;
+    margin-top: -46px;
+    border-radius: 50%;
+    border: 2px solid var(--sd-gold);
+    opacity: 0;
+    animation: sd-sonar 2.4s ease-out infinite;
+  }
+  .sd-pulse i:nth-child(2) {
+    animation-delay: 0.8s;
+  }
+  .sd-pulse i:nth-child(3) {
+    animation-delay: 1.6s;
+  }
+
+  /* gather (default): particles + orbit; aurora & pulse hidden. */
+  .sd-loader[data-loader-variant='gather'] .sd-aurora,
+  .sd-loader[data-loader-variant='gather'] .sd-pulse {
+    display: none;
+  }
+  .sd-loader[data-loader-variant='gather'] .sd-orbit {
+    display: block;
+  }
+
+  /* aurora: sweep visible; orbit + pulse hidden. */
+  .sd-loader[data-loader-variant='aurora'] .sd-aurora {
+    display: block;
+  }
+  .sd-loader[data-loader-variant='aurora'] .sd-orbit,
+  .sd-loader[data-loader-variant='aurora'] .sd-pulse {
+    display: none;
+  }
+
+  /* pulse: sonar rings visible; orbit + aurora hidden. */
+  .sd-loader[data-loader-variant='pulse'] .sd-pulse {
+    display: block;
+  }
+  .sd-loader[data-loader-variant='pulse'] .sd-orbit,
+  .sd-loader[data-loader-variant='pulse'] .sd-aurora {
+    display: none;
+  }
+
+  /* The done-beat fades whatever variant motion is showing so the ring + check
+     read cleanly on completion (mirrors the orbit fade). */
+  .sd-loader[data-done] .sd-aurora,
+  .sd-loader[data-done] .sd-pulse {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  /* ---- Tap-to-pop motes + ripple (WAAPI-driven from sd-loader.tsx) ------- */
+  .sd-pop-mote {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 6;
+  }
+  .sd-pop-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--sd-gold);
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  /* App-wide blocking overlay host (LoaderOverlayProvider). The veil solidity is
+     admin-configurable (owner 2026-07-05) — --sd-veil is set on <html> from
+     platform_settings.loader_veil_opacity, defaulting to 94% here. */
   .sd-overlay {
     position: fixed;
     inset: 0;
@@ -1277,7 +1389,7 @@ html {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, var(--m-paper, #fbfbfa) 94%, transparent);
+    background: color-mix(in srgb, var(--m-paper, #fbfbfa) var(--sd-veil, 94%), transparent);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
     animation: sd-overlay-in 0.25s ease both;
@@ -1366,6 +1478,27 @@ html {
     opacity: 1;
   }
 }
+/* Loader variant motion (owner 2026-07-05). The universal prefers-reduced-motion
+   block near the top of this file freezes both to a static frame automatically
+   (it matches `*`), so no per-selector a11y guard is needed here. */
+@keyframes sd-aurora-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sd-sonar {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
 
 /* ---------------------------------------------------------------------------
  * #sn-init-splash — app cold-start ("initialization") splash.
@@ -1415,6 +1548,38 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
     visibility: hidden;
     pointer-events: none;
   }
+}
+
+/* Admin loader-appearance preview stage (/admin/settings · owner 2026-07-05).
+   A small framed viewport that shows the DRAFT <SDLoader> the admin is
+   configuring. The veil backdrop uses --sd-veil (set inline from the slider) so
+   the veil solidity previews just like the real .sd-overlay wash. */
+.loader-preview-stage {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(42 36 23 / 0.1);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, #f3efe6 0%, #fbfbfa 60%),
+    #fbfbfa;
+}
+.loader-preview-veil {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--m-paper, #fbfbfa) var(--sd-veil, 90%), transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.loader-preview-stage .loader-preview-loader {
+  position: relative;
+  background: transparent;
+  min-height: 220px;
+}
+/* Scale the 300px scene down to fit the compact preview frame. */
+.loader-preview-stage .sd-scene {
+  transform: scale(0.66);
 }
 
 /* Alaala Orb (/our-story Act 1 hero · AlaalaOrb.tsx) ─────────────────────────

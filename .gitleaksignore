@@ -4,3 +4,9 @@
 # Pakanta admin delivery queue. It is an R2 object-key reference (a storage
 # path for the delivered song MP3), NOT a credential — no secret is present.
 c2d6f7e76835edd3d5f0c6b58b34034fe7f61418:apps/web/app/admin/pakanta/page.tsx:generic-api-key:149
+#
+# Same rule flags the `.select('vendor_ig_media_id, r2_key, thumbnail_r2_key')`
+# column list in the Instagram sync action — the `_r2_key` column names are R2
+# object-key references (storage paths for the re-hosted IG photos), NOT
+# credentials. No secret is present.
+3adb3d45550f227fbb1fb9969c1f09157f89ad1e:apps/web/app/vendor-dashboard/instagram-actions.ts:generic-api-key:171

@@ -1717,7 +1717,13 @@ export async function renderVendorBySlug({
           </section>
         ) : null}
 
-        {showPortfolio && portfolioUrls.length > 0 ? (
+        {/* Portfolio — ONE unified gallery of the vendor's photos + their own
+            pasted video links (all tiers). Photos lead, then videos: YouTube &
+            Vimeo mount as responsive inline 16:9 players; Instagram / Facebook /
+            TikTok / other links render as click-through cards. Unparseable video
+            entries are dropped upstream. Governed by the vendor's Portfolio
+            visibility toggle; auto-hidden when there's nothing to show. */}
+        {showPortfolio && (portfolioUrls.length > 0 || featuredVideos.length > 0) ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
@@ -1737,25 +1743,13 @@ export async function renderVendorBySlug({
                   />
                 </div>
               ))}
-            </div>
-          </section>
-        ) : null}
-
-        {/* Featured videos — the vendor's own pasted links (all tiers). YouTube
-            & Vimeo mount as responsive inline players; Instagram / Facebook /
-            TikTok / other links render as click-through cards that open in a new
-            tab. Auto-hidden when the vendor hasn't added any. */}
-        {featuredVideos.length > 0 ? (
-          <section className="space-y-3 border-b border-ink/10 py-8">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Featured videos
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
               {featuredVideos.map((v, idx) =>
                 v.kind === 'iframe' && v.embedUrl ? (
+                  // Inline player spans two grid columns so its 16:9 frame reads
+                  // as the signature "watch this" moment amid the photo tiles.
                   <div
                     key={`${v.originalUrl}-${idx}`}
-                    className="relative aspect-video overflow-hidden rounded-xl bg-ink/5"
+                    className="relative col-span-2 aspect-video overflow-hidden rounded-xl bg-ink/5"
                   >
                     <iframe
                       src={v.embedUrl}
@@ -1768,29 +1762,28 @@ export async function renderVendorBySlug({
                     />
                   </div>
                 ) : (
+                  // Link-out platforms (IG / FB / TikTok / other) get a play-badge
+                  // card sized like a photo tile so the grid stays even.
                   <a
                     key={`${v.originalUrl}-${idx}`}
                     href={v.originalUrl}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="group flex items-center gap-3 rounded-xl border border-ink/10 bg-cream/50 px-4 py-3.5 transition-colors hover:border-terracotta/40"
+                    className="group relative flex aspect-[4/3] flex-col justify-between overflow-hidden rounded-xl border border-ink/10 bg-cream/50 p-4 transition-colors hover:border-terracotta/40"
                   >
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink/5 text-ink/70 transition-colors group-hover:text-terracotta">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors group-hover:bg-terracotta/10 group-hover:text-terracotta">
                       <PlatformIcon platform={v.platform} />
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-ink">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-ink">
                         Watch on {v.label}
                       </span>
-                      <span className="block truncate text-xs text-ink/50">
-                        {v.originalUrl}
-                      </span>
+                      <ArrowRight
+                        aria-hidden
+                        className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
+                        strokeWidth={2}
+                      />
                     </span>
-                    <ArrowRight
-                      aria-hidden
-                      className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
-                      strokeWidth={2}
-                    />
                   </a>
                 ),
               )}

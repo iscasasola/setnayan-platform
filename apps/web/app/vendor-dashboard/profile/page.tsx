@@ -706,37 +706,51 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           />
         </Field>
 
-        <Field
-          label="Portfolio"
-          htmlFor="portfolio_r2_keys"
-          help={`Show off recent work. Up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax} images, 5 MB each. Couples browse this on your public page.`}
-        >
-          <FileUpload
-            bucket="media"
-            pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/portfolio`}
-            name="portfolio_r2_keys"
-            currentValue={profile?.portfolio_r2_keys ?? []}
-            initialDisplayUrls={portfolioDisplayMap}
-            multiple
-            maxFiles={portfolioMax}
-            maxSizeMB={5}
-            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-            variant="wide"
-            watermark
-            qrGuard
-          />
-        </Field>
+        {/* Portfolio — photos + video links live in ONE group so the vendor sees
+            them as a single gallery, matching the unified public render. The two
+            underlying storage arrays (portfolio_r2_keys via FileUpload,
+            gallery_video_links via VideoLinksEditor) persist unchanged. */}
+        <div className="space-y-4 rounded-lg border border-ink/10 p-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">Portfolio</p>
+            <p className="text-xs text-ink/55">
+              Add photos and video links &mdash; they show together as your portfolio on
+              your public page. YouTube &amp; Vimeo play inline; other links open in a new tab.
+            </p>
+          </div>
 
-        <Field
-          label="Featured videos"
-          htmlFor="gallery_video_links"
-          help="Paste YouTube, Vimeo, Instagram, Facebook, or TikTok links. YouTube & Vimeo play inline; others open in a new tab."
-        >
-          <VideoLinksEditor
-            name="gallery_video_links"
-            initial={profile?.gallery_video_links ?? []}
-          />
-        </Field>
+          <Field
+            label="Photos"
+            htmlFor="portfolio_r2_keys"
+            help={`Show off recent work. Up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax} images, 5 MB each.`}
+          >
+            <FileUpload
+              bucket="media"
+              pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/portfolio`}
+              name="portfolio_r2_keys"
+              currentValue={profile?.portfolio_r2_keys ?? []}
+              initialDisplayUrls={portfolioDisplayMap}
+              multiple
+              maxFiles={portfolioMax}
+              maxSizeMB={5}
+              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+              variant="wide"
+              watermark
+              qrGuard
+            />
+          </Field>
+
+          <Field
+            label="Videos"
+            htmlFor="gallery_video_links"
+            help="Paste YouTube, Vimeo, Instagram, Facebook, or TikTok links."
+          >
+            <VideoLinksEditor
+              name="gallery_video_links"
+              initial={profile?.gallery_video_links ?? []}
+            />
+          </Field>
+        </div>
 
         <Field
           label="Services"

@@ -1,0 +1,5 @@
+## 2026-07-05 · feat(editorial): free no-Papic hero + 30-photo gallery uploads + love_story prose fallback
+
+The couple wedding editorial no longer has an empty middle when there's no Papic. The editorial editor (`/dashboard/[eventId]/website/editorial`) gains a FREE "Your photos" section: a single hero cover upload plus up to 30 gallery images, both web-optimized client-side (new `lib/image-compress.ts` canvas downscale/re-encode, wired via a `compressImage` prop on `<FileUpload>`) so only the compressed object lands on R2 (no Drive-copy, no 3-month Papic-originals cycle). Refs persist in `event_editorial.draft_json` (`heroUpload` string + `galleryUploads` array, hard-capped at 30 server-side in the save action). An explicit couple hero cover wins over the Papic auto-pick and renders with zero Papic; gallery uploads feed ONLY the "From the Day" grid (never the Papic-only essay/day-chapters spread). When the couple wrote no lead paragraphs, `LeadArticle` falls back to the event's `love_story` prose woven into paragraphs so the article body is never empty.
+
+SPEC IMPACT: None (spec/DECISION_LOG already updated in the corpus by the orchestrator on 2026-07-05).

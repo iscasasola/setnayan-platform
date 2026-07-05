@@ -336,6 +336,12 @@ export type EditorialData = {
     pullQuote?: string | null;
     byline?: string | null;
   };
+  // FREE prose fallback for the article body. When the couple wrote no lead
+  // paragraphs (`draft.leadParagraphs` empty), the renderer falls back to these
+  // — the event's `love_story` prose fields woven into paragraphs — so a
+  // no-Papic editorial never has an empty middle. Empty when there's no
+  // love_story prose to render.
+  loveStoryParagraphs: string[];
   published: boolean;
   heroPhotoUrl: string | null;
   // The couple's LIVING HERO — a pre-baked forward+reverse boomerang MP4
@@ -1075,8 +1081,24 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // 6. Hero photo (OPTIONAL). Resolve event_editorial.hero_photo_id → R2 key →
   // presigned URL. Skips silently on any error.
   let heroPhotoUrl: string | null = null;
+
+  // 6-pre. Couple-uploaded hero cover (FREE · draft_json.heroUpload). An EXPLICIT
+  // couple pick WINS over the Papic auto-pick + the website-hero fallback (the
+  // couple chose this cover deliberately), and — crucially — renders even with
+  // zero Papic, giving a no-Papic editorial a real cover. Resolved first; when it
+  // resolves, the Papic/website hero paths below are skipped (they only fill a
+  // still-null heroPhotoUrl). Best-effort: a bad/absent ref just falls through.
+  const heroUploadRef = asString(draftJson.heroUpload);
+  if (heroUploadRef) {
+    try {
+      heroPhotoUrl = await displayUrlForStoredAsset(heroUploadRef);
+    } catch {
+      heroPhotoUrl = null;
+    }
+  }
+
   const heroPhotoId = asString(editorial?.hero_photo_id);
-  if (heroPhotoId) {
+  if (!heroPhotoUrl && heroPhotoId) {
     try {
       // PUBLIC surface → a moderation-withheld capture never renders as the
       // hero, even if the couple picked it before the screen finished. The
@@ -1171,14 +1193,29 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const manualGalleryPhotos = (
     await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
-  // UNION the couple's manual uploads (lead, kept first) with a recent slice of
-  // the day's clean Papic captures. A couple who shot the day with Papic gets a
-  // real gallery even with zero manual uploads; one who uploaded manually keeps
-  // those first and gains the day's candids after. De-dup by URL. When
-  // papicGalleryUrls is empty this collapses to manualGalleryPhotos — exactly
-  // today's behaviour.
+  // Couple-uploaded editorial gallery photos (FREE · draft_json.galleryUploads).
+  // These feed ONLY this gallery grid — never the essayPhotos / dayChapters
+  // photo-essay spread (which stays Papic-only and drops to null without Papic).
+  // Kept FIRST (the couple curated them), HARD-capped at 30 (the writer also caps
+  // server-side; this is the read-side backstop). Best-effort resolution.
+  const GALLERY_UPLOADS_MAX = 30;
+  const galleryUploadRefs = Array.isArray(draftJson.galleryUploads)
+    ? (draftJson.galleryUploads as unknown[])
+        .filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
+        .slice(0, GALLERY_UPLOADS_MAX)
+    : [];
+  const coupleGalleryPhotos = (
+    await Promise.all(galleryUploadRefs.map((ref) => displayUrlForStoredAsset(ref)))
+  ).filter((u): u is string => Boolean(u));
+
+  // UNION the couple's editorial uploads (lead, kept first), then their manual
+  // website uploads, then a recent slice of the day's clean Papic captures. A
+  // couple who shot the day with Papic gets a real gallery even with zero manual
+  // uploads; one who uploaded manually keeps those first and gains the day's
+  // candids after. De-dup by URL. When both couple sources are empty and Papic
+  // is empty this collapses to [] — exactly today's behaviour.
   const galleryPhotos = Array.from(
-    new Set([...manualGalleryPhotos, ...papicGalleryUrls]),
+    new Set([...coupleGalleryPhotos, ...manualGalleryPhotos, ...papicGalleryUrls]),
   );
 
   // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
@@ -1957,6 +1994,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       pullQuote: asString(draftJson.pull_quote) ?? asString(draftJson.pullQuote),
       byline: asString(draftJson.byline),
     },
+    loveStoryParagraphs: loveStoryFallbackParagraphs(loveStory),
     published,
     heroPhotoUrl,
     heroVideoUrl,
@@ -2218,6 +2256,39 @@ function normalizeTone(v: unknown): StoryTone {
   return s === 'warm' || s === 'playful' || s === 'formal' ? s : null;
 }
 
+/**
+ * FREE prose fallback: weave the event's `love_story` into article paragraphs
+ * for a couple who wrote no lead paragraphs of their own. Gathers the free-text
+ * prose fields in narrative order (how they met → the proposal → the spark →
+ * what they overcame), splitting each on blank lines / newlines into paragraphs
+ * per the requirement. Returns [] when there's no prose to render → the article
+ * simply omits, never errors. Never fabricates: only real typed fields appear.
+ */
+function loveStoryFallbackParagraphs(story: LoveStory | null | undefined): string[] {
+  if (!story || typeof story !== 'object') return [];
+  const out: string[] = [];
+  // Free-text narrative fields the couple types during onboarding, in the order
+  // they read as a story. Structured/short fields (years, settings, anchors) are
+  // deliberately excluded — this is a prose fallback, not a data dump.
+  const proseFields: Array<string | null | undefined> = [
+    story.how_we_met,
+    story.proposal,
+    story.spark,
+    story.spark_why,
+    story.obstacle,
+    story.obstacle_kept,
+  ];
+  for (const field of proseFields) {
+    const text = asString(field);
+    if (!text) continue;
+    for (const para of text.split(/\n{2,}|\r?\n/)) {
+      const p = para.trim();
+      if (p) out.push(p);
+    }
+  }
+  return out;
+}
+
 function extractParagraphs(draftJson: Record<string, unknown>): string[] | null {
   const candidate = draftJson.lead_paragraphs ?? draftJson.leadParagraphs ?? draftJson.article;
   if (Array.isArray(candidate)) {
@@ -2335,6 +2406,7 @@ function mariaAndJuan(): EditorialData {
         'They danced their first dance to the kundiman that has followed them since a despedida in Quezon City, and closed the night the way they began — side by side, in no hurry for the day to end.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/maria-juan-tagaytay.jpg',
     heroVideoUrl: '/realstories/maria-juan-tagaytay.mp4',
@@ -2495,6 +2567,7 @@ function jackAndJill(): EditorialData {
         'By the time the bonfire was lit, half the party was back in the water. The other half was already plotting next year’s boat ride out.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/jack-jill-cebu.jpg',
     heroVideoUrl: '/realstories/jack-jill-cebu.mp4',
@@ -2593,6 +2666,7 @@ function johnAndJane(): EditorialData {
         'There were three toasts, one slow dance, and a final round of coffee taken at the rail — the couple and their guests looking out over a city that, for one night, seemed arranged entirely for them.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/john-jane-manila.jpg',
     heroVideoUrl: '/realstories/john-jane-manila.mp4',
@@ -2691,6 +2765,7 @@ function peterAndMary(): EditorialData {
         'Late in the evening both sets of parents were coaxed onto the dance floor to their old favorite, and for a few minutes the whole garden simply watched. A full table was always the point; on this day, it overflowed.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/peter-mary-tagaytay.jpg',
     heroVideoUrl: '/realstories/peter-mary-tagaytay.mp4',
@@ -2790,6 +2865,7 @@ function jackAndRose(): EditorialData {
         'As the afternoon dimmed the fog rolled back in and seemed to close the clearing off from the rest of the world, leaving just the hundred of them, the pines, and a secret the mountain had agreed to keep.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/jack-rose-baguio.jpg',
     heroVideoUrl: '/realstories/jack-rose-baguio.mp4',
@@ -2905,6 +2981,7 @@ function sofiaReyes(): EditorialData {
         'Then the eighteen candles: the women who raised her, each leaving a wish, until half the ballroom had given up pretending not to cry. A cotillion of eight couples brought the house down, the formal program ended at eleven, and nobody left. The last picture of the night is Sofia, barefoot and crown askew, dancing with her lola to a song older than both of them put together.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/sofia-reyes-makati.jpg',
     heroVideoUrl: null, // no baked boomerang for this sample → still hero

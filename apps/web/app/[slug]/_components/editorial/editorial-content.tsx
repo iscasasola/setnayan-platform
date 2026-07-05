@@ -228,9 +228,18 @@ export async function EditorialContent({
             {/* Editorial = post-event SHOWCASE: the love story now lives on the
                 run-up paths (Save the Date / RSVP / Event), not here. We keep
                 the thank-you pull-quote, drop the love-narrative paragraphs. */}
-            {/* Couple-written lead paragraphs only (full editorial control); the
-                auto-composed love narrative stays on the run-up paths. */}
-            <LeadArticle paragraphs={data.draft.leadParagraphs ?? []} pullQuote={copy.pullQuote} />
+            {/* Couple-written lead paragraphs (full editorial control). When the
+                couple wrote none, FALL BACK to their love_story prose so the
+                article body is never empty (FREE, no-Papic path); the
+                auto-composed love narrative otherwise stays on the run-up paths. */}
+            <LeadArticle
+              paragraphs={
+                data.draft.leadParagraphs?.length
+                  ? data.draft.leadParagraphs
+                  : data.loveStoryParagraphs
+              }
+              pullQuote={copy.pullQuote}
+            />
             {isOn('team') && data.vendors.length ? (
               <TeamBehindTheDay vendors={data.vendors} />
             ) : null}

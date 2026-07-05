@@ -125,6 +125,15 @@ export type FileUploadProps = {
    */
   compressVideo?: boolean;
   /**
+   * Auto web-optimize uploaded IMAGES in the browser (canvas downscale +
+   * re-encode) before they go to R2 — a JPEG/WebP capped on its longest edge,
+   * so only a light, compressed object ever lands on R2. Best-effort: if the
+   * browser can't run it (or anything fails), the original uploads unchanged.
+   * Non-image files (video/PDF) are untouched. Off by default — existing
+   * callers unaffected. Mirrors the client-side `compressVideo` pass.
+   */
+  compressImage?: boolean;
+  /**
    * Hard duration cap (seconds) enforced by the `compressVideo` ffmpeg pass
    * (`-t` output trim). The BACKSTOP behind a duration `validateFile`: the
    * <video>-metadata probe fails open on codecs the browser can't read, but
@@ -253,6 +262,7 @@ export function FileUpload({
   variant = 'square',
   watermark = false,
   compressVideo = false,
+  compressImage = false,
   maxVideoDurationS,
   qrGuard = false,
 }: FileUploadProps) {
@@ -493,6 +503,24 @@ export function FileUpload({
           payload: { bucket, contentType: initialContentType },
         });
         file = rawFile;
+      }
+    }
+
+    // --- Step 0a: compress image (if opted in and the file is an image) ----
+    // Canvas downscale + re-encode so only a light, web-optimized object lands
+    // on R2. Runs AFTER any watermark (which draws onto the raster) and before
+    // presign so the signed content-length matches the PUT body. Best-effort:
+    // compressImageForWeb NEVER throws — it returns the original on failure, so
+    // the upload always proceeds.
+    if (compressImage && isImage(file.type || initialContentType)) {
+      try {
+        const { compressImageForWeb } = await import('@/lib/image-compress');
+        setOptimizing({ label: 'Optimizing image…', pct: 0 });
+        file = await compressImageForWeb(file);
+      } catch (err) {
+        console.warn('image compression failed; uploading original', err);
+      } finally {
+        if (isMountedRef.current) setOptimizing(null);
       }
     }
 

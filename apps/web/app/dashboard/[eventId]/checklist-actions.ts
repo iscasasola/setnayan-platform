@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
@@ -119,7 +120,16 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
     flipped = await reconcileChecklistCompletion(eventId, admin, candidateAutoKeys);
   }
 
-  if (inserted > 0 || flipped > 0) revalidatePath(`/dashboard/${eventId}`);
+  // `ensureChecklistSeeded` runs DURING the render of the checklist page and the
+  // home checklist card, and revalidatePath is unsupported during render. The
+  // caller re-reads the rows in the same render (after this returns), so the seed
+  // + auto-complete are already reflected on THIS surface without any revalidate.
+  // We still want to bust the OTHER cached home-dashboard surfaces — so defer the
+  // revalidate to `after()`, which runs after the response is sent, outside the
+  // render pass. (JAVASCRIPT-NEXTJS-B)
+  if (inserted > 0 || flipped > 0) {
+    after(() => revalidatePath(`/dashboard/${eventId}`));
+  }
   return inserted;
 }
 

@@ -2434,6 +2434,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 36,
   },
   {
+    // Compliance — RA 10173 / NPC registration facts (settings-tail item).
+    key: "admin.sidebar.compliance",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/compliance",
+    label: "Compliance",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShieldCheck",
+    customRef: null,
+    sortOrder: 37,
+  },
+  {
     key: "admin.sidebar.onboarding",
     scope: "admin",
     area: "admin-sidebar",

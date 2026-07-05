@@ -123,6 +123,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'The BDO / GCash receiving accounts shown on payment instructions.',
   settings:
     'Platform identity, business details, and Sentry smoke-test. Edit gated to internal admins.',
+  compliance:
+    'The RA 10173 / NPC registration facts — PIC identity, DPO designation, breach plan, and sub-processors. Sensitive IDs stay in the database.',
   notifications:
     'Cross-actor signal reader — customer→vendor and admin signals in one inbox.',
   'demo-mode':

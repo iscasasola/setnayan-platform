@@ -26,7 +26,10 @@ import {
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
-  searchParams: Promise<{ filter?: string; platform?: string }>;
+  // `notice` / `noticeType` surface an inline banner after a server action
+  // redirects back here instead of throwing — e.g. approvePayment's shortfall
+  // guard ("payment matched, order not promoted — ₱X short"). See actions.ts.
+  searchParams: Promise<{ filter?: string; platform?: string; notice?: string; noticeType?: string }>;
 };
 
 type Filter = 'pending' | 'all' | 'orders_needing_quote';
@@ -83,6 +86,10 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   // Optional platform filter (web | ios | android) — orthogonal to the status
   // filter, so it composes with it. null = all platforms.
   const platformFilter = isRequestPlatform(search.platform) ? search.platform : null;
+  // Inline notice from a redirecting server action (see actions.ts shortfall
+  // guard). Trim + cap length so a crafted `?notice=` can't blow out the layout.
+  const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400).trim() : '';
+  const noticeIsWarn = search.noticeType === 'warn';
 
   const admin = createAdminClient();
 
@@ -151,6 +158,19 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           pay.
         </p>
       </header>
+
+      {notice ? (
+        <div
+          role="alert"
+          className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            noticeIsWarn
+              ? 'border-terracotta/30 bg-terracotta/5 text-ink'
+              : 'border-success-700/30 bg-success-700/5 text-ink'
+          }`}
+        >
+          {notice}
+        </div>
+      ) : null}
 
       <nav className="mb-3 flex flex-wrap gap-2">
         <FilterChip activeFilter={filter} platform={platformFilter} target="pending" label="Pending payments" />

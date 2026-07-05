@@ -5,11 +5,15 @@
  *
  * Focus here is the `couple_trusted` gate + the canonical render order:
  *
- *   1. COUPLE_TRUSTED — earned by a verified vendor with `review_count ≥ 10`
- *      AND `avg_rating_overall ≥ 4.7`. A simple count-floor + rating bar
- *      (owner decision 2026-07-05) — it does NOT depend on booking counts.
- *      Verified-gated. Absolute (non-percentile) threshold that stacks with
- *      the other badges.
+ *   1. COUPLE_TRUSTED — earned by a verified vendor with
+ *      `trusted_review_count ≥ 10` AND `trusted_avg_rating ≥ 4.7`, counted
+ *      over ONLY receipt-backed, arm's-length reviews (the
+ *      `vendor_trusted_review_stats` fields). It NO LONGER reads the raw
+ *      `review_count` / `avg_rating_overall`, so fake / self-dealt reviews
+ *      that inflate those raw counts can't earn the badge. A simple
+ *      count-floor + rating bar (owner decision 2026-07-05) — it does NOT
+ *      depend on booking counts. Verified-gated. Absolute (non-percentile)
+ *      threshold that stacks with the other badges.
  *   2. ORDER — every vendor's badge array follows the ONE canonical order:
  *      new → verified → couple_trusted → most_booking → top_pick.
  *
@@ -35,6 +39,8 @@ function input(over: Partial<VendorBadgeInput> & { vendor_profile_id: string }):
     created_at: OLD,
     avg_rating_overall: 0,
     review_count: 0,
+    trusted_avg_rating: 0,
+    trusted_review_count: 0,
     ...over,
   };
 }
@@ -49,48 +55,63 @@ function badgesFor(v: VendorBadgeInput, bookings = 0): VendorBadge[] {
 
 // ── couple_trusted: qualification ────────────────────────────────────────────
 
-test('(a) verified · 10 reviews · avg 4.7 → couple_trusted', () => {
+test('(a) verified · trusted 10 reviews · trusted avg 4.7 → couple_trusted', () => {
   const v = input({
     vendor_profile_id: 'v-a',
-    review_count: 10,
-    avg_rating_overall: 4.7,
+    trusted_review_count: 10,
+    trusted_avg_rating: 4.7,
   });
   assert.ok(badgesFor(v).includes('couple_trusted'));
 });
 
-test('(b) verified · 9 reviews · avg 4.9 → NOT couple_trusted (below count floor)', () => {
+test('(b) verified · trusted 9 reviews · trusted avg 5.0 → NOT couple_trusted (below count floor)', () => {
   const v = input({
     vendor_profile_id: 'v-b',
-    review_count: 9,
-    avg_rating_overall: 4.9,
+    trusted_review_count: 9,
+    trusted_avg_rating: 5.0,
   });
   assert.ok(!badgesFor(v).includes('couple_trusted'));
 });
 
-test('(c) verified · 15 reviews · avg 4.6 → NOT couple_trusted (below rating bar)', () => {
+test('(c) verified · trusted 20 reviews · trusted avg 4.6 → NOT couple_trusted (below rating bar)', () => {
   const v = input({
     vendor_profile_id: 'v-c',
-    review_count: 15,
-    avg_rating_overall: 4.6,
+    trusted_review_count: 20,
+    trusted_avg_rating: 4.6,
   });
   assert.ok(!badgesFor(v).includes('couple_trusted'));
 });
 
-test('(d) UNVERIFIED · 20 reviews · avg 5.0 → NOT couple_trusted', () => {
+test('(d) UNVERIFIED · trusted 30 reviews · trusted avg 5.0 → NOT couple_trusted', () => {
   const v = input({
     vendor_profile_id: 'v-d',
     verification_state: 'pending',
-    review_count: 20,
-    avg_rating_overall: 5.0,
+    trusted_review_count: 30,
+    trusted_avg_rating: 5.0,
   });
   assert.ok(!badgesFor(v).includes('couple_trusted'));
 });
 
-test('boundary — exactly 10 reviews and exactly 4.7★ qualifies (>=)', () => {
+test('(e) verified · HIGH raw reviews but 0 trusted → NOT couple_trusted (raw reviews cannot earn it)', () => {
+  // The anti-fraud invariant: a vendor with a mountain of raw (unfiltered)
+  // reviews — e.g. sockpuppet couples on self-made "delivered" events —
+  // must NOT earn the badge when none of those reviews are receipt-backed,
+  // arm's-length (trusted_review_count 0).
+  const v = input({
+    vendor_profile_id: 'v-raw-only',
+    review_count: 500,
+    avg_rating_overall: 5.0,
+    trusted_review_count: 0,
+    trusted_avg_rating: 0,
+  });
+  assert.ok(!badgesFor(v).includes('couple_trusted'));
+});
+
+test('boundary — exactly 10 trusted reviews and exactly 4.7★ qualifies (>=)', () => {
   const v = input({
     vendor_profile_id: 'v-edge',
-    review_count: 10,
-    avg_rating_overall: 4.7,
+    trusted_review_count: 10,
+    trusted_avg_rating: 4.7,
   });
   assert.ok(badgesFor(v).includes('couple_trusted'));
 });
@@ -98,8 +119,8 @@ test('boundary — exactly 10 reviews and exactly 4.7★ qualifies (>=)', () => 
 test('does NOT depend on booking counts — qualifies with 0 completed bookings', () => {
   const v = input({
     vendor_profile_id: 'v-nobookings',
-    review_count: 12,
-    avg_rating_overall: 4.8,
+    trusted_review_count: 12,
+    trusted_avg_rating: 4.8,
   });
   assert.ok(badgesFor(v, 0).includes('couple_trusted'));
 });
@@ -112,13 +133,15 @@ test('couple_trusted stacks immediately after verified in the canonical render o
   // badges — verified + couple_trusted — to assert the stacking order cleanly.
   const stack = input({
     vendor_profile_id: 'v-stack',
-    review_count: 10,
-    avg_rating_overall: 4.8,
+    trusted_review_count: 10,
+    trusted_avg_rating: 4.8,
   });
   const lead = input({
     vendor_profile_id: 'v-lead',
     review_count: 500,
     avg_rating_overall: 5,
+    trusted_review_count: 500,
+    trusted_avg_rating: 5,
   });
   const counts = new Map<string, number>([
     ['v-stack', 1],
@@ -135,8 +158,11 @@ test('canonical order holds across a mixed pool: new → verified → couple_tru
   const v = input({
     vendor_profile_id: 'v-all',
     created_at: '2026-06-20T00:00:00Z', // within 90 days of NOW → "new"
+    // Raw fields drive top_pick; trusted fields drive couple_trusted.
     review_count: 20,
     avg_rating_overall: 4.9,
+    trusted_review_count: 20,
+    trusted_avg_rating: 4.9,
   });
   const badges = badgesFor(v, 25);
   assert.deepEqual(badges, [

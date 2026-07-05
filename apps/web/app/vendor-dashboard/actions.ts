@@ -22,6 +22,7 @@ import {
   isLockedIdentityFieldKey,
 } from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
+import { parseVideoLink } from '@/lib/video-embed';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   MICROSITE_ABOUT_MAX,
@@ -186,6 +187,27 @@ function parsePortfolioRefs(raw: FormDataEntryValue[], max = 10): string[] {
     if (out.includes(trimmed)) continue;
     out.push(trimmed);
     if (out.length >= max) break; // tier cap (Infinity = unlimited → never breaks)
+  }
+  return out;
+}
+
+/**
+ * Parses the repeated `gallery_video_links` inputs from the Featured-videos
+ * editor into a clean array of external video URLs. Each value is validated
+ * through `parseVideoLink` (drops non-URLs, non-http(s) schemes like
+ * `javascript:`, and unrecognised junk) and stored as the normalised full URL.
+ * Deduped and capped at 10 to match the DB `cardinality <= 10` CHECK, so a
+ * hostile client can't balloon the column past the constraint.
+ */
+function parseVideoLinks(raw: FormDataEntryValue[], max = 10): string[] {
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const parsed = parseVideoLink(item);
+    if (!parsed) continue;
+    if (out.includes(parsed.originalUrl)) continue;
+    out.push(parsed.originalUrl);
+    if (out.length >= max) break;
   }
   return out;
 }
@@ -366,6 +388,12 @@ export async function saveVendorProfile(formData: FormData) {
     portfolio_r2_keys: parsePortfolioRefs(
       formData.getAll('portfolio_r2_keys'),
       portfolioMax,
+    ),
+    // Featured videos — external URLs (YouTube/Vimeo inline · IG/FB/TikTok
+    // link-out). Validated + capped at 10 to match the DB CHECK. Additive
+    // 2026-07-05; not a locked-identity field, so it stays editable post-verify.
+    gallery_video_links: parseVideoLinks(
+      formData.getAll('gallery_video_links'),
     ),
     compatible_ceremony_types: parseCompatibilityArray(
       formData.getAll('compatible_ceremony_types'),

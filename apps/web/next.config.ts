@@ -99,6 +99,14 @@ const remoteImagePatterns = [
 // `frame-ancestors 'self'` (not 'none') + `X-Frame-Options: SAMEORIGIN` block
 // external clickjacking while still allowing the dashboard's same-origin
 // landing-page live-preview iframe to render.
+//
+// `frame-src` is scoped narrowly to the video players we embed: same-origin
+// (the landing-page preview iframe) plus YouTube-nocookie / YouTube / Vimeo,
+// which the vendor "Featured videos" gallery + the Enterprise Films rack mount
+// as inline players. This directive only governs what WE embed — it does NOT
+// re-introduce the strict default-src/script-src the comment above deferred, so
+// the Babel-standalone keynote decks are unaffected. New embed origins later
+// extend this one list.
 const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -108,7 +116,11 @@ const securityHeaders = [
     key: 'Permissions-Policy',
     value: 'camera=(self), microphone=(self), geolocation=(self), browsing-topics=()',
   },
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+  {
+    key: 'Content-Security-Policy',
+    value:
+      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
+  },
 ];
 
 const nextConfig: NextConfig = {

@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -67,6 +67,7 @@ import type {
 } from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
 import { FilmsRack } from './_components/films-rack';
+import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
 import {
   InquiryComposer,
   type InquiryComposerService,
@@ -152,6 +153,9 @@ type PublicVendorRow = {
   tagline: string | null;
   logo_url: string | null;
   portfolio_r2_keys: string[] | null;
+  // Featured videos — external URLs the vendor pasted (migration 20270518165113).
+  // Optional + `?? []` at read time so a pre-migration DB degrades to no section.
+  gallery_video_links?: string[] | null;
   services: string[];
   location_city: string | null;
   hq_address: string | null;
@@ -303,7 +307,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -314,7 +318,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .maybeSingle();
   if (
     error &&
-    /(is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
       error.message,
     )
   ) {
@@ -531,6 +535,16 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** Platform glyph for a Featured-videos link-out card. This lucide build ships
+ *  no brand marks, so play-style platforms use Play and everything else the
+ *  neutral Video glyph — the platform NAME carries the identity in the label. */
+function PlatformIcon({ platform }: { platform: VideoPlatform }) {
+  const cls = 'h-4 w-4';
+  if (platform === 'youtube' || platform === 'vimeo')
+    return <Play aria-hidden className={cls} strokeWidth={2} />;
+  return <Video aria-hidden className={cls} strokeWidth={2} />;
 }
 
 /** Display URLs for one service card's showcase media. */
@@ -943,6 +957,14 @@ export async function renderVendorBySlug({
           })),
         )
       : [];
+  // Featured videos — the vendor's pasted external links (all tiers, migration
+  // 20270518165113). Each is classified: YouTube / Vimeo render as inline 16:9
+  // iframes, everything else (Instagram / Facebook / TikTok / other) as a
+  // link-out card. Unparseable entries are dropped. Distinct from the
+  // Enterprise "Films" rack above, which is a curated microsite feature.
+  const featuredVideos = (vendor.gallery_video_links ?? [])
+    .map((url) => parseVideoLink(url))
+    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null);
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
     vendor.location_city,
@@ -1715,6 +1737,63 @@ export async function renderVendorBySlug({
                   />
                 </div>
               ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Featured videos — the vendor's own pasted links (all tiers). YouTube
+            & Vimeo mount as responsive inline players; Instagram / Facebook /
+            TikTok / other links render as click-through cards that open in a new
+            tab. Auto-hidden when the vendor hasn't added any. */}
+        {featuredVideos.length > 0 ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Featured videos
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {featuredVideos.map((v, idx) =>
+                v.kind === 'iframe' && v.embedUrl ? (
+                  <div
+                    key={`${v.originalUrl}-${idx}`}
+                    className="relative aspect-video overflow-hidden rounded-xl bg-ink/5"
+                  >
+                    <iframe
+                      src={v.embedUrl}
+                      title={`${displayLabel} — ${v.label} video ${idx + 1}`}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      className="absolute inset-0 h-full w-full border-0"
+                    />
+                  </div>
+                ) : (
+                  <a
+                    key={`${v.originalUrl}-${idx}`}
+                    href={v.originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="group flex items-center gap-3 rounded-xl border border-ink/10 bg-cream/50 px-4 py-3.5 transition-colors hover:border-terracotta/40"
+                  >
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink/5 text-ink/70 transition-colors group-hover:text-terracotta">
+                      <PlatformIcon platform={v.platform} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-ink">
+                        Watch on {v.label}
+                      </span>
+                      <span className="block truncate text-xs text-ink/50">
+                        {v.originalUrl}
+                      </span>
+                    </span>
+                    <ArrowRight
+                      aria-hidden
+                      className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
+                      strokeWidth={2}
+                    />
+                  </a>
+                ),
+              )}
             </div>
           </section>
         ) : null}

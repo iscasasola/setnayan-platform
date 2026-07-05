@@ -45,11 +45,11 @@ export default async function VendorTrackRecordPage() {
           delivered, your record across every kind of event shows up here.
         </p>
         <Link
-          href="/vendor-dashboard/profile"
+          href="/vendor-dashboard/shop"
           className="mt-6 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium"
           style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
         >
-          Go to profile
+          Go to my shop
         </Link>
       </div>
     );

@@ -22,7 +22,11 @@ import { resolveMetaAppOAuth } from '@/lib/integration-config';
 // (never trusts a client-supplied id) so a vendor can only touch their own
 // connection + media.
 
-const PROFILE_PATH = '/vendor-dashboard/profile';
+// The Instagram card lives on My Shop → Website Editor now (relocated
+// 2026-07-05). Revalidate that surface so a sync / visibility toggle /
+// disconnect reflects immediately. The public microsite is revalidated too so
+// synced posts appear on /v/[slug].
+const SHOP_PATH = '/vendor-dashboard/shop';
 const MAX_SYNC_ITEMS = 20;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB safety cap per fetched image
 
@@ -220,7 +224,7 @@ export async function syncInstagramMedia(): Promise<SyncResult> {
     })
     .eq('vendor_profile_id', vendorProfileId);
 
-  revalidatePath(PROFILE_PATH);
+  revalidatePath(SHOP_PATH);
   return {
     ok: true,
     message:
@@ -233,7 +237,7 @@ export async function syncInstagramMedia(): Promise<SyncResult> {
 /** Server-action form wrapper for the "Sync now" button. */
 export async function syncInstagramMediaAction(): Promise<void> {
   await syncInstagramMedia();
-  revalidatePath(PROFILE_PATH);
+  revalidatePath(SHOP_PATH);
 }
 
 /** Toggle one synced item's visibility on the public portfolio. */
@@ -263,7 +267,7 @@ export async function toggleInstagramMediaVisibility(
     .eq('vendor_ig_media_id', mediaId)
     .eq('vendor_profile_id', vendorProfileId);
 
-  revalidatePath(PROFILE_PATH);
+  revalidatePath(SHOP_PATH);
 }
 
 /**
@@ -282,5 +286,5 @@ export async function disconnectInstagram(): Promise<void> {
     .from('vendor_ig_connections')
     .delete()
     .eq('vendor_profile_id', vendorProfileId);
-  revalidatePath(PROFILE_PATH);
+  revalidatePath(SHOP_PATH);
 }

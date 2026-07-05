@@ -31,6 +31,8 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
+import { useSaveLoader } from '@/components/sd-loader';
+
 import { resolveAllActive, setLogStatus } from './actions';
 
 export type FaultLogRow = {
@@ -113,6 +115,7 @@ export function ConnectionLogsClient({
   const [selected, setSelected] = useState<FaultLogRow | null>(null);
   const [live, setLive] = useState(false);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   // ── Realtime stream ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -172,7 +175,10 @@ export function ConnectionLogsClient({
       setResolved((prev) => [updated, ...prev.filter((r) => r.id !== row.id)]);
       if (selected?.id === row.id) setSelected(null);
       startTransition(async () => {
-        const res = await setLogStatus(row.id, status);
+        const res = await save.run(() => setLogStatus(row.id, status), {
+          steps: ['Updating the log'],
+          hint: 'Saving',
+        });
         if (!res.ok) {
           // Revert on failure.
           setResolved((prev) => prev.filter((r) => r.id !== row.id));
@@ -180,7 +186,7 @@ export function ConnectionLogsClient({
         }
       });
     },
-    [selected],
+    [selected, save],
   );
 
   const archiveAll = useCallback(() => {
@@ -196,9 +202,12 @@ export function ConnectionLogsClient({
     setActive((prev) => prev.filter((r) => !ids.has(r.id)));
     setResolved((prev) => [...stamped, ...prev]);
     startTransition(async () => {
-      await resolveAllActive(scope);
+      await save.run(() => resolveAllActive(scope), {
+        steps: ['Archiving the logs'],
+        hint: 'Saving',
+      });
     });
-  }, [active, filter]);
+  }, [active, filter, save]);
 
   return (
     <div className="space-y-6">

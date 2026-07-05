@@ -8,6 +8,7 @@ import {
   removeVendorDomain,
   type DomainRow,
 } from './actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type DnsRec = { type: string; name: string; value: string };
 type Item = DomainRow & { dns?: DnsRec[]; note?: string };
@@ -18,11 +19,15 @@ export function DomainManager({ initial }: { initial: DomainRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   function handleAdd() {
     setError(null);
     startTransition(async () => {
-      const res = await addVendorDomain(input);
+      const res = await save.run(() => addVendorDomain(input), {
+        steps: ['Adding your domain'],
+        hint: 'Saving',
+      });
       if (!res.ok || !res.domainId) {
         setError(res.error ?? 'Something went wrong.');
         return;
@@ -39,7 +44,10 @@ export function DomainManager({ initial }: { initial: DomainRow[] }) {
     setError(null);
     setBusyId(id);
     startTransition(async () => {
-      const res = await verifyVendorDomain(id);
+      const res = await save.run(() => verifyVendorDomain(id), {
+        steps: ['Verifying your domain'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (res.ok && res.verified) {
         setItems((prev) => prev.map((d) => (d.domain_id === id ? { ...d, verified: true, note: undefined } : d)));
@@ -53,7 +61,10 @@ export function DomainManager({ initial }: { initial: DomainRow[] }) {
     setError(null);
     setBusyId(id);
     startTransition(async () => {
-      const res = await removeVendorDomain(id);
+      const res = await save.run(() => removeVendorDomain(id), {
+        steps: ['Removing the domain'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (res.ok) setItems((prev) => prev.filter((d) => d.domain_id !== id));
       else setError(res.error ?? 'Could not remove that domain.');

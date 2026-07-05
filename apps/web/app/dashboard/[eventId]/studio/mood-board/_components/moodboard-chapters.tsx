@@ -27,6 +27,7 @@ import {
 import type { RolePalette, PaletteKey } from '@/lib/mood-board';
 import { saveMoodboardSelection } from '../actions';
 import { RecolorStudio } from './recolor-studio';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type ChapterAsset = {
   asset_id: string;
@@ -118,6 +119,7 @@ export function MoodboardChapters({ eventId, assets, existingSaves, palette }: P
   const [savingId, setSavingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   const assetsById = useMemo(() => {
     const m = new Map<string, ChapterAsset>();
@@ -146,13 +148,17 @@ export function MoodboardChapters({ eventId, assets, existingSaves, palette }: P
     setSavingId(asset.asset_id);
     startTransition(async () => {
       try {
-        const { saveId } = await saveMoodboardSelection({
-          eventId,
-          pillar: chapter.pillar,
-          pillarSlot,
-          assetId: asset.asset_id,
-          paletteSnapshot: snapshot,
-        });
+        const { saveId } = await save.run(
+          () =>
+            saveMoodboardSelection({
+              eventId,
+              pillar: chapter.pillar,
+              pillarSlot,
+              assetId: asset.asset_id,
+              paletteSnapshot: snapshot,
+            }),
+          { steps: ['Saving your mood board'], hint: 'Saving' },
+        );
         setSaves((prev) => [
           ...prev.filter(
             (s) => !(s.pillar === chapter.pillar && s.pillar_slot === pillarSlot),

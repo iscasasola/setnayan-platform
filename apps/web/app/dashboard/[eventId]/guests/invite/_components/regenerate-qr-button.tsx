@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { useSaveLoader } from '@/components/sd-loader';
 import { regenerateInviteQr } from '../actions';
 
 /**
@@ -24,6 +25,7 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
   const { confirm, dialog } = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
+  const save = useSaveLoader();
 
   async function handleClick() {
     const ok = await confirm({
@@ -42,7 +44,10 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
     if (!ok) return;
 
     setBusy(true);
-    const result = await regenerateInviteQr(eventId);
+    const result = await save.run(() => regenerateInviteQr(eventId), {
+      steps: ['Regenerating your QR'],
+      hint: 'Saving',
+    });
     setBusy(false);
 
     if (!result.ok) {

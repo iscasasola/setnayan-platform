@@ -60,6 +60,7 @@ import {
   saveRsvpBackdrop,
   clearRsvpBackdrop,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Site Editor — full-screen, Reels-style wedding-website editor.
@@ -182,19 +183,23 @@ export type PhaseEditorPhase = 'rsvp' | 'event' | 'editorial';
  */
 function useInlineEditState() {
   const router = useRouter();
+  const save = useSaveLoader();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
   const [pending, startTransition] = useTransition();
   const runAction = useCallback(
     (action: (fd: FormData) => Promise<void>, fd: FormData) => {
       startTransition(async () => {
-        await action(fd);
+        await save.run(() => action(fd), {
+          steps: ['Saving your site'],
+          hint: 'Saving',
+        });
         setPreviewNonce((n) => n + 1);
         router.refresh();
         setEditing(null);
       });
     },
-    [router],
+    [router, save],
   );
   return { editing, setEditing, previewNonce, pending, runAction };
 }

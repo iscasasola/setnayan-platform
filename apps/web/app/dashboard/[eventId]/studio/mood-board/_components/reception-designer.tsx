@@ -23,6 +23,7 @@ import {
 } from '@/lib/reception-scene';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { saveReceptionDesign } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
   eventId: string;
@@ -49,6 +50,7 @@ export function ReceptionDesigner({ eventId, initialDesign, palette, roleColors 
   const [activePart, setActivePart] = useState<PartId>('ceiling');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   const svg = useMemo(
     () => renderVenueSvg(design, palette, roleColors),
@@ -68,7 +70,11 @@ export function ReceptionDesigner({ eventId, initialDesign, palette, roleColors 
     setDesign(next);
     startTransition(async () => {
       try {
-        await saveReceptionDesign(eventId, next as Record<string, Record<string, string>>);
+        await save.run(
+          () =>
+            saveReceptionDesign(eventId, next as Record<string, Record<string, string>>),
+          { steps: ['Saving your design'], hint: 'Saving' },
+        );
         setError(null);
       } catch (err) {
         setError('Could not save — try again.');

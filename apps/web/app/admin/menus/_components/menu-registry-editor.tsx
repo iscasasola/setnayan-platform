@@ -13,6 +13,7 @@ import {
   uploadSlotIcon,
 } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * /admin/menus editor — the admin-facing source of truth for the name + icon of
@@ -127,6 +128,7 @@ export function MenuRegistryEditor({
 
 function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string[] }) {
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const [editing, setEditing] = useState(false);
   const [labelDraft, setLabelDraft] = useState(slot.label);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -141,14 +143,20 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
   function saveLabel() {
     const v = labelDraft;
     startTransition(async () => {
-      await setSlotLabel(slot.key, v);
+      await save.run(() => setSlotLabel(slot.key, v), {
+        steps: ['Saving the label'],
+        hint: 'Saving',
+      });
       setEditing(false);
     });
   }
 
   function pickIcon(name: string) {
     startTransition(async () => {
-      await setSlotLucideIcon(slot.key, name);
+      await save.run(() => setSlotLucideIcon(slot.key, name), {
+        steps: ['Saving the icon'],
+        hint: 'Saving',
+      });
       setPickerOpen(false);
       setIconQuery('');
     });

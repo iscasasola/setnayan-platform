@@ -32,6 +32,7 @@ import {
   respondChangeOrder,
   withdrawChangeOrder,
 } from '../../../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type ChangeOrderRow = {
   change_order_id: string;
@@ -111,6 +112,7 @@ export function ChangeOrderTrail({
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function handleRaise(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -120,7 +122,10 @@ export function ChangeOrderTrail({
     form.set('vendor_id', vendorId);
     form.set('change_kind', kind);
     startTransition(async () => {
-      const result = await raiseChangeOrder(form);
+      const result = await save.run(() => raiseChangeOrder(form), {
+        steps: ['Proposing the change'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setOpen(false);
       } else if (result.status === 'not_signed_in') {
@@ -140,7 +145,10 @@ export function ChangeOrderTrail({
     form.set('change_order_id', changeOrderId);
     form.set('decision', decision);
     startTransition(async () => {
-      const result = await respondChangeOrder(form);
+      const result = await save.run(() => respondChangeOrder(form), {
+        steps: ['Sending your response'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (result.status !== 'ok' && result.status !== 'already') {
         setErrorMsg(result.message ?? 'Could not record your response — please try again.');
@@ -156,7 +164,10 @@ export function ChangeOrderTrail({
     form.set('vendor_id', vendorId);
     form.set('change_order_id', changeOrderId);
     startTransition(async () => {
-      const result = await withdrawChangeOrder(form);
+      const result = await save.run(() => withdrawChangeOrder(form), {
+        steps: ['Withdrawing the change'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (result.status !== 'ok' && result.status !== 'already') {
         setErrorMsg(result.message ?? 'Could not withdraw — please try again.');

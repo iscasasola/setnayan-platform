@@ -9,6 +9,7 @@ import {
   cancelGig,
   type ManpowerGigRow,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * V2 Phase F · GigCard
@@ -65,11 +66,15 @@ export function GigCard({
   >(null);
   const [cancelReason, setCancelReason] = useState('');
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   function handleAccept() {
     setBanner(null);
     startTransition(async () => {
-      const result = await acceptManpowerGig(gig.gig_id);
+      const result = await save.run(() => acceptManpowerGig(gig.gig_id), {
+        steps: ['Accepting the gig'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setBanner({
           kind: 'success',
@@ -104,7 +109,10 @@ export function GigCard({
   function handleComplete() {
     setBanner(null);
     startTransition(async () => {
-      const result = await completeGig(gig.gig_id);
+      const result = await save.run(() => completeGig(gig.gig_id), {
+        steps: ['Marking complete'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setBanner({ kind: 'success', msg: 'Marked as wrapped.' });
       } else {
@@ -123,7 +131,10 @@ export function GigCard({
       return;
     }
     startTransition(async () => {
-      const result = await cancelGig(gig.gig_id, cancelReason.trim());
+      const result = await save.run(() => cancelGig(gig.gig_id, cancelReason.trim()), {
+        steps: ['Cancelling the gig'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setBanner({ kind: 'success', msg: 'Cancelled.' });
       } else {

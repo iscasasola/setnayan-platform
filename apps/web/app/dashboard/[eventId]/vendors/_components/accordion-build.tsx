@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom';
 import { Hammer, Check, X, Clock } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import { setBuildPick, removeBuildPick } from '../build-pick-actions';
 
 const peso = (php: number | null | undefined) =>
@@ -59,6 +60,7 @@ export function AccordionBuildButton({
   const [confirm, setConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const save = useSaveLoader();
 
   // Esc-to-close + focus trap + scroll lock for the replace popup.
   useModalA11y({ open: confirm, onClose: () => setConfirm(false), containerRef: dialogRef });
@@ -66,7 +68,10 @@ export function AccordionBuildButton({
   const pin = () => {
     haptic('confirm');
     startTransition(async () => {
-      await setBuildPick({ eventId, planGroupId: groupId, vendorId });
+      await save.run(
+        () => setBuildPick({ eventId, planGroupId: groupId, vendorId }),
+        { steps: ['Pinning your pick'], hint: 'Saving' },
+      );
       setConfirm(false);
     });
   };

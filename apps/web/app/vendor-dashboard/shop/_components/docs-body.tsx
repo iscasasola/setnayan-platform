@@ -24,6 +24,7 @@ import {
   type DocUpload,
 } from '@/lib/vendor-verification';
 import { updateDocUploadInline, type InlineDocsPayload } from '../inline-docs-actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Step 1 of the Get-verified stepper — the vendor's own document uploads.
@@ -107,6 +108,7 @@ function VendorSlotInput({
 }) {
   const toast = useToast();
   const [pending, start] = useTransition();
+  const saveLoader = useSaveLoader();
 
   const save = (fields: {
     r2Ref?: string;
@@ -123,7 +125,10 @@ function VendorSlotInput({
       if (fields.referencesJson !== undefined) fd.set('references_json', fields.referencesJson);
       if (fields.socialJson !== undefined) fd.set('social_json', fields.socialJson);
       if (fields.portfolioJson !== undefined) fd.set('portfolio_json', fields.portfolioJson);
-      const res = await updateDocUploadInline(null, fd);
+      const res = await saveLoader.run(() => updateDocUploadInline(null, fd), {
+        steps: ['Saving the document'],
+        hint: 'Saving',
+      });
       if (res.ok) {
         toast.success(`${slot.label} saved.`);
         onSaved();

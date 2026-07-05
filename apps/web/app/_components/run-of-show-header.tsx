@@ -9,6 +9,7 @@ import {
   type RunOfShowBlock,
 } from '@/lib/run-of-show';
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Shared "now / next / running ±N min" run-of-show header.
@@ -43,6 +44,7 @@ export function RunOfShowHeader({
   const [blocks, setBlocks] = useState<RunOfShowBlock[]>(initial);
   const [live, setLive] = useState(false);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   // A wall-clock tick (60s) so the drift label re-reads "now" even without a
   // realtime event — purely cosmetic; run-state is the source of truth.
   const [, setTick] = useState(0);
@@ -99,7 +101,10 @@ export function RunOfShowHeader({
 
   const onAdvance = (blockId: string) => {
     startTransition(async () => {
-      await advanceScheduleBlock(eventId, blockId);
+      await save.run(() => advanceScheduleBlock(eventId, blockId), {
+        steps: ['Advancing the timeline'],
+        hint: 'Saving',
+      });
       await refetch();
     });
   };

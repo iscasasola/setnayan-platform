@@ -24,6 +24,7 @@ import {
   vendorDeletePreparationItem,
 } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   PrepKindPicker,
   type PrepKind,
@@ -80,6 +81,7 @@ export function VendorPrepForBooking({
   const [isPending, startTransition] = useTransition();
   const overlayRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLInputElement | null>(null);
+  const save = useSaveLoader();
 
   function close() {
     if (isPending) return;
@@ -104,7 +106,10 @@ export function VendorPrepForBooking({
     fd.set('kind', kind);
     startTransition(async () => {
       try {
-        await vendorAddPreparationItem(fd);
+        await save.run(() => vendorAddPreparationItem(fd), {
+          steps: ['Adding the item'],
+          hint: 'Saving',
+        });
         setOpen(false);
         setErrorMessage(null);
         setKind('task');

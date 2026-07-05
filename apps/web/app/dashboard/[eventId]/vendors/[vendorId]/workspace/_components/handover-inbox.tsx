@@ -22,6 +22,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { acknowledgeHandover } from '../../../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type HandoverRow = {
   handover_id: string;
@@ -114,6 +115,7 @@ function HandoverItem({
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [advance, setAdvance] = useState(canAdvanceToDelivered);
+  const save = useSaveLoader();
   const { label, Icon } = KIND_META[handover.kind];
   const acked = handover.status === 'acknowledged';
 
@@ -125,7 +127,10 @@ function HandoverItem({
     form.set('vendor_id', vendorId);
     if (advance) form.set('advance_status', 'on');
     startTransition(async () => {
-      const result = await acknowledgeHandover(form);
+      const result = await save.run(() => acknowledgeHandover(form), {
+        steps: ['Confirming receipt'],
+        hint: 'Saving',
+      });
       if (result.status === 'error') {
         setErrorMsg(result.message ?? 'Could not confirm — please try again.');
       } else if (result.status === 'not_signed_in') {

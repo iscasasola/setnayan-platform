@@ -27,6 +27,7 @@ import {
 } from '@/app/_components/ceremony-type-radio-group';
 import { setEventCeremonyType } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
   eventId: string;
@@ -48,6 +49,7 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
   const [selected, setSelected] = useState<CeremonyTypeKey | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Focus trap + scroll-lock + Esc-to-close via the shared hook. This modal
@@ -69,7 +71,10 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
     form.set('ceremony_type', selected);
     setError(null);
     startTransition(async () => {
-      const result = await setEventCeremonyType(form);
+      const result = await save.run(() => setEventCeremonyType(form), {
+        steps: ['Saving the ceremony type'],
+        hint: 'Saving',
+      });
       if (!result.ok) {
         setError(result.message);
         return;

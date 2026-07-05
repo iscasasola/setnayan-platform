@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { CopyButton } from '@/app/_components/copy-button';
 import { goLivePanood, endPanoodBroadcast } from './actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Panood Phase 1 — one-tap "Go live" + the OBS connection card.
@@ -59,11 +60,15 @@ export function GoLiveCard({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showKey, setShowKey] = useState(false);
+  const save = useSaveLoader();
 
   function handleGoLive() {
     setError(null);
     startTransition(async () => {
-      const result = await goLivePanood(eventId);
+      const result = await save.run(() => goLivePanood(eventId), {
+        steps: ['Going live'],
+        hint: 'Please wait',
+      });
       if ('error' in result) setError(result.error);
       // On success the action revalidates the path → the page re-renders with
       // the active broadcast + OBS card. No client navigation needed.
@@ -73,7 +78,10 @@ export function GoLiveCard({
   function handleEnd() {
     setError(null);
     startTransition(async () => {
-      const result = await endPanoodBroadcast(eventId);
+      const result = await save.run(() => endPanoodBroadcast(eventId), {
+        steps: ['Ending the broadcast'],
+        hint: 'Please wait',
+      });
       if ('error' in result) setError(result.error);
     });
   }

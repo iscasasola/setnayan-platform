@@ -17,6 +17,7 @@ import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   finalizeVendor,
   listLockTimeSlots,
@@ -133,6 +134,7 @@ export function AccordionLockButton({
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
   const [isPending, startTransition] = useTransition();
   const mountedRef = useRef(false);
+  const save = useSaveLoader();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -193,7 +195,10 @@ export function AccordionLockButton({
       if (acknowledgeReservationTerms) fd.set('acknowledge_reservation_terms', '1');
       let result: FinalizeVendorResult;
       try {
-        result = await finalizeVendor(fd);
+        result = await save.run(() => finalizeVendor(fd), {
+          steps: ['Locking in your vendor'],
+          hint: 'Saving',
+        });
       } catch (err) {
         setState({
           kind: 'error',
@@ -314,7 +319,10 @@ export function AccordionLockButton({
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('vendor_id', vendorId);
-      await revertVendorToConsidering(fd);
+      await save.run(() => revertVendorToConsidering(fd), {
+        steps: ['Reverting your pick'],
+        hint: 'Saving',
+      });
     });
   };
 
@@ -418,6 +426,7 @@ export function ChangePickButton({
   vendorId: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const save = useSaveLoader();
   return (
     <div className="lockbar">
       <button
@@ -430,7 +439,10 @@ export function ChangePickButton({
             const fd = new FormData();
             fd.set('event_id', eventId);
             fd.set('vendor_id', vendorId);
-            await revertVendorToConsidering(fd);
+            await save.run(() => revertVendorToConsidering(fd), {
+              steps: ['Reverting your pick'],
+              hint: 'Saving',
+            });
           });
         }}
       >

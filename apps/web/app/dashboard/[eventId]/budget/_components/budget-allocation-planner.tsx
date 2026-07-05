@@ -59,6 +59,7 @@ import { computeBudgetOverspend } from '@/lib/budget-overspend';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { formatPhp } from '@/lib/budget';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   saveAllocationSnapshot,
   type SnapshotLeaf,
@@ -100,6 +101,7 @@ export function BudgetAllocationPlanner({
   const [openLeaf, setOpenLeaf] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const [isSaving, startSaving] = useTransition();
+  const save = useSaveLoader();
 
   // Label lookup so we render the human label, not the plan_group_id key.
   const labelByLeaf = useMemo(() => {
@@ -216,13 +218,17 @@ export function BudgetAllocationPlanner({
 
     startSaving(async () => {
       try {
-        const res = await saveAllocationSnapshot({
-          eventId,
-          totalBudgetPhp: budgetPhp,
-          region,
-          pax,
-          leaves: snapshotLeaves,
-        });
+        const res = await save.run(
+          () =>
+            saveAllocationSnapshot({
+              eventId,
+              totalBudgetPhp: budgetPhp,
+              region,
+              pax,
+              leaves: snapshotLeaves,
+            }),
+          { steps: ['Saving your budget plan'], hint: 'Saving' },
+        );
         if (res.ok) {
           setSaveState({ kind: 'saved', count: res.count });
         } else {

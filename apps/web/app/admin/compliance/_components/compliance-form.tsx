@@ -15,6 +15,7 @@ import {
   type ComplianceFactsInput,
   type SubProcessor,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 // Admin Compliance editor — every RA 10173 / NPC field bound to a controlled
 // input, including the SENSITIVE identifiers (BIR TIN, registered address, DPO
@@ -61,6 +62,7 @@ export function ComplianceForm({ initial }: { initial: ComplianceFormState }) {
   const [form, setForm] = useState<ComplianceFormState>(initial);
   const [subs, setSubs] = useState<SubProcessor[]>(initial.sub_processors);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const [result, setResult] = useState<
     { ok: true } | { ok: false; error: string } | null
   >(null);
@@ -90,7 +92,10 @@ export function ComplianceForm({ initial }: { initial: ComplianceFormState }) {
     e.preventDefault();
     setResult(null);
     startTransition(async () => {
-      const res = await saveComplianceFacts({ ...form, sub_processors: subs });
+      const res = await save.run(
+        () => saveComplianceFacts({ ...form, sub_processors: subs }),
+        { steps: ['Saving compliance facts'], hint: 'Saving' },
+      );
       setResult(res);
     });
   }

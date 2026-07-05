@@ -46,6 +46,13 @@ export const LOADER_STEPS = {
     'Ranking your best matches',
   ],
 
+  /** In-place save / update — the no-touch veil while a data write runs.
+   *  The default copy for <SubmitButton>'s auto-veil and useSaveLoader(). */
+  saving: [
+    'Saving your changes',
+    'Updating your details',
+  ],
+
   /** Generic fallback for blocking actions without bespoke copy. */
   default: [
     'Reading your preferences',

@@ -185,12 +185,9 @@ function buildCustomOnlyGroup(): Group {
     );
   return {
     title: 'Custom adds',
-    rows: [
-      { label: 'Additional branches', cells: onlyCustom() },
-      { label: 'Nationwide reach', cells: onlyCustom() },
-      { label: 'Dedicated account manager · white-glove', cells: onlyCustom() },
-      { label: 'Custom domain', cells: onlyCustom() },
-    ],
+    // Canonical Custom-only dials live on VENDOR_CUSTOM_TIER.benefits (single
+    // source of truth shared with the HomeOverlays cross-tier count).
+    rows: VENDOR_CUSTOM_TIER.benefits.map((label) => ({ label, cells: onlyCustom() })),
   };
 }
 

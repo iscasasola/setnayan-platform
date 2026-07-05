@@ -108,7 +108,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Appear in the couple’s planner + budget', b: 'You sit inside the couple’s planning workspace, not just search.' },
           { n: 'Off-season promo surfacing', b: 'We flag your lean months so your off-peak deal gets surfaced.' },
           { n: 'Pull a vetted crew hand', b: 'Short a shooter or coordinator? Book a vetted hand at a posted PH rate.' },
-          { n: 'Auto-shared to our socials', soon: true, b: 'Your couples’ standout moments hit our FB/IG with your name and logo.' },
+          { n: 'Auto-shared to our socials', b: 'Your couples’ standout moments hit our FB/IG with your name and logo.' },
           { n: 'Couple referral rewards', soon: true, b: 'Happy couples refer; when their referral books you, both get a perk.' },
           { n: 'One profile, every life event', soon: true, b: 'Reviews, calendar and history carry across weddings, debuts, christenings and more.' },
         ],
@@ -151,7 +151,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
           { n: 'Multiple events per day', b: 'Take more than one booking on the same date.' },
           { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
-          { n: 'Category benchmarks vs peers', soon: true, b: 'Rank your funnel against anonymized peers in your exact category.' },
           { n: 'Featured in Real Wedding Stories', b: 'A loved event becomes a published Real Story crediting your work, with a backlink.' },
           { n: 'Editorial & Journal spotlights', soon: true, b: 'Featured in the Journal couples read while planning, in front of buyers at intent.' },
           { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
@@ -177,6 +176,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Reach up to 100 km', b: 'Serve couples across a wide service area. Nationwide reach is available on Custom.' },
           { n: 'Up to 300 portfolio photos', b: 'A deep portfolio to show your full range.' },
           { n: 'Up to 8 events per category / day', b: 'Run at real studio volume.' },
+          { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
           { n: 'Quarterly business review', soon: true, b: 'A scheduled review of your numbers with our team.' },
           { n: 'Priority dispute + account management', soon: true, b: 'A named contact and front-of-line dispute handling.' },
         ],
@@ -190,4 +190,20 @@ export const VENDOR_CUSTOM_TIER = {
   name: 'Custom · from ₱8,999 / 28 days',
   tagline:
     'Everything in Enterprise, automatically, plus dials for what you need: more branches (₱999 each), reach up to nationwide, more team seats and event slots, a bigger portfolio, monthly included inquiry tokens, and your own domain. A dedicated account manager and quarterly business review come with it.',
+  // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
+  // matrix AND the cross-tier benefit count reflect the full negotiated tier.
+  // Each is a real thing a Custom vendor gets. Consumed by buildCustomOnlyGroup()
+  // in vendor-tier-matrix.tsx and the overlay count in HomeOverlays.tsx — the
+  // single source of truth for the Custom column.
+  benefits: [
+    'Additional branches (₱999 each)',
+    'Nationwide reach',
+    'Your own custom domain',
+    'Dedicated account manager · white-glove',
+    'Monthly included inquiry tokens',
+    'Negotiated team-seat ceiling',
+    'Negotiated event-slot ceiling',
+    'Unlimited portfolio',
+    'White-glove onboarding & data migration',
+  ] as string[],
 };

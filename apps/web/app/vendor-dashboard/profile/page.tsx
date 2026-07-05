@@ -46,8 +46,8 @@ const IG_ERROR_COPY: Record<string, string> = {
   state_expired: 'That connection link expired. Try connecting again.',
   not_configured: 'Instagram connect is not available yet.',
   exchange_failed: 'Instagram could not confirm the connection. Try again.',
-  no_ig_business_account:
-    'No linked Instagram Business or Creator account was found. Convert your Instagram to a Business/Creator account linked to a Facebook Page, then try again.',
+  profile_fetch_failed:
+    'We couldn’t read your Instagram profile. Make sure it’s a Business or Creator account, then try again.',
   encryption_unavailable:
     'Instagram connect is temporarily unavailable. Please try again later.',
   persist_failed: 'Could not save your Instagram connection. Try again.',

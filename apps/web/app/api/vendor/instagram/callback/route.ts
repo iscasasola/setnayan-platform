@@ -14,7 +14,7 @@ import {
 // 1. Looks up the persisted state row (recovering vendor_profile_id) and
 //    deletes it regardless of outcome — state tokens are single-use (CSRF).
 // 2. Exchanges the code for a long-lived access token.
-// 3. Resolves the linked IG Business account.
+// 3. Resolves the connected IG account's profile (id + username) via /me.
 // 4. Encrypts the token at-rest (lib/encryption) and upserts
 //    public.vendor_ig_connections keyed by vendor_profile_id (one per vendor).
 // 5. Redirects back to /vendor-dashboard/profile with a status flag.
@@ -89,10 +89,10 @@ export async function GET(req: NextRequest) {
     return redirectWithError(url, 'exchange_failed');
   }
 
-  // 4. Resolve the linked IG Business account.
+  // 4. Resolve the connected IG account's profile (id + username) via /me.
   const igAccount = await fetchInstagramBusinessAccount(token.accessToken);
   if (!igAccount) {
-    return redirectWithError(url, 'no_ig_business_account');
+    return redirectWithError(url, 'profile_fetch_failed');
   }
 
   // 5. Encrypt + upsert the connection (one per vendor).

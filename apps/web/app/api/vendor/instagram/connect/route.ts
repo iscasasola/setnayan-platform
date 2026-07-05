@@ -12,14 +12,14 @@ import {
 // GET /api/vendor/instagram/connect
 //
 // 1. Verifies the caller is a signed-in vendor (owns a vendor_profiles row).
-// 2. Checks META_APP_ID / META_APP_SECRET. If unset, returns 503 with a
-//    structured payload — the profile page's IG card renders a "coming soon"
-//    state instead of the live Connect button, so the feature ships SAFE
-//    before the owner finishes the Meta App + App Review setup.
+// 2. Checks IG_APP_ID / IG_APP_SECRET. If unset, returns 503 with a structured
+//    payload — the profile page's IG card renders a "coming soon" state instead
+//    of the live Connect button, so the feature ships SAFE before the owner
+//    finishes the Instagram-Login app + App Review setup.
 // 3. Generates a CSRF state nonce + inserts a row into
 //    public.vendor_ig_oauth_state (service role — the state table has no
 //    vendor-write policy).
-// 4. 302 redirects to Facebook's OAuth dialog.
+// 4. 302 redirects to Instagram's OAuth dialog.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // --- Graceful fallback: 503 when META_APP_* env vars are missing ---
+  // --- Graceful fallback: 503 when IG_APP_* env vars are missing ---
   const config = getMetaAppOAuthConfig(req.nextUrl.origin);
   if (!config.ready) {
     return NextResponse.json(

@@ -168,7 +168,7 @@ export async function syncInstagramMedia(): Promise<SyncResult> {
     // Preserve the vendor's existing show_on_profile choice on re-sync.
     const { data: existing } = await admin
       .from('vendor_ig_media')
-      .select('vendor_ig_media_id, r2_key, thumbnail_r2_key')
+      .select('vendor_ig_media_id, r2_key, thumbnail_r2_key') // gitleaks:allow — R2 object-key column names, not a secret
       .eq('vendor_profile_id', vendorProfileId)
       .eq('ig_media_id', item.id)
       .maybeSingle();

@@ -17,13 +17,15 @@ import { becomeVendor } from '../actions';
  *
  *   1 · Your shop         — shop name · logo · primary service (pick 1)
  *   2 · How couples reach you — owner name · contact number · company email
- *                              (all required) · location · website · social
+ *                              (all required) · location (optional)
  *
- * Everything else (exact HQ pin, EST, portfolio, documents) continues on My
- * Shop — the profile checklist + Get-verified journey are the rest of the
- * onboarding. The logo upload reuses the shared <FileUpload> → R2 pattern from
- * My Shop; the primary-service labels come from the admin taxonomy
- * (serviceLabels), falling back to the in-code names.
+ * Everything else (website, social links, exact HQ pin, EST, portfolio,
+ * documents) continues on My Shop — the profile checklist + Get-verified
+ * journey are the rest of the onboarding (owner 2026-07-05: keep onboarding to
+ * the six basics + location; website + social move to the dashboard). The logo
+ * upload reuses the shared <FileUpload> → R2 pattern from My Shop; the
+ * primary-service labels come from the admin taxonomy (serviceLabels), falling
+ * back to the in-code names.
  */
 export function OpenShopWizard({
   mode,
@@ -48,7 +50,6 @@ export function OpenShopWizard({
     contactName: string;
     contactPhone: string;
     contactEmail: string;
-    website: string;
   };
   error?: string;
 }) {
@@ -248,40 +249,12 @@ export function OpenShopWizard({
               />
             </label>
 
-            <label className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Website <span className="font-normal" style={{ color: 'var(--m-slate-3)' }}>· optional</span>
-              </span>
-              <input
-                name="website"
-                type="url"
-                defaultValue={defaults.website}
-                placeholder="https://yourstudio.ph"
-                className="input-field"
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Social media <span className="font-normal" style={{ color: 'var(--m-slate-3)' }}>· optional</span>
-              </span>
-              <input
-                name="social_url"
-                type="url"
-                placeholder="instagram.com/your-brand or your Facebook page"
-                className="input-field"
-              />
-              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Helps couples find you — and counts toward your verification checklist.
-              </span>
-            </label>
-
             <p
               className="rounded-lg border p-3 text-xs"
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)', color: 'var(--m-slate)' }}
             >
-              You can upgrade your business further anytime — add photos, services, pricing and
-              more from your dashboard.
+              You can upgrade your business further anytime — add your website, social links,
+              photos, services and pricing from your dashboard.
             </p>
 
             <div className="flex items-center gap-2">

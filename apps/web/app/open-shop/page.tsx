@@ -15,9 +15,10 @@ import { OpenShopWizard } from './_components/open-shop-wizard';
  *   • logged in, never-named shop    → the wizard (mode 'complete' — a fresh
  *     signup's trigger-provisioned bare shop lands here to fill the basics)
  *
- * The wizard collects the owner-locked basics (shop name · primary service ·
- * location · contact name + number · website + social); everything else
- * continues on My Shop via the profile checklist + Get-verified journey.
+ * The wizard collects the owner-locked basics (shop name · logo · primary
+ * service · owner name · contact number · company email · location); website
+ * + social links and everything else continue on My Shop via the profile
+ * checklist + Get-verified journey (owner 2026-07-05).
  */
 
 export const metadata = { title: 'Open your shop · Setnayan' };
@@ -42,7 +43,7 @@ export default async function OpenShopPage({
   const { data: owned } = await supabase
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, business_name, logo_url, services, location_city, business_owner_name, contact_phone, contact_email, website',
+      'vendor_profile_id, business_name, logo_url, services, location_city, business_owner_name, contact_phone, contact_email',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -55,7 +56,6 @@ export default async function OpenShopPage({
     business_owner_name?: string | null;
     contact_phone?: string | null;
     contact_email?: string | null;
-    website?: string | null;
   } | null;
   if (row?.business_name?.trim()) redirect('/vendor-dashboard/shop');
 
@@ -85,7 +85,6 @@ export default async function OpenShopPage({
         contactName: row?.business_owner_name ?? '',
         contactPhone: row?.contact_phone ?? '',
         contactEmail: row?.contact_email ?? '',
-        website: row?.website ?? '',
       }}
       error={error}
     />

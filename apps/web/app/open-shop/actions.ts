@@ -5,13 +5,11 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { resolveApplicationFeeCentavos } from '@/lib/vendor-verification';
-import { buildSlotValue } from '@/lib/vendor-verification-slots';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
- * just need the basic — shop name, primary service (pick 1), location, contact
- * name, contact number … we also want to find their soc med, websites").
+ * just need the basic"; owner 2026-07-05: keep onboarding to the SIX basics +
+ * location — website + social move to the dashboard).
  *
  * Provisions the shop the same way the signup trigger does (bare
  * `vendor_profiles` + founding `vendor_team_members` admin seat — idempotent,
@@ -21,37 +19,22 @@ import { buildSlotValue } from '@/lib/vendor-verification-slots';
  *   logo_url        → logo_url              (required · §2.1b mandatory logo —
  *                     r2:// ref from the shared <FileUpload>, same as My Shop)
  *   primary_service → services = [one of VENDOR_CATEGORIES]  (required)
- *   contact_name    → business_owner_name   (owner name)
- *   contact_phone   → contact_phone         (contact number)
- *   contact_email   → contact_email         (company email)
- *   location_city   → location_city
- *   website         → website
- *   social_url      → seeds the Get-verified `social_media` document slot on a
- *                     draft application, so their social link is already in the
- *                     verification checklist when they reach My Shop
+ *   contact_name    → business_owner_name   (owner name · required)
+ *   contact_phone   → contact_phone         (contact number · required)
+ *   contact_email   → contact_email         (company email · required)
+ *   location_city   → location_city         (optional)
  *
- * The REST of the profile (exact HQ pin, EST, portfolio) + documents stay on My
+ * Website + social links, exact HQ pin, EST, portfolio + documents stay on My
  * Shop — the profile checklist + Get-verified journey ARE the rest of the
- * onboarding. Existing non-empty values are never clobbered by blanks (safe to
- * re-run on a half-filled shop).
+ * onboarding (the `website` column + the `social_media` verification slot are
+ * editable there). Existing non-empty values are never clobbered by blanks
+ * (safe to re-run on a half-filled shop).
  */
 
 function clean(raw: FormDataEntryValue | null, max = 128): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim().slice(0, max);
   return t.length > 0 ? t : null;
-}
-
-function cleanUrl(raw: FormDataEntryValue | null): string | null {
-  const t = clean(raw, 300);
-  if (!t) return null;
-  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  try {
-    // Validates shape; stores the normalized href.
-    return new URL(withScheme).href;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -102,8 +85,6 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!contactEmail)
     redirect('/open-shop?error=' + encodeURIComponent('Add a valid company email.'));
   const locationCity = clean(formData.get('location_city'), 64);
-  const website = cleanUrl(formData.get('website'));
-  const socialUrl = cleanUrl(formData.get('social_url'));
 
   const admin = createAdminClient();
 
@@ -159,59 +140,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     updated_at: new Date().toISOString(),
   };
   if (locationCity) patch.location_city = locationCity;
-  if (website) patch.website = website;
   const { error: updErr } = await admin
     .from('vendor_profiles')
     .update(patch)
     .eq('vendor_profile_id', vendorProfileId);
   if (updErr) {
     redirect(`/open-shop?error=${encodeURIComponent(updErr.message)}`);
-  }
-
-  // Social link → seed the verification checklist's social_media slot on a
-  // draft application (find-or-create), via the SAME buildSlotValue the doc
-  // actions use. Best-effort — a hiccup never blocks onboarding.
-  if (socialUrl) {
-    try {
-      const { data: app } = await admin
-        .from('vendor_verification_applications')
-        .select('application_id, status, doc_uploads')
-        .eq('vendor_profile_id', vendorProfileId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const row = app as
-        | { application_id: string; status: string; doc_uploads: Record<string, unknown> | null }
-        | null;
-      const slot = buildSlotValue('social_media', {
-        r2Ref: null,
-        url: socialUrl,
-        scheduledAt: null,
-      });
-      if (row && row.status === 'draft') {
-        const uploads = { ...(row.doc_uploads ?? {}) };
-        if (!uploads.social_media) {
-          uploads.social_media = slot;
-          await admin
-            .from('vendor_verification_applications')
-            .update({ doc_uploads: uploads, updated_at: new Date().toISOString() })
-            .eq('application_id', row.application_id);
-        }
-      } else if (!row) {
-        // Fee from service_catalog (initial is free — active row at ₱0); the
-        // resolver returns 0 for an inactive/missing row too.
-        const feeCentavos = await resolveApplicationFeeCentavos(admin, 'initial');
-        await admin.from('vendor_verification_applications').insert({
-          vendor_profile_id: vendorProfileId,
-          application_type: 'initial',
-          fee_php_centavos: feeCentavos,
-          status: 'draft',
-          doc_uploads: { social_media: slot },
-        });
-      }
-    } catch {
-      // non-fatal
-    }
   }
 
   revalidatePath('/vendor-dashboard');

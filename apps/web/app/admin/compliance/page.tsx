@@ -124,7 +124,7 @@ export default async function AdminCompliancePage() {
   // Active (not-revoked) biometric face vectors — the NPC "sensitive PII" tally.
   const activeFaceCount = async (): Promise<number | null> => {
     const { count, error } = await admin
-      .from('guest_face_enrollments')
+      .from('guest_face_enrollments') // chat-guard-allow: count-only NPC tally (count:exact, head:true) — returns a number, reads zero face vectors
       .select('*', { count: 'exact', head: true })
       .is('revoked_at', null);
     return error ? null : (count ?? 0);

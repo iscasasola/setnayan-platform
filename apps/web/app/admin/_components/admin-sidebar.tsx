@@ -781,6 +781,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/settings',
       },
       {
+        // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO
+        // designation, breach plan, sub-processors, processing declarations).
+        // Sits in the settings tail beside Settings: it's platform-config the
+        // owner sets once. The sensitive identifiers (BIR TIN, address, DPO
+        // phone) live only in the DB behind admin-only RLS, never in the repo.
+        key: 'compliance',
+        label: 'Compliance',
+        href: '/admin/compliance',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/compliance',
+      },
+      {
         key: 'notifications',
         label: 'Notifications',
         href: '/admin/notifications',

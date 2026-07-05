@@ -428,6 +428,13 @@ export default async function VendorWorkspacePage({ params }: Props) {
             count_2_star: 0,
             count_1_star: 0,
           },
+          // ANTI-FRAUD (2026-07-05): trusted aggregate fallback for the no-
+          // marketplace-vendor branch (0/0 → hero renders "No reviews yet").
+          trustedStats: {
+            vendor_profile_id: '',
+            trusted_avg_rating: 0,
+            trusted_review_count: 0,
+          },
           reviews: [],
         }),
   ]);

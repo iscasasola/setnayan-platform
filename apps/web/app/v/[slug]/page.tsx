@@ -87,6 +87,7 @@ import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
+  fetchTrustedReviewStats,
   fetchVendorCompletedEvents,
   formatStarRating,
   formatTrackRecordMonth,
@@ -95,6 +96,7 @@ import {
   type ReviewAxis,
   type ReviewWithCouple,
   type ReviewStatsRow,
+  type TrustedReviewStatsRow,
   type VendorCompletedEventRow,
 } from '@/lib/reviews';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
@@ -657,8 +659,14 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents] = await Promise.all([
+  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
+    // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
+    // fake / self-dealt reviews can't inflate the number couples see. The raw
+    // `reviewStats` above still backs the per-star histogram bars + the review
+    // LIST pagination (`hasMore`), which stay as-is.
+    fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
@@ -670,20 +678,24 @@ export async function renderVendorBySlug({
     // "Recommended by N couples" trust signal (Event Lifecycle Menu §6.3).
     // Distinct events with a completion-gated recommendation; 0 → not rendered.
     countVendorRecommendingCouples(admin, vendor.vendor_profile_id),
-    // Experience tier badge (Vendor_Quality_Rating_System §5) — finalized
-    // bookings that flowed through Setnayan. Best-effort single read: missing
-    // row / unapplied table → null → "New to Setnayan". Never blocks the page.
+    // Experience tier badge (Vendor_Quality_Rating_System §5) — VETTED
+    // completed events through Setnayan. ANTI-FRAUD (2026-07-05, Phase 1
+    // follow-up): reads `vendor_public_completed_events_stats.public_completed_count`
+    // (self-dealing EXCLUDED) instead of the raw
+    // `vendor_activity_stats.finalized_booking_count`, so a vendor can't inflate
+    // the Experience tier by self-creating "delivered" events. Best-effort:
+    // missing view / unapplied migration → 0 → "New to Setnayan". Never blocks.
     (async (): Promise<number | null> => {
       const { data, error } = await admin
-        .from('vendor_activity_stats')
-        .select('finalized_booking_count')
+        .from('vendor_public_completed_events_stats')
+        .select('public_completed_count')
         .eq('vendor_profile_id', vendor.vendor_profile_id)
         .maybeSingle();
       if (error) {
-        console.warn('[v/[slug]] vendor_activity_stats fetch failed', error.message);
+        console.warn('[v/[slug]] vendor_public_completed_events_stats fetch failed', error.message);
         return null;
       }
-      return (data as { finalized_booking_count: number | null } | null)?.finalized_booking_count ?? null;
+      return (data as { public_completed_count: number | null } | null)?.public_completed_count ?? null;
     })(),
     // Receipt-backed dated track record (Wave 5) — one row per delivered/
     // complete LINKED booking, with the same owner/team/internal/self-comp
@@ -1227,15 +1239,18 @@ export async function renderVendorBySlug({
   // Phase C review-display gate (vendor-tier-caps): Free vendors
   // (reviewStarsCounted=false) hide the star rating, so the schema.org
   // aggregateRating is omitted too — no crawler-leak of tier-hidden stars.
+  // ANTI-FRAUD (2026-07-05): the public aggregateRating is emitted from the
+  // TRUSTED stat (receipt-backed, arm's-length) so a crawler never sees a
+  // fake-inflated star average.
   if (
     viewerTierCaps.reviewStarsCounted &&
-    reviewStats.total_count > 0 &&
-    reviewStats.avg_rating_overall > 0
+    trustedReviewStats.trusted_review_count > 0 &&
+    trustedReviewStats.trusted_avg_rating > 0
   ) {
     vendorJsonLd.aggregateRating = {
       '@type': 'AggregateRating',
-      ratingValue: Number(reviewStats.avg_rating_overall.toFixed(2)),
-      reviewCount: reviewStats.total_count,
+      ratingValue: Number(trustedReviewStats.trusted_avg_rating.toFixed(2)),
+      reviewCount: trustedReviewStats.trusted_review_count,
       bestRating: '5',
       worstRating: '1',
     };
@@ -1554,20 +1569,22 @@ export async function renderVendorBySlug({
                 in the Reviews section far below). Respects the Free-tier star gate
                 (viewerTierCaps.reviewStarsCounted) and hides when there are no
                 reviews yet — an honest empty state, never a fake 0.0. */}
+            {/* ANTI-FRAUD (2026-07-05): headline stars + count read the TRUSTED
+                (receipt-backed, arm's-length) stat, not the raw review totals. */}
             {viewerTierCaps.reviewStarsCounted &&
-            reviewStats.total_count > 0 &&
-            reviewStats.avg_rating_overall > 0 ? (
+            trustedReviewStats.trusted_review_count > 0 &&
+            trustedReviewStats.trusted_avg_rating > 0 ? (
               <p
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
-                title={`${formatStarRating(reviewStats.avg_rating_overall)} average from ${reviewStats.total_count} review${reviewStats.total_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
+                title={`${formatStarRating(trustedReviewStats.trusted_avg_rating)} average from ${trustedReviewStats.trusted_review_count} review${trustedReviewStats.trusted_review_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
               >
                 <Star aria-hidden className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
                 <span className="font-medium text-ink">
-                  {formatStarRating(reviewStats.avg_rating_overall)}
+                  {formatStarRating(trustedReviewStats.trusted_avg_rating)}
                 </span>
                 <span aria-hidden>·</span>
                 <span>
-                  {reviewStats.total_count} review{reviewStats.total_count === 1 ? '' : 's'}
+                  {trustedReviewStats.trusted_review_count} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
                 </span>
               </p>
             ) : null}
@@ -1904,6 +1921,7 @@ export async function renderVendorBySlug({
           slug={slug}
           businessName={displayLabel}
           reviewStats={reviewStats}
+          trustedReviewStats={trustedReviewStats}
           reviews={orderedReviews}
           hasMore={hasMore}
           nextPage={reviewsPage + 1}
@@ -2098,16 +2116,17 @@ export async function renderVendorBySlug({
           {premiumLayout && bookable ? (
             <aside className="hidden lg:block">
               <div className="sticky top-6 space-y-4 rounded-2xl border border-ink/10 bg-cream/50 p-5">
+                {/* ANTI-FRAUD (2026-07-05): sticky rail rating reads TRUSTED stat. */}
                 {viewerTierCaps.reviewStarsCounted &&
-                reviewStats.total_count > 0 &&
-                reviewStats.avg_rating_overall > 0 ? (
+                trustedReviewStats.trusted_review_count > 0 &&
+                trustedReviewStats.trusted_avg_rating > 0 ? (
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-semibold text-ink">
-                      {formatStarRating(reviewStats.avg_rating_overall)}
+                      {formatStarRating(trustedReviewStats.trusted_avg_rating)}
                     </span>
                     <Star aria-hidden className="h-4 w-4 fill-warn-400 text-warn-500" strokeWidth={1.75} />
                     <span className="text-sm text-ink/60">
-                      {reviewStats.total_count} review{reviewStats.total_count === 1 ? '' : 's'}
+                      {trustedReviewStats.trusted_review_count} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
                     </span>
                   </div>
                 ) : null}
@@ -2504,6 +2523,7 @@ function ReviewsSection({
   slug,
   businessName,
   reviewStats,
+  trustedReviewStats,
   reviews,
   hasMore,
   nextPage,
@@ -2515,6 +2535,8 @@ function ReviewsSection({
   slug: string;
   businessName: string;
   reviewStats: ReviewStatsRow;
+  /** ANTI-FRAUD (2026-07-05): trusted headline average + count. */
+  trustedReviewStats: TrustedReviewStatsRow;
   reviews: ReadonlyArray<ReviewWithCouple>;
   hasMore: boolean;
   nextPage: number;
@@ -2558,7 +2580,9 @@ function ReviewsSection({
           entirely — no average, no histogram. The per-card "new" treatment
           on the marketplace already signals these vendors have no shown
           rating; the microsite simply omits the metrics block. */}
-      {showStars ? <ReviewHeroMetrics stats={reviewStats} /> : null}
+      {showStars ? (
+        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} />
+      ) : null}
 
       {/* Phase C: review bodies/comments are gated separately (showComments).
           When OFF (Free + Verified), the per-review detail (body, axis stats,
@@ -2615,8 +2639,20 @@ function ReviewsSection({
   );
 }
 
-function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
-  const hero = stats.avg_rating_overall;
+function ReviewHeroMetrics({
+  stats,
+  trusted,
+}: {
+  stats: ReviewStatsRow;
+  /** ANTI-FRAUD (2026-07-05): headline average + count read the TRUSTED stat. */
+  trusted: TrustedReviewStatsRow;
+}) {
+  // Headline number + count are the TRUSTED (receipt-backed, arm's-length)
+  // aggregate so fake / self-dealt reviews can't inflate the public rating.
+  const hero = trusted.trusted_avg_rating;
+  const trustedCount = trusted.trusted_review_count;
+  // The per-star histogram bars stay on the raw counts (proportional shape of
+  // whatever reviews exist); only the aggregate number/stars/count migrate.
   const totals: Array<{ star: 5 | 4 | 3 | 2 | 1; count: number }> = [
     { star: 5, count: stats.count_5_star },
     { star: 4, count: stats.count_4_star },
@@ -2639,7 +2675,7 @@ function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
           </span>
         </div>
         <p className="text-xs text-ink/60">
-          {stats.total_count} review{stats.total_count === 1 ? '' : 's'}
+          {trustedCount} review{trustedCount === 1 ? '' : 's'}
         </p>
       </div>
       <ul className="space-y-1.5 text-xs">

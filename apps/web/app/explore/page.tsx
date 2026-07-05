@@ -2289,7 +2289,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // PR #6 — quality / activity stats from vendor_activity_stats.
     const activity = activityStatsByVendorId.get(v.vendor_profile_id) ?? null;
     v.quality_score = activity?.quality_score ?? null;
-    v.finalized_booking_count = activity?.finalized_booking_count ?? null;
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the Experience-tier chip
+    // reads the VETTED completed-event count (vendor_public_completed_events_stats,
+    // via `bookingCounts`) instead of vendor_activity_stats.finalized_booking_count,
+    // which was a raw booking-status count with NO self-dealing exclusions. This
+    // is the same vetted number that drives the `most_booking` percentile, so a
+    // vendor can't inflate the Experience tier by self-creating "delivered"
+    // events. Vendors with no vetted completed events fall to 0 → "new" tier.
+    v.finalized_booking_count = bookingCounts.get(v.vendor_profile_id) ?? 0;
     v.last_active_at = activity?.last_active_at ?? null;
     v.avg_response_minutes = activity?.avg_response_minutes ?? null;
     // PR #6 — partnership badge (null = no relevant partnership on this page).
@@ -2699,11 +2706,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                  review libs, so the vendor's own dashboard self-view stays
                  ungated. `?? null` → free → hidden. */
               const vCaps = tierCaps(v.tier_state ?? null);
+              // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
+              // star average + review count read the TRUSTED (receipt-backed,
+              // arm's-length) stat, so fake / self-dealt reviews can't inflate
+              // the number couples see. Same source the couple_trusted / top_pick
+              // badges use. Still gated by tier (Free hides stars → "new").
+              const vTrusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
               const gatedRating = vCaps.reviewStarsCounted
-                ? Number(v.avg_rating_overall ?? 0)
+                ? Number(vTrusted?.avg ?? 0)
                 : 0;
               const gatedReviewCount = vCaps.reviewStarsCounted
-                ? (v.review_count ?? 0)
+                ? (vTrusted?.count ?? 0)
                 : 0;
               const gatedReviews = vCaps.reviewCommentsViewable
                 ? (reviewsByVendorId.get(v.vendor_profile_id) ?? [])

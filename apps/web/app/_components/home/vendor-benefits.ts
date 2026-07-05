@@ -150,6 +150,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
           { n: 'Multiple events per day', b: 'Take more than one booking on the same date.' },
+          { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
           { n: 'Category benchmarks vs peers', soon: true, b: 'Rank your funnel against anonymized peers in your exact category.' },
           { n: 'Featured in Real Wedding Stories', b: 'A loved event becomes a published Real Story crediting your work, with a backlink.' },
           { n: 'Editorial & Journal spotlights', soon: true, b: 'Featured in the Journal couples read while planning, in front of buyers at intent.' },

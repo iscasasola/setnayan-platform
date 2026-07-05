@@ -23,17 +23,38 @@
  */
 
 import { Fragment, useMemo, useState } from 'react';
-import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
+import Link from 'next/link';
+import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from '@/app/_components/home/vendor-benefits';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 
-// The four marketed columns. `verified` is the real free-vendor state
+// Custom's "from ₱X" floor is not a DB catalog SKU (Custom is composed per
+// plan) — it lives on the shared VENDOR_CUSTOM_TIER constant used across the
+// /vendors surfaces. Parse the "₱8,999" out of its name so the matrix header
+// and the benefit guide stay on ONE source; never a fresh hardcoded literal.
+const CUSTOM_FROM_PRICE =
+  VENDOR_CUSTOM_TIER.name.match(/₱[\d,]+/)?.[0] ?? '₱8,999';
+
+// The five marketed columns. `verified` is the real free-vendor state
 // ("Free · Verified"); the legacy pre-verification `free` state is not a column.
-type Col = 'verified' | 'solo' | 'pro' | 'enterprise';
-const COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise'];
-const COL_RANK: Record<Col, number> = { verified: 0, solo: 1, pro: 2, enterprise: 3 };
+// `custom` is the negotiated tier ABOVE Enterprise — it "runs as Enterprise
+// automatically" (TIER_CAPS.custom is the Enterprise clone), so every feature
+// row it carries the Enterprise value, and it uniquely owns the Custom-only
+// rows (extra branches, nationwide reach, dedicated account manager, domain).
+type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
+const COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
+const COL_RANK: Record<Col, number> = {
+  verified: 0,
+  solo: 1,
+  pro: 2,
+  enterprise: 3,
+  custom: 4,
+};
 
 // Map a benefit's source tier (in vendor-benefits.ts, where the FREE tier owns
-// the whole shared spine) to the column it FIRST appears in.
+// the whole shared spine) to the column it FIRST appears in. There is no
+// `custom` source tier — Custom carries every benefit at its Enterprise value
+// (it never introduces a benefit of its own in the shared spine), so any
+// benefit available at Enterprise is available at Custom too.
 const SOURCE_TO_COL: Record<string, Col> = {
   free: 'verified',
   solo: 'solo',
@@ -97,11 +118,19 @@ function buildLimitsGroup(): Group {
   const num = (n: number, unit = '') =>
     n === Infinity ? 'Unlimited' : n === 0 ? '—' : `${n}${unit}`;
 
-  const row = (label: string, pick: (c: ReturnType<typeof cap>) => Cell): Row => ({
+  // Custom's numeric ceilings are negotiated per composed plan (not the static
+  // Enterprise-clone values in TIER_CAPS.custom), so on the scalable axes the
+  // Custom cell reads "Custom" rather than a concrete number. Reach is the one
+  // axis with a firm marketed ceiling (Nationwide), so it keeps its value.
+  const CUSTOM = val('Custom');
+  const row = (
+    label: string,
+    pick: (c: ReturnType<typeof cap>, col: Col) => Cell,
+  ): Row => ({
     label,
     cells: COLS.reduce(
       (acc, c) => {
-        acc[c] = pick(cap(c));
+        acc[c] = pick(cap(c), c);
         return acc;
       },
       {} as Record<Col, Cell>,
@@ -111,14 +140,22 @@ function buildLimitsGroup(): Group {
   return {
     title: 'Plans & limits',
     rows: [
-      row('Service reach', (c) => (c.serviceRadiusKm === 0 ? NO : val(km(c.serviceRadiusKm)))),
+      row('Service reach', (c) =>
+        c.serviceRadiusKm === 0 ? NO : val(km(c.serviceRadiusKm)),
+      ),
       row('Parent categories', (c) =>
         c.parentCategories === Infinity ? val('All') : val(num(c.parentCategories)),
       ),
       row('Service listings / category', (c) => val(num(c.servicesPerLeaf))),
-      row('Team seats', (c) => (c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)))),
-      row('Bookable slots / day', (c) => (c.slotsPerDay === 0 ? NO : val(num(c.slotsPerDay)))),
-      row('Portfolio photos', (c) => val(num(c.portfolioPhotos))),
+      row('Team seats', (c, col) =>
+        col === 'custom' ? CUSTOM : c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)),
+      ),
+      row('Bookable slots / day', (c, col) =>
+        col === 'custom' ? CUSTOM : c.slotsPerDay === 0 ? NO : val(num(c.slotsPerDay)),
+      ),
+      row('Portfolio photos', (c, col) =>
+        col === 'custom' ? CUSTOM : val(num(c.portfolioPhotos)),
+      ),
       row('Answer matched couples / week', (c) =>
         c.inAppCustomersPerWeek === Infinity
           ? val('Unlimited')
@@ -128,6 +165,31 @@ function buildLimitsGroup(): Group {
       ),
       row('Full written reviews shown', (c) => (c.reviewCommentsViewable ? YES : NO)),
       row('Custom URL / slug', (c) => (c.customWebsiteName ? YES : NO)),
+    ],
+  };
+}
+
+/** Custom-only rows — benefits that exist ONLY at the negotiated Custom tier
+ *  (— on every other column). These have no source in VENDOR_TIER_SECTIONS
+ *  (that catalog stops at Enterprise), so they're defined here as the Custom
+ *  column's exclusive adds, mirroring the prototype's "Scale as an organization"
+ *  Custom-only lines. */
+function buildCustomOnlyGroup(): Group {
+  const onlyCustom = (): Record<Col, Cell> =>
+    COLS.reduce(
+      (acc, c) => {
+        acc[c] = c === 'custom' ? YES : NO;
+        return acc;
+      },
+      {} as Record<Col, Cell>,
+    );
+  return {
+    title: 'Custom adds',
+    rows: [
+      { label: 'Additional branches', cells: onlyCustom() },
+      { label: 'Nationwide reach', cells: onlyCustom() },
+      { label: 'Dedicated account manager · white-glove', cells: onlyCustom() },
+      { label: 'Custom domain', cells: onlyCustom() },
     ],
   };
 }
@@ -183,13 +245,17 @@ function CellView({ cell, selected }: { cell: Cell; selected: boolean }) {
 
 export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices }) {
   const [selected, setSelected] = useState<Col>('pro');
-  const groups = useMemo(() => [buildLimitsGroup(), ...buildFeatureGroups()], []);
+  const groups = useMemo(
+    () => [buildLimitsGroup(), ...buildFeatureGroups(), buildCustomOnlyGroup()],
+    [],
+  );
 
   const COL_META: Record<Col, { name: string; price: string; unit?: string }> = {
     verified: { name: 'Free · Verified', price: '₱0', unit: 'forever' },
     solo: { name: 'Solo', price: prices.soloMonthly, unit: '/ 28d' },
     pro: { name: 'Pro', price: prices.proMonthly, unit: '/ 28d' },
     enterprise: { name: 'Enterprise', price: prices.enterpriseMonthly, unit: '/ 28d' },
+    custom: { name: 'Custom', price: CUSTOM_FROM_PRICE, unit: 'from · negotiated' },
   };
 
   return (
@@ -216,7 +282,9 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
         <p style={{ fontSize: 15, color: 'var(--m-slate)', lineHeight: 1.55, maxWidth: 720, margin: 0 }}>
           Every benefit as a row, every plan as a column. Free · Verified is the
           whole ops spine; each paid tier adds more and includes everything
-          before it. Tap a plan to highlight its column.
+          before it — and <strong style={{ color: 'var(--m-ink)' }}>Custom</strong>{' '}
+          is built for franchises and chains that need more than Enterprise. Tap a
+          plan to highlight its column.
         </p>
 
         {/* Tier selector — highlights a column (esp. on narrow screens). */}
@@ -265,7 +333,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
             style={{
               borderCollapse: 'collapse',
               width: '100%',
-              minWidth: 720,
+              minWidth: 900,
               tableLayout: 'fixed',
             }}
           >
@@ -291,7 +359,23 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
                 />
                 {COLS.map((c) => {
                   const active = selected === c;
+                  const isCustom = c === 'custom';
                   const m = COL_META[c];
+                  // The Custom column reads as the top tier with a dark ink
+                  // header (mirrors the prototype's th.cust). An active selection
+                  // still wins with the champagne highlight.
+                  const bg = active
+                    ? 'var(--m-orange-4)'
+                    : isCustom
+                      ? 'var(--m-ink)'
+                      : 'transparent';
+                  const nameColor = active
+                    ? 'var(--m-orange-2)'
+                    : isCustom
+                      ? 'var(--m-orange-3)'
+                      : 'var(--m-slate-2)';
+                  const priceColor = active || !isCustom ? 'var(--m-ink)' : 'var(--m-paper)';
+                  const unitColor = isCustom && !active ? 'var(--m-mulberry-3)' : 'var(--m-slate-3)';
                   return (
                     <th
                       key={c}
@@ -301,7 +385,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
                         textAlign: 'center',
                         borderLeft: '1px solid var(--m-line-soft)',
                         borderBottom: '1px solid var(--m-line)',
-                        background: active ? 'var(--m-orange-4)' : 'transparent',
+                        background: bg,
                         verticalAlign: 'top',
                       }}
                     >
@@ -311,16 +395,16 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
                           fontSize: 10.5,
                           letterSpacing: '0.06em',
                           textTransform: 'uppercase',
-                          color: active ? 'var(--m-orange-2)' : 'var(--m-slate-2)',
+                          color: nameColor,
                         }}
                       >
                         {m.name}
                       </div>
-                      <div className="m-display" style={{ fontSize: 20, color: 'var(--m-ink)', marginTop: 4 }}>
+                      <div className="m-display" style={{ fontSize: 20, color: priceColor, marginTop: 4 }}>
                         {m.price}
                       </div>
                       {m.unit ? (
-                        <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-3)', marginTop: 2 }}>
+                        <div className="m-mono" style={{ fontSize: 10, color: unitColor, marginTop: 2 }}>
                           {m.unit}
                         </div>
                       ) : null}
@@ -388,11 +472,76 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
         </div>
 
         <p className="m-mono" style={{ fontSize: 10.5, color: 'var(--m-slate-3)', marginTop: 14, lineHeight: 1.5, maxWidth: 760 }}>
+          Every benefit, every tier &mdash; ~90 in all.{' '}
           &ldquo;Soon&rdquo; = in active build. Prices read the live catalog and
           are billed per 28-day cycle. Enterprise is a bounded plan; franchises &amp;
           multi-location go Custom. 0% commission on every booking, every tier.
         </p>
+
+        {/* Custom "for those who need more" callout — the negotiated tier ABOVE
+            Enterprise. Copy from the shared VENDOR_CUSTOM_TIER constant; the
+            "from ₱X" floor is CUSTOM_FROM_PRICE (parsed from that same constant,
+            never a fresh literal). */}
+        <div
+          className="m-cust-band"
+          style={{
+            background: 'var(--m-ink)',
+            color: 'var(--m-mulberry-3)',
+            borderRadius: 'var(--m-r-lg)',
+            marginTop: 34,
+            padding: 'clamp(26px, 4vw, 40px)',
+            display: 'grid',
+            gridTemplateColumns: '1.2fr 1fr',
+            gap: 28,
+            alignItems: 'center',
+          }}
+        >
+          <div>
+            <span
+              className="m-mono"
+              style={{
+                fontSize: 11,
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                color: 'var(--m-orange)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <span aria-hidden style={{ width: 24, height: 1, background: 'var(--m-orange)' }} />
+              Custom · beyond Enterprise &middot; {CUSTOM_FROM_PRICE}
+            </span>
+            <h3 className="m-serif" style={{ fontSize: 28, fontWeight: 600, margin: '14px 0 8px', color: '#fff' }}>
+              For those who need more.
+            </h3>
+            <p style={{ fontSize: 14, color: '#c7bca4', margin: 0, maxWidth: '46ch', lineHeight: 1.55 }}>
+              Franchises, chains and multi-location houses compose their own plan
+              &mdash; Enterprise as the base, then only the units they need, with a
+              dedicated account team.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              'More branches & team seats',
+              'Nationwide reach',
+              'Higher photo & event limits',
+              'Dedicated account manager · white-glove',
+            ].map((cl) => (
+              <div key={cl} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: '#e4dac7' }}>
+                <span aria-hidden style={{ color: 'var(--m-orange)', fontWeight: 700 }}>＋</span>
+                {cl}
+              </div>
+            ))}
+            <div style={{ marginTop: 8 }}>
+              <Link href="/help#contact" className="m-btn m-btn-orange">
+                Talk to us →
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
+      <style>{`@media(max-width:720px){ .m-cust-band{grid-template-columns:1fr !important} }`}</style>
     </section>
   );
 }

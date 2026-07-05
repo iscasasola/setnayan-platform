@@ -1,11 +1,18 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Check, Film, Globe, Lock, Plus, Sparkles, X } from 'lucide-react';
+import { ArrowUpRight, Check, Globe, Images, Lock, Sparkles } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
+import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { InstagramConnectCard } from '@/app/vendor-dashboard/_components/instagram-connect-card';
+import { VideoLinksEditor } from '@/app/vendor-dashboard/_components/video-links-editor';
+import type {
+  VendorIgConnectionStatus,
+  VendorIgMediaRow,
+} from '@/lib/vendor-instagram-status';
 import {
   MICROSITE_ABOUT_MAX,
   MICROSITE_ACCENTS,
@@ -13,27 +20,13 @@ import {
   MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
   MICROSITE_TOGGLEABLE_SECTIONS,
-  MICROSITE_VIDEOS_MAX,
   isSectionVisible,
-  parseVideoRef,
-  serializeVideoRef,
-  videoThumb,
 } from '@/lib/vendor-microsite';
 
-import { updateVendorWebsiteField } from '../../actions';
+import { updateVendorProfileField, updateVendorWebsiteField } from '../../actions';
 
 export type MicrositePortfolioPhoto = { key: string; url: string };
 export type MicrositeReviewOption = { id: string; label: string };
-/**
- * One Films entry for the editor grid: the stored provider-prefixed string, its
- * provider, and a poster URL. Vimeo posters are prefetched server-side (oEmbed)
- * and passed in; a null thumb renders the poster-less fallback tile.
- */
-export type MicrositeVideoCard = {
-  stored: string;
-  provider: 'youtube' | 'vimeo';
-  thumb: string | null;
-};
 
 /**
  * My Shop → Website. Direct, on-surface editor (2026-07-02 redesign, owner:
@@ -53,7 +46,6 @@ export function WebsiteEditor({
   websiteLive,
   isPro,
   canPersonalize,
-  isEnterprise,
   about,
   sections,
   featuredServiceIds,
@@ -69,14 +61,21 @@ export function WebsiteEditor({
   pinnedReviewId,
   editorials,
   featuredEditorialIds,
-  videos,
+  vendorProfileId,
+  portfolioRefs,
+  portfolioDisplayMap,
+  portfolioMax,
+  galleryVideoLinks,
+  igConfigured,
+  igConnection,
+  igMedia,
+  igFlash,
 }: {
   publicPath: string | null;
   displayHost: string;
   websiteLive: boolean;
   isPro: boolean;
   canPersonalize: boolean;
-  isEnterprise: boolean;
   about: string | null;
   sections: Record<string, boolean>;
   featuredServiceIds: string[];
@@ -92,7 +91,16 @@ export function WebsiteEditor({
   pinnedReviewId: string | null;
   editorials: MicrositeReviewOption[];
   featuredEditorialIds: string[];
-  videos: MicrositeVideoCard[];
+  /** Gallery & media (relocated from the retired /profile page · 2026-07-05). */
+  vendorProfileId: string;
+  portfolioRefs: string[];
+  portfolioDisplayMap: Record<string, string>;
+  portfolioMax: number;
+  galleryVideoLinks: string[];
+  igConfigured: boolean;
+  igConnection: VendorIgConnectionStatus | null;
+  igMedia: VendorIgMediaRow[];
+  igFlash: { kind: 'ok' | 'error'; message: string } | null;
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -224,47 +232,6 @@ export function WebsiteEditor({
     );
   }
 
-  // ── Enterprise: video portfolio (YouTube + Vimeo · add one URL / remove) ────
-  const [vids, setVids] = useState<MicrositeVideoCard[]>(videos);
-  const [vidUrl, setVidUrl] = useState('');
-  function saveVids(next: MicrositeVideoCard[], was: MicrositeVideoCard[]) {
-    setVids(next);
-    dispatch(
-      'microsite_videos',
-      next.map((v) => ['microsite_videos', v.stored]),
-      { onError: () => setVids(was) },
-    );
-  }
-  function addVideo() {
-    const ref = parseVideoRef(vidUrl);
-    if (!ref) {
-      toast.error('Paste a YouTube or Vimeo link (or video id).');
-      return;
-    }
-    const stored = serializeVideoRef(ref);
-    if (vids.some((v) => v.stored === stored)) {
-      toast.error('That video is already in your films.');
-      setVidUrl('');
-      return;
-    }
-    if (vids.length >= MICROSITE_VIDEOS_MAX) {
-      toast.error(`Up to ${MICROSITE_VIDEOS_MAX} films.`);
-      return;
-    }
-    setVidUrl('');
-    // New entries render from the static thumb (YouTube) or the poster-less
-    // fallback tile (Vimeo — its oEmbed poster resolves on the next reload).
-    const card: MicrositeVideoCard = {
-      stored,
-      provider: ref.provider,
-      thumb: videoThumb(ref),
-    };
-    saveVids([...vids, card], vids);
-  }
-  function removeVideo(stored: string) {
-    saveVids(vids.filter((v) => v.stored !== stored), vids);
-  }
-
   return (
     <div className="space-y-5">
       {/* ── Status + address ─────────────────────────────────────────────── */}
@@ -310,13 +277,26 @@ export function WebsiteEditor({
         </div>
       ) : (
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Your page goes live once you set an address in{' '}
-          <Link href="/vendor-dashboard/profile" className="font-medium text-terracotta hover:underline">
-            Profile
-          </Link>
-          . Everything below applies the moment it&rsquo;s live.
+          Your page goes live once you set a custom address (a Pro feature,
+          below). Everything here applies the moment it&rsquo;s live.
         </p>
       )}
+
+      {/* ── Gallery & media (ALL TIERS · relocated from the retired /profile
+          page · 2026-07-05): portfolio photos, featured videos, Instagram. The
+          curation controls below (About / sections / Pro / Enterprise) sit on
+          top of this shared media. */}
+      <GalleryMedia
+        vendorProfileId={vendorProfileId}
+        portfolioRefs={portfolioRefs}
+        portfolioDisplayMap={portfolioDisplayMap}
+        portfolioMax={portfolioMax}
+        galleryVideoLinks={galleryVideoLinks}
+        igConfigured={igConfigured}
+        igConnection={igConnection}
+        igMedia={igMedia}
+        igFlash={igFlash}
+      />
 
       {/* ── Personalize (Solo+): About · Featured services · Sections ─────── */}
       {canPersonalize ? (
@@ -641,102 +621,6 @@ export function WebsiteEditor({
                 </div>
               )}
             </Row>
-
-            {/* Enterprise: video portfolio (Films) — YouTube + Vimeo embeds that
-                play on the public page. Real control for Enterprise; a quiet
-                upgrade teaser for Pro. */}
-            {isEnterprise ? (
-              <Row
-                title="Films"
-                hint={`${vids.length}/${MICROSITE_VIDEOS_MAX} · YouTube or Vimeo`}
-                tight
-              >
-                <div className="space-y-2.5">
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      inputMode="url"
-                      value={vidUrl}
-                      onChange={(e) => setVidUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addVideo();
-                        }
-                      }}
-                      placeholder="Paste a YouTube or Vimeo link…"
-                      aria-label="YouTube or Vimeo video link"
-                      disabled={vids.length >= MICROSITE_VIDEOS_MAX}
-                      className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={addVideo}
-                      disabled={vids.length >= MICROSITE_VIDEOS_MAX}
-                      className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-40"
-                      style={{ background: 'var(--m-orange)', color: 'var(--m-paper)' }}
-                    >
-                      <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-                      Add
-                    </button>
-                  </div>
-                  {vids.length === 0 ? (
-                    <p className="text-sm text-ink/60">
-                      Add your highlight films — they play right on your page.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {vids.map((v) => (
-                        <div
-                          key={v.stored}
-                          className="group relative overflow-hidden rounded-lg border"
-                          style={{ borderColor: 'var(--m-line)' }}
-                        >
-                          {v.thumb ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={v.thumb}
-                              alt=""
-                              className="aspect-video w-full object-cover"
-                            />
-                          ) : (
-                            // Poster-less fallback (Vimeo with no resolved oEmbed
-                            // thumb): dark tile, centered play glyph, provider tag.
-                            <div className="flex aspect-video w-full flex-col items-center justify-center gap-1 bg-ink/85 text-white/90">
-                              <Film className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-                              <span className="text-[10px] font-medium uppercase tracking-wide">
-                                {v.provider === 'vimeo' ? 'Vimeo' : 'Video'}
-                              </span>
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeVideo(v.stored)}
-                            aria-label="Remove film"
-                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full"
-                            style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
-                          >
-                            <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Row>
-            ) : (
-              <Row title="Films" tight>
-                <div
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: 'var(--m-slate-3)' }}
-                >
-                  <Film className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Playable YouTube &amp; Vimeo films on your page —{' '}
-                  <span className="font-medium">Enterprise</span>.
-                </div>
-              </Row>
-            )}
           </div>
         ) : (
           <ul className="mt-3 space-y-2">
@@ -756,6 +640,172 @@ export function WebsiteEditor({
         )}
       </section>
     </div>
+  );
+}
+
+/* ─── Gallery & media (ALL TIERS) ───────────────────────────────────────────
+ * The three editors relocated from the retired /vendor-dashboard/profile page
+ * (2026-07-05): portfolio photos, featured videos, and Instagram. Every vendor
+ * (Free included) can curate their gallery — these are NOT tier-gated.
+ *
+ * Portfolio + videos persist via the single-field `updateVendorProfileField`
+ * action (the SAME parse/tier-cap/QR-guard/repost-hash the retired full form
+ * used), each with an inline Save button that appears when the field is dirty
+ * (matches the About/address save pattern in this editor). Instagram keeps its
+ * own OAuth connect/callback/sync routes UNCHANGED. */
+function GalleryMedia({
+  vendorProfileId,
+  portfolioRefs,
+  portfolioDisplayMap,
+  portfolioMax,
+  galleryVideoLinks,
+  igConfigured,
+  igConnection,
+  igMedia,
+  igFlash,
+}: {
+  vendorProfileId: string;
+  portfolioRefs: string[];
+  portfolioDisplayMap: Record<string, string>;
+  portfolioMax: number;
+  galleryVideoLinks: string[];
+  igConfigured: boolean;
+  igConnection: VendorIgConnectionStatus | null;
+  igMedia: VendorIgMediaRow[];
+  igFlash: { kind: 'ok' | 'error'; message: string } | null;
+}) {
+  const toast = useToast();
+
+  return (
+    <section
+      id="gallery-media"
+      className="space-y-5 rounded-xl border p-4"
+      style={{ borderColor: 'var(--m-line)' }}
+    >
+      <div className="flex items-center gap-1.5">
+        <Images
+          className="h-4 w-4"
+          strokeWidth={1.75}
+          aria-hidden
+          style={{ color: 'var(--m-orange-2)' }}
+        />
+        <h3 className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+          Gallery &amp; media
+        </h3>
+      </div>
+
+      {/* Portfolio photos — same <FileUpload> the retired /profile page used
+          (multiple · tier maxFiles · watermark · qrGuard). */}
+      <GalleryForm
+        field="portfolio"
+        toast={toast}
+        successToast="Portfolio saved."
+        title="Portfolio photos"
+        hint={`up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax}, 5 MB each`}
+      >
+        <FileUpload
+          bucket="media"
+          pathPrefix={`vendors/${vendorProfileId}/portfolio`}
+          name="portfolio_r2_keys"
+          currentValue={portfolioRefs}
+          initialDisplayUrls={portfolioDisplayMap}
+          multiple
+          maxFiles={portfolioMax}
+          maxSizeMB={5}
+          acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+          variant="wide"
+          watermark
+          qrGuard
+        />
+      </GalleryForm>
+
+      {/* Featured videos — same <VideoLinksEditor> (all tiers · gallery_video_links).
+          Paste YouTube/Vimeo (inline players) or Instagram/Facebook/TikTok (link-out). */}
+      <GalleryForm
+        field="gallery_videos"
+        toast={toast}
+        successToast="Videos saved."
+        title="Featured videos"
+        hint="YouTube, Vimeo, Instagram, Facebook or TikTok"
+      >
+        <VideoLinksEditor name="gallery_video_links" initial={galleryVideoLinks} />
+      </GalleryForm>
+
+      {/* Instagram — same card + OAuth flow (unchanged routes under
+          /api/vendor/instagram/**). Inert ("Coming soon") until the Meta App
+          env is set. Synced posts flow into the SAME unified public gallery. */}
+      <div className="border-t pt-4" style={{ borderColor: 'var(--m-line)' }}>
+        <InstagramConnectCard
+          configured={igConfigured}
+          connection={igConnection}
+          media={igMedia}
+          flash={igFlash}
+        />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One relocated media editor wrapped in a save form. Uses `updateVendorProfileField`
+ * (single-column patch — never nulls the other fields). Toasts the result and
+ * only shows the Save button once the child inputs are dirty (tracked by
+ * comparing the serialized FormData snapshot on input).
+ */
+function GalleryForm({
+  field,
+  title,
+  hint,
+  successToast,
+  toast,
+  children,
+}: {
+  field: 'portfolio' | 'gallery_videos';
+  title: string;
+  hint?: string;
+  successToast: string;
+  toast: ReturnType<typeof useToast>;
+  children: React.ReactNode;
+}) {
+  const [state, formAction, pending] = useActionState(updateVendorProfileField, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [dirty, setDirty] = useState(false);
+
+  // Toast the action result. On success, the field is clean again (the server
+  // is now the source of truth for what was just saved).
+  useEffect(() => {
+    if (!state) return;
+    if (state.ok) {
+      toast.success(successToast);
+      setDirty(false);
+    } else {
+      toast.error(state.error);
+    }
+  }, [state, successToast, toast]);
+
+  return (
+    <Row title={title} hint={hint}>
+      <form
+        ref={formRef}
+        action={formAction}
+        onInput={() => setDirty(true)}
+        onChange={() => setDirty(true)}
+        className="space-y-3"
+      >
+        <input type="hidden" name="field" value={field} />
+        {children}
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={!dirty || pending}
+            className="rounded-md px-3 py-1 text-xs font-medium transition-opacity disabled:opacity-40"
+            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+          >
+            {pending ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </Row>
   );
 }
 

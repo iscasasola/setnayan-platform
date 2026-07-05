@@ -54,6 +54,13 @@ import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
+import {
+  fetchVendorIgConnection,
+  fetchVendorIgMediaForOwner,
+  type VendorIgConnectionStatus,
+  type VendorIgMediaRow,
+} from '@/lib/vendor-instagram-status';
 import { CopyButton } from '@/app/_components/copy-button';
 import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -66,10 +73,7 @@ import {
 
 import {
   fetchVendorMicrosite,
-  fetchVimeoThumb,
   micrositeCan,
-  serializeVideoRef,
-  videoThumb,
   type VendorMicrosite,
 } from '@/lib/vendor-microsite';
 
@@ -141,6 +145,18 @@ type ShopData = {
   yearsLabel: string | null;
   microsite: VendorMicrosite;
   portfolioPhotos: { key: string; url: string }[];
+  /** Tier portfolio-photo cap for the <FileUpload maxFiles> (∞ → 999 sentinel). */
+  portfolioMax: number;
+  /** Presigned thumbnails for every stored portfolio ref (first-paint). */
+  portfolioDisplayMap: Record<string, string>;
+  /** The vendor's current portfolio r2 refs (fed to <FileUpload currentValue>). */
+  portfolioRefs: string[];
+  /** Featured-video external URLs (all tiers · gallery_video_links). */
+  galleryVideoLinks: string[];
+  /** Instagram connect card inputs (inert when Meta App env is unset). */
+  igConfigured: boolean;
+  igConnection: VendorIgConnectionStatus | null;
+  igMedia: VendorIgMediaRow[];
   reviewOptions: { id: string; label: string }[];
   editorialOptions: { id: string; label: string }[];
   completionPct: number;
@@ -410,11 +426,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
     : null;
 
-  // Portfolio thumbnails for the Pro hero-photo picker. Best-effort — a presign
-  // hiccup just drops that option, never crashes the page.
+  // Portfolio thumbnails — reused by BOTH the Pro hero-photo picker and the
+  // Gallery-&-media <FileUpload> first-paint. Best-effort — a presign hiccup
+  // just drops that thumbnail, never crashes the page.
+  const portfolioRefs = (profile.portfolio_r2_keys ?? []) as string[];
   const portfolioPhotos = (
     await Promise.all(
-      ((profile.portfolio_r2_keys ?? []) as string[]).map(async (key) => {
+      portfolioRefs.map(async (key) => {
         try {
           const url = await displayUrlForStoredAsset(key);
           return url ? { key, url } : null;
@@ -424,6 +442,34 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       }),
     )
   ).filter((p): p is { key: string; url: string } => p !== null);
+  // Map form for <FileUpload initialDisplayUrls> so the thumbnails render on
+  // first paint (mirrors the retired /profile page's portfolioDisplayMap).
+  const portfolioDisplayMap: Record<string, string> = {};
+  for (const p of portfolioPhotos) portfolioDisplayMap[p.key] = p.url;
+
+  // Tier portfolio-photo cap (FREE 30 · VERIFIED 50 · PRO 100 · ENTERPRISE ∞).
+  // The <FileUpload> needs a finite maxFiles, so ∞ → a high sentinel — mirrors
+  // the retired /profile page exactly.
+  const portfolioCap = tierCaps(asVendorTier(tier)).portfolioPhotos;
+  const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
+
+  // Featured-video links (all tiers · gallery_video_links) — the relocated
+  // <VideoLinksEditor> seed.
+  const galleryVideoLinks = (profile.gallery_video_links ?? []) as string[];
+
+  // Instagram connect + sync (inert when the Meta App env is unset). Both loaders
+  // are best-effort + degrade to null/[] on any error (pre-migration DB, etc.) so
+  // the IG card never blanks My Shop. Mirrors the retired /profile page.
+  const igConfigured = isInstagramConnectConfigured();
+  let igConnection: VendorIgConnectionStatus | null = null;
+  let igMedia: VendorIgMediaRow[] = [];
+  try {
+    igConnection = await fetchVendorIgConnection(vendorId);
+    igMedia = igConnection ? await fetchVendorIgMediaForOwner(vendorId) : [];
+  } catch {
+    igConnection = null;
+    igMedia = [];
+  }
 
   // Review options for the Pro pinned-review picker. Best-effort — a fetch
   // hiccup just yields an empty picker ("no reviews yet"), never a crash.
@@ -462,6 +508,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     yearsLabel,
     microsite,
     portfolioPhotos,
+    portfolioMax,
+    portfolioDisplayMap,
+    portfolioRefs,
+    galleryVideoLinks,
+    igConfigured,
+    igConnection,
+    igMedia,
     reviewOptions,
     editorialOptions,
     completionPct,
@@ -502,10 +555,29 @@ function tierLabel(tier: string | null): string {
   return TIER_LABEL[tier] ?? titleCase(tier);
 }
 
+// Map the Instagram OAuth-callback error codes to friendly one-line copy for the
+// IG card. Mirrors the retired /profile page's IG_ERROR_COPY (2026-07-05).
+const IG_ERROR_COPY: Record<string, string> = {
+  denied: 'Instagram connection was cancelled.',
+  user_denied: 'Instagram connection was cancelled.',
+  missing_code_or_state: 'Instagram connection could not be completed. Try again.',
+  state_not_found: 'That connection link expired. Try connecting again.',
+  state_expired: 'That connection link expired. Try connecting again.',
+  not_configured: 'Instagram connect is not available yet.',
+  exchange_failed: 'Instagram could not confirm the connection. Try again.',
+  profile_fetch_failed:
+    'We couldn’t read your Instagram profile. Make sure it’s a Business or Creator account, then try again.',
+  encryption_unavailable:
+    'Instagram connect is temporarily unavailable. Please try again later.',
+  persist_failed: 'Could not save your Instagram connection. Try again.',
+};
+
 export default async function VendorShopPage({
   searchParams,
 }: {
-  searchParams: Promise<ServicesManagerSearch>;
+  searchParams: Promise<
+    ServicesManagerSearch & { ig_connected?: string; ig_error?: string }
+  >;
 }) {
   let data: ShopData | 'no-vendor' | null;
   try {
@@ -540,10 +612,10 @@ export default async function VendorShopPage({
             storefront, reach, and reputation all live here.
           </p>
           <Link
-            href="/vendor-dashboard/profile"
+            href="/open-shop"
             className="button-primary mt-4 inline-flex items-center gap-2"
           >
-            Go to my profile
+            Set up my shop
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>
@@ -556,23 +628,18 @@ export default async function VendorShopPage({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
-  // Films editor cards — resolve each stored ref to a poster. YouTube posters
-  // are deterministic; Vimeo needs a cached oEmbed lookup (fetched server-side
-  // here, degrading to null → the editor's poster-less fallback tile). Only the
-  // Enterprise editor renders the grid, so skip the work otherwise.
-  const videoCards = data.isEnterpriseWebsite
-    ? await Promise.all(
-        data.microsite.videos.map(async (ref) => ({
-          stored: serializeVideoRef(ref),
-          provider: ref.provider,
-          thumb:
-            videoThumb(ref) ??
-            (ref.provider === 'vimeo'
-              ? await fetchVimeoThumb(ref.id, ref.hash)
-              : null),
-        })),
-      )
-    : [];
+  // Instagram card flash from the OAuth-callback redirect params (the callback
+  // now lands on /vendor-dashboard/shop with these flags · 2026-07-05).
+  const igFlash: { kind: 'ok' | 'error'; message: string } | null = sp.ig_connected
+    ? { kind: 'ok', message: 'Instagram connected. Press “Sync now” to pull your posts.' }
+    : sp.ig_error
+      ? {
+          kind: 'error',
+          message:
+            IG_ERROR_COPY[sp.ig_error] ??
+            'Instagram connection could not be completed. Try again.',
+        }
+      : null;
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -650,7 +717,6 @@ export default async function VendorShopPage({
             websiteLive={data.websiteLive}
             isPro={data.isProWebsite}
             canPersonalize={data.canPersonalize}
-            isEnterprise={data.isEnterpriseWebsite}
             about={data.microsite.about}
             sections={data.microsite.sections}
             featuredServiceIds={data.microsite.featuredServiceIds}
@@ -666,7 +732,15 @@ export default async function VendorShopPage({
             pinnedReviewId={data.microsite.pinnedReviewId}
             editorials={data.editorialOptions}
             featuredEditorialIds={data.microsite.featuredEditorialIds}
-            videos={videoCards}
+            vendorProfileId={data.profileFields.vendorProfileId}
+            portfolioRefs={data.portfolioRefs}
+            portfolioDisplayMap={data.portfolioDisplayMap}
+            portfolioMax={data.portfolioMax}
+            galleryVideoLinks={data.galleryVideoLinks}
+            igConfigured={data.igConfigured}
+            igConnection={data.igConnection}
+            igMedia={data.igMedia}
+            igFlash={igFlash}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}
@@ -823,14 +897,14 @@ function HeroCard({
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </a>
       ) : (
-        <Link
-          href="/vendor-dashboard/profile"
+        <a
+          href="#manage-shop"
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
           style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
         >
           Finish profile
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </Link>
+        </a>
       )}
     </div>
   );

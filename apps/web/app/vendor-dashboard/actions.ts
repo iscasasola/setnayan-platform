@@ -652,7 +652,20 @@ const INLINE_PROFILE_FIELDS = new Set([
   'contact_email',
   'services',
   'in_business_since_year',
+  // Gallery & media (relocated from the retired /profile page to My Shop →
+  // Website · 2026-07-05). NOT locked-identity fields, so they stay editable
+  // post-verification — the verified-lock guard below allowlists them.
+  'portfolio',
+  'gallery_videos',
 ]);
+
+/**
+ * The Gallery & media fields (portfolio photos + featured video links) that
+ * stay editable even after a shop is VERIFIED (identity-locked). These are not
+ * among the 8 locked identity fields, so a verified vendor can still curate
+ * their gallery — the verified-lock guard skips them.
+ */
+const GALLERY_MEDIA_FIELDS = new Set(['portfolio', 'gallery_videos']);
 
 export async function updateVendorProfileField(
   _prevState: FieldSaveResult | null,
@@ -670,10 +683,16 @@ export async function updateVendorProfileField(
     return { ok: false, error: 'That field can’t be edited here.' };
   }
 
-  // Verified-lock (owner 2026-07-02): every inline field IS one of the 8
-  // locked identity fields, so a verified shop can't patch any of them —
-  // corrections go through requestProfileCorrection → /admin/corrections.
-  if (await fetchVerifiedLock(supabase, user.id)) {
+  // Verified-lock (owner 2026-07-02): the 8 IDENTITY inline fields can't be
+  // patched by a verified shop — corrections go through
+  // requestProfileCorrection → /admin/corrections. The Gallery & media fields
+  // (portfolio / featured videos) are NOT locked identity, so they stay
+  // editable post-verification (matches the retired /profile full-form, whose
+  // verified-lock strip never touched portfolio_r2_keys / gallery_video_links).
+  if (
+    !GALLERY_MEDIA_FIELDS.has(field) &&
+    (await fetchVerifiedLock(supabase, user.id))
+  ) {
     return { ok: false, error: VERIFIED_LOCK_ERROR };
   }
 
@@ -763,6 +782,59 @@ export async function updateVendorProfileField(
       runYearExperienceReset = true;
       break;
     }
+    case 'portfolio': {
+      // Portfolio photos (relocated to My Shop → Website · 2026-07-05). Mirrors
+      // saveVendorProfile's parse + tier cap + QR-guard + repost-hash EXACTLY so
+      // behavior is identical to the retired /profile full-form.
+      const { data: tierRow } = await supabase
+        .from('vendor_profiles')
+        .select('tier_state, portfolio_r2_keys, vendor_profile_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const tr = tierRow as
+        | {
+            tier_state?: string | null;
+            portfolio_r2_keys?: string[] | null;
+            vendor_profile_id?: string;
+          }
+        | null;
+      const portfolioMax = tierCaps(asVendorTier(tr?.tier_state)).portfolioPhotos;
+      const refs = parsePortfolioRefs(
+        formData.getAll('portfolio_r2_keys'),
+        portfolioMax,
+      );
+      // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
+      // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.
+      const stored = new Set((tr?.portfolio_r2_keys ?? []).filter(Boolean));
+      const toScan = refs.filter((r) => !stored.has(r));
+      if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
+        return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
+      }
+      patch = { portfolio_r2_keys: refs };
+      // Repost-watch: hash the gallery post-write (cron-free, self-swallowing).
+      if (refs.length > 0 && tr?.vendor_profile_id) {
+        const vendorProfileId = tr.vendor_profile_id;
+        after(() =>
+          hashAndScanVendorImages({
+            vendorProfileId,
+            refs,
+            surface: 'portfolio',
+          }),
+        );
+      }
+      break;
+    }
+    case 'gallery_videos': {
+      // Featured videos (relocated · 2026-07-05). External URLs validated +
+      // deduped + capped at 10 to match the DB cardinality CHECK — identical to
+      // saveVendorProfile's gallery_video_links parse.
+      patch = {
+        gallery_video_links: parseVideoLinks(
+          formData.getAll('gallery_video_links'),
+        ),
+      };
+      break;
+    }
     default:
       return { ok: false, error: 'That field can’t be edited here.' };
   }
@@ -804,6 +876,21 @@ export async function updateVendorProfileField(
 
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/profile');
+  // Gallery & media edits (portfolio / featured videos) also change the PUBLIC
+  // microsite, so revalidate /v/[slug] + its bare-root alias — mirrors what the
+  // full-form saveVendorProfile relied on via its /vendor-dashboard revalidate.
+  if (GALLERY_MEDIA_FIELDS.has(field)) {
+    const { data: slugRow } = await supabase
+      .from('vendor_profiles')
+      .select('business_slug')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const slug = (slugRow as { business_slug?: string | null } | null)?.business_slug;
+    if (slug) {
+      revalidatePath(`/v/${slug}`);
+      revalidatePath(`/${slug}`);
+    }
+  }
   return { ok: true };
 }
 

@@ -49,7 +49,7 @@ export function ManageTiles({
   const toggle = (t: ToolKey) => setOpen((cur) => (cur === t ? null : t));
 
   return (
-    <section className="space-y-3">
+    <section id="manage-shop" className="space-y-3">
       {/* Heading kept for the a11y outline but visually removed (owner
           2026-07-02: "remove the Manage your shop text"). */}
       <h2 className="sr-only">Manage your shop</h2>

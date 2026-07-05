@@ -117,10 +117,10 @@ export default async function VendorQrGeneratorPage({
             profile.
           </p>
           <Link
-            href="/vendor-dashboard/profile"
+            href="/vendor-dashboard/shop"
             className="mt-4 inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2 text-sm font-medium text-cream hover:bg-ink/90"
           >
-            Go to my profile
+            Go to my shop
           </Link>
         </div>
       ) : mode === 'locked' ? (

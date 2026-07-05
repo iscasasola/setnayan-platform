@@ -185,7 +185,11 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       // Shop overview — the storefront landing (proto-shell 6-menu destination).
       // First item so the /more "My Shop" section leads with it.
       { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
-      { key: 'profile', label: 'Profile', href: '/vendor-dashboard/profile', icon: User, matchPrefix: '/vendor-dashboard/profile' },
+      // Profile editing + the gallery/video/Instagram media editors consolidated
+      // onto My Shop (2026-07-05); the old /vendor-dashboard/profile route now
+      // redirects there. Point the item at My Shop so it lands live, not on a
+      // redirect hop.
+      { key: 'profile', label: 'Profile', href: '/vendor-dashboard/shop', icon: User, matchPrefix: '/vendor-dashboard/profile' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },

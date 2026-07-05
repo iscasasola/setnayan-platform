@@ -4,8 +4,8 @@
  * WHY: 2026-06-15 nav-tune (owner-picked). The vendor bottom nav gained a
  * "Website" tab; the owner chose "live page preview" — it shows the vendor
  * their public microsite (/v/[slug]) exactly as couples see it, with an Edit
- * entry back to the profile editor and an Open-live link. This is a viewer,
- * not an editor: every field is changed at /vendor-dashboard/profile.
+ * entry back to My Shop and an Open-live link. This is a viewer, not an editor:
+ * every field is changed at /vendor-dashboard/shop (My Shop → Website Editor).
  *
  * The public page is keyed on `business_slug` (a Pro/Enterprise custom-address
  * feature) and only renders for publicly-visible profiles (coming_soon +
@@ -99,7 +99,7 @@ export default async function VendorWebsitePreview() {
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                href="/vendor-dashboard/profile"
+                href="/vendor-dashboard/shop"
                 className="button-secondary inline-flex items-center gap-2"
               >
                 <SquarePen aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -183,15 +183,15 @@ export default async function VendorWebsitePreview() {
               ? 'Your page goes live once your profile is published and verification is underway. Until then it stays private to you.'
               : 'Your public page lives at a custom address like ' +
                 `${DISPLAY_HOST}/v/your-name` +
-                '. Add yours in Profile, then this tab shows a live preview of exactly what couples see.'}
+                '. Add yours in My Shop, then this tab shows a live preview of exactly what couples see.'}
           </p>
           <div className="pt-1">
             <Link
-              href="/vendor-dashboard/profile"
+              href="/vendor-dashboard/shop"
               className="button-primary inline-flex items-center gap-2"
             >
               <SquarePen aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {slug ? 'Edit profile' : 'Set up my page'}
+              {slug ? 'Edit in My Shop' : 'Set up my page'}
             </Link>
           </div>
         </section>

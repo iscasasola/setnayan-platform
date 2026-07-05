@@ -17,7 +17,10 @@ import {
 // 3. Resolves the connected IG account's profile (id + username) via /me.
 // 4. Encrypts the token at-rest (lib/encryption) and upserts
 //    public.vendor_ig_connections keyed by vendor_profile_id (one per vendor).
-// 5. Redirects back to /vendor-dashboard/profile with a status flag.
+// 5. Redirects back to My Shop (/vendor-dashboard/shop) with a status flag,
+//    deep-linking to the Gallery & media / Instagram section (#gallery-media).
+//    (Repointed 2026-07-05 — the IG editor moved from the retired /profile page
+//    into the My Shop → Website Editor.)
 //
 // SECURITY: the access token is encrypted before it touches the DB and NEVER
 // leaves this route in a redirect param, log, or error. Error reasons are
@@ -27,11 +30,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const STATE_TTL_MIN = 10;
-const PROFILE_PATH = '/vendor-dashboard/profile';
+// My Shop → Website Editor hosts the Instagram card now (relocated 2026-07-05).
+const SHOP_PATH = '/vendor-dashboard/shop';
+// Deep-link to the Gallery & media section so the vendor lands on the IG card.
+const IG_SECTION_HASH = '#gallery-media';
 
 function redirectWithError(origin: URL, reason: string): NextResponse {
-  const target = new URL(PROFILE_PATH, origin);
+  const target = new URL(SHOP_PATH, origin);
   target.searchParams.set('ig_error', reason);
+  target.hash = IG_SECTION_HASH;
   return NextResponse.redirect(target);
 }
 
@@ -126,7 +133,8 @@ export async function GET(req: NextRequest) {
     return redirectWithError(url, 'persist_failed');
   }
 
-  const target = new URL(PROFILE_PATH, url);
+  const target = new URL(SHOP_PATH, url);
   target.searchParams.set('ig_connected', '1');
+  target.hash = IG_SECTION_HASH;
   return NextResponse.redirect(target);
 }

@@ -66,7 +66,6 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
-import { FilmsRack } from './_components/films-rack';
 import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
@@ -107,13 +106,10 @@ import {
 } from '@/lib/realstories-vendor';
 import {
   fetchVendorMicrosite,
-  fetchVimeoThumb,
   isSectionVisible,
   micrositeAccentVars,
   micrositeCan,
   orderFeaturedFirst,
-  videoEmbedUrl,
-  videoThumb,
 } from '@/lib/vendor-microsite';
 import {
   DEMO_MODE_COOKIE_NAME,
@@ -940,33 +936,13 @@ export async function renderVendorBySlug({
   // Custom tier inherits the flagship hero + films rack without a hard equality.
   const isEnterprise = micrositeCan(vendor.tier_state ?? null).isEnterprise;
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
-  // Films rack — resolve each ref to a click-to-play facade card (poster +
-  // embed URL). The rack renders thumbnail facades, NOT live iframes, and only
-  // injects the real player on click — so a vendor with up to 30 films costs one
-  // <img> each, not 30 embeds. YouTube posters are deterministic; Vimeo posters
-  // come from a 7-day-cached oEmbed lookup fetched CONCURRENTLY (Promise.all) so
-  // 30 Vimeo links add no serial latency, degrading to a poster-less facade on
-  // any failure. Only built when the rack will actually render.
-  const filmCards =
-    isEnterprise && microsite.videos.length > 0
-      ? await Promise.all(
-          microsite.videos.map(async (ref) => ({
-            key: `${ref.provider}:${ref.id}`,
-            provider: ref.provider,
-            embedUrl: videoEmbedUrl(ref),
-            poster:
-              videoThumb(ref) ??
-              (ref.provider === 'vimeo'
-                ? await fetchVimeoThumb(ref.id, ref.hash)
-                : null),
-          })),
-        )
-      : [];
-  // Featured videos — the vendor's pasted external links (all tiers, migration
-  // 20270518165113). Each is classified: YouTube / Vimeo render as inline 16:9
-  // iframes, everything else (Instagram / Facebook / TikTok / other) as a
-  // link-out card. Unparseable entries are dropped. Distinct from the
-  // Enterprise "Films" rack above, which is a curated microsite feature.
+  // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
+  // video system). The retired Enterprise-only "Films" rack (microsite_video_ids)
+  // was folded into gallery_video_links (data migration
+  // 20270519000000_merge_microsite_videos_into_gallery), so every video now
+  // renders here. Each pasted link is classified: YouTube / Vimeo → inline 16:9
+  // iframes; Instagram / Facebook / TikTok / other → link-out cards. Unparseable
+  // entries are dropped.
   const featuredVideos = (vendor.gallery_video_links ?? [])
     .map((url) => parseVideoLink(url))
     .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null);
@@ -1846,13 +1822,9 @@ export async function renderVendorBySlug({
           </section>
         ) : null}
 
-        {/* Films — the Enterprise "Flagship" video portfolio. Click-to-play
-            thumbnail facades (YouTube-nocookie + Vimeo dnt=1 injected on click),
-            first ~6 shown with a "Show all" expander. Enterprise-only + reverts
-            on downgrade (data kept); auto-hidden when empty. */}
-        {filmCards.length > 0 ? (
-          <FilmsRack films={filmCards} title={displayLabel} />
-        ) : null}
+        {/* Films rack RETIRED 2026-07-05 — unified into the all-tier "Featured
+            videos" gallery above (owner: single video system). Vendors' existing
+            films were migrated into gallery_video_links. */}
 
         {/* Editorials ("Real Stories") — the vendor's published, couple-consented
             weddings, told in full. Featured-first (Pro pick); the lead story is a

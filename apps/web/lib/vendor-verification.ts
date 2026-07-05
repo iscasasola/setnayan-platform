@@ -159,6 +159,13 @@ export type DocSlot = {
   label: string;
   kind: DocSlotKind;
   hint: string;
+  /**
+   * Optional Help Center article slug (`/help/{guideSlug}`) explaining how to
+   * obtain / prepare this document. Set on the legal + financial slots that
+   * vendors often don't know how to source (DTI/SEC, BIR 2303, Mayor's Permit,
+   * bank proof); the card renders a "How to get this →" link when present.
+   */
+  guideSlug?: string;
 };
 
 // PRUNED 2026-07-03 (owner: "we do not need this … what we have, that is it"):
@@ -176,6 +183,7 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     label: 'DTI or SEC Registration',
     kind: 'upload',
     hint: 'DTI Business Name Certificate (sole proprietor) or SEC Registration (corporation / partnership). PDF / JPG / PNG up to 15 MB.',
+    guideSlug: 'how-to-get-dti-sec-registration',
   },
   {
     key: 'bir_2303',
@@ -183,6 +191,7 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     label: 'BIR Form 2303 (Certificate of Registration)',
     kind: 'upload',
     hint: 'PDF / JPG / PNG up to 15 MB.',
+    guideSlug: 'how-to-get-bir-2303',
   },
   {
     key: 'mayors_permit',
@@ -190,13 +199,15 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     label: "Mayor's Permit (current year)",
     kind: 'upload',
     hint: 'PDF / JPG / PNG up to 15 MB.',
+    guideSlug: 'how-to-get-mayors-permit',
   },
   {
     key: 'bank_account_proof',
     number: 4,
     label: 'Bank account proof',
     kind: 'upload',
-    hint: 'Screenshot or PDF of Maya / GCash / bank statement. Micro-deposit verification happens once Setnayan Pay integration is live.',
+    hint: 'Screenshot or PDF of Maya / GCash / bank statement showing the account name, provider, and number — the name should match your DTI/SEC business name (or your own name if sole proprietor). You can blur the balance. Micro-deposit verification happens once Setnayan Pay integration is live.',
+    guideSlug: 'how-to-prepare-bank-account-proof',
   },
   {
     key: 'portfolio_samples',

@@ -180,6 +180,60 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     ],
   },
   {
+    key: 'getting-verified',
+    label: 'Getting verified',
+    roles: ['vendor'],
+    articles: [
+      {
+        slug: 'how-to-get-dti-sec-registration',
+        title: 'How to get your DTI or SEC registration',
+        body:
+          'This is proof your business is legally registered. Which one you need depends on how your business is set up.\n\n' +
+          'If you are a SOLE PROPRIETOR (just you, under a business name), register a Business Name with the DTI. It is done fully online and usually approved within minutes.\n' +
+          '1. Go to the DTI Business Name Registration System: https://bnrs.dti.gov.ph\n' +
+          '2. Search that your business name is available, then fill in your details and pick your territorial scope (Barangay, City, Regional, or National — a wider scope costs a bit more).\n' +
+          '3. Pay the fee online. Download the DTI Business Name Certificate (PDF).\n\n' +
+          'If you are a CORPORATION or PARTNERSHIP, register with the SEC instead, through eSPARC: https://esparc.sec.gov.ph\n' +
+          'Once approved, download your SEC Certificate of Registration.\n\n' +
+          'Upload whichever certificate applies to you (PDF, JPG, or PNG, up to 15 MB). You only need one — DTI OR SEC, not both.',
+      },
+      {
+        slug: 'how-to-get-bir-2303',
+        title: 'How to get your BIR Form 2303',
+        body:
+          'BIR Form 2303 is your Certificate of Registration with the Bureau of Internal Revenue. It confirms you are registered to issue receipts and pay taxes. You get it AFTER your DTI or SEC registration.\n\n' +
+          '1. Register your business with the BIR. You can start online through ORUS (Online Registration and Update System): https://orus.bir.gov.ph — or go in person to the Revenue District Office (RDO) that covers your business address.\n' +
+          '2. Bring/submit your DTI or SEC certificate, a valid government ID, and proof of address. The BIR will tell you your tax type (most small vendors are Non-VAT / Percentage Tax).\n' +
+          '3. Once processed, the BIR issues Form 2303. Keep the original — you also need to register your official receipts.\n\n' +
+          'Upload a clear copy of Form 2303 (PDF, JPG, or PNG, up to 15 MB). Make sure the registered name and TIN are readable.',
+      },
+      {
+        slug: 'how-to-get-mayors-permit',
+        title: "How to get your Mayor's Permit",
+        body:
+          "The Mayor's Permit (also called a Business Permit) is issued by the city or municipality where you operate. It must be for the CURRENT year — it is renewed every January.\n\n" +
+          '1. Go to the Business Permits and Licensing Office (BPLO) of your city or municipality. Many LGUs now let you apply or renew online — check your local government website.\n' +
+          '2. Typical requirements: your DTI or SEC certificate, BIR registration, Barangay Business Clearance, and proof of location (lease contract or, if you own it, tax declaration).\n' +
+          '3. Pay the assessed local fees. The LGU issues your Business Permit and the plate/sticker for the year.\n\n' +
+          'Requirements and fees vary by LGU, so your city hall is the best source of the exact list. Upload the current-year permit (PDF, JPG, or PNG, up to 15 MB).',
+      },
+      {
+        slug: 'how-to-prepare-bank-account-proof',
+        title: 'How to prepare your bank account proof',
+        body:
+          'This shows you control a real payout account under your business identity. It is a trust check — Setnayan does not hold your money, and the deposit-verification step only starts once Setnayan Pay is live.\n\n' +
+          'Your proof just needs to clearly show three things:\n' +
+          '1. The account holder name — this should match your DTI/SEC business name (or your own name if you are a sole proprietor).\n' +
+          '2. The provider — the bank name, or GCash / Maya.\n' +
+          '3. The account number (you may mask the middle digits).\n\n' +
+          'What counts as valid proof:\n' +
+          '- GCash or Maya: a screenshot of your in-app Profile / "My Account" page showing your name and number.\n' +
+          '- Bank: a screenshot of your account details in the banking app, a bank certificate, the header of a bank statement, or a photo of your passbook cover.\n\n' +
+          'You do NOT need to show your balance or transaction history — feel free to blur those. Upload a screenshot or PDF (up to 15 MB).',
+      },
+    ],
+  },
+  {
     key: 'guests',
     label: 'Guest list',
     roles: ['couple'],
@@ -560,6 +614,9 @@ export function relatedHelpArticles(
  * word boundary, never mid-word, with an ellipsis when truncated.
  */
 export function helpMetaDescription(body: string, max = 155): string {
+  // Flatten paragraph newlines/indentation to single spaces so multi-line
+  // article bodies still yield a clean one-line meta description.
+  body = body.replace(/\s+/g, ' ').trim();
   if (body.length <= max) return body;
   const slice = body.slice(0, max);
   const lastSpace = slice.lastIndexOf(' ');

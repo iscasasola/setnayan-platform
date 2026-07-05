@@ -39,3 +39,22 @@ first column; page body never scrolls sideways.
 SPEC IMPACT: None. Marketing-surface copy/layout rebuild + one data-catalog
 benefit label; the vendor tier ladder, prices, caps, and entitlements are
 unchanged (prices remain read from the live catalog). No corpus edit required.
+
+## 2026-07-05 · chore(marketing): /vendors hero copy + image refresh
+
+Refreshed the `/vendors` hero (`vendor-grow-hero.tsx`) — copy + image swap only.
+
+- **Image** swapped from `vendor-late-night.avif` to a new warm candid asset
+  `public/for-vendors/vendor-planning.webp` (a wedding-business owner planning
+  her bookings at her desk); `objectPosition` `center 45%`, alt updated.
+- **Headline** → "Everything your business needs. Set na 'yan."
+- **Subheader** → "Profile, clients, calendar, bookings, and your own website.
+  All set up free, kept free. Pay only for the extra reach you choose."
+- **Removed the eyebrow kicker** (the "Setnayan for Vendors" m-mono label +
+  gold line) per the project no-eyebrow-kickers rule; h1 top margin adjusted.
+- **Primary CTA** copy → "List your business for free" (em dash removed);
+  `href="/open-shop"` unchanged. Secondary CTA, scrim, and all `--m-*` tokens
+  untouched.
+
+SPEC IMPACT: None. Single marketing component — copy + image only; no
+schema/price/entitlement change.

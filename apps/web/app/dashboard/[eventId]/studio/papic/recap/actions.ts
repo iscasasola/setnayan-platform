@@ -1,9 +1,12 @@
 'use server';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { composeRecapSocialPost } from '@/lib/social/recap-post';
+import { runSocialFlush } from '@/lib/social/flush';
 
 // Iteration 0012 Papic — Auto-Recap publish controls (couple-side).
 //
@@ -72,6 +75,17 @@ export async function publishRecap(formData: FormData): Promise<void> {
   );
 
   await revalidateRecap(eventId, await slugFor(eventId));
+
+  // Event completed → recap is live. Auto-share it to Setnayan's OWN Facebook
+  // Page + Instagram Business account through the EXISTING social pipeline
+  // (compose a source_type='event_recap' social_posts row · deduped per event ·
+  // then kick the cron-free flush that dispatches it). Off the couple's
+  // critical path via after(); both calls never throw and are inert when Meta
+  // isn't configured (nothing dispatches until the owner arms autopublish).
+  after(async () => {
+    await composeRecapSocialPost(eventId);
+    await runSocialFlush().catch(() => {});
+  });
 }
 
 export async function unpublishRecap(formData: FormData): Promise<void> {

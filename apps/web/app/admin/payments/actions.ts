@@ -12,8 +12,8 @@ import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { formatPhp, orderGrossOwed } from '@/lib/orders';
-import { computeVatFromBase } from '@/lib/receipts';
+import { formatPhp, orderGrossOwed, isVatInclusiveServiceKey } from '@/lib/orders';
+import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
 import { captureEvent } from '@/lib/analytics';
 import {
   computePayoutBreakdown,
@@ -186,6 +186,12 @@ export async function approvePayment(formData: FormData) {
           order.voucher_discount_centavos != null
             ? Number(order.voucher_discount_centavos) / 100
             : 0,
+        // Vendor charm prices (₱999 branch add-on, tiers, tokens) are quoted
+        // ALL-IN — the stored total already includes VAT, so owed = that total,
+        // not total×1.12. Without this the guard demanded base×1.12 and stranded
+        // every vendor order "matched but never promoted" (owner-locked
+        // 2026-07-05; see isVatInclusiveServiceKey + DECISION_LOG).
+        vatInclusive: isVatInclusiveServiceKey(order.service_key),
       });
       const SHORTFALL_TOLERANCE_PHP = 1; // absorb centavo rounding across payments
       if (matchedTotal < owed - SHORTFALL_TOLERANCE_PHP) {
@@ -481,13 +487,15 @@ async function issueReceiptForOrder(args: {
 
   const { data: order } = await admin
     .from('orders')
-    .select('user_id, confirmed_total_php, requested_total_php, voucher_discount_centavos')
+    .select('user_id, service_key, confirmed_total_php, requested_total_php, voucher_discount_centavos')
     .eq('order_id', orderId)
     .maybeSingle();
   if (!order) return;
 
-  // The order's *_total_php fields are the **pre-VAT base** (the value Setnayan
-  // quotes). VAT is added on top: customer paid (base + 12%).
+  // For customer SKUs the order's *_total_php fields are the **pre-VAT base**
+  // (the value Setnayan quotes); VAT is added on top, so the buyer paid
+  // base + 12%. For vendor charm prices the stored total is ALREADY the
+  // all-in gross (VAT baked in) — see isVatInclusiveServiceKey.
   //
   // #3 (money bug-hunt 2026-06-26): a BIR Official Receipt must reflect the
   // amount actually paid. `requested_total_php` is the PRE-voucher base, so a
@@ -495,11 +503,11 @@ async function issueReceiptForOrder(args: {
   // getting a receipt overstating the pre-VAT/VAT/gross. Mirror `orderGrossOwed`:
   // net the voucher discount off the requested base when not yet confirmed.
   const voucherDiscountPhp = Number(order.voucher_discount_centavos ?? 0) / 100;
-  const base =
+  const storedTotal =
     order.confirmed_total_php != null
       ? Number(order.confirmed_total_php)
       : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
-  if (base <= 0) return;
+  if (storedTotal <= 0) return;
 
   const { data: buyer } = await admin
     .from('users')
@@ -507,7 +515,12 @@ async function issueReceiptForOrder(args: {
     .eq('user_id', order.user_id)
     .maybeSingle();
 
-  const { preVat, vat, gross } = computeVatFromBase(base);
+  // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
+  // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
+  // orders: build VAT UP from the pre-VAT base, unchanged.
+  const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
+    ? computeVatFromGross(storedTotal)
+    : computeVatFromBase(storedTotal);
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().

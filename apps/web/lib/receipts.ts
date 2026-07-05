@@ -42,6 +42,27 @@ export function computeVatFromBase(
   return { preVat, vat, gross, rate };
 }
 
+/**
+ * VAT-INCLUSIVE decomposition — the mirror of {@link computeVatFromBase}.
+ * For a price quoted **all-in** (the gross the buyer pays already INCLUDES VAT
+ * — e.g. vendor-billing "charm" fees like ₱999, owner-locked 2026-07-05), back
+ * the VAT out of the gross rather than building it up from a base.
+ *
+ * Math: vat = gross * rate / (100 + rate); preVat = gross − vat.
+ * So preVat + vat === gross exactly (to 2dp), and the buyer is never charged
+ * more than the quoted all-in price. Returns 2dp-rounded numbers.
+ */
+export function computeVatFromGross(
+  grossPhp: number,
+  vatRatePct: number = DEFAULT_VAT_RATE_PCT,
+): { preVat: number; vat: number; gross: number; rate: number } {
+  const gross = Math.round(grossPhp * 100) / 100;
+  const rate = vatRatePct;
+  const vat = Math.round(((gross * rate) / (100 + rate)) * 100) / 100;
+  const preVat = Math.round((gross - vat) * 100) / 100;
+  return { preVat, vat, gross, rate };
+}
+
 // Setnayan transaction receipts (not BIR Official Receipts). The actual
 // BIR OR for a paid order is issued by Setnayan separately, offline. The
 // `or_serial` DB column name is legacy and kept as-is; we just label it

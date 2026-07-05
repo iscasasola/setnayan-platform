@@ -144,15 +144,23 @@ export async function approvePayment(formData: FormData) {
     },
   });
 
-  await emitNotification({
-    userId: payment.user_id,
-    type: 'payment_matched',
-    title: `Payment of ${formatPhp(payment.amount_php)} matched`,
-    body: adminNotes ?? 'The Setnayan team confirmed your payment.',
-    relatedUrl: order?.event_id
-      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-      : null,
-  });
+  // Best-effort — a notification write must NEVER fail the reconciliation.
+  // The payment is already matched (the critical write above committed); if
+  // notifying the buyer throws, the admin should still see a clean success
+  // rather than a 500 that makes them re-click an already-done approval.
+  try {
+    await emitNotification({
+      userId: payment.user_id,
+      type: 'payment_matched',
+      title: `Payment of ${formatPhp(payment.amount_php)} matched`,
+      body: adminNotes ?? 'The Setnayan team confirmed your payment.',
+      relatedUrl: order?.event_id
+        ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+        : null,
+    });
+  } catch (e) {
+    console.error('payment_matched notification failed (non-fatal):', e);
+  }
 
   if (promoteOrder) {
     // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
@@ -181,11 +189,21 @@ export async function approvePayment(formData: FormData) {
       });
       const SHORTFALL_TOLERANCE_PHP = 1; // absorb centavo rounding across payments
       if (matchedTotal < owed - SHORTFALL_TOLERANCE_PHP) {
-        throw new Error(
-          `Can't mark this order paid yet: matched payments total ${formatPhp(matchedTotal)}, ` +
-            `but ${formatPhp(owed)} is owed (incl. 12% VAT) — ${formatPhp(owed - matchedTotal)} short. ` +
-            `The payment is matched; leave "promote to paid" off to record it as partial, or promote once the balance is paid.`,
-        );
+        // A short/partial transfer is a NORMAL business case — it must not
+        // promote the order, but it must NOT crash the admin with a generic
+        // 500 either. The payment is already matched (recorded); surface the
+        // "why" as an inline notice on the queue instead of an uncaught throw,
+        // so the admin can record it as partial or chase the balance. (Was a
+        // `throw new Error(...)` that rendered the generic error page — see
+        // DECISION_LOG 2026-07-05.) The redirect is a NEXT_REDIRECT control
+        // exit, so — exactly like the prior throw — activation below does NOT
+        // run for a short-paid order.
+        const notice =
+          `Payment matched, but the order was NOT marked paid: ` +
+          `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed (incl. 12% VAT) — ` +
+          `${formatPhp(owed - matchedTotal)} short. Leave “Also mark order as paid” unchecked to ` +
+          `record it as partial, or promote once the balance is paid.`;
+        redirect(`/admin/payments?filter=all&notice=${encodeURIComponent(notice)}&noticeType=warn`);
       }
     }
 
@@ -211,15 +229,22 @@ export async function approvePayment(formData: FormData) {
       );
     }
 
-    await emitNotification({
-      userId: payment.user_id,
-      type: 'order_paid',
-      title: `Order ${order?.public_id ?? ''} marked paid`,
-      body: "Your order is fully paid. We'll start work right away.",
-      relatedUrl: order?.event_id
-        ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-        : null,
-    });
+    // Best-effort (same contract as payment_matched above): the order is
+    // already promoted to 'paid'; a notification failure must not surface a
+    // 500 that makes the admin think the fully-successful approval failed.
+    try {
+      await emitNotification({
+        userId: payment.user_id,
+        type: 'order_paid',
+        title: `Order ${order?.public_id ?? ''} marked paid`,
+        body: "Your order is fully paid. We'll start work right away.",
+        relatedUrl: order?.event_id
+          ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+          : null,
+      });
+    } catch (e) {
+      console.error('order_paid notification failed (non-fatal):', e);
+    }
 
     // Couple referral rewards — QUALIFYING EVENT is this buyer's FIRST PAID
     // ORDER. If they signed up via a ?refc= code, the hook marks their open
@@ -311,17 +336,21 @@ export async function approvePayment(formData: FormData) {
     });
   }
 
+  // The admin's OWN views revalidate synchronously so the queue reflects the
+  // approval on this response.
   revalidatePath('/admin/payments');
   revalidatePath('/admin/payouts');
   // Force a refresh of the couple's user-facing routes so any
   // activation-reading UI (Setnayan AI banner, add-on pages) picks up the
-  // status change immediately. Full activation-cycle UI fix is queued as
-  // PR B (proper per-SKU activation dispatcher); for now this at least
-  // makes the couple's dashboard re-render fresh data after admin approves.
-  // (Brand-layer note 2026-05-28 V2 cutover — historical reference to the
-  // "Concierge banner" tracks the same surface; banner copy now reads
-  // "Setnayan AI".)
-  revalidatePath('/dashboard', 'layout');
+  // status change. DEFERRED to after() (2026-07-05): this broad
+  // `/dashboard`-layout revalidation re-renders couple pages, and a render-time
+  // fault in one of them (e.g. the checklist page's revalidate-during-render,
+  // Sentry JAVASCRIPT-NEXTJS-B) would otherwise surface as a generic 500 to the
+  // admin EVEN THOUGH the approval fully succeeded — making them re-click an
+  // already-done reconciliation. Running it post-response guarantees a
+  // fully-successful approval never shows the admin an error; the couple's UI
+  // still refreshes a beat later. See DECISION_LOG 2026-07-05.
+  after(() => revalidatePath('/dashboard', 'layout'));
 }
 
 async function schedulePayoutsForOrder(args: {

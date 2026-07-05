@@ -29,6 +29,10 @@
  *   META_IG_OAUTH_REDIRECT_URI  (optional — defaults to the request origin +
  *                                /api/vendor/instagram/callback)
  *
+ * The connected Instagram account must be a Business or Creator account (the
+ * Instagram Graph API rejects personal accounts). Until IG_APP_ID/IG_APP_SECRET
+ * are set the flow is fully inert (connect route returns a friendly 503).
+ *
  * SECURITY: this module is server-side only. Access tokens are NEVER returned to
  * a client, NEVER logged, and NEVER placed in an error message that reaches the
  * browser. THIS MODULE IS SERVER-SIDE ONLY. Never import from a client component.

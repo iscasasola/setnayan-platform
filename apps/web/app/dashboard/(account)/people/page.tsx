@@ -86,18 +86,21 @@ async function fetchMyConnections(userId: string): Promise<{
   const otherIds = [
     ...new Set(rows.map((r) => (r.from_person_id === myPerson ? r.to_person_id : r.from_person_id))),
   ];
+  // Cross-person name visibility (owner-signed-off rule 2026-07-05): resolve
+  // names ONLY through `visible_connection_names`, which returns display_name and
+  // ONLY for people we share a CONFIRMED edge with — name only, no contact
+  // details. Pending/outgoing connections therefore stay unnamed (the panel
+  // degrades to "Someone"/"Pending") until both sides confirm.
   const names = new Map<string, string>();
-  const { data: peopleData } = await supabase
-    .from('people')
-    .select('person_id, display_name, email')
-    .in('person_id', otherIds);
-  for (const p of (peopleData ?? []) as Array<{
+  const { data: nameRows } = await supabase.rpc('visible_connection_names', {
+    p_person_ids: otherIds,
+  });
+  for (const r of (nameRows ?? []) as Array<{
     person_id: string;
     display_name: string | null;
-    email: string | null;
   }>) {
-    const label = (p.display_name ?? p.email ?? '').trim();
-    if (label) names.set(p.person_id, label);
+    const label = (r.display_name ?? '').trim();
+    if (label) names.set(r.person_id, label);
   }
 
   const incoming: ConnectionItem[] = [];

@@ -11,10 +11,11 @@ import { DECLARABLE_RELATIONS, type ConnectionRelation } from '@/lib/people-conn
  * propose/confirm/decline server actions. Nothing here runs in production until
  * the flag is on (post PH counsel).
  *
- * Known limitation (resolved by the counsel-gated cross-person name-visibility
- * RLS): a connected person's NAME shows only when the current account can see
- * that person's row under `people` RLS (i.e. people you added). Otherwise it
- * degrades to a neutral label until that RLS lands with the flag flip.
+ * Name visibility (owner-signed-off rule 2026-07-05): a counterpart's NAME
+ * resolves via `visible_connection_names` — name only, and only for CONFIRMED
+ * connections. So confirmed people are named here, while pending/outgoing
+ * requests deliberately stay neutral ("Someone"/"Pending") until both sides
+ * confirm. That's the mutual-confirmation-as-consent line, not a fallback.
  */
 
 export type ConnectionItem = {

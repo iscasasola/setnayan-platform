@@ -40,6 +40,7 @@ import {
   resolveBrandMarkUrl,
   withBrandVersion,
 } from '@/lib/brand-settings';
+import { getLoaderSettings } from '@/lib/loader-settings';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -460,12 +461,20 @@ export default async function RootLayout({
   //     with generateMetadata's call, null → built-in gold default).
   //   • nav/icon/menu-registry slot map for the public marketing nav (label-only;
   //     SiteChrome overlays public.site-nav.* labels; fails open to code defaults).
-  const [brandSettings, navSlots] = await Promise.all([getBrandSettings(), getNavSlotMap()]);
+  //   • loader appearance (owner 2026-07-05; variant/veil/cadence/pop, threaded
+  //     to every <SDLoader> via LoaderConfigProvider; DEFAULT on any DB error).
+  const [brandSettings, navSlots, loaderConfig] = await Promise.all([
+    getBrandSettings(),
+    getNavSlotMap(),
+    getLoaderSettings(),
+  ]);
   const brandMarkUrl = resolveBrandMarkUrl(brandSettings);
 
   return (
     <html
       lang="en-PH"
+      data-loader-variant={loaderConfig.variant}
+      style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
       className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sourceSans.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
@@ -527,11 +536,20 @@ export default async function RootLayout({
           Hidden (display:none) on every other surface — zero marketing impact.
         */}
         <div id="sn-init-splash" aria-hidden="true">
-          <div className="sd-loader" data-theme="light">
+          {/* data-loader-variant mirrors the admin choice so the boot splash
+              matches the in-app loader; the aurora + pulse decorative layers are
+              CSS-toggled by variant (hidden for `gather`). Owner 2026-07-05. */}
+          <div className="sd-loader" data-theme="light" data-loader-variant={loaderConfig.variant}>
             <div className="sd-stage">
               <div className="sd-scene">
                 <div className="sd-core">
                   <div className="sd-glow" />
+                  <div className="sd-aurora" />
+                  <div className="sd-pulse">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
                   <div
                     className="sd-lg"
                     style={{ backgroundImage: "url('/brand/setnayan-mark.svg')" }}
@@ -571,7 +589,7 @@ export default async function RootLayout({
             inside <Providers> so it shares the same theme/brand context the
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
-        <Providers brandMarkUrl={brandMarkUrl}>
+        <Providers brandMarkUrl={brandMarkUrl} loaderConfig={loaderConfig}>
           <SiteChrome navSlots={navSlots} />
           {children}
           {/* SiteFooterChrome = the ONE persistent reskin footer, mounted

@@ -17,9 +17,11 @@ import {
   fetchPlatformSettings,
   fetchVendorValidateContacts,
 } from '@/lib/platform-settings';
+import { getLoaderSettings } from '@/lib/loader-settings';
 import { removeBrandIcon, saveAdminDigest, saveBusinessIdentity } from './actions';
 import { TinInput } from './_components/tin-input';
 import { BrandIconUploadForm } from './_components/brand-icon-form';
+import { LoaderAppearanceCard } from './_components/loader-appearance-card';
 import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
 
 export const metadata = { title: 'Settings · Admin' };
@@ -30,6 +32,7 @@ type Props = {
     error?: string;
     brand_icon?: string;
     brand_icon_removed?: string;
+    loader_saved?: string;
   }>;
 };
 
@@ -57,6 +60,9 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
   const settings = await fetchPlatformSettings(admin);
   // Soft probe (degrades to defaults pre-migration 20270503417266).
   const validateContacts = await fetchVendorValidateContacts(admin);
+  // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
+  // 20270520000000).
+  const loaderConfig = await getLoaderSettings();
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -92,6 +98,11 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
         >
           Brand icon reset to the default gold Setnayan mark.
         </p>
+      ) : null}
+      {search.loader_saved ? (
+        <FormFlash tone="success">
+          Loading animation updated. It applies on the next navigation.
+        </FormFlash>
       ) : null}
 
       <form action={saveBusinessIdentity} className="space-y-8">
@@ -225,6 +236,13 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
         }
         faviconUrl={settings.brand_favicon_ico_url}
         version={settings.brand_icon_version}
+      />
+
+      <LoaderAppearanceCard
+        initialVariant={loaderConfig.variant}
+        initialVeilOpacity={loaderConfig.veilOpacity}
+        initialStepIntervalMs={loaderConfig.stepIntervalMs}
+        initialPopEnabled={loaderConfig.popEnabled}
       />
 
       {/* Onboarding settings moved to their own type-organized surface

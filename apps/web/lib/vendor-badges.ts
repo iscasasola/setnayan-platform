@@ -20,7 +20,19 @@
  *                        (a vendor can be Verified + Top Pick + Most
  *                        Booking at the same time).
  *
- *   3. `most_booking`  — vendor sits in the top 10% by completed
+ *   3. `couple_trusted`— verified vendor with a proven, well-rated
+ *                        review history: `review_count ≥ 10` AND
+ *                        `avg_rating_overall ≥ 4.7` out of 5. A simple
+ *                        count-floor + rating bar — it does NOT depend on
+ *                        booking counts (owner decision 2026-07-05, after
+ *                        industry research: an absolute reviews+rating
+ *                        threshold, not a coverage ratio). It's an
+ *                        ABSOLUTE gate (not a percentile), STACKS like
+ *                        every other badge, and is NOT a monthly-rotating
+ *                        Spotlight Award — it never enters the awards
+ *                        vocabulary.
+ *
+ *   4. `most_booking`  — vendor sits in the top 10% by completed
  *                        bookings count across the verified pool. We
  *                        compute against `event_vendors` rows whose
  *                        status is in ('delivered', 'complete') because
@@ -34,7 +46,7 @@
  *                        verified vendor with 8 real bookings, which
  *                        misrepresents marketplace trust.
  *
- *   4. `top_pick`      — vendor sits in the top 5% by review-weighted
+ *   5. `top_pick`      — vendor sits in the top 5% by review-weighted
  *                        score in the current calendar month. Score
  *                        is `avg_rating × ln(review_count + 1)` — a
  *                        Wilson-style proxy that rewards both quality
@@ -71,7 +83,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type VendorBadge = 'new' | 'verified' | 'most_booking' | 'top_pick';
+export type VendorBadge =
+  | 'new'
+  | 'verified'
+  | 'couple_trusted'
+  | 'most_booking'
+  | 'top_pick';
 
 /**
  * Spotlight Awards bridge (Wave 5 vendor benefit).
@@ -90,7 +107,9 @@ export type VendorBadge = 'new' | 'verified' | 'most_booking' | 'top_pick';
  *   most_booking → 'most_booked'
  *
  * Keep this list in sync if a new exclusive badge is added that should also
- * become an award.
+ * become an award. NOTE: `couple_trusted` is deliberately NOT here — it is an
+ * absolute, stacking trust badge (not an exclusive monthly recognition), so it
+ * never becomes a Spotlight Award.
  */
 export const SPOTLIGHT_AWARD_BADGES: ReadonlyArray<
   Extract<VendorBadge, 'top_pick' | 'most_booking'>
@@ -133,6 +152,13 @@ const NEW_BADGE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 // score to get top_pick.
 const MOST_BOOKING_PERCENTILE = 0.9;
 const TOP_PICK_PERCENTILE = 0.95;
+// `couple_trusted` is an ABSOLUTE (non-percentile) gate — a vendor earns it
+// on their own numbers, independent of the visible pool AND independent of
+// booking counts. Owner decision 2026-07-05: a simple review-count floor plus
+// an average-rating bar (mean overall star rating, 1–5). At least 10 reviews
+// so the average is meaningful, and ≥ 4.7★.
+const COUPLE_TRUSTED_MIN_REVIEWS = 10;
+const COUPLE_TRUSTED_MIN_AVG_RATING = 4.7;
 
 function isVerified(state: string | null): boolean {
   return state === 'verified';
@@ -143,6 +169,19 @@ function isNewWithin90d(createdAt: string | null, now: number): boolean {
   const t = Date.parse(createdAt);
   if (Number.isNaN(t)) return false;
   return now - t <= NEW_BADGE_WINDOW_MS;
+}
+
+/**
+ * `couple_trusted` gate — an ABSOLUTE (per-vendor, not percentile) badge.
+ * True when the vendor has `review_count ≥ 10` AND `avg_rating_overall ≥ 4.7`.
+ * Depends only on the vendor's own review numbers — NOT on booking counts.
+ * Verified-gating is enforced by the caller, not here.
+ */
+function isCoupleTrusted(v: VendorBadgeInput): boolean {
+  const reviewCount = v.review_count ?? 0;
+  if (reviewCount < COUPLE_TRUSTED_MIN_REVIEWS) return false;
+  const avg = Number(v.avg_rating_overall ?? 0);
+  return avg >= COUPLE_TRUSTED_MIN_AVG_RATING;
 }
 
 function topPickScore(avgRating: number, reviewCount: number): number {
@@ -225,13 +264,18 @@ export function computeVendorBadges(
     }
   }
 
-  // Second pass — assemble each vendor's badge array.
+  // Second pass — assemble each vendor's badge array in the ONE canonical
+  // render order shared across the whole system: new → verified →
+  // couple_trusted → most_booking → top_pick. Every consumer (card row,
+  // spotlight snapshot) relies on this ordering, so push in exactly this
+  // sequence.
   const out = new Map<string, VendorBadge[]>();
   for (const v of inputs) {
     const badges: VendorBadge[] = [];
     if (isVerified(v.verification_state)) {
-      badges.push('verified');
       if (isNewWithin90d(v.created_at, now)) badges.push('new');
+      badges.push('verified');
+      if (isCoupleTrusted(v)) badges.push('couple_trusted');
       if (mostBookingIds.has(v.vendor_profile_id)) badges.push('most_booking');
       if (topPickIds.has(v.vendor_profile_id)) badges.push('top_pick');
     }

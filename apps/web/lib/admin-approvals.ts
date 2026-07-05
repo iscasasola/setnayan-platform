@@ -14,7 +14,22 @@ export type ApprovalActionType =
   | 'grant_internal_account'
   | 'grant_team_pool'
   | 'promote_to_admin'
-  | 'approve_vendor_partnership';
+  | 'approve_vendor_partnership'
+  // Anti-fraud § 5 — the irreversible fraud wipe + permanent ban routes through
+  // this gate. NOT offered in the manual new-request picker (APPROVAL_ACTIONS
+  // below); initiated from /admin/fraud and confirmed by a second admin in
+  // /admin/approvals. target_id carries the vendor_profile_id.
+  | 'approve_fraud_wipe_ban';
+
+/**
+ * Display labels for action types that are NOT in the manual picker
+ * (APPROVAL_ACTIONS) but DO appear on approval rows in /admin/approvals. Keeps
+ * the pending/decided lists readable without exposing them as creatable grants.
+ */
+const NON_PICKER_ACTION_LABEL: Record<string, string> = {
+  approve_vendor_partnership: 'Approve vendor partnership',
+  approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
+};
 
 export type ApprovalActionMeta = {
   type: ApprovalActionType;
@@ -61,9 +76,11 @@ export function approvalActionMeta(type: string): ApprovalActionMeta | null {
 }
 
 export function approvalActionLabel(type: string): string {
-  return approvalActionMeta(type)?.label ?? type;
+  return approvalActionMeta(type)?.label ?? NON_PICKER_ACTION_LABEL[type] ?? type;
 }
 
 export function approvalActionBadge(type: string): string {
+  if (type === 'approve_fraud_wipe_ban') return '⛔ Fraud ban';
+  if (type === 'approve_vendor_partnership') return '🤝 Partnership';
   return approvalActionMeta(type)?.badge ?? type;
 }

@@ -127,7 +127,7 @@ async function fetchVerifiedVendorPool(
   const { data, error } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, business_name, business_slug, logo_url, created_at, verification_state',
+      'vendor_profile_id, business_name, business_slug, logo_url, created_at, verification_state, fraud_suspended_at, fraud_banned_at',
     )
     .eq('verification_state', 'verified');
 
@@ -135,14 +135,24 @@ async function fetchVerifiedVendorPool(
     throw new Error(`[spotlight-awards] verified pool fetch failed: ${error.message}`);
   }
 
-  const rows = (data ?? []) as Array<{
+  const allRows = (data ?? []) as Array<{
     vendor_profile_id: string;
     business_name: string | null;
     business_slug: string | null;
     logo_url: string | null;
     created_at: string | null;
     verification_state: string | null;
+    fraud_suspended_at: string | null;
+    fraud_banned_at: string | null;
   }>;
+
+  // Anti-fraud Phase 4 (§ 5) — never let a fraud-frozen vendor (suspended OR
+  // banned) enter the Spotlight-Award candidate pool. The enforcement writes
+  // also flip public_visibility → 'hidden', but the candidate query keys off
+  // verification_state, so exclude the frozen rows explicitly here too.
+  const rows = allRows.filter(
+    (r) => !r.fraud_suspended_at && !r.fraud_banned_at,
+  );
 
   const display = new Map<
     string,

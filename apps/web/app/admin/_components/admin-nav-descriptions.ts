@@ -49,6 +49,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   corrections: 'Verified-shop correction requests to apply or decline.',
   'integrity-watch':
     'Review-fraud and ghost-listing screener — detect and review only.',
+  fraud:
+    'Scored vendors from the fake-results hunt — investigate, then dismiss, un-suspend, or confirm a wipe + ban.',
   approvals: 'A colleague is waiting on your second sign-off.',
   pakanta: "Each couple's custom-song brief for the music team to write.",
   'editorial-review': 'Wedding editorials awaiting an editorial pass before publish.',

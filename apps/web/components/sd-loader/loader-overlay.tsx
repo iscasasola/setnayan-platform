@@ -61,6 +61,18 @@ export function useLoader(): LoaderContextValue {
   return ctx;
 }
 
+/**
+ * Non-throwing variant — returns null when there's no <LoaderOverlayProvider>
+ * ancestor instead of throwing. Used by shared primitives (e.g. <SubmitButton>)
+ * that raise the no-touch veil automatically but may, in rare cases (isolated
+ * tests, a subtree mounted outside the root providers), render without it. In
+ * the app proper the provider is always present (mounted in providers.tsx), so
+ * this resolves to the real controller everywhere it matters.
+ */
+export function useOptionalLoader(): LoaderContextValue | null {
+  return useContext(LoaderContext);
+}
+
 export function LoaderOverlayProvider({
   children,
 }: {

@@ -68,6 +68,7 @@ import type {
 import { ShareButton } from './_components/share-button';
 import { FilmsRack } from './_components/films-rack';
 import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
+import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
   type InquiryComposerService,
@@ -841,13 +842,17 @@ export async function renderVendorBySlug({
   }));
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioUrls, microsite] = await Promise.all([
+  const [attributeDetails, portfolioUrls, microsite, igMedia] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
     resolvePortfolioUrls(vendor.portfolio_r2_keys),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
     fetchVendorMicrosite(admin, vendor.vendor_profile_id),
+    // Synced Instagram posts the vendor chose to show. Best-effort: degrades to
+    // [] on any error (pre-migration DB / no connection), so the portfolio never
+    // breaks. Feature is inert until Meta is configured — until then this is [].
+    fetchVendorIgMediaForPublic(vendor.vendor_profile_id),
   ]);
   // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
   // Every premium customization is gated on the vendor's CURRENT tier, mirroring
@@ -1723,7 +1728,10 @@ export async function renderVendorBySlug({
             TikTok / other links render as click-through cards. Unparseable video
             entries are dropped upstream. Governed by the vendor's Portfolio
             visibility toggle; auto-hidden when there's nothing to show. */}
-        {showPortfolio && (portfolioUrls.length > 0 || featuredVideos.length > 0) ? (
+        {showPortfolio &&
+        (portfolioUrls.length > 0 ||
+          featuredVideos.length > 0 ||
+          igMedia.length > 0) ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
@@ -1786,6 +1794,53 @@ export async function renderVendorBySlug({
                     </span>
                   </a>
                 ),
+              )}
+              {/* Synced Instagram posts (show_on_profile) — images re-hosted in
+                  R2 render as photo tiles; videos link out to the IG permalink
+                  with a play badge, sized like a photo tile so the grid stays
+                  even. Entries without a resolvable URL are dropped. */}
+              {igMedia.map((m, idx) =>
+                m.mediaType === 'VIDEO' ? (
+                  <a
+                    key={`ig-${m.id}`}
+                    href={m.permalink ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                  >
+                    {m.displayUrl ? (
+                      <Image
+                        src={m.displayUrl}
+                        alt={`${displayLabel} Instagram video ${idx + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center bg-cream/50 text-ink/40">
+                        <Play aria-hidden className="h-6 w-6" strokeWidth={2} />
+                      </span>
+                    )}
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors group-hover:bg-black/70">
+                        <Play aria-hidden className="h-5 w-5" strokeWidth={2} />
+                      </span>
+                    </span>
+                  </a>
+                ) : m.displayUrl ? (
+                  <div
+                    key={`ig-${m.id}`}
+                    className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                  >
+                    <Image
+                      src={m.displayUrl}
+                      alt={`${displayLabel} Instagram post ${idx + 1}`}
+                      fill
+                      sizes="(max-width: 640px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : null,
               )}
             </div>
           </section>

@@ -231,6 +231,18 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '- Bank: a screenshot of your account details in the banking app, a bank certificate, the header of a bank statement, or a photo of your passbook cover.\n\n' +
           'You do NOT need to show your balance or transaction history — feel free to blur those. Upload a screenshot or PDF (up to 15 MB).',
       },
+      {
+        slug: 'build-your-online-presence',
+        title: 'Build your online presence: Instagram, YouTube & Vimeo',
+        body:
+          'Couples check who you are before they message you. A few good public links do more than any sales pitch — here is a simple setup that works for most Filipino vendors.\n\n' +
+          '1. Get a Business (or Creator) Instagram. Couples browse Instagram first, so this is the one to start with. If you already have a personal account, you do not need a new one — open the app, go to Settings and privacy > Account type and tools > Switch to professional account, and pick Business or Creator. That unlocks insights and a contact button, and keeps your work and personal life separate.\n' +
+          '2. Post your best work, not all of it. 9 to 12 strong photos or a short reel say more than 100 random shots. Add your city and what you do to your bio.\n' +
+          '3. Start a YouTube channel for the long pieces. Full films, highlight reels, and behind-the-scenes clips live well here with no time limit. Create one free at https://youtube.com and upload a couple of your best videos.\n' +
+          '4. Use Vimeo for a clean, ad-free reel. If you want your portfolio to look premium — no ads, no "up next" clutter — Vimeo is worth it. Make a free account at https://vimeo.com and upload one polished showcase video.\n' +
+          '5. Bring it all back to Setnayan. On your vendor profile, paste your YouTube and Vimeo links into Featured Videos (they play right on your page), and add every public link — Instagram, Facebook, TikTok, YouTube, Vimeo — under your social links. That way a couple sees your whole story in one place, without leaving Setnayan to go hunting.\n\n' +
+          'You do not need all of these on day one. Even one good link helps. Start with Instagram, add the rest as you go.',
+      },
     ],
   },
   {

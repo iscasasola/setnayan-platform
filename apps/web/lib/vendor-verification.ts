@@ -228,7 +228,8 @@ export const DOC_SLOTS: readonly DocSlot[] = [
     number: 7,
     label: 'Social media presence',
     kind: 'upload',
-    hint: 'Add any of your public links — website, Facebook, Instagram, TikTok, X, YouTube, Snapchat, WhatsApp, Telegram. All optional; even one helps.',
+    hint: 'Add any of your public links — website, Facebook, Instagram, TikTok, X, YouTube, Vimeo, Snapchat, WhatsApp, Telegram. All optional; even one helps.',
+    guideSlug: 'build-your-online-presence',
   },
   {
     key: 'google_meet',
@@ -311,6 +312,7 @@ export const SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
   { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@your-brand', kind: 'url' },
   { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/your-brand', kind: 'url' },
   { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@your-brand', kind: 'url' },
+  { key: 'vimeo', label: 'Vimeo', placeholder: 'https://vimeo.com/your-channel', kind: 'url' },
   { key: 'snapchat', label: 'Snapchat', placeholder: 'https://snapchat.com/add/your-brand', kind: 'url' },
   { key: 'whatsapp', label: 'WhatsApp', placeholder: '+63 9XX XXX XXXX or wa.me/…', kind: 'phone' },
   { key: 'telegram', label: 'Telegram', placeholder: '@your-brand or t.me/…', kind: 'handle' },
@@ -339,6 +341,7 @@ export function detectSocialPlatform(rawUrl: string): string | null {
   if (host.includes('tiktok.')) return 'tiktok';
   if (host === 'x.com' || host.includes('twitter.')) return 'x';
   if (host.includes('youtube.') || host === 'youtu.be') return 'youtube';
+  if (host.includes('vimeo.')) return 'vimeo';
   if (host.includes('snapchat.')) return 'snapchat';
   if (host.includes('whatsapp.') || host === 'wa.me') return 'whatsapp';
   if (host.includes('telegram.') || host === 't.me') return 'telegram';

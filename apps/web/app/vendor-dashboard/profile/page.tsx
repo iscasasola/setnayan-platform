@@ -28,6 +28,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { saveVendorProfile } from '../actions';
 import { ServicesPicker } from '../_components/services-picker';
+import { VideoLinksEditor } from '../_components/video-links-editor';
 import { CompletedEventsCard } from '../_components/completed-events-card';
 
 /**
@@ -723,6 +724,17 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             variant="wide"
             watermark
             qrGuard
+          />
+        </Field>
+
+        <Field
+          label="Featured videos"
+          htmlFor="gallery_video_links"
+          help="Paste YouTube, Vimeo, Instagram, Facebook, or TikTok links. YouTube & Vimeo play inline; others open in a new tab."
+        >
+          <VideoLinksEditor
+            name="gallery_video_links"
+            initial={profile?.gallery_video_links ?? []}
           />
         </Field>
 

@@ -145,7 +145,17 @@ export async function submitRsvp(
   // failure must NEVER roll back the RSVP that already succeeded above.
   const selfieRef = clean(formData.get('selfie_ref'));
   const biometricConsent = clean(formData.get('biometric_consent')) === '1';
-  if (selfieRef && biometricConsent) {
+  // Minor safeguard (DPIA BV-8, 2026-07-05): a host can mark a guest excluded
+  // from face recognition (typically a minor). Never enrol an excluded guest,
+  // regardless of the consent checkbox.
+  const { data: fx } = await admin
+    .from('guests')
+    .select('face_recognition_excluded')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const faceExcluded = (fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true;
+  if (selfieRef && biometricConsent && !faceExcluded) {
     try {
       // Selfie is the highest-priority display photo — it always wins over a
       // Gmail avatar / couple upload.

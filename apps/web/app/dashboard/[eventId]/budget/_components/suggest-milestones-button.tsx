@@ -13,6 +13,7 @@ import { useTransition } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { addSuggestedMilestones } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export function SuggestMilestonesButton({
   eventId,
@@ -23,6 +24,7 @@ export function SuggestMilestonesButton({
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   function run() {
     if (pending) return;
@@ -31,7 +33,10 @@ export function SuggestMilestonesButton({
       fd.set('event_id', eventId);
       fd.set('vendor_id', vendorId);
       try {
-        const result = await addSuggestedMilestones(fd);
+        const result = await save.run(() => addSuggestedMilestones(fd), {
+          steps: ['Adding the payment split'],
+          hint: 'Saving',
+        });
         if (result.ok) {
           toast.success('Added a Deposit (50%) and Balance (50%) — edit or delete any time.');
         } else {

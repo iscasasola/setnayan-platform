@@ -16,6 +16,7 @@ import {
   scheduleSaveTheDateLaunch,
   cancelScheduledLaunch,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * LaunchStdButton — the couple's "go live" control for their wedding website.
@@ -84,13 +85,17 @@ export function LaunchStdButton({
   const [pickValue, setPickValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
 
   const previewHref = `/site-editor/${eventId}`;
 
   function doLaunch() {
     setError(null);
     start(async () => {
-      const res = await launchSaveTheDate(eventId);
+      const res = await save.run(() => launchSaveTheDate(eventId), {
+        steps: ['Launching your Save-the-Date'],
+        hint: 'Please wait',
+      });
       if (res.ok) {
         setLaunched(true);
         setScheduledAt(null);
@@ -109,7 +114,10 @@ export function LaunchStdButton({
       return;
     }
     start(async () => {
-      const res = await scheduleSaveTheDateLaunch(eventId, pickValue);
+      const res = await save.run(
+        () => scheduleSaveTheDateLaunch(eventId, pickValue),
+        { steps: ['Scheduling the launch'], hint: 'Please wait' },
+      );
       if (res.ok && res.scheduledAtIso) {
         setScheduledAt(res.scheduledAtIso);
         setPicking(false);
@@ -124,7 +132,10 @@ export function LaunchStdButton({
   function doCancel() {
     setError(null);
     start(async () => {
-      const res = await cancelScheduledLaunch(eventId);
+      const res = await save.run(() => cancelScheduledLaunch(eventId), {
+        steps: ['Cancelling the schedule'],
+        hint: 'Please wait',
+      });
       if (res.ok) {
         setScheduledAt(null);
         setPicking(false);

@@ -24,6 +24,7 @@ import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import {
@@ -169,6 +170,7 @@ export function StdBuilderClient({
 
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
+  const save = useSaveLoader();
   const [device, setDevice] = useState<PreviewDevice>('iphone');
   // Bumping this remounts the preview (opening + film) → replays from the first beat.
   const [restartKey, setRestartKey] = useState(0);
@@ -373,20 +375,24 @@ export function StdBuilderClient({
 
   const handleRender = () => {
     startSave(async () => {
-      const r = await saveAllStdContent(eventId, {
-        theme: themeId,
-        launchDate: launchDate || null,
-        filmDate: filmDate.trim() || null,
-        filmVenueName: venueName.trim() || null,
-        filmVenueCity: venueCity.trim() || null,
-        filmCeremonyName: ceremonyName.trim() || null,
-        filmStory: filmStory.trim() || null,
-        filmAccentColor: accentColor,
-        revealEffects: effects,
-        background,
-        media,
-        siteMusicKey,
-      });
+      const r = await save.run(
+        () =>
+          saveAllStdContent(eventId, {
+            theme: themeId,
+            launchDate: launchDate || null,
+            filmDate: filmDate.trim() || null,
+            filmVenueName: venueName.trim() || null,
+            filmVenueCity: venueCity.trim() || null,
+            filmCeremonyName: ceremonyName.trim() || null,
+            filmStory: filmStory.trim() || null,
+            filmAccentColor: accentColor,
+            revealEffects: effects,
+            background,
+            media,
+            siteMusicKey,
+          }),
+        { steps: ['Saving your Save-the-Date'], hint: 'Saving' },
+      );
       setResult(r.ok ? 'ok' : 'error');
     });
   };

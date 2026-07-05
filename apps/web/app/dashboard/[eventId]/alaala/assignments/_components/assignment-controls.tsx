@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { createAssignment, removeAssignment, nudgeAssignee } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import type { KwentoMomentKey } from '@/lib/kwento-moments';
 
 type Guest = { guestId: string; name: string };
@@ -23,12 +24,16 @@ export function GuestPicker({
   const [selectedGuestId, setSelectedGuestId] = useState('');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   const assign = () => {
     if (!selectedGuestId) return;
     setError(null);
     startTransition(async () => {
-      const result = await createAssignment(eventId, momentKey, selectedGuestId);
+      const result = await save.run(
+        () => createAssignment(eventId, momentKey, selectedGuestId),
+        { steps: ['Assigning the role'], hint: 'Saving' },
+      );
       if (!result.ok) setError(result.error);
       else setSelectedGuestId('');
     });
@@ -85,12 +90,16 @@ export function AssignmentRow({
   const [removePending, startRemove] = useTransition();
   const [nudgeError, setNudgeError] = useState<string | null>(null);
   const [nudgeOk, setNudgeOk] = useState(false);
+  const save = useSaveLoader();
 
   const nudge = () => {
     setNudgeError(null);
     setNudgeOk(false);
     startNudge(async () => {
-      const result = await nudgeAssignee(assignment.assignmentId);
+      const result = await save.run(() => nudgeAssignee(assignment.assignmentId), {
+        steps: ['Sending a nudge'],
+        hint: 'Saving',
+      });
       if (!result.ok) setNudgeError(result.error);
       else setNudgeOk(true);
     });
@@ -98,7 +107,10 @@ export function AssignmentRow({
 
   const remove = () => {
     startRemove(async () => {
-      await removeAssignment(eventId, momentKey, assignment.guestId);
+      await save.run(
+        () => removeAssignment(eventId, momentKey, assignment.guestId),
+        { steps: ['Removing the assignment'], hint: 'Saving' },
+      );
     });
   };
 

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { CheckCircle2, Loader2, Music } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { deliverPakantaSong } from './actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Per-row delivery control on /admin/pakanta. The music team picks the finished
@@ -23,6 +24,7 @@ export function PakantaDeliver({
   deliveredFilename: string | null;
 }) {
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const [pickedFilename, setPickedFilename] = useState<string | null>(null);
   const [result, setResult] = useState<
     | { ok: true; adopted: boolean }
@@ -35,11 +37,15 @@ export function PakantaDeliver({
     if (!ref) return;
     setResult(null);
     startTransition(async () => {
-      const res = await deliverPakantaSong({
-        eventId,
-        songRef: ref,
-        filename: pickedFilename ?? 'pakanta-song',
-      });
+      const res = await save.run(
+        () =>
+          deliverPakantaSong({
+            eventId,
+            songRef: ref,
+            filename: pickedFilename ?? 'pakanta-song',
+          }),
+        { steps: ['Delivering the song'], hint: 'Saving' },
+      );
       setResult(res);
     });
   }

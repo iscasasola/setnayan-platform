@@ -11,6 +11,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Check, Loader2 } from 'lucide-react';
+import { useSaveLoader } from '@/components/sd-loader';
 import { unlockCategoryWithInquiry } from '../../_actions/unlock-category';
 import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
 import { SaveToContinue, SaveGateHint } from '@/app/_components/anon-gate/save-to-continue';
@@ -34,6 +35,7 @@ export function UnlockCategoriesList({
   const [done, setDone] = useState<Record<string, DoneState>>({});
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [gateOpen, setGateOpen] = useState(false);
+  const save = useSaveLoader();
 
   function add(groupId: string) {
     if (pending) return;
@@ -51,7 +53,10 @@ export function UnlockCategoriesList({
       return next;
     });
     startTransition(async () => {
-      const res = await unlockCategoryWithInquiry({ eventId, groupId });
+      const res = await save.run(() => unlockCategoryWithInquiry({ eventId, groupId }), {
+        steps: ['Unlocking the category'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (res.status === 'ok') {
         setDone((d) => ({

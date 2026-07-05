@@ -21,6 +21,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Link2, Loader2, Package as PackageIcon } from 'lucide-react';
 import { updateHostServiceDetails } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export function HostServiceDetails({
   eventId,
@@ -41,6 +42,7 @@ export function HostServiceDetails({
   const [covers, setCovers] = useState<ReadonlySet<string>>(() => new Set(initialCovers));
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function toggleCover(id: string) {
     setSaved(false);
@@ -61,7 +63,10 @@ export function HostServiceDetails({
         fd.set('vendor_id', vendorId);
         fd.set('inclusions', text);
         for (const c of covers) fd.append('covers', c);
-        await updateHostServiceDetails(fd);
+        await save.run(() => updateHostServiceDetails(fd), {
+          steps: ['Saving service details'],
+          hint: 'Saving',
+        });
         setSaved(true);
       } catch {
         setErr('Could not save — try again.');

@@ -26,6 +26,7 @@ import { updateEventDate } from '../actions';
 import { formatDayKey } from '@/lib/vendor-availability';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
   eventId: string;
@@ -232,6 +233,7 @@ function FinalizeDayModal({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   const dialogRef = useRef<HTMLDivElement>(null);
   // Mid-submit guard: don't let Esc / backdrop dismiss while the save is in
@@ -250,7 +252,10 @@ function FinalizeDayModal({
     fd.set('precision', 'day');
     startTransition(async () => {
       try {
-        await updateEventDate(fd);
+        await save.run(() => updateEventDate(fd), {
+          steps: ['Finalizing the date'],
+          hint: 'Saving',
+        });
         onClose();
       } catch (err) {
         void trackFailure({

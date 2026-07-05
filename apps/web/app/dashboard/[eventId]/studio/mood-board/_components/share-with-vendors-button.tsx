@@ -17,6 +17,7 @@ import { useState, useTransition } from 'react';
 import { Send } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { shareMoodBoardWithVendors } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export function ShareWithVendorsButton({
   eventId,
@@ -28,13 +29,17 @@ export function ShareWithVendorsButton({
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [doneCount, setDoneCount] = useState<number | null>(null);
+  const save = useSaveLoader();
   const hasVendors = bookedVendorCount > 0;
 
   function share() {
     if (pending || !hasVendors) return;
     startTransition(async () => {
       try {
-        const { sharedCount } = await shareMoodBoardWithVendors(eventId);
+        const { sharedCount } = await save.run(
+          () => shareMoodBoardWithVendors(eventId),
+          { steps: ['Sharing with your vendors'], hint: 'Sharing' },
+        );
         setDoneCount(sharedCount);
         if (sharedCount > 0) {
           toast.success(

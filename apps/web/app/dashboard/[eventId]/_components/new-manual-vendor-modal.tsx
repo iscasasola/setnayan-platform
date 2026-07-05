@@ -21,6 +21,7 @@ import {
 } from '../vendors/actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -617,6 +618,7 @@ function PostSaveStep({
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   const [inviteErr, setInviteErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const save = useSaveLoader();
 
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -633,7 +635,10 @@ function PostSaveStep({
         fd.set('event_id', eventId);
         fd.set('vendor_id', eventVendorId);
         fd.set('total_cost_php', String(Math.round(n)));
-        await updateVendorCosts(fd);
+        await save.run(() => updateVendorCosts(fd), {
+          steps: ['Saving the price'],
+          hint: 'Saving',
+        });
         setPriceSavedPhp(Math.round(n));
       } catch {
         setPriceErr('Could not save — you can add the price from the vendor page.');
@@ -644,7 +649,10 @@ function PostSaveStep({
   function getInvite() {
     setInviteErr(null);
     startInvite(async () => {
-      const res = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
+      const res = await save.run(
+        () => createManualVendorInvite({ eventId, vendorId: eventVendorId }),
+        { steps: ['Creating the invite'], hint: 'Saving' },
+      );
       if (res.ok) {
         setInviteUrl(res.url);
         setQrSvg(res.qrSvg);

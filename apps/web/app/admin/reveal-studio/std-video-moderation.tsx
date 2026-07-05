@@ -17,6 +17,7 @@
 import { useState, useTransition } from 'react';
 import { Check, X, Film } from 'lucide-react';
 import { setStdVideoModeration } from './actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type PendingStdVideo = {
   eventId: string;
@@ -30,6 +31,7 @@ export type PendingStdVideo = {
 export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) {
   const [rows, setRows] = useState(initial);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +41,10 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
     setError(null);
     setBusyId(eventId);
     startTransition(async () => {
-      const r = await setStdVideoModeration(eventId, decision);
+      const r = await save.run(() => setStdVideoModeration(eventId, decision), {
+        steps: ['Recording your decision'],
+        hint: 'Saving',
+      });
       if (r.ok) {
         setRows((prev) => prev.filter((row) => row.eventId !== eventId));
       } else {

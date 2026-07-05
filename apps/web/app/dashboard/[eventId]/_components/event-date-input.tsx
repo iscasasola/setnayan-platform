@@ -25,6 +25,7 @@ import {
   type EventDatePrecision,
 } from '@/lib/events';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
   eventId: string;
@@ -123,6 +124,7 @@ export function EventDateInput({
 
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   // Refine-only ratchet: with ≥1 confirmed vendor, widening is blocked.
   // We hide modes wider than the host's current saved precision.
@@ -158,7 +160,10 @@ export function EventDateInput({
 
     startTransition(async () => {
       try {
-        await updateEventDate(fd);
+        await save.run(() => updateEventDate(fd), {
+          steps: ['Saving the date'],
+          hint: 'Saving',
+        });
         setEditing(false);
         // Task #65 — bubble up close signal to the EventMetaLine wrapper
         // so the inline editor dismisses cleanly on save instead of

@@ -28,6 +28,7 @@ import {
 } from '@/lib/role-groups';
 import { quickAddGuest } from '../quick-add-actions';
 import { mapAddGroup, mapAddPlusOne } from '../map-actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Guest-list MIND MAP (redesign Phase 2 — design locked 2026-06-10).
@@ -277,6 +278,7 @@ export function GuestMindMap({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [collapsedMobile, setCollapsedMobile] = useState<Set<string>>(new Set());
+  const save = useSaveLoader();
 
   const nodes = useMemo(
     () => buildTree(lens, guests, groups, groupMemberships),
@@ -307,21 +309,31 @@ export function GuestMindMap({
       try {
         let result: { ok: boolean; error?: string };
         if (spec.type === 'group') {
-          result = await mapAddGroup(eventId, value, spec.teamSide);
+          result = await save.run(() => mapAddGroup(eventId, value, spec.teamSide), {
+            steps: ['Saving your guests'],
+            hint: 'Saving',
+          });
         } else if (spec.type === 'plus') {
-          result = await mapAddPlusOne(eventId, spec.guestId, value);
+          result = await save.run(() => mapAddPlusOne(eventId, spec.guestId, value), {
+            steps: ['Saving your guests'],
+            hint: 'Saving',
+          });
         } else {
           // quickAddGuest needs first + last — split on the LAST space.
           const i = value.lastIndexOf(' ');
           const first = i > 0 ? value.slice(0, i) : value;
           const last = i > 0 ? value.slice(i + 1) : '';
-          result = await quickAddGuest(eventId, {
-            first_name: first,
-            last_name: last,
-            side: spec.side,
-            role: spec.role,
-            group_id: spec.groupId,
-          });
+          result = await save.run(
+            () =>
+              quickAddGuest(eventId, {
+                first_name: first,
+                last_name: last,
+                side: spec.side,
+                role: spec.role,
+                group_id: spec.groupId,
+              }),
+            { steps: ['Saving your guests'], hint: 'Saving' },
+          );
         }
         if (!result.ok) {
           setError(result.error ?? 'Something went wrong.');

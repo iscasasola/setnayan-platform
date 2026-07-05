@@ -26,10 +26,32 @@ import {
 } from '@/lib/account-security-actions';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
+import {
+  fetchVendorIgConnection,
+  fetchVendorIgMediaForOwner,
+} from '@/lib/vendor-instagram-status';
 import { saveVendorProfile } from '../actions';
 import { ServicesPicker } from '../_components/services-picker';
 import { VideoLinksEditor } from '../_components/video-links-editor';
 import { CompletedEventsCard } from '../_components/completed-events-card';
+import { InstagramConnectCard } from '../_components/instagram-connect-card';
+
+// Map the OAuth-callback error codes to friendly one-line copy for the IG card.
+const IG_ERROR_COPY: Record<string, string> = {
+  denied: 'Instagram connection was cancelled.',
+  user_denied: 'Instagram connection was cancelled.',
+  missing_code_or_state: 'Instagram connection could not be completed. Try again.',
+  state_not_found: 'That connection link expired. Try connecting again.',
+  state_expired: 'That connection link expired. Try connecting again.',
+  not_configured: 'Instagram connect is not available yet.',
+  exchange_failed: 'Instagram could not confirm the connection. Try again.',
+  profile_fetch_failed:
+    'We couldn’t read your Instagram profile. Make sure it’s a Business or Creator account, then try again.',
+  encryption_unavailable:
+    'Instagram connect is temporarily unavailable. Please try again later.',
+  persist_failed: 'Could not save your Instagram connection. Try again.',
+};
 
 /**
  * Returns true when `eventDate` falls inside the vendor pre-load window
@@ -97,6 +119,8 @@ type Props = {
     signed_out_others?: string;
     publish_blocked?: string;
     identity_locked?: string;
+    ig_connected?: string;
+    ig_error?: string;
   }>;
 };
 
@@ -234,6 +258,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         expSinceYear: number | null;
         expWeddings: number | null;
         expVerifiedAt: string | null;
+        igConfigured: boolean;
+        igConnection: Awaited<ReturnType<typeof fetchVendorIgConnection>>;
+        igMedia: Awaited<ReturnType<typeof fetchVendorIgMediaForOwner>>;
       }
     | { ok: false; message: string };
   try {
@@ -344,6 +371,18 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       logoDisplayMap[profile.logo_url] = logoDisplayUrl;
     }
 
+    // Instagram connect + sync (inert when Meta App env is unset). Both loaders
+    // are best-effort + degrade to null/[] on any error (pre-migration DB, etc.)
+    // so the IG card never breaks the profile page.
+    const igConfigured = isInstagramConnectConfigured();
+    const igConnection = profile
+      ? await fetchVendorIgConnection(profile.vendor_profile_id)
+      : null;
+    const igMedia =
+      profile && igConnection
+        ? await fetchVendorIgMediaForOwner(profile.vendor_profile_id)
+        : [];
+
     loaderState = {
       ok: true,
       profile,
@@ -359,6 +398,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       expSinceYear,
       expWeddings,
       expVerifiedAt,
+      igConfigured,
+      igConnection,
+      igMedia,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -413,7 +455,23 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     expSinceYear,
     expWeddings,
     expVerifiedAt,
+    igConfigured,
+    igConnection,
+    igMedia,
   } = loaderState;
+
+  // Instagram card flash from the OAuth-callback redirect params.
+  const igFlash: { kind: 'ok' | 'error'; message: string } | null = search.ig_connected
+    ? { kind: 'ok', message: 'Instagram connected. Press “Sync now” to pull your posts.' }
+    : search.ig_error
+      ? {
+          kind: 'error',
+          message:
+            IG_ERROR_COPY[search.ig_error] ??
+            'Instagram connection could not be completed. Try again.',
+        }
+      : null;
+
   // Required Business Profile (vendor onboarding · owner 2026-06-28) — the 8
   // identity fields a vendor must complete to be published/listed. Verification
   // documents no longer gate publication (2026-07-03) — they live in the My
@@ -998,6 +1056,16 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           </SubmitButton>
         </div>
       </form>
+
+      {/* Instagram connect + sync — its own routes/actions, so it lives OUTSIDE
+          the profile save form. Inert ("Coming soon") until the Meta App env is
+          set. Synced posts flow into the SAME unified public Portfolio gallery. */}
+      <InstagramConnectCard
+        configured={igConfigured}
+        connection={igConnection}
+        media={igMedia}
+        flash={igFlash}
+      />
 
       {/*
         Security — account-security suite 2026-06-11. Same hardened shared

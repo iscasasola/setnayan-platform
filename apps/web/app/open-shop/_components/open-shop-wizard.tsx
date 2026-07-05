@@ -5,50 +5,66 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Globe, Store } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { becomeVendor } from '../actions';
 
 /**
- * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic").
- * Two compact steps, one always-mounted form (inputs persist across steps, one
- * submit at the end):
+ * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
+ * 2026-07-05 owner-required basics folded in — logo + company email are now
+ * collected here, not deferred to My Shop). Two compact steps, one
+ * always-mounted form (inputs persist across steps, one submit at the end):
  *
- *   1 · Your shop         — shop name · primary service (pick 1) · location
- *   2 · How couples reach you — contact name · contact number · website ·
- *                              social media link
+ *   1 · Your shop         — shop name · logo · primary service (pick 1)
+ *   2 · How couples reach you — owner name · contact number · company email
+ *                              (all required) · location · website · social
  *
- * Everything else (logo, email, exact HQ pin, EST, documents) continues on My
+ * Everything else (exact HQ pin, EST, portfolio, documents) continues on My
  * Shop — the profile checklist + Get-verified journey are the rest of the
- * onboarding. The primary-service labels come from the admin taxonomy
+ * onboarding. The logo upload reuses the shared <FileUpload> → R2 pattern from
+ * My Shop; the primary-service labels come from the admin taxonomy
  * (serviceLabels), falling back to the in-code names.
  */
 export function OpenShopWizard({
   mode,
   serviceLabels,
+  vendorProfileId,
+  logoDisplayMap,
   defaults,
   error,
 }: {
   /** 'create' = no shop yet · 'complete' = shop exists but was never named. */
   mode: 'create' | 'complete';
   serviceLabels?: Record<string, string>;
+  /** Owned shop id (null before the row exists) — scopes the logo R2 prefix. */
+  vendorProfileId?: string | null;
+  /** r2Ref → 24h display URL, so an already-uploaded logo paints on load. */
+  logoDisplayMap?: Record<string, string>;
   defaults: {
     shopName: string;
+    logoUrl: string;
     primaryService: string;
     locationCity: string;
     contactName: string;
     contactPhone: string;
+    contactEmail: string;
     website: string;
   };
   error?: string;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [shopName, setShopName] = useState(defaults.shopName);
+  const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
   const [stepError, setStepError] = useState<string | null>(null);
 
   const next = () => {
     if (!shopName.trim()) {
       setStepError('Give your shop a name.');
+      return;
+    }
+    if (!logoUrl.trim()) {
+      setStepError('Add your shop logo.');
       return;
     }
     if (!service) {
@@ -83,8 +99,8 @@ export function OpenShopWizard({
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
           {step === 1
-            ? 'The basics first — free during launch. You can refine everything later.'
-            : 'A name and number couples can trust, plus where you already live online.'}
+            ? 'This takes about a minute — just the basics, free during launch.'
+            : 'A name, number, and email couples can trust — plus where you already live online.'}
         </p>
 
         {(error || stepError) && (
@@ -115,6 +131,29 @@ export function OpenShopWizard({
               />
             </label>
 
+            <div className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Shop logo<span className="ml-1 text-terracotta">*</span>
+              </span>
+              <FileUpload
+                bucket="media"
+                pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
+                name="logo_url"
+                currentValue={logoUrl || null}
+                initialDisplayUrls={logoDisplayMap ?? {}}
+                onChange={(v) =>
+                  setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
+                }
+                maxSizeMB={2}
+                acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                variant="square"
+                qrGuard
+              />
+              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                PNG, JPEG, or WebP up to 2&nbsp;MB. Couples see this on every vendor card.
+              </span>
+            </div>
+
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Primary service<span className="ml-1 text-terracotta">*</span>
@@ -143,19 +182,6 @@ export function OpenShopWizard({
               </span>
             </label>
 
-            <label className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Location
-              </span>
-              <input
-                name="location_city"
-                defaultValue={defaults.locationCity}
-                maxLength={64}
-                placeholder="Quezon City"
-                className="input-field"
-              />
-            </label>
-
             <button
               type="button"
               onClick={next}
@@ -170,7 +196,7 @@ export function OpenShopWizard({
           <div className={step === 2 ? 'space-y-4' : 'hidden'}>
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Contact name
+                Owner name<span className="ml-1 text-terracotta">*</span>
               </span>
               <input
                 name="contact_name"
@@ -183,7 +209,7 @@ export function OpenShopWizard({
 
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Contact number
+                Contact number<span className="ml-1 text-terracotta">*</span>
               </span>
               <input
                 name="contact_phone"
@@ -191,6 +217,33 @@ export function OpenShopWizard({
                 defaultValue={defaults.contactPhone}
                 maxLength={32}
                 placeholder="+63 917 …"
+                className="input-field"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Company email<span className="ml-1 text-terracotta">*</span>
+              </span>
+              <input
+                name="contact_email"
+                type="email"
+                defaultValue={defaults.contactEmail}
+                maxLength={254}
+                placeholder="hello@yourstudio.ph"
+                className="input-field"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Location <span className="font-normal" style={{ color: 'var(--m-slate-3)' }}>· optional</span>
+              </span>
+              <input
+                name="location_city"
+                defaultValue={defaults.locationCity}
+                maxLength={64}
+                placeholder="Quezon City"
                 className="input-field"
               />
             </label>
@@ -222,6 +275,14 @@ export function OpenShopWizard({
                 Helps couples find you — and counts toward your verification checklist.
               </span>
             </label>
+
+            <p
+              className="rounded-lg border p-3 text-xs"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)', color: 'var(--m-slate)' }}
+            >
+              You can upgrade your business further anytime — add photos, services, pricing and
+              more from your dashboard.
+            </p>
 
             <div className="flex items-center gap-2">
               <button

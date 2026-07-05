@@ -18,17 +18,20 @@ import { buildSlotValue } from '@/lib/vendor-verification-slots';
  * admin client after the auth check) and writes the onboarding basics onto it:
  *
  *   shop_name       → business_name        (required)
+ *   logo_url        → logo_url              (required · §2.1b mandatory logo —
+ *                     r2:// ref from the shared <FileUpload>, same as My Shop)
  *   primary_service → services = [one of VENDOR_CATEGORIES]  (required)
+ *   contact_name    → business_owner_name   (owner name)
+ *   contact_phone   → contact_phone         (contact number)
+ *   contact_email   → contact_email         (company email)
  *   location_city   → location_city
- *   contact_name    → business_owner_name
- *   contact_phone   → contact_phone
  *   website         → website
  *   social_url      → seeds the Get-verified `social_media` document slot on a
  *                     draft application, so their social link is already in the
  *                     verification checklist when they reach My Shop
  *
- * The REST of the profile (logo, email, exact HQ pin, EST) + documents stay on
- * My Shop — the profile checklist + Get-verified journey ARE the rest of the
+ * The REST of the profile (exact HQ pin, EST, portfolio) + documents stay on My
+ * Shop — the profile checklist + Get-verified journey ARE the rest of the
  * onboarding. Existing non-empty values are never clobbered by blanks (safe to
  * re-run on a half-filled shop).
  */
@@ -51,6 +54,27 @@ function cleanUrl(raw: FormDataEntryValue | null): string | null {
   }
 }
 
+/**
+ * Logo column accepts an r2:// ref (from the shared <FileUpload>) or a legacy
+ * http(s) URL — identical to My Shop's `parseLogoValue`. Anything else → null
+ * so the column never accumulates junk.
+ */
+function cleanLogo(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  if (t.length === 0) return null;
+  if (t.startsWith('r2://')) return t;
+  if (/^https?:\/\//i.test(t)) return t;
+  return null;
+}
+
+/** Light email shape check — enough to keep obviously-broken strings out. */
+function cleanEmail(raw: FormDataEntryValue | null): string | null {
+  const t = clean(raw, 254)?.toLowerCase() ?? null;
+  if (!t) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? t : null;
+}
+
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
 export async function becomeVendor(formData: FormData): Promise<void> {
@@ -62,14 +86,22 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!user) redirect('/signup?as=vendor');
 
   const shopName = clean(formData.get('shop_name'));
+  const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
+  const contactName = clean(formData.get('contact_name'));
+  const contactPhone = clean(formData.get('contact_phone'), 32);
+  const contactEmail = cleanEmail(formData.get('contact_email'));
   if (!shopName) redirect('/open-shop?error=' + encodeURIComponent('Give your shop a name.'));
+  if (!logoUrl) redirect('/open-shop?error=' + encodeURIComponent('Add your shop logo.'));
   if (!primaryService || !CATEGORY_SET.has(primaryService)) {
     redirect('/open-shop?error=' + encodeURIComponent('Pick your primary service.'));
   }
+  if (!contactName) redirect('/open-shop?error=' + encodeURIComponent('Add the owner name.'));
+  if (!contactPhone)
+    redirect('/open-shop?error=' + encodeURIComponent('Add a contact number.'));
+  if (!contactEmail)
+    redirect('/open-shop?error=' + encodeURIComponent('Add a valid company email.'));
   const locationCity = clean(formData.get('location_city'), 64);
-  const contactName = clean(formData.get('contact_name'));
-  const contactPhone = clean(formData.get('contact_phone'), 32);
   const website = cleanUrl(formData.get('website'));
   const socialUrl = cleanUrl(formData.get('social_url'));
 
@@ -119,12 +151,14 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     : [primaryService, ...existingServices];
   const patch: Record<string, unknown> = {
     business_name: shopName,
+    logo_url: logoUrl,
+    business_owner_name: contactName,
+    contact_phone: contactPhone,
+    contact_email: contactEmail,
     services,
     updated_at: new Date().toISOString(),
   };
   if (locationCity) patch.location_city = locationCity;
-  if (contactName) patch.business_owner_name = contactName;
-  if (contactPhone) patch.contact_phone = contactPhone;
   if (website) patch.website = website;
   const { error: updErr } = await admin
     .from('vendor_profiles')

@@ -9,6 +9,7 @@ import {
   Tag,
   UserPlus,
   Users,
+  UserX,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
@@ -490,6 +491,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             />
             <PhotoConsent defaultChecked={guest.photo_consent} />
             <FaceBlock defaultChecked={guest.faceblock_enabled} />
+            <FaceRecognitionExclude defaultChecked={guest.face_recognition_excluded} />
           </div>
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink">Invited to</label>
@@ -821,6 +823,34 @@ function PhotoConsent({ defaultChecked }: { defaultChecked: boolean }) {
         <span className="text-sm">
           OK to tag in photos
           <span className="ml-1 text-xs text-ink/55">(RA 10173)</span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
+/**
+ * Minor safeguard (DPIA BV-8, 2026-07-05). Face recognition is adult-only opt-in;
+ * a host who knows a guest is a minor marks them excluded here so no face vector
+ * is ever enrolled for them (and any existing one is revoked). Collects no age —
+ * a host attestation, mirroring the "don't run face recognition on minors"
+ * minimization careful platforms rely on. Does NOT remove the guest's photo.
+ */
+function FaceRecognitionExclude({ defaultChecked }: { defaultChecked: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-ink">Face recognition</label>
+      <label className="flex h-11 items-center gap-3 rounded-md border border-ink/20 bg-cream px-3 text-sm text-ink transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/40">
+        <input
+          type="checkbox"
+          name="face_recognition_excluded"
+          defaultChecked={defaultChecked}
+          className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        <UserX aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+        <span className="text-sm">
+          Exclude from face recognition
+          <span className="ml-1 text-xs text-ink/55">(e.g. a minor)</span>
         </span>
       </label>
     </div>

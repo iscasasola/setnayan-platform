@@ -145,6 +145,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // wall's read path reacts to this flag instantly (un-baked tiles hide,
   // fail-closed); the re-bake sweep below restores the newest tiles blurred.
   const faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
+  // Minor safeguard (DPIA BV-8, 2026-07-05) — host marks a guest excluded from
+  // face recognition (typically a minor). When ON, the guest is never enrolled
+  // for auto-tagging and any existing enrolment is revoked below. Collects no age.
+  const face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
   // public RSVP widget (PR B follow-up). Toggling OFF is non-
@@ -205,6 +209,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       rsvp_status: effectiveRsvp,
       photo_consent,
       faceblock_enabled,
+      face_recognition_excluded,
       plus_one_allowed,
       notes,
       invited_to_blocks,
@@ -229,18 +234,23 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     return redirect(`${backTo}?error=${encodeURIComponent(friendly)}`);
   }
 
-  // RA 10173 governance: turning photo consent OFF also revokes any live
-  // face-recognition enrollment and clears a selfie display photo, so "don't
-  // use this guest's face" actually removes the biometric data Papic would
-  // consume. A Gmail avatar (display-only, non-biometric) is left intact.
-  // Couple JWT is RLS-scoped to its own event. Best-effort — never block save.
-  if (!photo_consent) {
+  // RA 10173 governance: revoke any live face-recognition enrolment (the
+  // biometric data Papic would consume) when EITHER photo consent is withdrawn
+  // OR the host excludes this guest from face recognition (minor safeguard,
+  // DPIA BV-8). Couple JWT is RLS-scoped to its own event. Best-effort.
+  if (!photo_consent || face_recognition_excluded) {
     await supabase
       .from('guest_face_enrollments')
       .update({ revoked_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .is('revoked_at', null);
+  }
+  // Turning photo consent OFF additionally clears a selfie display photo (a
+  // Gmail avatar, display-only + non-biometric, is left intact). A face-
+  // recognition EXCLUSION does NOT delete the guest's photo — it only stops
+  // biometric enrolment.
+  if (!photo_consent) {
     await supabase
       .from('guests')
       .update({

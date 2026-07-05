@@ -390,7 +390,7 @@ export function SelfieCapture({
           className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
         />
         <span>
-          I agree to{' '}
+          I&rsquo;m an adult (18+) and I agree to{' '}
           <span className="font-medium">face recognition for this wedding</span>
           . My selfie is used to recognize me in this wedding&rsquo;s photos,
           only for this event, and I can withdraw anytime in my settings.{' '}

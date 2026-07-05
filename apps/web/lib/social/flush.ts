@@ -72,7 +72,13 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 type PostRow = {
   post_id: string;
-  source_type: 'couple_creation' | 'vendor_feature' | 'milestone' | 'announcement' | 'evergreen';
+  source_type:
+    | 'couple_creation'
+    | 'vendor_feature'
+    | 'milestone'
+    | 'announcement'
+    | 'evergreen'
+    | 'event_recap';
   source_ref: string;
   title: string | null;
   body: string;

@@ -33,8 +33,22 @@ import { VENDOR_FRAUD_ATTENTION_THRESHOLD } from '@/lib/fraud-detection';
  *
  * NOT hardcoded into the queue UI — the queue surfaces the aggregate + this bar
  * so an admin can see why a vendor did (or didn't) auto-suspend.
+ *
+ * OWNER-DECIDED "safe" config (2026-07-05): raised 90 → 95 to make the automated
+ * action more conservative. See also FRAUD_AUTOSUSPEND_MIN_SIGNALS below — a high
+ * score ALONE is no longer enough.
  */
-export const FRAUD_AUTOSUSPEND_THRESHOLD = 90;
+export const FRAUD_AUTOSUSPEND_THRESHOLD = 95;
+
+/**
+ * The MINIMUM number of DISTINCT open signal types an auto-suspend requires, on
+ * top of the score bar. Corroboration guard (owner-decided "safe" config,
+ * 2026-07-05): a single over-eager heuristic (e.g. `rating_shape` alone on a
+ * genuinely all-5★ legitimate vendor) must NEVER auto-suspend on its own — the
+ * SYSTEM only auto-suspends when at least two independent detectors agree. A lone
+ * maxed detector now surfaces in the admin queue instead of auto-suspending.
+ */
+export const FRAUD_AUTOSUSPEND_MIN_SIGNALS = 2;
 
 // Sanity: the auto-suspend bar must sit strictly above the advisory bar, or the
 // "reversible suspend is a stronger signal than needs-review" invariant breaks.
@@ -102,24 +116,38 @@ export function isFrozenByFraud(row: VendorFraudStateInput): boolean {
 }
 
 /**
- * PURE auto-suspend decision. Given a vendor's aggregate open-signal score and
- * whether it is ALREADY suspended/banned, decide whether the SYSTEM should
- * auto-suspend it now.
+ * PURE auto-suspend decision. Given a vendor's aggregate open-signal score, its
+ * count of DISTINCT open signal types, and whether it is ALREADY suspended/
+ * banned, decide whether the SYSTEM should auto-suspend it now.
+ *
+ * Two conditions must BOTH hold (owner-decided "safe" config, 2026-07-05):
+ *   1. score ≥ FRAUD_AUTOSUSPEND_THRESHOLD (95), AND
+ *   2. distinctSignalCount ≥ FRAUD_AUTOSUSPEND_MIN_SIGNALS (2).
+ *
+ * The corroboration guard (#2) means a single over-eager heuristic (e.g. a maxed
+ * `rating_shape` on a genuinely all-5★ legitimate vendor) can NEVER auto-suspend
+ * on its own — auto-suspend requires at least two independent detectors to agree.
+ * Such lone-signal cases still surface in the admin queue for a human to judge.
  *
  * Idempotent by construction: returns false when the vendor is already
  * suspended or banned (never re-suspends, never downgrades a ban), so the runner
  * can call it unconditionally.
  *
- * @param aggregateScore  vendor_fraud_scores.sum_open_score (0..100), or 0/undefined when the vendor has no open signal row.
- * @param currentState    the vendor's derived fraud state.
+ * @param aggregateScore       vendor_fraud_scores.sum_open_score (0..100), or 0/undefined when the vendor has no open signal row.
+ * @param distinctSignalCount  vendor_fraud_scores.open_signal_count (== open_signal_types.length), or 0/undefined when none.
+ * @param currentState         the vendor's derived fraud state.
  */
 export function shouldAutoSuspend(
   aggregateScore: number | null | undefined,
+  distinctSignalCount: number | null | undefined,
   currentState: VendorFraudState,
 ): boolean {
   if (currentState !== 'active') return false;
   const score = typeof aggregateScore === 'number' && Number.isFinite(aggregateScore)
     ? aggregateScore
     : 0;
-  return score >= FRAUD_AUTOSUSPEND_THRESHOLD;
+  const signals = typeof distinctSignalCount === 'number' && Number.isFinite(distinctSignalCount)
+    ? distinctSignalCount
+    : 0;
+  return score >= FRAUD_AUTOSUSPEND_THRESHOLD && signals >= FRAUD_AUTOSUSPEND_MIN_SIGNALS;
 }

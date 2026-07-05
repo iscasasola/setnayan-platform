@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import {
   FRAUD_AUTOSUSPEND_THRESHOLD,
+  FRAUD_AUTOSUSPEND_MIN_SIGNALS,
   deriveVendorFraudState,
   isFrozenByFraud,
   shouldAutoSuspend,
@@ -78,35 +79,82 @@ test('freeze: filtering a vendor list drops suspended + banned, keeps active', (
 });
 
 // ── shouldAutoSuspend (the one automated decision) ───────────────────────────
+// Owner-decided "safe" config (2026-07-05): auto-suspend requires BOTH
+// score ≥ 95 (FRAUD_AUTOSUSPEND_THRESHOLD) AND ≥ 2 distinct open signal types
+// (FRAUD_AUTOSUSPEND_MIN_SIGNALS) — corroboration guard. The signal-count arg is
+// the middle parameter: shouldAutoSuspend(score, distinctSignalCount, state).
 
-test('auto-suspend: below the bar → no', () => {
-  assert.equal(shouldAutoSuspend(FRAUD_AUTOSUSPEND_THRESHOLD - 1, 'active'), false);
+test('config: threshold is 95 and min-signals is 2 (owner "safe" config)', () => {
+  assert.equal(FRAUD_AUTOSUSPEND_THRESHOLD, 95);
+  assert.equal(FRAUD_AUTOSUSPEND_MIN_SIGNALS, 2);
 });
 
-test('auto-suspend: at the bar → yes', () => {
-  assert.equal(shouldAutoSuspend(FRAUD_AUTOSUSPEND_THRESHOLD, 'active'), true);
+test('auto-suspend: below the bar → no (even with enough signals)', () => {
+  assert.equal(
+    shouldAutoSuspend(FRAUD_AUTOSUSPEND_THRESHOLD - 1, FRAUD_AUTOSUSPEND_MIN_SIGNALS, 'active'),
+    false,
+  );
 });
 
-test('auto-suspend: above the bar → yes', () => {
-  assert.equal(shouldAutoSuspend(FRAUD_AUTOSUSPEND_THRESHOLD + 5, 'active'), true);
+test('auto-suspend: at the bar WITH ≥2 signals → yes', () => {
+  assert.equal(
+    shouldAutoSuspend(FRAUD_AUTOSUSPEND_THRESHOLD, FRAUD_AUTOSUSPEND_MIN_SIGNALS, 'active'),
+    true,
+  );
+});
+
+test('auto-suspend: above the bar WITH ≥2 signals → yes', () => {
+  assert.equal(
+    shouldAutoSuspend(FRAUD_AUTOSUSPEND_THRESHOLD + 5, FRAUD_AUTOSUSPEND_MIN_SIGNALS, 'active'),
+    true,
+  );
+});
+
+// ── the ≥2 distinct-signal corroboration guard ───────────────────────────────
+
+test('auto-suspend: score 95 with exactly 2 signals → yes', () => {
+  assert.equal(shouldAutoSuspend(95, 2, 'active'), true);
+});
+
+test('auto-suspend: score 96 with only 1 signal → NO (needs corroboration)', () => {
+  // A lone over-eager heuristic (e.g. rating_shape on an all-5★ legit vendor)
+  // must never auto-suspend on its own, no matter how high the single score.
+  assert.equal(shouldAutoSuspend(96, 1, 'active'), false);
+});
+
+test('auto-suspend: score 94 with 3 signals → NO (below the 95 bar)', () => {
+  assert.equal(shouldAutoSuspend(94, 3, 'active'), false);
+});
+
+test('auto-suspend: a maxed single signal (100, 1 signal) never auto-suspends', () => {
+  assert.equal(shouldAutoSuspend(100, 1, 'active'), false);
 });
 
 test('auto-suspend: an advisory-level score (< bar) never auto-suspends', () => {
   // A score that clears the "needs review" attention bar but not the suspend bar
   // must NOT auto-suspend — it only surfaces in the queue.
-  assert.equal(shouldAutoSuspend(VENDOR_FRAUD_ATTENTION_THRESHOLD, 'active'), false);
+  assert.equal(
+    shouldAutoSuspend(VENDOR_FRAUD_ATTENTION_THRESHOLD, 5, 'active'),
+    false,
+  );
 });
 
 test('auto-suspend: idempotent — already suspended never re-suspends', () => {
-  assert.equal(shouldAutoSuspend(100, 'suspended'), false);
+  assert.equal(shouldAutoSuspend(100, 3, 'suspended'), false);
 });
 
 test('auto-suspend: banned vendor is never (re-)auto-suspended', () => {
-  assert.equal(shouldAutoSuspend(100, 'banned'), false);
+  assert.equal(shouldAutoSuspend(100, 3, 'banned'), false);
 });
 
 test('auto-suspend: missing/NaN score treated as 0 → no', () => {
-  assert.equal(shouldAutoSuspend(null, 'active'), false);
-  assert.equal(shouldAutoSuspend(undefined, 'active'), false);
-  assert.equal(shouldAutoSuspend(Number.NaN, 'active'), false);
+  assert.equal(shouldAutoSuspend(null, 3, 'active'), false);
+  assert.equal(shouldAutoSuspend(undefined, 3, 'active'), false);
+  assert.equal(shouldAutoSuspend(Number.NaN, 3, 'active'), false);
+});
+
+test('auto-suspend: missing/NaN signal count treated as 0 → no', () => {
+  assert.equal(shouldAutoSuspend(100, null, 'active'), false);
+  assert.equal(shouldAutoSuspend(100, undefined, 'active'), false);
+  assert.equal(shouldAutoSuspend(100, Number.NaN, 'active'), false);
 });

@@ -15,7 +15,7 @@ New migration `supabase/migrations/20270518682623_fraud_enforcement_state_and_au
 
 New libs:
 
-- `apps/web/lib/fraud-enforcement.ts` (pure, tsx-testable) — `FRAUD_AUTOSUSPEND_THRESHOLD = 90` (strictly above the P3 advisory `VENDOR_FRAUD_ATTENTION_THRESHOLD = 60`), `deriveVendorFraudState`, `isFrozenByFraud`, and the pure `shouldAutoSuspend(aggregate, state)` decision (idempotent — never re-suspends/re-bans).
+- `apps/web/lib/fraud-enforcement.ts` (pure, tsx-testable) — `FRAUD_AUTOSUSPEND_THRESHOLD` (strictly above the P3 advisory `VENDOR_FRAUD_ATTENTION_THRESHOLD = 60`), `deriveVendorFraudState`, `isFrozenByFraud`, and the pure `shouldAutoSuspend(...)` decision (idempotent — never re-suspends/re-bans). _(Threshold + a ≥2-signal corroboration guard tightened below on 2026-07-05.)_
 - `apps/web/lib/fraud-enforcement-runner.ts` (`server-only`) — `maybeAutoSuspendVendor` (the one allowed automated action: atomic guarded suspend + `auto_suspend` audit, fail-soft), `runAutoSuspendSweep`, `writeFraudEnforcementAudit`, `buildFraudEvidenceSnapshot`, and `fetchFraudFrozenVendorIds` (the defense-in-depth freeze set).
 
 Wiring:
@@ -30,3 +30,18 @@ Tests `apps/web/lib/fraud-enforcement.test.ts` — deterministic coverage of the
 Migration is a FILE only; CI applies on merge. RLS at CREATE. Idempotent.
 
 SPEC IMPACT: None — implements the already-locked § 5 enforcement model / § 6 Phase 4; no new product surface exposed to customers/vendors and no pricing change. (The enforcement + admin surface need owner + counsel sign-off before merge — flagged in the PR body.)
+
+## 2026-07-05 · fix(anti-fraud): safer auto-suspend — raise threshold to 95 + require ≥2 distinct signals
+
+Owner-decided "safe" config for the ONE automated action (§ 5 auto-suspend). Makes the reversible auto-suspend more conservative and, critically, requires **corroboration** so a single over-eager heuristic can never take down a legitimate vendor on its own.
+
+- `apps/web/lib/fraud-enforcement.ts`:
+  - `FRAUD_AUTOSUSPEND_THRESHOLD` raised **90 → 95**. The module-load invariant that it stays strictly above `VENDOR_FRAUD_ATTENTION_THRESHOLD` (60) still holds.
+  - New constant `FRAUD_AUTOSUSPEND_MIN_SIGNALS = 2`.
+  - `shouldAutoSuspend` signature changed to take the distinct open-signal-type count: `shouldAutoSuspend(aggregateScore, distinctSignalCount, currentState)`. Returns `true` only when `score ≥ 95` **AND** `distinctSignalCount ≥ 2` **AND** the vendor is currently `active`. Rationale in-comment: a lone maxed detector (e.g. `rating_shape` on a genuinely all-5★ vendor) must surface in the admin queue, never auto-suspend.
+- `apps/web/lib/fraud-enforcement-runner.ts`:
+  - `maybeAutoSuspendVendor` now reads `open_signal_count` (falling back to `open_signal_types.length`) from `vendor_fraud_scores` and passes it into `shouldAutoSuspend`. Still idempotent + fail-soft; never blocks the user write it piggybacks on.
+  - `runAutoSuspendSweep` pre-filter adds `.gte('open_signal_count', FRAUD_AUTOSUSPEND_MIN_SIGNALS)` so lone-signal vendors aren't even candidates (the per-vendor `shouldAutoSuspend` re-check remains the authority).
+- `apps/web/lib/fraud-enforcement.test.ts`: auto-suspend TRUE only for score ≥95 AND ≥2 distinct signals; FALSE for 96 w/ 1 signal; FALSE for 94 w/ 3 signals; TRUE for 95 w/ exactly 2 signals; plus a config assertion (95 / 2) and NaN/missing signal-count guards.
+
+SPEC IMPACT: None — a conservative retune of the already-locked § 5 auto-suspend thresholds (config, not a new mechanism). No schema, pricing, or product-surface change.

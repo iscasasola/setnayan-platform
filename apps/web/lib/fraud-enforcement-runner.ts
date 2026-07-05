@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   FRAUD_AUTOSUSPEND_THRESHOLD,
+  FRAUD_AUTOSUSPEND_MIN_SIGNALS,
   deriveVendorFraudState,
   shouldAutoSuspend,
   type FraudEnforcementAction,
@@ -142,12 +143,24 @@ export async function maybeAutoSuspendVendor(
 
     const { data: aggRow } = await admin
       .from('vendor_fraud_scores')
-      .select('sum_open_score')
+      .select('sum_open_score, open_signal_count, open_signal_types')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    const aggregate = (aggRow as { sum_open_score: number | null } | null)?.sum_open_score ?? 0;
+    const agg = aggRow as {
+      sum_open_score: number | null;
+      open_signal_count: number | null;
+      open_signal_types: string[] | null;
+    } | null;
+    const aggregate = agg?.sum_open_score ?? 0;
+    // Distinct open signal types — the corroboration input for the ≥2-signal
+    // guard. Prefer the precomputed count; fall back to the array length so a
+    // matview that only surfaces one of the two columns still gates correctly.
+    const distinctSignals =
+      typeof agg?.open_signal_count === 'number'
+        ? agg.open_signal_count
+        : (agg?.open_signal_types?.length ?? 0);
 
-    if (!shouldAutoSuspend(aggregate, state)) return false;
+    if (!shouldAutoSuspend(aggregate, distinctSignals, state)) return false;
 
     // Atomic guarded suspend: only flip a vendor that is STILL un-suspended +
     // un-banned (prevents a concurrent double-apply / re-log). We also stash the
@@ -208,12 +221,17 @@ export async function runAutoSuspendSweep(admin?: Admin): Promise<number> {
   const client = admin ?? createAdminClient();
   let suspended = 0;
   try {
-    // Only vendors WITH an open-signal aggregate at/above the bar are candidates
-    // — the matview omits vendors with no open signals, so this is a tiny set.
+    // Only vendors WITH an open-signal aggregate at/above the bar AND with the
+    // corroboration minimum (≥ FRAUD_AUTOSUSPEND_MIN_SIGNALS distinct open signal
+    // types) are candidates — the matview omits vendors with no open signals, so
+    // this is a tiny set. maybeAutoSuspendVendor re-checks both conditions via
+    // shouldAutoSuspend, so this pre-filter is a narrowing optimization, not the
+    // authority: a lone maxed signal is skipped here and never auto-suspends.
     const { data: rows } = await client
       .from('vendor_fraud_scores')
       .select('vendor_profile_id, sum_open_score')
-      .gte('sum_open_score', FRAUD_AUTOSUSPEND_THRESHOLD);
+      .gte('sum_open_score', FRAUD_AUTOSUSPEND_THRESHOLD)
+      .gte('open_signal_count', FRAUD_AUTOSUSPEND_MIN_SIGNALS);
     for (const row of (rows ?? []) as { vendor_profile_id: string }[]) {
       const didSuspend = await maybeAutoSuspendVendor(client, row.vendor_profile_id);
       if (didSuspend) suspended += 1;

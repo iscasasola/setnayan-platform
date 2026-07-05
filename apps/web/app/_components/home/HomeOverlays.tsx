@@ -37,7 +37,7 @@ import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { signInWithPassword } from '@/app/login/actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import type { PricingData } from './pricing-data';
-import { VENDOR_TIER_SECTIONS } from './vendor-benefits';
+import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
@@ -153,15 +153,25 @@ export function OverlayShell({
 }
 
 /**
- * Count of free-tier (Free · Verified) vendor benefits — computed at build time
- * from the canonical VENDOR_TIER_SECTIONS so the Vendors-popup line-link ("See
- * all N free vendor benefits →") never goes stale when benefits are added or
- * removed. 49 today (7 groups); the number tracks the array, not a literal.
+ * Cross-tier vendor benefit count — computed at build time from the canonical
+ * data so the Vendors-popup line-link ("See all N vendor benefits →") never goes
+ * stale. Sums the full /vendors matrix the link points at:
+ *   • named benefits across every tier (VENDOR_TIER_SECTIONS)   — 84 today
+ *   • Custom-only dials (VENDOR_CUSTOM_TIER.benefits)           —  9 today
+ *   • plan-capability rows (buildLimitsGroup in vendor-tier-matrix) — 9 fixed
+ * = 102 today. Rendered as "100+" once the total crosses 100 so the headline
+ * never regresses on a copy tweak. The number tracks the arrays, not a literal.
  */
-const FREE_VENDOR_BENEFIT_COUNT = (() => {
-  const free = VENDOR_TIER_SECTIONS.find((s) => s.tier === 'free');
-  return free ? free.groups.reduce((n, g) => n + g.items.length, 0) : 0;
+const PLAN_CAPABILITY_ROW_COUNT = 9; // buildLimitsGroup() in vendor-tier-matrix.tsx
+const TOTAL_VENDOR_BENEFIT_COUNT = (() => {
+  const named = VENDOR_TIER_SECTIONS.reduce(
+    (n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0),
+    0,
+  );
+  const custom = VENDOR_CUSTOM_TIER.benefits?.length ?? 0;
+  return named + custom + PLAN_CAPABILITY_ROW_COUNT;
 })();
+const TOTAL_VENDOR_BENEFIT_LABEL = TOTAL_VENDOR_BENEFIT_COUNT >= 100 ? '100+' : String(TOTAL_VENDOR_BENEFIT_COUNT);
 
 /**
  * PricesOverlay — the FROSTED-GLASS nav popup (owner 2026-07-04 redesign).
@@ -332,7 +342,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       <div className="hr-gline">
         <span className="hr-gline-t">Want to upgrade your business?</span>
         <Link className="hr-gline-a" href="/vendors" onClick={onClose}>
-          See all {FREE_VENDOR_BENEFIT_COUNT} free vendor benefits{' '}
+          See all {TOTAL_VENDOR_BENEFIT_LABEL} vendor benefits{' '}
           <span className="hr-gline-arw">→</span>
         </Link>
       </div>

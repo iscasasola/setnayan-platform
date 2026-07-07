@@ -11,6 +11,7 @@ import {
   daysUntilEvent,
   dueDateForItem,
   buildChecklistSeed,
+  buildSeedRows,
   phaseForOffset,
   groupChecklistByPhase,
   isChurchCeremony,
@@ -20,6 +21,7 @@ import {
   CHECKLIST_PHASES,
   type ChecklistItemRow,
 } from './checklist';
+import { checklistDefForEventType } from './checklist-event-type-defs';
 
 function item(p: Partial<ChecklistItemRow>): ChecklistItemRow {
   return {
@@ -237,4 +239,34 @@ test('isWeddingEvent: null/unset and wedding get the wedding template; explicit 
   for (const t of ['birthday', 'debut', 'christening', 'corporate', 'tournament', 'gender_reveal', 'travel', 'celebration']) {
     assert.equal(isWeddingEvent(t), false, `${t} should not be a wedding`);
   }
+});
+
+test('buildSeedRows: buildChecklistSeed is byte-identical to buildSeedRows(CHECKLIST_TEMPLATE)', () => {
+  // The wedding path MUST NOT change — the refactor extracted the mapper only.
+  for (const ceremony of [null, 'catholic', 'civil', 'inc', 'muslim']) {
+    assert.deepEqual(
+      buildChecklistSeed('e', ceremony),
+      buildSeedRows('e', CHECKLIST_TEMPLATE, ceremony),
+      `wedding seed differs for ceremony=${ceremony}`,
+    );
+  }
+});
+
+test('buildSeedRows: seeds a per-event-type template with stable sort_order', () => {
+  const bday = checklistDefForEventType('birthday')!;
+  const rows = buildSeedRows('e', bday.template, null);
+  // one row per template item (per-type templates carry no appliesTo predicates)
+  assert.equal(rows.length, bday.template.length);
+  assert.equal(rows[0]!.event_id, 'e');
+  assert.ok(rows.every((r) => r.status === 'pending'));
+  // sort_order follows (idx+1)*10 and is strictly ascending
+  assert.equal(rows[0]!.sort_order, 10);
+  for (let i = 1; i < rows.length; i++) {
+    assert.ok(rows[i]!.sort_order > rows[i - 1]!.sort_order);
+  }
+  // the birthday keys — NOT wedding keys — are what get seeded
+  const keys = new Set(rows.map((r) => r.template_key));
+  assert.ok(keys.has('bday_cake'), 'birthday task present');
+  assert.ok(!keys.has('marriage_license'), 'no wedding paperwork leaks into a birthday');
+  assert.ok(!keys.has('pre_cana'), 'no pre-Cana in a birthday');
 });

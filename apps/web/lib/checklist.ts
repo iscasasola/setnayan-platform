@@ -468,8 +468,27 @@ export function buildChecklistSeed(
   eventId: string,
   ceremonyType: string | null = null,
 ): ChecklistSeedRow[] {
+  return buildSeedRows(eventId, CHECKLIST_TEMPLATE, ceremonyType);
+}
+
+/**
+ * Generic seed-row builder for ANY checklist template (the wedding
+ * `CHECKLIST_TEMPLATE` or a per-event-type template from
+ * `lib/checklist-event-type-defs`). Extracted from `buildChecklistSeed` so
+ * non-wedding events seed their own performable-task list through the exact
+ * same shape + `sort_order` rule. Behaviour for the wedding template is
+ * unchanged (same iteration, same `(idx + 1) * 10` sort_order).
+ *
+ * `ceremonyType` only affects items carrying an `appliesTo` predicate — the
+ * per-type templates carry none, so passing null seeds every item.
+ */
+export function buildSeedRows(
+  eventId: string,
+  template: ReadonlyArray<ChecklistTemplateItem>,
+  ceremonyType: string | null = null,
+): ChecklistSeedRow[] {
   const rows: ChecklistSeedRow[] = [];
-  CHECKLIST_TEMPLATE.forEach((t, idx) => {
+  template.forEach((t, idx) => {
     if (t.appliesTo && !t.appliesTo(ceremonyType)) return;
     rows.push({
       event_id: eventId,

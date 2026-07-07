@@ -58,11 +58,17 @@ export type ChairPlacement = { x: number; z: number; faceY: number };
  *  faces the table-local origin. Mirrors the lab's retired per-mesh logic. */
 export function chairPlacements(shape: ShapeHint, capacity: number): ChairPlacement[] {
   if (shape === 'serpentine') return serpentineChairs(capacity);
-  return chairLocalPositions(shape, capacity).map((c) => ({
-    x: c.x,
-    z: c.z,
-    faceY: Math.atan2(c.x, c.z),
-  }));
+  // One source of truth (slice-2 review fix): the chair yaw is the PROMOTED
+  // SeatPose gaze + π (the documented backrest bridge) — never re-derived.
+  // The old radial atan2(x, z) matched the gaze flip only for round tables;
+  // on banquet rows it splayed end chairs diagonally and on sweethearts it
+  // crossed them inward, so the sit choreography (which trusts SeatPose)
+  // visibly popped at hand-off. Round is unchanged (radial ≡ gaze+π there);
+  // banquet chairs now sit square to the linen, sweethearts front the room.
+  return chairLocalPositions(shape, capacity).map((c) => {
+    const yaw = c.faceY + Math.PI;
+    return { x: c.x, z: c.z, faceY: Math.atan2(Math.sin(yaw), Math.cos(yaw)) };
+  });
 }
 
 // ── Detach-one-chair API (sit choreography) ──────────────────────────────────

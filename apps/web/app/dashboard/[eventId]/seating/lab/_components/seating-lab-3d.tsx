@@ -2700,6 +2700,18 @@ function Crowd({
     }
   }, [agents]);
 
+  // Reduced motion flipped ON mid-walk (slice-2 review fix): the frame loop
+  // stops and the JSX renders everyone straight into seats — the completion
+  // contract must STILL fire ("the flow always completes"). The single Walker
+  // handles this case; without this effect the crowd's stage entries stay
+  // 'walk' forever and onAllArrived never runs.
+  useEffect(() => {
+    if (!reduced || firedRef.current || !agents.length) return;
+    firedRef.current = true;
+    setStage(agents.map(() => 'done'));
+    onAllArrivedRef.current();
+  }, [reduced, agents]);
+
   // An agent's sit clip reached flush-seated: free its concurrency slot and
   // swap it to the plain seated figure. The controller unmounts on the stage
   // flip and its cleanup restores the instanced chair at the identical
@@ -2765,6 +2777,13 @@ function Crowd({
       if (stage[i] !== 'walk') return;
       const g = groups.current[i];
       if (!g) return;
+      // QUEUED agents are PINNED (slice-2 review fix): once enqueued they hold
+      // the canonical approach point and skip the separation commit — in a
+      // saturated queue (100+ guests, 8 sit slots) the make-way pass otherwise
+      // shoves waiters off their spot, and the SitController's mount teleports
+      // them back. They still occupy their pinned position in `desired`, so
+      // walkers keep giving them a berth.
+      if (enqueued.current.has(i)) return;
       const p = pushOutOfDiscs(sep[i]!, a.obstacles);
       g.position.x = p.x;
       g.position.z = p.z;
@@ -2778,6 +2797,11 @@ function Crowd({
         enqueued.current.add(i);
         headings.current[i] = g.rotation.y;
         sitQueue.current.push(i);
+        // Settle exactly onto the approach point at enqueue time — the last
+        // step landed within one stride of it, so this reads as stopping, and
+        // the later SitController mount starts from the identical transform.
+        const end = a.path[a.path.length - 1];
+        if (end) g.position.set(end.x, 0, end.z);
       }
     });
     // 4. Drain the sit queue under the concurrency budget: at most

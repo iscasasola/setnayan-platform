@@ -257,6 +257,7 @@ function GuestToken({
   name,
   quality,
   onClick,
+  seated = false,
 }: {
   position: Vec2;
   /** Facing (radians) — each figure looks toward its own table's centre. */
@@ -267,6 +268,12 @@ function GuestToken({
    *  runs 'low' (static baked pose), the desktop overlay 'high' (idle sway). */
   quality: FigureQuality;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
+  /** True once this guest's sit choreography completed (slice-2 review fix):
+   *  when the SitController unmounts (retarget / roam), the guest must stay
+   *  SEATED — popping back to standing undoes the payoff the user just
+   *  watched. The rest of the crowd stays standing until slice 3's room-wide
+   *  seated default. */
+  seated?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -275,7 +282,7 @@ function GuestToken({
           pose is slice 2) — the exact world position the old token occupied,
           so QR clicks, camera framing and roam obstacles are unchanged. The
           selfie/photo path and side-colour ring live inside the kit figure. */}
-      <Figure spec={spec} pose="stand" quality={quality} name={name} />
+      <Figure spec={spec} pose={seated ? 'sit' : 'stand'} quality={quality} name={name} />
       {onClick ? (
         // PERF: the hit cylinder is `visible` only while hovered (when it doubles
         // as the hover shell). three's Raycaster never tests object.visible, so
@@ -418,6 +425,7 @@ function Walker({
   headingRef: headingOutRef,
   look,
   reducedMotion,
+  camSeededRef,
 }: {
   walk: WalkState;
   /** The player figure's dressing — same spec the guest wears seated, so
@@ -433,12 +441,18 @@ function Walker({
    *  absent, the camera behaves exactly as before (pure auto-facing chase). */
   look?: React.MutableRefObject<LookState> | null;
   reducedMotion?: boolean;
+  /** Scene-owned "chase cam already framed" flag (slice-2 review fix): the
+   *  Walker now unmounts at the sit hand-off, so a LOCAL ref would reset on
+   *  the next walk and hard-cut the camera. The scene passes one persistent
+   *  ref; consecutive walks ease from wherever the camera is. */
+  camSeededRef?: React.MutableRefObject<boolean>;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const firedRef = useRef(false);
   const headingRef = useRef<number | null>(null);
   const bobRef = useRef(0);
-  const camReady = useRef(false);
+  const localCamReady = useRef(false);
+  const camReady = camSeededRef ?? localCamReady;
   // Arrived → the figure eases walk → stand (the kit blends presets over ~⅓ s).
   // Without this the gait clock freezes but the pose stays 'walk', holding an
   // arbitrary mid-stride forever — exactly the "frozen mid-stride reads like a
@@ -692,19 +706,24 @@ export function Plan3DScene({
   const walkTable = walkGuest ? tablesById.get(walkGuest.tableId) ?? null : null;
 
   // Seat numbers occupied per table — tints each table's instanced chairs.
+  // Clamped to capacity−1 exactly like worldSeatPose / the sit clip's
+  // seatIndex (slice-2 review fix): an out-of-range seatNumber must tint the
+  // SAME instance the seat math resolves to, or the detach/restore swap
+  // flashes a differently-tinted chair.
   const occupiedByTable = useMemo(() => {
     const m = new Map<string, Set<number>>();
     for (const g of guests) {
       if (g.seatNumber == null) continue;
+      const cap = tablesById.get(g.tableId)?.capacity ?? 1;
       let s = m.get(g.tableId);
       if (!s) {
         s = new Set<number>();
         m.set(g.tableId, s);
       }
-      s.add(g.seatNumber);
+      s.add(Math.max(0, Math.min(cap - 1, g.seatNumber)));
     }
     return m;
-  }, [guests]);
+  }, [guests, tablesById]);
 
   const roamGuest = roam ? guests.find((g) => g.id === roam.guestId) ?? null : null;
   const roamSeat = useMemo(() => {
@@ -726,6 +745,12 @@ export function Plan3DScene({
   const [sit, setSit] = useState<SitState | null>(null);
   // True once the sit clip has landed (tuck flush) — `onWalkComplete` has fired.
   const [arrived, setArrived] = useState(false);
+  // Guests whose sit choreography completed this session — they stay seated
+  // after their SitController unmounts (slice-2 review fix; see GuestToken).
+  const [seatedIds, setSeatedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Persistent "chase cam already framed" flag — survives Walker remounts so
+  // a second walk eases from the current camera instead of hard-cutting.
+  const chaseCamSeeded = useRef(false);
   // Where the figure currently stands — written every frame by <Walker>, read
   // when a roam tap needs a start point (or the seat/entrance before any walk).
   const walkerPosRef = useRef<Vec2 | null>(null);
@@ -793,7 +818,10 @@ export function Plan3DScene({
         seatIndex,
         seat,
         arriveHeading,
-        occupied: walkGuest.seatNumber != null,
+        // The DRAWN truth (slice-2 review fix): tint matches whatever the
+        // clamped instance actually renders — covers an out-of-range
+        // seatNumber AND a null seatNumber landing on another guest's chair 0.
+        occupied: occupiedByTable.get(walkTable.id)?.has(seatIndex) ?? false,
       });
     };
     if (reducedMotion) {
@@ -849,6 +877,13 @@ export function Plan3DScene({
   // must never precede the figure actually being in the chair.
   const handleSeated = () => {
     setArrived(true);
+    // Remember who completed the sit choreography: when this SitController
+    // later unmounts (retarget to another guest, roam), the guest keeps a
+    // seated GuestToken instead of popping upright (slice-2 review fix).
+    if (walkGuest) {
+      const id = walkGuest.id;
+      setSeatedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    }
     onWalkComplete?.();
   };
 
@@ -1028,6 +1063,7 @@ export function Plan3DScene({
             spec={figureSpecs.get(g.id)!}
             name={g.name}
             quality={quality}
+            seated={seatedIds.has(g.id)}
             onClick={
               interactive && onGuestClick
                 ? (e) => {
@@ -1060,6 +1096,7 @@ export function Plan3DScene({
       {walk ? (
         <Walker
           walk={walk}
+          camSeededRef={chaseCamSeeded}
           // The walking/roaming guest keeps the exact spec they wear seated.
           // A walk state with no matching guest (the roam step-in doesn't
           // structurally require one) falls back to a neutral kit figure in

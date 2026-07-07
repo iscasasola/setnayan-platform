@@ -27,3 +27,33 @@ that codes against `app/_components/plan3d/kit/index.ts`.
 
 SPEC IMPACT: None (rendering-only kit; no schema, no actions, no PII; guest surface
 data stays name/seat/side).
+
+## 2026-07-08 · feat(plan3d): demo scene renders kit figures
+
+`plan3d-scene.tsx` (homepage 3D Plan demo + phone guest walk) swaps its
+cylinder+sphere tokens for the articulated kit figures — integration slice 1
+of the kit above. Public component API unchanged (`Plan3DSceneLoader`
+consumers untouched).
+
+- Seated guests: `GuestToken` now mounts a kit `<Figure pose="stand">` at the
+  exact seat position the old token occupied (animated sit is slice 2), facing
+  its table. Outfits derive from the existing `Plan3DGuest` fields only —
+  bride side alternates gown/filipiniana, groom side suit/barong, 'both'
+  cycles all four, deterministic by id hash (high bit window, decorrelated
+  from the kit's look hash). Motif colours follow the lab's mood-board attire
+  chain (wedding-party → bride for gowns, groom for suits) with a NULL
+  fallthrough so the kit's default cloth dresses the un-themed demo.
+- Click parity: QR-minting clicks land on an invisible hit cylinder
+  (r 0.22 × 1.5 m) covering more than the old token's whole body+head volume;
+  hover shows a faint status-coloured shell on that volume (the kit's shared
+  materials can't take the old per-mesh emissive tint).
+- Walker: now a `<Figure pose="walk">` phased by the SAME bobRef clock
+  (~9 rad/s, frozen on arrival) — limbs swing while moving, freeze on arrival;
+  the rig's pelvisY bob replaces the old group-level hop. Chase-cam anchors,
+  roam, gold my-seat ring, shadows config all untouched.
+- Quality: the seated crowd inherits the scene `quality` knob (phone walk =
+  'low' → static baked poses); the single player figure always runs 'high'.
+  Reduced motion: static poses, walker relocates without animation — every
+  flow still completes.
+
+SPEC IMPACT: None (pure rendering swap inside the existing demo surface).

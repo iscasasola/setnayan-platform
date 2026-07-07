@@ -57,3 +57,36 @@ consumers untouched).
   flow still completes.
 
 SPEC IMPACT: None (pure rendering swap inside the existing demo surface).
+
+## 2026-07-08 · feat(plan3d): lab renders kit figures with attire + selfies on movers
+
+`seating-lab-3d.tsx` (the couple's flag-gated 3D seating editor) swaps its
+whole avatar family to the articulated kit figures — integration slice 2.
+
+- Seated guests: `SeatedAvatar` mounts a kit `<Figure pose="stand">` at the
+  exact seat spot the old token occupied (idle stand-at-seat; animated sit is
+  the next slice), rotated π so the rig faces the table. Outfit = the resolved
+  `resolveGuestAttire` class with barong/filipiniana derived inside the
+  suit/gown classes by id hash (code-only — no schema change); motif colour =
+  the existing mood-board gownColor/suitColor chain; selfie heads ride the
+  kit's shared GuestPhotoAvatar path; statusColor keeps the RSVP/side
+  semantics. The "+1 reserved" ghost keeps the legacy translucent token.
+- Walker / Crowd / MoverToken now CARRY the same per-guest spec as their
+  seated figure (they were bare capsules) — the person who walks is the
+  person who sits. Each reuses its existing motion clock as the gait phase
+  (walker/mover t×9 rad/s; crowd (elapsed+i)×8, frozen on arrival); the old
+  parent-group y-bobs are retired in favour of the rig's pelvis bob. The
+  single walk-in eases walk→stand on arrival via the kit's damp blend.
+- PERF heuristic (documented in TableMesh): seated figures drop to kit
+  quality 'low' (static baked pose, no per-frame joint writes) when total
+  guests > 60 (event-wide flag) OR their table is > 8 m from the camera
+  (per-table check at ~4 Hz with ±0.75 m hysteresis so orbiting doesn't
+  thrash state). Crowds > 60 agents also walk at 'low' (baked stride).
+- Preserved exactly: selection rings, drag/rotate/delete raycast flow,
+  single-editor lock, InstancedChairs, monogram medallion + bloom,
+  walk-everyone-in timing, swap animations, reduced-motion completion,
+  all HTML overlays. Verified in the dev preview against a 28-guest event
+  (an entrance-pinch crowd scrum on that floor plan reproduces identically
+  on the pre-change lab — pre-existing steering dynamics, not this slice).
+
+SPEC IMPACT: None (pure rendering swap inside the existing lab surface).

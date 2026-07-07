@@ -40,6 +40,13 @@ import {
   serpentineChairs,
   serpentineBand,
   BOOTH_FOOTPRINT_M,
+  tableFootprintDiscs,
+  chairObstacles,
+  inSeatApproachCorridor,
+  CHAIR_OBSTACLE_R,
+  buildObstacleGrid,
+  obstaclesNear,
+  type ObstacleDisc,
   type Lab3DFloor,
   type Lab3DTable,
   type Lab3DSceneObject,
@@ -559,4 +566,287 @@ test('boothApproach: walk-up point sits outside the booth avoidance ring, on the
   const centre = boothApproach({ xPct: 50, yPct: 50 }, room);
   assert.ok(Number.isFinite(centre.point.x) && Number.isFinite(centre.point.z));
   assert.ok(Math.hypot(centre.point.x, centre.point.z) > avoidR);
+});
+
+// ── Avoidance engine v2: true footprints · chair discs · grid · prediction ──
+
+/** A long banquet table for the footprint tests. */
+function banquet(deg: number): Lab3DTable {
+  return {
+    id: 'B',
+    label: 'B',
+    type: 'long_banquet_10',
+    shape: 'long_banquet',
+    capacity: 10,
+    removedSeats: [],
+    xPct: 50,
+    yPct: 50,
+    rotationDeg: deg,
+    linkGroupId: null,
+  };
+}
+
+test('tableFootprintDiscs: capsule covers a banquet\'s corners (rotated too) yet stays tight across the short axis', () => {
+  for (const deg of [0, 35]) {
+    const t = banquet(deg);
+    const discs = tableFootprintDiscs(t, ROOM);
+    assert.ok(discs.length >= 3 && discs.length <= 4, `banquet gets 3–4 discs (got ${discs.length})`);
+    const dims = tableDims(t.shape, t.capacity); // 3.0 × 0.85
+    // (a) Every tabletop CORNER (rotated through the same transform the mesh
+    // gets) sits INSIDE the disc union with real depth — a corner-grazing point
+    // is expelled, the owner-watched clip.
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const c = rotateLocal({ x: (sx * dims.w) / 2, z: (sz * dims.d) / 2 }, deg);
+        const cover = Math.max(...discs.map((d) => d.r - Math.hypot(c.x - d.c.x, c.z - d.c.z)));
+        assert.ok(cover > 0.15, `corner (${sx},${sz}) at ${deg}° covered with depth (got ${cover.toFixed(3)})`);
+        const pushed = pushOutOfDiscs(c, discs);
+        assert.ok(pushed.x !== c.x || pushed.z !== c.z, 'a point ON the corner is pushed out');
+      }
+    }
+    // (b) Tightness — the whole point of multi-disc: a spot 1.6 m off the LONG
+    // side (old bounding disc r = 3/2 + 0.8 = 2.3 swallowed it) is walkable.
+    const side = rotateLocal({ x: 0, z: 1.6 }, deg);
+    assert.deepEqual(pushOutOfDiscs(side, discs), side, 'the aisle beside the long edge stays walkable');
+    assert.ok(Math.hypot(side.x, side.z) < tableAvoidR(t), 'that spot was inside the old bounding disc');
+  }
+});
+
+test('banquet corner regression: an interpolated walk grazing the end corner never enters the tabletop', () => {
+  // The owner watched corners get clipped: a chord aimed just past a banquet's
+  // END corner used to cut the tabletop. Mirror the walker's real pipeline —
+  // steerPath + per-frame pushOutOfDiscs re-clamp — against the capsule discs
+  // and assert zero incursion into the ROTATED tabletop rectangle.
+  const bodyR = 0.24;
+  const deg = 30;
+  const t = banquet(deg);
+  const dims = tableDims(t.shape, t.capacity);
+  const discs = tableFootprintDiscs(t, ROOM);
+  // A straight line through the end-corner region of the rotated table: run it
+  // through a point just INSIDE the corner so the naive chord provably breaches.
+  const graze = rotateLocal({ x: dims.w / 2 - 0.15, z: dims.d / 2 - 0.1 }, deg);
+  const start = { x: graze.x - 6, z: graze.z - 0.2 };
+  const end = { x: graze.x + 6, z: graze.z + 0.2 };
+  const insideTop = (p: { x: number; z: number }): boolean => {
+    // Undo the table spin (rotateLocal by −deg inverts it) → axis-aligned test.
+    const local = rotateLocal(p, -deg);
+    return Math.abs(local.x) < dims.w / 2 - 1e-6 && Math.abs(local.z) < dims.d / 2 - 1e-6;
+  };
+  // Counter-proof: the raw straight line DOES cross the tabletop.
+  let straightBreaches = false;
+  for (let f = 0; f <= 200; f++) {
+    const s = f / 200;
+    if (insideTop({ x: start.x + (end.x - start.x) * s, z: start.z + (end.z - start.z) * s })) {
+      straightBreaches = true;
+    }
+  }
+  assert.ok(straightBreaches, 'the naive straight line must cross the tabletop for this to regress anything');
+  // The real pipeline: steer, then sample chords finely with the per-frame re-clamp.
+  const path = steerPath(start, end, discs, bodyR);
+  for (let i = 0; i < path.length - 1; i++) {
+    for (let f = 0; f <= 20; f++) {
+      const s = f / 20;
+      const raw = {
+        x: path[i]!.x + (path[i + 1]!.x - path[i]!.x) * s,
+        z: path[i]!.z + (path[i + 1]!.z - path[i]!.z) * s,
+      };
+      const p = pushOutOfDiscs(raw, discs, { x: 1, z: 0 }, bodyR);
+      assert.ok(!insideTop(p), `chord sample ${i}+${s} entered the tabletop at (${p.x.toFixed(2)}, ${p.z.toFixed(2)})`);
+    }
+  }
+});
+
+test('tableFootprintDiscs: round/sweetheart keep one disc; serpentine strings the band and opens the concave pocket', () => {
+  const round = tableFootprintDiscs(table('R', 50, 50), ROOM);
+  assert.equal(round.length, 1);
+  assert.ok(Math.abs(round[0]!.r - tableAvoidR(table('R', 50, 50))) < 1e-9, 'round disc = tableAvoidR, unchanged');
+  const sweet: Lab3DTable = { ...table('S', 50, 50), shape: 'sweetheart', type: 'sweetheart', capacity: 2 };
+  assert.equal(tableFootprintDiscs(sweet, ROOM).length, 1);
+
+  const serp: Lab3DTable = { ...table('P', 50, 50), shape: 'serpentine', type: 'serpentine', capacity: 5 };
+  const discs = tableFootprintDiscs(serp, ROOM);
+  assert.ok(discs.length >= 4, `serpentine strings ≥4 discs along the band (got ${discs.length})`);
+  // Every point of the band's CENTRELINE is covered (walkers can't cross the band)…
+  const { centre } = serpentineBand();
+  const SWEEP = (104 * Math.PI) / 180;
+  const rm = (0.95 + 1.55) / 2;
+  for (let i = 0; i <= 12; i++) {
+    const phi = -SWEEP / 2 + (SWEEP * i) / 12;
+    const p = { x: rm * Math.sin(phi) + centre.x, z: -rm * Math.cos(phi) + centre.z };
+    const cover = Math.max(...discs.map((d) => d.r - Math.hypot(p.x - d.c.x, p.z - d.c.z)));
+    assert.ok(cover > 0, `band centreline sample ${i} is covered`);
+  }
+  // …but the concave pocket (the curvature centre) is finally WALKABLE — the
+  // old bbox bounding disc (tableAvoidR ≈ 2 m) blanketed it.
+  const pocket = { x: centre.x, z: centre.z };
+  assert.deepEqual(pushOutOfDiscs(pocket, discs), pocket, 'the concave pocket is open');
+  assert.ok(Math.hypot(pocket.x, pocket.z) < tableAvoidR(serp), 'the pocket was inside the old bounding disc');
+});
+
+test('floorObstacles: emits multi-disc footprints per table (capsule banquet + single round + stage)', () => {
+  const tables = [banquet(0), table('R', 20, 20)];
+  const obs = floorObstacles(floor(false), tables, ROOM, []);
+  const banquetDiscs = tableFootprintDiscs(banquet(0), ROOM).length;
+  assert.equal(obs.length, banquetDiscs + 1 + 1, 'banquet capsule + round disc + stage');
+  // Skipping the banquet drops ALL of its footprint discs.
+  assert.equal(floorObstacles(floor(false), tables, ROOM, ['B']).length, 2);
+});
+
+test('chairObstacles: a disc per chair; destination chair + approach corridor excluded; removed seats skipped', () => {
+  const room = { w: 20, d: 20 };
+  const t = table('A', 50, 50); // round_10 at the origin
+  const all = chairObstacles(t, room);
+  assert.equal(all.length, 10, 'one disc per chair, occupied or not');
+  for (let i = 0; i < 10; i++) {
+    const pose = worldSeatPose(t, i, room);
+    assert.deepEqual(all[i]!.c, { x: pose.x, z: pose.z }, `disc ${i} sits on its chair`);
+    assert.equal(all[i]!.r, CHAIR_OBSTACLE_R);
+  }
+  // Removed (deleted) chairs have nothing to bump into.
+  assert.equal(chairObstacles({ ...t, removedSeats: [3, 7] }, room).length, 8);
+  // Destination seat: its own disc goes away…
+  const dest = 0;
+  const seat = worldSeatPose(t, dest, room);
+  const forWalk = chairObstacles(t, room, { destinationSeat: dest });
+  assert.equal(forWalk.length, 9, 'destination chair excluded');
+  assert.ok(!forWalk.some((d) => Math.hypot(d.c.x - seat.x, d.c.z - seat.z) < 1e-9));
+  // …and the walker's hand-off spot (approachPoint) is clear of every kept disc,
+  // so the sit walk can actually stand there.
+  const ap = approachPoint(seat);
+  for (const d of forWalk) {
+    assert.ok(Math.hypot(ap.x - d.c.x, ap.z - d.c.z) >= d.r, 'approach point clear of chair discs');
+    assert.ok(!inSeatApproachCorridor(d.c, seat), 'no kept chair sits in the approach corridor');
+  }
+  // Out-of-range destination clamps exactly like worldSeatPose (chair 9 here).
+  const clamped = chairObstacles(t, room, { destinationSeat: 99 });
+  const chair9 = worldSeatPose(t, 9, room);
+  assert.ok(!clamped.some((d) => Math.hypot(d.c.x - chair9.x, d.c.z - chair9.z) < 1e-9));
+});
+
+test('inSeatApproachCorridor: behind-the-chair strip only — the table side and the flanks stay obstacles', () => {
+  const seat = { x: 0, z: -2, faceY: 0 }; // gazes +z at a table; "behind" is −z
+  assert.ok(inSeatApproachCorridor(approachPoint(seat), seat), 'the approachPoint is in the corridor');
+  assert.ok(inSeatApproachCorridor({ x: 0.3, z: -3 }, seat), 'a chair crowding the strip is in it');
+  assert.ok(!inSeatApproachCorridor({ x: 1.2, z: -2.6 }, seat), 'a flank neighbour is not');
+  assert.ok(!inSeatApproachCorridor({ x: 0, z: -1.2 }, seat), 'the table side (+faceY) is not');
+  assert.ok(!inSeatApproachCorridor({ x: 0, z: -3.9 }, seat), 'beyond the corridor length is not');
+});
+
+test('separateAgents predictive: head-on walkers pass right-shifted, never overlap — reactive-only mirrors deadlock', () => {
+  const SPEED = 1.4;
+  const DT = 1 / 30;
+  const MIN = 0.6;
+  type Sim = { pos: Vec2p; target: Vec2p };
+  type Vec2p = { x: number; z: number };
+  const run = (withVel: boolean) => {
+    const sims: Sim[] = [
+      { pos: { x: 0, z: -3 }, target: { x: 0, z: 3 } },
+      { pos: { x: 0, z: 3 }, target: { x: 0, z: -3 } },
+    ];
+    let minPair = Infinity;
+    const trace: Vec2p[][] = [[], []];
+    for (let f = 0; f < 300; f++) {
+      const desired = sims.map((s) => {
+        const dx = s.target.x - s.pos.x;
+        const dz = s.target.z - s.pos.z;
+        const dist = Math.hypot(dx, dz);
+        const step = Math.min(dist, SPEED * DT);
+        const vx = dist > 1e-9 ? (dx / dist) * SPEED : 0;
+        const vz = dist > 1e-9 ? (dz / dist) * SPEED : 0;
+        const next = dist > 1e-9
+          ? { x: s.pos.x + (dx / dist) * step, z: s.pos.z + (dz / dist) * step }
+          : { x: s.pos.x, z: s.pos.z };
+        return withVel ? { ...next, vel: { x: vx, z: vz } } : next;
+      });
+      const sep = separateAgents(desired, MIN);
+      sims.forEach((s, i) => {
+        s.pos = sep[i]!;
+        trace[i]!.push(sep[i]!);
+      });
+      minPair = Math.min(minPair, Math.hypot(sep[1]!.x - sep[0]!.x, sep[1]!.z - sep[0]!.z));
+    }
+    return { sims, minPair, trace };
+  };
+
+  // WITH velocities: they anticipate, sidestep, pass, and both arrive.
+  const pred = run(true);
+  assert.ok(pred.minPair >= MIN - 1e-9, `never closer than minDist (got ${pred.minPair.toFixed(3)})`);
+  for (const [i, s] of pred.sims.entries()) {
+    const remaining = Math.hypot(s.pos.x - s.target.x, s.pos.z - s.target.z);
+    assert.ok(remaining < 0.5, `agent ${i} reached its target (remaining ${remaining.toFixed(2)})`);
+  }
+  // Pass-on-the-RIGHT: agent 0 walks +z (its right is +x); agent 1 walks −z
+  // (its right is −x). Each detours to its own right.
+  assert.ok(Math.max(...pred.trace[0]!.map((p) => p.x)) > 0.05, 'agent 0 detoured to ITS right (+x)');
+  assert.ok(Math.min(...pred.trace[1]!.map((p) => p.x)) < -0.05, 'agent 1 detoured to ITS right (−x)');
+
+  // Counter-proof: WITHOUT velocities the mirrored pair has no symmetry-breaker
+  // — both stay pinned to the x=0 line and neither ever gets past the other.
+  const reactive = run(false);
+  for (const t of reactive.trace) for (const p of t) assert.ok(Math.abs(p.x) < 1e-9, 'reactive mirror stays on the line');
+  const stuck = Math.hypot(
+    reactive.sims[0]!.pos.x - reactive.sims[0]!.target.x,
+    reactive.sims[0]!.pos.z - reactive.sims[0]!.target.z,
+  );
+  assert.ok(stuck > 1, `reactive-only deadlocks short of the target (remaining ${stuck.toFixed(2)}) — the right-bias is load-bearing`);
+});
+
+test('spatial hash: obstaclesNear finds every reaching disc; grid fast paths match brute force bit-for-bit', () => {
+  // Deterministic PRNG (mulberry32) — the parity claim must not be flaky.
+  const mulberry32 = (seed: number) => () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const rand = mulberry32(0x5e7a1);
+  const discs: ObstacleDisc[] = [];
+  for (let i = 0; i < 60; i++) {
+    discs.push({
+      c: { x: (rand() - 0.5) * 30, z: (rand() - 0.5) * 30 },
+      r: 0.3 + rand() * 1.7,
+    });
+  }
+  const grid = buildObstacleGrid(discs);
+  const bodyR = 0.24;
+  for (let k = 0; k < 150; k++) {
+    const p = { x: (rand() - 0.5) * 34, z: (rand() - 0.5) * 34 };
+    const reach = rand() * 0.6;
+    const near = obstaclesNear(grid, p, reach);
+    // Completeness: every disc whose inflated radius reaches p is returned.
+    for (const d of discs) {
+      if (Math.hypot(p.x - d.c.x, p.z - d.c.z) < d.r + reach) {
+        assert.ok(near.includes(d), 'obstaclesNear misses a reaching disc');
+      }
+    }
+    // Order: insertion order, so fast-path mutation sequences match brute force.
+    for (let i = 1; i < near.length; i++) {
+      assert.ok(discs.indexOf(near[i - 1]!) < discs.indexOf(near[i]!), 'near set keeps insertion order');
+    }
+    // pushOutOfDiscs parity: grid + inflateR ≡ brute-force pre-inflated array.
+    const inflated = discs.map((d) => ({ c: d.c, r: d.r + bodyR }));
+    assert.deepEqual(
+      pushOutOfDiscs(p, grid, { x: 1, z: 0 }, bodyR),
+      pushOutOfDiscs(p, inflated),
+      'grid push == brute-force push',
+    );
+  }
+  // steerPath parity on whole walks across the random scene.
+  for (let k = 0; k < 12; k++) {
+    const s = { x: -16, z: (rand() - 0.5) * 30 };
+    const e = { x: 16, z: (rand() - 0.5) * 30 };
+    assert.deepEqual(steerPath(s, e, grid, bodyR), steerPath(s, e, discs, bodyR), 'grid steer == brute-force steer');
+  }
+  // And the real room stays cheap: a 15-table/150-chair scene's grid query
+  // returns a small neighbourhood, not the whole set.
+  const roomTables = Array.from({ length: 15 }, (_, i) => table(`T${i}`, 10 + (i % 5) * 20, 15 + Math.floor(i / 5) * 30));
+  const roomDiscs = [
+    ...floorObstacles(floor(true), roomTables, ROOM, []),
+    ...roomTables.flatMap((t) => chairObstacles(t, ROOM)),
+  ];
+  assert.ok(roomDiscs.length >= 160, `full room carries the advertised disc count (got ${roomDiscs.length})`);
+  const roomGrid = buildObstacleGrid(roomDiscs);
+  const sample = obstaclesNear(roomGrid, { x: 0, z: 0 }, bodyR);
+  assert.ok(sample.length < roomDiscs.length / 4, `query is local (${sample.length} of ${roomDiscs.length})`);
 });

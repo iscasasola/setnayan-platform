@@ -138,6 +138,13 @@ export type Lab3DPalette = {
 
 export type Vec2 = { x: number; z: number };
 
+/** The ONE avoidance-obstacle shape every steering primitive speaks: a disc
+ * (centre + radius, world metres). Named so the new multi-disc footprint /
+ * chair / grid helpers share a type, but structurally identical to the inline
+ * `{ c, r }` the existing consumers (steerPath, pushOutOfDiscs, the roam
+ * clamp, the lab crowd) already pass — nothing downstream changes shape. */
+export type ObstacleDisc = { c: Vec2; r: number };
+
 /**
  * A seat's position + FACING — the direction the seated guest's gaze points
  * (radians, walkVector's heading convention: yaw θ ↔ world vector (sinθ, cosθ),
@@ -488,10 +495,153 @@ export function approachPoint(seat: SeatPose, distM = 0.55): Vec2 {
   };
 }
 
-/** Avoidance radius (metres) a walker keeps from a table centre. */
+/** Avoidance radius (metres) a walker keeps from a table centre. Still the
+ * single-disc summary (seatApproachPath's approach ring, checkPlacement) —
+ * PATH obstacles now come from tableFootprintDiscs, which keeps the same
+ * 0.8 m clearance intent but hugs the true outline. */
 export function tableAvoidR(table: Lab3DTable): number {
   const d = tableDims(table.shape, table.capacity);
   return (d.round ? d.w / 2 : Math.max(d.w, d.d) / 2) + 0.8;
+}
+
+// ── True table footprints (multi-disc) ──────────────────────────────────────
+// Standing clearance a walker keeps beyond a tabletop edge — the same 0.8 m
+// tableAvoidR has always added past the footprint half-span, now applied along
+// the TRUE outline instead of one fat bounding circle.
+const FOOTPRINT_CLEARANCE_M = 0.8;
+// The serpentine band's clearance is deliberately tighter: its chairs ride both
+// arcs 0.5 m out and now carry their OWN discs (chairObstacles), and a 0.8 m
+// ring around the 0.6 m-thick band would swallow the concave pocket this
+// multi-disc upgrade exists to open up.
+const SERP_FOOTPRINT_CLEARANCE_M = 0.5;
+const SERP_FOOTPRINT_DISCS = 5;
+
+/**
+ * TRUE table footprint as avoidance discs. The owner watched walkers clip
+ * banquet-table corners: the single bounding disc per table either had to span
+ * the long half-diagonal (swallowing whole aisles) or, sized to the half-span
+ * the way tableAvoidR is, left the end corners poking out of coverage — and
+ * per-frame clamps that exclude the destination table relaxed it further.
+ * Shape-aware multi-disc coverage instead:
+ *   · round / sweetheart — one disc (the old behaviour was already true here:
+ *     a round IS a circle; a sweetheart is a small 1.1×0.6 slab);
+ *   · long_banquet / family_head — a capsule: 3–4 discs strung along the local
+ *     x axis, each r = short-half-span + clearance, end centres at
+ *     ±(w/2 − d/2) so the union is the rectangle inflated by the clearance
+ *     and the end caps wrap the corners;
+ *   · serpentine — discs strung along the band's centreline arc (the same
+ *     serpAt math the outline uses), so the concave pocket is finally
+ *     walkable instead of one huge bbox disc.
+ * Every disc composes through the table's rotation via rotateLocal — the SAME
+ * transform the mesh gets — so a spun banquet's corners stay covered. Returns
+ * the shared `{ c, r }` obstacle type, so steerPath / pushOutOfDiscs / the
+ * roam clamp consume it unchanged.
+ */
+export function tableFootprintDiscs(
+  table: Lab3DTable,
+  room: { w: number; d: number },
+): ObstacleDisc[] {
+  const base = pctToWorld(table.xPct, table.yPct, room);
+  const place = (local: Vec2, r: number): ObstacleDisc => {
+    const p = rotateLocal(local, table.rotationDeg);
+    return { c: { x: base.x + p.x, z: base.z + p.z }, r };
+  };
+  switch (table.shape) {
+    case 'round':
+    case 'sweetheart':
+      return [{ c: base, r: tableAvoidR(table) }];
+    case 'serpentine': {
+      const { centre } = serpentineBand();
+      const rm = (SERP_RI + SERP_RO) / 2; // band centreline radius
+      const r = (SERP_RO - SERP_RI) / 2 + SERP_FOOTPRINT_CLEARANCE_M;
+      const out: ObstacleDisc[] = [];
+      for (let i = 0; i < SERP_FOOTPRINT_DISCS; i++) {
+        const phi = -SERP_SWEEP / 2 + (SERP_SWEEP * i) / (SERP_FOOTPRINT_DISCS - 1);
+        const p = serpAt(rm, phi); // relative to the curvature centre
+        out.push(place({ x: p.x + centre.x, z: p.z + centre.z }, r));
+      }
+      return out;
+    }
+    case 'long_banquet':
+    case 'family_head': {
+      const dims = tableDims(table.shape, table.capacity);
+      const r = dims.d / 2 + FOOTPRINT_CLEARANCE_M;
+      // End centres at ±(w/2 − d/2): the classic capsule of the rectangle, so
+      // every edge keeps the full clearance and the end caps wrap the corners
+      // — the exact spots the old sizing left walkable.
+      const half = Math.max(0, dims.w / 2 - dims.d / 2);
+      const n = dims.w > dims.d * 3 ? 4 : 3;
+      const out: ObstacleDisc[] = [];
+      for (let i = 0; i < n; i++) {
+        out.push(place({ x: -half + (2 * half * i) / (n - 1), z: 0 }, r));
+      }
+      return out;
+    }
+  }
+}
+
+/** A walker's clearance disc per CHAIR — the 0.42 m chair box's half-diagonal
+ * plus a little body slack, matching how snugly the sit choreography's own
+ * approach distances are tuned. */
+export const CHAIR_OBSTACLE_R = 0.3;
+
+/**
+ * Is `p` inside the approach corridor of `seat` — the strip a sit walk OWNS,
+ * running from the chair out through its approachPoint (the −faceY side,
+ * behind the backrest)? Chair discs inside this strip must not be obstacles
+ * for the walker heading to THAT seat, or the final step-in gets shoved off
+ * the hand-off spot. `along` is signed distance behind the chair; `across` is
+ * lateral offset off the corridor axis. Pure — exported so a caller can also
+ * filter a NEIGHBOURING table's chair that happens to crowd the corridor.
+ */
+export function inSeatApproachCorridor(
+  p: Vec2,
+  seat: SeatPose,
+  halfWidthM = 0.55,
+  lengthM = 1.4,
+): boolean {
+  const ax = -Math.sin(seat.faceY);
+  const az = -Math.cos(seat.faceY);
+  const vx = p.x - seat.x;
+  const vz = p.z - seat.z;
+  const along = vx * ax + vz * az;
+  const across = Math.abs(vx * az - vz * ax);
+  return along >= -0.05 && along <= lengthM && across <= halfWidthM;
+}
+
+/**
+ * Avoidance discs for a table's CHAIRS — one small disc per chair (occupied or
+ * not: an empty chair is just as solid, and a seated guest is covered by their
+ * chair's disc, so the crowd needs no separate person-discs for the seated).
+ * Removed (deleted) chairs get none. When the walker is heading to a seat at
+ * THIS table, pass it as `destinationSeat`: that chair AND any chair sitting
+ * in its approach corridor (the approachPoint side — see
+ * inSeatApproachCorridor) are excluded, so the sit walk can still reach its
+ * hand-off spot. The index clamps exactly like worldSeatPose so an
+ * out-of-range seat number excludes the SAME chair the seat math resolves to.
+ */
+export function chairObstacles(
+  table: Lab3DTable,
+  room: { w: number; d: number },
+  opts: { destinationSeat?: number | null } = {},
+): ObstacleDisc[] {
+  const removed = new Set(
+    table.removedSeats.filter((i) => Number.isInteger(i) && i >= 0 && i < table.capacity),
+  );
+  const destIdx =
+    opts.destinationSeat == null
+      ? null
+      : Math.max(0, Math.min(table.capacity - 1, opts.destinationSeat));
+  const destPose = destIdx == null ? null : worldSeatPose(table, destIdx, room);
+  const out: ObstacleDisc[] = [];
+  for (let i = 0; i < table.capacity; i++) {
+    if (removed.has(i)) continue; // a deleted chair isn't there to bump into
+    if (i === destIdx) continue; // the walker's own chair — they must reach it
+    const pose = worldSeatPose(table, i, room);
+    if (destPose && inSeatApproachCorridor(pose, destPose)) continue;
+    out.push({ c: { x: pose.x, z: pose.z }, r: CHAIR_OBSTACLE_R });
+  }
+  return out;
 }
 
 /**
@@ -539,21 +689,24 @@ export function reconcileGrouping<T extends { id: string; linkGroupId: string | 
 
 /**
  * Every fixed obstacle a walking avatar must clear, as avoidance discs (centre +
- * radius, world metres): each table EXCEPT the walker's destination, the stage,
- * and the dance floor when enabled. Centralised so the single walk path and the
- * (coming) crowd populate-Play share ONE source of truth — and so vendor booths
- * slot in here later as just more discs.
+ * radius, world metres): each table EXCEPT the walker's destination — now as
+ * its TRUE multi-disc footprint (tableFootprintDiscs), so a banquet reads as a
+ * capsule and a serpentine as its band instead of one fat bounding circle —
+ * plus the stage, and the dance floor when enabled. Centralised so the single
+ * walk path and the crowd populate-Play share ONE source of truth — and so
+ * vendor booths slot in here later as just more discs. Skipping a table by id
+ * skips ALL of its footprint discs.
  */
 export function floorObstacles(
   floor: Lab3DFloor,
   tables: Lab3DTable[],
   room: { w: number; d: number },
   skipTableIds: readonly (string | null | undefined)[],
-): { c: Vec2; r: number }[] {
+): ObstacleDisc[] {
   const skip = new Set(skipTableIds.filter(Boolean));
-  const obs: { c: Vec2; r: number }[] = tables
+  const obs: ObstacleDisc[] = tables
     .filter((t) => !skip.has(t.id))
-    .map((t) => ({ c: pctToWorld(t.xPct, t.yPct, room), r: tableAvoidR(t) }));
+    .flatMap((t) => tableFootprintDiscs(t, room));
   // Stage — always present. Bounding disc of its footprint + a little clearance.
   const stageW = Math.max(1.5, (floor.stage.wPct / 100) * room.w);
   const stageD = Math.max(1, (floor.stage.hPct / 100) * room.d);
@@ -817,6 +970,84 @@ export function cocktailObstacles(
   return pts.map((p) => ({ c: p, r: wallR }));
 }
 
+// ── Spatial hash (obstacle grid) ────────────────────────────────────────────
+// With true footprints + chair discs a 15-table/150-guest room carries ~170
+// obstacle discs; every per-frame primitive touching all of them for every
+// agent is the phone budget's death by a thousand hypots. A tiny uniform grid
+// (cell ~1.5 m — about one obstacle diameter) built per obstacle-set change
+// gives O(nearby) queries instead. Discs are inserted into EVERY cell their
+// bounding square overlaps, so a query only reads the cells around the point.
+
+/** Grid cell edge, metres. ~one chair-cluster across: small enough that a
+ * query's 3×3-ish neighbourhood stays cheap, big enough that bucket counts
+ * don't balloon. */
+export const OBSTACLE_GRID_CELL_M = 1.5;
+
+export type ObstacleGrid = {
+  cellM: number;
+  /** Largest disc radius in the set — the movement slack the fast paths add to
+   * their query reach (an expulsion can move a point up to ~one radius). */
+  maxR: number;
+  /** The full set, insertion order — the parity contract with brute force. */
+  all: readonly ObstacleDisc[];
+  /** cell key `${ix},${iz}` → ascending indices into `all`. */
+  buckets: ReadonlyMap<string, readonly number[]>;
+};
+
+/** Build the grid. Cheap enough (~170 discs → a few hundred bucket pushes) to
+ * rebuild per frame when agents move, or per obstacle-set change when static. */
+export function buildObstacleGrid(
+  discs: readonly ObstacleDisc[],
+  cellM = OBSTACLE_GRID_CELL_M,
+): ObstacleGrid {
+  const buckets = new Map<string, number[]>();
+  let maxR = 0;
+  discs.forEach((d, i) => {
+    maxR = Math.max(maxR, d.r);
+    const x0 = Math.floor((d.c.x - d.r) / cellM);
+    const x1 = Math.floor((d.c.x + d.r) / cellM);
+    const z0 = Math.floor((d.c.z - d.r) / cellM);
+    const z1 = Math.floor((d.c.z + d.r) / cellM);
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iz = z0; iz <= z1; iz++) {
+        const key = `${ix},${iz}`;
+        const b = buckets.get(key);
+        if (b) b.push(i);
+        else buckets.set(key, [i]);
+      }
+    }
+  });
+  return { cellM, maxR, all: discs, buckets };
+}
+
+/**
+ * The discs whose (radius + reachM) reaches `p` — i.e. everything that could
+ * push/repel a point at `p` with `reachM` of slack. Returned in INSERTION
+ * order, so a fast-path consumer walks them in the exact sequence brute force
+ * over `grid.all` would — that's what keeps grid results bit-identical to the
+ * plain-array paths (the parity test's contract).
+ */
+export function obstaclesNear(grid: ObstacleGrid, p: Vec2, reachM = 0): ObstacleDisc[] {
+  const x0 = Math.floor((p.x - reachM) / grid.cellM);
+  const x1 = Math.floor((p.x + reachM) / grid.cellM);
+  const z0 = Math.floor((p.z - reachM) / grid.cellM);
+  const z1 = Math.floor((p.z + reachM) / grid.cellM);
+  const seen = new Set<number>();
+  for (let ix = x0; ix <= x1; ix++) {
+    for (let iz = z0; iz <= z1; iz++) {
+      const b = grid.buckets.get(`${ix},${iz}`);
+      if (b) for (const i of b) seen.add(i);
+    }
+  }
+  const idx = [...seen].sort((a, b) => a - b);
+  const out: ObstacleDisc[] = [];
+  for (const i of idx) {
+    const d = grid.all[i]!;
+    if (Math.hypot(p.x - d.c.x, p.z - d.c.z) < d.r + reachM + 1e-9) out.push(d);
+  }
+  return out;
+}
+
 /**
  * Push a point to the edge of any avoidance disc it sits inside (one pass over
  * the discs). `perp` is the escape heading for the degenerate case where the
@@ -824,55 +1055,135 @@ export function cocktailObstacles(
  * Pure — shared by steerPath's hard-clearance AND the per-frame crowd re-clamp,
  * so "don't cross objects" means the same thing for a precomputed path and a
  * live-walking avatar.
+ *
+ * Fast path: pass an ObstacleGrid instead of the array and only nearby discs
+ * are visited. The query reach adds 2·maxR movement slack on top of `inflateR`
+ * because each expulsion can move the point up to one disc radius, and the
+ * chained disc must still be in the (fixed) candidate list — the same list
+ * semantics the array walk has. `inflateR` inflates every disc at check time
+ * (the body-radius pattern), so grid callers don't have to materialise an
+ * inflated copy of the set; array callers may keep pre-inflating as before.
  */
 export function pushOutOfDiscs(
   p: Vec2,
-  discs: { c: Vec2; r: number }[],
+  discs: ObstacleDisc[] | ObstacleGrid,
   perp: Vec2 = { x: 1, z: 0 },
+  inflateR = 0,
 ): Vec2 {
+  const source = Array.isArray(discs)
+    ? discs
+    : obstaclesNear(discs, p, inflateR + 2 * discs.maxR);
   let x = p.x;
   let z = p.z;
-  for (const d of discs) {
+  for (const d of source) {
+    const rr = d.r + inflateR;
     const dx = x - d.c.x;
     const dz = z - d.c.z;
     const dist = Math.hypot(dx, dz);
-    if (dist < d.r) {
+    if (dist < rr) {
       const ux = dist < 1e-3 ? perp.x : dx / dist;
       const uz = dist < 1e-3 ? perp.z : dz / dist;
-      x = d.c.x + ux * d.r;
-      z = d.c.z + uz * d.r;
+      x = d.c.x + ux * rr;
+      z = d.c.z + uz * rr;
     }
   }
   return { x, z };
 }
 
+/** Velocity a predictive crowd agent carries (m/s, world axes). Optional on
+ * every agent — a plain Vec2 crowd falls back to the reactive-only v1. */
+export type AgentVel = { x: number; z: number };
+
+// Predictive-separation tuning. LOOKAHEAD projects each agent 0.4 s down its
+// velocity — far enough to see a head-on conflict ~1.5 m out at walking speed,
+// short enough that projections through the far side of a table don't panic
+// unrelated agents. GAIN corrects only a fraction of the projected shortfall
+// per frame (the crowd's one-relaxation-pass-per-frame philosophy: converge
+// over frames, never teleport). RIGHT_BIAS rotates each agent's evasion toward
+// its OWN right — pass-on-the-right reads naturally AND breaks the
+// mutual-mirror deadlock two symmetric head-on walkers otherwise lock into.
+const SEP_LOOKAHEAD_S = 0.4;
+const SEP_PRED_GAIN = 0.35;
+const SEP_RIGHT_BIAS = 0.9;
+
 /**
- * "Make way for each other": any two agents closer than `minDist` are pushed
- * apart by half their overlap each. Returns NEW positions (input untouched).
- * One relaxation pass — the crowd loop calls it every frame, so it converges
- * over time rather than resolving all overlaps in a single tick. Pure.
+ * "Make way for each other", v2. Two layers, one relaxation pass per frame
+ * (the crowd loop calls it every frame, so it converges over time — never
+ * resolves everything in a single tick). Returns NEW positions, input
+ * untouched. Pure.
+ *
+ *  1. REACTIVE (v1, byte-identical): any two agents already closer than
+ *     `minDist` are pushed apart by half their overlap each — the hard
+ *     guarantee that a committed frame never overlaps.
+ *  2. PREDICTIVE (new): agents carrying a `vel` are compared at positions
+ *     projected SEP_LOOKAHEAD_S ahead; if the PROJECTED pair would come inside
+ *     `minDist`, each gets a small steering push away from the conflict,
+ *     biased toward its own RIGHT — so approaching walkers sidestep early and
+ *     pass right-shifted instead of colliding into the reactive shove (or
+ *     mirror-stalling forever on a shared line).
+ *
+ * The old signature keeps working: `vel` is optional, and a velocity-less pair
+ * projects to where it already stands — reactive-only, exactly v1.
  */
-export function separateAgents(agents: Vec2[], minDist: number): Vec2[] {
+export function separateAgents(
+  agents: readonly (Vec2 & { vel?: AgentVel })[],
+  minDist: number,
+): Vec2[] {
   const out = agents.map((a) => ({ x: a.x, z: a.z }));
+  // Steering direction for one agent: the away-vector blended toward the
+  // agent's own right (right of heading (sinθ,cosθ) is (cosθ,−sinθ), i.e.
+  // (v.z,−v.x)/|v| — the same convention walkVector's strafe uses). A
+  // stationary agent has no "right", so it evades straight away.
+  const evade = (v: AgentVel | undefined, awayX: number, awayZ: number): Vec2 => {
+    const speed = v ? Math.hypot(v.x, v.z) : 0;
+    if (!v || speed < 1e-6) return { x: awayX, z: awayZ };
+    const bx = awayX + SEP_RIGHT_BIAS * (v.z / speed);
+    const bz = awayZ + SEP_RIGHT_BIAS * (-v.x / speed);
+    const bl = Math.hypot(bx, bz) || 1;
+    return { x: bx / bl, z: bz / bl };
+  };
   for (let i = 0; i < out.length; i++) {
     for (let j = i + 1; j < out.length; j++) {
       const dx = out[j]!.x - out[i]!.x;
       const dz = out[j]!.z - out[i]!.z;
       const dist = Math.hypot(dx, dz);
-      if (dist >= minDist) continue;
       if (dist < 1e-6) {
         // Exactly coincident — separate deterministically along x by index.
         out[i]!.x -= minDist / 2;
         out[j]!.x += minDist / 2;
         continue;
       }
-      const push = (minDist - dist) / 2;
-      const ux = dx / dist;
-      const uz = dz / dist;
-      out[i]!.x -= ux * push;
-      out[i]!.z -= uz * push;
-      out[j]!.x += ux * push;
-      out[j]!.z += uz * push;
+      if (dist < minDist) {
+        // Reactive fallback — the same-frame overlap push, unchanged from v1.
+        const push = (minDist - dist) / 2;
+        const ux = dx / dist;
+        const uz = dz / dist;
+        out[i]!.x -= ux * push;
+        out[i]!.z -= uz * push;
+        out[j]!.x += ux * push;
+        out[j]!.z += uz * push;
+        continue;
+      }
+      // Predictive: compare the pair 0.4 s ahead. Velocity-less agents project
+      // in place, so a legacy Vec2 crowd never reaches the push below.
+      const vi = agents[i]!.vel;
+      const vj = agents[j]!.vel;
+      if (!vi && !vj) continue;
+      const pdx = dx + ((vj?.x ?? 0) - (vi?.x ?? 0)) * SEP_LOOKAHEAD_S;
+      const pdz = dz + ((vj?.z ?? 0) - (vi?.z ?? 0)) * SEP_LOOKAHEAD_S;
+      const pdist = Math.hypot(pdx, pdz);
+      if (pdist >= minDist) continue;
+      // Away axis at the PROJECTED conflict; if the projections collapse onto
+      // each other, fall back to the current separation axis (never zero here).
+      const ux = pdist > 1e-6 ? pdx / pdist : dx / dist;
+      const uz = pdist > 1e-6 ? pdz / pdist : dz / dist;
+      const push = ((minDist - pdist) / 2) * SEP_PRED_GAIN;
+      const di = evade(vi, -ux, -uz);
+      const dj = evade(vj, ux, uz);
+      out[i]!.x += di.x * push;
+      out[i]!.z += di.z * push;
+      out[j]!.x += dj.x * push;
+      out[j]!.z += dj.z * push;
     }
   }
   return out;
@@ -900,9 +1211,16 @@ export function walkVector(yaw: number, moveX: number, moveForward: number): { d
 export function steerPath(
   start: Vec2,
   end: Vec2,
-  tables: { c: Vec2; r: number }[],
+  tables: ObstacleDisc[] | ObstacleGrid,
   skipR = 0,
 ): Vec2[] {
+  // Grid fast path: query only the discs near each sample point. The reach
+  // carries skipR (the repulsion trigger is dist < r + skipR) plus 2·maxR of
+  // movement slack, so a point pushed mid-pass still sees the disc it lands
+  // in — keeping grid results identical to the brute-force array walk.
+  const nearReach = Array.isArray(tables) ? 0 : skipR + 2 * tables.maxR;
+  const discsAt = (p: Vec2): readonly ObstacleDisc[] =>
+    Array.isArray(tables) ? tables : obstaclesNear(tables, p, nearReach);
   // Denser sampling (was 22) keeps waypoints close together so the straight
   // CHORD a walker interpolates between two disc-edge-clamped waypoints barely
   // dips into the disc — the visible "walking through the table" artefact.
@@ -917,7 +1235,7 @@ export function steerPath(
   // Two relaxation passes of repulsion on interior points.
   for (let pass = 0; pass < 2; pass++) {
     for (let i = 1; i < pts.length - 1; i++) {
-      for (const tb of tables) {
+      for (const tb of discsAt(pts[i]!)) {
         const dx = pts[i]!.x - tb.c.x;
         const dz = pts[i]!.z - tb.c.z;
         const dist = Math.hypot(dx, dz) || 0.0001;
@@ -952,10 +1270,11 @@ export function steerPath(
   const hz = end.z - start.z;
   const hlen = Math.hypot(hx, hz) || 1;
   const perp = { x: -hz / hlen, z: hx / hlen };
-  const discs = tables.map((tb) => ({ c: tb.c, r: tb.r + skipR }));
+  // skipR rides through pushOutOfDiscs' inflateR (same math as pre-inflating
+  // a copied array, without materialising one — the grid stays usable as-is).
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < out.length - 1; i++) {
-      out[i] = pushOutOfDiscs(out[i]!, discs, perp);
+      out[i] = pushOutOfDiscs(out[i]!, tables, perp, skipR);
     }
   }
   return out;
@@ -984,7 +1303,7 @@ export function seatApproachPath(
   table: Lab3DTable,
   seatNumber: number,
   room: { w: number; d: number },
-  obstacles: { c: Vec2; r: number }[],
+  obstacles: ObstacleDisc[] | ObstacleGrid,
   skipR = 0,
 ): Vec2[] {
   const centre = pctToWorld(table.xPct, table.yPct, room);

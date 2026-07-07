@@ -58,13 +58,17 @@ export function buildLeafCandidates(
 ): LeafCandidate[] {
   const out: LeafCandidate[] = [];
   for (const leaf of leaves) {
-    if (
-      leaf.allowedEventTypes != null &&
-      opts.eventType != null &&
-      !leaf.allowedEventTypes.includes(opts.eventType)
-    ) {
-      continue; // wrong event type
-    }
+    // Event-type gate. A tagged leaf must include this event type. An UNTAGGED
+    // leaf (allowedEventTypes == null) defaults to WEDDING-ONLY, because the
+    // taxonomy is wedding-first and `applicable_event_types` is not yet seeded —
+    // treating null as "all types" would suggest wedding-only services (e.g. a
+    // coordinator) on a birthday. An admin tags a leaf to opt it into other
+    // event types. eventType == null (unknown) can't be filtered, so it passes.
+    const appliesToType =
+      leaf.allowedEventTypes != null
+        ? opts.eventType == null || leaf.allowedEventTypes.includes(opts.eventType)
+        : opts.eventType == null || opts.eventType === 'wedding';
+    if (!appliesToType) continue;
     if (opts.plannedTileIds.has(leaf.tileId)) continue; // already planning this area
     const n = countFor(leaf.canonicalService);
     if (n <= 0) continue; // only-when-it-fits: no available vendor → never surface

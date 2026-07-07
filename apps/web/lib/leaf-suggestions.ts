@@ -15,6 +15,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCoverageTaxonomy } from './vendor-coverages';
 import { fetchVendorCountsByService } from './vendor-counts';
+import { PICK_TO_GROUP } from './onboarding-availability';
+import { PLAN_GROUPS } from './wedding-plan-groups';
 import {
   rankLeafSuggestions,
   type LeafTaxNode,
@@ -22,6 +24,30 @@ import {
 } from './leaf-suggestions-core';
 
 export type { LeafSuggestion } from './leaf-suggestions-core';
+
+// plan_group_id → taxonomy tile (the only bridge between the checklist's
+// plan-group vocabulary and the marketplace's tile vocabulary).
+const GROUP_TO_TILE = new Map<string, string>(
+  PLAN_GROUPS.filter((g) => g.catalogTile).map((g) => [g.id as string, g.catalogTile as string]),
+);
+
+/**
+ * Map the couple's `interested_categories` (onboarding picker keys) to taxonomy
+ * tile ids so the already-planned exclusion actually matches leaf `tileId`s.
+ * Picker key → PICK_TO_GROUP → plan_group_id → PLAN_GROUPS.catalogTile → tile.
+ * The raw pick is also kept, in case it is already a tile id. Best-effort: an
+ * unmapped pick simply doesn't exclude anything (never a wrong exclusion).
+ */
+function plannedTileIdSet(interested: readonly string[]): Set<string> {
+  const tiles = new Set<string>();
+  for (const pick of interested) {
+    tiles.add(pick);
+    const group = PICK_TO_GROUP[pick];
+    const tile = group ? GROUP_TO_TILE.get(group) : undefined;
+    if (tile) tiles.add(tile);
+  }
+  return tiles;
+}
 
 /**
  * Up to `limit` relevance-gated, diverse service suggestions for an event.
@@ -46,7 +72,7 @@ export async function suggestLeafCategories(
     const planned = Array.isArray(stylePrefs.interested_categories)
       ? (stylePrefs.interested_categories as string[])
       : [];
-    const plannedTileIds = new Set(planned);
+    const plannedTileIds = plannedTileIdSet(planned);
 
     // Flatten the leaf-grain taxonomy tree.
     const taxonomy = await getCoverageTaxonomy();

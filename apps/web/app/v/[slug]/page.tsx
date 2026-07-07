@@ -2471,6 +2471,8 @@ function toServiceCard(
   // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
   // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
   // above is untouched.
+  const isCrewMeals = row.category === 'crew_meals';
+  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   let priceDetail: string | null = null;
   if (
     row.pricing_basis === 'per_pax' &&
@@ -2478,8 +2480,8 @@ function toServiceCard(
     row.per_pax_price_php > 0
   ) {
     const minPart =
-      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} guests` : '';
-    priceDetail = `${formatPhp(row.per_pax_price_php)} / guest${minPart}`;
+      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
+    priceDetail = `${formatPhp(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
   } else if (
     row.pricing_basis === 'per_hour' &&
     row.hour_base_php !== null &&
@@ -2515,14 +2517,14 @@ function toServiceCard(
   if (row.crew_size !== null && row.crew_size > 0) {
     crewParts.push(`${row.crew_size} crew on-site`);
   }
-  if (row.crew_meal_required) {
+  if (row.crew_meal_required && !isCrewMeals) {
     crewParts.push('crew meal required');
   }
 
   // "Not included" expectation flags — feed the couple's budget + set
   // expectations before the quote (0007 budget line items).
   const notIncluded: string[] = [];
-  if (!row.crew_meal_included) notIncluded.push('Crew meal not included');
+  if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
   if (!row.transport_included) {
     notIncluded.push(
       row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0

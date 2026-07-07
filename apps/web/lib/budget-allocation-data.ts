@@ -28,6 +28,7 @@ const LEAF_CANONICAL_SERVICES: Record<string, readonly string[]> = {
   reception_venue: ['venue'],
   ceremony_venue: ['religious_venue'],
   catering: ['catering'],
+  crew_meals: ['crew_meals'],
   photography: ['photographer', 'videographer'],
   coordinator: ['coordinator'],
   officiant: ['officiant'],

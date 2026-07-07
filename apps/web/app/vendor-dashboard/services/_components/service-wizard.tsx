@@ -179,6 +179,7 @@ export function ServiceWizard({
             card; the server recomputes the synced "from ₱X" anchor. */}
         <PricingBasisEditor
           idPrefix="wiz"
+          category={categoryValue}
           defaults={{
             pricing_basis: 'fixed',
             starting_price_php: null,
@@ -202,6 +203,7 @@ export function ServiceWizard({
             0007 budget bridge can't misrepresent the vendor. */}
         <IncludedFlags
           idPrefix="wiz"
+          category={categoryValue}
           defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
         />
         <details className="rounded-lg border border-ink/10 p-3">

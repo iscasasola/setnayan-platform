@@ -43,6 +43,7 @@ export function PricingBasisEditor({
   idPrefix,
   defaults,
   fixedExtra,
+  category,
 }: {
   idPrefix: string;
   defaults: PricingDefaults;
@@ -53,8 +54,17 @@ export function PricingBasisEditor({
    * exclusively for the Fixed basis.
    */
   fixedExtra?: ReactNode;
+  /** Vendor category — tailors the per-guest copy to "per meal" for crew_meals. */
+  category?: string;
 }) {
+  const isCrewMeals = category === 'crew_meals';
+  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   const [basis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
+  const options = isCrewMeals
+    ? OPTIONS.map((o) =>
+        o.key === 'per_pax' ? { ...o, label: 'Per meal', hint: 'Priced per crew meal' } : o,
+      )
+    : OPTIONS;
   return (
     <div className="space-y-3">
       <input type="hidden" name="pricing_basis" value={basis} />
@@ -63,7 +73,7 @@ export function PricingBasisEditor({
           How do you price this?
         </p>
         <div className="grid grid-cols-3 gap-1.5">
-          {OPTIONS.map((o) => {
+          {options.map((o) => {
             const on = basis === o.key;
             return (
               <button
@@ -109,11 +119,11 @@ export function PricingBasisEditor({
         </div>
       ) : basis === 'per_pax' ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <PField label="Price per guest (PHP)" id={`${idPrefix}-perpax`} help="Your per-head rate.">
-            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder="e.g. 650" className="input-field" />
+          <PField label={`Price per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate — well under a guest per-head.' : 'Your per-head rate.'}>
+            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
           </PField>
-          <PField label="Minimum guests" id={`${idPrefix}-minpax`} help="The floor. Anchor shown = rate × minimum.">
-            <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder="e.g. 50" className="input-field" />
+          <PField label={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} id={`${idPrefix}-minpax`} help="The floor. Anchor shown = rate × minimum.">
+            <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder={isCrewMeals ? 'e.g. 15' : 'e.g. 50'} className="input-field" />
           </PField>
         </div>
       ) : (
@@ -144,6 +154,7 @@ export function PricingBasisEditor({
 export function IncludedFlags({
   idPrefix,
   defaults,
+  category,
 }: {
   idPrefix: string;
   defaults: {
@@ -151,7 +162,11 @@ export function IncludedFlags({
     transport_included: boolean;
     transport_flat_fee_php: number | null;
   };
+  /** Vendor category — a crew_meals listing IS the crew meal, so the crew-meal
+   *  checkbox is hidden (and forced "included") to avoid a contradictory flag. */
+  category?: string;
 }) {
+  const isCrewMeals = category === 'crew_meals';
   const [transportIncluded, setTransportIncluded] = useState(defaults.transport_included);
   return (
     <div
@@ -161,10 +176,16 @@ export function IncludedFlags({
       <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
         What&rsquo;s included in the price?
       </p>
-      <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
-        <input type="checkbox" name="crew_meal_included" defaultChecked={defaults.crew_meal_included} className="h-4 w-4 cursor-pointer accent-[var(--m-ink)]" />
-        <span>Crew meal included <span style={{ color: 'var(--m-slate-3)' }}>— off = couple provides it (added to their budget)</span></span>
-      </label>
+      {isCrewMeals ? (
+        // This service IS the crew meal — force "included" so the card never
+        // shows a self-contradictory "crew meal required / not included" flag.
+        <input type="hidden" name="crew_meal_included" value="on" />
+      ) : (
+        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
+          <input type="checkbox" name="crew_meal_included" defaultChecked={defaults.crew_meal_included} className="h-4 w-4 cursor-pointer accent-[var(--m-ink)]" />
+          <span>Crew meal included <span style={{ color: 'var(--m-slate-3)' }}>— off = couple provides it (added to their budget)</span></span>
+        </label>
+      )}
       <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
         <input
           type="checkbox"

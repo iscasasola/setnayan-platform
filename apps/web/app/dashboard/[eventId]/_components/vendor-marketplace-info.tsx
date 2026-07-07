@@ -413,6 +413,7 @@ function ServicesCard({
 }
 
 function ServiceRow({ row }: { row: VendorServiceRow }) {
+  const isCrewMeals = row.category === 'crew_meals';
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
@@ -424,7 +425,7 @@ function ServiceRow({ row }: { row: VendorServiceRow }) {
   if (row.crew_size !== null && row.crew_size > 0) {
     crewParts.push(`${row.crew_size} crew on-site`);
   }
-  if (row.crew_meal_required) {
+  if (row.crew_meal_required && !isCrewMeals) {
     crewParts.push('crew meal required');
   }
   return (

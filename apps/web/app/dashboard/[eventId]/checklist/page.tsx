@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchChecklistItems, groupChecklistByPhase } from '@/lib/checklist';
+import { computeBudgetHealth, type ChecklistBudgetHealth } from '@/lib/checklist-budget';
 import { ensureChecklistSeeded } from '../checklist-actions';
 import { ChecklistFull } from '../_components/checklist/checklist-full';
 
@@ -50,6 +51,21 @@ export default async function EventChecklistPage({ params }: Props) {
   const groups = groupChecklistByPhase(rows, eventDate, now);
   const doneCount = rows.filter((r) => r.status === 'done').length;
 
+  // Live budget health-check — null when the couple hasn't set a budget yet, or
+  // graceful-degrades to null if the budget tables aren't present. Never blocks
+  // the checklist render.
+  let budgetHealth: ChecklistBudgetHealth | null = null;
+  try {
+    budgetHealth = await computeBudgetHealth(eventId);
+  } catch (caught) {
+    logQueryError(
+      'EventChecklistPage (computeBudgetHealth threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+
   return (
     <ChecklistFull
       eventId={eventId}
@@ -57,6 +73,7 @@ export default async function EventChecklistPage({ params }: Props) {
       totalCount={rows.length}
       doneCount={doneCount}
       eventDate={eventDate}
+      budgetHealth={budgetHealth}
     />
   );
 }

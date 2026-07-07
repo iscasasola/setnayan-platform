@@ -164,14 +164,16 @@ export const ZERO_POSE: Pose = Object.freeze(
 );
 
 /** Merge an overlay (e.g. idleSway) onto a base pose ADDITIVELY. Pure — the
- *  renderer composes `overlayPose(sitPose(), idleSway(id, t))` per frame. */
-export function overlayPose(base: Pose, overlay: Partial<Pose>): Pose {
-  const out = { ...base };
+ *  renderer composes `overlayPose(sitPose(), idleSway(id, t))` per frame.
+ *  Pass `out` to write into a caller-owned buffer instead of allocating (the
+ *  renderer runs this per figure per frame — see kit/figure.tsx's useFrame). */
+export function overlayPose(base: Pose, overlay: Partial<Pose>, out?: Pose): Pose {
+  const o = out ?? ({ ...base } as Pose);
   for (const j of JOINTS) {
     const v = overlay[j];
-    if (v != null) out[j] = out[j] + v;
+    o[j] = base[j] + (v ?? 0);
   }
-  return out;
+  return o;
 }
 
 // Walk-cycle tuning. Amplitudes picked for a relaxed indoor stroll — big
@@ -202,23 +204,28 @@ export function standPose(): Pose {
  * `pelvisY` carries the subtle double-bob (one dip per footfall), so a
  * renderer gets the whole gait from this single record.
  */
-export function walkCyclePose(phase: number): Pose {
+export function walkCyclePose(phase: number, out?: Pose): Pose {
   const swing = Math.sin(phase);
   const counter = Math.sin(phase + Math.PI); // ≡ -swing; spelled out for intent
-  return {
-    ...ZERO_POSE,
-    pelvisY: -0.01 + Math.abs(Math.sin(phase)) * WALK_BOB_M,
-    torsoLean: 0.06 + Math.sin(phase * 2) * 0.015,
-    leftHip: HIP_SWING * swing,
-    rightHip: HIP_SWING * counter,
-    leftKnee: -KNEE_FLEX * Math.max(0, Math.cos(phase)),
-    rightKnee: -KNEE_FLEX * Math.max(0, Math.cos(phase + Math.PI)),
-    // Arms oppose their legs (left arm forward with the RIGHT leg).
-    leftShoulder: ARM_SWING * counter,
-    rightShoulder: ARM_SWING * swing,
-    leftElbow: ELBOW_REST + 0.16 * Math.max(0, counter),
-    rightElbow: ELBOW_REST + 0.16 * Math.max(0, swing),
-  };
+  // `out` lets the per-frame renderer reuse one buffer instead of allocating
+  // a fresh 15-key record per figure per frame (kit/figure.tsx's useFrame).
+  const o = out ?? ({ ...ZERO_POSE } as Pose);
+  o.pelvisZ = 0;
+  o.torsoSway = 0;
+  o.headYaw = 0;
+  o.headPitch = 0;
+  o.pelvisY = -0.01 + Math.abs(Math.sin(phase)) * WALK_BOB_M;
+  o.torsoLean = 0.06 + Math.sin(phase * 2) * 0.015;
+  o.leftHip = HIP_SWING * swing;
+  o.rightHip = HIP_SWING * counter;
+  o.leftKnee = -KNEE_FLEX * Math.max(0, Math.cos(phase));
+  o.rightKnee = -KNEE_FLEX * Math.max(0, Math.cos(phase + Math.PI));
+  // Arms oppose their legs (left arm forward with the RIGHT leg).
+  o.leftShoulder = ARM_SWING * counter;
+  o.rightShoulder = ARM_SWING * swing;
+  o.leftElbow = ELBOW_REST + 0.16 * Math.max(0, counter);
+  o.rightElbow = ELBOW_REST + 0.16 * Math.max(0, swing);
+  return o;
 }
 
 /**
@@ -261,15 +268,28 @@ const HEAD_HZ = 0.23; // rad/s — head lobes swell every ~27 s
  * for all t — the unit suite asserts the envelopes. Pure in (id, t), so
  * reduced-motion renderers simply never advance t.
  */
-export function idleSway(id: string, t: number): Partial<Pose> {
-  const h = hashId(id);
-  const off = ((h % 1000) / 1000) * Math.PI * 2;
+export function idleSway(id: string, t: number, out?: Partial<Pose>): Partial<Pose> {
+  const off = idlePhaseOffset(id);
   const s = Math.sin(t * HEAD_HZ + off * 1.7);
-  return {
-    torsoSway: SWAY_MAX * Math.sin(t * SWAY_HZ + off),
-    // s⁵ keeps the sign but flattens small values → long stillness, brief turns.
-    headYaw: HEAD_TURN_MAX * s * s * s * s * s,
-  };
+  const o = out ?? {};
+  o.torsoSway = SWAY_MAX * Math.sin(t * SWAY_HZ + off);
+  // s⁵ keeps the sign but flattens small values → long stillness, brief turns.
+  o.headYaw = HEAD_TURN_MAX * s * s * s * s * s;
+  return o;
+}
+
+// idleSway runs per animated figure per FRAME, but its phase offset is a pure
+// per-id constant — cache it so the hot loop doesn't re-hash the id string
+// 60×/s. Bounded by the number of distinct figure ids seen on the page (a
+// wedding guest list), so the map just lives for the session.
+const idleOffsets = new Map<string, number>();
+function idlePhaseOffset(id: string): number {
+  let off = idleOffsets.get(id);
+  if (off === undefined) {
+    off = ((hashId(id) % 1000) / 1000) * Math.PI * 2;
+    idleOffsets.set(id, off);
+  }
+  return off;
 }
 
 /**

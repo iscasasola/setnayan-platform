@@ -1,3 +1,5 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
 ## 2026-07-08 · feat(plan3d): articulated figure kit — rig math, outfits, hair, faces
 
 Core of the shared "Sims-like" 3D figure kit for the 3D Plan surfaces (owner-locked
@@ -90,3 +92,49 @@ whole avatar family to the articulated kit figures — integration slice 2.
   on the pre-change lab — pre-existing steering dynamics, not this slice).
 
 SPEC IMPACT: None (pure rendering swap inside the existing lab surface).
+
+## 2026-07-08 · fix(plan3d): figure-kit slice-1 review fixes — selfie heads, arrival stand, crowd perf
+
+Adversarial-review pass over the three slices above (articulated Sims-like
+figure kit: rig math + gown/suit/barong/filipiniana outfits + hair + faces +
+selfie heads; demo scene + couple lab rendering kit figures; movers carrying
+attire/selfies). Two majors + four cheap minors, all verified against the code:
+
+- **Selfie heads were blanked by the skull (major)** — `kit/figure.tsx`
+  mounted the transparent `GuestPhotoAvatar` billboard disc (r 0.13) OVER the
+  always-rendered opaque head sphere (r 0.12), which won the depth test across
+  essentially the whole disc: guests with a `photo_url` showed as a blank skin
+  ball with a floating ring on every kit surface. The photo path now REPLACES
+  the skull/face/hair (the pre-kit token treatment) — the disc, its status
+  ring, and the initials fallback all render again.
+- **Demo walker froze mid-stride on arrival (major)** — `plan3d-scene.tsx`'s
+  Walker froze the gait clock at the seat but kept `pose="walk"`, holding an
+  arbitrary scissored stride forever (worst in roam: every stop between floor
+  taps). It now eases walk → 'stand' on arrival via the kit's ~⅓ s damp blend
+  — the same `atSeat` treatment the lab Walker shipped with — resetting per
+  walk state so each roam tap restarts the gait (this also unsticks the
+  one-shot `onComplete` guard across consecutive scripted walks).
+- **Crowd render cost (major, mitigated)** — quality `'low'` (the >60-guest
+  crowd / phone-walk knob) previously only skipped joint writes. Now it also
+  (a) stops casting shadows (~12 casters/figure out of the shadow depth pass)
+  and (b) freezes local-matrix composition on the figure's ~26 nodes while
+  statically baked (billboard subtree exempt — it must keep facing the
+  camera), un-freezing the moment the figure animates. Instancing the shared
+  limb/head/shell geometries remains the documented longer-term lever.
+- **Per-frame GC churn (minor)** — `lib/figure-rig.ts`'s `walkCyclePose` /
+  `overlayPose` / `idleSway` take an optional caller-owned `out` buffer
+  (allocation-free hot path; API unchanged for existing callers) and
+  `idleSway`'s per-id FNV phase offset is cached instead of re-hashing the id
+  string every frame. `kit/figure.tsx` feeds reusable per-figure buffers.
+- **Invisible hit cylinders cost a draw call each (minor)** — the demo's
+  per-guest opacity-0 hit volume was a real alpha-blended draw with
+  full-figure overdraw. It's now `visible={hovered}` (three's Raycaster never
+  tests visibility, so QR-mint clicks + hover keep working) and doubles as
+  the hover shell; the zero-opacity material is deleted.
+- **Lab spec identity churn (minor)** — `seating-lab-3d.tsx` now memoises one
+  `SeatToken`/`FigureSpec` per guest on the guest rows only (`tokenByGuest`),
+  shared by seated figures, the walk-in, the crowd and swap movers; `Figure`
+  is wrapped in `React.memo`, so walker/mover/crowd state changes no longer
+  re-reconcile ~26 R3F elements for every seated figure.
+
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md (slice 1 shipped)

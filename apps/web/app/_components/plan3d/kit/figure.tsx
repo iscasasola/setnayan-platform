@@ -29,13 +29,16 @@
  *     the phone-crowd budget knob.
  *
  * SELFIE PATH: a `photoUrl` mounts the EXISTING `GuestPhotoAvatar` billboard
- * disc (shared refcounted texture cache — NOT re-implemented here) as the
- * face, ringed in `statusColor`, exactly like today's tokens. Without a
- * photo, the drawn face decal (kit/face.ts) curves over the head and the
- * status colour renders as a small floor ring instead.
+ * disc (shared refcounted texture cache — NOT re-implemented here) INSTEAD OF
+ * the skull/face/hair — the same "photo disc replaces the head" treatment the
+ * pre-kit tokens used. It must replace, not overlay: the disc is a transparent
+ * billboard, so an opaque skull behind it wins the depth test and blanks the
+ * photo across the whole silhouette. Without a photo, the drawn face decal
+ * (kit/face.ts) curves over the head and the status colour renders as a small
+ * floor ring instead.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -48,6 +51,7 @@ import {
   overlayPose,
   damp,
   JOINTS,
+  ZERO_POSE,
   type FigureSpec,
   type Pose,
 } from '@/lib/figure-rig';
@@ -167,14 +171,45 @@ export type FigureProps = {
 };
 
 /**
+ * Freeze/unfreeze local-matrix composition for a statically-baked figure.
+ * three recomposes position/rotation/scale → matrix for every node with
+ * `matrixAutoUpdate` each frame; a baked figure's ~26 nodes never change, so
+ * composing them 60×/s per crowd figure is pure waste. The billboard subtree
+ * (the selfie disc — flagged via `userData.kitKeepAutoMatrix`) is skipped: it
+ * re-orients to the camera every frame and must keep composing.
+ */
+function setMatrixFrozen(o: THREE.Object3D, frozen: boolean): void {
+  if (o.userData.kitKeepAutoMatrix) return; // billboard keeps facing the camera
+  if (frozen) {
+    o.updateMatrix(); // capture the baked transform before switching off
+    o.matrixAutoUpdate = false;
+  } else {
+    o.matrixAutoUpdate = true;
+  }
+  for (const c of o.children) setMatrixFrozen(c, frozen);
+}
+
+/**
  * <Figure> — one articulated guest. Position/heading are the PARENT's job
  * (exactly like today's tokens: the Walker group moves, the token dresses),
  * so existing walk/roam/seat plumbing needs no changes to adopt it.
+ *
+ * Memoised: specs are stable per guest at every call site (the demo's
+ * figureSpecs map, the lab's per-guest token memo), so crowd-wide re-renders
+ * triggered by walker/mover state changes bail out here instead of
+ * re-reconciling ~26 R3F elements per figure.
  */
-export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name }: FigureProps) {
+export const Figure = memo(function Figure({
+  spec,
+  pose = 'stand',
+  phase = 0,
+  quality = 'high',
+  name,
+}: FigureProps) {
   const reduced = usePrefersReducedMotion();
   // Static mode: bake once, never animate. Reduced motion wins over quality.
   const staticMode = quality === 'low' || reduced;
+  const rootRef = useRef<THREE.Group>(null);
 
   const look = useMemo(
     () => resolveFigureLook(spec),
@@ -227,6 +262,24 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staticMode, pose, reduced, staticPhase]);
 
+  // PERF (declared AFTER the bake effect so the freeze captures the baked
+  // pose): while static, stop three recomposing the figure's local matrices
+  // every frame; re-enable the moment the figure animates again. Runs on
+  // every commit — re-renders of a baked figure are rare and the traversal is
+  // ~26 nodes, so re-freezing (which also picks up any prop-driven transform
+  // change) is cheaper than tracking exact dependencies.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    setMatrixFrozen(root, staticMode);
+  });
+
+  // Reusable per-figure pose buffers — the frame loop writes targets into
+  // these instead of allocating 2–3 fresh 15-key records per figure per frame
+  // (60 animated guests × 60 fps was ~7k short-lived objects/s of GC churn).
+  const targetBuf = useRef<Pose>({ ...ZERO_POSE });
+  const swayBuf = useRef<Partial<Pose>>({});
+
   useFrame(({ clock }, delta) => {
     if (staticMode) return;
     const ph = typeof phase === 'number' ? phase : phase.current;
@@ -234,8 +287,12 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
     // independent at the caller); stand/sit layer the per-id idle life on top.
     const target =
       pose === 'walk'
-        ? walkCyclePose(ph)
-        : overlayPose(pose === 'sit' ? SIT_BASE : STAND_BASE, idleSway(spec.id, clock.elapsedTime));
+        ? walkCyclePose(ph, targetBuf.current)
+        : overlayPose(
+            pose === 'sit' ? SIT_BASE : STAND_BASE,
+            idleSway(spec.id, clock.elapsedTime, swayBuf.current),
+            targetBuf.current,
+          );
     if (!cur.current || !from.current) {
       cur.current = { ...target };
       from.current = { ...target };
@@ -275,8 +332,16 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
   const shellY = skirted ? -0.01 : spec.outfit === 'neutral' ? 0.3 : 0.27;
   const shellScale: [number, number, number] = skirted ? [1.05, 1.9, 1.05] : [1, 1, 1];
 
+  // PERF — the other half of the crowd budget knob: a quality-'low' figure
+  // (the >60-guest crowd, the phone walk's seated room) doesn't submit its
+  // ~12 meshes to the shadow depth pass. The old 2-mesh tokens cost 2 shadow
+  // casters each; a kit crowd at 12 apiece doubled-plus the shadow pass on
+  // exactly the devices 'low' exists for. Ground contact still reads — the
+  // room, tables and 'high' figures keep casting.
+  const castShadow = quality !== 'low';
+
   return (
-    <group scale={spec.scale ?? 1}>
+    <group ref={rootRef} scale={spec.scale ?? 1}>
       {/* Status colour, the existing ring convention: the selfie path gets it
           on the GuestPhotoAvatar disc; a drawn face gets a floor ring. */}
       {!spec.photoUrl ? (
@@ -302,7 +367,7 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
                 material={trouserMat}
                 position={[0, -THIGH_LEN / 2, 0]}
                 scale={[1, THIGH_LEN / LEG_GEO_LEN, 1]}
-                castShadow
+                castShadow={castShadow}
               />
             ) : null}
             <group
@@ -314,7 +379,7 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
                 material={shinMat}
                 position={[0, -SHIN_LEN / 2, 0]}
                 scale={[0.85, SHIN_LEN / LEG_GEO_LEN, 0.85]}
-                castShadow
+                castShadow={castShadow}
               />
             </group>
           </group>
@@ -322,7 +387,7 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
 
         {/* ── Torso: shell + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
-          <mesh geometry={outfitGeo} material={outfitMat} position={[0, shellY, 0]} scale={shellScale} castShadow />
+          <mesh geometry={outfitGeo} material={outfitMat} position={[0, shellY, 0]} scale={shellScale} castShadow={castShadow} />
 
           {/* Filipiniana: the terno's butterfly sleeves — two flattened
               spheres peaking just above the shoulder line. */}
@@ -334,7 +399,7 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
                   material={outfitMat}
                   position={[side * SHOULDER_X, SHOULDER_Y + 0.03, 0]}
                   scale={[1.5, 0.8, 1.05]}
-                  castShadow
+                  castShadow={castShadow}
                 />
               ))
             : null}
@@ -351,7 +416,7 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
                 material={upperArmMat}
                 position={[0, -UPPER_ARM_LEN / 2, 0]}
                 scale={[1, UPPER_ARM_LEN / ARM_GEO_LEN, 1]}
-                castShadow
+                castShadow={castShadow}
               />
               <group
                 ref={(el) => void (groups.current[side < 0 ? 'lElbow' : 'rElbow'] = el)}
@@ -362,48 +427,59 @@ export function Figure({ spec, pose = 'stand', phase = 0, quality = 'high', name
                   material={skinMat}
                   position={[0, -FOREARM_LEN / 2, 0]}
                   scale={[0.88, FOREARM_LEN / ARM_GEO_LEN, 0.88]}
-                  castShadow
+                  castShadow={castShadow}
                 />
               </group>
             </group>
           ))}
 
-          {/* ── Head: skull + face (decal or selfie disc) + hair. ── */}
+          {/* ── Head: selfie disc OR skull + drawn face + hair. The photo path
+              REPLACES the head meshes (the pre-kit token treatment): the disc
+              is a transparent billboard, so an opaque skull sphere behind it
+              would win the depth test and blank the photo across its whole
+              silhouette — the sphere, face decal and hair only exist on the
+              drawn-face branch. ── */}
           <group ref={(el) => void (groups.current.head = el)} position={[0, NECK_Y, 0]}>
             <group position={[0, HEAD_LIFT, 0]}>
-              <mesh geometry={HEAD_GEO} material={skinMat} castShadow />
               {spec.photoUrl ? (
                 // The shared billboard disc (refcounted texture cache, initials
-                // fallback) rides just off the face — the disc must NOT cast a
-                // shadow (GuestPhotoAvatar already never does).
-                <GuestPhotoAvatar
-                  photoUrl={spec.photoUrl}
-                  name={name ?? spec.id}
-                  ringColor={spec.statusColor}
-                  height={0.02}
-                  radius={0.13}
-                />
+                // fallback), ringed in the status colour — it never casts a
+                // shadow (GuestPhotoAvatar already doesn't). The wrapper group
+                // is flagged so the static-bake matrix freeze skips the
+                // billboard, which must keep re-orienting to the camera.
+                <group userData={{ kitKeepAutoMatrix: true }}>
+                  <GuestPhotoAvatar
+                    photoUrl={spec.photoUrl}
+                    name={name ?? spec.id}
+                    ringColor={spec.statusColor}
+                    height={0.02}
+                    radius={0.13}
+                  />
+                </group>
               ) : (
-                <mesh geometry={FACE_GEO} material={faceMaterial(look.faceVariant)} />
+                <>
+                  <mesh geometry={HEAD_GEO} material={skinMat} castShadow={castShadow} />
+                  <mesh geometry={FACE_GEO} material={faceMaterial(look.faceVariant)} />
+                  {hairParts.map((h, i) => (
+                    <mesh
+                      key={i}
+                      geometry={h.geo}
+                      material={hairMat}
+                      position={[h.position[0], h.position[1], h.position[2]]}
+                      scale={[h.scale[0], h.scale[1], h.scale[2]]}
+                      rotation={[h.rotation[0], h.rotation[1], h.rotation[2]]}
+                      castShadow={castShadow}
+                    />
+                  ))}
+                </>
               )}
-              {hairParts.map((h, i) => (
-                <mesh
-                  key={i}
-                  geometry={h.geo}
-                  material={hairMat}
-                  position={[h.position[0], h.position[1], h.position[2]]}
-                  scale={[h.scale[0], h.scale[1], h.scale[2]]}
-                  rotation={[h.rotation[0], h.rotation[1], h.rotation[2]]}
-                  castShadow
-                />
-              ))}
             </group>
           </group>
         </group>
       </group>
     </group>
   );
-}
+});
 
 /** A figure seated on a chair — position it at the chair centre, facing the
  *  table, exactly where today's SeatedAvatar/GuestToken goes. */

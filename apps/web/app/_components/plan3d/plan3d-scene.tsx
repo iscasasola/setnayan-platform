@@ -182,7 +182,6 @@ function TableMesh({
  * the pointer instead. Module-scope shared buffers, the kit's own budget rule.
  */
 const GUEST_HIT_GEO = new THREE.CylinderGeometry(0.22, 0.22, 1.5, 10);
-const GUEST_HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 // Hover affordance: the kit's materials are module-cached ACROSS figures, so
 // the old per-mesh emissive tint would light every same-coloured guest at
@@ -261,9 +260,15 @@ function GuestToken({
           selfie/photo path and side-colour ring live inside the kit figure. */}
       <Figure spec={spec} pose="stand" quality={quality} name={name} />
       {onClick ? (
+        // PERF: the hit cylinder is `visible` only while hovered (when it doubles
+        // as the hover shell). three's Raycaster never tests object.visible, so
+        // pointer events keep firing on the invisible mesh — but an always-
+        // rendered opacity-0 material would still cost a full-figure-height
+        // alpha-blended draw call per guest for literally no pixels.
         <mesh
           geometry={GUEST_HIT_GEO}
-          material={hovered ? hoverMaterial(spec.statusColor) : GUEST_HIT_MAT}
+          material={hoverMaterial(spec.statusColor)}
+          visible={hovered}
           position={[0, 0.75, 0]}
           onClick={onClick}
           onPointerOver={(e) => {
@@ -412,6 +417,12 @@ function Walker({
   const headingRef = useRef<number | null>(null);
   const bobRef = useRef(0);
   const camReady = useRef(false);
+  // Arrived → the figure eases walk → stand (the kit blends presets over ~⅓ s).
+  // Without this the gait clock freezes but the pose stays 'walk', holding an
+  // arbitrary mid-stride forever — exactly the "frozen mid-stride reads like a
+  // glitch" the kit's reduced-motion note warns about. The lab Walker has the
+  // same atSeat → 'stand' blend; roam stops between floor taps get it too.
+  const [atRest, setAtRest] = useState(false);
   // The user's applied yaw offset, blended toward `look.yawOffset` while they're
   // actively looking and eased back to 0 once they stop — kept separate from the
   // raw ref so the ease-back is smooth regardless of frame rate.
@@ -424,6 +435,15 @@ function Walker({
     () => walk.obstacles.map((d) => ({ c: d.c, r: d.r + AVATAR_BODY_R })),
     [walk.obstacles],
   );
+
+  // Each NEW walk (fresh scripted target, every roam floor tap) restarts the
+  // gait and re-arms the completion callback. <Walker> stays mounted across
+  // walks (same element position), so these must reset per walk-state object,
+  // not per mount.
+  useEffect(() => {
+    firedRef.current = false;
+    setAtRest(false);
+  }, [walk]);
 
   useFrame(({ camera }, delta) => {
     const raw = Math.min(1, (performance.now() - walk.startedAt) / walk.durationMs);
@@ -505,6 +525,7 @@ function Walker({
 
     if (raw >= 1 && !firedRef.current) {
       firedRef.current = true;
+      setAtRest(true); // pose eases walk → stand (kit damp blend)
       walk.onComplete?.();
     }
   });
@@ -516,8 +537,9 @@ function Walker({
           re-render per frame), so limbs swing while the group moves and hold
           the instant the clock freezes on arrival. Always quality 'high':
           there is exactly ONE player figure and it owns the camera — the
-          crowd, not the player, is the phone budget knob. */}
-      <Figure spec={spec} name={name} pose="walk" phase={bobRef} quality="high" />
+          crowd, not the player, is the phone budget knob. On arrival the pose
+          eases into 'stand' so the figure never holds a frozen stride. */}
+      <Figure spec={spec} name={name} pose={atRest ? 'stand' : 'walk'} phase={bobRef} quality="high" />
     </group>
   );
 }

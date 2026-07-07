@@ -539,6 +539,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // (not just the fixed venue rectangle). Drives OrbitControls maxDistance.
   const bounds = useMemo(() => contentBounds(tables, room), [tables, room]);
 
+  // One SeatToken (colour + FigureSpec) per guest, memoised on the guest rows
+  // ONLY — walker/crowd/mover/seat state changes must NOT mint fresh spec
+  // identities, or every seated <Figure>'s React.memo (and any future
+  // equality-based skip) is defeated exactly when an animation starts. Every
+  // consumer below (seated map, walk-in, crowd, movers) reads from this map.
+  const tokenByGuest = useMemo(() => {
+    const m = new Map<string, SeatToken | null>();
+    for (const g of guests) m.set(g.id, guestTokenStyle(g));
+    return m;
+  }, [guests]);
+
   // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
   // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
   // isn't already a seated row. Declined guests aren't rendered (seat freed).
@@ -567,7 +578,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (g.plusOneOfGuestId) plusOneSeated.add(g.plusOneOfGuestId);
       if (movingGuests.has(gid)) continue; // mid-swap → drawn by its mover instead
       if (walkingIn.has(gid)) continue; // walking in → drawn by its walker/crowd agent
-      const style = guestTokenStyle(g);
+      const style = tokenByGuest.get(gid);
       if (!style) continue; // declined → freed seat
       slot(s.tableId).set(s.seatNumber, style);
     }
@@ -592,7 +603,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4, name: '', spec: null });
     }
     return out;
-  }, [seats, guestById, tablesById, movingGuests, crowd, walker]);
+  }, [seats, guestById, tablesById, movingGuests, crowd, walker, tokenByGuest]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -1297,8 +1308,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const obstacles = [...floorObstacles(floor, tables, room, [s.tableId]), ...fixtureObstacles];
       const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
       // The crowd agent walks in AS the guest — same outfit / selfie / status
-      // spec as their seated figure (the old bare capsules are retired).
-      const style = guestTokenStyle(g);
+      // spec (same OBJECT — tokenByGuest) as their seated figure.
+      const style = tokenByGuest.get(gid);
       if (!style?.spec) continue; // hidden is already skipped above; defensive
       agents.push({ id: gid, name: g.name, path, spec: style.spec, startDelay: i * 0.16, obstacles });
       i += 1;
@@ -1307,7 +1318,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     setArrived(null);
     setMode('play');
     setCrowd(agents.length ? agents : null);
-  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles]);
+  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles, tokenByGuest]);
 
   // A single walk-in that has reached its chair settles into the seat: clear the
   // walker so the static SeatedAvatar takes over (the guest is already in `seats`).
@@ -1366,7 +1377,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const path = steerPath(fromWorld, end, obstacles, 0.2);
       // Movers carry the guest's full figure spec (attire + selfie + status),
       // so the swap animation moves the same dressed person, not a bare token.
-      const spec = guestTokenStyle(g)?.spec ?? figureSpecFor(g, SIDE_COLOR[g.side]);
+      const spec = tokenByGuest.get(gid)?.spec ?? figureSpecFor(g, SIDE_COLOR[g.side]);
       setMovers((prev) => [
         ...prev,
         { gid, name: g.name, spec, path, target: { tableId: toTableId, seatNumber: toSeat } },
@@ -1380,7 +1391,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       fd.set('seat_number', String(toSeat));
       void persist(() => assignGuest(fd));
     },
-    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor, fixtureObstacles],
+    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor, fixtureObstacles, tokenByGuest],
   );
 
   const swapGuests = useCallback(
@@ -1541,13 +1552,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const crowdLow = guests.length > 60;
 
   // The single walk-in carries the SAME dressed figure as its seated self —
-  // resolved from the live guest row at render time (guestTokenStyle is the
-  // one spec source, so seated/walking/mover looks can never diverge).
+  // the same spec OBJECT (tokenByGuest is the one spec source per guest), so
+  // seated/walking/mover looks can never diverge.
   const walkerSpec = useMemo<FigureSpec | null>(() => {
     if (!walker) return null;
-    const g = guestById.get(walker.gid);
-    return g ? guestTokenStyle(g)?.spec ?? null : null;
-  }, [walker, guestById]);
+    return tokenByGuest.get(walker.gid)?.spec ?? null;
+  }, [walker, tokenByGuest]);
 
   return (
     <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl border border-ink/10 bg-[#11131a]">

@@ -70,7 +70,7 @@ export function ChecklistCard({ eventId, items, totalCount, doneCount }: Props) 
         <ul className="space-y-2">
           {items.map((item) => {
             const tag = dueTag(item);
-            const href = checklistItemHref(eventId, item.template_key);
+            const href = checklistItemHref(eventId, item.template_key, item.category);
             return (
               <li
                 key={item.item_id}

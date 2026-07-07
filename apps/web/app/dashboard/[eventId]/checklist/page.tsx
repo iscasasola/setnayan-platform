@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchChecklistItems, groupChecklistByPhase } from '@/lib/checklist';
+import { fetchChecklistItems, groupChecklistByPhase, checklistChrome } from '@/lib/checklist';
 import { computeBudgetHealth, type ChecklistBudgetHealth } from '@/lib/checklist-budget';
 import { suggestLeafCategories, type LeafSuggestion } from '@/lib/leaf-suggestions';
 import {
@@ -11,9 +11,23 @@ import {
 import { ensureChecklistSeeded } from '../checklist-actions';
 import { ChecklistFull } from '../_components/checklist/checklist-full';
 
-export const metadata = { title: 'Wedding checklist · Setnayan' };
-
 type Props = { params: Promise<{ eventId: string }> };
+
+/** Event-type-aware page title (e.g. "Birthday checklist · Setnayan"). */
+export async function generateMetadata({ params }: Props) {
+  try {
+    const { eventId } = await params;
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    return { title: checklistChrome((data?.event_type as string | null) ?? null).pageTitle };
+  } catch {
+    return { title: 'Checklist · Setnayan' };
+  }
+}
 
 /**
  * /dashboard/[eventId]/checklist — the full, browsable wedding checklist.
@@ -46,10 +60,11 @@ export default async function EventChecklistPage({ params }: Props) {
 
   const { data: eventRow } = await supabase
     .from('events')
-    .select('event_date')
+    .select('event_date, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   const eventDate = (eventRow?.event_date as string | null) ?? null;
+  const chrome = checklistChrome((eventRow?.event_type as string | null) ?? null);
 
   const rows = await fetchChecklistItems(supabase, eventId);
   const now = new Date();
@@ -113,6 +128,7 @@ export default async function EventChecklistPage({ params }: Props) {
       totalCount={rows.length}
       doneCount={doneCount}
       eventDate={eventDate}
+      chrome={chrome}
       budgetHealth={budgetHealth}
       leafSuggestions={leafSuggestions}
       vendorProgress={vendorProgress}

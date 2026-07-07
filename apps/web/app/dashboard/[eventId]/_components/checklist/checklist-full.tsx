@@ -5,6 +5,7 @@ import {
   checklistItemHref,
   type ChecklistItemView,
   type ChecklistPhaseGroup,
+  type ChecklistChrome,
 } from '@/lib/checklist';
 import type { ChecklistBudgetHealth } from '@/lib/checklist-budget';
 import { formatPeso, budgetHealthCopy, type BudgetTone } from '@/lib/checklist-budget-format';
@@ -28,8 +29,10 @@ type Props = {
   groups: ReadonlyArray<ChecklistPhaseGroup>;
   totalCount: number;
   doneCount: number;
-  /** Couple's wedding date — null shows the "add a date" hint instead of due dates. */
+  /** Couple's event date — null shows the "add a date" hint instead of due dates. */
   eventDate: string | null;
+  /** Event-type-aware display copy (title/heading/intro/phase wording). */
+  chrome: ChecklistChrome;
   /** Live budget health-check — null when no budget is set (card hidden). */
   budgetHealth?: ChecklistBudgetHealth | null;
   /** Relevance-gated "you might also want" service suggestions (may be empty). */
@@ -201,7 +204,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
       {items.map((item) => {
         const done = item.status === 'done';
         const tag = dueLabel(item);
-        const href = checklistItemHref(eventId, item.template_key);
+        const href = checklistItemHref(eventId, item.template_key, item.category);
         const desired = done ? 'pending' : 'done';
         return (
           <li
@@ -257,20 +260,16 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, budgetHealth, leafSuggestions, vendorProgress }: Props) {
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, chrome, budgetHealth, leafSuggestions, vendorProgress }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
     <div className="space-y-6">
       <header className="space-y-3">
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Your wedding</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Wedding checklist</h1>
-          <p className="text-sm text-ink/65">
-            Your full plan, from 18 months out to the day itself. Every due date is worked out from
-            your wedding date — change the date and the whole countdown shifts with it. Tick things
-            off at your own pace; this is a guide, not a gate.
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{chrome.eyebrow}</p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{chrome.heading}</h1>
+          <p className="text-sm text-ink/65">{chrome.intro}</p>
         </div>
 
         {totalCount > 0 ? (
@@ -298,7 +297,7 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
             className="inline-flex items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-2.5 text-sm text-ink/70 transition hover:border-terracotta/40"
           >
             <CalendarPlus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <span>Add your wedding date to see a due date on every task</span>
+            <span>{chrome.dateHint}</span>
           </Link>
         ) : null}
 
@@ -322,13 +321,15 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
                 <div className="space-y-0.5">
                   <div className="flex items-baseline justify-between gap-3 border-b border-ink/10 pb-1">
                     <h2 className="text-sm font-semibold text-ink">
-                      {phase ? phase.label : 'Your own tasks'}
+                      {phase ? (phase.id === 'p9' ? chrome.dayOfLabel : phase.label) : 'Your own tasks'}
                     </h2>
                     <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
                       {phaseDone}/{items.length}
                     </span>
                   </div>
-                  {phase ? <p className="text-xs text-ink/55">{phase.blurb}</p> : null}
+                  {phase && chrome.showPhaseBlurbs ? (
+                    <p className="text-xs text-ink/55">{phase.blurb}</p>
+                  ) : null}
                 </div>
                 <PhaseRows eventId={eventId} items={items} />
               </section>

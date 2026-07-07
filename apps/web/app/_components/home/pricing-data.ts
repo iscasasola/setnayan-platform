@@ -87,6 +87,16 @@ function priceOf(
 }
 
 /**
+ * A row spread that renders green "Free" when the catalog rate resolves to 0
+ * (an owner-locked-free SKU or a deactivated row), else the resolved price
+ * string. Keeps display ↔ checkout consistent — "Free" only ever shows when the
+ * catalog is actually free, never a hardcoded claim over a live paid row.
+ */
+function freeOrPrice(p: { v: string; rate: number }): { v: string; free?: boolean } {
+  return p.rate === 0 ? { v: 'Free', free: true } : { v: p.v };
+}
+
+/**
  * Setnayan AI is a per-28-day subscription (owner 2026-06-29 · SETNAYAN_AI).
  * The catalog row doesn't expose billing_period in V2CustomerSku here (that
  * field lands with the #2418 schema bump), so the recurrence suffix is derived
@@ -133,11 +143,14 @@ export async function getHomePricingData(): Promise<PricingData> {
   // ── Papic group (per-camera / per-day, all from catalog) ──
   const papicRoll = priceOf(catalog, 'PAPIC_CAMERA_ROLL_DAY', 30);
   const papicUnli = priceOf(catalog, 'PAPIC_CAMERA_UNLIMITED_DAY', 100);
-  const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 1299);
-  const stories = priceOf(catalog, 'PAPIC_ADDON_STORIES', 20);
-  const kwento = priceOf(catalog, 'KWENTO', 299);
+  const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 499); // owner 2026-07-08 (was 1299)
+  // Owner-locked FREE: Stories (2026-06-30) · Kwento + Pabati (2026-07-08).
+  // Fallback 0 so an absent/zeroed catalog row renders "Free" via freeOrPrice(),
+  // never a stale paid figure.
+  const stories = priceOf(catalog, 'PAPIC_ADDON_STORIES', 0);
+  const kwento = priceOf(catalog, 'KWENTO', 0);
   const thankYou = priceOf(catalog, 'PAPIC_ADDON_THANK_YOU', 2499);
-  const pabati = priceOf(catalog, 'PABATI', 1299);
+  const pabati = priceOf(catalog, 'PABATI', 0);
   const liveWall = priceOf(catalog, 'LIVE_WALL', 2499);
 
   // ── Couple Website group ──
@@ -183,17 +196,10 @@ export async function getHomePricingData(): Promise<PricingData> {
           model: 'perDay',
           rate: cameraBridge.rate,
         },
-        {
-          n: 'Stories · add-on',
-          v: `${peso(stories.rate)}/guest·day`,
-          model: 'perGuestDay',
-          rate: stories.rate,
-          cap: 2000,
-          floor: 200,
-        },
-        { n: 'Kwento · whole event', v: kwento.v },
+        { n: 'Stories · add-on', ...freeOrPrice(stories) },
+        { n: 'Kwento · whole event', ...freeOrPrice(kwento) },
         { n: 'Thank You · add-on', v: thankYou.v },
-        { n: 'Pabati · add-on', v: `${peso(pabati.rate)}/day`, model: 'perDay', rate: pabati.rate },
+        { n: 'Pabati · add-on', ...freeOrPrice(pabati) },
         {
           n: 'Live Photo Wall',
           v: `${peso(liveWall.rate)}/day`,

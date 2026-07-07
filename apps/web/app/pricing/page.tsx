@@ -224,9 +224,12 @@ export default async function PricingPage() {
   const rateOf = (code: string, fb: number) =>
     Number(customerSkus.find((s) => s.service_code === code)?.retail_price_php ?? fb);
   const estimatorAddonDefs: Array<{ key: string; code: string; label: string; fb: number }> = [
-    { key: 'cb', code: 'CAMERA_BRIDGE', label: 'Camera Bridge · DSLR', fb: 1299 },
-    { key: 'pabati', code: 'PABATI', label: 'Pabati', fb: 1299 },
-    { key: 'kwento', code: 'KWENTO', label: 'Kwento', fb: 299 },
+    { key: 'cb', code: 'CAMERA_BRIDGE', label: 'Camera Bridge · DSLR', fb: 499 }, // owner 2026-07-08 (was 1299)
+    // Kwento + Pabati owner-locked FREE 2026-07-08 → deactivating the catalog row
+    // drops them from the estimator (filter below); fb 0 guards a lingering
+    // null-priced row from showing a stale paid figure.
+    { key: 'pabati', code: 'PABATI', label: 'Pabati', fb: 0 },
+    { key: 'kwento', code: 'KWENTO', label: 'Kwento', fb: 0 },
     { key: 'pakanta', code: 'PAKANTA', label: 'Pakanta', fb: 2499 },
   ];
   const estimatorRates: EstimatorRates = {

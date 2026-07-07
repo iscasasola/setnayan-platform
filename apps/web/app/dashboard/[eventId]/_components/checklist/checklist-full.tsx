@@ -9,6 +9,8 @@ import {
 import type { ChecklistBudgetHealth } from '@/lib/checklist-budget';
 import { formatPeso, budgetHealthCopy, type BudgetTone } from '@/lib/checklist-budget-format';
 import type { LeafSuggestion } from '@/lib/leaf-suggestions';
+import type { VendorCategoryProgress } from '@/lib/vendor-category-progress';
+import type { CategoryDecisionState } from '@/lib/checklist-state';
 import { toggleChecklistItem } from '../../checklist-actions';
 
 /**
@@ -32,7 +34,65 @@ type Props = {
   budgetHealth?: ChecklistBudgetHealth | null;
   /** Relevance-gated "you might also want" service suggestions (may be empty). */
   leafSuggestions?: ReadonlyArray<LeafSuggestion>;
+  /** Per-category vendor progress states (may be empty → card hidden). */
+  vendorProgress?: ReadonlyArray<VendorCategoryProgress>;
 };
+
+/** Pill styling per lifecycle state — attention states warm, settled ones calm. */
+const CATEGORY_STATE_STYLES: Record<CategoryDecisionState, string> = {
+  not_started: 'bg-ink/5 text-ink/55',
+  needs_more_options: 'bg-warn-50 text-warn-700',
+  searching: 'bg-warn-50 text-warn-700',
+  one_option: 'bg-terracotta/10 text-terracotta',
+  in_progress: 'bg-terracotta/10 text-terracotta',
+  deferred: 'bg-ink/5 text-ink/55',
+  done: 'bg-success-50 text-success-700',
+  excluded: 'bg-ink/5 text-ink/45',
+};
+
+/**
+ * Vendor progress — the couple's shortlisted/booked vendors resolved to a live
+ * state per category, so the plan reads as decisions in motion, not a flat list.
+ * Rendered only when the couple has engaged at least one vendor.
+ */
+function VendorProgress({
+  eventId,
+  progress,
+}: {
+  eventId: string;
+  progress: ReadonlyArray<VendorCategoryProgress>;
+}) {
+  return (
+    <section className="rounded-xl border border-ink/10 bg-white px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          Vendor progress
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/vendors?tab=shortlist`}
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta transition hover:underline"
+        >
+          Manage
+        </Link>
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        {progress.map((p) => (
+          <li
+            key={p.category}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-cream px-2.5 py-1"
+          >
+            <span className="text-xs font-medium text-ink">{p.label}</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${CATEGORY_STATE_STYLES[p.state]}`}
+            >
+              {p.stateLabel}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /**
  * "You might also want…" — up to 3 service categories the couple hasn't planned
@@ -197,7 +257,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, budgetHealth, leafSuggestions }: Props) {
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, budgetHealth, leafSuggestions, vendorProgress }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -243,6 +303,10 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
         ) : null}
 
         {budgetHealth ? <BudgetHealthCard eventId={eventId} health={budgetHealth} /> : null}
+
+        {vendorProgress && vendorProgress.length > 0 ? (
+          <VendorProgress eventId={eventId} progress={vendorProgress} />
+        ) : null}
       </header>
 
       {totalCount === 0 ? (

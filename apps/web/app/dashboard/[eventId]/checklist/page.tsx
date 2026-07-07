@@ -4,6 +4,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchChecklistItems, groupChecklistByPhase } from '@/lib/checklist';
 import { computeBudgetHealth, type ChecklistBudgetHealth } from '@/lib/checklist-budget';
 import { suggestLeafCategories, type LeafSuggestion } from '@/lib/leaf-suggestions';
+import {
+  resolveVendorCategoryProgress,
+  type VendorCategoryProgress,
+} from '@/lib/vendor-category-progress';
 import { ensureChecklistSeeded } from '../checklist-actions';
 import { ChecklistFull } from '../_components/checklist/checklist-full';
 
@@ -81,6 +85,27 @@ export default async function EventChecklistPage({ params }: Props) {
     );
   }
 
+  // Vendor-category progress — the couple's shortlisted/booked vendors resolved
+  // to live states ("comparing options", "confirmed"). Defensive: a read error
+  // leaves the list empty and the card hidden.
+  let vendorProgress: VendorCategoryProgress[] = [];
+  try {
+    const { data: vendorRows } = await supabase
+      .from('event_vendors')
+      .select('category, status')
+      .eq('event_id', eventId);
+    vendorProgress = resolveVendorCategoryProgress(
+      (vendorRows ?? []) as { category: string | null; status: string }[],
+    );
+  } catch (caught) {
+    logQueryError(
+      'EventChecklistPage (vendor progress threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+
   return (
     <ChecklistFull
       eventId={eventId}
@@ -90,6 +115,7 @@ export default async function EventChecklistPage({ params }: Props) {
       eventDate={eventDate}
       budgetHealth={budgetHealth}
       leafSuggestions={leafSuggestions}
+      vendorProgress={vendorProgress}
     />
   );
 }

@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
+import { fulfillCompGrant, giftNotificationBody } from '@/lib/comp-fulfillment';
+import { emitNotification } from '@/lib/notification-emit';
 
 /**
  * RA 10173 right-to-erasure helper (PR-G).
@@ -629,6 +631,34 @@ export async function issueCompGrant(formData: FormData) {
   // Sentry capture (matches the pattern in vendor verify/actions.ts).
   if (auditErr) {
     console.error('[issueCompGrant] audit log insert failed', auditErr.message);
+  }
+
+  // Fulfillment bridge: a comp grant must ACTUALLY unlock the gifted feature(s),
+  // not merely record a grant. For each gifted SKU on each of the couple's
+  // events, create a ₱0 paid comp order + run its activation hook (so flag-backed
+  // SKUs like SETNAYAN_AI actually turn on), then drop the "early wedding gift
+  // from the Setnayan Team" notification (bell + the reveal pop-up in PR 2).
+  // Non-fatal: a hiccup here never rolls back the already-recorded grant — the
+  // admin can re-issue, and the grant row is the durable record.
+  try {
+    const fulfilled = await fulfillCompGrant(admin, {
+      grantId: inserted.grant_id as string,
+      targetUserId,
+      scope: scopeRaw,
+      scopedSkus,
+      actorUserId: adminUserId,
+    });
+    if (fulfilled.eventCount > 0 && fulfilled.serviceKeys.length > 0) {
+      await emitNotification({
+        userId: targetUserId,
+        type: 'gift',
+        title: 'An early wedding gift from the Setnayan Team',
+        body: giftNotificationBody(scopeRaw, fulfilled.titles),
+        relatedUrl: '/dashboard',
+      });
+    }
+  } catch (e) {
+    console.error('[issueCompGrant] gift fulfillment/notify failed (non-fatal):', e);
   }
 
   // Re-render the page + expand the target user's panel so the new grant

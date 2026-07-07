@@ -44,7 +44,7 @@ export type OutfitKind = FigureSpec['outfit'];
 /** Build a closed lathe from (radius, y) profile points (top → bottom); the
  *  last point is capped to centre so hems/jacket bottoms aren't see-through
  *  from a low camera. */
-function latheProfile(points: ReadonlyArray<readonly [number, number]>, segments = 20): THREE.LatheGeometry {
+function latheProfile(points: ReadonlyArray<readonly [number, number]>, segments = 28): THREE.LatheGeometry {
   const pts = points.map(([r, y]) => new THREE.Vector2(r, y));
   const last = points[points.length - 1]!;
   pts.push(new THREE.Vector2(0.001, last[1])); // cap
@@ -229,6 +229,21 @@ function darken(hex: string, k: number): string {
   const g = ch((n >> 8) & 0xff);
   const b = ch(n & 0xff);
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+const skinMats = new Map<string, THREE.MeshStandardMaterial>();
+
+/** Mascot-smooth skin (owner-locked 2026-07-08): lower roughness than the
+ *  generic plain material so heads/limbs pick up a soft polished sheen from
+ *  the Lightformer env — the "vinyl-figure" appeal of mascot design — without
+ *  going plasticky (0.45, not mirror). Cached per skin tone. */
+export function skinMaterial(color: string): THREE.MeshStandardMaterial {
+  let m = skinMats.get(color);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color, roughness: 0.45 });
+    skinMats.set(color, m);
+  }
+  return m;
 }
 
 const plainMats = new Map<string, THREE.MeshStandardMaterial>();

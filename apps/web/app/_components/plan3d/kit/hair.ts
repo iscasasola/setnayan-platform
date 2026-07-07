@@ -26,10 +26,10 @@ import { plainMaterial } from './outfits';
 
 /** Upper-hemisphere-ish cap, slightly proud of the 0.12 head so it reads as
  *  hair over scalp, not a painted head. The base of most styles. */
-const CAP_GEO = new THREE.SphereGeometry(0.128, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.56);
+const CAP_GEO = new THREE.SphereGeometry(0.138, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.56); // mascot head (0.13) + smooth
 
 /** Small sphere — the bun, and (scaled) side volume. */
-const BUN_GEO = new THREE.SphereGeometry(0.062, 8, 6);
+const BUN_GEO = new THREE.SphereGeometry(0.066, 12, 9);
 
 /** Short capsule — the ponytail tail. */
 const TAIL_GEO = new THREE.CapsuleGeometry(0.038, 0.14, 3, 6);
@@ -38,7 +38,7 @@ const TAIL_GEO = new THREE.CapsuleGeometry(0.038, 0.14, 3, 6);
 const LONG_GEO = new THREE.CapsuleGeometry(0.08, 0.2, 3, 8);
 
 /** Faceted icosahedron — the short-spiked crop's choppy read. */
-const SPIKE_GEO = new THREE.IcosahedronGeometry(0.125, 0);
+const SPIKE_GEO = new THREE.IcosahedronGeometry(0.135, 1); // one subdivision — choppy but not shard-y
 
 /** One placed primitive of a hairstyle. Rotation in radians (XYZ order). */
 export type HairPart = {

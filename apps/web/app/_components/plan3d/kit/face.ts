@@ -32,65 +32,94 @@ import { FACE_VARIANT_COUNT } from '@/lib/figure-rig';
  * square face texture maps exactly onto it.
  */
 export const FACE_GEO = new THREE.SphereGeometry(
-  0.1225,
+  0.1325, // a shade over the 0.13 mascot head (2026-07-08 mascot-smooth pass)
+  24,
   16,
-  12,
-  Math.PI / 2 - 0.8,
-  1.6,
-  Math.PI * 0.3,
-  Math.PI * 0.38,
+  Math.PI / 2 - 0.9,
+  1.8,
+  Math.PI * 0.28,
+  Math.PI * 0.42,
 );
 
 // ── Face textures (lazy — needs `document`; built once per variant) ─────────
 
 const INK = '#3a2a20'; // warm dark brown — reads softer than pure black
 
-/** Draw one face variant onto a transparent 128px canvas. Canvas top maps to
- *  the patch top (flipY default), so brows/eyes live in the upper half. */
+/** Draw one face variant onto a transparent canvas — MASCOT-SMOOTH pass
+ *  (owner-locked 2026-07-08, "mascot-smooth 3D style"): big friendly eyes
+ *  with white sclera + warm iris + a catchlight, soft brows, a real smile
+ *  and a whisper of blush. Canvas top maps to the patch top (flipY default),
+ *  so brows/eyes live in the upper half. */
 function drawFace(ctx: CanvasRenderingContext2D, size: number, variant: number): void {
   const s = size / 128; // author at 128, scale-proof
-  ctx.strokeStyle = INK;
-  ctx.fillStyle = INK;
   ctx.lineCap = 'round';
 
   const eyeY = 52 * s;
-  const eyeDX = 26 * s;
+  const eyeDX = 25 * s;
   const cx = 64 * s;
 
   if (variant === 1) {
-    // Happy closed-arc eyes (the "beaming" face): two upside-down U strokes.
-    ctx.lineWidth = 5 * s;
+    // Beaming: happy closed-arc eyes keep their charm — thicker, warmer.
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 7 * s;
     for (const side of [-1, 1]) {
       ctx.beginPath();
-      ctx.arc(cx + side * eyeDX, eyeY + 3 * s, 8 * s, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.arc(cx + side * eyeDX, eyeY + 3 * s, 10 * s, Math.PI * 1.12, Math.PI * 1.88);
       ctx.stroke();
     }
   } else {
-    // Round eyes; variant 2 slightly smaller (a softer, wide-awake face).
-    const r = (variant === 2 ? 5 : 6) * s;
+    // Big mascot eyes: sclera → iris → pupil catchlight, subtle upper lash.
+    const rx = (variant === 2 ? 10 : 11) * s;
+    const ry = (variant === 2 ? 12 : 13.5) * s;
     for (const side of [-1, 1]) {
+      const ex = cx + side * eyeDX;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(cx + side * eyeDX, eyeY, r, 0, Math.PI * 2);
+      ctx.ellipse(ex, eyeY, rx, ry, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.ellipse(ex + side * 1.5 * s, eyeY + 2 * s, rx * 0.58, ry * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(ex - 2.5 * s, eyeY - 2.5 * s, 2.6 * s, 3.2 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Upper lash line hugging the sclera — sells the "drawn character" read.
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5 * s;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, rx, ry, 0, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
     }
   }
 
-  // Brows — short strokes above the eyes; variant 2 lifts them a touch.
-  ctx.lineWidth = 4 * s;
-  const browY = (variant === 2 ? 34 : 38) * s;
+  // Brows — soft strokes above the eyes; variant 2 lifts them (bright-eyed).
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 4.5 * s;
+  const browY = (variant === 2 ? 28 : 32) * s;
   for (const side of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(cx + side * (eyeDX - 9 * s), browY + 2 * s);
-    ctx.quadraticCurveTo(cx + side * eyeDX, browY - 3 * s, cx + side * (eyeDX + 9 * s), browY + 2 * s);
+    ctx.moveTo(cx + side * (eyeDX - 10 * s), browY + 2 * s);
+    ctx.quadraticCurveTo(cx + side * eyeDX, browY - 4 * s, cx + side * (eyeDX + 10 * s), browY + 2 * s);
     ctx.stroke();
   }
 
-  // A gentle smile — wider on variant 1, softest on variant 2.
-  ctx.lineWidth = 5 * s;
-  const smileR = (variant === 1 ? 20 : variant === 2 ? 14 : 17) * s;
-  const smileY = 78 * s;
+  // Blush — a whisper of warmth under each eye (mascot appeal, kept subtle).
+  ctx.fillStyle = 'rgba(217, 118, 99, 0.28)';
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(cx + side * (eyeDX + 6 * s), eyeY + 20 * s, 9 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // The smile — fuller than the old hairline arc; variant 1 beams widest.
+  ctx.strokeStyle = '#7c4437';
+  ctx.lineWidth = 6 * s;
+  const smileR = (variant === 1 ? 21 : variant === 2 ? 15 : 18) * s;
+  const smileY = 80 * s;
   ctx.beginPath();
-  ctx.arc(cx, smileY, smileR, Math.PI * 0.2, Math.PI * 0.8);
+  ctx.arc(cx, smileY, smileR, Math.PI * 0.22, Math.PI * 0.78);
   ctx.stroke();
 }
 
@@ -102,7 +131,7 @@ export function faceTexture(variant: number): THREE.CanvasTexture {
   const v = Math.abs(Math.trunc(variant)) % FACE_VARIANT_COUNT;
   const cached = faceTextures[v];
   if (cached) return cached;
-  const size = 128;
+  const size = 256; // mascot pass — crisp eyes at Play-mode close-ups
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;

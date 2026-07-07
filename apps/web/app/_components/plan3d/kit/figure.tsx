@@ -62,6 +62,7 @@ import {
   outfitMaterial,
   trouserMaterial,
   plainMaterial,
+  skinMaterial,
   SLEEVE_GEO,
 } from './outfits';
 import { hairPartsFor, hairMaterial } from './hair';
@@ -82,15 +83,15 @@ const UPPER_ARM_LEN = 0.22;
 const FOREARM_LEN = 0.2;
 const NECK_Y = 0.52;
 const HEAD_LIFT = 0.12; // neck pivot → head centre
-const HEAD_R = 0.12; // matches the lab token head so scale reads unchanged
+const HEAD_R = 0.13; // mascot-smooth pass (2026-07-08): a touch larger head reads friendlier
 
 // ── Shared geometry owned by this file (module scope — 4 buffers) ───────────
-const ARM_GEO = new THREE.CapsuleGeometry(0.042, 0.14, 3, 8); // native ≈0.224 long
+const ARM_GEO = new THREE.CapsuleGeometry(0.042, 0.14, 6, 14); // native ≈0.224 long · mascot-smooth segments
 const ARM_GEO_LEN = 0.224;
-const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 3, 8); // native ≈0.36 long
+const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 6, 14); // native ≈0.36 long · mascot-smooth segments
 const LEG_GEO_LEN = 0.36;
-const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 16, 12);
-const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 10); // silhouette pass — collar→head bridge
+const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 28, 20); // mascot-smooth: no visible facets on close-ups
+const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 14); // silhouette pass — collar→head bridge
 const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
 
 // Status-ring materials: the existing ring/marker convention (GuestToken's
@@ -317,7 +318,7 @@ export const Figure = memo(function Figure({
   const outfitGeo = outfitGeometry(spec.outfit);
   const outfitMat = outfitMaterial(spec.outfit, spec.outfitColor);
   const trouserMat = trouserMaterial(spec.outfit, spec.outfitColor);
-  const skinMat = plainMaterial(look.skinTone);
+  const skinMat = skinMaterial(look.skinTone); // mascot sheen — smoother than generic plain
   const hairMat = hairMaterial(look.hairColor);
   const hairParts = hairPartsFor(look.hairStyle);
   // Skirted outfits bare the arms + shins (skin); trousered ones sleeve the

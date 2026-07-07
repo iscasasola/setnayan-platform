@@ -43,6 +43,7 @@ import {
   tableFootprintDiscs,
   chairObstacles,
   chairObstaclesForWalk,
+  dropDiscsContaining,
   inSeatApproachCorridor,
   CHAIR_OBSTACLE_R,
   buildObstacleGrid,
@@ -876,4 +877,169 @@ test('spatial hash: obstaclesNear finds every reaching disc; grid fast paths mat
   const roomGrid = buildObstacleGrid(roomDiscs);
   const sample = obstaclesNear(roomGrid, { x: 0, z: 0 }, bodyR);
   assert.ok(sample.length < roomDiscs.length / 4, `query is local (${sample.length} of ${roomDiscs.length})`);
+});
+
+test('BIG_DISC_R split: oversized discs skip the buckets, are always candidates, and stop poisoning the query reach', () => {
+  // A stage-class disc (r 3.6 — max(stageW,stageD)/2 + 0.6 for a 6 m stage)
+  // used to set grid.maxR, dragging EVERY per-frame query's scan square up to
+  // ~15 m; now it rides outside the buckets and small queries stay local.
+  const small: ObstacleDisc[] = [
+    { c: { x: -8, z: -8 }, r: 1.0 },
+    { c: { x: 8, z: 8 }, r: 1.2 },
+    { c: { x: 0, z: 6 }, r: 0.3 },
+  ];
+  const stage = { c: { x: 0, z: -7 }, r: 3.6 };
+  const grid = buildObstacleGrid([...small, stage]);
+  assert.ok(grid.maxR <= 1.2 + 1e-9, 'maxR covers gridded discs only');
+  assert.deepEqual(grid.big, [3], 'the stage disc is indexed as big');
+  // Always a candidate — even from the far corner with zero reach…
+  const far = obstaclesNear(grid, { x: 9, z: 9 }, 0);
+  assert.ok(far.includes(stage), 'big disc is unconditionally in every query');
+  // …while the query stays local: the far small discs are not dragged in.
+  assert.ok(!far.some((d) => d === small[0]), 'far small disc is culled');
+  // Parity: grid results (push + steer) still match brute force bit-for-bit
+  // across a walk that crosses the stage disc.
+  const all = [...small, stage];
+  const bodyR = 0.24;
+  const inflated = all.map((d) => ({ c: d.c, r: d.r + bodyR }));
+  for (const p of [{ x: 0, z: -7 }, { x: 0.4, z: -5 }, { x: -8, z: -7.6 }, { x: 9, z: 9 }]) {
+    assert.deepEqual(
+      pushOutOfDiscs(p, grid, { x: 1, z: 0 }, bodyR),
+      pushOutOfDiscs(p, inflated),
+      'grid push == brute push with a big disc present',
+    );
+  }
+  assert.deepEqual(
+    steerPath({ x: -9, z: -7 }, { x: 9, z: -7 }, grid, bodyR),
+    steerPath({ x: -9, z: -7 }, { x: 9, z: -7 }, all, bodyR),
+    'grid steer == brute steer straight through the stage line',
+  );
+});
+
+test('dropDiscsContaining: only the disc(s) reaching the point go away — the rest of a capsule stays solid', () => {
+  const discs: ObstacleDisc[] = [
+    { c: { x: 0, z: 0 }, r: 1.0 }, // contains p
+    { c: { x: 2.5, z: 0 }, r: 1.0 }, // clear of p
+    { c: { x: 0, z: 1.2 }, r: 1.0 }, // clear bare, contains p once body-inflated
+  ];
+  const p = { x: 0, z: 0.1 };
+  assert.deepEqual(dropDiscsContaining(discs, p), [discs[1], discs[2]]);
+  assert.deepEqual(dropDiscsContaining(discs, p, 0.24), [discs[1]], 'inflateR widens the containment test');
+  assert.deepEqual(dropDiscsContaining(discs, { x: 9, z: 9 }), discs, 'a clear point drops nothing');
+});
+
+test('approach corridor width: a 14-seat banquet keeps BOTH flanking chairs solid (pitch 0.547 > half-width)', () => {
+  const t14: Lab3DTable = {
+    id: 'B14', label: 'B14', type: 'long_banquet_14', shape: 'long_banquet',
+    capacity: 14, removedSeats: [], xPct: 50, yPct: 50, rotationDeg: 0, linkGroupId: null,
+  };
+  const dest = 3; // interior seat on the −z row (perSide 7)
+  const out = chairObstacles(t14, ROOM, { destinationSeat: dest });
+  // ONLY the destination chair is excluded — at 0.55 half-width the corridor
+  // swallowed both same-row neighbours too (3 exclusions), leaving nothing to
+  // clamp a crowd-mode shove out of the adjacent seat backs.
+  assert.equal(out.length, 13, 'exactly one chair (the destination) is excluded');
+  for (const n of [dest - 1, dest + 1]) {
+    const pose = worldSeatPose(t14, n, ROOM);
+    assert.ok(
+      out.some((d) => Math.hypot(d.c.x - pose.x, d.c.z - pose.z) < 1e-9),
+      `flanking chair ${n} stays an obstacle`,
+    );
+  }
+});
+
+test('separateAgents: grid-culled big casts match the O(n²) sweep bit-for-bit', () => {
+  const mulberry32 = (seed: number) => () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const rand = mulberry32(0xc0ffee);
+  const MIN = 0.5;
+  // Reference: the documented v2 sweep (coincident / reactive / predictive
+  // with the 0.4 s lookahead · 0.35 gain · 0.9 right bias), restated here so
+  // the grid cull is pinned against the algorithm, not against itself.
+  const brute = (agents: readonly ({ x: number; z: number; vel?: { x: number; z: number } })[]): { x: number; z: number }[] => {
+    const out = agents.map((a) => ({ x: a.x, z: a.z }));
+    const evade = (v: { x: number; z: number } | undefined, ax: number, az: number) => {
+      const speed = v ? Math.hypot(v.x, v.z) : 0;
+      if (!v || speed < 1e-6) return { x: ax, z: az };
+      const bx = ax + 0.9 * (v.z / speed);
+      const bz = az + 0.9 * (-v.x / speed);
+      const bl = Math.hypot(bx, bz) || 1;
+      return { x: bx / bl, z: bz / bl };
+    };
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const dx = out[j]!.x - out[i]!.x;
+        const dz = out[j]!.z - out[i]!.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 1e-6) {
+          out[i]!.x -= MIN / 2;
+          out[j]!.x += MIN / 2;
+          continue;
+        }
+        if (dist < MIN) {
+          const push = (MIN - dist) / 2;
+          out[i]!.x -= (dx / dist) * push;
+          out[i]!.z -= (dz / dist) * push;
+          out[j]!.x += (dx / dist) * push;
+          out[j]!.z += (dz / dist) * push;
+          continue;
+        }
+        const vi = agents[i]!.vel;
+        const vj = agents[j]!.vel;
+        if (!vi && !vj) continue;
+        const pdx = dx + ((vj?.x ?? 0) - (vi?.x ?? 0)) * 0.4;
+        const pdz = dz + ((vj?.z ?? 0) - (vi?.z ?? 0)) * 0.4;
+        const pdist = Math.hypot(pdx, pdz);
+        if (pdist >= MIN) continue;
+        const ux = pdist > 1e-6 ? pdx / pdist : dx / dist;
+        const uz = pdist > 1e-6 ? pdz / pdist : dz / dist;
+        const push = ((MIN - pdist) / 2) * 0.35;
+        const di = evade(vi, -ux, -uz);
+        const dj = evade(vj, ux, uz);
+        out[i]!.x += di.x * push;
+        out[i]!.z += di.z * push;
+        out[j]!.x += dj.x * push;
+        out[j]!.z += dj.z * push;
+      }
+    }
+    return out;
+  };
+  // 80 agents (well past the grid threshold): a milling cluster + spread-out
+  // walkers with velocities + pinned (velocity-less) sitters.
+  const agents: ({ x: number; z: number; vel?: { x: number; z: number } })[] = [];
+  for (let i = 0; i < 80; i++) {
+    const clustered = i % 4 === 0;
+    const a: { x: number; z: number; vel?: { x: number; z: number } } = {
+      x: clustered ? (rand() - 0.5) * 1.5 : (rand() - 0.5) * 20,
+      z: clustered ? (rand() - 0.5) * 1.5 : (rand() - 0.5) * 20,
+    };
+    if (i % 3 !== 0) a.vel = { x: (rand() - 0.5) * 3, z: (rand() - 0.5) * 3 };
+    agents.push(a);
+  }
+  assert.deepEqual(separateAgents(agents, MIN), brute(agents), 'grid cull == full sweep');
+});
+
+test('separateAgents: predictive push is a per-second rate under deltaS (halves at 120 Hz), reactive stays as-is', () => {
+  // Head-on pair 1 m apart closing at 1.5 m/s each → projected conflict, no
+  // current overlap: pure predictive push.
+  const mk = () => [
+    { x: 0, z: 0, vel: { x: 0, z: 1.5 } },
+    { x: 0.01, z: 1, vel: { x: 0, z: -1.5 } }, // slight x offset so the axis is stable
+  ];
+  const MIN = 0.6;
+  const base = separateAgents(mk(), MIN);
+  const at60 = separateAgents(mk(), MIN, 1 / 60);
+  const at120 = separateAgents(mk(), MIN, 1 / 120);
+  const disp = (r: { x: number; z: number }[]) => Math.hypot(r[0]!.x - 0, r[0]!.z - 0);
+  assert.ok(disp(base) > 1e-6, 'the pair does conflict predictively');
+  assert.ok(Math.abs(disp(at60) - disp(base)) < 1e-12, '60 fps delta == the untimed reference');
+  assert.ok(Math.abs(disp(at120) - disp(base) / 2) < 1e-12, 'a 120 Hz frame applies half the push');
+  // Reactive (overlapping) pairs are delta-independent — the hard guarantee.
+  const overlap = () => [{ x: 0, z: 0 }, { x: 0.2, z: 0 }];
+  assert.deepEqual(separateAgents(overlap(), MIN, 1 / 120), separateAgents(overlap(), MIN));
 });

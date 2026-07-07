@@ -107,6 +107,7 @@ import {
   boothApproach,
   chairObstacles,
   chairObstaclesForWalk,
+  dropDiscsContaining,
   buildObstacleGrid,
   separateAgents,
   resolvePalette,
@@ -518,21 +519,34 @@ function Walker({
   // motion to predict from (the couple lab crowd records the same thing).
   const prevPosRef = useRef<Vec2 | null>(null);
   const velRef = useRef<AgentVel | undefined>(undefined);
+  // The walk object the velocity history belongs to — FRAME-LOOP-owned (not a
+  // passive effect): the useFrame callback swaps at layout-effect time, so a
+  // rAF frame can run between the new walk's commit and a [walk] effect's
+  // flush. A passive-effect reset would let that one frame divide a
+  // cross-walk position jump (roam tap across the room, reduced-motion
+  // teleport) by delta — tens of m/s of phantom velocity for the predictive
+  // pass to project a huge dodge from. Checking identity inside the loop
+  // closes that window for good.
+  const velWalkRef = useRef<WalkState | null>(null);
 
   // Each NEW walk (fresh scripted target, every roam floor tap) restarts the
   // gait and re-arms the completion callback. <Walker> stays mounted across
   // walks (same element position), so these must reset per walk-state object,
-  // not per mount. Velocity history resets too: a reduced-motion teleport (or
-  // a retarget mid-stride) would otherwise read as one huge cross-walk delta
-  // and fire a phantom predictive dodge on the first frame.
+  // not per mount.
   useEffect(() => {
     firedRef.current = false;
     setAtRest(false);
-    prevPosRef.current = null;
-    velRef.current = undefined;
   }, [walk]);
 
   useFrame(({ camera }, delta) => {
+    // Velocity history is per-walk: reset it the first frame a new walk object
+    // reaches the loop (see velWalkRef) so a retarget/teleport never reads as
+    // one huge cross-walk delta.
+    if (velWalkRef.current !== walk) {
+      velWalkRef.current = walk;
+      prevPosRef.current = null;
+      velRef.current = undefined;
+    }
     const raw = Math.min(1, (performance.now() - walk.startedAt) / walk.durationMs);
     const eased = smootherstep(raw);
     const sample = sampleAlongPath(walk.path, eased);
@@ -546,7 +560,9 @@ function Walker({
       const movers =
         REMOTE_MOVERS.length > MAX_ROOM_MOVERS ? REMOTE_MOVERS.slice(0, MAX_ROOM_MOVERS) : REMOTE_MOVERS;
       const vel = velRef.current;
-      steered = separateAgents([vel ? { ...sample.p, vel } : sample.p, ...movers], MOVER_MIN_DIST)[0]!;
+      // delta rides along so the predictive push is a per-second rate (the
+      // same sidestep at 30 Hz and 120 Hz), not a per-frame impulse.
+      steered = separateAgents([vel ? { ...sample.p, vel } : sample.p, ...movers], MOVER_MIN_DIST, delta)[0]!;
     }
     // Collision guarantee (LOAD-BEARING — runs LAST, after path sampling AND
     // separation): the interpolated chord between two path waypoints can still
@@ -770,20 +786,26 @@ export function Plan3DScene({
   );
   // Full obstacle set for a destination-less roam walk (floor taps, booth
   // walk-to, the roam step-in): TRUE table footprints (a banquet reads as a
-  // capsule — corners count) + every CHAIR, occupied or not (a seated guest is
-  // covered by their chair's disc, so the roamer can't ghost through anyone)
-  // + stage/dance + fixtures. Spatial-hashed: the roam clamp runs EVERY frame
-  // on a PHONE and a real room is ~170–400 discs — the grid keeps each query
-  // local while pushOutOfDiscs stays bit-identical to the brute-force walk.
-  // Everything feeding this is a static prop on this read-only surface, so
-  // the grid builds ONCE per scene — there's no per-frame rebuild for the
-  // `quality` knob to gate. (Seat-DESTINED walks build their own dest-aware
-  // grids instead: this one deliberately keeps every chair solid.)
+  // capsule — corners count) + stage/dance + fixtures. Chair discs are emitted
+  // for SERPENTINE tables only: on every other shape each chair disc sits
+  // strictly inside its own table's footprint clearance disc (round reach
+  // w/2+0.75 vs footprint w/2+0.8, banquet d/2+0.7 vs d/2+0.8, …), and this
+  // set keeps every footprint solid — so those ~150 discs could never bind
+  // and were pure query/build overhead on the phone clamp. Seated guests stay
+  // covered (their chair sits inside the footprint the roamer already can't
+  // enter); only the serpentine's chairs ride OUTSIDE its deliberately-tight
+  // band clearance and do real work. Spatial-hashed: the roam clamp runs
+  // EVERY frame on a PHONE — the grid keeps each query local while
+  // pushOutOfDiscs stays bit-identical to the brute-force walk. Everything
+  // feeding this is a static prop on this read-only surface, so the grid
+  // builds ONCE per scene — there's no per-frame rebuild for the `quality`
+  // knob to gate. (Seat-DESTINED walks build their own dest-aware grids
+  // instead: those drop footprints, so there every chair IS load-bearing.)
   const roamObstacles = useMemo(
     () =>
       buildObstacleGrid([
         ...floorObstacles(floor, tables, room, []),
-        ...tables.flatMap((t) => chairObstacles(t, room)),
+        ...tables.filter((t) => t.shape === 'serpentine').flatMap((t) => chairObstacles(t, room)),
         ...fixtureObstacles,
       ]),
     [floor, tables, room, fixtureObstacles],
@@ -955,12 +977,21 @@ export function Plan3DScene({
     // path above still ROUTES around the destination (leg 1 ends outside the
     // ring; leg 2 is a clean radial step-in that can't cross the tabletop), so
     // dropping the clamp only relaxes the chord re-clamp on that one table's
-    // final metre. The chair discs STAY in the clamp — their own dest-chair +
-    // corridor exclusions already leave the hand-off strip clear, and they're
-    // what keeps that final metre from clipping the neighbouring seat backs.
+    // final metre. On cramped back-to-back layouts a NEIGHBOURING table's
+    // footprint (or a fixture) can reach the hand-off spot too — those
+    // specific discs are dropped the same way (dropDiscsContaining; the rest
+    // of the neighbour's capsule stays solid), or they'd shove the walker
+    // 0.4–0.9 m off the spot every frame near arrival. The chair discs STAY
+    // in the clamp — their own dest-chair + corridor exclusions already leave
+    // the hand-off strip clear, and they're what keeps that final metre from
+    // clipping the neighbouring seat backs.
+    const handOff = path[path.length - 1]!;
     const clampObstacles = buildObstacleGrid([
-      ...floorObstacles(floor, tables, room, [walkTable.id]),
-      ...fixtureObstacles,
+      ...dropDiscsContaining(
+        [...floorObstacles(floor, tables, room, [walkTable.id]), ...fixtureObstacles],
+        handOff,
+        AVATAR_BODY_R,
+      ),
       ...chairDiscs,
     ]);
     const durationMs = Math.max(WALK_MIN_MS, (pathLength(path) / WALK_SPEED_MPS) * 1000);
@@ -1064,9 +1095,16 @@ export function Plan3DScene({
       ...chairDiscs,
     ]);
     const path = seatApproachPath(from, t, seatIndex, room, pathObstacles, AVATAR_BODY_R);
+    // Same neighbour-footprint relief as the scripted walk: a back-to-back
+    // table's capsule disc can contain the chair itself — drop exactly the
+    // discs that do, or the clamp shoves the figure off the seat on arrival.
+    const arrivePoint = path[path.length - 1]!;
     const clampObstacles = buildObstacleGrid([
-      ...floorObstacles(floor, tables, room, [t.id]),
-      ...fixtureObstacles,
+      ...dropDiscsContaining(
+        [...floorObstacles(floor, tables, room, [t.id]), ...fixtureObstacles],
+        arrivePoint,
+        AVATAR_BODY_R,
+      ),
       ...chairDiscs,
     ]);
     const durationMs = Math.min(6500, Math.max(WALK_MIN_MS, (pathLength(path) / WALK_SPEED_MPS) * 1000));

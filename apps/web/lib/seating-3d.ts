@@ -593,11 +593,19 @@ export const CHAIR_OBSTACLE_R = 0.3;
  * the hand-off spot. `along` is signed distance behind the chair; `across` is
  * lateral offset off the corridor axis. Pure — exported so a caller can also
  * filter a NEIGHBOURING table's chair that happens to crowd the corridor.
+ *
+ * The default half-width sits just UNDER the tightest same-row chair pitch a
+ * long banquet reaches (0.547 m at capacity 14, 0.531 m at 16 — span
+ * (w − 0.6) / (perSide − 1)): at 0.55 the corridor swallowed BOTH chairs
+ * flanking the destination on a 14+ banquet, leaving nothing to clamp a
+ * crowd-mode shove out of the neighbouring seat backs. 0.5 keeps the flanks
+ * solid on every catalog capacity while the straight radial step-in (which
+ * runs on the corridor axis) still clears them.
  */
 export function inSeatApproachCorridor(
   p: Vec2,
   seat: SeatPose,
-  halfWidthM = 0.55,
+  halfWidthM = 0.5,
   lengthM = 1.4,
 ): boolean {
   const ax = -Math.sin(seat.faceY);
@@ -680,6 +688,29 @@ export function chairObstaclesForWalk(
     }
   }
   return out;
+}
+
+/**
+ * Drop every disc that CONTAINS `p` (within r + inflateR) — the footprint-disc
+ * analogue of the chair corridor exclusion, for a walk's PER-FRAME clamp set.
+ * A seat-destined walk already drops its destination table's footprint from
+ * the clamp (its avoidance ring contains the sit hand-off point), but on
+ * cramped back-to-back layouts (two 8-cap banquets ~2.4 m centre-to-centre) a
+ * NEIGHBOURING table's capsule disc still reaches the hand-off spot, and a
+ * clamp that keeps it shoves the walker 0.4–0.9 m off the spot every frame —
+ * the sit clip then starts with a visible teleport. Filter the clamp's
+ * footprint/fixture discs through this with the path's final waypoint: only
+ * the specific disc(s) overlapping the hand-off go away (the rest of the
+ * neighbour's capsule stays solid), and its chair discs — which the corridor
+ * filter keeps solid outside the strip — remain what stops the final metre
+ * clipping a seat back. Pure.
+ */
+export function dropDiscsContaining(
+  discs: readonly ObstacleDisc[],
+  p: Vec2,
+  inflateR = 0,
+): ObstacleDisc[] {
+  return discs.filter((d) => Math.hypot(p.x - d.c.x, p.z - d.c.z) >= d.r + inflateR);
 }
 
 /**
@@ -1021,13 +1052,33 @@ export function cocktailObstacles(
  * don't balloon. */
 export const OBSTACLE_GRID_CELL_M = 1.5;
 
+/**
+ * Discs wider than this stay OUT of the buckets and are checked directly on
+ * every query instead. The point of the split: the fast paths add 2·maxR of
+ * movement slack to their query reach, and one stage/dance bounding disc
+ * (r ≈ 3–4 m via max(w,d)/2 + clearance) would drag maxR — and with it EVERY
+ * per-frame query — up to a ~15 m scan square touching most of the room,
+ * slower than the brute-force loop the grid replaced. Kept above the largest
+ * catalog table disc (round-12 avoid ring 1.65 m) so all table footprints
+ * stay gridded; a real room has only a handful of bigger discs (stage, dance
+ * floor, an LED wall), and testing those few directly is cheaper than letting
+ * them poison the reach. Big discs skip the distance filter entirely — always
+ * candidates — so their interaction matches brute force exactly no matter how
+ * far an expulsion moved the point.
+ */
+export const BIG_DISC_R = 1.75;
+
 export type ObstacleGrid = {
   cellM: number;
-  /** Largest disc radius in the set — the movement slack the fast paths add to
-   * their query reach (an expulsion can move a point up to ~one radius). */
+  /** Largest GRIDDED disc radius (big discs excluded — see BIG_DISC_R) — the
+   * movement slack the fast paths add to their query reach (an expulsion can
+   * move a point up to ~one radius). */
   maxR: number;
   /** The full set, insertion order — the parity contract with brute force. */
   all: readonly ObstacleDisc[];
+  /** Ascending indices of the oversized discs (r > BIG_DISC_R): never
+   * bucketed, merged into every query unconditionally. */
+  big: readonly number[];
   /** cell key `${ix},${iz}` → ascending indices into `all`. */
   buckets: ReadonlyMap<string, readonly number[]>;
 };
@@ -1039,8 +1090,13 @@ export function buildObstacleGrid(
   cellM = OBSTACLE_GRID_CELL_M,
 ): ObstacleGrid {
   const buckets = new Map<string, number[]>();
+  const big: number[] = [];
   let maxR = 0;
   discs.forEach((d, i) => {
+    if (d.r > BIG_DISC_R) {
+      big.push(i);
+      return;
+    }
     maxR = Math.max(maxR, d.r);
     const x0 = Math.floor((d.c.x - d.r) / cellM);
     const x1 = Math.floor((d.c.x + d.r) / cellM);
@@ -1055,22 +1111,23 @@ export function buildObstacleGrid(
       }
     }
   });
-  return { cellM, maxR, all: discs, buckets };
+  return { cellM, maxR, all: discs, big, buckets };
 }
 
 /**
  * The discs whose (radius + reachM) reaches `p` — i.e. everything that could
- * push/repel a point at `p` with `reachM` of slack. Returned in INSERTION
- * order, so a fast-path consumer walks them in the exact sequence brute force
- * over `grid.all` would — that's what keeps grid results bit-identical to the
- * plain-array paths (the parity test's contract).
+ * push/repel a point at `p` with `reachM` of slack — plus every oversized
+ * disc (stage/dance class, r > BIG_DISC_R) unconditionally. Returned in
+ * INSERTION order, so a fast-path consumer walks them in the exact sequence
+ * brute force over `grid.all` would — that's what keeps grid results
+ * bit-identical to the plain-array paths (the parity test's contract).
  */
 export function obstaclesNear(grid: ObstacleGrid, p: Vec2, reachM = 0): ObstacleDisc[] {
   const x0 = Math.floor((p.x - reachM) / grid.cellM);
   const x1 = Math.floor((p.x + reachM) / grid.cellM);
   const z0 = Math.floor((p.z - reachM) / grid.cellM);
   const z1 = Math.floor((p.z + reachM) / grid.cellM);
-  const seen = new Set<number>();
+  const seen = new Set<number>(grid.big);
   for (let ix = x0; ix <= x1; ix++) {
     for (let iz = z0; iz <= z1; iz++) {
       const b = grid.buckets.get(`${ix},${iz}`);
@@ -1081,7 +1138,10 @@ export function obstaclesNear(grid: ObstacleGrid, p: Vec2, reachM = 0): Obstacle
   const out: ObstacleDisc[] = [];
   for (const i of idx) {
     const d = grid.all[i]!;
-    if (Math.hypot(p.x - d.c.x, p.z - d.c.z) < d.r + reachM + 1e-9) out.push(d);
+    // Big discs bypass the distance filter: their expulsions can move a point
+    // further than the gridded movement slack budgets for, so they must stay
+    // in the candidate list exactly as the brute-force walk would keep them.
+    if (d.r > BIG_DISC_R || Math.hypot(p.x - d.c.x, p.z - d.c.z) < d.r + reachM + 1e-9) out.push(d);
   }
   return out;
 }
@@ -1098,7 +1158,10 @@ export function obstaclesNear(grid: ObstacleGrid, p: Vec2, reachM = 0): Obstacle
  * are visited. The query reach adds 2·maxR movement slack on top of `inflateR`
  * because each expulsion can move the point up to one disc radius, and the
  * chained disc must still be in the (fixed) candidate list — the same list
- * semantics the array walk has. `inflateR` inflates every disc at check time
+ * semantics the array walk has. maxR covers the GRIDDED discs only; the few
+ * oversized stage/dance-class discs ride along unconditionally (see
+ * BIG_DISC_R), so they can't balloon every query's scan square while their
+ * own interaction stays exactly brute-force. `inflateR` inflates every disc at check time
  * (the body-radius pattern), so grid callers don't have to materialise an
  * inflated copy of the set; array callers may keep pre-inflating as before.
  */
@@ -1143,6 +1206,21 @@ export type AgentVel = { x: number; z: number };
 const SEP_LOOKAHEAD_S = 0.4;
 const SEP_PRED_GAIN = 0.35;
 const SEP_RIGHT_BIAS = 0.9;
+// Predictive-push frame normalisation: the push is applied once per FRAME, so
+// without delta scaling the correction RATE rides the display refresh — the
+// same head-on encounter sidesteps ~4× harder per second at 120 Hz than at a
+// throttled 30 Hz. Callers that run per-frame pass their delta; it scales the
+// predictive push against the 60 fps reference the gain was tuned at (capped
+// so one long-stalled frame can't fire a single huge dodge). The REACTIVE
+// overlap push stays unscaled — it's self-limiting (half the overlap) and is
+// the hard no-overlap guarantee.
+const SEP_REF_FRAME_S = 1 / 60;
+const SEP_PRED_SCALE_MAX = 3;
+// Agent count past which separateAgents culls pairs through a uniform grid
+// instead of the full O(n²) sweep. Small casts (every unit test, the demo's
+// walker + ≤8 remote movers) keep the plain loop — identical output, zero new
+// machinery on the hot single-walker path.
+const SEP_GRID_MIN_AGENTS = 32;
 
 /**
  * "Make way for each other", v2. Two layers, one relaxation pass per frame
@@ -1162,12 +1240,28 @@ const SEP_RIGHT_BIAS = 0.9;
  *
  * The old signature keeps working: `vel` is optional, and a velocity-less pair
  * projects to where it already stands — reactive-only, exactly v1.
+ *
+ * `deltaS` (optional): the caller's frame delta, in seconds — scales the
+ * PREDICTIVE push to a per-second correction rate (see SEP_REF_FRAME_S).
+ * Omitted → 1.0, the pre-scaling behaviour every existing test pins.
+ *
+ * Big casts (≥ SEP_GRID_MIN_AGENTS — the populate-Play crowd) cull candidate
+ * pairs through a uniform grid instead of the full O(n²) sweep: an agent's
+ * interaction radius is minDist + |vel|·lookahead (its own half of the
+ * reactive band + everything its projection can close), plus minDist of
+ * combined slack for mid-pass drift, so every pair the sweep could push is
+ * still visited — in the same ascending (i, j) order, on the same mutated
+ * positions — and skipped pairs are exactly the sweep's no-ops. A 150-guest
+ * room where only ~24 agents move drops from ~11k pair hypots per frame to
+ * the walkers' local neighbourhoods.
  */
 export function separateAgents(
   agents: readonly (Vec2 & { vel?: AgentVel })[],
   minDist: number,
+  deltaS?: number,
 ): Vec2[] {
   const out = agents.map((a) => ({ x: a.x, z: a.z }));
+  const predScale = deltaS == null ? 1 : Math.min(deltaS / SEP_REF_FRAME_S, SEP_PRED_SCALE_MAX);
   // Steering direction for one agent: the away-vector blended toward the
   // agent's own right (right of heading (sinθ,cosθ) is (cosθ,−sinθ), i.e.
   // (v.z,−v.x)/|v| — the same convention walkVector's strafe uses). A
@@ -1180,49 +1274,97 @@ export function separateAgents(
     const bl = Math.hypot(bx, bz) || 1;
     return { x: bx / bl, z: bz / bl };
   };
-  for (let i = 0; i < out.length; i++) {
-    for (let j = i + 1; j < out.length; j++) {
-      const dx = out[j]!.x - out[i]!.x;
-      const dz = out[j]!.z - out[i]!.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist < 1e-6) {
-        // Exactly coincident — separate deterministically along x by index.
-        out[i]!.x -= minDist / 2;
-        out[j]!.x += minDist / 2;
-        continue;
-      }
-      if (dist < minDist) {
-        // Reactive fallback — the same-frame overlap push, unchanged from v1.
-        const push = (minDist - dist) / 2;
-        const ux = dx / dist;
-        const uz = dz / dist;
-        out[i]!.x -= ux * push;
-        out[i]!.z -= uz * push;
-        out[j]!.x += ux * push;
-        out[j]!.z += uz * push;
-        continue;
-      }
-      // Predictive: compare the pair 0.4 s ahead. Velocity-less agents project
-      // in place, so a legacy Vec2 crowd never reaches the push below.
-      const vi = agents[i]!.vel;
-      const vj = agents[j]!.vel;
-      if (!vi && !vj) continue;
-      const pdx = dx + ((vj?.x ?? 0) - (vi?.x ?? 0)) * SEP_LOOKAHEAD_S;
-      const pdz = dz + ((vj?.z ?? 0) - (vi?.z ?? 0)) * SEP_LOOKAHEAD_S;
-      const pdist = Math.hypot(pdx, pdz);
-      if (pdist >= minDist) continue;
-      // Away axis at the PROJECTED conflict; if the projections collapse onto
-      // each other, fall back to the current separation axis (never zero here).
-      const ux = pdist > 1e-6 ? pdx / pdist : dx / dist;
-      const uz = pdist > 1e-6 ? pdz / pdist : dz / dist;
-      const push = ((minDist - pdist) / 2) * SEP_PRED_GAIN;
-      const di = evade(vi, -ux, -uz);
-      const dj = evade(vj, ux, uz);
-      out[i]!.x += di.x * push;
-      out[i]!.z += di.z * push;
-      out[j]!.x += dj.x * push;
-      out[j]!.z += dj.z * push;
+  const resolvePair = (i: number, j: number): void => {
+    const dx = out[j]!.x - out[i]!.x;
+    const dz = out[j]!.z - out[i]!.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 1e-6) {
+      // Exactly coincident — separate deterministically along x by index.
+      out[i]!.x -= minDist / 2;
+      out[j]!.x += minDist / 2;
+      return;
     }
+    if (dist < minDist) {
+      // Reactive fallback — the same-frame overlap push, unchanged from v1.
+      const push = (minDist - dist) / 2;
+      const ux = dx / dist;
+      const uz = dz / dist;
+      out[i]!.x -= ux * push;
+      out[i]!.z -= uz * push;
+      out[j]!.x += ux * push;
+      out[j]!.z += uz * push;
+      return;
+    }
+    // Predictive: compare the pair 0.4 s ahead. Velocity-less agents project
+    // in place, so a legacy Vec2 crowd never reaches the push below.
+    const vi = agents[i]!.vel;
+    const vj = agents[j]!.vel;
+    if (!vi && !vj) return;
+    const pdx = dx + ((vj?.x ?? 0) - (vi?.x ?? 0)) * SEP_LOOKAHEAD_S;
+    const pdz = dz + ((vj?.z ?? 0) - (vi?.z ?? 0)) * SEP_LOOKAHEAD_S;
+    const pdist = Math.hypot(pdx, pdz);
+    if (pdist >= minDist) return;
+    // Away axis at the PROJECTED conflict; if the projections collapse onto
+    // each other, fall back to the current separation axis (never zero here).
+    const ux = pdist > 1e-6 ? pdx / pdist : dx / dist;
+    const uz = pdist > 1e-6 ? pdz / pdist : dz / dist;
+    const push = ((minDist - pdist) / 2) * SEP_PRED_GAIN * predScale;
+    const di = evade(vi, -ux, -uz);
+    const dj = evade(vj, ux, uz);
+    out[i]!.x += di.x * push;
+    out[i]!.z += di.z * push;
+    out[j]!.x += dj.x * push;
+    out[j]!.z += dj.z * push;
+  };
+  if (agents.length < SEP_GRID_MIN_AGENTS) {
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) resolvePair(i, j);
+    }
+    return out;
+  }
+  // Grid cull. Insert each agent into every cell its interaction square
+  // overlaps; a pair whose radii sum reaches across then always co-buckets
+  // (their squares overlap, and both cover every cell of the intersection).
+  const cellM = Math.max(1, minDist * 2);
+  const reach = (i: number): number => {
+    const v = agents[i]!.vel;
+    return minDist + (v ? Math.hypot(v.x, v.z) * SEP_LOOKAHEAD_S : 0);
+  };
+  const buckets = new Map<string, number[]>();
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i]!;
+    const r = reach(i);
+    const x0 = Math.floor((a.x - r) / cellM);
+    const x1 = Math.floor((a.x + r) / cellM);
+    const z0 = Math.floor((a.z - r) / cellM);
+    const z1 = Math.floor((a.z + r) / cellM);
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iz = z0; iz <= z1; iz++) {
+        const key = `${ix},${iz}`;
+        const b = buckets.get(key);
+        if (b) b.push(i);
+        else buckets.set(key, [i]);
+      }
+    }
+  }
+  const seen = new Set<number>();
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i]!;
+    const r = reach(i);
+    const x0 = Math.floor((a.x - r) / cellM);
+    const x1 = Math.floor((a.x + r) / cellM);
+    const z0 = Math.floor((a.z - r) / cellM);
+    const z1 = Math.floor((a.z + r) / cellM);
+    seen.clear();
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iz = z0; iz <= z1; iz++) {
+        const b = buckets.get(`${ix},${iz}`);
+        if (b) for (const j of b) if (j > i) seen.add(j);
+      }
+    }
+    // Ascending j order — the exact sequence the O(n²) sweep resolves in.
+    const js = [...seen].sort((x, y) => x - y);
+    for (const j of js) resolvePair(i, j);
   }
   return out;
 }

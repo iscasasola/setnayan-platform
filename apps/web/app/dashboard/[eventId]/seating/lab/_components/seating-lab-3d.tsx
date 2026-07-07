@@ -111,6 +111,9 @@ import {
   type Lab3DCocktail,
   type Vec2,
   type SeatPose,
+  type ObstacleDisc,
+  type ObstacleGrid,
+  type AgentVel,
   roomSize,
   contentBounds,
   pctToWorld,
@@ -120,6 +123,9 @@ import {
   seatWorld,
   approachPoint,
   floorObstacles,
+  chairObstacles,
+  chairObstaclesForWalk,
+  buildObstacleGrid,
   sceneObjectObstacles,
   boothObstacles,
   signObstacles,
@@ -543,10 +549,20 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     ],
     [sceneObjects, booths, signs, cocktail, room],
   );
-  // What the walking camera can't pass through (tables + stage + dance +
-  // fixture discs).
+  // What the walking camera can't pass through: TRUE table footprints (a
+  // banquet reads as a capsule, a serpentine as its band — corners included) +
+  // every CHAIR (occupied or not; a seated guest is covered by their chair's
+  // disc, so the roaming couple can't ghost through anyone) + stage/dance +
+  // fixture discs. Spatial-hashed: the roam clamp runs EVERY frame and a full
+  // room is ~370 discs — the grid keeps that query local while pushOutOfDiscs
+  // stays bit-identical to the brute-force walk (the parity test's contract).
   const walkObstacles = useMemo(
-    () => [...floorObstacles(floor, tables, room, []), ...fixtureObstacles],
+    () =>
+      buildObstacleGrid([
+        ...floorObstacles(floor, tables, room, []),
+        ...tables.flatMap((t) => chairObstacles(t, room)),
+        ...fixtureObstacles,
+      ]),
     [floor, tables, room, fixtureObstacles],
   );
   // Walk mode only makes sense in Play — drop it whenever we leave.
@@ -1294,17 +1310,25 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!seat) return false;
       const table = tablesById.get(seat.tableId);
       if (!table) return false;
-      // Route AROUND every fixed object — other tables, the walker's OWN table,
-      // the stage, the dance floor — then step in to the chair from outside, so
-      // the walker never cuts across its own tabletop (or anything else).
-      const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
+      // Route AROUND every fixed object — other tables (true multi-disc
+      // footprints, so banquet corners count), the walker's OWN table, the
+      // stage, the dance floor — AND every chair/seated guest, with the
+      // walker's own destination chair + its approach corridor excluded so the
+      // final step-in stays reachable (chairObstaclesForWalk). Spatial-hashed:
+      // seatApproachPath's steering samples the set hundreds of times and the
+      // grid keeps each query local without changing a single output point.
+      const pose = seatWorld(table, seat.seatNumber, room);
+      const obstacles = buildObstacleGrid([
+        ...floorObstacles(floor, tables, room, []),
+        ...fixtureObstacles,
+        ...chairObstaclesForWalk(tables, room, { tableId: seat.tableId, seatNumber: seat.seatNumber }),
+      ]);
       const path = seatApproachPath(entranceWorld, table, seat.seatNumber, room, obstacles, 0.2);
       // Retarget the path's final chair waypoint to the SIT APPROACH POINT
       // (0.55 m behind the chair along −gaze) — the walk delivers the guest
       // there and the SitController owns the rest (pull back, step in, sit,
       // tuck). Both points sit on the same outward radial (the gaze aims at
       // the table), so the retarget never re-enters the table footprint.
-      const pose = seatWorld(table, seat.seatNumber, room);
       path[path.length - 1] = approachPoint(pose, SIT_TIMING.APPROACH_M);
       setMode('play');
       setArrived(null);
@@ -1316,9 +1340,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   );
 
   // Populate-Play: send EVERY seated guest walking in from the entrance at once.
-  // Each gets a cleared path to their chair + their own obstacle set; the Crowd
-  // component resolves overlap ("make way") and object clearance per frame. A
-  // small per-guest stagger keeps them from spawning on top of each other.
+  // Each gets a cleared path to their chair + their own spatial-hashed obstacle
+  // set; the Crowd component resolves overlap (predictive "make way") and
+  // object clearance per frame. A small per-guest stagger keeps them from
+  // spawning on top of each other, and Crowd's MAX_CONCURRENT_WALKERS cap
+  // queues the rest at the entrance so a big room never reads as a stampede.
   const walkEveryone = useCallback(() => {
     const agents: CrowdAgent[] = [];
     let i = 0;
@@ -1327,11 +1353,29 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!g || seatStatusOf(g.rsvp) === 'hidden') continue; // declined seats are freed
       const table = tablesById.get(s.tableId);
       if (!table) continue;
-      // The PATH routes around every table (own included) so the walk-in never
-      // crosses a tabletop; the per-frame obstacle set still SKIPS the guest's own
-      // table so that, once arrived, the seated avatar isn't shoved off its chair.
-      const walkAround = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
-      const obstacles = [...floorObstacles(floor, tables, room, [s.tableId]), ...fixtureObstacles];
+      // Chairs are solid for this agent too — every table's chairs (occupied
+      // or not) EXCEPT their own destination chair + its approach corridor
+      // (chairObstaclesForWalk), so they can weave between tables without
+      // clipping a seat back yet still reach their own hand-off spot.
+      const chairDiscs = chairObstaclesForWalk(tables, room, { tableId: s.tableId, seatNumber: s.seatNumber });
+      // The PATH routes around every table (own included — true multi-disc
+      // footprints, so banquet corners count) so the walk-in never crosses a
+      // tabletop; the per-frame obstacle set still SKIPS the guest's own
+      // table so that, once arrived, the seated avatar isn't shoved off its
+      // chair. Both sets are spatial-hashed per agent: the path steer samples
+      // them hundreds of times NOW, and the Crowd re-clamp queries `obstacles`
+      // every frame — the grid keeps each lookup local across ~370 discs while
+      // staying bit-identical to the brute-force walk.
+      const walkAround = buildObstacleGrid([
+        ...floorObstacles(floor, tables, room, []),
+        ...fixtureObstacles,
+        ...chairDiscs,
+      ]);
+      const obstacles = buildObstacleGrid([
+        ...floorObstacles(floor, tables, room, [s.tableId]),
+        ...fixtureObstacles,
+        ...chairDiscs,
+      ]);
       const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
       // Same retarget as the single walk-in: the crowd walk ends at the sit
       // approach point, and each agent's own sit clip plays the final step-in.
@@ -2573,17 +2617,18 @@ function Walker({
 // APPROACH POINT behind their chair, the guest's full figure spec (attire +
 // selfie + status — the same spec as their seated figure, so the walk-in
 // matches who sits down), a stagger delay (so they queue out of the entrance
-// instead of piling up), their OWN obstacle set (every object except their
-// destination table, so they can actually reach the chair just inside its
-// avoidance disc), and the seat identity (table + index + world pose) their
-// arrival sit clip detaches and animates.
+// instead of piling up), their OWN obstacle set (every table footprint except
+// their destination's, every chair except their own + its corridor, fixtures —
+// pre-hashed into an ObstacleGrid so the per-frame re-clamp queries locally),
+// and the seat identity (table + index + world pose) their arrival sit clip
+// detaches and animates.
 type CrowdAgent = {
   id: string;
   name: string;
   path: Vec2[];
   spec: FigureSpec;
   startDelay: number;
-  obstacles: { c: Vec2; r: number }[];
+  obstacles: ObstacleDisc[] | ObstacleGrid;
   tableId: string;
   seatIndex: number;
   seat: SeatPose;
@@ -2602,13 +2647,26 @@ type CrowdStage = 'walk' | 'sit' | 'done';
 const MAX_ACTIVE_SITS = 8;
 const SIT_START_GAP_S = 0.25;
 
+// Concurrency budget for the WALK itself: at most this many agents are
+// mid-walk (released, not yet at their approach point) at once. A 150-guest
+// room walking in as one mass read as a stampede — and 150 simultaneous
+// movers is also the worst case for the O(n²) separation pass. Later agents
+// simply aren't released yet (they hold at the entrance exactly like the
+// startDelay hold), and slots free up FIFO as walkers arrive — which reads as
+// a natural entrance queue. Sits have their own tighter budget above.
+const MAX_CONCURRENT_WALKERS = 24;
+
 /**
- * Populate-Play: the whole seated guest list walks in at once. Each frame every
- * WALKING agent steps toward its next waypoint, then the set is resolved with
- * separateAgents ("make way for each other") and each agent is pushed clear of
- * its objects (pushOutOfDiscs) — so nobody overlaps or crosses a table/stage.
- * O(n²) separation is fine for a wedding's guest count; a spatial grid is the
- * documented v2.
+ * Populate-Play: the whole seated guest list walks in at once — capped at
+ * MAX_CONCURRENT_WALKERS mid-walk (the rest queue at the entrance). Each frame
+ * every WALKING agent steps toward its next waypoint, then the set is resolved
+ * with separateAgents ("make way for each other") — now PREDICTIVELY: each
+ * agent carries the velocity its last committed frame realised (m/s, divided
+ * by delta, so the projection is frame-rate independent) and approaching pairs
+ * sidestep early, pass-on-the-right, instead of shoving on contact — and each
+ * agent is pushed clear of its objects (pushOutOfDiscs against its pre-hashed
+ * ObstacleGrid: true table footprints + chairs + fixtures) — so nobody
+ * overlaps or crosses a table/chair/stage.
  *
  * ARRIVALS end in the sit choreography, per agent: reaching the approach point
  * enqueues the agent for a sit slot; the frame loop drains that queue under the
@@ -2674,6 +2732,14 @@ function Crowd({
   const activeSits = useRef<Set<number>>(new Set()); // agent indices with a live sit clip
   const lastSitStart = useRef(-Infinity); // elapsed at the most recent sit start
   const headings = useRef<number[]>([]); // walk heading captured at each arrival
+  // Walk-slot bookkeeping: agents granted one of the MAX_CONCURRENT_WALKERS
+  // slots (an agent stays "mid-walk" until it reaches its approach point —
+  // `enqueued` marks that arrival, freeing the slot for the next in line).
+  const releasedWalk = useRef<Set<number>>(new Set());
+  // Last committed frame's realised velocity per agent (m/s) — what the
+  // predictive separation pass projects ahead. undefined = no history yet /
+  // pinned / sitting, which separateAgents treats as reactive-only.
+  const agentVel = useRef<(AgentVel | undefined)[]>([]);
 
   useEffect(() => {
     seg.current = agents.map(() => 0);
@@ -2683,6 +2749,8 @@ function Crowd({
     enqueued.current = new Set();
     activeSits.current = new Set();
     lastSitStart.current = -Infinity;
+    releasedWalk.current = new Set();
+    agentVel.current = agents.map(() => undefined);
     headings.current = agents.map((a) => a.seat.faceY);
     setStage(agents.map(() => 'walk'));
     agents.forEach((a, i) => {
@@ -2741,16 +2809,35 @@ function Crowd({
     if (reducedRef.current) return; // rendered straight into seats (JSX below)
     elapsed.current += delta;
     const step = 2.0 * delta; // ~2 m/s walk
+    // 0. Walk-slot release: grant entrance slots FIFO under the concurrency
+    //    cap. An agent is mid-walk from release until it reaches its approach
+    //    point (`enqueued`). startDelay ascends with index, so the first
+    //    not-yet-due agent ends the scan.
+    let midWalk = 0;
+    for (const i of releasedWalk.current) if (!enqueued.current.has(i)) midWalk += 1;
+    for (let i = 0; i < agents.length && midWalk < MAX_CONCURRENT_WALKERS; i++) {
+      if (releasedWalk.current.has(i) || enqueued.current.has(i)) continue;
+      if (elapsed.current < agents[i]!.startDelay) break;
+      releasedWalk.current.add(i);
+      midWalk += 1;
+    }
     // 1. Each WALKING agent steps toward its next waypoint → desired positions.
     //    Sitting/seated agents pin their seat position so walkers still give
     //    them a berth in the separation pass, but their transforms belong to
     //    the sit controller (or the static seated group) — never committed here.
-    const desired: Vec2[] = agents.map((a, i) => {
+    //    `curs` (frame-start positions) doubles as the base the committed
+    //    velocity is measured against below.
+    const curs: Vec2[] = agents.map((a, i) => {
       if (stage[i] !== 'walk') return { x: a.seat.x, z: a.seat.z };
       const g = groups.current[i];
-      if (!g) return a.path[0] ?? { x: 0, z: 0 };
-      const cur = { x: g.position.x, z: g.position.z };
-      if (elapsed.current < a.startDelay) return cur; // not released yet
+      return g ? { x: g.position.x, z: g.position.z } : (a.path[0] ?? { x: 0, z: 0 });
+    });
+    const desired: Vec2[] = agents.map((a, i) => {
+      if (stage[i] !== 'walk') return curs[i]!;
+      const g = groups.current[i];
+      if (!g) return curs[i]!;
+      const cur = curs[i]!;
+      if (!releasedWalk.current.has(i)) return cur; // queued at the entrance
       const ci = seg.current[i]!;
       if (ci >= a.path.length - 1) return cur; // at the approach point
       const next = a.path[ci + 1]!;
@@ -2764,8 +2851,18 @@ function Crowd({
       g.rotation.y = Math.atan2(dx, dz);
       return { x: cur.x + (dx / dist) * step, z: cur.z + (dz / dist) * step };
     });
-    // 2. Make way for each other.
-    const sep = separateAgents(desired, 0.5);
+    // 2. Make way for each other — predictively: each agent carries the
+    //    velocity its LAST committed frame realised, so separateAgents can
+    //    project the pair ahead and sidestep before contact. Agents with no
+    //    history (first frame, pinned, sitting) go velocity-less → reactive-
+    //    only, exactly the v1 behaviour.
+    const sep = separateAgents(
+      desired.map((p, i) => {
+        const vel = agentVel.current[i];
+        return vel ? { ...p, vel } : p;
+      }),
+      0.5,
+    );
     // 3. Each WALKING agent clears its OWN objects, then commit + advance the
     // gait. The old parent-group y-bob is retired — the kit rig's walkCyclePose
     // carries its own pelvis bob. The per-agent `+ i` offset (from the old bob)
@@ -2774,7 +2871,10 @@ function Crowd({
     // contract) — which is also what a QUEUED agent holds while it waits for a
     // sit slot. Arrival at the approach point enqueues the agent exactly once.
     agents.forEach((a, i) => {
-      if (stage[i] !== 'walk') return;
+      if (stage[i] !== 'walk') {
+        agentVel.current[i] = undefined; // sitting/seated → no projection
+        return;
+      }
       const g = groups.current[i];
       if (!g) return;
       // QUEUED agents are PINNED (slice-2 review fix): once enqueued they hold
@@ -2783,11 +2883,19 @@ function Crowd({
       // shoves waiters off their spot, and the SitController's mount teleports
       // them back. They still occupy their pinned position in `desired`, so
       // walkers keep giving them a berth.
-      if (enqueued.current.has(i)) return;
+      if (enqueued.current.has(i)) {
+        agentVel.current[i] = undefined; // pinned → stationary for prediction
+        return;
+      }
       const p = pushOutOfDiscs(sep[i]!, a.obstacles);
+      // Record the velocity this commit realises (post-separation, post-clamp
+      // — the agent's TRUE motion) for the next frame's predictive pass. m/s:
+      // divided by delta, so a 30 Hz and a 120 Hz frame project identically.
+      const dt = Math.max(delta, 1e-4);
+      agentVel.current[i] = { x: (p.x - curs[i]!.x) / dt, z: (p.z - curs[i]!.z) / dt };
       g.position.x = p.x;
       g.position.z = p.z;
-      const released = elapsed.current >= a.startDelay;
+      const released = releasedWalk.current.has(i);
       const moving = released && seg.current[i]! < a.path.length - 1;
       if (moving && phases[i]) phases[i]!.current = (elapsed.current + i) * 8;
       // seg is logical progress (advanced before separation), so a guest nudged
@@ -2955,8 +3063,10 @@ type WalkInput = { moveX: number; moveZ: number; lookDX: number; lookDY: number;
  * 2026-06-26: "left circle walks, right sets the camera angle, pinch zooms").
  * Reads the shared `input` ref each frame: left stick → move (relative to look
  * via the unit-tested walkVector), right pad → yaw/pitch, pinch → FOV. Reuses
- * pushOutOfDiscs so you can't walk through tables/stage. Renders nothing — it
- * just drives the existing camera while `active`; CameraRig is unmounted then.
+ * pushOutOfDiscs — against the pre-hashed ObstacleGrid of true table
+ * footprints + chairs + fixtures — so you can't walk through tables, chairs,
+ * seated guests, or a banquet's corner. Renders nothing — it just drives the
+ * existing camera while `active`; CameraRig is unmounted then.
  */
 function WalkController({
   active,
@@ -2967,7 +3077,7 @@ function WalkController({
   active: boolean;
   input: React.MutableRefObject<WalkInput>;
   room: { w: number; d: number };
-  obstacles: { c: Vec2; r: number }[];
+  obstacles: ObstacleDisc[] | ObstacleGrid;
 }) {
   const { camera } = useThree();
   const yaw = useRef(0);

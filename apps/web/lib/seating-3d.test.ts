@@ -42,6 +42,7 @@ import {
   BOOTH_FOOTPRINT_M,
   tableFootprintDiscs,
   chairObstacles,
+  chairObstaclesForWalk,
   inSeatApproachCorridor,
   CHAIR_OBSTACLE_R,
   buildObstacleGrid,
@@ -730,6 +731,32 @@ test('inSeatApproachCorridor: behind-the-chair strip only — the table side and
   assert.ok(!inSeatApproachCorridor({ x: 1.2, z: -2.6 }, seat), 'a flank neighbour is not');
   assert.ok(!inSeatApproachCorridor({ x: 0, z: -1.2 }, seat), 'the table side (+faceY) is not');
   assert.ok(!inSeatApproachCorridor({ x: 0, z: -3.9 }, seat), 'beyond the corridor length is not');
+});
+
+test('chairObstaclesForWalk: dest-table exclusions + neighbouring corridor crowders dropped; unknown dest → all chairs', () => {
+  const A = table('A', 50, 50); // round_10 at the origin
+  const dest = 0;
+  const seat = worldSeatPose(A, dest, ROOM);
+  // Ring radius of a round_10's chairs — measured, not assumed.
+  const ringR = Math.hypot(seat.x, seat.z);
+  // Park table B straight down the seat-0 approach corridor, close enough that
+  // B's nearest chair crowds the hand-off strip (~0.8 m behind the dest chair).
+  const bx = seat.x - Math.sin(seat.faceY) * (0.8 + ringR);
+  const bz = seat.z - Math.cos(seat.faceY) * (0.8 + ringR);
+  const B = table('B', (bx / ROOM.w + 0.5) * 100, (bz / ROOM.d + 0.5) * 100);
+  const bAll = chairObstacles(B, ROOM);
+  const crowders = bAll.filter((d) => inSeatApproachCorridor(d.c, seat));
+  assert.ok(crowders.length >= 1, 'the placement must put a B chair in the corridor for this to prove anything');
+  const out = chairObstaclesForWalk([A, B], ROOM, { tableId: 'A', seatNumber: dest });
+  // A goes through chairObstacles' own destinationSeat handling…
+  const aKept = chairObstacles(A, ROOM, { destinationSeat: dest });
+  // …and B loses exactly its corridor crowders — nothing else.
+  assert.equal(out.length, aKept.length + bAll.length - crowders.length);
+  assert.ok(!out.some((d) => inSeatApproachCorridor(d.c, seat)), 'no kept chair crowds the corridor');
+  assert.ok(!out.some((d) => Math.hypot(d.c.x - seat.x, d.c.z - seat.z) < 1e-9), 'the destination chair is gone');
+  // Unknown dest table (guest row raced a table delete) → every chair,
+  // unfiltered — strictly more conservative, never a crash.
+  assert.equal(chairObstaclesForWalk([A, B], ROOM, { tableId: 'ghost', seatNumber: 0 }).length, 20);
 });
 
 test('separateAgents predictive: head-on walkers pass right-shifted, never overlap — reactive-only mirrors deadlock', () => {

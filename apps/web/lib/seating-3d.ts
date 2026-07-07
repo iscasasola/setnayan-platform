@@ -645,6 +645,44 @@ export function chairObstacles(
 }
 
 /**
+ * Chair discs for EVERY table, filtered for a walker heading to `dest` — the
+ * one answer to "which chairs block this walk", shared by the single walk-in
+ * and each populate-Play crowd agent so the two flows can never disagree:
+ *   · the destination table's chairs go through chairObstacles' own
+ *     destinationSeat handling (dest chair + same-table corridor crowders
+ *     excluded);
+ *   · a NEIGHBOURING table's chair that happens to crowd the destination's
+ *     approach corridor is dropped too (the inSeatApproachCorridor export
+ *     exists exactly for this) — two tables set back-to-back must not wall off
+ *     the hand-off spot between them;
+ *   · every other chair, occupied or not, is solid.
+ * An unknown dest.tableId (guest row raced a table delete) degrades to ALL
+ * chairs unfiltered — strictly more conservative, never a crash. Pure.
+ */
+export function chairObstaclesForWalk(
+  tables: readonly Lab3DTable[],
+  room: { w: number; d: number },
+  dest: { tableId: string; seatNumber: number },
+): ObstacleDisc[] {
+  const destTable = tables.find((t) => t.id === dest.tableId) ?? null;
+  // seatWorld clamps the seat index exactly like chairObstacles does, so the
+  // corridor is anchored on the SAME chair the exclusion resolves to.
+  const destPose = destTable ? seatWorld(destTable, dest.seatNumber, room) : null;
+  const out: ObstacleDisc[] = [];
+  for (const t of tables) {
+    if (destTable && t.id === destTable.id) {
+      out.push(...chairObstacles(t, room, { destinationSeat: dest.seatNumber }));
+      continue;
+    }
+    for (const d of chairObstacles(t, room)) {
+      if (destPose && inSeatApproachCorridor(d.c, destPose)) continue;
+      out.push(d);
+    }
+  }
+  return out;
+}
+
+/**
  * Lowest free seat index at a table — the seat a tap-to-place guest takes. A
  * seat is unavailable if it's removed (deleted chair) or already occupied. Out-
  * of-range removed/occupied indices are ignored. Returns -1 when the table is

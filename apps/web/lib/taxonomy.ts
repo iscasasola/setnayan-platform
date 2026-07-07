@@ -124,6 +124,7 @@ export type WeddingTile =
   | 'cake'
   | 'catering'
   | 'stations'
+  | 'crew_meals'
   // DESIGN
   | 'stylist_decorator'
   | 'florist'
@@ -190,6 +191,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   cake: 'feast',
   catering: 'feast',
   stations: 'feast',
+  crew_meals: 'feast',
   stylist_decorator: 'design',
   florist: 'design',
   lights_sound: 'design',
@@ -253,6 +255,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'cake',
   'catering',
   'stations',
+  'crew_meals',
   // DESIGN
   'stylist_decorator',
   'florist',
@@ -320,6 +323,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   cake: 'Cake',
   catering: 'Catering',
   stations: 'Stations',
+  crew_meals: 'Crew Meals',
   stylist_decorator: 'Stylist / Decorator',
   florist: 'Florist',
   lights_sound: 'Lights & Sound',
@@ -380,6 +384,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   cake: 'cake',
   catering: 'catering',
   stations: 'stations',
+  crew_meals: 'crew-meals',
   stylist_decorator: 'stylist-decorator',
   florist: 'florist',
   lights_sound: 'lights-sound',
@@ -655,6 +660,11 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   chinese_lauriat_caterer:           { folder: 'feast', tile: 'catering', phase: 'V1.1.1', ph: true, tradition: true },
   halal_catering:                    { folder: 'feast', tile: 'catering', phase: 'V1.1.1', dietary: 'halal' },
   live_cooking_station:              { folder: 'feast', tile: 'stations', phase: 'V1.1.1' },
+  // Crew Meals — nearby kitchens (carinderias / home caterers) that supply the
+  // event CREW's packed meals, decoupled from the guests' main caterer. New
+  // micro-category under Feast (owner-locked 2026-07-08). PH-flagged; food
+  // service → faith/dietary INTENTIONALLY NULL (same de-faith rule as catering).
+  crew_meal_supply:                  { folder: 'feast', tile: 'crew_meals', phase: 'V1.1 base', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
   // DESIGN — Stylist · Florist · Lights & Sound · Dance Floor · Outdoor ·

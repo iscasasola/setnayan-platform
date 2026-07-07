@@ -2093,6 +2093,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 13,
   },
   {
+    key: "admin.sidebar.fraud",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/fraud",
+    label: "Fraud queue",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShieldAlert",
+    customRef: null,
+    sortOrder: 14,
+  },
+  {
     key: "admin.sidebar.approvals",
     scope: "admin",
     area: "admin-sidebar",

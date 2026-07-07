@@ -16,6 +16,7 @@ import {
   isAdminProfile,
 } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { fetchFraudFrozenVendorIds } from '@/lib/fraud-enforcement-runner';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -1301,6 +1302,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // main yet.
   const demoVendorIds = await fetchDemoVendorIds(admin);
 
+  // Anti-fraud Phase 4 (§ 5) — the FREEZE. Vendors suspended (reversible,
+  // system) OR banned (irreversible, admin) by fraud enforcement must vanish
+  // from the marketplace + lose their badges. The enforcement writes already
+  // flip public_visibility → 'hidden' (which the allowedVisibilities gate
+  // excludes), but we ALSO exclude the frozen set explicitly here as
+  // defense-in-depth — even in demo mode a fraud-frozen vendor never renders.
+  // Fail-soft: [] on error (the visibility gate still stands).
+  const fraudFrozenIds = await fetchFraudFrozenVendorIds(admin);
+
   // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
   // ONCE per request; it constrains both the main grid query and the broadened
   // empty-state count below. `filters.faithFilter` is the page-local TitleCase
@@ -1359,6 +1369,20 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       'vendor_profile_id',
       'in',
       `(${demoVendorIds.join(',')})`,
+    );
+  }
+
+  // Anti-fraud Phase 4 freeze exclusion — applies ALWAYS (even in demo mode).
+  // Same widening cast as the demo exclusion above (deep PostgREST types trip
+  // the TS recursion ceiling). Only fires when there is at least one frozen id.
+  if (fraudFrozenIds.length > 0) {
+    type QueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as QueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${fraudFrozenIds.join(',')})`,
     );
   }
 

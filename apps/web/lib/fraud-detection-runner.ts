@@ -343,6 +343,14 @@ export async function scoreVendorFraud(
 
     if (opts.refreshAggregate !== false) {
       await admin.rpc('refresh_vendor_fraud_scores');
+      // Phase 4 (§ 5): the ONE allowed automated action. After the aggregate is
+      // fresh, evaluate THIS vendor for the reversible auto-suspend. Idempotent
+      // + fail-soft inside maybeAutoSuspendVendor — never re-suspends, never
+      // bans/wipes/voids. Only runs on the single-vendor path; the full pass
+      // sweeps once at the end via runAutoSuspendSweep. Deferred import so this
+      // DETECT module doesn't hard-couple to the enforcement runner at load.
+      const { maybeAutoSuspendVendor } = await import('@/lib/fraud-enforcement-runner');
+      await maybeAutoSuspendVendor(admin, vendorProfileId);
     }
   } catch (err) {
     Sentry.captureException(err, {
@@ -384,6 +392,16 @@ export async function runAllFraudScoring(
   // One aggregate refresh for the whole pass. Fail-soft.
   try {
     await admin.rpc('refresh_vendor_fraud_scores');
+  } catch (err) {
+    Sentry.captureException(err, { tags: { feature: 'fraud-detection-runner' } });
+  }
+
+  // Phase 4 (§ 5): sweep the freshly-scored aggregate and auto-suspend every
+  // vendor over the bar (the ONE allowed automated action — reversible, no data
+  // loss). Fail-soft per vendor inside the sweep; a scoring pass never bans.
+  try {
+    const { runAutoSuspendSweep } = await import('@/lib/fraud-enforcement-runner');
+    await runAutoSuspendSweep(admin);
   } catch (err) {
     Sentry.captureException(err, { tags: { feature: 'fraud-detection-runner' } });
   }

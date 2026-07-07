@@ -15,6 +15,7 @@ type RequestRow = {
   public_id: string;
   action_type: string;
   target_user_id: string | null;
+  target_id: string | null;
   rationale: string;
   status: string;
   initiated_by: string;
@@ -90,6 +91,31 @@ export default async function AdminApprovalsPage() {
     }
   }
   const nameOf = (id?: string | null) => (id ? nameMap.get(id) ?? '—' : '—');
+
+  // Non-user targets (fraud wipe + partnership) ride in target_id (a vendor
+  // profile id). Resolve their business names so the confirming admin sees WHICH
+  // vendor a wipe+ban / partnership request is about.
+  const vendorIds = new Set<string>();
+  [...pending, ...decided].forEach((r) => {
+    if (r.target_id) vendorIds.add(r.target_id);
+  });
+  const vendorNameMap = new Map<string, string>();
+  if (vendorIds.size > 0) {
+    const { data: vs } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .in('vendor_profile_id', [...vendorIds]);
+    for (const v of (vs ?? []) as Array<{
+      vendor_profile_id: string;
+      business_name: string | null;
+    }>) {
+      vendorNameMap.set(v.vendor_profile_id, v.business_name || v.vendor_profile_id);
+    }
+  }
+  // The target label for a row: a vendor business name for target_id-based
+  // actions, otherwise the user display name for target_user_id-based ones.
+  const targetLabel = (r: RequestRow) =>
+    r.target_id ? vendorNameMap.get(r.target_id) ?? r.target_id : nameOf(r.target_user_id);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -214,7 +240,7 @@ export default async function AdminApprovalsPage() {
                           {approvalActionBadge(r.action_type)}
                         </span>
                         <span className="text-sm font-semibold text-ink">
-                          {approvalActionLabel(r.action_type)} → {nameOf(r.target_user_id)}
+                          {approvalActionLabel(r.action_type)} → {targetLabel(r)}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-ink/55">
@@ -284,7 +310,7 @@ export default async function AdminApprovalsPage() {
                 {decided.map((r) => (
                   <tr key={r.approval_id} className="border-b border-ink/5 last:border-0">
                     <td className="px-4 py-2">{approvalActionLabel(r.action_type)}</td>
-                    <td className="px-4 py-2">{nameOf(r.target_user_id)}</td>
+                    <td className="px-4 py-2">{targetLabel(r)}</td>
                     <td className="px-4 py-2">
                       <span
                         className={

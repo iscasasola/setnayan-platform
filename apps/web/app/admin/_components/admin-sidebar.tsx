@@ -91,6 +91,7 @@ import {
   PencilRuler,
   ScanSearch,
   ShieldCheck,
+  ShieldAlert,
   Landmark,
   RefreshCw,
   UsersRound,
@@ -327,6 +328,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/integrity-watch',
         icon: ShieldCheck,
         matchPrefix: '/admin/integrity-watch',
+      },
+      {
+        // Anti-fraud Phase 4 (§ 5) — per-VENDOR fraud queue + enforcement. The
+        // continuous fake-results hunt scores whole vendors (ring / velocity /
+        // graph / import / rating-shape); this surface reviews them and runs the
+        // two-stage enforcement (reversible auto-suspend + admin-confirmed
+        // wipe+ban). Distinct from integrity-watch (per-review/per-listing).
+        key: 'fraud',
+        label: 'Fraud queue',
+        href: '/admin/fraud',
+        icon: ShieldAlert,
+        matchPrefix: '/admin/fraud',
       },
       {
         // Two-admin (four-eyes) approval queue — §9.1. A different admin

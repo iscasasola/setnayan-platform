@@ -53,6 +53,7 @@ export type PlanGroupId =
   // Big bookings tier
   | 'officiant'
   | 'catering'
+  | 'crew_meals'
   | 'photography'
   | 'attire'
   | 'hair_makeup'
@@ -282,6 +283,17 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     catalogFolder: 'feast',
     catalogTile: 'catering',
     subcategoryHint: 'catering',
+  },
+  {
+    id: 'crew_meals',
+    label: 'Crew Meals',
+    hint: "Feed your suppliers' crews on the day — usually 15-25 people across your vendors. A kitchen near your venue caters them for far less than your main caterer's per-head. Book close to the day.",
+    tier: 'extras',
+    categories: ['crew_meals'],
+    monthsBefore: 1,
+    catalogFolder: 'feast',
+    catalogTile: 'crew_meals',
+    subcategoryHint: 'crew_meal_supply',
   },
   {
     id: 'photography',

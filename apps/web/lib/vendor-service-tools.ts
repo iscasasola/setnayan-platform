@@ -57,6 +57,7 @@ export const VENDOR_CATEGORY_ICON: Record<VendorCategory, LucideIcon> = {
   venue: Building2,
   religious_venue: Church,
   catering: Utensils,
+  crew_meals: Utensils,
   photographer: Camera,
   videographer: Video,
   florist: Flower2,

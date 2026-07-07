@@ -4,6 +4,7 @@ export type VendorCategory =
   | 'venue'
   | 'religious_venue'
   | 'catering'
+  | 'crew_meals'
   | 'photographer'
   | 'videographer'
   | 'florist'
@@ -44,6 +45,7 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'venue',
   'religious_venue',
   'catering',
+  'crew_meals',
   'photographer',
   'videographer',
   'florist',
@@ -77,6 +79,7 @@ export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   venue: 'Venue',
   religious_venue: 'Religious Ceremony Venue',
   catering: 'Catering',
+  crew_meals: 'Crew Meals',
   photographer: 'Photographer',
   videographer: 'Videographer',
   florist: 'Florist',
@@ -248,7 +251,7 @@ export const SERVICE_GROUPS: ReadonlyArray<{
   {
     key: 'reception',
     label: 'Reception',
-    members: ['venue', 'catering', 'cake_maker', 'mobile_bar', 'reception_decor'],
+    members: ['venue', 'catering', 'crew_meals', 'cake_maker', 'mobile_bar', 'reception_decor'],
   },
   {
     key: 'ceremony',

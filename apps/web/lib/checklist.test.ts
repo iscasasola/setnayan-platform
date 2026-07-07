@@ -14,6 +14,7 @@ import {
   phaseForOffset,
   groupChecklistByPhase,
   isChurchCeremony,
+  isWeddingEvent,
   checklistItemHref,
   CHECKLIST_TEMPLATE,
   CHECKLIST_PHASES,
@@ -225,4 +226,15 @@ test('checklistItemHref: booking tasks deep-link to their vendor category', () =
   // Tasks with no destination return null (no jump arrow).
   assert.equal(checklistItemHref('e1', 'write_vows'), null);
   assert.equal(checklistItemHref('e1', null), null);
+});
+
+test('isWeddingEvent: null/unset and wedding get the wedding template; explicit non-wedding types do not', () => {
+  // Backward-compat: historic events with no event_type are weddings.
+  assert.equal(isWeddingEvent(null), true);
+  assert.equal(isWeddingEvent(undefined), true);
+  assert.equal(isWeddingEvent('wedding'), true);
+  // Explicit non-wedding types must NOT receive the wedding checklist.
+  for (const t of ['birthday', 'debut', 'christening', 'corporate', 'tournament', 'gender_reveal', 'travel', 'celebration']) {
+    assert.equal(isWeddingEvent(t), false, `${t} should not be a wedding`);
+  }
 });

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { buildChecklistSeed } from '@/lib/checklist';
+import { buildChecklistSeed, isWeddingEvent } from '@/lib/checklist';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   computeSatisfiedChecklistKeys,
@@ -68,13 +68,23 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   if (existingErr) return 0;
 
   // Ceremony type drives the deterministic tailoring. A read error just means
-  // no filtering (keep every task) — never block the seed on it.
+  // no filtering (keep every task) — never block the seed on it. `event_type`
+  // gates whether the (wedding-shaped) template applies at all.
   const { data: eventRow } = await supabase
     .from('events')
-    .select('ceremony_type')
+    .select('ceremony_type, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   const ceremonyType = (eventRow?.ceremony_type as string | null | undefined) ?? null;
+  const eventType = (eventRow?.event_type as string | null | undefined) ?? null;
+
+  // CHECKLIST_TEMPLATE is entirely wedding-shaped. For an explicit non-wedding
+  // event (birthday, debut, christening, …) seeding it would render a
+  // confidently-wrong Catholic-wedding checklist (marriage license, pre-Cana,
+  // ninong/ninang). Until per-type templates land, seed NOTHING for those types
+  // rather than the wrong list. Null/unset event_type stays a wedding (historic
+  // events + the isWeddingEvent backward-compat rule), so no wedding regresses.
+  if (!isWeddingEvent(eventType)) return 0;
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];
   const existingKeys = new Set(

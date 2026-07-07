@@ -83,6 +83,22 @@ export function isChurchCeremony(ceremonyType: string | null | undefined): boole
 }
 
 /**
+ * True when this event should receive the PH-WEDDING checklist template.
+ * `CHECKLIST_TEMPLATE` is entirely wedding-shaped (marriage license, pre-Cana,
+ * ninong/ninang, reception-vs-ceremony venue). Null/unset `event_type` is
+ * treated as a wedding for backward-compatibility — historic events created
+ * before the `event_type` column was populated are weddings, and this mirrors
+ * the `isChurchCeremony(null) === true` "don't hide guidance prematurely"
+ * precedent. Explicit non-wedding types (birthday, debut, christening,
+ * corporate, …) must NOT be seeded the wedding list — until their own per-type
+ * templates land they seed nothing rather than a confidently-wrong
+ * Catholic-wedding checklist.
+ */
+export function isWeddingEvent(eventType: string | null | undefined): boolean {
+  return eventType == null || eventType === 'wedding';
+}
+
+/**
  * A Muslim (Nikah) wedding. Used to DROP the Catholic-Filipino sponsor tasks
  * (ninong/ninang, candle/veil/cord) for Muslim couples — a Nikah has no
  * sponsors; its principals are the wali/witnesses/imam, managed in the guest

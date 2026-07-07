@@ -623,7 +623,17 @@ export const BUDGET_PAPERWORK_TASK_KEYS = [
  * (the row then renders without a jump arrow). Shared by the home card and the
  * full checklist page so the routing lives in one place.
  */
-export function checklistItemHref(eventId: string, key: string | null): string | null {
+export function checklistItemHref(
+  eventId: string,
+  key: string | null,
+  /**
+   * The task's category — used ONLY as a fallback for per-type task keys
+   * (birthday/debut/…) not in the wedding map below, so every per-type task is
+   * still a clickable decision. Wedding tasks are all explicitly mapped, so
+   * passing category never changes a wedding href.
+   */
+  category?: ChecklistCategory,
+): string | null {
   if (!key) return null;
   const base = `/dashboard/${eventId}`;
 
@@ -730,5 +740,78 @@ export function checklistItemHref(eventId: string, key: string | null): string |
     claim_marriage_cert: `${base}/paperwork`,
     name_change: `${base}/paperwork`,
   };
-  return map[key] ?? null;
+  if (map[key]) return map[key]!;
+
+  // Fallback for per-type task keys (debut_/bday_/christ_/…) not in the wedding
+  // map: route by category so a non-wedding task is still a clickable decision.
+  // Scoped to the per-type key prefixes so no wedding key is affected.
+  if (category && /^(debut|bday|christ|corp|tourn|gr|travel|celeb)_/.test(key)) {
+    if (category === 'vendors') return `${base}/vendors?tab=shortlist`;
+    if (category === 'guests') return `${base}/guests`;
+    if (category === 'design') return `${base}/studio/mood-board`;
+    if (category === 'logistics') return `${base}/schedule`;
+    if (category === 'paperwork') return `${base}/paperwork`;
+    if (category === 'foundations' && /budget/.test(key)) return `${base}/budget`;
+  }
+  return null;
+}
+
+/** Event-type-aware display strings for the checklist chrome. */
+export type ChecklistChrome = {
+  eventNoun: string;
+  pageTitle: string;
+  heading: string;
+  eyebrow: string;
+  intro: string;
+  dateHint: string;
+  /** Label for the day-of phase (p9), which is otherwise wedding-worded. */
+  dayOfLabel: string;
+  /** Whether to show the wedding-flavored phase blurbs (only for weddings). */
+  showPhaseBlurbs: boolean;
+};
+
+/** Display noun + Title-case name per event type. */
+const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = {
+  wedding: { noun: 'wedding', title: 'Wedding' },
+  debut: { noun: 'debut', title: 'Debut' },
+  birthday: { noun: 'birthday', title: 'Birthday' },
+  christening: { noun: 'christening', title: 'Christening' },
+  corporate: { noun: 'event', title: 'Corporate Event' },
+  tournament: { noun: 'tournament', title: 'Tournament' },
+  gender_reveal: { noun: 'gender reveal', title: 'Gender Reveal' },
+  travel: { noun: 'trip', title: 'Trip' },
+  celebration: { noun: 'celebration', title: 'Celebration' },
+};
+
+/**
+ * Resolve the checklist chrome for an event type. Wedding (and null/unknown)
+ * returns the EXACT original wedding copy — the live wedding checklist is
+ * unchanged. Non-wedding types get event-aware title/heading/copy and
+ * suppressed wedding-specific phase blurbs.
+ */
+export function checklistChrome(eventType: string | null | undefined): ChecklistChrome {
+  if (eventType == null || eventType === 'wedding' || !CHECKLIST_EVENT_LABELS[eventType]) {
+    return {
+      eventNoun: 'wedding',
+      pageTitle: 'Wedding checklist · Setnayan',
+      heading: 'Wedding checklist',
+      eyebrow: 'Your wedding',
+      intro:
+        'Your full plan, from 18 months out to the day itself. Every due date is worked out from your wedding date — change the date and the whole countdown shifts with it. Tick things off at your own pace; this is a guide, not a gate.',
+      dateHint: 'Add your wedding date to see a due date on every task',
+      dayOfLabel: 'Wedding day & after',
+      showPhaseBlurbs: true,
+    };
+  }
+  const { noun, title } = CHECKLIST_EVENT_LABELS[eventType]!;
+  return {
+    eventNoun: noun,
+    pageTitle: `${title} checklist · Setnayan`,
+    heading: `${title} checklist`,
+    eyebrow: `Your ${noun}`,
+    intro: `Your full plan, laid out by when things are due. Every due date is worked out from your ${noun} date — change the date and the whole countdown shifts with it. Tick things off at your own pace; this is a guide, not a gate.`,
+    dateHint: `Add your ${noun} date to see a due date on every task`,
+    dayOfLabel: `${title} day & after`,
+    showPhaseBlurbs: false,
+  };
 }

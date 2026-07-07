@@ -20,7 +20,7 @@ import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
 import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition } from '@/lib/seating';
-import { guestDisplayName } from '@/lib/guests';
+import { guestDisplayName, resolveGuestAttire, type GuestRole, type GuestAttire } from '@/lib/guests';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   shapeHintFor,
@@ -50,6 +50,12 @@ export type Plan3DGuest = {
    *  source — never face-enrollment biometrics). Null → initials/token fallback.
    *  The sample event's guests are fictional, so photos here are privacy-clean. */
   photoUrl?: string | null;
+  /** Resolved wardrobe class via the SAME chain the couple lab uses
+   *  (resolveGuestAttire: explicit couple-set attire ≻ gendered role ≻
+   *  neutral) — added 2026-07-08 after the hash-only derivation dressed
+   *  male-named sample guests in gowns. Non-PII: it's clothing, and the cast
+   *  is fictional. 'neutral' guests render the unmarked humanoid shell. */
+  attire: 'gown' | 'suit' | 'neutral';
 };
 
 export type Plan3DScene = {
@@ -105,7 +111,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     fetchSigns(admin, eventId),
     admin
       .from('guests')
-      .select('guest_id,first_name,last_name,display_name,side,photo_url')
+      .select('guest_id,first_name,last_name,display_name,side,photo_url,role,attire')
       .eq('event_id', eventId)
       .is('deleted_at', null),
   ]);
@@ -141,6 +147,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     display_name: string | null;
     side: string | null;
     photo_url: string | null;
+    role: GuestRole;
+    attire: GuestAttire;
   };
   const guestRows = (guestResult.data ?? []) as GuestNameRow[];
 
@@ -169,6 +177,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
         seatNumber: seat.seat_number,
         side: toPlan3DSide(g.side),
         photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
+        attire: resolveGuestAttire(g.role, g.attire),
       };
     })
     .filter((g): g is Plan3DGuest => g !== null);

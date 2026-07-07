@@ -90,6 +90,7 @@ const ARM_GEO_LEN = 0.224;
 const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 3, 8); // native ≈0.36 long
 const LEG_GEO_LEN = 0.36;
 const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 16, 12);
+const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 10); // silhouette pass — collar→head bridge
 const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
 
 // Status-ring materials: the existing ring/marker convention (GuestToken's
@@ -324,13 +325,10 @@ export const Figure = memo(function Figure({
   const upperArmMat = skirted ? skinMat : outfitMat;
   const shinMat = skirted ? skinMat : trouserMat;
 
-  // Shell placement: suit/neutral shells hang off the shoulders as authored;
-  // the gown shell (0.56 tall, a seated-token asset) is stretched ~1.9× so a
-  // STANDING figure's skirt falls to calf length — same silhouette, floor
-  // proportions. (The lab's seated gowns never showed legs; the kit keeps
-  // shins so a walking gown still shows footfall.)
-  const shellY = skirted ? -0.01 : spec.outfit === 'neutral' ? 0.3 : 0.27;
-  const shellScale: [number, number, number] = skirted ? [1.05, 1.9, 1.05] : [1, 1, 1];
+  // Shell placement: the re-proportioned lathe shells (2026-07-08 silhouette
+  // pass) are authored directly in torso space — collar at ≈0.50, waist,
+  // hips, hem — so they mount at the origin, unscaled. The old cone-era
+  // shellY/stretch compensation is gone with the cones.
 
   // PERF — the other half of the crowd budget knob: a quality-'low' figure
   // (the >60-guest crowd, the phone walk's seated room) doesn't submit its
@@ -387,7 +385,13 @@ export const Figure = memo(function Figure({
 
         {/* ── Torso: shell + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
-          <mesh geometry={outfitGeo} material={outfitMat} position={[0, shellY, 0]} scale={shellScale} castShadow={castShadow} />
+          <mesh geometry={outfitGeo} material={outfitMat} castShadow={castShadow} />
+
+          {/* Neck — a short skin cylinder bridging the collar to the head so
+              the head reads as attached to a person, not balanced on a shell
+              (part of the 2026-07-08 silhouette pass). Lives on the torso (a
+              turning head pivots above it, like a real neck). */}
+          <mesh geometry={NECK_GEO} material={skinMat} position={[0, 0.545, 0]} castShadow={castShadow} />
 
           {/* Filipiniana: the terno's butterfly sleeves — two flattened
               spheres peaking just above the shoulder line. */}

@@ -669,7 +669,7 @@ export async function VendorServicesManager({
                 : 'quote on request';
               const paxLabel =
                 svc.added_pax_price_php && svc.added_pax_price_php > 0
-                  ? `+${formatPhp(svc.added_pax_price_php)}/guest`
+                  ? `+${formatPhp(svc.added_pax_price_php)}/${svc.category === 'crew_meals' ? 'meal' : 'guest'}`
                   : 'flat';
               const branchLabel =
                 svc.branch_id && branchLabelById.has(svc.branch_id)
@@ -846,6 +846,7 @@ export async function VendorServicesManager({
                         ) : null}
                         <PricingBasisEditor
                           idPrefix={svc.vendor_service_id}
+                          category={svc.category}
                           defaults={{
                             pricing_basis: svc.pricing_basis,
                             starting_price_php: svc.starting_price_php,
@@ -899,6 +900,7 @@ export async function VendorServicesManager({
                         ) : null}
                         <IncludedFlags
                           idPrefix={svc.vendor_service_id}
+                          category={svc.category}
                           defaults={{
                             crew_meal_included: svc.crew_meal_included,
                             transport_included: svc.transport_included,
@@ -1284,6 +1286,7 @@ function AddServiceForm({
       </Field>
       <PricingBasisEditor
         idPrefix={`new-${addCategory}`}
+        category={addCategory}
         defaults={{
           pricing_basis: 'fixed',
           starting_price_php: null,
@@ -1328,6 +1331,7 @@ function AddServiceForm({
       ) : null}
       <IncludedFlags
         idPrefix={`new-${addCategory}`}
+        category={addCategory}
         defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
       />
       <LastMinuteFields idPrefix={`new-${addCategory}`} />

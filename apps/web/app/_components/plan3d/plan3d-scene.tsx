@@ -519,33 +519,34 @@ function Walker({
   // motion to predict from (the couple lab crowd records the same thing).
   const prevPosRef = useRef<Vec2 | null>(null);
   const velRef = useRef<AgentVel | undefined>(undefined);
-  // The walk object the velocity history belongs to — FRAME-LOOP-owned (not a
+  // The walk object the per-walk state belongs to — FRAME-LOOP-owned (not a
   // passive effect): the useFrame callback swaps at layout-effect time, so a
   // rAF frame can run between the new walk's commit and a [walk] effect's
-  // flush. A passive-effect reset would let that one frame divide a
-  // cross-walk position jump (roam tap across the room, reduced-motion
-  // teleport) by delta — tens of m/s of phantom velocity for the predictive
-  // pass to project a huge dodge from. Checking identity inside the loop
-  // closes that window for good.
+  // flush. For the velocity history, a passive-effect reset would let that
+  // one frame divide a cross-walk position jump (roam tap across the room,
+  // reduced-motion teleport) by delta — tens of m/s of phantom velocity for
+  // the predictive pass to project a huge dodge from. For the one-shot
+  // completion (`firedRef`), the same window cut both ways: a fresh walk
+  // could inherit a stale fired=true (completion swallowed for a frame) and a
+  // fire landing before the late reset got re-armed (`onComplete` twice for
+  // one walk — seen live as "onComplete fires multiple times right after the
+  // walk starts" when a starved rAF stream pushed raw to 1 on the first
+  // frame). Checking identity inside the loop closes all of it for good.
   const velWalkRef = useRef<WalkState | null>(null);
 
-  // Each NEW walk (fresh scripted target, every roam floor tap) restarts the
-  // gait and re-arms the completion callback. <Walker> stays mounted across
-  // walks (same element position), so these must reset per walk-state object,
-  // not per mount.
-  useEffect(() => {
-    firedRef.current = false;
-    setAtRest(false);
-  }, [walk]);
-
   useFrame(({ camera }, delta) => {
-    // Velocity history is per-walk: reset it the first frame a new walk object
-    // reaches the loop (see velWalkRef) so a retarget/teleport never reads as
-    // one huge cross-walk delta.
+    // Per-walk state re-arms the first frame a new walk object reaches the
+    // loop (see velWalkRef above): each NEW walk (fresh scripted target,
+    // every roam floor tap) resets the velocity history, restarts the gait
+    // and re-arms the completion one-shot. <Walker> stays mounted across
+    // walks (same element position), so none of this may key off the
+    // component instance — and none of it may wait on a passive effect.
     if (velWalkRef.current !== walk) {
       velWalkRef.current = walk;
       prevPosRef.current = null;
       velRef.current = undefined;
+      firedRef.current = false;
+      setAtRest(false);
     }
     const raw = Math.min(1, (performance.now() - walk.startedAt) / walk.durationMs);
     const eased = smootherstep(raw);
@@ -1419,3 +1420,5 @@ function OwnSeatMarker({
     </group>
   );
 }
+
+

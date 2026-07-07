@@ -40,10 +40,17 @@
  *
  * MOTION RULES (house): every ease is frame-rate independent — timed phases
  * run on accumulated delta with fixed-duration easing curves, the settle uses
- * the shared `damp(base, delta)`. Reduced motion NEVER animates: it snaps to
- * the end-state instantly, never detaches the instanced chair (so there is
- * nothing to restore or double-draw), and STILL fires the completion callback
- * — every flow completes.
+ * the shared `damp(base, delta)`. Completion is WALL-CLOCK-owned, never
+ * frame-count-owned: phase hand-offs carry the clock remainder forward and the
+ * frame loop resolves every phase that time already paid for in the SAME
+ * frame — a starved rAF stream (hidden tab, the embedded dev-preview panel
+ * that delivers frames in on-demand bursts) still lands `onSeated()` on its
+ * next available frame instead of needing one frame per phase (the 2026-07-08
+ * arrival-chain hang: the clip LOOKED seated while finish() sat 3+ frames of
+ * pull→step→tuck→settle away, and those frames never came). Reduced motion
+ * NEVER animates: it snaps to the end-state instantly, never detaches the
+ * instanced chair (so there is nothing to restore or double-draw), and STILL
+ * fires the completion callback — every flow completes.
  *
  * Pure rendering + math: no server actions, no DB, no PII.
  */
@@ -285,96 +292,114 @@ export function useSitController({
       const o = -chairBack.current + T.FIGURE_NUDGE_M;
       fig.position.set(r.x + r.dirX * o, 0, r.z + r.dirZ * o);
     };
-    const advance = (next: SitPhase): void => {
+    // Hand-off CARRIES the clock remainder into the next phase instead of
+    // zeroing it — the wall-clock-owned completion contract (header). At a
+    // healthy 60 fps the carry is <17 ms (no visible change, just no dead
+    // frame at each boundary); after a starved stretch it is the WHOLE owed
+    // clip, and the loop below resolves every overdue phase this same frame.
+    const advance = (next: SitPhase, spentMs: number): void => {
       phaseRef.current = next;
-      tMs.current = 0;
+      tMs.current = Math.max(0, tMs.current - spentMs);
     };
 
-    switch (phaseRef.current) {
-      // ── forward clip: sit ──────────────────────────────────────────────
-      case 'pull': {
-        const k = Math.min(1, tMs.current / T.PULL_MS);
-        chairBack.current = T.PULL_BACK_M * easeOutCubic(k);
-        if (k >= 1) {
-          headingFrom.current = fig.rotation.y;
-          setPose('sit'); // the kit Figure's damp blend rides the 450 ms window
-          advance('step');
+    // Resolve phases until one is still mid-flight this frame. Bounded by the
+    // clip length: a full forward clip is pull→step→tuck→settle→seated —
+    // 5 hops; the terminal hold phases never advance, so 6 always suffices.
+    for (let hop = 0; hop < 6; hop++) {
+      const phase = phaseRef.current;
+      switch (phase) {
+        // ── forward clip: sit ──────────────────────────────────────────────
+        case 'pull': {
+          const k = Math.min(1, tMs.current / T.PULL_MS);
+          chairBack.current = T.PULL_BACK_M * easeOutCubic(k);
+          if (k >= 1) {
+            headingFrom.current = fig.rotation.y;
+            setPose('sit'); // the kit Figure's damp blend rides the 450 ms window
+            advance('step', T.PULL_MS);
+          }
+          break;
         }
-        break;
-      }
-      case 'step': {
-        const e = smootherstep(Math.min(1, tMs.current / T.SIT_BLEND_MS));
-        // Approach spot → seated spot on the PULLED-BACK chair.
-        const from = -T.APPROACH_M;
-        const to = -T.PULL_BACK_M + T.FIGURE_NUDGE_M;
-        const o = from + (to - from) * e;
-        fig.position.set(r.x + r.dirX * o, 0, r.z + r.dirZ * o);
-        fig.rotation.y = lerpAngle(headingFrom.current, r.gaze, e);
-        if (e >= 1) advance('tuck');
-        break;
-      }
-      case 'tuck': {
-        const k = Math.min(1, tMs.current / T.TUCK_MS);
-        chairBack.current = T.PULL_BACK_M - T.TUCK_M * smootherstep(k);
-        rideChair();
-        if (k >= 1) advance('settle');
-        break;
-      }
-      case 'settle': {
-        // Close the 5 cm under-tuck (0.35 pull vs 0.30 tuck) so the handoff to
-        // the flush instanced chair can't pop — see the header's (e).
-        chairBack.current += (0 - chairBack.current) * damp(T.SETTLE_DAMP_BASE, delta);
-        if (Math.abs(chairBack.current) < T.SETTLE_EPS_M) {
+        case 'step': {
+          const e = smootherstep(Math.min(1, tMs.current / T.SIT_BLEND_MS));
+          // Approach spot → seated spot on the PULLED-BACK chair.
+          const from = -T.APPROACH_M;
+          const to = -T.PULL_BACK_M + T.FIGURE_NUDGE_M;
+          const o = from + (to - from) * e;
+          fig.position.set(r.x + r.dirX * o, 0, r.z + r.dirZ * o);
+          fig.rotation.y = lerpAngle(headingFrom.current, r.gaze, e);
+          if (e >= 1) advance('tuck', T.SIT_BLEND_MS);
+          break;
+        }
+        case 'tuck': {
+          const k = Math.min(1, tMs.current / T.TUCK_MS);
+          chairBack.current = T.PULL_BACK_M - T.TUCK_M * smootherstep(k);
+          rideChair();
+          if (k >= 1) advance('settle', T.TUCK_MS);
+          break;
+        }
+        case 'settle': {
+          // Close the 5 cm under-tuck (0.35 pull vs 0.30 tuck) so the handoff to
+          // the flush instanced chair can't pop — see the header's (e). The damp
+          // consumes the time accrued since the LAST settle iteration: tMs is
+          // the carried remainder on entry (a resumed tab closes the whole gap
+          // in one hop) and the plain frame delta on every later frame.
+          const dtSec = tMs.current / 1000;
+          tMs.current = 0;
+          chairBack.current += (0 - chairBack.current) * damp(T.SETTLE_DAMP_BASE, dtSec);
+          if (Math.abs(chairBack.current) < T.SETTLE_EPS_M) {
+            chairBack.current = 0;
+            advance('seated', 0);
+            finish();
+          }
+          rideChair();
+          break;
+        }
+        case 'seated': {
+          // Hold the exact rest transform until the caller swaps the guest to
+          // the normal seated path and unmounts us (cleanup restores the chair).
           chairBack.current = 0;
-          advance('seated');
-          finish();
+          rideChair();
+          fig.rotation.y = r.gaze;
+          break;
         }
-        rideChair();
-        break;
-      }
-      case 'seated': {
-        // Hold the exact rest transform until the caller swaps the guest to
-        // the normal seated path and unmounts us (cleanup restores the chair).
-        chairBack.current = 0;
-        rideChair();
-        fig.rotation.y = r.gaze;
-        break;
-      }
 
-      // ── reverse clip: stand-up ─────────────────────────────────────────
-      case 'untuck': {
-        const k = Math.min(1, tMs.current / T.TUCK_MS);
-        chairBack.current = T.TUCK_M * smootherstep(k);
-        rideChair();
-        if (k >= 1) {
-          headingFrom.current = fig.rotation.y;
-          setPose('stand');
-          advance('rise');
+        // ── reverse clip: stand-up ─────────────────────────────────────────
+        case 'untuck': {
+          const k = Math.min(1, tMs.current / T.TUCK_MS);
+          chairBack.current = T.TUCK_M * smootherstep(k);
+          rideChair();
+          if (k >= 1) {
+            headingFrom.current = fig.rotation.y;
+            setPose('stand');
+            advance('rise', T.TUCK_MS);
+          }
+          break;
         }
-        break;
-      }
-      case 'rise': {
-        const e = smootherstep(Math.min(1, tMs.current / T.SIT_BLEND_MS));
-        const from = -T.TUCK_M + T.FIGURE_NUDGE_M;
-        const to = -T.APPROACH_M;
-        const o = from + (to - from) * e;
-        fig.position.set(r.x + r.dirX * o, 0, r.z + r.dirZ * o);
-        fig.rotation.y = lerpAngle(headingFrom.current, departHeading ?? wrapAngle(r.gaze + Math.PI), e);
-        if (e >= 1) advance('return');
-        break;
-      }
-      case 'return': {
-        const k = Math.min(1, tMs.current / T.PULL_MS);
-        chairBack.current = T.TUCK_M * (1 - easeOutCubic(k));
-        if (k >= 1) {
-          chairBack.current = 0;
-          advance('stood');
-          finish();
+        case 'rise': {
+          const e = smootherstep(Math.min(1, tMs.current / T.SIT_BLEND_MS));
+          const from = -T.TUCK_M + T.FIGURE_NUDGE_M;
+          const to = -T.APPROACH_M;
+          const o = from + (to - from) * e;
+          fig.position.set(r.x + r.dirX * o, 0, r.z + r.dirZ * o);
+          fig.rotation.y = lerpAngle(headingFrom.current, departHeading ?? wrapAngle(r.gaze + Math.PI), e);
+          if (e >= 1) advance('return', T.SIT_BLEND_MS);
+          break;
         }
-        break;
+        case 'return': {
+          const k = Math.min(1, tMs.current / T.PULL_MS);
+          chairBack.current = T.TUCK_M * (1 - easeOutCubic(k));
+          if (k >= 1) {
+            chairBack.current = 0;
+            advance('stood', T.PULL_MS);
+            finish();
+          }
+          break;
+        }
+        case 'stood':
+          break;
       }
-      case 'stood':
-        break;
+      // Still mid-phase (or holding a terminal pose) — this frame is resolved.
+      if (phaseRef.current === phase) break;
     }
 
     // One authoritative chair write per frame, whatever the phase did.

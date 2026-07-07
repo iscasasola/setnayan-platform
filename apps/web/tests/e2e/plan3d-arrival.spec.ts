@@ -193,4 +193,102 @@ test.describe('3D Plan demo — walk → sit → arrival chain', () => {
       await deleteDemoSession(tokenA);
     }
   });
+
+  /**
+   * Regression guard for the 2026-07-08 arrival-chain hang: in a starved rAF
+   * environment (hidden tab, the embedded dev-preview panel — frames arrive in
+   * on-demand bursts, `visibilityState` stays 'hidden'), the walk's wall-clock
+   * `raw` hits 1 on the first delivered frame, but the OLD sit clip then
+   * needed one MORE frame per phase (pull → step → tuck → ~12 settle frames)
+   * before `finish()` → the pill hung at "Walking you in…" forever while the
+   * figure LOOKED seated. Completion must be wall-clock-owned: after total
+   * starvation, a handful of manually pumped frames must land the arrival.
+   * (Verified red on the pre-fix build with this exact pump budget.)
+   */
+  test('arrival survives a starved rAF stream (frames pumped by hand)', async ({ page }, testInfo) => {
+    test.setTimeout(150_000);
+
+    // Stub rAF BEFORE any page script: frames are delivered ONLY via
+    // window.__pump(), modelling the frames-on-demand preview panel.
+    await page.addInitScript(() => {
+      const queue: Array<[number, FrameRequestCallback]> = [];
+      let id = 0;
+      window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+        queue.push([++id, cb]);
+        return id;
+      };
+      window.cancelAnimationFrame = (cid: number) => {
+        const i = queue.findIndex(([qid]) => qid === cid);
+        if (i >= 0) queue.splice(i, 1);
+      };
+      (window as unknown as { __pump: () => number }).__pump = () => {
+        const q = queue.splice(0);
+        const t = performance.now();
+        for (const [, cb] of q) cb(t);
+        return q.length;
+      };
+    });
+    const pump = () => page.evaluate(() => (window as unknown as { __pump: () => number }).__pump());
+
+    const consoleLines: string[] = [];
+    page.on('console', (msg) => {
+      consoleLines.push(`[browser:${msg.type()}] ${msg.text()}`);
+    });
+    page.on('pageerror', (err) => console.log(`[pageerror] ${err.message}`));
+
+    const { tokenA, guestId } = await mintDemoSession();
+    console.log(`[repro] minted demo session token_a=${tokenA} bound_ref=${guestId}`);
+
+    try {
+      await page.goto(`/3d_plan/demo/${tokenA}`);
+      await expect(
+        page.getByRole('heading', { name: 'This demo link expired' }),
+        'token resolved to the dead-end page — session mint or resolve is broken, not the walk chain',
+      ).toHaveCount(0);
+
+      const walkButton = page.getByRole('button', { name: 'Where am I seated?' });
+      await expect(walkButton).toBeVisible({ timeout: 15_000 });
+      const webglOk = await page.evaluate(() => {
+        const c = document.createElement('canvas');
+        return !!(c.getContext('webgl2') || c.getContext('webgl'));
+      });
+      let canvasOk = true;
+      try {
+        await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 30_000 });
+      } catch {
+        canvasOk = false;
+      }
+      if (!webglOk || !canvasOk) {
+        test.skip(true, 'WebGL/canvas failed to init in headless Chromium — cannot exercise the 3D walk here.');
+      }
+
+      await walkButton.click();
+      await expect(page.getByRole('button', { name: 'Walking you in…' })).toBeVisible({ timeout: 5_000 });
+      console.log('[repro] walk started under starved rAF (zero frames flowing)');
+
+      // Total starvation for the whole walk duration — the wall clock runs,
+      // no frames do. The demo walk is ~15 s; 17 s guarantees raw >= 1.
+      await page.waitForTimeout(17_000);
+
+      // Frame 1: the Walker fires onComplete instantly (wall-clock raw) and
+      // beginSit commits the SitController. The commit itself needs no rAF,
+      // but SwiftShader shader work can delay it a few seconds — the spaced
+      // pumps below leave room for it. Old code needed 4+ post-mount frames
+      // (one per phase); fixed code completes the whole owed clip on its
+      // FIRST post-mount frame, so this budget stays red for regressions.
+      await pump();
+      await page.waitForTimeout(6_000);
+      await pump(); // first (or spare) post-mount frame — carries the owed clip
+      await page.waitForTimeout(2_000);
+      await pump(); // spare, in case the mount commit landed after pump 2
+      await expect(
+        page.getByText(/You.re at /),
+        'sit clip did not complete once frames resumed — completion is frame-count-bound again (see sit-controller advance/carry-over)',
+      ).toBeVisible({ timeout: 5_000 });
+      console.log('[repro] ARRIVED after starved-rAF resume — chain is wall-clock-owned.');
+    } finally {
+      await testInfo.attach('browser-console.log', { body: consoleLines.join('\n'), contentType: 'text/plain' });
+      await deleteDemoSession(tokenA);
+    }
+  });
 });

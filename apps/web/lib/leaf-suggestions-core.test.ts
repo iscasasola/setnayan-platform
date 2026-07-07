@@ -25,10 +25,10 @@ const leaf = (
 });
 
 const LEAVES: LeafTaxNode[] = [
-  leaf('photobooth', 'booths'),
-  leaf('mobile_bar', 'feast'),
-  leaf('drone', 'documentary'),
-  leaf('lechon', 'feast'),
+  leaf('photobooth', 'booths', ['wedding', 'birthday']), // tagged for both
+  leaf('mobile_bar', 'feast', ['wedding', 'birthday']),
+  leaf('drone', 'documentary', ['wedding', 'birthday']),
+  leaf('lechon', 'feast', ['wedding', 'birthday']),
   leaf('wedding_coordinator', 'planning', ['wedding']), // wedding-only
 ];
 
@@ -45,15 +45,34 @@ test('only-when-it-fits: a leaf with zero available vendors never surfaces', () 
   assert.ok(!keys.includes('mobile_bar'), 'zero-vendor leaf excluded');
 });
 
-test('event-type gate: a wedding-only leaf is dropped for a birthday', () => {
+test('event-type gate: a wedding-only leaf is dropped for a birthday; a birthday-tagged one passes', () => {
   const forBday = buildLeafCandidates(
     LEAVES,
     counts({ wedding_coordinator: 5, photobooth: 2 }),
     { eventType: 'birthday', plannedTileIds: new Set() },
   ).map((c) => c.key);
   assert.ok(!forBday.includes('wedding_coordinator'), 'wedding-only leaf dropped for birthday');
-  // null allowedEventTypes leaves still pass
-  assert.ok(forBday.includes('photobooth'));
+  assert.ok(forBday.includes('photobooth'), 'birthday-tagged leaf passes');
+});
+
+test('untagged leaves default to WEDDING-ONLY (wedding-first taxonomy; applicable_event_types unseeded)', () => {
+  const untagged: LeafTaxNode[] = [leaf('generic_booth', 'booths', null)];
+  // Passes for a wedding...
+  assert.equal(
+    buildLeafCandidates(untagged, counts({ generic_booth: 3 }), {
+      eventType: 'wedding',
+      plannedTileIds: new Set(),
+    }).length,
+    1,
+  );
+  // ...but is NOT surfaced for a birthday (prevents wedding services leaking).
+  assert.equal(
+    buildLeafCandidates(untagged, counts({ generic_booth: 3 }), {
+      eventType: 'birthday',
+      plannedTileIds: new Set(),
+    }).length,
+    0,
+  );
 });
 
 test('already-planned tiles are not re-suggested', () => {

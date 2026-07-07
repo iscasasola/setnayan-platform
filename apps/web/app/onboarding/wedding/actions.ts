@@ -179,7 +179,7 @@ function onboardingRegionToPsgc(region: string | null | undefined): string | nul
   return resolved.psgc_code;
 }
 
-// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
+// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (planning
 // groups). The auto-inquire loop resolves each pick to its group, then fires
 // ONE best-fit inquiry per UNIQUE group (the dashboard unlock-category model).
 // Picks with no clean planning group are intentionally omitted so a pick never

@@ -525,7 +525,7 @@ export function buildPlanBudgetModel(args: {
   const folderLabelMap = taxonomy?.folderLabel ?? WEDDING_FOLDER_LABEL;
   const folderSlugMap = taxonomy?.folderSlug ?? WEDDING_FOLDER_SLUG;
 
-  // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
+  // Bucket raw rows into the plan groups (reuses the canonical bucketer
   // so compatibility chips + status all stay consistent with event-home).
   const bucketed = bucketVendorsByGroup(vendorRows, ceremonyType, venueSetting);
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Circle, CheckCircle2, ArrowRight, CalendarPlus, Wallet } from 'lucide-react';
+import { Circle, CheckCircle2, ArrowRight, CalendarPlus, Wallet, Sparkles } from 'lucide-react';
 import {
   CHECKLIST_CATEGORY_LABELS,
   checklistItemHref,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/checklist';
 import type { ChecklistBudgetHealth } from '@/lib/checklist-budget';
 import { formatPeso, budgetHealthCopy, type BudgetTone } from '@/lib/checklist-budget-format';
+import type { LeafSuggestion } from '@/lib/leaf-suggestions';
 import { toggleChecklistItem } from '../../checklist-actions';
 
 /**
@@ -29,7 +30,52 @@ type Props = {
   eventDate: string | null;
   /** Live budget health-check — null when no budget is set (card hidden). */
   budgetHealth?: ChecklistBudgetHealth | null;
+  /** Relevance-gated "you might also want" service suggestions (may be empty). */
+  leafSuggestions?: ReadonlyArray<LeafSuggestion>;
 };
+
+/**
+ * "You might also want…" — up to 3 service categories the couple hasn't planned
+ * yet that have available vendors, chosen for relevance + variety. Every leaf
+ * category gets a fair, relevance-gated chance to reach the couple. Rendered
+ * only when there's at least one fitting suggestion.
+ */
+function LeafSuggestions({
+  eventId,
+  suggestions,
+}: {
+  eventId: string;
+  suggestions: ReadonlyArray<LeafSuggestion>;
+}) {
+  return (
+    <section className="rounded-xl border border-terracotta/20 bg-terracotta/[0.04] px-4 py-3">
+      <div className="flex items-center gap-1.5">
+        <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          You might also want
+        </p>
+      </div>
+      <ul className="mt-2 space-y-1.5">
+        {suggestions.map((s) => (
+          <li key={s.canonicalService}>
+            <Link
+              href={`/dashboard/${eventId}/vendors?tab=shortlist&open=${encodeURIComponent(s.tileId)}`}
+              className="flex items-center gap-3 rounded-lg border border-ink/10 bg-white px-3 py-2 transition hover:border-terracotta/40"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">{s.label}</p>
+                <p className="truncate text-xs text-ink/50">
+                  {s.tileLabel} · {s.vendorCount} {s.vendorCount === 1 ? 'vendor' : 'vendors'} available
+                </p>
+              </div>
+              <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /** Tailwind tokens per budget tone (kept static so they survive JIT purging). */
 const BUDGET_TONE_STYLES: Record<BudgetTone, { border: string; bg: string; dot: string; head: string }> = {
@@ -151,7 +197,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, budgetHealth }: Props) {
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, budgetHealth, leafSuggestions }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -224,6 +270,10 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
               </section>
             );
           })}
+
+          {leafSuggestions && leafSuggestions.length > 0 ? (
+            <LeafSuggestions eventId={eventId} suggestions={leafSuggestions} />
+          ) : null}
         </div>
       )}
     </div>

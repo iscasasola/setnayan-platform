@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchChecklistItems, groupChecklistByPhase } from '@/lib/checklist';
 import { computeBudgetHealth, type ChecklistBudgetHealth } from '@/lib/checklist-budget';
+import { suggestLeafCategories, type LeafSuggestion } from '@/lib/leaf-suggestions';
 import { ensureChecklistSeeded } from '../checklist-actions';
 import { ChecklistFull } from '../_components/checklist/checklist-full';
 
@@ -66,6 +67,20 @@ export default async function EventChecklistPage({ params }: Props) {
     );
   }
 
+  // "You might also want…" — relevance-gated leaf-category suggestions. Defensive
+  // (returns [] on any failure) so it never blocks the checklist render.
+  let leafSuggestions: LeafSuggestion[] = [];
+  try {
+    leafSuggestions = await suggestLeafCategories(eventId);
+  } catch (caught) {
+    logQueryError(
+      'EventChecklistPage (suggestLeafCategories threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
+
   return (
     <ChecklistFull
       eventId={eventId}
@@ -74,6 +89,7 @@ export default async function EventChecklistPage({ params }: Props) {
       doneCount={doneCount}
       eventDate={eventDate}
       budgetHealth={budgetHealth}
+      leafSuggestions={leafSuggestions}
     />
   );
 }

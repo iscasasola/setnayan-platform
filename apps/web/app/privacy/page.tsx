@@ -134,9 +134,9 @@ export default function PrivacyPage() {
             requires two separate team members to confirm. If you are a vendor
             affected by an automated suspension or enforcement action, you may
             object and request a review through our{' '}
-            <a href="/help" className="text-terracotta hover:underline">
+            <Link href="/help" className="text-terracotta hover:underline">
               Help Center
-            </a>{' '}
+            </Link>{' '}
             or by contacting our Data Protection Officer (above). These rights
             are under RA 10173 § 16(c) (right to object) and § 34 (automated
             processing).

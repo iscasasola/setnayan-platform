@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
+import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
 
 /**
@@ -58,7 +59,7 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
     );
   }
 
-  const [{ data: sessions }, { data: feed }] = await Promise.all([
+  const [{ data: sessions }, { data: feed }, { data: cfg }] = await Promise.all([
     supabase
       .from('wall_display_sessions')
       .select('session_id, display_code, claimed_at, revoked_at, expires_at, created_at')
@@ -72,6 +73,11 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
       .eq('event_id', eventId)
       .order('sort_at', { ascending: false })
       .limit(12),
+    supabase
+      .from('events')
+      .select('wall_photo_count, wall_tile_layout')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
 
   const tiles: WallTileRow[] = await Promise.all(
@@ -110,7 +116,13 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
           </p>
         </div>
       </div>
-      <LiveWallControls eventId={eventId} screens={screens} tiles={tiles} />
+      <LiveWallControls
+        eventId={eventId}
+        screens={screens}
+        tiles={tiles}
+        photoCount={clampWallPhotoCount(cfg?.wall_photo_count as number | null)}
+        tileLayout={asWallTileLayout(cfg?.wall_tile_layout as string | null)}
+      />
     </section>
   );
 }

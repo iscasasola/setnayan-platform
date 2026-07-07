@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Images } from 'lucide-react';
+import { ArrowRight, Camera, CircleAlert, Clock, Download, Images } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -79,6 +79,15 @@ async function GuestGallery({
           </a>
         ))}
       </div>
+      {/* Download all — the full set of tagged captures as a ZIP (not just the
+          preview grid above), streamed from the token-scoped download route. */}
+      <a
+        href={`/papic/me/${token}/download`}
+        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
+      >
+        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+        Download my photos
+      </a>
       {/* FREE Guest Stories — one-tap 30s reel from these tagged photos. */}
       <GuestStoryMaker token={token} />
     </section>

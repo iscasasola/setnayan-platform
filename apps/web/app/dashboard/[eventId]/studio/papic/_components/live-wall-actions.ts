@@ -12,7 +12,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDisplayCode } from '@/lib/live-wall';
+import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -24,6 +26,51 @@ function papicPath(eventId: string): string {
 function revalidateWallSurfaces(eventId: string): void {
   revalidatePath(papicPath(eventId));
   revalidatePath(`/dashboard/${eventId}/live`);
+}
+
+/**
+ * Save the couple's wall display config — how many tiles + which layout (owner
+ * 2026-07-08 · D5). Membership-gated (couple/coordinator), then written with the
+ * admin client; inputs are clamped/sanitized to the DB-valid range so a bad
+ * value can never violate the events check constraints.
+ */
+export async function saveWallConfig(
+  eventId: string,
+  photoCount: number,
+  tileLayout: string,
+): Promise<ActionResult> {
+  const clean = eventId?.trim();
+  if (!clean) return { ok: false, error: 'missing_event' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'unauthorized' };
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', clean)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (
+    !membership ||
+    (membership.member_type !== 'couple' && membership.member_type !== 'coordinator')
+  ) {
+    return { ok: false, error: 'forbidden' };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({
+      wall_photo_count: clampWallPhotoCount(photoCount),
+      wall_tile_layout: asWallTileLayout(tileLayout),
+    })
+    .eq('event_id', clean);
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  revalidateWallSurfaces(clean);
+  return { ok: true };
 }
 
 /** Mint a single-use venue screen code (15-minute claim window per P0). */

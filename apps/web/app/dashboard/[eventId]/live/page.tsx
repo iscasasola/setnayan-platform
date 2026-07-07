@@ -14,7 +14,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
-import { resolveWallMode, type WallMode } from '@/lib/live-wall-logic';
+import {
+  asWallTileLayout,
+  clampWallPhotoCount,
+  resolveWallMode,
+  type WallMode,
+} from '@/lib/live-wall-logic';
 import {
   LiveWallControls,
   type WallScreenRow,
@@ -100,7 +105,7 @@ export default async function LiveWallConsolePage({
   ] = await Promise.all([
     admin
       .from('events')
-      .select('event_date, live_mode_override, kwento_flash_auto_wall')
+      .select('event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -258,7 +263,13 @@ export default async function LiveWallConsolePage({
           </p>
         ) : null}
 
-        <LiveWallControls eventId={eventId} screens={screens} tiles={tiles} />
+        <LiveWallControls
+          eventId={eventId}
+          screens={screens}
+          tiles={tiles}
+          photoCount={clampWallPhotoCount(event?.wall_photo_count as number | null)}
+          tileLayout={asWallTileLayout(event?.wall_tile_layout as string | null)}
+        />
         <p className="mt-3 text-xs text-ink/50">
           Projector URL:{' '}
           <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span> — open

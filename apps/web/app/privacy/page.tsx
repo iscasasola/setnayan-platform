@@ -107,6 +107,57 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Anti-fraud &amp; trust integrity">
+          <p>
+            To keep our marketplace signals honest — reviews, ratings, badges,
+            and &ldquo;most-booked&rdquo; counts — we run automated checks that
+            detect and prevent manipulation, such as fake or duplicate accounts
+            created to inflate a vendor&rsquo;s reputation. To spot rings of
+            accounts controlled by one person or household, we analyze signals we
+            already hold (device and browser signals, the address on your
+            account, and the payment-sender identity on your transactions) so
+            duplicate reviews and bookings are counted once, not many times.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis.</strong> We rely on legitimate interest (RA
+            10173 § 12(f)) — preventing fraud and protecting the integrity of the
+            marketplace for couples and honest vendors. We use only data we have
+            already collected for other purposes; there is no new collection for
+            this.
+          </p>
+          <p className="pt-2">
+            <strong>Automated decisions &amp; your right to object.</strong> At a
+            high fraud-risk score a vendor&rsquo;s listing may be automatically
+            and <em>reversibly</em> hidden while we review — no data is deleted,
+            and one review by our team reverses it. Permanent action (removing a
+            vendor&rsquo;s reviews or banning an account) is never automatic; it
+            requires two separate team members to confirm. If you are a vendor
+            affected by an automated suspension or enforcement action, you may
+            object and request a review through our{' '}
+            <a href="/help" className="text-terracotta hover:underline">
+              Help Center
+            </a>{' '}
+            or by contacting our Data Protection Officer (above). These rights
+            are under RA 10173 § 16(c) (right to object) and § 34 (automated
+            processing).
+          </p>
+          <p className="pt-2">
+            <strong>What we do not do here:</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>We do not capture or use your IP address for this.</li>
+            <li>
+              These groupings, signals, and scores are strictly internal — no
+              couple or vendor can view them, and they are never sold, shared,
+              used for advertising, or used to rank or promote vendors.
+            </li>
+            <li>
+              The evidence we store is non-identifying — counts and ratios, not
+              your name, address, or raw identifiers.
+            </li>
+          </ul>
+        </Section>
+
         <Section title="Public Event Summary (post-event editorial)">
           <p>
             If a host opts in, the event&rsquo;s summary page at{' '}

@@ -164,9 +164,11 @@ reach AS (
     AND e.b <> ALL(r.path)
 )
 -- (c) Component label = smallest user_id reachable from the root.
+--     Postgres has no min(uuid) aggregate, so we MIN the canonical uuid text
+--     (byte-identical ordering to uuid) and cast back — same "smallest uuid".
 SELECT
   root AS user_id,
-  MIN(node) AS cluster_id
+  MIN(node::text)::uuid AS cluster_id
 FROM reach
 GROUP BY root;
 
@@ -404,7 +406,7 @@ WITH qualifying_bookings AS (
     -- The event's couple identity cluster = MIN cluster over its couple
     -- roster. Fallback to MIN couple user_id when clusters have no row yet.
     (
-      SELECT MIN(COALESCE(ic.cluster_id, em.user_id))
+      SELECT MIN(COALESCE(ic.cluster_id, em.user_id)::text)::uuid
       FROM public.event_members em
       LEFT JOIN public.identity_clusters ic ON ic.user_id = em.user_id
       WHERE em.event_id = ev.event_id

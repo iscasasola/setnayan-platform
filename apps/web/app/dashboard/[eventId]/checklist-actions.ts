@@ -6,7 +6,8 @@ import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { buildChecklistSeed, isWeddingEvent } from '@/lib/checklist';
+import { buildChecklistSeed, buildSeedRows, isWeddingEvent } from '@/lib/checklist';
+import { checklistDefForEventType } from '@/lib/checklist-event-type-defs';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   computeSatisfiedChecklistKeys,
@@ -78,13 +79,18 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   const ceremonyType = (eventRow?.ceremony_type as string | null | undefined) ?? null;
   const eventType = (eventRow?.event_type as string | null | undefined) ?? null;
 
-  // CHECKLIST_TEMPLATE is entirely wedding-shaped. For an explicit non-wedding
-  // event (birthday, debut, christening, …) seeding it would render a
-  // confidently-wrong Catholic-wedding checklist (marriage license, pre-Cana,
-  // ninong/ninang). Until per-type templates land, seed NOTHING for those types
-  // rather than the wrong list. Null/unset event_type stays a wedding (historic
-  // events + the isWeddingEvent backward-compat rule), so no wedding regresses.
-  if (!isWeddingEvent(eventType)) return 0;
+  // Resolve the template for this event type:
+  //  - wedding / unset  → the canonical wedding CHECKLIST_TEMPLATE (unchanged,
+  //    with ceremony_type tailoring). `checklistDefForEventType` returns null.
+  //  - enabled non-wedding type (birthday, debut, christening, …) → its own
+  //    per-type performable-task template.
+  //  - unknown non-wedding type → seed NOTHING (return 0) rather than a
+  //    confidently-wrong wedding checklist.
+  const perTypeDef = checklistDefForEventType(eventType);
+  if (perTypeDef == null && !isWeddingEvent(eventType)) return 0;
+  const seed = perTypeDef
+    ? buildSeedRows(eventId, perTypeDef.template, null) // per-type: no ceremony tailoring
+    : buildChecklistSeed(eventId, ceremonyType); // wedding path, unchanged
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];
   const existingKeys = new Set(
@@ -98,7 +104,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
       .filter((k) => AUTO_COMPLETABLE_KEYS.has(k)),
   );
 
-  const missing = buildChecklistSeed(eventId, ceremonyType).filter(
+  const missing = seed.filter(
     (row) => row.template_key != null && !existingKeys.has(row.template_key),
   );
 

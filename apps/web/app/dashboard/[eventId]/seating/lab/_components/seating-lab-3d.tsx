@@ -20,7 +20,10 @@
  * the populate-Play crowd AND swap movers all carry the SAME per-guest spec
  * (resolved attire incl. hash-derived barong/filipiniana, mood-board motif
  * colour, selfie head, RSVP status colour), so the person who walks is the
- * person who sits.
+ * person who sits. Walk-ins (single AND crowd) end in the kit's owner-locked
+ * sit choreography (kit/sit-controller): the walk delivers the guest to the
+ * approach point behind their chair, the chair pulls back, the guest steps in,
+ * turns, sits, and the chair tucks — no more teleport onto the seat.
  *
  * Performance: DPR capped, lightweight waypoint steering, per-table
  * InstancedChairs (2 draw calls a table — the Wave 2a instancing collapse),
@@ -40,7 +43,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { Figure, type FigureSpec, type FigureQuality } from '@/app/_components/plan3d/kit';
+import { Figure, SitController, SIT_TIMING, type FigureSpec, type FigureQuality } from '@/app/_components/plan3d/kit';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
@@ -107,6 +110,7 @@ import {
   type Lab3DSign,
   type Lab3DCocktail,
   type Vec2,
+  type SeatPose,
   roomSize,
   contentBounds,
   pctToWorld,
@@ -114,6 +118,7 @@ import {
   checkPlacement,
   serpentineBand,
   seatWorld,
+  approachPoint,
   floorObstacles,
   sceneObjectObstacles,
   boothObstacles,
@@ -176,7 +181,18 @@ type Props = {
 
 type LiveTable = Lab3DTable;
 type SeatRef = { tableId: string; seatNumber: number };
-type WalkerState = { gid: string; name: string; path: Vec2[]; tableId: string } | null;
+type WalkerState = {
+  gid: string;
+  name: string;
+  /** Steered path ending at the sit APPROACH POINT (0.55 m behind the chair) —
+   *  the sit controller owns the final step-in, so the walk itself never
+   *  targets the chair (that was the old teleport seam). */
+  path: Vec2[];
+  tableId: string;
+  seatNumber: number;
+  /** World seat pose (position + gaze) the arrival sit clip plays against. */
+  seat: SeatPose;
+} | null;
 
 /** A keep-apart rule is undirected — match a pair in either order. */
 function sameKeepApart(r: KeepApartRule, a: string, b: string): boolean {
@@ -290,9 +306,12 @@ function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
  * A seated guest — now an articulated kit `<Figure>` carrying the guest's
  * outfit, deterministic look, selfie head (the kit routes photoUrl through
  * the SAME shared GuestPhotoAvatar refcounted texture cache as before) and
- * RSVP status colour. SLICE-2 NOTE: figures stand at their seat in the idle
- * 'stand' pose exactly where the old tokens floated — the sit pose (and the
- * chair-clearance choreography it needs) is the next slice.
+ * RSVP status colour. SLICE-3 (2026-07-08): figures now SIT — the promised
+ * chair-clearance choreography shipped (kit/sit-controller) and every walk-in
+ * ends flush-seated at THIS exact transform (chair point nudged 0.04 m
+ * table-ward, facing the table), so the SitController → SeatedAvatar handoff
+ * is invisible. Keep the pose 'sit' and the −0.04 nudge in lockstep with
+ * SIT_TIMING.FIGURE_NUDGE_M or every walk-in ends on a pop.
  *
  * The "+1 reserved" ghost (spec null) keeps the legacy translucent
  * body+head token: it's a placeholder for a person who doesn't exist yet.
@@ -305,7 +324,7 @@ function SeatedAvatar({ tok, bodyMat, quality }: { tok: SeatToken; bodyMat: THRE
       // the rig's forward is local +Z. The π flip turns the figure to face
       // the table like a guest at their place setting.
       <group position={[0, 0, -0.04]} rotation={[0, Math.PI, 0]}>
-        <Figure spec={tok.spec} pose="stand" quality={quality} name={tok.name} />
+        <Figure spec={tok.spec} pose="sit" quality={quality} name={tok.name} />
       </group>
     );
   }
@@ -1280,10 +1299,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       // the walker never cuts across its own tabletop (or anything else).
       const obstacles = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
       const path = seatApproachPath(entranceWorld, table, seat.seatNumber, room, obstacles, 0.2);
+      // Retarget the path's final chair waypoint to the SIT APPROACH POINT
+      // (0.55 m behind the chair along −gaze) — the walk delivers the guest
+      // there and the SitController owns the rest (pull back, step in, sit,
+      // tuck). Both points sit on the same outward radial (the gaze aims at
+      // the table), so the retarget never re-enters the table footprint.
+      const pose = seatWorld(table, seat.seatNumber, room);
+      path[path.length - 1] = approachPoint(pose, SIT_TIMING.APPROACH_M);
       setMode('play');
       setArrived(null);
       setCrowd(null); // a single walk-in supersedes any populated crowd
-      setWalker({ gid: g.id, name: g.name, path, tableId: seat.tableId });
+      setWalker({ gid: g.id, name: g.name, path, tableId: seat.tableId, seatNumber: seat.seatNumber, seat: pose });
       return true;
     },
     [seats, tables, tablesById, room, entranceWorld, floor, fixtureObstacles],
@@ -1307,11 +1333,25 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const walkAround = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
       const obstacles = [...floorObstacles(floor, tables, room, [s.tableId]), ...fixtureObstacles];
       const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
+      // Same retarget as the single walk-in: the crowd walk ends at the sit
+      // approach point, and each agent's own sit clip plays the final step-in.
+      const pose = seatWorld(table, s.seatNumber, room);
+      path[path.length - 1] = approachPoint(pose, SIT_TIMING.APPROACH_M);
       // The crowd agent walks in AS the guest — same outfit / selfie / status
       // spec (same OBJECT — tokenByGuest) as their seated figure.
       const style = tokenByGuest.get(gid);
       if (!style?.spec) continue; // hidden is already skipped above; defensive
-      agents.push({ id: gid, name: g.name, path, spec: style.spec, startDelay: i * 0.16, obstacles });
+      agents.push({
+        id: gid,
+        name: g.name,
+        path,
+        spec: style.spec,
+        startDelay: i * 0.16,
+        obstacles,
+        tableId: s.tableId,
+        seatIndex: s.seatNumber,
+        seat: pose,
+      });
       i += 1;
     }
     setWalker(null);
@@ -1320,9 +1360,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     setCrowd(agents.length ? agents : null);
   }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles, tokenByGuest]);
 
-  // A single walk-in that has reached its chair settles into the seat: clear the
-  // walker so the static SeatedAvatar takes over (the guest is already in `seats`).
-  // Only the single walker sets `arrived`; the crowd settles via onAllArrived.
+  // A single walk-in that has finished its SIT CLIP (arrived now means
+  // flush-seated — Walker's onArrive fires from the SitController's onSeated)
+  // holds the toast beat, then clears the walker: the controller unmounts (its
+  // cleanup restores the instanced chair) and the static SeatedAvatar takes
+  // over at the identical transform + sit pose (the guest is already in
+  // `seats`). Only the single walker sets `arrived`; the crowd settles via
+  // onAllArrived.
   useEffect(() => {
     if (!arrived || !walker) return;
     const id = window.setTimeout(() => {
@@ -1332,10 +1376,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     return () => window.clearTimeout(id);
   }, [arrived, walker]);
 
-  // Populate-Play: Crowd fires this once everyone has reached their chair (after a
-  // short in-component "stand a beat" delay). Clearing the crowd returns the seated
-  // view — the avatars "sit down". Synchronous + idempotent, so re-running "Walk
-  // everyone in" can't be clobbered by a stale timer. "Clear the room" still skips ahead.
+  // Populate-Play: Crowd fires this once every agent has finished its SIT CLIP
+  // (each walk-in now ends in the chair pull-back sit, staggered + capped —
+  // see Crowd). Clearing the crowd swaps its already-seated figures for the
+  // per-seat SeatedAvatars at identical transforms — invisible. Synchronous +
+  // idempotent, so re-running "Walk everyone in" can't be clobbered by a stale
+  // timer. "Clear the room" still skips ahead.
   const settleCrowd = useCallback(() => setCrowd(null), []);
 
   // --- swap-with-animation: reassign seats (persist) + animate the change ----
@@ -1654,7 +1700,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           />
         ) : null}
 
-        {mode === 'play' && crowd ? <Crowd agents={crowd} reduced={reduced} onAllArrived={settleCrowd} /> : null}
+        {mode === 'play' && crowd ? (
+          <Crowd agents={crowd} reduced={reduced} chairColor={palette.wall} onAllArrived={settleCrowd} />
+        ) : null}
 
         {movers.map((m) => (
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
@@ -2306,8 +2354,11 @@ function TableMesh({
       {/* Chairs — 2 instanced draw calls per table (Wave 2a collapse), occupied
           seats tinted via instanceColor, removed seats zero-scaled out. Taps
           resolve the chair index from `instanceId` so remove-a-chair still
-          works; removed seats keep individual GHOST meshes for the restore tap. */}
+          works; removed seats keep individual GHOST meshes for the restore tap.
+          `tableId` opts into the detach-one-chair registry so the walk-in sit
+          clips (Walker / Crowd → SitController) can pull THIS table's chairs. */}
       <InstancedChairs
+        tableId={table.id}
         chairs={chairs}
         removedSeats={table.removedSeats}
         occupiedSeats={occupiedSeats}
@@ -2367,16 +2418,26 @@ function TableMesh({
 }
 
 /**
- * The single walk-in — now an articulated kit `<Figure>` DRESSED AS THE GUEST
- * (same spec as their seated figure: outfit, selfie head, status colour)
- * instead of the old bare accent capsule. This group still owns position +
- * heading exactly as before (the kit contract: parents move, figures dress);
- * the walk-cycle gait is driven by the SAME motion clock that used to drive
- * the bob (t × 9 rad/s), fed through a phase ref so the gait advances without
- * re-rendering React each frame. The old parent-group y-bob is gone — the
- * rig's walkCyclePose carries its own pelvis bob, and doubling them read as
- * a pogo. On arrival the pose eases to 'stand' (the kit blends presets over
- * ~⅓ s), holding the "found their seat" beat until the parent clears us.
+ * The single walk-in — an articulated kit `<Figure>` DRESSED AS THE GUEST
+ * (same spec as their seated figure: outfit, selfie head, status colour).
+ * This group owns position + heading for the WALK leg only (the kit contract:
+ * parents move, figures dress); the walk-cycle gait is driven by the SAME
+ * motion clock that used to drive the bob (t × 9 rad/s), fed through a phase
+ * ref so the gait advances without re-rendering React each frame.
+ *
+ * ARRIVAL — the old teleport seam, now the sit choreography: the path ends at
+ * the sit APPROACH POINT (0.55 m behind the chair — retargeted in sendGuest),
+ * and on the final waypoint this component hands the figure to
+ * `<SitController>`: the chair pulls back, the guest steps into the gap,
+ * turns, sits, and the chair tucks in. `onArrive` therefore fires from the
+ * controller's `onSeated` — when the guest is FLUSH-SEATED — and the parent's
+ * 1.2 s toast hold keeps the controller mounted in its 'seated' phase until
+ * the static SeatedAvatar takes over transform-identically (the controller's
+ * unmount cleanup restores the instanced chair).
+ *
+ * Reduced motion skips the walk entirely and mounts the controller at once:
+ * it snaps to the seated end-state and STILL fires `onSeated`, so the
+ * "found their seat" payoff always resolves.
  */
 function Walker({
   walker,
@@ -2397,12 +2458,21 @@ function Walker({
 }) {
   const ref = useRef<THREE.Group>(null);
   const idx = useRef(0);
-  const done = useRef(false);
   const t = useRef(0);
   // Gait phase for the kit figure — the walk clock above, in radians.
   const phase = useRef(0);
-  // Arrived → ease the figure into its idle stand at the chair.
-  const [atSeat, setAtSeat] = useState(false);
+  // Walk heading at the approach point — the sit clip's shortest-arc turn
+  // starts from the REAL arrival direction, not an assumed straight walk-in.
+  const arriveHeading = useRef<number | undefined>(undefined);
+  // Arrived → the SitController owns the figure for the rest of the clip.
+  // State (it swaps the render) mirrored into a ref for the frame loop.
+  const [sitting, setSitting] = useState(false);
+  const sittingRef = useRef(false);
+  const beginSit = useCallback((): void => {
+    if (sittingRef.current) return;
+    sittingRef.current = true;
+    setSitting(true);
+  }, []);
   // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
   const reducedRef = useRef(reduced);
   useEffect(() => {
@@ -2411,53 +2481,36 @@ function Walker({
 
   useEffect(() => {
     idx.current = 0;
-    done.current = false;
     t.current = 0;
     phase.current = 0;
-    setAtSeat(false);
-    if (ref.current) {
-      // Reduced motion: place the avatar AT its final seat immediately (no walk)
-      // and complete the flow — fire onArrive so the "found their seat" payoff
-      // still resolves. Otherwise spawn at the entrance and walk.
-      if (reducedRef.current && walker.path.length > 0) {
-        const end = walker.path[walker.path.length - 1]!;
-        ref.current.position.set(end.x, 0, end.z);
-        idx.current = walker.path.length - 1;
-        done.current = true;
-        setAtSeat(true);
-        onArrive();
-      } else {
-        ref.current.position.set(entrance.x, 0, entrance.z);
-      }
+    arriveHeading.current = undefined;
+    sittingRef.current = false;
+    setSitting(false);
+    if (reducedRef.current) {
+      // Reduced motion: no walk — straight to the sit controller, which snaps
+      // to the seated end-state and fires onSeated (the flow always completes).
+      beginSit();
+    } else {
+      ref.current?.position.set(entrance.x, 0, entrance.z);
     }
-  }, [walker, entrance, onArrive]);
+  }, [walker, entrance, beginSit]);
 
   useFrame((_, delta) => {
+    if (sittingRef.current) return; // the SitController owns the figure now
+    if (reducedRef.current) {
+      // Mid-walk reduced-motion flip: hand off immediately — the controller's
+      // snap still seats the guest and completes the flow.
+      beginSit();
+      return;
+    }
     const g = ref.current;
     if (!g) return;
     t.current += delta;
     const path = walker.path;
-    if (reducedRef.current) {
-      // Reduced motion: pin to the final seat, no gait. Ensure onArrive fired
-      // (covers a mid-walk flag flip) so the flow always completes. The kit
-      // figure itself holds a static stand under reduced motion.
-      if (path.length > 0) {
-        const end = path[path.length - 1]!;
-        g.position.set(end.x, 0, end.z);
-      }
-      if (!done.current) {
-        done.current = true;
-        setAtSeat(true);
-        onArrive();
-      }
-      return;
-    }
-    if (done.current || idx.current >= path.length - 1) {
-      if (!done.current) {
-        done.current = true;
-        setAtSeat(true); // pose eases walk → stand (kit damp blend)
-        onArrive();
-      }
+    if (idx.current >= path.length - 1) {
+      // At the approach point — capture the live heading and start the sit.
+      arriveHeading.current = g.rotation.y;
+      beginSit();
       return;
     }
     const next = path[idx.current + 1]!;
@@ -2479,28 +2532,51 @@ function Walker({
     phase.current = t.current * 9;
   });
 
+  const figSpec =
+    spec ?? { id: walker.gid, outfit: 'neutral' as const, outfitColor: null, statusColor: palette.accent };
+
+  if (sitting) {
+    return (
+      // Keyed by the seat identity: a NEW walker while `sitting` is still true
+      // (e.g. under reduced motion, where it never flips back) must remount the
+      // controller — its rest pose + phase clock are locked per clip.
+      <SitController
+        key={`${walker.gid}:${walker.tableId}:${walker.seatNumber}`}
+        seat={walker.seat}
+        tableId={walker.tableId}
+        seatIndex={walker.seatNumber}
+        chairColor={palette.wall}
+        arriveHeading={arriveHeading.current}
+        onSeated={onArrive}
+      >
+        {(pose) => (
+          <>
+            <Figure spec={figSpec} pose={pose} name={walker.name} />
+            {/* The follow light rides the figure root through the sit, same as the walk. */}
+            <pointLight position={[0, 1.2, 0]} intensity={0.4} distance={3} color={palette.accent} />
+          </>
+        )}
+      </SitController>
+    );
+  }
+
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <Figure
-        spec={
-          spec ?? { id: walker.gid, outfit: 'neutral', outfitColor: null, statusColor: palette.accent }
-        }
-        pose={atSeat ? 'stand' : 'walk'}
-        phase={phase}
-        name={walker.name}
-      />
+      <Figure spec={figSpec} pose="walk" phase={phase} name={walker.name} />
       {/* The follow light keeps the walk-in readable in the darker Play room. */}
       <pointLight position={[0, 1.2, 0]} intensity={0.4} distance={3} color={palette.accent} />
     </group>
   );
 }
 
-// One member of the populate-Play crowd: a precomputed path to their chair,
-// the guest's full figure spec (attire + selfie + status — the same spec as
-// their seated figure, so the walk-in matches who sits down), a stagger delay
-// (so they queue out of the entrance instead of piling up), and their OWN
-// obstacle set (every object except their destination table, so they can
-// actually reach the chair just inside its avoidance disc).
+// One member of the populate-Play crowd: a precomputed path to the sit
+// APPROACH POINT behind their chair, the guest's full figure spec (attire +
+// selfie + status — the same spec as their seated figure, so the walk-in
+// matches who sits down), a stagger delay (so they queue out of the entrance
+// instead of piling up), their OWN obstacle set (every object except their
+// destination table, so they can actually reach the chair just inside its
+// avoidance disc), and the seat identity (table + index + world pose) their
+// arrival sit clip detaches and animates.
 type CrowdAgent = {
   id: string;
   name: string;
@@ -2508,23 +2584,58 @@ type CrowdAgent = {
   spec: FigureSpec;
   startDelay: number;
   obstacles: { c: Vec2; r: number }[];
+  tableId: string;
+  seatIndex: number;
+  seat: SeatPose;
 };
+
+/** Where a crowd agent is in its arrival lifecycle: walking its path → running
+ *  its sit clip (a mounted SitController + detached chair) → seated (a plain
+ *  sit-pose figure holding the chair until the whole crowd settles). */
+type CrowdStage = 'walk' | 'sit' | 'done';
+
+// Concurrency budget for the arrival sits: every active sit detaches one
+// instanced chair and mounts a real ActiveChair + a per-frame controller, so
+// cap how many clips run at once and space the starts a beat apart. A queued
+// guest simply keeps standing at their approach point (frozen gait ≈ a stand),
+// which reads as natural pre-seating milling, not a stall.
+const MAX_ACTIVE_SITS = 8;
+const SIT_START_GAP_S = 0.25;
 
 /**
  * Populate-Play: the whole seated guest list walks in at once. Each frame every
- * agent steps toward its next waypoint, then the set is resolved with
+ * WALKING agent steps toward its next waypoint, then the set is resolved with
  * separateAgents ("make way for each other") and each agent is pushed clear of
  * its objects (pushOutOfDiscs) — so nobody overlaps or crosses a table/stage.
  * O(n²) separation is fine for a wedding's guest count; a spatial grid is the
- * documented v2. Reduced motion snaps everyone to their seat.
+ * documented v2.
+ *
+ * ARRIVALS end in the sit choreography, per agent: reaching the approach point
+ * enqueues the agent for a sit slot; the frame loop drains that queue under the
+ * MAX_ACTIVE_SITS cap with SIT_START_GAP_S between starts, so sits stagger
+ * naturally (guests arrive at different times anyway) and simultaneous
+ * arrivals sit one after another instead of eight chairs scraping back in the
+ * same frame. A finished sit swaps to a plain seated figure at the
+ * controller's exact end transform (its unmount restores the instanced chair —
+ * invisible), and once EVERY agent is seated `onAllArrived` fires so the
+ * parent clears the crowd for the per-seat SeatedAvatars (same transform +
+ * pose — invisible again).
+ *
+ * Reduced motion renders every agent straight in the seated end-state (no
+ * walk, no sit clips, nothing detached) and still fires `onAllArrived` — the
+ * flow always completes.
  */
 function Crowd({
   agents,
   reduced,
+  chairColor,
   onAllArrived,
 }: {
   agents: CrowdAgent[];
   reduced: boolean;
+  /** MUST be the same `palette.wall` the tables' InstancedChairs get, or the
+   *  detached-chair swap flashes a differently-tinted chair. */
+  chairColor: string;
   onAllArrived: () => void;
 }) {
   const groups = useRef<(THREE.Group | null)[]>([]);
@@ -2545,55 +2656,103 @@ function Crowd({
   useEffect(() => {
     reducedRef.current = reduced;
   }, [reduced]);
-  // Fire onAllArrived exactly once per crowd, a short beat AFTER everyone arrives
-  // (lets them stand at the chair before the parent swaps in seated avatars). The
-  // beat is tracked in elapsed-time refs owned by this component, so it resets with
-  // the crowd — no detached timer that could outlive a re-run. Mirror the (stable)
-  // callback into a ref so the frame loop reads it without re-subscribing.
+  // Fire onAllArrived exactly once per crowd — now once every agent's SIT CLIP
+  // has finished (or immediately under reduced motion). Mirror the (stable)
+  // callback into a ref so the frame loop + effects read it without re-arming.
   const firedRef = useRef(false); // onAllArrived already fired for this crowd?
-  const settleAtRef = useRef<number | null>(null); // elapsed when everyone first arrived
   const onAllArrivedRef = useRef(onAllArrived);
   useEffect(() => {
     onAllArrivedRef.current = onAllArrived;
   }, [onAllArrived]);
 
+  // Arrival-sit choreography state. `stage` is React state — flipping an entry
+  // mounts/unmounts that agent's SitController — everything else is frame-loop
+  // bookkeeping in refs (the loop is the only writer).
+  const [stage, setStage] = useState<CrowdStage[]>(() => agents.map(() => 'walk'));
+  const sitQueue = useRef<number[]>([]); // arrived agents awaiting a sit slot (FIFO)
+  const enqueued = useRef<Set<number>>(new Set()); // ever-enqueued guard, per agent index
+  const activeSits = useRef<Set<number>>(new Set()); // agent indices with a live sit clip
+  const lastSitStart = useRef(-Infinity); // elapsed at the most recent sit start
+  const headings = useRef<number[]>([]); // walk heading captured at each arrival
+
   useEffect(() => {
     seg.current = agents.map(() => 0);
     elapsed.current = 0;
     firedRef.current = false;
-    settleAtRef.current = null;
+    sitQueue.current = [];
+    enqueued.current = new Set();
+    activeSits.current = new Set();
+    lastSitStart.current = -Infinity;
+    headings.current = agents.map((a) => a.seat.faceY);
+    setStage(agents.map(() => 'walk'));
     agents.forEach((a, i) => {
       const g = groups.current[i];
       if (!g) return;
-      if (reducedRef.current) {
-        const end = a.path[a.path.length - 1] ?? { x: 0, z: 0 };
-        g.position.set(end.x, 0, end.z);
-        seg.current[i] = a.path.length - 1;
-      } else {
-        const s = a.path[0] ?? { x: 0, z: 0 };
-        g.position.set(s.x, 0, s.z);
-      }
+      const s = a.path[0] ?? { x: 0, z: 0 };
+      g.position.set(s.x, 0, s.z);
     });
-    // Reduced motion snaps everyone straight to their seat → settle immediately
-    // (no walk, so no "stand a beat").
+    // Reduced motion renders everyone straight in the seated end-state (see the
+    // JSX below — no walking groups, no sit clips) → settle immediately, and
+    // the completion callback still fires.
     if (reducedRef.current && agents.length && !firedRef.current) {
       firedRef.current = true;
       onAllArrivedRef.current();
     }
   }, [agents]);
 
+  // Reduced motion flipped ON mid-walk (slice-2 review fix): the frame loop
+  // stops and the JSX renders everyone straight into seats — the completion
+  // contract must STILL fire ("the flow always completes"). The single Walker
+  // handles this case; without this effect the crowd's stage entries stay
+  // 'walk' forever and onAllArrived never runs.
+  useEffect(() => {
+    if (!reduced || firedRef.current || !agents.length) return;
+    firedRef.current = true;
+    setStage(agents.map(() => 'done'));
+    onAllArrivedRef.current();
+  }, [reduced, agents]);
+
+  // An agent's sit clip reached flush-seated: free its concurrency slot and
+  // swap it to the plain seated figure. The controller unmounts on the stage
+  // flip and its cleanup restores the instanced chair at the identical
+  // transform — an invisible swap.
+  const onAgentSeated = useCallback((i: number): void => {
+    activeSits.current.delete(i);
+    setStage((prev) => {
+      if (prev[i] !== 'sit') return prev;
+      const next = prev.slice();
+      next[i] = 'done';
+      return next;
+    });
+  }, []);
+
+  // Every agent seated → hand the room back to the parent (which clears the
+  // crowd for the per-seat SeatedAvatars). Effect, not frame loop: 'done' only
+  // changes via setStage, so this runs exactly when it can newly become true.
+  useEffect(() => {
+    if (firedRef.current || !agents.length) return;
+    if (stage.length === agents.length && stage.every((s) => s === 'done')) {
+      firedRef.current = true;
+      onAllArrivedRef.current();
+    }
+  }, [stage, agents]);
+
   useFrame((_, delta) => {
-    if (reducedRef.current) return; // snapped to seats in the effect above
+    if (reducedRef.current) return; // rendered straight into seats (JSX below)
     elapsed.current += delta;
     const step = 2.0 * delta; // ~2 m/s walk
-    // 1. Each agent steps toward its next waypoint → desired positions.
+    // 1. Each WALKING agent steps toward its next waypoint → desired positions.
+    //    Sitting/seated agents pin their seat position so walkers still give
+    //    them a berth in the separation pass, but their transforms belong to
+    //    the sit controller (or the static seated group) — never committed here.
     const desired: Vec2[] = agents.map((a, i) => {
+      if (stage[i] !== 'walk') return { x: a.seat.x, z: a.seat.z };
       const g = groups.current[i];
-      if (!g) return { x: 0, z: 0 };
+      if (!g) return a.path[0] ?? { x: 0, z: 0 };
       const cur = { x: g.position.x, z: g.position.z };
       if (elapsed.current < a.startDelay) return cur; // not released yet
       const ci = seg.current[i]!;
-      if (ci >= a.path.length - 1) return cur; // arrived
+      if (ci >= a.path.length - 1) return cur; // at the approach point
       const next = a.path[ci + 1]!;
       const dx = next.x - cur.x;
       const dz = next.z - cur.z;
@@ -2607,67 +2766,112 @@ function Crowd({
     });
     // 2. Make way for each other.
     const sep = separateAgents(desired, 0.5);
-    // 3. Each clears its OWN objects, then commit + advance the gait. The old
-    // parent-group y-bob is retired — the kit rig's walkCyclePose carries its
-    // own pelvis bob. The per-agent `+ i` offset (from the old bob) survives
-    // in the phase so strides stay desynchronised across the crowd; a stopped
-    // agent's phase simply freezes ("freeze on arrival", per the kit contract).
+    // 3. Each WALKING agent clears its OWN objects, then commit + advance the
+    // gait. The old parent-group y-bob is retired — the kit rig's walkCyclePose
+    // carries its own pelvis bob. The per-agent `+ i` offset (from the old bob)
+    // survives in the phase so strides stay desynchronised across the crowd; a
+    // stopped agent's phase simply freezes ("freeze on arrival", per the kit
+    // contract) — which is also what a QUEUED agent holds while it waits for a
+    // sit slot. Arrival at the approach point enqueues the agent exactly once.
     agents.forEach((a, i) => {
+      if (stage[i] !== 'walk') return;
       const g = groups.current[i];
       if (!g) return;
+      // QUEUED agents are PINNED (slice-2 review fix): once enqueued they hold
+      // the canonical approach point and skip the separation commit — in a
+      // saturated queue (100+ guests, 8 sit slots) the make-way pass otherwise
+      // shoves waiters off their spot, and the SitController's mount teleports
+      // them back. They still occupy their pinned position in `desired`, so
+      // walkers keep giving them a berth.
+      if (enqueued.current.has(i)) return;
       const p = pushOutOfDiscs(sep[i]!, a.obstacles);
       g.position.x = p.x;
       g.position.z = p.z;
-      const moving = elapsed.current >= a.startDelay && seg.current[i]! < a.path.length - 1;
+      const released = elapsed.current >= a.startDelay;
+      const moving = released && seg.current[i]! < a.path.length - 1;
       if (moving && phases[i]) phases[i]!.current = (elapsed.current + i) * 8;
+      // seg is logical progress (advanced before separation), so a guest nudged
+      // off the exact spot by make-way still counts as arrived — no hang. The
+      // sit clip re-anchors at the canonical approach point anyway.
+      if (released && seg.current[i]! >= a.path.length - 1 && !enqueued.current.has(i)) {
+        enqueued.current.add(i);
+        headings.current[i] = g.rotation.y;
+        sitQueue.current.push(i);
+        // Settle exactly onto the approach point at enqueue time — the last
+        // step landed within one stride of it, so this reads as stopping, and
+        // the later SitController mount starts from the identical transform.
+        const end = a.path[a.path.length - 1];
+        if (end) g.position.set(end.x, 0, end.z);
+      }
     });
-    // 4. Everyone released AND at their final waypoint → settle (once), holding a
-    // ~0.6s beat so they stand at the chair before sitting. seg is logical progress
-    // (advanced before separation), so a guest nudged off the exact spot by make-way
-    // still counts as arrived — no hang.
-    if (!firedRef.current && agents.length) {
-      let all = true;
-      for (let i = 0; i < agents.length; i++) {
-        const a = agents[i]!;
-        if (elapsed.current < a.startDelay || seg.current[i]! < a.path.length - 1) {
-          all = false;
-          break;
-        }
-      }
-      if (!all) {
-        settleAtRef.current = null;
-      } else {
-        if (settleAtRef.current == null) settleAtRef.current = elapsed.current;
-        else if (elapsed.current - settleAtRef.current >= 0.6) {
-          firedRef.current = true;
-          onAllArrivedRef.current();
-        }
-      }
+    // 4. Drain the sit queue under the concurrency budget: at most
+    // MAX_ACTIVE_SITS clips live at once (each detaches a chair + mounts an
+    // ActiveChair), starts spaced SIT_START_GAP_S apart. One start per frame at
+    // most — the gap check re-arms only after lastSitStart moves.
+    if (
+      sitQueue.current.length > 0 &&
+      activeSits.current.size < MAX_ACTIVE_SITS &&
+      elapsed.current - lastSitStart.current >= SIT_START_GAP_S
+    ) {
+      const i = sitQueue.current.shift()!;
+      activeSits.current.add(i);
+      lastSitStart.current = elapsed.current;
+      setStage((prev) => {
+        if (prev[i] !== 'walk') return prev;
+        const next = prev.slice();
+        next[i] = 'sit';
+        return next;
+      });
     }
   });
 
   return (
     <group>
       {agents.map((a, i) => {
-        // Under reduced motion the frame loop never runs, so place the agent AT its
-        // seat right here in the JSX — correct at mount regardless of effect/render
-        // ordering (no reliance on the imperative snap, no one-frame flash). For
-        // normal motion the effect+frame loop own the position (entrance → walk),
-        // so we leave it unset to avoid snapping a mid-walk agent back on re-render.
-        const seat = a.path[a.path.length - 1] ?? { x: 0, z: 0 };
-        const posed: [number, number, number] | undefined = reduced ? [seat.x, 0, seat.z] : undefined;
+        const st: CrowdStage = stage[i] ?? 'walk';
+        // Seated end-state — reduced motion renders it OUTRIGHT (snap, no sit
+        // clip, callbacks fired in the reset effect above); a finished sit
+        // holds it until the whole crowd settles. Transform-identical to both
+        // the sit controller's flush handoff AND the per-seat SeatedAvatar
+        // (chair point nudged FIGURE_NUDGE_M table-ward, facing the gaze), so
+        // every swap along the chain is invisible.
+        if (reduced || st === 'done') {
+          const nx = a.seat.x + Math.sin(a.seat.faceY) * SIT_TIMING.FIGURE_NUDGE_M;
+          const nz = a.seat.z + Math.cos(a.seat.faceY) * SIT_TIMING.FIGURE_NUDGE_M;
+          return (
+            <group key={a.id} position={[nx, 0, nz]} rotation={[0, a.seat.faceY, 0]}>
+              <Figure spec={a.spec} pose="sit" quality={crowdQuality} name={a.name} />
+            </group>
+          );
+        }
+        // Live sit clip — the controller owns the figure + the detached chair.
+        // The turn starts from the REAL walk-in heading captured at arrival.
+        if (st === 'sit') {
+          return (
+            <SitController
+              key={a.id}
+              seat={a.seat}
+              tableId={a.tableId}
+              seatIndex={a.seatIndex}
+              chairColor={chairColor}
+              arriveHeading={headings.current[i]}
+              onSeated={() => onAgentSeated(i)}
+            >
+              {(pose) => <Figure spec={a.spec} pose={pose} quality={crowdQuality} name={a.name} />}
+            </SitController>
+          );
+        }
         return (
-        <group
-          key={a.id}
-          position={posed}
-          ref={(el) => {
-            groups.current[i] = el;
-          }}
-        >
-          {/* The agent IS the guest — kit figure with their outfit / selfie /
-              status spec, gait driven by this agent's own phase ref. */}
-          <Figure spec={a.spec} pose="walk" phase={phases[i] ?? 0} quality={crowdQuality} name={a.name} />
-        </group>
+          <group
+            key={a.id}
+            ref={(el) => {
+              groups.current[i] = el;
+            }}
+          >
+            {/* The agent IS the guest — kit figure with their outfit / selfie /
+                status spec, gait driven by this agent's own phase ref. */}
+            <Figure spec={a.spec} pose="walk" phase={phases[i] ?? 0} quality={crowdQuality} name={a.name} />
+          </group>
         );
       })}
     </group>

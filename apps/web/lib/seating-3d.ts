@@ -138,6 +138,28 @@ export type Lab3DPalette = {
 
 export type Vec2 = { x: number; z: number };
 
+/**
+ * A seat's position + FACING — the direction the seated guest's gaze points
+ * (radians, walkVector's heading convention: yaw θ ↔ world vector (sinθ, cosθ),
+ * so faceY 0 looks down +z). For every shape the gaze points AT the table, so
+ * `-faceY` is "behind the chair" — where a walker stands before sitting
+ * (approachPoint) and where a stand-up animation steps back to.
+ *
+ * ⚠ Convention bridge: this is the GAZE, not the chair-mesh yaw. The instanced
+ * chair renderer (chairPlacements / SerpSeat.faceY) carries the yaw that swings
+ * the BACKREST — local +Z outward, i.e. gaze + π — and the seated `<Figure>`
+ * un-flips it with a `rotation={[0, Math.PI, 0]}` group. SeatPose promotes the
+ * flipped (human) direction so pure-math consumers (walk targets, sit-down
+ * choreography, camera framing) never re-derive that π.
+ */
+export type SeatPose = { x: number; z: number; faceY: number };
+
+/** Normalize an angle into atan2's (−π, π] range so composed facings compare
+ *  cleanly (e.g. local −π/2 + a 270° table spin doesn't return 3π/2). */
+function wrapAngle(a: number): number {
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
 // Free-board default — MUST match the 2D editor's default venue (venue_width_m
 // ?? 20 · venue_length_m ?? 30 in seating-editor.tsx). When they drift, the stage
 // (and everything) scales differently between 2D and 3D — most visibly the stage
@@ -339,28 +361,55 @@ export function tableDims(shape: ShapeHint, capacity: number): { w: number; d: n
 }
 
 /**
- * Local chair centres (metres, table-local, pre-rotation) indexed so that
+ * Local chair POSES (metres + gaze, table-local, pre-rotation) indexed so that
  * chair[seat_number] is the seat a guest's assignment points at. This mirrors
  * the 2D fill convention closely enough for the walk-to-seat target; exact
  * parity with the 2D ring math is a documented v2 refinement.
+ *
+ * `faceY` is the seated guest's gaze (see SeatPose), derived per shape to match
+ * what each renderer actually draws:
+ *   · round — every gaze converges on the table centre: atan2(−x, −z), the
+ *     exact π flip of the chair-yaw `atan2(x, z)` the instanced renderer uses;
+ *   · serpentine — SerpSeat.faceY (the reference implementation, untouched)
+ *     + the same π bridge: outer chairs gaze at the curvature centre, inner
+ *     chairs gaze away from it — both onto the band;
+ *   · sweetheart — the couple faces the room straight-on (+z, faceY 0), not
+ *     the atan2 convergence: two gazes crossing over a 1.1 m table read
+ *     cross-eyed, and every sweetheart render fronts the room;
+ *   · long_banquet / family_head — row seats gaze straight ACROSS the table by
+ *     row sign (−z row looks +z and vice versa), square to the linen the way
+ *     banquet places are laid. No head/end seats exist in this local math yet;
+ *     when they land they gaze down the table axis (faceY ±π/2).
+ *
+ * The return is a structural SUPERSET of the old Vec2[] — position consumers
+ * keep destructuring `{ x, z }` untouched.
  */
-export function chairLocalPositions(shape: ShapeHint, capacity: number): Vec2[] {
-  const out: Vec2[] = [];
+export function chairLocalPositions(shape: ShapeHint, capacity: number): SeatPose[] {
+  const out: SeatPose[] = [];
   // Serpentine rides its own curved arcs (outer + inner), not a full ring.
+  // SerpSeat.faceY is the CHAIR yaw (backrest heading) InstancedChairs composes
+  // directly; the sitter's gaze is its π flip — promote the gaze (SeatPose
+  // contract) so approachPoint lands behind the chair, never on the band.
   if (shape === 'serpentine') {
-    return serpentineChairs(capacity).map((c) => ({ x: c.x, z: c.z }));
+    return serpentineChairs(capacity).map((c) => ({
+      x: c.x,
+      z: c.z,
+      faceY: wrapAngle(c.faceY + Math.PI),
+    }));
   }
   if (shape === 'round') {
     const r = (tableDims(shape, capacity).w || 1.3) / 2 + 0.45;
     for (let i = 0; i < capacity; i++) {
       const a = (i / capacity) * Math.PI * 2 - Math.PI / 2;
-      out.push({ x: Math.cos(a) * r, z: Math.sin(a) * r });
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      out.push({ x, z, faceY: Math.atan2(-x, -z) });
     }
     return out;
   }
   if (shape === 'sweetheart') {
     const xs = capacity <= 1 ? [0] : [-0.32, 0.32];
-    for (let i = 0; i < capacity; i++) out.push({ x: xs[i] ?? 0, z: -0.55 });
+    for (let i = 0; i < capacity; i++) out.push({ x: xs[i] ?? 0, z: -0.55, faceY: 0 });
     return out;
   }
   // long_banquet / family_head: chairs along both long edges, near→far rows.
@@ -373,7 +422,9 @@ export function chairLocalPositions(shape: ShapeHint, capacity: number): Vec2[] 
     const countThisSide = side < 0 ? perSide : capacity - perSide;
     const span = dims.w - 0.6;
     const t = countThisSide <= 1 ? 0.5 : slot / (countThisSide - 1);
-    out.push({ x: -span / 2 + t * span, z: side * edge });
+    // Gaze straight across the table: the −z row looks toward +z (faceY 0),
+    // the +z row looks back toward −z (faceY π).
+    out.push({ x: -span / 2 + t * span, z: side * edge, faceY: side < 0 ? 0 : Math.PI });
   }
   return out;
 }
@@ -391,13 +442,50 @@ export function rotateLocal(p: Vec2, deg: number): Vec2 {
   return { x: p.x * c + p.z * s, z: -p.x * s + p.z * c };
 }
 
-/** World position of a specific seat at a table. */
-export function seatWorld(table: Lab3DTable, seatNumber: number, room: { w: number; d: number }): Vec2 {
+/**
+ * World-space pose of a specific seat at a table: position through the SAME
+ * `pctToWorld` + `rotateLocal` pipeline the meshes use, and facing composed as
+ * world faceY = local faceY + table rotation. rotateLocal spins by the render's
+ * group yaw ry = −rotationDeg (three.js `rotation.y = -deg`), and rotating a
+ * heading vector (sinθ, cosθ) by ry lands on (sin(θ+ry), cos(θ+ry)) — so the
+ * gaze composes by the SAME ry the position does, keeping pose and mesh in
+ * lockstep for any table spin.
+ */
+export function worldSeatPose(
+  table: Lab3DTable,
+  seatNumber: number,
+  room: { w: number; d: number },
+): SeatPose {
   const base = pctToWorld(table.xPct, table.yPct, room);
   const locals = chairLocalPositions(table.shape, table.capacity);
-  const local = locals[Math.max(0, Math.min(locals.length - 1, seatNumber))] ?? { x: 0, z: 0 };
+  const local = locals[Math.max(0, Math.min(locals.length - 1, seatNumber))] ?? { x: 0, z: 0, faceY: 0 };
   const rot = rotateLocal(local, table.rotationDeg);
-  return { x: base.x + rot.x, z: base.z + rot.z };
+  return {
+    x: base.x + rot.x,
+    z: base.z + rot.z,
+    faceY: wrapAngle(local.faceY - (table.rotationDeg * Math.PI) / 180),
+  };
+}
+
+/** World position of a specific seat at a table. Now returns the full SeatPose
+ *  (a structural superset of Vec2) — existing `{ x, z }` consumers are
+ *  untouched, and pose-aware callers get the facing for free. */
+export function seatWorld(table: Lab3DTable, seatNumber: number, room: { w: number; d: number }): SeatPose {
+  return worldSeatPose(table, seatNumber, room);
+}
+
+/**
+ * Where a walker STANDS before sitting (and where a stand-up steps back to):
+ * `distM` out along −faceY — directly behind the chair, since the gaze points
+ * at the table. The 0.55 m default clears the chair footprint (0.42 m box +
+ * body slack) without drifting into a neighbouring table's lane. Pure — the
+ * sit-down choreography steers to this point, turns to faceY, then sits.
+ */
+export function approachPoint(seat: SeatPose, distM = 0.55): Vec2 {
+  return {
+    x: seat.x - Math.sin(seat.faceY) * distM,
+    z: seat.z - Math.cos(seat.faceY) * distM,
+  };
 }
 
 /** Avoidance radius (metres) a walker keeps from a table centre. */

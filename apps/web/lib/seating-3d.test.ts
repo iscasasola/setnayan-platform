@@ -33,6 +33,12 @@ import {
   cocktailObstacles,
   boothApproach,
   boothTypeLabel,
+  chairLocalPositions,
+  worldSeatPose,
+  approachPoint,
+  rotateLocal,
+  serpentineChairs,
+  serpentineBand,
   BOOTH_FOOTPRINT_M,
   type Lab3DFloor,
   type Lab3DTable,
@@ -386,6 +392,151 @@ test('boothTypeLabel: catalog types get their human label, unknown kinds title-c
   assert.equal(boothTypeLabel('unassigned'), 'Booth');
   // A future/unknown type still reads (title-cased slug), never throws.
   assert.equal(boothTypeLabel('coffee_cart'), 'Coffee Cart');
+});
+
+// ── SeatPose facing (promoted into the pure engine) ─────────────────────────
+// faceY is the seated guest's GAZE in walkVector's heading convention: yaw θ ↔
+// world vector (sinθ, cosθ). These helpers compare facings as vectors so ±π
+// wrap never produces a false failure.
+const headingOf = (faceY: number) => ({ x: Math.sin(faceY), z: Math.cos(faceY) });
+const nearVec = (a: { x: number; z: number }, b: { x: number; z: number }, eps = 1e-9) =>
+  Math.hypot(a.x - b.x, a.z - b.z) < eps;
+
+test('SeatPose round: every gaze converges on the table centre (3 o\'clock seat faces 9 o\'clock)', () => {
+  const poses = chairLocalPositions('round', 8);
+  assert.equal(poses.length, 8);
+  for (const p of poses) {
+    // Gaze = the unit vector from the seat back at the local origin.
+    const len = Math.hypot(p.x, p.z);
+    assert.ok(nearVec(headingOf(p.faceY), { x: -p.x / len, z: -p.z / len }), 'gaze points at the table centre');
+  }
+  // Clock check on the top-down canvas (12 o'clock = −z): seat index cap/4 sits
+  // at 3 o'clock (+x) and must look at 9 o'clock (−x) — faceY −π/2.
+  const three = poses[2]!;
+  assert.ok(three.x > 0 && Math.abs(three.z) < 1e-9, 'seat 2 of 8 is the 3 o\'clock chair');
+  assert.ok(nearVec(headingOf(three.faceY), { x: -1, z: 0 }), '3 o\'clock seat faces 9 o\'clock');
+});
+
+test('SeatPose sweetheart: the couple faces the room straight-on (+z)', () => {
+  for (const p of chairLocalPositions('sweetheart', 2)) {
+    assert.equal(p.faceY, 0, 'sweetheart gaze is exactly +z');
+    assert.ok(p.z < 0, 'the couple sits behind the table (−z), looking over it');
+  }
+});
+
+test('SeatPose banquet rows: seats gaze straight across the table by row sign', () => {
+  for (const shape of ['long_banquet', 'family_head'] as const) {
+    for (const cap of [7, 8]) {
+      const poses = chairLocalPositions(shape, cap);
+      assert.equal(poses.length, cap);
+      for (const p of poses) {
+        if (p.z < 0) assert.ok(nearVec(headingOf(p.faceY), { x: 0, z: 1 }), `${shape} −z row looks +z`);
+        else assert.ok(nearVec(headingOf(p.faceY), { x: 0, z: -1 }), `${shape} +z row looks −z`);
+      }
+      // Both rows are actually populated (facing rule exercises both signs).
+      assert.ok(poses.some((p) => p.z < 0) && poses.some((p) => p.z > 0));
+    }
+  }
+});
+
+test('serpentineChairs regression: reference values unchanged (positions + chair-yaw faceY)', () => {
+  // The serpentine is the REFERENCE facing implementation — this pins its exact
+  // output (recomputed from the locked band constants: RI 0.95 · RO 1.55 ·
+  // 104° sweep · 0.5 m chair gap · outer-first fill 3+2) so the SeatPose
+  // promotion provably did not move a single chair or spin a single backrest.
+  const SWEEP = (104 * Math.PI) / 180;
+  const { centre } = serpentineBand();
+  const expectAlong = (count: number, r: number, inset: number, outward: boolean) => {
+    const half = SWEEP / 2 - inset;
+    const seats: { x: number; z: number; faceY: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      const phi = count === 1 ? 0 : -half + (2 * half * i) / (count - 1);
+      const p = { x: r * Math.sin(phi), z: -r * Math.cos(phi) };
+      const faceY = outward ? Math.atan2(p.x, p.z) : Math.atan2(-p.x, -p.z);
+      seats.push({ x: p.x + centre.x, z: p.z + centre.z, faceY });
+    }
+    return seats;
+  };
+  const expected = [
+    ...expectAlong(3, 1.55 + 0.5, 0.18, true),
+    ...expectAlong(2, 0.95 - 0.5, 0.36, false),
+  ];
+  const got = serpentineChairs(5);
+  assert.equal(got.length, expected.length);
+  for (let i = 0; i < expected.length; i++) {
+    assert.ok(Math.abs(got[i]!.x - expected[i]!.x) < 1e-12, `seat ${i} x unchanged`);
+    assert.ok(Math.abs(got[i]!.z - expected[i]!.z) < 1e-12, `seat ${i} z unchanged`);
+    assert.ok(Math.abs(got[i]!.faceY - expected[i]!.faceY) < 1e-12, `seat ${i} faceY unchanged`);
+  }
+});
+
+test('SeatPose serpentine: same chairs as the reference, gaze = the π flip of the chair yaw, onto the band', () => {
+  const ref = serpentineChairs(5);
+  const poses = chairLocalPositions('serpentine', 5);
+  const { centre } = serpentineBand();
+  assert.equal(poses.length, ref.length);
+  for (let i = 0; i < ref.length; i++) {
+    // Positions are the reference's, byte-for-byte.
+    assert.equal(poses[i]!.x, ref[i]!.x);
+    assert.equal(poses[i]!.z, ref[i]!.z);
+    // SerpSeat.faceY is the chair yaw (backrest heading) the instanced renderer
+    // consumes; the promoted pose carries the sitter's GAZE — its exact π flip,
+    // the same flip SeatedAvatar applies to the figure rig.
+    const back = headingOf(ref[i]!.faceY);
+    assert.ok(nearVec(headingOf(poses[i]!.faceY), { x: -back.x, z: -back.z }), `seat ${i} gaze = backrest + π`);
+  }
+  // Semantics: outer chairs (first 3) gaze AT the curvature centre — onto the
+  // band; inner chairs (last 2) gaze away from it — also onto the band.
+  for (let i = 0; i < poses.length; i++) {
+    const p = poses[i]!;
+    const toCentre = { x: centre.x - p.x, z: centre.z - p.z };
+    const len = Math.hypot(toCentre.x, toCentre.z);
+    const want = i < 3
+      ? { x: toCentre.x / len, z: toCentre.z / len }
+      : { x: -toCentre.x / len, z: -toCentre.z / len };
+    assert.ok(nearVec(headingOf(p.faceY), want, 1e-9), `seat ${i} gazes onto the band`);
+  }
+});
+
+test('worldSeatPose: rotation composes facing by the same yaw the mesh gets (90° spin shifts every gaze 90°)', () => {
+  const room = { w: 20, d: 20 };
+  const spun: Lab3DTable = { ...table('A', 50, 50), rotationDeg: 90 };
+  const flat: Lab3DTable = { ...spun, rotationDeg: 0 };
+  for (let s = 0; s < spun.capacity; s++) {
+    const local = chairLocalPositions(spun.shape, spun.capacity)[s]!;
+    const world = worldSeatPose(spun, s, room);
+    // Position parity with the existing seatWorld pipeline (unchanged math).
+    const viaSeatWorld = seatWorld(spun, s, room);
+    assert.deepEqual({ x: world.x, z: world.z }, { x: viaSeatWorld.x, z: viaSeatWorld.z });
+    assert.equal(viaSeatWorld.faceY, world.faceY, 'seatWorld carries the same promoted facing');
+    // The gaze vector rotates by EXACTLY the transform the chair mesh gets —
+    // rotateLocal is the render-parity rotation, so run the local gaze through it.
+    const wantHeading = rotateLocal(headingOf(local.faceY), spun.rotationDeg);
+    assert.ok(nearVec(headingOf(world.faceY), wantHeading), `seat ${s} gaze follows the table spin`);
+    // And the unrotated table keeps the local facing untouched.
+    assert.ok(nearVec(headingOf(worldSeatPose(flat, s, room).faceY), headingOf(local.faceY)));
+  }
+});
+
+test('approachPoint: distM behind the chair, on the far side from the table', () => {
+  // Hand-checkable case: a seat 2 m up-canvas (−z) of a table at the origin
+  // gazes +z back at it (faceY 0) — so "behind the chair" is further −z.
+  const seat = { x: 0, z: -2, faceY: 0 };
+  assert.deepEqual(approachPoint(seat, 0.5), { x: 0, z: -2.5 }, 'walker stands 0.5 m behind the chair');
+  // Default distance is 0.55 m.
+  const def = approachPoint(seat);
+  assert.ok(Math.abs(def.z - -2.55) < 1e-12 && def.x === 0);
+  // Real geometry: every round seat's approach point is FARTHER from the table
+  // centre than the seat itself (never on the tabletop), on the seat's radial.
+  const room = { w: 20, d: 20 };
+  const t = table('A', 50, 50);
+  for (let s = 0; s < t.capacity; s++) {
+    const pose = worldSeatPose(t, s, room);
+    const ap = approachPoint(pose);
+    const seatDist = Math.hypot(pose.x, pose.z);
+    const apDist = Math.hypot(ap.x, ap.z);
+    assert.ok(Math.abs(apDist - (seatDist + 0.55)) < 1e-9, `seat ${s} approach sits 0.55 m further out on the radial`);
+  }
 });
 
 test('boothApproach: walk-up point sits outside the booth avoidance ring, on the room-centre side, facing the booth', () => {

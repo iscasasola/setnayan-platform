@@ -24,6 +24,15 @@
  * roughness map. `quality` picks the shadow/env budget: the desktop overlay
  * runs 'high' (2048 shadow map), the phone walk 'low' (1024 / 128 env).
  *
+ * Figures (kit slice 1): guests render as the shared articulated figure kit
+ * (`./kit` — the owner-locked "Sims-like" direction) instead of the original
+ * cylinder+sphere tokens. Seated guests STAND at their seats for now (the
+ * animated sit pose is slice 2) in side-derived Filipino formalwear
+ * (gown/filipiniana · suit/barong, deterministic per guest id), and the
+ * walker is a walk-cycle figure phased by the same bob clock as before. The
+ * crowd inherits the scene `quality` knob ('low' bakes static poses on the
+ * phone); the single player figure always runs 'high'.
+ *
  * ROAM mode (owner 2026-07-03 "show my seat OR walk around the event"): when
  * `roam` is set, the guest's figure stands in the room and every tap on the
  * floor steers them there — same `steerPath` obstacle avoidance and the same
@@ -81,7 +90,8 @@ import { useLookGesture, type LookState } from '@/app/_components/plan3d/use-loo
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
-import { GuestPhotoAvatar, preloadGuestPhotos } from './guest-avatar';
+import { preloadGuestPhotos } from './guest-avatar';
+import { Figure, type FigureSpec, type FigureQuality } from './kit';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import {
   SceneLighting,
@@ -161,47 +171,113 @@ function TableMesh({
   );
 }
 
+// ── Kit-figure crowd (replaces the cylinder+sphere GuestToken) ───────────────
+
+/**
+ * Invisible click volume over each guest figure. The articulated kit figure's
+ * thin limbs are a far harder raycast target than the old chunky token
+ * (body cylinder r 0.19 spanning y 0.46–0.96 + head sphere to ≈1.21), and the
+ * QR-minting click must NOT get harder — so a hit cylinder at least as large
+ * as the whole old token (r 0.22 × 1.5 m, floor to above the head) catches
+ * the pointer instead. Module-scope shared buffers, the kit's own budget rule.
+ */
+const GUEST_HIT_GEO = new THREE.CylinderGeometry(0.22, 0.22, 1.5, 10);
+
+// Hover affordance: the kit's materials are module-cached ACROSS figures, so
+// the old per-mesh emissive tint would light every same-coloured guest at
+// once. The highlight moved onto the (per-guest) hit volume instead — a faint
+// status-coloured shell. Keyed cache stays tiny (three side colours).
+const hoverMats = new Map<string, THREE.MeshBasicMaterial>();
+function hoverMaterial(color: string): THREE.MeshBasicMaterial {
+  let m = hoverMats.get(color);
+  if (!m) {
+    m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16, depthWrite: false });
+    hoverMats.set(color, m);
+  }
+  return m;
+}
+
+/**
+ * FNV-1a 32-bit over the guest id — the SAME tiny stable-hash recipe the kit
+ * uses internally for looks (resolveFigureLook). Deliberately re-stated here
+ * rather than exported from the kit: WHICH outfits a side alternates through
+ * is demo-scene policy, not figure-kit policy, so the scene owns the bits it
+ * reads. Stability is the requirement — a guest must wear the same outfit on
+ * every visit, on both the desktop overlay and the phone walk.
+ */
+function hashGuestId(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+// Side → wardrobe alternation so the demo crowd reads as a real PH wedding:
+// bride-side guests alternate gown/filipiniana, groom-side suit/barong, and
+// 'both' (shared friends/family) cycle all four. Derived ONLY from the
+// existing Plan3DGuest fields (id + side) — the demo guest type stays narrow.
+const BRIDE_SIDE_OUTFITS: readonly FigureSpec['outfit'][] = ['gown', 'filipiniana'];
+const GROOM_SIDE_OUTFITS: readonly FigureSpec['outfit'][] = ['suit', 'barong'];
+const BOTH_SIDES_OUTFITS: readonly FigureSpec['outfit'][] = ['gown', 'suit', 'barong', 'filipiniana'];
+
+/** Deterministic outfit per guest. Reads a HIGH bit window (h >>> 16) so the
+ *  choice doesn't correlate with the kit's look fields, which hash the LOW
+ *  bits (skin tone = h % 6 — sharing parity would give every gown-wearer the
+ *  same skin-tone subset). */
+function outfitForGuest(g: Plan3DGuest): FigureSpec['outfit'] {
+  const h = hashGuestId(g.id) >>> 16;
+  if (g.side === 'bride') return BRIDE_SIDE_OUTFITS[h % BRIDE_SIDE_OUTFITS.length]!;
+  if (g.side === 'groom') return GROOM_SIDE_OUTFITS[h % GROOM_SIDE_OUTFITS.length]!;
+  return BOTH_SIDES_OUTFITS[h % BOTH_SIDES_OUTFITS.length]!;
+}
+
 function GuestToken({
   position,
-  color,
+  heading,
+  spec,
   name,
-  photoUrl,
+  quality,
   onClick,
 }: {
   position: Vec2;
-  color: string;
+  /** Facing (radians) — each figure looks toward its own table's centre. */
+  heading: number;
+  spec: FigureSpec;
   name: string;
-  photoUrl?: string | null;
+  /** Crowd budget knob: mirrors the scene's lighting quality — the phone walk
+   *  runs 'low' (static baked pose), the desktop overlay 'high' (idle sway). */
+  quality: FigureQuality;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <group
-      position={[position.x, 0, position.z]}
-      onClick={onClick}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        if (onClick) setHovered(true);
-      }}
-      onPointerOut={() => setHovered(false)}
-    >
-      {/* Seated at chair height (0.46 m seat) now the tables are product-true
-          0.74 m — same proportions as the lab's SeatedAvatar. */}
-      <mesh position={[0, 0.71, 0]} castShadow>
-        <cylinderGeometry args={[0.16, 0.19, 0.5, 10]} />
-        <meshStandardMaterial color={color} roughness={0.5} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
-      </mesh>
-      {photoUrl ? (
-        // Instant guest recognition: the guest's photo billboards where the head
-        // would be. Shared cache/fallback keeps big guest lists fast. (The
-        // billboard disc must NOT cast a shadow — it would shadow as a circle.)
-        <GuestPhotoAvatar photoUrl={photoUrl} name={name} ringColor={color} height={1.12} radius={0.18} />
-      ) : (
-        <mesh position={[0, 1.06, 0]} castShadow>
-          <sphereGeometry args={[0.15, 12, 12]} />
-          <meshStandardMaterial color={color} roughness={0.5} emissive={hovered ? color : '#000000'} emissiveIntensity={hovered ? 0.35 : 0} />
-        </mesh>
-      )}
+    <group position={[position.x, 0, position.z]} rotation={[0, heading, 0]}>
+      {/* Slice 1 keeps the crowd STANDING at their seats (the animated sit
+          pose is slice 2) — the exact world position the old token occupied,
+          so QR clicks, camera framing and roam obstacles are unchanged. The
+          selfie/photo path and side-colour ring live inside the kit figure. */}
+      <Figure spec={spec} pose="stand" quality={quality} name={name} />
+      {onClick ? (
+        // PERF: the hit cylinder is `visible` only while hovered (when it doubles
+        // as the hover shell). three's Raycaster never tests object.visible, so
+        // pointer events keep firing on the invisible mesh — but an always-
+        // rendered opacity-0 material would still cost a full-figure-height
+        // alpha-blended draw call per guest for literally no pixels.
+        <mesh
+          geometry={GUEST_HIT_GEO}
+          material={hoverMaterial(spec.statusColor)}
+          visible={hovered}
+          position={[0, 0.75, 0]}
+          onClick={onClick}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHovered(true);
+          }}
+          onPointerOut={() => setHovered(false)}
+        />
+      ) : null}
     </group>
   );
 }
@@ -318,13 +394,17 @@ const LOOK_RELEASE_MS = 2600;
 
 function Walker({
   walk,
-  color,
+  spec,
+  name,
   posRef,
   look,
   reducedMotion,
 }: {
   walk: WalkState;
-  color: string;
+  /** The player figure's dressing — same spec the guest wears seated, so
+   *  walking to your seat never re-dresses you. */
+  spec: FigureSpec;
+  name?: string;
   /** Live walker position, shared out so roam taps can path FROM wherever the figure stands. */
   posRef?: React.MutableRefObject<Vec2 | null>;
   /** Shared swipe-to-look state (yaw offset + pitch + last-look timestamp). When
@@ -337,6 +417,12 @@ function Walker({
   const headingRef = useRef<number | null>(null);
   const bobRef = useRef(0);
   const camReady = useRef(false);
+  // Arrived → the figure eases walk → stand (the kit blends presets over ~⅓ s).
+  // Without this the gait clock freezes but the pose stays 'walk', holding an
+  // arbitrary mid-stride forever — exactly the "frozen mid-stride reads like a
+  // glitch" the kit's reduced-motion note warns about. The lab Walker has the
+  // same atSeat → 'stand' blend; roam stops between floor taps get it too.
+  const [atRest, setAtRest] = useState(false);
   // The user's applied yaw offset, blended toward `look.yawOffset` while they're
   // actively looking and eased back to 0 once they stop — kept separate from the
   // raw ref so the ease-back is smooth regardless of frame rate.
@@ -349,6 +435,15 @@ function Walker({
     () => walk.obstacles.map((d) => ({ c: d.c, r: d.r + AVATAR_BODY_R })),
     [walk.obstacles],
   );
+
+  // Each NEW walk (fresh scripted target, every roam floor tap) restarts the
+  // gait and re-arms the completion callback. <Walker> stays mounted across
+  // walks (same element position), so these must reset per walk-state object,
+  // not per mount.
+  useEffect(() => {
+    firedRef.current = false;
+    setAtRest(false);
+  }, [walk]);
 
   useFrame(({ camera }, delta) => {
     const raw = Math.min(1, (performance.now() - walk.startedAt) / walk.durationMs);
@@ -399,13 +494,17 @@ function Walker({
     }
     const camH = h + lookYaw;
 
-    // Subtle walk bob while moving; settles to the floor on arrival. Honoured off
-    // under reduced motion (the person still relocates, just no bob animation).
+    // The walk-cycle clock, now shared with the kit <Figure> as its gait
+    // phase: advances ~9 rad/s while the walk is live and FREEZES on arrival,
+    // so the limbs stop swinging exactly when the figure stops translating.
+    // The rig's own pelvisY carries the bob these days (walkCyclePose), so the
+    // group stays ON the floor — no more whole-body hop. Reduced motion never
+    // reads the clock: the kit bakes a neutral stand in that mode, and the
+    // figure still relocates so the flow completes.
     bobRef.current += delta * (raw < 1 ? 9 : 0);
-    const bob = raw < 1 && !reducedMotion ? Math.abs(Math.sin(bobRef.current)) * 0.045 : 0;
 
     if (groupRef.current) {
-      groupRef.current.position.set(p.x, bob, p.z);
+      groupRef.current.position.set(p.x, 0, p.z);
       groupRef.current.rotation.y = h; // the avatar always faces its walk heading
     }
 
@@ -426,20 +525,21 @@ function Walker({
 
     if (raw >= 1 && !firedRef.current) {
       firedRef.current = true;
+      setAtRest(true); // pose eases walk → stand (kit damp blend)
       walk.onComplete?.();
     }
   });
 
   return (
     <group ref={groupRef}>
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <cylinderGeometry args={[0.16, 0.19, 0.5, 10]} />
-        <meshStandardMaterial color={color} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 0.92, 0]} castShadow>
-        <sphereGeometry args={[0.15, 12, 12]} />
-        <meshStandardMaterial color={color} roughness={0.5} />
-      </mesh>
+      {/* The articulated player figure. `phase` takes the bobRef CLOCK itself
+          (a ref — the figure reads .current inside its own useFrame, no React
+          re-render per frame), so limbs swing while the group moves and hold
+          the instant the clock freezes on arrival. Always quality 'high':
+          there is exactly ONE player figure and it owns the camera — the
+          crowd, not the player, is the phone budget knob. On arrival the pose
+          eases into 'stand' so the figure never holds a frozen stride. */}
+      <Figure spec={spec} name={name} pose={atRest ? 'stand' : 'walk'} phase={bobRef} quality="high" />
     </group>
   );
 }
@@ -502,6 +602,31 @@ export function Plan3DScene({
     () => (rolePalette ? resolvePaletteFromRoles(rolePalette) : NEUTRAL_PALETTE),
     [rolePalette],
   );
+  // Attire motif colours — the LAB's exact resolution chain (seating lab
+  // page.tsx): gowns/filipinianas take the wedding-party (else bride) attire
+  // colour, suits take the groom colour. Unlike the lab we fall through to
+  // NULL rather than blush/charcoal: the kit ships a tasteful default cloth
+  // per outfit, and the demo's untoggled (no-palette) view should wear those.
+  const gownColor = rolePalette?.wedding_party?.[0] ?? rolePalette?.bride?.[0] ?? null;
+  const suitColor = rolePalette?.groom?.[0] ?? null;
+  // One FigureSpec per guest, shared by the seated crowd AND the walker so a
+  // guest never re-dresses when they get up to walk. `statusColor` keeps the
+  // existing side-colour semantics (SIDE_COLOR — now the kit's ring/photo-ring
+  // hue instead of the whole token body).
+  const figureSpecs = useMemo(() => {
+    const m = new Map<string, FigureSpec>();
+    for (const g of guests) {
+      const outfit = outfitForGuest(g);
+      m.set(g.id, {
+        id: g.id,
+        outfit,
+        outfitColor: outfit === 'gown' || outfit === 'filipiniana' ? gownColor : suitColor,
+        photoUrl: g.photoUrl,
+        statusColor: SIDE_COLOR[g.side],
+      });
+    }
+    return m;
+  }, [guests, gownColor, suitColor]);
   // Wave 2b: room archetype + its floor/background tints. `venueSetting` is
   // independent of the mood-board toggle — the archetype room shows either way.
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
@@ -788,13 +913,18 @@ export function Plan3DScene({
         const table = tablesById.get(g.tableId);
         if (!table) return null;
         const pos = seatWorld(table, g.seatNumber ?? 0, room);
+        // Face the figure toward its own table centre — a standing-at-seat
+        // crowd all staring the same way reads wrong; heading was meaningless
+        // on the old rotationally-symmetric token, so nothing else changes.
+        const tableCentre = pctToWorld(table.xPct, table.yPct, room);
         return (
           <GuestToken
             key={g.id}
             position={pos}
-            color={SIDE_COLOR[g.side]}
+            heading={Math.atan2(tableCentre.x - pos.x, tableCentre.z - pos.z)}
+            spec={figureSpecs.get(g.id)!}
             name={g.name}
-            photoUrl={g.photoUrl}
+            quality={quality}
             onClick={
               interactive && onGuestClick
                 ? (e) => {
@@ -827,7 +957,19 @@ export function Plan3DScene({
       {walk ? (
         <Walker
           walk={walk}
-          color={roamGuest ? SIDE_COLOR[roamGuest.side] : walkGuest ? SIDE_COLOR[walkGuest.side] : palette.accent}
+          // The walking/roaming guest keeps the exact spec they wear seated.
+          // A walk state with no matching guest (the roam step-in doesn't
+          // structurally require one) falls back to a neutral kit figure in
+          // the palette accent — the old `palette.accent` token, re-expressed.
+          spec={
+            (roamGuest ?? walkGuest ? figureSpecs.get((roamGuest ?? walkGuest)!.id) : undefined) ?? {
+              id: 'plan3d-walker',
+              outfit: 'neutral',
+              outfitColor: null,
+              statusColor: palette.accent,
+            }
+          }
+          name={(roamGuest ?? walkGuest)?.name}
           posRef={walkerPosRef}
           // Swipe-to-look only steers the roam chase camera; the scripted seat
           // walk keeps its cinematic auto-facing (no look ref passed then).

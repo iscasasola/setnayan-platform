@@ -15,10 +15,19 @@
  * view near top-down while arranging (Sims-style) and frees to a cinematic
  * orbit in Play mode. Mood-board palette drives lighting + materials.
  *
+ * Guests render as articulated kit `<Figure>`s (app/_components/plan3d/kit —
+ * the owner-locked "Sims-like" direction): seated guests, the single walk-in,
+ * the populate-Play crowd AND swap movers all carry the SAME per-guest spec
+ * (resolved attire incl. hash-derived barong/filipiniana, mood-board motif
+ * colour, selfie head, RSVP status colour), so the person who walks is the
+ * person who sits.
+ *
  * Performance: DPR capped, lightweight waypoint steering, per-table
  * InstancedChairs (2 draw calls a table — the Wave 2a instancing collapse),
  * real soft shadow maps via the shared SceneLighting rig ('high' quality:
- * 2048 map + procedural Lightformer IBL, no HDRI/network assets).
+ * 2048 map + procedural Lightformer IBL, no HDRI/network assets), and a
+ * two-part seated-figure budget (total guests > 60 OR table > 8 m from the
+ * camera → kit quality 'low', static baked pose — see TableMesh).
  * GLTF furniture + NavMesh + post-processing remain the v2 upgrades.
  * Known v1 limit: a FREE board (no venue size) maps 0–100% onto a fixed room,
  * so widely-spread tables (percent > 100) can render off the visible floor —
@@ -31,7 +40,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
+import { Figure, type FigureSpec, type FigureQuality } from '@/app/_components/plan3d/kit';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
@@ -192,78 +201,126 @@ function deriveSeatsFromGuests(guests: Lab3DGuest[]): Map<string, SeatRef> {
 const PEDESTAL_GEO = new THREE.CylinderGeometry(0.12, 0.16, 0.72, 12);
 const GHOST_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
 const GHOST_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
-// Real-furniture parts (shared buffers): a seated guest = body + head; a
-// centerpiece = vase + bloom.
+// Real-furniture parts (shared buffers). The old cylinder+sphere guest tokens
+// (and their GOWN_GEO/SUIT_GEO attire silhouettes) are retired — guests now
+// render as articulated kit `<Figure>`s (the shared plan3d/kit rig, which
+// carries the gown/suit buffers itself). The plain token body/head survive
+// ONLY for the "+1 reserved" ghost, which needs per-mesh transparency the
+// kit's shared material caches deliberately don't offer.
 const TOKEN_BODY_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
 const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.12, 12, 12);
-// Attire silhouettes for seated guests: a gown flares to a wide skirt, a suit is
-// a straighter tapered torso. They swap in for the plain body when a guest's
-// resolved attire calls for it (motif-coloured via the body material).
-const GOWN_GEO = new THREE.CylinderGeometry(0.08, 0.26, 0.56, 16);
-const SUIT_GEO = new THREE.CylinderGeometry(0.13, 0.18, 0.5, 12);
 const VASE_GEO = new THREE.CylinderGeometry(0.085, 0.12, 0.24, 10);
 const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
+
+/**
+ * FNV-1a 32-bit over the guest id — a local copy of figure-rig's (private)
+ * hash. Deliberately independent: the kit reads its own bit windows for
+ * skin/hair/face, and hashing here with a separate function decorrelates the
+ * OUTFIT variant from the look fields (same-id guests still resolve stably).
+ */
+function outfitHash(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Map a guest's resolved attire class onto the kit's outfit vocabulary.
+ * The guest schema only stores gown/suit/neutral (`lib/guests.ts` — no schema
+ * change here); the Filipino-formalwear variants are CODE-DERIVED inside each
+ * class by id hash, so roughly a third of suits arrive as barong and a third
+ * of gowns as filipiniana — stable per guest, varied across a crowd.
+ */
+function outfitVariantFor(attire: Lab3DGuest['attire'], id: string): FigureSpec['outfit'] {
+  if (attire === 'suit') return outfitHash(id) % 3 === 0 ? 'barong' : 'suit';
+  if (attire === 'gown') return outfitHash(id) % 3 === 0 ? 'filipiniana' : 'gown';
+  return 'neutral';
+}
+
+/**
+ * The kit FigureSpec for one guest — the ONE place the lab translates its
+ * guest row into the shared figure vocabulary, so seated figures and every
+ * mover (walk-in, crowd, swap) dress identically: outfit from the resolved
+ * attire (+ hash-derived barong/filipiniana), motif colour from the
+ * mood-board gown/suit chain, selfie through the kit's GuestPhotoAvatar
+ * path, RSVP/side semantics as the status colour.
+ */
+function figureSpecFor(g: Lab3DGuest, statusColor: string): FigureSpec {
+  return {
+    id: g.id,
+    outfit: outfitVariantFor(g.attire, g.id),
+    outfitColor: g.attireColor,
+    photoUrl: g.photoUrl ?? null,
+    statusColor,
+  };
+}
 
 /** Per-seat token treatment computed from a guest's RSVP (see lib seatStatusOf). */
 type SeatToken = {
   color: string;
   opacity: number;
   name: string;
-  photoUrl?: string | null;
-  attire?: 'gown' | 'suit' | 'neutral';
-  attireColor?: string | null;
+  /** Full kit figure spec for a REAL guest. null = the "+1 reserved" ghost,
+   *  which keeps the legacy translucent token (the kit's shared material
+   *  caches have no per-figure opacity, and a ghost SHOULD read as a
+   *  placeholder, not a person). */
+  spec: FigureSpec | null;
 };
 
-/** A guest's token colour/opacity, or null when their seat is freed (declined). */
+/** A guest's token colour/opacity + figure spec, or null when their seat is
+ *  freed (declined). Tentative RSVPs keep their colour semantic through the
+ *  figure's status ring / selfie ring (the old 0.62-opacity body treatment
+ *  can't thread through the kit's shared materials). */
 function guestTokenStyle(g: Lab3DGuest): SeatToken | null {
   const status = seatStatusOf(g.rsvp);
   if (status === 'hidden') return null;
+  const color = status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR;
   return {
-    color: status === 'confirmed' ? SIDE_COLOR[g.side] : TENTATIVE_COLOR,
+    color,
     opacity: status === 'confirmed' ? 1 : 0.62,
     name: g.name,
-    photoUrl: g.photoUrl,
-    attire: g.attire,
-    attireColor: g.attireColor,
+    spec: figureSpecFor(g, color),
   };
 }
 
 /**
- * A seated guest: a coloured body token, topped by the guest's selfie as a
- * camera-facing disc (ringed in their RSVP colour) when a photo is available,
- * else the plain coloured head. The photo disc + its texture caching now come
- * from the shared `GuestPhotoAvatar` (module-level refcounted texture cache),
- * so a big guest list shares one decode per URL and failures don't retry-storm.
+ * A seated guest — now an articulated kit `<Figure>` carrying the guest's
+ * outfit, deterministic look, selfie head (the kit routes photoUrl through
+ * the SAME shared GuestPhotoAvatar refcounted texture cache as before) and
+ * RSVP status colour. SLICE-2 NOTE: figures stand at their seat in the idle
+ * 'stand' pose exactly where the old tokens floated — the sit pose (and the
+ * chair-clearance choreography it needs) is the next slice.
+ *
+ * The "+1 reserved" ghost (spec null) keeps the legacy translucent
+ * body+head token: it's a placeholder for a person who doesn't exist yet.
  */
-function SeatedAvatar({ tok, bodyMat }: { tok: SeatToken; bodyMat: THREE.Material }) {
-  // Attire-driven silhouette: gown / suit / plain token. Gown sits a touch
-  // higher so the flared skirt clears the chair seat.
-  const bodyGeo = tok.attire === 'gown' ? GOWN_GEO : tok.attire === 'suit' ? SUIT_GEO : TOKEN_BODY_GEO;
-  const bodyY = tok.attire === 'gown' ? 0.72 : 0.7;
+function SeatedAvatar({ tok, bodyMat, quality }: { tok: SeatToken; bodyMat: THREE.Material; quality: FigureQuality }) {
+  if (tok.spec) {
+    return (
+      // Chair-local facing: chairPlacements' faceY points local +Z OUTWARD
+      // (away from the table — that's how the backrest offset swings), while
+      // the rig's forward is local +Z. The π flip turns the figure to face
+      // the table like a guest at their place setting.
+      <group position={[0, 0, -0.04]} rotation={[0, Math.PI, 0]}>
+        <Figure spec={tok.spec} pose="stand" quality={quality} name={tok.name} />
+      </group>
+    );
+  }
   return (
     <group position={[0, 0, -0.04]}>
-      <mesh geometry={bodyGeo} position={[0, bodyY, 0]} material={bodyMat} castShadow />
-      {tok.photoUrl ? (
-        // Shared photo disc: billboarded selfie, ringed in the RSVP colour, with
-        // an initials fallback baked in if the texture fails to load. The disc
-        // must NOT cast a shadow — a billboard would shadow as a floating circle.
-        <GuestPhotoAvatar
-          photoUrl={tok.photoUrl}
-          name={tok.name}
-          ringColor={tok.color}
-          height={1.04}
-          radius={0.15}
-          opacity={tok.opacity}
-        />
-      ) : (
-        <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} castShadow />
-      )}
+      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={bodyMat} castShadow />
+      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} castShadow />
     </group>
   );
 }
 
-// A guest token animating between seats during a swap / table-swap.
-type Mover = { gid: string; color: string; opacity: number; path: Vec2[]; target: SeatRef };
+// A guest figure animating between seats during a swap / table-swap — dressed
+// with the same spec as its seated self, so the person who walks IS the
+// person who sat.
+type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target: SeatRef };
 
 export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
   const router = useRouter();
@@ -482,6 +539,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // (not just the fixed venue rectangle). Drives OrbitControls maxDistance.
   const bounds = useMemo(() => contentBounds(tables, room), [tables, room]);
 
+  // One SeatToken (colour + FigureSpec) per guest, memoised on the guest rows
+  // ONLY — walker/crowd/mover/seat state changes must NOT mint fresh spec
+  // identities, or every seated <Figure>'s React.memo (and any future
+  // equality-based skip) is defeated exactly when an animation starts. Every
+  // consumer below (seated map, walk-in, crowd, movers) reads from this map.
+  const tokenByGuest = useMemo(() => {
+    const m = new Map<string, SeatToken | null>();
+    for (const g of guests) m.set(g.id, guestTokenStyle(g));
+    return m;
+  }, [guests]);
+
   // Per-table, per-seat token treatment from each seated guest's RSVP, plus a
   // ghost "+1 reserved" seat beside any guest the couple allowed a +1 whose +1
   // isn't already a seated row. Declined guests aren't rendered (seat freed).
@@ -510,7 +578,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (g.plusOneOfGuestId) plusOneSeated.add(g.plusOneOfGuestId);
       if (movingGuests.has(gid)) continue; // mid-swap → drawn by its mover instead
       if (walkingIn.has(gid)) continue; // walking in → drawn by its walker/crowd agent
-      const style = guestTokenStyle(g);
+      const style = tokenByGuest.get(gid);
       if (!style) continue; // declined → freed seat
       slot(s.tableId).set(s.seatNumber, style);
     }
@@ -532,10 +600,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           }
         }
       }
-      if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4, name: '' });
+      if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4, name: '', spec: null });
     }
     return out;
-  }, [seats, guestById, tablesById, movingGuests, crowd, walker]);
+  }, [seats, guestById, tablesById, movingGuests, crowd, walker, tokenByGuest]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -1239,16 +1307,18 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const walkAround = [...floorObstacles(floor, tables, room, []), ...fixtureObstacles];
       const obstacles = [...floorObstacles(floor, tables, room, [s.tableId]), ...fixtureObstacles];
       const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
-      const style = guestTokenStyle(g);
-      const color = style?.attireColor ?? style?.color ?? SIDE_COLOR[g.side];
-      agents.push({ id: gid, name: g.name, path, color, startDelay: i * 0.16, obstacles });
+      // The crowd agent walks in AS the guest — same outfit / selfie / status
+      // spec (same OBJECT — tokenByGuest) as their seated figure.
+      const style = tokenByGuest.get(gid);
+      if (!style?.spec) continue; // hidden is already skipped above; defensive
+      agents.push({ id: gid, name: g.name, path, spec: style.spec, startDelay: i * 0.16, obstacles });
       i += 1;
     }
     setWalker(null);
     setArrived(null);
     setMode('play');
     setCrowd(agents.length ? agents : null);
-  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles]);
+  }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles, tokenByGuest]);
 
   // A single walk-in that has reached its chair settles into the seat: clear the
   // walker so the static SeatedAvatar takes over (the guest is already in `seats`).
@@ -1305,10 +1375,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const fromTableId = seats.get(gid)?.tableId;
       const obstacles = [...floorObstacles(floor, tables, room, [toTableId, fromTableId]), ...fixtureObstacles];
       const path = steerPath(fromWorld, end, obstacles, 0.2);
-      const style = guestTokenStyle(g) ?? { color: SIDE_COLOR[g.side], opacity: 1 };
+      // Movers carry the guest's full figure spec (attire + selfie + status),
+      // so the swap animation moves the same dressed person, not a bare token.
+      const spec = tokenByGuest.get(gid)?.spec ?? figureSpecFor(g, SIDE_COLOR[g.side]);
       setMovers((prev) => [
         ...prev,
-        { gid, color: style.color, opacity: style.opacity, path, target: { tableId: toTableId, seatNumber: toSeat } },
+        { gid, name: g.name, spec, path, target: { tableId: toTableId, seatNumber: toSeat } },
       ]);
       if (!doPersist) return;
       const fd = new FormData();
@@ -1319,7 +1391,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       fd.set('seat_number', String(toSeat));
       void persist(() => assignGuest(fd));
     },
-    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor, fixtureObstacles],
+    [guestById, tablesById, tables, seats, room, eventId, lock.lockId, persist, floor, fixtureObstacles, tokenByGuest],
   );
 
   const swapGuests = useCallback(
@@ -1471,6 +1543,22 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     return ids.size;
   }, [seats, tablesById]);
 
+  // PERF — the seated-crowd budget's GLOBAL half: past 60 guests, EVERY seated
+  // figure drops to kit quality 'low' (one baked pose, zero per-frame joint
+  // writes) regardless of camera distance — 60 idle-swaying articulated rigs is
+  // where per-frame pose blending starts eating a mid-range phone's frame
+  // budget. Under 60, the per-table camera-distance check inside TableMesh
+  // still demotes far-away tables. Documented at the TableMesh useFrame.
+  const crowdLow = guests.length > 60;
+
+  // The single walk-in carries the SAME dressed figure as its seated self —
+  // the same spec OBJECT (tokenByGuest is the one spec source per guest), so
+  // seated/walking/mover looks can never diverge.
+  const walkerSpec = useMemo<FigureSpec | null>(() => {
+    if (!walker) return null;
+    return tokenByGuest.get(walker.gid)?.spec ?? null;
+  }, [walker, tokenByGuest]);
+
   return (
     <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl border border-ink/10 bg-[#11131a]">
       <Canvas
@@ -1529,6 +1617,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             showAccents={showAccents}
             seated={seatedByTable.get(t.id)}
             reduced={reduced}
+            crowdLow={crowdLow}
           />
         ))}
 
@@ -1557,6 +1646,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         {walker && !crowd ? (
           <Walker
             walker={walker}
+            spec={walkerSpec}
             palette={palette}
             entrance={entranceWorld}
             onArrive={() => setArrived(walker.name)}
@@ -1564,7 +1654,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           />
         ) : null}
 
-        {mode === 'play' && crowd ? <Crowd agents={crowd} palette={palette} reduced={reduced} onAllArrived={settleCrowd} /> : null}
+        {mode === 'play' && crowd ? <Crowd agents={crowd} reduced={reduced} onAllArrived={settleCrowd} /> : null}
 
         {movers.map((m) => (
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
@@ -2024,6 +2114,7 @@ function TableMesh({
   showAccents,
   seated,
   reduced,
+  crowdLow,
 }: {
   table: LiveTable;
   room: { w: number; d: number };
@@ -2039,8 +2130,21 @@ function TableMesh({
   showAccents: boolean;
   seated: Map<number, SeatToken> | undefined;
   reduced: boolean;
+  /** Event-wide seated-figure budget flag (guests > 60) — see the parent. */
+  crowdLow: boolean;
 }) {
   const ref = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  // PERF — the seated-crowd budget's PER-TABLE half: a table >8 m from the
+  // camera renders its seated figures at kit quality 'low' (static baked
+  // pose — no idle sway, no per-frame joint writes), because at that range
+  // the limb motion is subpixel anyway. Checked at ~4 Hz (not every frame)
+  // with ±0.75 m hysteresis around the 8 m line so orbiting the room doesn't
+  // thrash React state right at the threshold. Combined with the event-wide
+  // `crowdLow` flag (total guests > 60 → everyone static), this keeps a full
+  // ballroom's seated crowd nearly free while close-up tables stay alive.
+  const [far, setFar] = useState(false);
+  const farClock = useRef(0);
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   // Chair centres + facing — the shared `chairPlacements` (serpentine carries
   // its own per-chair facing; every other shape faces the table-local origin).
@@ -2090,6 +2194,15 @@ function TableMesh({
   useFrame((_, delta) => {
     const g = ref.current;
     if (!g) return;
+    // Throttled camera-distance check for the seated-figure quality knob (see
+    // the comment on `far` above). Runs before the reduced-motion early
+    // return — the budget applies either way.
+    farClock.current += delta;
+    if (farClock.current >= 0.25) {
+      farClock.current = 0;
+      const d = camera.position.distanceTo(g.position);
+      if (far ? d < 7.25 : d > 8.75) setFar(!far);
+    }
     const targetX = dragging && dragRef.current ? dragRef.current.x : home.x;
     const targetZ = dragging && dragRef.current ? dragRef.current.z : home.z;
     if (reduced) {
@@ -2235,7 +2348,9 @@ function TableMesh({
                 <mesh geometry={GHOST_BACK_GEO} position={[0, 0.69, 0.19]} material={ghostMat} />
               </>
             ) : null}
-            {tok && !isRemoved ? <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.attireColor ?? tok.color, tok.opacity)} /> : null}
+            {tok && !isRemoved ? (
+              <SeatedAvatar tok={tok} bodyMat={tokenMat(tok.color, tok.opacity)} quality={crowdLow || far ? 'low' : 'high'} />
+            ) : null}
           </group>
         );
       })}
@@ -2251,14 +2366,30 @@ function TableMesh({
   );
 }
 
+/**
+ * The single walk-in — now an articulated kit `<Figure>` DRESSED AS THE GUEST
+ * (same spec as their seated figure: outfit, selfie head, status colour)
+ * instead of the old bare accent capsule. This group still owns position +
+ * heading exactly as before (the kit contract: parents move, figures dress);
+ * the walk-cycle gait is driven by the SAME motion clock that used to drive
+ * the bob (t × 9 rad/s), fed through a phase ref so the gait advances without
+ * re-rendering React each frame. The old parent-group y-bob is gone — the
+ * rig's walkCyclePose carries its own pelvis bob, and doubling them read as
+ * a pogo. On arrival the pose eases to 'stand' (the kit blends presets over
+ * ~⅓ s), holding the "found their seat" beat until the parent clears us.
+ */
 function Walker({
   walker,
+  spec,
   palette,
   entrance,
   onArrive,
   reduced,
 }: {
   walker: NonNullable<WalkerState>;
+  /** The guest's figure spec (null only if the guest row vanished mid-walk —
+   *  then a neutral stand-in keeps the choreography intact). */
+  spec: FigureSpec | null;
   palette: Lab3DPalette;
   entrance: Vec2;
   onArrive: () => void;
@@ -2268,6 +2399,10 @@ function Walker({
   const idx = useRef(0);
   const done = useRef(false);
   const t = useRef(0);
+  // Gait phase for the kit figure — the walk clock above, in radians.
+  const phase = useRef(0);
+  // Arrived → ease the figure into its idle stand at the chair.
+  const [atSeat, setAtSeat] = useState(false);
   // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
   const reducedRef = useRef(reduced);
   useEffect(() => {
@@ -2278,6 +2413,8 @@ function Walker({
     idx.current = 0;
     done.current = false;
     t.current = 0;
+    phase.current = 0;
+    setAtSeat(false);
     if (ref.current) {
       // Reduced motion: place the avatar AT its final seat immediately (no walk)
       // and complete the flow — fire onArrive so the "found their seat" payoff
@@ -2287,6 +2424,7 @@ function Walker({
         ref.current.position.set(end.x, 0, end.z);
         idx.current = walker.path.length - 1;
         done.current = true;
+        setAtSeat(true);
         onArrive();
       } else {
         ref.current.position.set(entrance.x, 0, entrance.z);
@@ -2300,14 +2438,16 @@ function Walker({
     t.current += delta;
     const path = walker.path;
     if (reducedRef.current) {
-      // Reduced motion: pin to the final seat, no bob. Ensure onArrive fired
-      // (covers a mid-walk flag flip) so the flow always completes.
+      // Reduced motion: pin to the final seat, no gait. Ensure onArrive fired
+      // (covers a mid-walk flag flip) so the flow always completes. The kit
+      // figure itself holds a static stand under reduced motion.
       if (path.length > 0) {
         const end = path[path.length - 1]!;
         g.position.set(end.x, 0, end.z);
       }
       if (!done.current) {
         done.current = true;
+        setAtSeat(true);
         onArrive();
       }
       return;
@@ -2315,10 +2455,9 @@ function Walker({
     if (done.current || idx.current >= path.length - 1) {
       if (!done.current) {
         done.current = true;
+        setAtSeat(true); // pose eases walk → stand (kit damp blend)
         onArrive();
       }
-      // settle / sit
-      g.position.y += (0.0 - g.position.y) * Math.min(1, delta * 6);
       return;
     }
     const next = path[idx.current + 1]!;
@@ -2335,34 +2474,38 @@ function Walker({
       g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
     }
-    // walk bob
-    g.position.y = Math.abs(Math.sin(t.current * 9)) * 0.06;
+    // Same clock, new consumer: the old ~9 rad/s bob frequency now advances
+    // the rig's walk cycle (frame-rate independent — t integrates real delta).
+    phase.current = t.current * 9;
   });
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <mesh position={[0, 0.55, 0]} castShadow>
-        <capsuleGeometry args={[0.18, 0.5, 6, 12]} />
-        <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.1} emissive={palette.accent} emissiveIntensity={0.25} />
-      </mesh>
-      <mesh position={[0, 1.0, 0]} castShadow>
-        <sphereGeometry args={[0.16, 16, 16]} />
-        <meshStandardMaterial color={palette.table} roughness={0.5} />
-      </mesh>
+      <Figure
+        spec={
+          spec ?? { id: walker.gid, outfit: 'neutral', outfitColor: null, statusColor: palette.accent }
+        }
+        pose={atSeat ? 'stand' : 'walk'}
+        phase={phase}
+        name={walker.name}
+      />
+      {/* The follow light keeps the walk-in readable in the darker Play room. */}
       <pointLight position={[0, 1.2, 0]} intensity={0.4} distance={3} color={palette.accent} />
     </group>
   );
 }
 
-// One member of the populate-Play crowd: a precomputed path to their chair, a
-// motif colour, a stagger delay (so they queue out of the entrance instead of
-// piling up), and their OWN obstacle set (every object except their destination
-// table, so they can actually reach the chair just inside its avoidance disc).
+// One member of the populate-Play crowd: a precomputed path to their chair,
+// the guest's full figure spec (attire + selfie + status — the same spec as
+// their seated figure, so the walk-in matches who sits down), a stagger delay
+// (so they queue out of the entrance instead of piling up), and their OWN
+// obstacle set (every object except their destination table, so they can
+// actually reach the chair just inside its avoidance disc).
 type CrowdAgent = {
   id: string;
   name: string;
   path: Vec2[];
-  color: string;
+  spec: FigureSpec;
   startDelay: number;
   obstacles: { c: Vec2; r: number }[];
 };
@@ -2377,18 +2520,27 @@ type CrowdAgent = {
  */
 function Crowd({
   agents,
-  palette,
   reduced,
   onAllArrived,
 }: {
   agents: CrowdAgent[];
-  palette: Lab3DPalette;
   reduced: boolean;
   onAllArrived: () => void;
 }) {
   const groups = useRef<(THREE.Group | null)[]>([]);
   const seg = useRef<number[]>([]);
   const elapsed = useRef(0);
+  // Per-agent gait phase refs, one plain {current} record per agent so each
+  // kit figure reads its own clock without a React render per frame. Rebuilt
+  // (all zeros) whenever a new crowd mounts — the agents effect resets the
+  // choreography anyway. Phase 0 ≈ a near-neutral stride, so agents queued
+  // at the entrance (pre-startDelay) hold something close to a stand.
+  const phases = useMemo<{ current: number }[]>(() => agents.map(() => ({ current: 0 })), [agents]);
+  // PERF — crowd half of the >60-guest budget: a big crowd walks in at kit
+  // quality 'low' (one baked stride sample, no per-frame joint writes); the
+  // parent groups still glide them along their paths, so the choreography —
+  // stagger, make-way, arrival timing — is IDENTICAL, just cheaper limbs.
+  const crowdQuality: FigureQuality = agents.length > 60 ? 'low' : 'high';
   const reducedRef = useRef(reduced);
   useEffect(() => {
     reducedRef.current = reduced;
@@ -2455,7 +2607,11 @@ function Crowd({
     });
     // 2. Make way for each other.
     const sep = separateAgents(desired, 0.5);
-    // 3. Each clears its OWN objects, then commit + bob.
+    // 3. Each clears its OWN objects, then commit + advance the gait. The old
+    // parent-group y-bob is retired — the kit rig's walkCyclePose carries its
+    // own pelvis bob. The per-agent `+ i` offset (from the old bob) survives
+    // in the phase so strides stay desynchronised across the crowd; a stopped
+    // agent's phase simply freezes ("freeze on arrival", per the kit contract).
     agents.forEach((a, i) => {
       const g = groups.current[i];
       if (!g) return;
@@ -2463,9 +2619,7 @@ function Crowd({
       g.position.x = p.x;
       g.position.z = p.z;
       const moving = elapsed.current >= a.startDelay && seg.current[i]! < a.path.length - 1;
-      g.position.y = moving
-        ? Math.abs(Math.sin((elapsed.current + i) * 8)) * 0.05
-        : g.position.y + (0 - g.position.y) * Math.min(1, delta * 6);
+      if (moving && phases[i]) phases[i]!.current = (elapsed.current + i) * 8;
     });
     // 4. Everyone released AND at their final waypoint → settle (once), holding a
     // ~0.6s beat so they stand at the chair before sitting. seg is logical progress
@@ -2510,14 +2664,9 @@ function Crowd({
             groups.current[i] = el;
           }}
         >
-          <mesh position={[0, 0.5, 0]} castShadow>
-            <capsuleGeometry args={[0.15, 0.4, 5, 9]} />
-            <meshStandardMaterial color={a.color} roughness={0.55} />
-          </mesh>
-          <mesh position={[0, 0.9, 0]} castShadow>
-            <sphereGeometry args={[0.13, 12, 12]} />
-            <meshStandardMaterial color={palette.table} roughness={0.55} />
-          </mesh>
+          {/* The agent IS the guest — kit figure with their outfit / selfie /
+              status spec, gait driven by this agent's own phase ref. */}
+          <Figure spec={a.spec} pose="walk" phase={phases[i] ?? 0} quality={crowdQuality} name={a.name} />
         </group>
         );
       })}
@@ -2525,13 +2674,19 @@ function Crowd({
   );
 }
 
-// A guest token walking between seats during a swap. Colour = the guest's RSVP
-// treatment; calls onDone(gid, target) once it reaches the destination chair.
+// A guest walking between seats during a swap — a kit figure dressed with the
+// guest's own spec (attire + selfie + status), so the swap animation moves the
+// same person the seat showed. Calls onDone(gid, target) once it reaches the
+// destination chair (the mover retires immediately, so no arrival stand pose
+// is needed — the seated figure takes over on the next render).
 function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: string, target: SeatRef) => void; reduced: boolean }) {
   const ref = useRef<THREE.Group>(null);
   const idx = useRef(0);
   const done = useRef(false);
   const t = useRef(0);
+  // Gait phase — the mover's existing motion clock (t × 9 rad/s, matching the
+  // old bob frequency) feeds the rig's walk cycle via a ref (no re-renders).
+  const phase = useRef(0);
   const start = mover.path[0] ?? { x: 0, z: 0 };
   // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
   const reducedRef = useRef(reduced);
@@ -2577,17 +2732,12 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
       g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
     }
-    g.position.y = Math.abs(Math.sin(t.current * 9)) * 0.07;
+    // The old parent-group y-bob is retired — walkCyclePose bobs the pelvis.
+    phase.current = t.current * 9;
   });
-  const transparent = mover.opacity < 1;
   return (
     <group ref={ref} position={[start.x, 0, start.z]}>
-      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.62, 0]} castShadow>
-        <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} emissive={mover.color} emissiveIntensity={0.22} />
-      </mesh>
-      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 0.92, 0]} castShadow>
-        <meshStandardMaterial color={mover.color} roughness={0.5} transparent={transparent} opacity={mover.opacity} />
-      </mesh>
+      <Figure spec={mover.spec} pose="walk" phase={phase} name={mover.name} />
     </group>
   );
 }

@@ -59,7 +59,7 @@ const BROAD_REVALIDATE =
 // These are admin-triggered, low-frequency, and correct. Bump a count (or add a
 // file) ONLY when a new use is genuinely intentional — the diff makes it visible.
 const BASELINE = {
-  'apps/web/app/admin/settings/actions.ts': 2, // global-settings change → nuke all caches
+  'apps/web/app/admin/settings/actions.ts': 3, // global-settings change → nuke all caches (3rd: brand-icon removal busts the root-layout icon on every page — d33be3582 landed it without the bump; healed here)
   'apps/web/app/admin/pricing/actions.ts': 1, // pricing edit → vendors must see new prices
   'apps/web/lib/tour-actions.ts': 2, // guided-tour completion refreshes vendor nav state
 };

@@ -7,7 +7,10 @@ import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
-import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
+import {
+  fetchTrustedReviewStatsForMany,
+  formatStarRating,
+} from '@/lib/reviews';
 import {
   parseVisibility,
   isBookable,
@@ -211,7 +214,12 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     redirect('/explore');
   }
 
-  const reviewStats = await fetchReviewStatsForMany(
+  // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the compare table's PUBLIC
+  // rating + count read the TRUSTED (receipt-backed, arm's-length) stat so
+  // fake / self-dealt reviews can't inflate the compared number. Raw
+  // `fetchReviewStatsForMany` is no longer needed here (only the aggregate
+  // number/count is shown — no histogram).
+  const trustedReviewStats = await fetchTrustedReviewStatsForMany(
     admin,
     rows.map((r) => r.vendor_profile_id),
   );
@@ -445,16 +453,16 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
               <CompareRowEl label="Rating">
                 {rows.map((row) => {
-                  const stats = reviewStats.get(row.vendor_profile_id);
+                  const stats = trustedReviewStats.get(row.vendor_profile_id);
                   // Phase C review-display gate (vendor-tier-caps · surface
                   // layer). Free vendors (reviewStarsCounted=false) render
                   // 'new' / no count rather than their tier-HIDDEN stars.
-                  // Gated HERE, not in fetchReviewStatsForMany, so the vendor's
-                  // own dashboard self-view stays ungated. `?? null` → free.
+                  // Gated HERE, not in the stats fetch, so the vendor's own
+                  // dashboard self-view stays ungated. `?? null` → free.
                   const starsCounted = tierCaps(row.tier_state ?? null)
                     .reviewStarsCounted;
-                  const rating = starsCounted ? (stats?.avg_rating_overall ?? 0) : 0;
-                  const count = starsCounted ? (stats?.total_count ?? 0) : 0;
+                  const rating = starsCounted ? (stats?.trusted_avg_rating ?? 0) : 0;
+                  const count = starsCounted ? (stats?.trusted_review_count ?? 0) : 0;
                   return (
                     <td
                       key={row.vendor_profile_id}

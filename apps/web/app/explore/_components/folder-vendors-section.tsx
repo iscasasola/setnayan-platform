@@ -4,7 +4,7 @@ import { MapPin, Star } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatDistanceKm, haversineKm } from '@/lib/geo';
-import { formatStarRating } from '@/lib/reviews';
+import { fetchTrustedReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import {
   findTopVendorsByFolder,
   type VendorPreviewRow,
@@ -84,6 +84,15 @@ export async function FolderVendorsSection({
   // tiles still surface the canonical_services as breadth.
   if (vendors.length === 0) return null;
 
+  // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the per-card PUBLIC rating +
+  // count read the TRUSTED (receipt-backed, arm's-length) stat, not the raw
+  // avg_rating_overall / review_count on the vendor_market_stats preview row.
+  // Fail-soft: an empty map → 0/0 → the card renders "new" (no fake stars).
+  const trustedStats = await fetchTrustedReviewStatsForMany(
+    admin,
+    vendors.map((v) => v.vendor_profile_id),
+  );
+
   // DB-backed labels — a folder renamed in /admin/taxonomy reflects here live
   // (fallback-safe: getTaxonomy falls back to the lib/taxonomy.ts constant).
   const tax = await getTaxonomy();
@@ -123,11 +132,19 @@ export async function FolderVendorsSection({
       </header>
 
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {vendors.map((vendor) => (
-          <li key={vendor.vendor_profile_id}>
-            <FolderVendorCard vendor={vendor} venueAnchor={venueAnchor} />
-          </li>
-        ))}
+        {vendors.map((vendor) => {
+          const trusted = trustedStats.get(vendor.vendor_profile_id);
+          return (
+            <li key={vendor.vendor_profile_id}>
+              <FolderVendorCard
+                vendor={vendor}
+                venueAnchor={venueAnchor}
+                trustedRating={trusted?.trusted_avg_rating ?? null}
+                trustedReviewCount={trusted?.trusted_review_count ?? 0}
+              />
+            </li>
+          );
+        })}
       </ul>
 
       <p className="mt-4 sm:hidden">
@@ -145,9 +162,14 @@ export async function FolderVendorsSection({
 function FolderVendorCard({
   vendor,
   venueAnchor,
+  trustedRating,
+  trustedReviewCount,
 }: {
   vendor: VendorPreviewRow;
   venueAnchor: { lat: number; lng: number } | null;
+  /** ANTI-FRAUD (2026-07-05): trusted aggregate — public rating + count. */
+  trustedRating: number | null;
+  trustedReviewCount: number;
 }) {
   const slug = vendor.business_slug;
   const href = slug ? `/v/${slug}` : '#';
@@ -176,8 +198,10 @@ function FolderVendorCard({
       .slice(0, 2)
       .join('') || '?';
   const isComingSoon = vendor.public_visibility === 'coming_soon';
-  const rating = vendor.avg_rating_overall ?? null;
-  const reviewCount = vendor.review_count ?? 0;
+  // ANTI-FRAUD (2026-07-05): show the TRUSTED aggregate (receipt-backed,
+  // arm's-length), not the raw avg_rating_overall / review_count.
+  const rating = trustedRating;
+  const reviewCount = trustedReviewCount;
 
   // Distance is only meaningful when both anchor and vendor coords exist.
   const lat = vendor.hq_latitude !== null ? Number(vendor.hq_latitude) : null;

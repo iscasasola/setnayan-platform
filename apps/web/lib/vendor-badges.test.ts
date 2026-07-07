@@ -158,9 +158,7 @@ test('canonical order holds across a mixed pool: new → verified → couple_tru
   const v = input({
     vendor_profile_id: 'v-all',
     created_at: '2026-06-20T00:00:00Z', // within 90 days of NOW → "new"
-    // Raw fields drive top_pick; trusted fields drive couple_trusted.
-    review_count: 20,
-    avg_rating_overall: 4.9,
+    // Trusted fields now drive BOTH couple_trusted AND top_pick.
     trusted_review_count: 20,
     trusted_avg_rating: 4.9,
   });
@@ -172,4 +170,77 @@ test('canonical order holds across a mixed pool: new → verified → couple_tru
     'most_booking',
     'top_pick',
   ]);
+});
+
+// ── most_booking: reads the VETTED completed-events count ─────────────────────
+// The `bookingCounts` map passed to computeVendorBadges is the vetted count
+// from `vendor_public_completed_events_stats` (keyed by vendor_profile_id).
+// These tests assert the badge honors that map — a vendor absent from it (its
+// self-dealt events excluded → 0 vetted) never earns most_booking, even against
+// a peer that has vetted bookings.
+
+test('most_booking honors the VETTED count map — vendor with 0 vetted events never earns it', () => {
+  // `fraud` has a runaway RAW booking count in the real world, but its vetted
+  // count (what the map carries) is 0 because all its "delivered" events were
+  // self-dealt and excluded by the view. `real` has a modest vetted count.
+  // Only `real` should earn most_booking.
+  const fraud = input({ vendor_profile_id: 'v-fraud' });
+  const real = input({ vendor_profile_id: 'v-real' });
+  const vettedCounts = new Map<string, number>([
+    // v-fraud intentionally ABSENT → defaults to 0 vetted events.
+    ['v-real', 8],
+  ]);
+  const out = computeVendorBadges([fraud, real], vettedCounts, { now: NOW });
+  assert.ok(!(out.get('v-fraud') ?? []).includes('most_booking'));
+  assert.ok((out.get('v-real') ?? []).includes('most_booking'));
+});
+
+test('most_booking uses the count from the map, not any raw review field on the input', () => {
+  // A vendor with a big raw review_count but a 0 vetted-events entry must not
+  // earn most_booking — bookings come exclusively from the vetted map.
+  const v = input({
+    vendor_profile_id: 'v-rawreviews',
+    review_count: 999,
+    avg_rating_overall: 5,
+  });
+  // vetted map is empty → 0 completed events → no most_booking.
+  const out = computeVendorBadges([v], new Map(), { now: NOW });
+  assert.ok(!(out.get('v-rawreviews') ?? []).includes('most_booking'));
+});
+
+// ── top_pick: scores on TRUSTED review stats, never raw ───────────────────────
+
+test('top_pick — vendor with HIGH raw reviews but 0 trusted reviews does NOT qualify', () => {
+  // The anti-fraud invariant for top_pick: the score is
+  // trusted_avg_rating × ln(trusted_review_count + 1). A vendor with a mountain
+  // of raw (unfiltered / sockpuppet) reviews but 0 TRUSTED reviews scores 0
+  // (ln(1) = 0) and can never enter the top 5%, even as the only vendor.
+  const v = input({
+    vendor_profile_id: 'v-rawtop',
+    review_count: 1000,
+    avg_rating_overall: 5.0,
+    trusted_review_count: 0,
+    trusted_avg_rating: 0,
+  });
+  assert.ok(!badgesFor(v, 50).includes('top_pick'));
+});
+
+test('top_pick — a vendor with trusted reviews outranks a raw-only peer', () => {
+  // `trusted` has real trusted reviews; `rawonly` has only raw (fake) reviews.
+  // Only `trusted` earns top_pick — the raw-only vendor scores 0 and is out.
+  const trusted = input({
+    vendor_profile_id: 'v-trusted-top',
+    trusted_review_count: 30,
+    trusted_avg_rating: 4.9,
+  });
+  const rawonly = input({
+    vendor_profile_id: 'v-rawonly-top',
+    review_count: 500,
+    avg_rating_overall: 5.0,
+    trusted_review_count: 0,
+    trusted_avg_rating: 0,
+  });
+  const out = computeVendorBadges([trusted, rawonly], new Map(), { now: NOW });
+  assert.ok((out.get('v-trusted-top') ?? []).includes('top_pick'));
+  assert.ok(!(out.get('v-rawonly-top') ?? []).includes('top_pick'));
 });

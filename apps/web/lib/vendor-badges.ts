@@ -43,30 +43,34 @@
  *                        monthly-rotating Spotlight Award — it never enters
  *                        the awards vocabulary.
  *
- *   4. `most_booking`  — vendor sits in the top 10% by completed
- *                        bookings count across the verified pool. We
- *                        compute against `event_vendors` rows whose
- *                        status is in ('delivered', 'complete') because
- *                        those are the canonical "the work happened"
- *                        states (same set the review-policy uses to
- *                        gate review insertion, see
- *                        `20260514100000_vendor_reviews.sql:107`).
- *                        Unverified vendors are excluded from the
- *                        ranking entirely — otherwise an off-platform
- *                        vendor with 50 manual bookings would beat a
- *                        verified vendor with 8 real bookings, which
- *                        misrepresents marketplace trust.
+ *   4. `most_booking`  — vendor sits in the top 10% by VETTED completed
+ *                        events count across the verified pool. ANTI-FRAUD
+ *                        (2026-07-05): the count comes from the
+ *                        `vendor_public_completed_events_stats` materialized
+ *                        view (delivered/complete, self-dealing EXCLUDED —
+ *                        unlinked/archived/owner/team/internal/self-comp),
+ *                        NOT a raw `event_vendors` count. So a vendor can't
+ *                        climb by self-creating "delivered" events. Unverified
+ *                        vendors are excluded from the ranking entirely —
+ *                        otherwise an off-platform vendor with 50 manual
+ *                        bookings would beat a verified vendor with 8 real
+ *                        bookings, which misrepresents marketplace trust.
  *
  *   5. `top_pick`      — vendor sits in the top 5% by review-weighted
  *                        score in the current calendar month. Score
- *                        is `avg_rating × ln(review_count + 1)` — a
- *                        Wilson-style proxy that rewards both quality
- *                        AND volume without one dominating the other.
- *                        Vendors with 0 reviews never qualify (ln(1)
- *                        = 0). This is the most prestigious badge,
- *                        rotates monthly, and we recompute on each
- *                        page load (cheap because the input set is
- *                        bounded — see V1 caveat below).
+ *                        is `trusted_avg_rating × ln(trusted_review_count
+ *                        + 1)` — a Wilson-style proxy that rewards both
+ *                        quality AND volume without one dominating the
+ *                        other. ANTI-FRAUD (2026-07-05): it reads the
+ *                        TRUSTED (receipt-backed, arm's-length) review
+ *                        stat, NOT the raw review_count / avg_rating_overall
+ *                        (which count every review with no provenance
+ *                        filter). Vendors with 0 TRUSTED reviews never
+ *                        qualify (ln(1) = 0), so fake / self-dealt reviews
+ *                        can't lift a vendor into the top 5%. This is the
+ *                        most prestigious badge, rotates monthly, and we
+ *                        recompute on each page load (cheap because the
+ *                        input set is bounded — see V1 caveat below).
  *
  * V1 caveat: we deliberately do NOT bake these into a materialized
  * view yet. The recomputation cost is small (≤ a few hundred verified
@@ -138,16 +142,17 @@ export type VendorBadgeInput = {
   created_at: string | null;
   /**
    * `vendor_review_stats.avg_rating_overall` — 0 when the vendor has
-   * zero reviews. Drives the `top_pick` formula. Counts EVERY review with
-   * no provenance filter, so it is deliberately NOT used by
-   * `couple_trusted` anymore (see `trusted_avg_rating`).
+   * zero reviews. Counts EVERY review with no provenance filter, so it is
+   * deliberately NOT used by `couple_trusted` OR `top_pick` anymore (both
+   * read `trusted_avg_rating`). Retained on the input for callers that still
+   * pass it; the badge engine ignores it for scoring (ANTI-FRAUD 2026-07-05).
    */
   avg_rating_overall: number | null;
   /**
    * `vendor_review_stats.total_count` — 0 when the vendor has zero
-   * reviews. Drives both the `top_pick` formula AND its zero-review
-   * disqualification. Like `avg_rating_overall`, it has no provenance
-   * filter and is NOT read by `couple_trusted`.
+   * reviews. Like `avg_rating_overall`, it has no provenance filter and is
+   * NOT read by `couple_trusted` OR `top_pick` anymore (both read
+   * `trusted_review_count`). Retained on the input shape only.
    */
   review_count: number | null;
   /**
@@ -155,23 +160,33 @@ export type VendorBadgeInput = {
    * receipt-backed, arm's-length reviews (booked through Setnayan, with
    * the vendor's own owner/team/internal/self-comp bookings excluded).
    * 0/`null` when the vendor has no trusted reviews. Drives the
-   * `couple_trusted` count floor — fake / self-dealt reviews never reach
-   * this number.
+   * `couple_trusted` count floor AND the `top_pick` score + its zero-review
+   * disqualification — fake / self-dealt reviews never reach this number.
    */
   trusted_review_count: number | null;
   /**
    * `vendor_trusted_review_stats.trusted_avg_rating` — average overall
    * rating across ONLY the receipt-backed, arm's-length reviews above.
    * 0/`null` when the vendor has no trusted reviews. Drives the
-   * `couple_trusted` rating bar.
+   * `couple_trusted` rating bar AND the `top_pick` score.
    */
   trusted_avg_rating: number | null;
 };
 
 /**
- * Aggregated completed-booking counts (status IN ('delivered','complete'))
- * keyed by `marketplace_vendor_id`. Use `fetchCompletedBookingCounts` to
- * build this in one batched SQL call.
+ * Aggregated VETTED completed-event counts keyed by `vendor_profile_id`.
+ * Sourced from the `vendor_public_completed_events_stats` materialized view
+ * (migration `20260515020000_public_stats_exclusion.sql`), which already
+ * excludes self-dealing bookings — unlinked rows, archived events, the vendor
+ * owner on the event, any team member on the event, internal accounts tied to
+ * the vendor, and self-comp grants. Use `fetchCompletedBookingCounts` to build
+ * this in one batched SQL call.
+ *
+ * ANTI-FRAUD (2026-07-05, Phase 1 follow-up): this replaced a raw
+ * `event_vendors` count that applied NONE of those exclusions, which let a
+ * crooked vendor inflate `most_booking` / the Experience tier with self-created
+ * "delivered" events. Keyed by `vendor_profile_id` (was `marketplace_vendor_id`,
+ * the same id — the view keys on `vendor_profiles.vendor_profile_id`).
  */
 export type CompletedBookingCounts = ReadonlyMap<string, number>;
 
@@ -257,8 +272,14 @@ export function computeVendorBadges(
   for (const v of inputs) {
     if (!isVerified(v.verification_state)) continue;
     const bookings = bookingCounts.get(v.vendor_profile_id) ?? 0;
-    const reviewCount = v.review_count ?? 0;
-    const avg = Number(v.avg_rating_overall ?? 0);
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): top_pick scores on the
+    // TRUSTED (receipt-backed, arm's-length) review stat, NOT the raw
+    // review_count / avg_rating_overall (which count every review with no
+    // provenance filter). A vendor with high raw reviews but 0 trusted reviews
+    // scores 0 (ln(0 + 1) = 0) and can never earn top_pick — fake / self-dealt
+    // reviews are invisible to the ranking by construction.
+    const reviewCount = v.trusted_review_count ?? 0;
+    const avg = Number(v.trusted_avg_rating ?? 0);
     const score = topPickScore(avg, reviewCount);
     verifiedPool.push({
       id: v.vendor_profile_id,
@@ -342,20 +363,28 @@ function percentileValue(values: ReadonlyArray<number>, p: number): number {
 }
 
 /**
- * Batched read against `event_vendors` to count completed bookings per
- * marketplace vendor. Counts statuses `'delivered'` and `'complete'`
- * (the same set the review-insert RLS policy gates on, see
- * `20260514100000_vendor_reviews.sql:107`).
+ * Batched read of the VETTED completed-event count per vendor, keyed by
+ * `vendor_profile_id`.
  *
- * Aggregates in app code rather than via PostgREST's `?select=count()`
- * because we want one row per vendor + counts of multiple specific
- * statuses, which is cleaner as a single SELECT + reduce than as
- * multiple parallel count queries. The row volume here is bounded
- * (V1 pilot ≤ 20 events × ≤ 30 picks = ≤ 600 rows in practice — see
- * CLAUDE.md 2026-05-18 row 8 pilot cohort).
+ * ANTI-FRAUD (2026-07-05, Phase 1 follow-up · spec
+ * `03_Strategy/Anti_Fraud_Trust_Integrity_2026-07-05.md` § 3): reads the
+ * `vendor_public_completed_events_stats` materialized view instead of raw
+ * `event_vendors`. That view already counts only `delivered`/`complete`
+ * bookings linked via `linked_vendor_profile_id` and EXCLUDES self-dealing —
+ * archived events, the vendor owner on the event, any team member on the event,
+ * internal accounts tied to the vendor, and self-comp grants. Routing the count
+ * through it means a vendor can't inflate `most_booking` (percentile) or the
+ * Experience tier by self-creating "delivered" events for themselves.
  *
- * Vendors with zero completed bookings are absent from the returned
- * map — callers must default to 0.
+ * The view exposes the count in the `public_completed_count` column (one row
+ * per `vendor_profile_id`), so no app-side aggregation is needed — we just map
+ * the column. Vendors with zero vetted completed events either have a 0-count
+ * row or no row at all; both collapse to 0 (callers default to 0), so we skip
+ * zero rows to keep the map to positive counts only.
+ *
+ * Fail-soft: if the SELECT errors (e.g. the view is missing pre-migration), we
+ * return an empty map. Badges + the Experience chip silently miss until the
+ * next request; the failure does NOT bubble up and block the vendor grid.
  */
 export async function fetchCompletedBookingCounts(
   admin: SupabaseClient,
@@ -364,25 +393,28 @@ export async function fetchCompletedBookingCounts(
   if (vendorIds.length === 0) return new Map();
 
   const { data, error } = await admin
-    .from('event_vendors')
-    .select('marketplace_vendor_id, status')
-    .in('marketplace_vendor_id', vendorIds as string[])
-    .in('status', ['delivered', 'complete']);
+    .from('vendor_public_completed_events_stats')
+    .select('vendor_profile_id, public_completed_count')
+    .in('vendor_profile_id', vendorIds as string[]);
 
   // Bookings can't fail open: if the SELECT errors, return an empty
   // map. Badges silently miss until the next request; the failure does
   // NOT bubble up and block the whole vendor grid from rendering.
   if (error) {
-    console.error('[vendor-badges] failed to fetch booking counts', error);
+    console.error('[vendor-badges] failed to fetch vetted completed-event counts', error);
     return new Map();
   }
 
   const out = new Map<string, number>();
   for (const row of data ?? []) {
-    const id = (row as { marketplace_vendor_id: string | null })
-      .marketplace_vendor_id;
-    if (!id) continue;
-    out.set(id, (out.get(id) ?? 0) + 1);
+    const r = row as {
+      vendor_profile_id: string | null;
+      public_completed_count: number | string | null;
+    };
+    if (!r.vendor_profile_id) continue;
+    const count = Number(r.public_completed_count ?? 0);
+    if (!Number.isFinite(count) || count <= 0) continue;
+    out.set(r.vendor_profile_id, count);
   }
   return out;
 }

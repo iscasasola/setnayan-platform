@@ -56,8 +56,10 @@ import {
   REVIEW_AXIS_LABEL,
   type ReviewAxis,
   formatStarRating,
+  fetchTrustedReviewStats,
   type ReviewWithCouple,
   type ReviewStatsRow,
+  type TrustedReviewStatsRow,
 } from '@/lib/reviews';
 
 // ----------------------------------------------------------------------------
@@ -166,6 +168,12 @@ export type MarketplaceReview = Omit<
 
 export type MarketplaceReviewsData = {
   stats: ReviewStatsRow;
+  /**
+   * ANTI-FRAUD (2026-07-05): trusted (receipt-backed, arm's-length) aggregate.
+   * The couple-facing hero average + count read this; `stats` still backs the
+   * per-star histogram + the review list.
+   */
+  trustedStats: TrustedReviewStatsRow;
   reviews: MarketplaceReview[];
 };
 
@@ -191,6 +199,9 @@ export async function fetchMarketplaceReviews(
 
   let stats = fallbackStats;
   let reviews: MarketplaceReview[] = [];
+  // ANTI-FRAUD (2026-07-05): trusted aggregate for the hero average + count.
+  // Fail-soft inside fetchTrustedReviewStats → 0/0 when the view is missing.
+  const trustedStats = await fetchTrustedReviewStats(supabase, vendorProfileId);
 
   try {
     const statsRes = await supabase
@@ -282,7 +293,7 @@ export async function fetchMarketplaceReviews(
     console.error('[fetchMarketplaceReviews] reviews threw', e);
   }
 
-  return { stats, reviews };
+  return { stats, trustedStats, reviews };
 }
 
 // ----------------------------------------------------------------------------
@@ -526,7 +537,7 @@ function ReviewsCard({
   vendorProfileSlug: string | null;
   reviewLinkHref: string | null;
 }) {
-  const { stats, reviews } = data;
+  const { trustedStats, reviews } = data;
   return (
     <section
       id="vendor-reviews"
@@ -553,7 +564,7 @@ function ReviewsCard({
         ) : null}
       </header>
 
-      <ReviewsHero stats={stats} />
+      <ReviewsHero trusted={trustedStats} />
 
       {reviews.length === 0 ? (
         <div className="rounded-md border border-dashed border-ink/15 bg-cream/40 px-3 py-3">
@@ -586,9 +597,11 @@ function ReviewsCard({
   );
 }
 
-function ReviewsHero({ stats }: { stats: ReviewStatsRow }) {
-  const hero = stats.avg_rating_overall;
-  if (stats.total_count === 0) {
+function ReviewsHero({ trusted }: { trusted: TrustedReviewStatsRow }) {
+  // ANTI-FRAUD (2026-07-05): couple-facing hero reads the TRUSTED aggregate.
+  const hero = trusted.trusted_avg_rating;
+  const count = trusted.trusted_review_count;
+  if (count === 0) {
     return (
       <div className="flex items-center gap-3 rounded-md bg-cream/40 px-3 py-2">
         <Star className="h-5 w-5 text-ink/25" strokeWidth={1.5} />
@@ -606,7 +619,7 @@ function ReviewsHero({ stats }: { stats: ReviewStatsRow }) {
         {hero > 0 ? formatStarRating(hero) : '—'}
       </span>
       <span className="text-xs text-ink/60">
-        {stats.total_count} review{stats.total_count === 1 ? '' : 's'}
+        {count} review{count === 1 ? '' : 's'}
       </span>
     </div>
   );

@@ -20,7 +20,30 @@
  *                        (a vendor can be Verified + Top Pick + Most
  *                        Booking at the same time).
  *
- *   3. `most_booking`  — vendor sits in the top 10% by completed
+ *   3. `couple_trusted`— verified vendor with a proven, well-rated
+ *                        review history — but counted ONLY over
+ *                        receipt-backed, arm's-length reviews (via the
+ *                        `vendor_trusted_review_stats` materialized view):
+ *                        `trusted_review_count ≥ 10` AND
+ *                        `trusted_avg_rating ≥ 4.7` out of 5. It does NOT
+ *                        read the raw `review_count` / `avg_rating_overall`
+ *                        anymore — those count every review with no
+ *                        provenance filter, which let a vendor mint the
+ *                        badge with sockpuppet couple accounts + self-made
+ *                        "delivered" events. The trusted stat excludes
+ *                        off-platform reviews (not booked through Setnayan)
+ *                        AND the vendor's own owner/team/internal/self-comp
+ *                        bookings, so fake / self-dealt reviews cannot earn
+ *                        it by construction. A simple count-floor + rating
+ *                        bar — it does NOT depend on booking counts (owner
+ *                        decision 2026-07-05, after industry research: an
+ *                        absolute reviews+rating threshold, not a coverage
+ *                        ratio). It's an ABSOLUTE gate (not a percentile),
+ *                        STACKS like every other badge, and is NOT a
+ *                        monthly-rotating Spotlight Award — it never enters
+ *                        the awards vocabulary.
+ *
+ *   4. `most_booking`  — vendor sits in the top 10% by completed
  *                        bookings count across the verified pool. We
  *                        compute against `event_vendors` rows whose
  *                        status is in ('delivered', 'complete') because
@@ -34,7 +57,7 @@
  *                        verified vendor with 8 real bookings, which
  *                        misrepresents marketplace trust.
  *
- *   4. `top_pick`      — vendor sits in the top 5% by review-weighted
+ *   5. `top_pick`      — vendor sits in the top 5% by review-weighted
  *                        score in the current calendar month. Score
  *                        is `avg_rating × ln(review_count + 1)` — a
  *                        Wilson-style proxy that rewards both quality
@@ -71,7 +94,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type VendorBadge = 'new' | 'verified' | 'most_booking' | 'top_pick';
+export type VendorBadge =
+  | 'new'
+  | 'verified'
+  | 'couple_trusted'
+  | 'most_booking'
+  | 'top_pick';
 
 /**
  * Spotlight Awards bridge (Wave 5 vendor benefit).
@@ -90,7 +118,9 @@ export type VendorBadge = 'new' | 'verified' | 'most_booking' | 'top_pick';
  *   most_booking → 'most_booked'
  *
  * Keep this list in sync if a new exclusive badge is added that should also
- * become an award.
+ * become an award. NOTE: `couple_trusted` is deliberately NOT here — it is an
+ * absolute, stacking trust badge (not an exclusive monthly recognition), so it
+ * never becomes a Spotlight Award.
  */
 export const SPOTLIGHT_AWARD_BADGES: ReadonlyArray<
   Extract<VendorBadge, 'top_pick' | 'most_booking'>
@@ -108,15 +138,34 @@ export type VendorBadgeInput = {
   created_at: string | null;
   /**
    * `vendor_review_stats.avg_rating_overall` — 0 when the vendor has
-   * zero reviews. Drives the `top_pick` formula.
+   * zero reviews. Drives the `top_pick` formula. Counts EVERY review with
+   * no provenance filter, so it is deliberately NOT used by
+   * `couple_trusted` anymore (see `trusted_avg_rating`).
    */
   avg_rating_overall: number | null;
   /**
    * `vendor_review_stats.total_count` — 0 when the vendor has zero
    * reviews. Drives both the `top_pick` formula AND its zero-review
-   * disqualification.
+   * disqualification. Like `avg_rating_overall`, it has no provenance
+   * filter and is NOT read by `couple_trusted`.
    */
   review_count: number | null;
+  /**
+   * `vendor_trusted_review_stats.trusted_review_count` — count of ONLY
+   * receipt-backed, arm's-length reviews (booked through Setnayan, with
+   * the vendor's own owner/team/internal/self-comp bookings excluded).
+   * 0/`null` when the vendor has no trusted reviews. Drives the
+   * `couple_trusted` count floor — fake / self-dealt reviews never reach
+   * this number.
+   */
+  trusted_review_count: number | null;
+  /**
+   * `vendor_trusted_review_stats.trusted_avg_rating` — average overall
+   * rating across ONLY the receipt-backed, arm's-length reviews above.
+   * 0/`null` when the vendor has no trusted reviews. Drives the
+   * `couple_trusted` rating bar.
+   */
+  trusted_avg_rating: number | null;
 };
 
 /**
@@ -133,6 +182,14 @@ const NEW_BADGE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 // score to get top_pick.
 const MOST_BOOKING_PERCENTILE = 0.9;
 const TOP_PICK_PERCENTILE = 0.95;
+// `couple_trusted` is an ABSOLUTE (non-percentile) gate — a vendor earns it
+// on their own numbers, independent of the visible pool AND independent of
+// booking counts. Owner decision 2026-07-05: a simple review-count floor plus
+// an average-rating bar (mean overall star rating, 1–5). At least 10 reviews
+// so the average is meaningful, and ≥ 4.7★. Counted over the TRUSTED
+// (receipt-backed, arm's-length) review stat only — see `isCoupleTrusted`.
+const COUPLE_TRUSTED_MIN_REVIEWS = 10;
+const COUPLE_TRUSTED_MIN_AVG_RATING = 4.7;
 
 function isVerified(state: string | null): boolean {
   return state === 'verified';
@@ -143,6 +200,23 @@ function isNewWithin90d(createdAt: string | null, now: number): boolean {
   const t = Date.parse(createdAt);
   if (Number.isNaN(t)) return false;
   return now - t <= NEW_BADGE_WINDOW_MS;
+}
+
+/**
+ * `couple_trusted` gate — an ABSOLUTE (per-vendor, not percentile) badge.
+ * True when the vendor has `trusted_review_count ≥ 10` AND
+ * `trusted_avg_rating ≥ 4.7`. These read ONLY the receipt-backed, arm's-length
+ * `vendor_trusted_review_stats` fields — NOT the raw `review_count` /
+ * `avg_rating_overall` (which count every review with no provenance filter and
+ * could be inflated with fake / self-dealt reviews). Depends only on the
+ * vendor's own trusted review numbers — NOT on booking counts. Verified-gating
+ * is enforced by the caller, not here.
+ */
+function isCoupleTrusted(v: VendorBadgeInput): boolean {
+  const trustedCount = v.trusted_review_count ?? 0;
+  if (trustedCount < COUPLE_TRUSTED_MIN_REVIEWS) return false;
+  const avg = Number(v.trusted_avg_rating ?? 0);
+  return avg >= COUPLE_TRUSTED_MIN_AVG_RATING;
 }
 
 function topPickScore(avgRating: number, reviewCount: number): number {
@@ -225,13 +299,18 @@ export function computeVendorBadges(
     }
   }
 
-  // Second pass — assemble each vendor's badge array.
+  // Second pass — assemble each vendor's badge array in the ONE canonical
+  // render order shared across the whole system: new → verified →
+  // couple_trusted → most_booking → top_pick. Every consumer (card row,
+  // spotlight snapshot) relies on this ordering, so push in exactly this
+  // sequence.
   const out = new Map<string, VendorBadge[]>();
   for (const v of inputs) {
     const badges: VendorBadge[] = [];
     if (isVerified(v.verification_state)) {
-      badges.push('verified');
       if (isNewWithin90d(v.created_at, now)) badges.push('new');
+      badges.push('verified');
+      if (isCoupleTrusted(v)) badges.push('couple_trusted');
       if (mostBookingIds.has(v.vendor_profile_id)) badges.push('most_booking');
       if (topPickIds.has(v.vendor_profile_id)) badges.push('top_pick');
     }

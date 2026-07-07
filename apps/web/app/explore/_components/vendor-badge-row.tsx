@@ -1,12 +1,13 @@
 /**
- * Vendor badge row — renders the 4 trust badges from the
+ * Vendor badge row — renders the trust badges from the
  * 2026-05-22 owner directive. Server component (no interactive state).
  *
  * Color scheme per the brief:
- *   - `new`           — terracotta tint + Sparkles icon
- *   - `verified`      — emerald tint + CheckCircle icon
- *   - `most_booking`  — gold tint + TrendingUp icon
- *   - `top_pick`      — burgundy tint + Award icon
+ *   - `new`            — terracotta tint + Sparkles icon
+ *   - `verified`       — emerald tint + CheckCircle icon
+ *   - `couple_trusted` — indigo tint + HeartHandshake icon
+ *   - `most_booking`   — gold tint + TrendingUp icon
+ *   - `top_pick`       — burgundy tint + Award icon
  *
  * Tooltip strategy uses the native `title` attribute — keyboard +
  * screen-reader accessible without a JS popover library. The tooltip
@@ -22,7 +23,14 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { Sparkles, CheckCircle, TrendingUp, Award, Snowflake } from 'lucide-react';
+import {
+  Sparkles,
+  CheckCircle,
+  HeartHandshake,
+  TrendingUp,
+  Award,
+  Snowflake,
+} from 'lucide-react';
 import type { VendorBadge } from '@/lib/vendor-badges';
 
 type BadgeMeta = {
@@ -48,6 +56,17 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
     icon: CheckCircle,
     classes:
       'border-success-300/50 bg-success-50 text-success-900',
+  },
+  couple_trusted: {
+    label: 'Couple Trusted',
+    tooltip:
+      'Earned 10+ reviews from couples, averaging 4.7★ or higher.',
+    icon: HeartHandshake,
+    // Indigo tint (Tailwind default palette — available via theme.extend) so
+    // it reads as its own trust cue, distinct from the terracotta New,
+    // emerald Verified, gold Most Booked, and rose Top Pick rows.
+    classes:
+      'border-indigo-300/60 bg-indigo-50 text-indigo-900',
   },
   most_booking: {
     label: 'Most Booked',

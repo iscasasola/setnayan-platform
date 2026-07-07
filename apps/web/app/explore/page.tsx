@@ -1832,6 +1832,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     relationshipDepthMap,
     activityStatsByVendorId,
     partnershipBadgeByVendorId,
+    trustedReviewStatsByVendorId,
   ] =
     await Promise.all([
       (async (): Promise<
@@ -2216,6 +2217,37 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         }
         return out;
       })(),
+      // Trusted (receipt-backed, arm's-length) review aggregates from
+      // vendor_trusted_review_stats — the ONLY stat the couple_trusted badge
+      // may read. Kept SEPARATE from vendor_market_stats' raw
+      // avg_rating_overall / review_count (which count every review with no
+      // provenance filter) so fake / self-dealt reviews can never earn the
+      // trust badge. Fail-soft: an empty map means couple_trusted is simply
+      // not awarded (0/0 → below the count floor). Never blocks the grid.
+      (async (): Promise<Map<string, { avg: number; count: number }>> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_trusted_review_stats')
+          .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.warn('[explore] vendor_trusted_review_stats fetch failed', error.message);
+          return new Map();
+        }
+        const out = new Map<string, { avg: number; count: number }>();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            trusted_avg_rating: number | null;
+            trusted_review_count: number | null;
+          };
+          out.set(r.vendor_profile_id, {
+            avg: Number(r.trusted_avg_rating ?? 0),
+            count: Number(r.trusted_review_count ?? 0),
+          });
+        }
+        return out;
+      })(),
     ]);
 
   // Enrich each visible row with the new optional fields. Real-vendor
@@ -2357,13 +2389,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Badge computation runs against the enriched `visible` set so
   // percentile thresholds reflect what's on this page.
   const badgesByVendorId = computeVendorBadges(
-    visible.map((v) => ({
-      vendor_profile_id: v.vendor_profile_id,
-      verification_state: v.verification_state ?? null,
-      created_at: v.created_at,
-      avg_rating_overall: v.avg_rating_overall ?? 0,
-      review_count: v.review_count ?? 0,
-    })),
+    visible.map((v) => {
+      // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
+      // stat — never the raw avg_rating_overall / review_count. Vendors with
+      // no trusted-stats row pass 0/0 so they simply don't earn the badge.
+      const trusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
+      return {
+        vendor_profile_id: v.vendor_profile_id,
+        verification_state: v.verification_state ?? null,
+        created_at: v.created_at,
+        avg_rating_overall: v.avg_rating_overall ?? 0,
+        review_count: v.review_count ?? 0,
+        trusted_avg_rating: trusted?.avg ?? 0,
+        trusted_review_count: trusted?.count ?? 0,
+      };
+    }),
     bookingCounts,
   );
 

@@ -1,11 +1,13 @@
 import Link from 'next/link';
-import { Circle, CheckCircle2, ArrowRight, CalendarPlus } from 'lucide-react';
+import { Circle, CheckCircle2, ArrowRight, CalendarPlus, Wallet } from 'lucide-react';
 import {
   CHECKLIST_CATEGORY_LABELS,
   checklistItemHref,
   type ChecklistItemView,
   type ChecklistPhaseGroup,
 } from '@/lib/checklist';
+import type { ChecklistBudgetHealth } from '@/lib/checklist-budget';
+import { formatPeso, budgetHealthCopy, type BudgetTone } from '@/lib/checklist-budget-format';
 import { toggleChecklistItem } from '../../checklist-actions';
 
 /**
@@ -25,7 +27,50 @@ type Props = {
   doneCount: number;
   /** Couple's wedding date — null shows the "add a date" hint instead of due dates. */
   eventDate: string | null;
+  /** Live budget health-check — null when no budget is set (card hidden). */
+  budgetHealth?: ChecklistBudgetHealth | null;
 };
+
+/** Tailwind tokens per budget tone (kept static so they survive JIT purging). */
+const BUDGET_TONE_STYLES: Record<BudgetTone, { border: string; bg: string; dot: string; head: string }> = {
+  good: { border: 'border-success-500/25', bg: 'bg-success-50', dot: 'bg-success-500', head: 'text-success-700' },
+  tight: { border: 'border-warn-500/30', bg: 'bg-warn-50', dot: 'bg-warn-500', head: 'text-warn-700' },
+  over: { border: 'border-danger-500/30', bg: 'bg-danger-50', dot: 'bg-danger-500', head: 'text-danger-700' },
+};
+
+/**
+ * Live budget health-check card — the checklist's "is this plan affordable?"
+ * signal. Shows the best/worst-case buffer range and one honest health line.
+ * Rendered only when a budget is set (health != null).
+ */
+function BudgetHealthCard({ eventId, health }: { eventId: string; health: ChecklistBudgetHealth }) {
+  const copy = budgetHealthCopy(health);
+  const s = BUDGET_TONE_STYLES[copy.tone];
+  const lo = formatPeso(health.worstCaseBufferCentavos);
+  const hi = formatPeso(health.bestCaseBufferCentavos);
+  return (
+    <Link
+      href={`/dashboard/${eventId}/budget`}
+      className={`block rounded-xl border ${s.border} ${s.bg} px-4 py-3 transition hover:brightness-[0.98]`}
+    >
+      <div className="flex items-start gap-3">
+        <span aria-hidden className={`mt-1 inline-flex h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <Wallet aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={1.75} />
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">Budget health</p>
+          </div>
+          <p className={`mt-0.5 text-sm font-semibold ${s.head}`}>{copy.headline}</p>
+          <p className="mt-0.5 text-xs text-ink/65">{copy.detail}</p>
+          <p className="mt-1.5 text-[11px] text-ink/50">
+            Budget {formatPeso(health.totalBudgetCentavos)} · buffer {lo} to {hi}
+          </p>
+        </div>
+        <ArrowRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} />
+      </div>
+    </Link>
+  );
+}
 
 /** Format a computed due date + soft urgency tint for the meta line. */
 function dueLabel(item: ChecklistItemView): { label: string; tint: string } {
@@ -106,7 +151,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate }: Props) {
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, budgetHealth }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -150,6 +195,8 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
             <span>Add your wedding date to see a due date on every task</span>
           </Link>
         ) : null}
+
+        {budgetHealth ? <BudgetHealthCard eventId={eventId} health={budgetHealth} /> : null}
       </header>
 
       {totalCount === 0 ? (

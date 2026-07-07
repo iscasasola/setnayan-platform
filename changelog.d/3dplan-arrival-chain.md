@@ -8,4 +8,4 @@ Root cause of the live "Where am I seated?" hang (walk + chair-pull-back sit pla
 
 No visual change to the sit choreography, roam, retarget-mid-walk, chair detach/restore, seated persistence, or chase-cam behavior.
 
-SPEC IMPACT: None (engineering fix inside the 3D Plan demo surface; no SKU/spec-visible behavior change)
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md (slice-2 arrival-chain fix)

@@ -214,13 +214,16 @@ function hashGuestId(id: string): number {
   return h >>> 0;
 }
 
-// Side → wardrobe alternation so the demo crowd reads as a real PH wedding:
-// bride-side guests alternate gown/filipiniana, groom-side suit/barong, and
-// 'both' (shared friends/family) cycle all four. Derived ONLY from the
-// existing Plan3DGuest fields (id + side) — the demo guest type stays narrow.
-const BRIDE_SIDE_OUTFITS: readonly FigureSpec['outfit'][] = ['gown', 'filipiniana'];
-const GROOM_SIDE_OUTFITS: readonly FigureSpec['outfit'][] = ['suit', 'barong'];
-const BOTH_SIDES_OUTFITS: readonly FigureSpec['outfit'][] = ['gown', 'suit', 'barong', 'filipiniana'];
+// Attire class → cultural variant alternation so the demo crowd reads as a
+// real PH wedding: gown-class guests alternate gown/filipiniana, suit-class
+// suit/barong. The CLASS comes from the guest's resolved attire (the same
+// resolveGuestAttire chain the couple lab uses — explicit couple pick ≻
+// gendered role ≻ neutral); the hash only picks the variant WITHIN the class.
+// 2026-07-08 fix: deriving the class itself from side+hash dressed male-named
+// sample guests in gowns (owner caught "Antonio Bautista" in one) — side says
+// whose guest you are, never what you wear.
+const GOWN_CLASS_OUTFITS: readonly FigureSpec['outfit'][] = ['gown', 'filipiniana'];
+const SUIT_CLASS_OUTFITS: readonly FigureSpec['outfit'][] = ['suit', 'barong'];
 
 /** Deterministic outfit per guest. Reads a HIGH bit window (h >>> 16) so the
  *  choice doesn't correlate with the kit's look fields, which hash the LOW
@@ -228,9 +231,9 @@ const BOTH_SIDES_OUTFITS: readonly FigureSpec['outfit'][] = ['gown', 'suit', 'ba
  *  same skin-tone subset). */
 function outfitForGuest(g: Plan3DGuest): FigureSpec['outfit'] {
   const h = hashGuestId(g.id) >>> 16;
-  if (g.side === 'bride') return BRIDE_SIDE_OUTFITS[h % BRIDE_SIDE_OUTFITS.length]!;
-  if (g.side === 'groom') return GROOM_SIDE_OUTFITS[h % GROOM_SIDE_OUTFITS.length]!;
-  return BOTH_SIDES_OUTFITS[h % BOTH_SIDES_OUTFITS.length]!;
+  if (g.attire === 'gown') return GOWN_CLASS_OUTFITS[h % GOWN_CLASS_OUTFITS.length]!;
+  if (g.attire === 'suit') return SUIT_CLASS_OUTFITS[h % SUIT_CLASS_OUTFITS.length]!;
+  return 'neutral';
 }
 
 function GuestToken({

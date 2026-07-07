@@ -732,3 +732,31 @@ BEGIN
 
   RAISE NOTICE 'Seeded sample Papic gallery for event % (seat %).', v_event, v_seat;
 END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Sample-cast wardrobe (2026-07-08 · 3D Plan Fable slice — silhouette pass).
+-- The 3D figures dress from resolveGuestAttire (explicit attire ≻ gendered
+-- role ≻ neutral). The fictional cast's attire is set EXPLICITLY here so the
+-- demo room never falls back to a hash (which once put Antonio Bautista in a
+-- gown — owner-caught). Idempotent; scoped to the pinned sample event.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' AND event_type = 'wedding'
+  LIMIT 1;
+  IF v_event IS NULL THEN
+    RAISE NOTICE 'sample event missing — skipping cast wardrobe';
+    RETURN;
+  END IF;
+
+  UPDATE public.guests SET attire = 'suit'
+  WHERE event_id = v_event AND deleted_at IS NULL
+    AND first_name IN ('Antonio','Benigno','Carlo','Daniel','Eduardo','Fernando','Gabriel','Jose','Manuel','Marco','Miguel','Paolo','Ramon','Rodrigo');
+
+  UPDATE public.guests SET attire = 'gown'
+  WHERE event_id = v_event AND deleted_at IS NULL
+    AND first_name IN ('Andrea','Angela','Bianca','Corazon','Divina','Estrella','Imelda','Joana','Lourdes','Maria','Patricia','Rosa','Sofia','Teresita');
+END $$;

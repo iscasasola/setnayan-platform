@@ -31,16 +31,56 @@ import type { FigureSpec } from '@/lib/figure-rig';
 export type OutfitKind = FigureSpec['outfit'];
 
 // ── Shared shell geometries (module scope — one GPU buffer each) ────────────
+//
+// RE-PROPORTIONED 2026-07-08 (owner: figures "look like christmas trees
+// instead of a realistic person"). The original shells were the lab tokens'
+// cones — the gown flared from the NECK, which is exactly the tree read. The
+// shells are now LatheGeometry dress-form profiles authored in TORSO space
+// (y=0 at the pelvis, matching figure.tsx's rig constants): collar →
+// shoulders → bust → WAIST → hips → hem. The waist pinch is what makes a
+// silhouette read "person"; the skirt flare starts at the hips, never the
+// chest. One shared buffer each, same as before.
 
-/** Gown: flares from a narrow bodice to a wide skirt — the LAB's proportions
- *  verbatim (seating-lab-3d.tsx GOWN_GEO) so silhouettes stay consistent. */
-export const GOWN_GEO = new THREE.CylinderGeometry(0.08, 0.26, 0.56, 16);
+/** Build a closed lathe from (radius, y) profile points (top → bottom); the
+ *  last point is capped to centre so hems/jacket bottoms aren't see-through
+ *  from a low camera. */
+function latheProfile(points: ReadonlyArray<readonly [number, number]>, segments = 20): THREE.LatheGeometry {
+  const pts = points.map(([r, y]) => new THREE.Vector2(r, y));
+  const last = points[points.length - 1]!;
+  pts.push(new THREE.Vector2(0.001, last[1])); // cap
+  return new THREE.LatheGeometry(pts, segments);
+}
 
-/** Suit: a straighter tapered torso — the lab's SUIT_GEO verbatim. */
-export const SUIT_GEO = new THREE.CylinderGeometry(0.13, 0.18, 0.5, 12);
+/** Gown: fitted bodice with a real waist, A-line skirt flaring from the HIPS
+ *  to a mid-shin hem (shins stay visible for footfall while walking). */
+export const GOWN_GEO = latheProfile([
+  [0.045, 0.5], // collar
+  [0.15, 0.44], // shoulder line
+  [0.165, 0.32], // bust
+  [0.108, 0.18], // waist — the pinch that kills the cone
+  [0.155, 0.02], // hips
+  [0.205, -0.38], // skirt mid-fall
+  [0.245, -0.62], // hem (≈ mid-shin standing)
+]);
 
-/** Neutral: the plain token body (lab TOKEN_BODY_GEO proportions). */
-export const NEUTRAL_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
+/** Suit: squared shoulder line, slight chest→waist taper, jacket hem at the
+ *  hips — trousered legs render below it. */
+export const SUIT_GEO = latheProfile([
+  [0.05, 0.52], // collar
+  [0.155, 0.46], // shoulders
+  [0.15, 0.3], // chest
+  [0.125, 0.1], // waist taper
+  [0.14, -0.05], // jacket hem at the hips
+]);
+
+/** Neutral: an unmarked soft column with shoulders — still humanoid, no
+ *  wardrobe statement. */
+export const NEUTRAL_GEO = latheProfile([
+  [0.048, 0.5],
+  [0.14, 0.44],
+  [0.13, 0.15],
+  [0.135, -0.02],
+]);
 
 /** Butterfly sleeve: a small sphere the renderer flattens via mesh scale
  *  (one shared buffer; the terno's signature peaks come from placement). */

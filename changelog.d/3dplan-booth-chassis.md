@@ -48,8 +48,7 @@ Draw budget per template ≈ 20–35 draws (chassis ≤ 8 · props 1–5 each, �
 where instancing applies · staff ~12/figure at quality 'low' with shadow
 casting off · sign 2). typecheck + lint + 1124 unit tests green.
 
-SPEC IMPACT: None (implements the already-locked 2026-07-08 booth-template
-catalog; slice 1 of 2 — system + top-20).
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Booth_Template_Catalog_2026-07-08.md (chassis + top-20 shipped)
 
 ## 2026-07-08 · feat(plan3d): kind-aware booth cards — menus, songlists, book-CTA
 
@@ -122,3 +121,47 @@ is_demo batch vendors (Saysay Live Band, Tagay Mobile Bar, etc. shipped in
 (44 inclusion rows + 5 booths, correct kinds + vendor links).
 
 SPEC IMPACT: None (sample-event demo data only; no pricing/SKU surface).
+
+## 2026-07-08 · chore(plan3d): slice-4 review fixes — book-CTA verified-only, chassis-sized tap volumes, walker discs, prop material caches
+
+Pre-merge review pass over the booth-kit slices; six confirmed findings fixed.
+
+- **Book CTA is now verified-only** (the surface-D contract): `fetchBooths`
+  carries a `bookable` flag (`isBookable` — `public_visibility === 'verified'`
+  only) alongside the publicly-visible slug, threaded through the demo scene,
+  couple lab and public venue walk into `BoothVendorCard`. A coming_soon (or
+  NULL-legacy-visibility) profile keeps its profile link but the CTA reads
+  "View vendor profile" — the 3D surface never invites a booking the vendor
+  can't take (matching /v/[slug]'s own hidden booking CTA).
+- **Chassis-sized tap volumes** — the fixed 2.3×1.3×1.3 booth hit box
+  under-covered VEHICLE (2.6 w cab ends), RISER (2.4×2.0 deck) and BACKDROP
+  (2.4 w, ~2.24 m panel + front tripod). New `boothHitVolume` in
+  `kit/booth-templates.ts` sizes the invisible box from `CHASSIS_SPECS`
+  (footprint + the generic box's 0.3 m slack, per-chassis `hit` height/depth
+  overrides); all three surfaces (plan3d-scene, guest venue walk, seating
+  lab) consume it. Generic (non-templated) booths keep the exact historical
+  box.
+- **BACKDROP walker discs** — added a third front lobe so the photo_booth
+  template's room-side tripod camera + greeter anchor are obstacles again
+  (the two panel lobes missed both; the pre-template generic r=1.4 disc
+  covered them). Walkers no longer path through the tripod.
+- **Lab booth tap target is no longer mode-blind** — `LabBoothHitTarget`
+  now takes `enabled` and unmounts while a build-mode floor interaction is
+  armed (zone placement / selected / dragging table), so the oversized box
+  can't swallow the floor catcher's tap-to-drop / deselect tap and open the
+  vendor sheet mid-placement (the plan3d-scene `interactive` gate, adapted).
+- **Prop material discipline** — the LIVE-lamp face material is a lazy module
+  singleton (was inline JSX allocating one per mount); `BoothTextSign` uses a
+  module-scope face plane + a per-(text, accent) material cache with LRU
+  eviction + disposal at 64 entries (the CanvasTexture cache previously grew
+  unbounded across label renames).
+
+Skipped (reviewed, not fixed): the hard-rim umbrella cone / kick-drum
+primitives vs. the mascot-smooth lock — art-direction polish needing a
+geometry redesign + booth-lab visual pass; deferred to the catalog-complete
+PR.
+
+typecheck + lint:vendor-layout + 1128 unit tests green.
+
+SPEC IMPACT: None (correctness fixes inside the already-logged slices; the
+verified-only book CTA is the surface-D contract as specified).

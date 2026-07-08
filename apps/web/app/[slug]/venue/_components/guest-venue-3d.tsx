@@ -45,7 +45,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
-import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
@@ -607,10 +607,14 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             the shared fixture renderer stays a pure visual. */}
         {booths.map((b) => {
           const p = pctToWorld(b.xPct, b.yPct, room);
+          // Sized to the resolved chassis (truck cab / riser deck / backdrop
+          // panel extend past the old fixed 2.3×1.3×1.3 box); generic booths
+          // keep the historical box.
+          const hit = boothHitVolume(b);
           return (
             <mesh
               key={`hit-${b.id}`}
-              position={[p.x, 0.6, p.z]}
+              position={[p.x + hit.center[0], hit.center[1], p.z + hit.center[2]]}
               onClick={(e: ThreeEvent<MouseEvent>) => {
                 if (e.delta > TAP_MAX_PX) return;
                 e.stopPropagation();
@@ -624,7 +628,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
                 document.body.style.cursor = '';
               }}
             >
-              <boxGeometry args={[2.3, 1.3, 1.3]} />
+              <boxGeometry args={[hit.size[0], hit.size[1], hit.size[2]]} />
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
           );

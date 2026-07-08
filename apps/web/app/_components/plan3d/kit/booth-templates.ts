@@ -350,6 +350,44 @@ export function boothChassisSpec(
   return t ? CHASSIS_SPECS[t.chassis] : null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tap volume (the invisible booth hit box, sized to the resolved chassis)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** An invisible booth tap box: `size` = [w, h, d] metres, `center` = the box
+ *  centre relative to the booth's floor origin. */
+export type BoothHitVolume = {
+  size: readonly [number, number, number];
+  center: readonly [number, number, number];
+};
+
+/** The historical fixed box (a touch larger than the generic 2×1 m booth
+ *  footprint, floor-anchored) — still exactly right for the 37 fallback
+ *  categories that render the generic BoothMesh. */
+export const GENERIC_BOOTH_HIT: BoothHitVolume = {
+  size: [2.3, 1.3, 1.3],
+  center: [0, 0.6, 0],
+};
+
+/**
+ * The tap volume a placed booth's hit target should use — sized from the
+ * resolved chassis' footprint (w/d + the generic box's 0.3 m slack) with the
+ * spec's `hit` overrides for tall or front-extended builds, so the widest
+ * chassis (VEHICLE cab ends, RISER deck, BACKDROP panel + tripod) have no
+ * dead tap zones. Non-templated booths keep the exact historical box.
+ */
+export function boothHitVolume(
+  booth: Pick<Lab3DBooth, 'kind' | 'vendor'>,
+): BoothHitVolume {
+  const spec = boothChassisSpec(booth);
+  if (!spec) return GENERIC_BOOTH_HIT;
+  const w = spec.w + 0.3;
+  const h = spec.hit?.h ?? 1.3;
+  const d = spec.hit?.d ?? spec.d + 0.3;
+  // Floor-anchored like the generic box (its 1.3-tall span sits at y −0.05…1.25).
+  return { size: [w, h, d], center: [0, h / 2 - 0.05, spec.hit?.z ?? 0] };
+}
+
 /**
  * Template-aware avoidance discs for placed booths — the drop-in upgrade for
  * seating-3d's `boothObstacles` at every 3D call site: a templated booth

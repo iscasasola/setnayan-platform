@@ -241,6 +241,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
           logoUrl: b.vendor.logo_url ? boothLogoUrls[b.vendor.logo_url] ?? null : null,
           tier: b.vendor.tier,
           slug: b.vendor.slug,
+          bookable: b.vendor.bookable,
         }
       : null,
   }));

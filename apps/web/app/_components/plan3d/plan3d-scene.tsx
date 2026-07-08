@@ -127,7 +127,7 @@ import {
 } from '@/lib/seating-3d';
 import { useLookGesture, type LookState } from '@/app/_components/plan3d/use-look-gesture';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
-import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { preloadGuestPhotos } from './guest-avatar';
@@ -1352,10 +1352,14 @@ function BoothHitTarget({
   interactive: boolean;
 }) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
+  // Sized to the resolved chassis (a food truck's cab, a riser's deck and a
+  // backdrop's panel all extend past the old fixed 2.3×1.3×1.3 box); generic
+  // booths keep the historical box.
+  const hit = useMemo(() => boothHitVolume(booth), [booth]);
   if (!interactive) return null;
   return (
     <mesh
-      position={[pos.x, 0.6, pos.z]}
+      position={[pos.x + hit.center[0], hit.center[1], pos.z + hit.center[2]]}
       onClick={(e) => onTap(booth, e)}
       onPointerOver={(e) => {
         e.stopPropagation();
@@ -1365,9 +1369,9 @@ function BoothHitTarget({
         document.body.style.cursor = '';
       }}
     >
-      {/* A touch larger than the booth footprint so it's easy to hit; the
+      {/* A touch larger than the booth's chassis so it's easy to hit; the
           material is invisible (a pure hit volume, never rendered). */}
-      <boxGeometry args={[2.3, 1.3, 1.3]} />
+      <boxGeometry args={[hit.size[0], hit.size[1], hit.size[2]]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   );

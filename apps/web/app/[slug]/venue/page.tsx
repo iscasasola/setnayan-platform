@@ -79,16 +79,32 @@ export default async function VenuePage({
     // Booth vendors' marketplace profile slugs (the booth card's free
     // "Book this vendor" CTA — owner-locked surface D). The RPC payload
     // predates the slug field, so join it here via fetchBooths, which already
-    // nulls the slug unless the profile is publicly visible. Public business
-    // info only; fail-soft (a missing event row just means no CTA).
+    // nulls the slug unless the profile is publicly visible — and carries
+    // `bookable` (verified-only) so the card only says "Book" when the
+    // profile can actually take bookings. Public business info only;
+    // fail-soft (a missing event row just means no CTA).
     const eventId = (paletteRow.data as { event_id?: string } | null)?.event_id;
     if (eventId) {
       const boothRows = await fetchBooths(admin, eventId);
-      const slugById = new Map(boothRows.map((b) => [b.booth_id, b.vendor?.slug ?? null]));
+      const profileById = new Map(
+        boothRows.map((b) => [
+          b.booth_id,
+          { slug: b.vendor?.slug ?? null, bookable: b.vendor?.bookable ?? false },
+        ]),
+      );
       scene = {
         ...scene,
         booths: (scene.booths ?? []).map((b) =>
-          b.vendor ? { ...b, vendor: { ...b.vendor, slug: slugById.get(b.id) ?? null } } : b,
+          b.vendor
+            ? {
+                ...b,
+                vendor: {
+                  ...b.vendor,
+                  slug: profileById.get(b.id)?.slug ?? null,
+                  bookable: profileById.get(b.id)?.bookable ?? false,
+                },
+              }
+            : b,
         ),
       };
     }

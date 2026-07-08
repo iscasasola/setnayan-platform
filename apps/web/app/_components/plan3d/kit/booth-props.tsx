@@ -121,12 +121,6 @@ function StaticInstances({
 }
 
 // Emissive singletons — fixed looks, no palette keying needed.
-const liveLampFaceMat = new THREE.MeshStandardMaterial({
-  color: '#1a0d0d',
-  emissive: '#ff3b30',
-  emissiveIntensity: 0.9,
-  roughness: 0.4,
-});
 const bulbMat = new THREE.MeshStandardMaterial({
   color: '#fff6dd',
   emissive: '#ffd98a',
@@ -179,6 +173,24 @@ function liveLampTexture(): THREE.CanvasTexture {
   liveTex = new THREE.CanvasTexture(canvas);
   liveTex.colorSpace = THREE.SRGBColorSpace;
   return liveTex;
+}
+
+let liveLampFaceMatCache: THREE.MeshStandardMaterial | null = null;
+/** The "● LIVE" lamp face material — a lazy module singleton (it bakes the
+ *  browser-only CanvasTexture) so every mounted livestream lamp shares ONE
+ *  material, per the kit's keyed-cache discipline. */
+function liveLampFaceMaterial(): THREE.MeshStandardMaterial {
+  if (!liveLampFaceMatCache) {
+    liveLampFaceMatCache = new THREE.MeshStandardMaterial({
+      map: liveLampTexture(),
+      emissive: '#ff3b30',
+      emissiveIntensity: 0.75,
+      emissiveMap: liveLampTexture(),
+      roughness: 0.4,
+      toneMapped: false,
+    });
+  }
+  return liveLampFaceMatCache;
 }
 
 let banigTex: THREE.CanvasTexture | null = null;
@@ -539,16 +551,7 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
       return (
         <group>
           <mesh geometry={LAMP_BOX_GEO} material={boothSheenMaterial(KIT_DARK)} castShadow />
-          <mesh geometry={LAMP_FACE_GEO} position={[0, 0, 0.065]}>
-            <meshStandardMaterial
-              map={liveLampTexture()}
-              emissive="#ff3b30"
-              emissiveIntensity={0.75}
-              emissiveMap={liveLampTexture()}
-              roughness={0.4}
-              toneMapped={false}
-            />
-          </mesh>
+          <mesh geometry={LAMP_FACE_GEO} material={liveLampFaceMaterial()} position={[0, 0, 0.065]} />
         </group>
       );
     case 'bulb_mirror':
@@ -648,14 +651,20 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
 /**
  * The fallback TEXT sign — a booth with no brandable vendor logo still gets a
  * named board (the template's signText / the couple's booth label) drawn as a
- * CanvasTexture. Cached per (text, colour); bounded by the booths on a floor.
+ * CanvasTexture. Texture + material are cached together per (text, colour) so
+ * every mount of the same label shares one material (the kit's keyed-cache
+ * discipline), and the cache is LRU-BOUNDED: unlike the palette-bounded
+ * material caches, distinct labels are unbounded across a session (renames,
+ * lab paging), so past the cap the oldest entry is evicted and disposed —
+ * a still-mounted evictee just re-uploads from its retained source canvas.
  */
-const textSignCache = new Map<string, THREE.CanvasTexture>();
+const textSignCache = new Map<string, { tex: THREE.CanvasTexture; mat: THREE.MeshBasicMaterial }>();
+const TEXT_SIGN_CACHE_MAX = 64; // ≫ any single floor's booth count
 
-function textSignTexture(text: string, accent: string): THREE.CanvasTexture {
+function textSignMaterial(text: string, accent: string): THREE.MeshBasicMaterial {
   const key = `${accent}|${text}`;
   const cached = textSignCache.get(key);
-  if (cached) return cached;
+  if (cached) return cached.mat;
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 96;
@@ -672,11 +681,24 @@ function textSignTexture(text: string, accent: string): THREE.CanvasTexture {
   ctx.fillText(label, 128, 44);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  textSignCache.set(key, tex);
-  return tex;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+  if (textSignCache.size >= TEXT_SIGN_CACHE_MAX) {
+    const oldestKey = textSignCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      const evicted = textSignCache.get(oldestKey)!;
+      textSignCache.delete(oldestKey);
+      evicted.mat.dispose();
+      evicted.tex.dispose();
+    }
+  }
+  textSignCache.set(key, { tex, mat });
+  return mat;
 }
 
 const SIGN_BOARD_GEO = new RoundedBoxGeometry(1.5, 0.56, 0.07, 3, 0.03);
+// Module-scope plane (constant 1.34×0.46) — the per-mount <planeGeometry>
+// allocation contradicted the kit's shared-buffer rule.
+const SIGN_FACE_GEO = new THREE.PlaneGeometry(1.34, 0.46);
 
 /** The drawn nameboard, sized/positioned like the shared BoothSign's logo
  *  board so branded + unbranded booths hang signage at the same height. */
@@ -684,10 +706,7 @@ export function BoothTextSign({ text, palette }: { text: string; palette: Lab3DP
   return (
     <group position={[0, 0, -0.62]}>
       <mesh geometry={SIGN_BOARD_GEO} material={boothSheenMaterial(palette.table)} position={[0, 1.75, 0]} castShadow />
-      <mesh position={[0, 1.75, 0.045]}>
-        <planeGeometry args={[1.34, 0.46]} />
-        <meshBasicMaterial map={textSignTexture(text, palette.accent)} toneMapped={false} />
-      </mesh>
+      <mesh geometry={SIGN_FACE_GEO} material={textSignMaterial(text, palette.accent)} position={[0, 1.75, 0.045]} />
     </group>
   );
 }

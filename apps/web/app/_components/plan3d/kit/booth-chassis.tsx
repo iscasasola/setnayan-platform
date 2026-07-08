@@ -56,13 +56,20 @@ export type LocalDisc = { x: number; z: number; r: number };
 export type StaffAnchor = { x: number; z: number; y?: number; faceY: number };
 
 export type ChassisSpec = {
-  /** Footprint (metres) — drives the template's tap-target sizing intuition
-   *  and documents the visual span; obstacles come from `discs`. */
+  /** Footprint (metres) — drives the template's tap-target sizing (see
+   *  boothHitVolume in kit/booth-templates.ts) and documents the visual
+   *  span; obstacles come from `discs`. */
   w: number;
   d: number;
   /** Local avoidance discs — the slice-3 obstacle contract. Radii include
    *  the same ~0.4 m walking clearance boothObstacles has always added. */
   discs: readonly LocalDisc[];
+  /** Tap-volume overrides where the default footprint-derived box (w+0.3 ×
+   *  1.3 × d+0.3, floor-anchored) misses visible geometry: `h` for tall
+   *  builds (backdrop panel, display back, pergola), `d`/`z` for a box that
+   *  must reach past the footprint (the photo booth's front-of-booth tripod).
+   *  `d`/`h` are FINAL box dims (no margin added); `z` shifts the box centre. */
+  hit?: { h?: number; d?: number; z?: number };
   /** Local mount point for the sign/backdrop group (BoothSign reuse). */
   signAnchor: readonly [number, number, number];
   /** Staff spots in priority order — a template's `staff.count` takes the
@@ -72,9 +79,12 @@ export type ChassisSpec = {
 
 /**
  * The 9 chassis specs. Footprints stay in the family of the shared
- * BOOTH_FOOTPRINT_M (2×1 m) so the scene's existing oversized tap-target box
- * still covers every chassis; only the wider bodies (VEHICLE / BACKDROP /
- * GARDEN) add a second disc to keep their ends solid.
+ * BOOTH_FOOTPRINT_M (2×1 m), but the wider bodies (VEHICLE 2.6 · RISER
+ * 2.4×2.0 · BACKDROP 2.4×1.8) extend past the old fixed 2.3×1.3×1.3 tap box —
+ * every 3D surface now sizes its hit volume from these specs via
+ * boothHitVolume (kit/booth-templates.ts) so no chassis has dead tap zones.
+ * The wider bodies also carry a second (or third) disc to keep their ends —
+ * and front-of-booth props/staff — solid to walkers.
  */
 export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
   COUNTER: {
@@ -112,7 +122,16 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     discs: [
       { x: -0.6, z: -0.5, r: 1.0 },
       { x: 0.6, z: -0.5, r: 1.0 },
+      // Front lobe — covers the photo_booth template's room-side tripod
+      // (booth-local 0.4, 1.15) + greeter anchor (0.95, 0.45), both of which
+      // the two panel lobes miss (the pre-template generic r=1.4 disc covered
+      // them; without this, walkers path straight through the camera).
+      { x: 0.55, z: 0.75, r: 1.0 },
     ],
+    // Tall + deep tap volume: the panel tops out ~2.24 m and the tripod sits
+    // ~1.15–1.35 m in FRONT of centre — the default 1.3-tall, footprint-deep
+    // box would leave both untappable.
+    hit: { h: 2.4, d: 2.5, z: 0.35 },
     // Lifted above the 2.24 m frame — at the default hang height the board
     // would hide behind the backdrop panel itself.
     signAnchor: [0, 0.85, 0.35],
@@ -122,6 +141,7 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     w: 1.8,
     d: 1.0,
     discs: [{ x: 0, z: 0, r: 1.3 }],
+    hit: { h: 2.0 }, // display board tops out ~1.88 m
     signAnchor: [0, 0, 0],
     staffAnchors: [{ x: 0, z: -0.55, faceY: 0 }],
   },
@@ -129,12 +149,14 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     w: 2.0,
     d: 0.9,
     discs: [{ x: 0, z: 0, r: 1.35 }],
+    hit: { h: 2.3 }, // vitrine back panel tops out ~2.17 m
     signAnchor: [0, 0, 0],
     staffAnchors: [{ x: 0.85, z: 0.3, faceY: -0.6 }],
   },
   VEHICLE: {
     w: 2.6,
     d: 1.3,
+    hit: { h: 1.5 }, // truck body tops out ~1.30 m (cab ends covered by w)
     discs: [
       { x: -0.65, z: 0, r: 1.1 },
       { x: 0.65, z: 0, r: 1.1 },
@@ -152,6 +174,7 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
   GARDEN: {
     w: 2.2,
     d: 1.4,
+    hit: { h: 2.2 }, // pergola beam + foliage top out ~2.1 m
     discs: [
       { x: -0.5, z: 0, r: 1.05 },
       { x: 0.5, z: 0, r: 1.05 },

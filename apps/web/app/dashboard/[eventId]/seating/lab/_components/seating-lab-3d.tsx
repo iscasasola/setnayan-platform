@@ -147,7 +147,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
-import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 
 type Props = {
@@ -1750,9 +1750,20 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
         {/* Invisible per-booth tap targets (the plan3d-scene precedent) —
             tapping a booth opens its vendor card. Kept off the shared fixture
-            renderer so it stays a pure visual (no interaction coupling). */}
+            renderer so it stays a pure visual (no interaction coupling).
+            DISABLED while a build-mode floor interaction is armed (zone
+            placement, a selected/dragged table) — the oversized hit box would
+            otherwise swallow the floor catcher's tap-to-drop / deselect tap
+            and open the vendor sheet mid-placement (the plan3d-scene
+            `interactive` gate, adapted to this lab's edit states). */}
         {booths.map((b) => (
-          <LabBoothHitTarget key={b.id} booth={b} room={room} onTap={setOpenBooth} />
+          <LabBoothHitTarget
+            key={b.id}
+            booth={b}
+            room={room}
+            onTap={setOpenBooth}
+            enabled={mode === 'play' || (!placeZone && !selectedId && !draggingId)}
+          />
         ))}
 
         {/* Invisible floor catcher for drag-move + tap-to-drop + deselect. */}
@@ -1936,15 +1947,24 @@ function LabBoothHitTarget({
   booth,
   room,
   onTap,
+  enabled,
 }: {
   booth: Lab3DBooth;
   room: { w: number; d: number };
   onTap: (booth: Lab3DBooth) => void;
+  /** False while a build-mode floor interaction is armed — the hit box must
+   *  not occlude the floor catcher's tap-to-drop / deselect raycast. */
+  enabled: boolean;
 }) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
+  // Sized to the resolved chassis (truck cab / riser deck / backdrop panel
+  // extend past the old fixed 2.3×1.3×1.3 box); generic booths keep the
+  // historical box.
+  const hit = useMemo(() => boothHitVolume(booth), [booth]);
+  if (!enabled) return null;
   return (
     <mesh
-      position={[pos.x, 0.6, pos.z]}
+      position={[pos.x + hit.center[0], hit.center[1], pos.z + hit.center[2]]}
       onClick={(e) => {
         // `e.delta` is the pointer's pixel travel — ignore drags (orbit/pan).
         if (e.delta > 4) return;
@@ -1959,9 +1979,9 @@ function LabBoothHitTarget({
         document.body.style.cursor = '';
       }}
     >
-      {/* A touch larger than the booth footprint so it's easy to hit; the
+      {/* A touch larger than the booth's chassis so it's easy to hit; the
           material is invisible (a pure hit volume, never rendered). */}
-      <boxGeometry args={[2.3, 1.3, 1.3]} />
+      <boxGeometry args={[hit.size[0], hit.size[1], hit.size[2]]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   );

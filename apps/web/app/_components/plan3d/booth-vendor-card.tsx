@@ -22,7 +22,10 @@
  *     vendors): "Book this vendor for your event" → /v/[slug] on the demo +
  *     public walk; the couple's own lab passes `profileCta="view"` ("View
  *     vendor profile" — they already booked them). Only when the vendor has a
- *     publicly visible marketplace profile (`vendor.slug` non-null).
+ *     publicly visible marketplace profile (`vendor.slug` non-null) — and the
+ *     "Book" wording additionally requires `vendor.bookable` (verified-only,
+ *     lib/vendor-visibility isBookable): a coming_soon profile links as "View
+ *     vendor profile" instead, matching /v/[slug]'s own hidden booking CTA.
  *
  * Unlinked booths just show label/type (+ offerings if the couple set one).
  * Pure presentational — the scene owns booth state + the walk-to action.
@@ -63,7 +66,9 @@ export function BoothVendorCard({
   onWalkTo?: (booth: Lab3DBooth) => void;
   /** Marketplace-profile CTA wording: 'book' (demo + public walk — "Book this
    *  vendor for your event") or 'view' (the couple's own lab — they already
-   *  booked them). Renders only when `booth.vendor.slug` is set. */
+   *  booked them). Renders only when `booth.vendor.slug` is set; 'book' also
+   *  needs `vendor.bookable` (verified-only) or it downgrades to the view
+   *  wording — the surface must never invite a booking the vendor can't take. */
   profileCta?: 'book' | 'view';
 }) {
   const headingId = useId();
@@ -150,7 +155,9 @@ export function BoothVendorCard({
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-ink/5"
             >
-              {profileCta === 'view' ? 'View vendor profile' : 'Book this vendor for your event'}
+              {profileCta === 'book' && vendor.bookable === true
+                ? 'Book this vendor for your event'
+                : 'View vendor profile'}
               <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
           ) : null}

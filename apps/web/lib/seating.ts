@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isPubliclyVisible, parseVisibility } from './vendor-visibility';
+import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibility';
 // Iteration 0053 Phase 2: the wedding seating-tier data now lives in
 // lib/role-sets.ts (single source). We import WEDDING_ROLE_SET as the DEFAULT
 // for every tier classifier so un-threaded callers behave exactly as before;
@@ -1408,6 +1408,11 @@ export type FloorBoothRow = {
     // publicly visible (isPubliclyVisible), so a hidden/archived vendor never
     // leaks a profile link onto a booth card.
     slug: string | null;
+    // Whether the profile can take bookings (isBookable — 'verified' only).
+    // Gates the booth card's "Book this vendor" CTA wording per the
+    // owner-locked surface-D contract; a coming_soon profile keeps its slug
+    // (the profile page is publicly visible) but is NOT bookable.
+    bookable: boolean;
   } | null;
 };
 
@@ -1485,6 +1490,7 @@ export async function fetchBooths(
             logo_url: vp?.logo_url ?? null,
             tier: vp?.tier_state ?? null,
             slug: vp && isPubliclyVisible(parseVisibility(vp.public_visibility)) ? vp.business_slug ?? null : null,
+            bookable: vp ? isBookable(parseVisibility(vp.public_visibility)) : false,
           }
         : null,
     };

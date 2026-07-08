@@ -890,6 +890,12 @@ export type BoothVendor = {
    *  profile CTA (owner-locked surface D: free for verified vendors). Null /
    *  absent → no CTA. Optional so older cached scene payloads still parse. */
   slug?: string | null;
+  /** Whether the profile can take bookings (`public_visibility === 'verified'`
+   *  — lib/vendor-visibility isBookable). Gates the booth card's "Book this
+   *  vendor" wording: a coming_soon profile keeps its slug (the profile page
+   *  is publicly visible) but must not invite a booking it can't take.
+   *  Optional (older payloads → falsy → the conservative "view" wording). */
+  bookable?: boolean;
 };
 
 /** One structured "what you get" line on the booth vendor card — a menu dish,

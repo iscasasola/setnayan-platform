@@ -39,6 +39,7 @@ type Overlay = {
   size: number; // fraction of stage width
   rotation: number; // degrees
   color: string;
+  pill?: boolean; // text only — solid rounded backing for legibility
 };
 
 type Drag =
@@ -60,9 +61,12 @@ const nextId = () => `o${++seq}`;
 export function KwentoDecorator({
   eventName,
   canKwento,
+  themeColors = [],
 }: {
   eventName: string;
   canKwento: boolean;
+  /** The couple's mood-board colours, merged into the text swatches. */
+  themeColors?: string[];
 }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<PapicStyle>('ORIG');
@@ -70,6 +74,7 @@ export function KwentoDecorator({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [textDraft, setTextDraft] = useState('');
   const [textColor, setTextColor] = useState<string>('#ffffff');
+  const [textPill, setTextPill] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -131,7 +136,7 @@ export function KwentoDecorator({
     const id = nextId();
     setOverlays((o) => [
       ...o,
-      { id, kind: 'text', content: t, x: 0.5, y: 0.5, size: 0.09, rotation: 0, color: textColor },
+      { id, kind: 'text', content: t, x: 0.5, y: 0.5, size: 0.09, rotation: 0, color: textColor, pill: textPill },
     ]);
     setActiveId(id);
     setTextDraft('');
@@ -233,11 +238,27 @@ export function KwentoDecorator({
         if (ov.rotation) ctx.rotate((ov.rotation * Math.PI) / 180);
         if (ov.kind === 'text') {
           ctx.font = `700 ${fontPx}px ui-sans-serif, system-ui, sans-serif`;
-          ctx.fillStyle = ov.color;
-          ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-          ctx.lineWidth = Math.max(1, fontPx * 0.06);
-          ctx.strokeText(ov.content, 0, 0);
-          ctx.fillText(ov.content, 0, 0);
+          if (ov.pill) {
+            const tw = ctx.measureText(ov.content).width;
+            const rw = tw + fontPx * 0.72;
+            const rh = fontPx + fontPx * 0.4;
+            ctx.fillStyle = 'rgba(31,26,23,0.55)';
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+              ctx.roundRect(-rw / 2, -rh / 2, rw, rh, rh * 0.5);
+            } else {
+              ctx.rect(-rw / 2, -rh / 2, rw, rh);
+            }
+            ctx.fill();
+            ctx.fillStyle = ov.color;
+            ctx.fillText(ov.content, 0, 0);
+          } else {
+            ctx.fillStyle = ov.color;
+            ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+            ctx.lineWidth = Math.max(1, fontPx * 0.06);
+            ctx.strokeText(ov.content, 0, 0);
+            ctx.fillText(ov.content, 0, 0);
+          }
         } else {
           ctx.font = `${fontPx}px sans-serif`;
           ctx.fillText(ov.content, 0, 0);
@@ -372,7 +393,12 @@ export function KwentoDecorator({
                         fontSize: `${ov.size * 100}cqw`,
                         color: ov.color,
                         fontWeight: ov.kind === 'text' ? 700 : 400,
-                        textShadow: ov.kind === 'text' ? '0 1px 2px rgba(0,0,0,0.35)' : undefined,
+                        textShadow:
+                          ov.kind === 'text' && !ov.pill ? '0 1px 2px rgba(0,0,0,0.35)' : undefined,
+                        background:
+                          ov.kind === 'text' && ov.pill ? 'rgba(31,26,23,0.55)' : undefined,
+                        padding: ov.kind === 'text' && ov.pill ? '0.2em 0.36em' : undefined,
+                        borderRadius: ov.kind === 'text' && ov.pill ? '999px' : undefined,
                         filter: isActive
                           ? 'drop-shadow(0 0 5px rgba(216,90,48,0.95)) drop-shadow(0 0 12px rgba(216,90,48,0.55))'
                           : undefined,
@@ -468,7 +494,7 @@ export function KwentoDecorator({
                 placeholder="Add a caption…"
                 className="min-w-0 flex-1 rounded-md border border-ink/15 bg-surface px-2.5 py-1.5 text-sm"
               />
-              {TEXT_COLORS.map((c) => (
+              {Array.from(new Set([...TEXT_COLORS, ...themeColors])).map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -480,6 +506,17 @@ export function KwentoDecorator({
                   style={{ backgroundColor: c }}
                 />
               ))}
+              <button
+                type="button"
+                onClick={() => setTextPill((v) => !v)}
+                aria-pressed={textPill}
+                title="Solid background behind the text"
+                className={`flex-none rounded-md px-2 py-1.5 text-xs font-medium ${
+                  textPill ? 'bg-ink text-cream' : 'bg-ink/10 text-ink/70 hover:bg-ink/15'
+                }`}
+              >
+                Pill
+              </button>
               <button
                 type="button"
                 onClick={addText}

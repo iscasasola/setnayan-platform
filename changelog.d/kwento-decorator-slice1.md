@@ -29,6 +29,9 @@ typecheck). `tsc --noEmit` → 0 new errors.
   wedding / nature / reactions). Undo stack snapshots overlays before each add/delete (`Undo` button
   in the sticker header). Deselect on tap-away also landed.
 
-Still to come: text-readability pill · mood-board-themed stickers (need the couple's palette).
+- **Slice 3 (rest): text pill + mood-board colours.** Text overlays get an optional solid rounded
+  **pill** backing (toggle in the text tool; drawn in the export via `roundRect`) for legibility on
+  busy photos. The couple's **mood-board palette** (`events.role_palette` → reception + bride + groom,
+  deduped/capped) is merged into the text-colour swatches so captions can match their wedding colours.
 
 SPEC IMPACT: Applied — `0012_papic/Kwento_Decorator_Build_Plan_2026-07-08.md`; DECISION_LOG 2026-07-08.

@@ -88,3 +88,37 @@ typecheck + lint + 1128 unit tests green.
 
 SPEC IMPACT: None (implements the locked 2026-07-08 booth-template catalog's
 cardKind contract + the owner-locked free book-this-vendor booth CTA).
+
+## 2026-07-08 · feat(plan3d): sample-event booth content — menus, set lists, drinks
+
+Real demo content behind the kind-aware booth cards on the Maria & Jose
+sample event, so every card kind demos with substance (owner: "demo works
+tonight"). Data-only — no product code touched; 1128 unit tests unchanged.
+
+- **`scripts/seed-sample-event-maria-jose-content.sql`** — two new idempotent
+  DO blocks (same resolve-by-slug / delete-then-reinsert pattern, applied to
+  prod 2026-07-08 via REST):
+  1. **Booth card content** — 44 `vendor_service_inclusions` rows across the
+     five demo vendors the booths link to, mirrored into the listings' legacy
+     `package_inclusions` JSONB (the couple-lab fallback path, since
+     unpublished demo profiles fail the inclusions RLS public-read):
+     Hain Catering · 10-dish plated Filipino menu w/ per-plate worths (menu) ·
+     Saysay Live Band · 10-song OPM-leaning set list (songlist) ·
+     Tagay Mobile Bar · 9-drink bar list w/ worths (drinks) ·
+     Matamis Bakeshop · 8-item dessert bar (menu via the cake tile) ·
+     Kuha Booth · 7 photobooth inclusions w/ worth chips (inclusions).
+  2. **Demo floor booths** — the published sample plan had ONE booth (the
+     owner-placed Mobile Bar, untouched); adds the four that exercise the
+     remaining card kinds, each linked to its shortlisted demo event vendor
+     so `boothTemplateFor` resolves the vendor-category template:
+     `live_cooking` "Plated Dinner" → Hain Catering · `band` "Live Band" →
+     Saysay Live Band · `dessert_station` "Dessert Bar" → Matamis Bakeshop ·
+     `photo_booth` "Photo Booth" → Kuha Booth. Wall-side percents clear of
+     the published tables / stage / entrance; short `offerings` copy each.
+
+No new vendors were needed — all top-20 booth-card categories already have
+is_demo batch vendors (Saysay Live Band, Tagay Mobile Bar, etc. shipped in
+`seed-sample-event-maria-jose.sql`). Live rows verified by REST re-read
+(44 inclusion rows + 5 booths, correct kinds + vendor links).
+
+SPEC IMPACT: None (sample-event demo data only; no pricing/SKU surface).

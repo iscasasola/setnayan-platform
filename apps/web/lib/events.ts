@@ -123,6 +123,10 @@ export const fetchUserEvents = cache(async (
   if (memberType) {
     query = query.eq('member_type', memberType);
   }
+  // Account auto-surface (#7b): hide events the guest opted OUT of — a "no"
+  // (declined or left) stamps event_members.hidden_at. Normal memberships have
+  // hidden_at NULL, so this only ever filters opted-out auto-surfaced rows.
+  query = query.is('hidden_at', null);
 
   const { data, error } = await query;
   if (error) {

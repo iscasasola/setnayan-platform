@@ -64,7 +64,7 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, moodboard, eventRow, roleSet] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
@@ -75,13 +75,6 @@ export default async function SeatingLabPage({ params }: Props) {
     fetchSigns(supabase, eventId),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
-    supabase
-      .from('event_moodboard_saves')
-      .select('palette_snapshot')
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
     // The couple's monogram columns — to render their canonical mark on the 3D
     // floor (animated-logo rollout). RLS already scopes this to the member; the
     // sibling seating/print route reads `events` by event_id the same way.
@@ -272,9 +265,6 @@ export default async function SeatingLabPage({ params }: Props) {
     rotationDeg: s.rotation_deg,
   }));
 
-  const snapshot = (moodboard.data?.palette_snapshot ?? {}) as Record<string, unknown>;
-  const paletteHexes = Object.values(snapshot).filter((v): v is string => typeof v === 'string');
-
   // The couple's canonical mark for the 3D floor medallion. Precedence mirrors
   // the public hero (owner rule 2026-06-15): an uploaded SVG outranks the
   // AI/Cipher mark, which outranks the lettered lockup/initials. resolveMonogram
@@ -308,7 +298,6 @@ export default async function SeatingLabPage({ params }: Props) {
         tables={tables}
         floor={floor}
         guests={guests}
-        paletteHexes={paletteHexes}
         rolePalette={rolePalette}
         receptionDesign={receptionDesign}
         venueSetting={venueSetting}

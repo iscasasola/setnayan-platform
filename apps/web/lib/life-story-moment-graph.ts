@@ -381,6 +381,45 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
 }
 
 // ---------------------------------------------------------------------------
+// Period windowing — the monthly/yearly recap seam (owner 2026-07-08;
+// Build Plan §11). A recap is the SAME engine pointed at a time slice:
+//   compileBeats(filterMomentGraph(graph, { from: '2026-01-01', to: '2027-01-01' }))
+// ---------------------------------------------------------------------------
+
+export type MomentWindow = {
+  /** Inclusive ISO lower bound compared against capturedAt (date-only ok). */
+  from?: string;
+  /** Exclusive ISO upper bound. */
+  to?: string;
+};
+
+/**
+ * Pure window filter over an assembled graph. Deliberate semantics
+ * (DECISION_LOG 2026-07-08):
+ *   · moments — only those captured inside the window;
+ *   · events  — only those that still have an in-window moment (no chapter
+ *     cards for out-of-window events inside a recap);
+ *   · people  — restricted to those PRESENT in an in-window moment, but their
+ *     recurrence values stay LIFETIME-scoped: a year with Lola in it should
+ *     still know she's your person.
+ */
+export function filterMomentGraph(graph: MomentGraph, window: MomentWindow): MomentGraph {
+  const inWindow = (t: string) =>
+    (!window.from || t >= window.from) && (!window.to || t < window.to);
+  const moments = graph.moments.filter((m) => inWindow(m.capturedAt));
+  const eventIds = new Set(moments.map((m) => m.eventId));
+  const presentKeys = new Set(
+    moments.flatMap((m) => m.peoplePresent.map((p) => p.personId)),
+  );
+  return {
+    ...graph,
+    moments,
+    events: graph.events.filter((e) => eventIds.has(e.eventId)),
+    people: graph.people.filter((p) => presentKeys.has(p.personId)),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The query layer (RLS client — the user sees only what their policies allow)
 // ---------------------------------------------------------------------------
 

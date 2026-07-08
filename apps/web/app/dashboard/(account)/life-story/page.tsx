@@ -8,9 +8,11 @@ import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { fetchMomentGraph } from '@/lib/life-story-moment-graph';
 import { lifeStoryFixtureGraph } from '@/lib/life-story-fixtures';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
-import type { MomentGraph } from '@/lib/life-story-types';
+import type { MomentGraph, ScoredMoment } from '@/lib/life-story-types';
+import { compileBeats } from '@/lib/life-story-beats';
 import { ScrollReel, type ReelMoment } from './_components/scroll-reel';
 import { StoryPeople, type StoryPerson } from './_components/story-people';
+import { Flash, type FlashBeatView } from './_components/flash';
 
 export const metadata = { title: 'Life Story' };
 
@@ -111,6 +113,52 @@ export default async function LifeStoryPage({
     canEdit: useFixtures ? false : editableIds.has(p.personId),
   }));
 
+  // The flash — compile the arc server-side (pure), presign only its media
+  // (≤ MAX_BEATS items), and hand the client a serializable view.
+  const beats = compileBeats(graph);
+  const beatMoments = beats.flatMap((b) =>
+    'moment' in b && b.moment ? [b.moment] : [],
+  ) as ScoredMoment[];
+  const beatUrls = useFixtures
+    ? beatMoments.map(() => null)
+    : await displayUrlsForStoredAssets(beatMoments.map((m) => m.media.r2Key));
+  const urlByMomentId = new Map(beatMoments.map((m, i) => [m.id, beatUrls[i] ?? null]));
+
+  const flashBeats: FlashBeatView[] = beats.map((b): FlashBeatView => {
+    if (b.kind === 'face_open') {
+      return {
+        kind: 'face_open',
+        dwellMs: b.dwellMs,
+        name: b.person.displayName,
+        memoriam: b.person.inMemoriam,
+        recurrence: b.person.recurrence,
+      };
+    }
+    if (b.kind === 'present_forward') {
+      return {
+        kind: 'present_forward',
+        dwellMs: null,
+        id: b.moment?.id ?? null,
+        url: b.moment ? (urlByMomentId.get(b.moment.id) ?? null) : null,
+        type: b.moment?.media.type ?? null,
+      };
+    }
+    const m = b.moment;
+    return {
+      kind: b.kind,
+      dwellMs: b.dwellMs,
+      id: m.id,
+      url: urlByMomentId.get(m.id) ?? null,
+      type: m.media.type,
+      eventName: m.eventName,
+      year: m.eventDate.slice(0, 4),
+      peopleCount: m.peoplePresent.length,
+      byName: m.capturedBy.displayName,
+      bySelf: m.capturedBy.kind === 'self',
+      ...(b.kind === 'memoriam_hold' ? { personName: b.person.displayName } : {}),
+    };
+  });
+
   const empty = graph.moments.length === 0 && graph.events.length === 0;
 
   return (
@@ -151,6 +199,8 @@ export default async function LifeStoryPage({
         </div>
       ) : (
         <>
+          {graph.moments.length > 0 ? <Flash beats={flashBeats} /> : null}
+
           <ScrollReel moments={reelMoments} />
 
           {emptyEvents.length > 0 ? (

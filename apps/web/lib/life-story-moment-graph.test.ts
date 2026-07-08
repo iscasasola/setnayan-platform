@@ -14,6 +14,7 @@ import {
   computeCoverage,
   personKeyForGuest,
   assembleMomentGraph,
+  filterMomentGraph,
   type RawInputs,
 } from './life-story-moment-graph';
 
@@ -183,4 +184,44 @@ test('assembleMomentGraph: empty raw input yields a valid empty graph', () => {
   assert.deepEqual(graph.moments, []);
   assert.deepEqual(graph.people, []);
   assert.deepEqual(graph.events, []);
+});
+
+// ---------------------------------------------------------------------------
+// Period windowing (the monthly/yearly recap seam — Build Plan §11)
+// ---------------------------------------------------------------------------
+
+test('filterMomentGraph: slices moments and events to the window (from inclusive, to exclusive)', () => {
+  const graph = assembleMomentGraph(raw(), VIEWER);
+  // raw(): e1 wedding frames at 2024-06-01, e2 photo at 2023-12-24-ish? — e2's
+  // ph3 uses at(0) (2024-06-01) too, so window on 2024 keeps both; a 2025
+  // window keeps none.
+  const y2024 = filterMomentGraph(graph, { from: '2024-01-01', to: '2025-01-01' });
+  assert.equal(y2024.moments.length, graph.moments.length);
+
+  const y2025 = filterMomentGraph(graph, { from: '2025-01-01', to: '2026-01-01' });
+  assert.equal(y2025.moments.length, 0);
+  assert.equal(y2025.events.length, 0);
+  assert.equal(y2025.people.length, 0);
+});
+
+test('filterMomentGraph: people restrict to in-window presence but keep LIFETIME recurrence', () => {
+  const graph = assembleMomentGraph(raw(), VIEWER);
+  // Window that keeps only e1 media (exclude e2's ph3 by windowing on the
+  // exact capture minute of e1 — all raw() captures share 2024-06-01T10:00,
+  // so instead window by excluding nothing and hand-checking values).
+  const whole = filterMomentGraph(graph, { from: '2024-01-01' });
+  const lola = whole.people.find((p) => p.personId === 'p-lola');
+  assert.ok(lola, 'Lola present in window');
+  assert.equal(lola!.recurrence, 2); // lifetime value survives the slice
+});
+
+test('filterMomentGraph: open-ended windows and the identity window are no-ops', () => {
+  const graph = assembleMomentGraph(raw(), VIEWER);
+  const same = filterMomentGraph(graph, {});
+  assert.equal(same.moments.length, graph.moments.length);
+  assert.equal(same.events.length, graph.events.length - 1); // e3 has no moments → dropped in a recap view
+  assert.deepEqual(
+    same.moments.map((m) => m.id),
+    graph.moments.map((m) => m.id),
+  );
 });

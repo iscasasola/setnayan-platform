@@ -18,6 +18,7 @@ import {
   ClipFrame,
   useReducedMotion,
 } from '@/app/[slug]/_components/editorial/living-moments';
+import { placeholderBackground } from './placeholder';
 
 export type ReelMoment = {
   id: string;
@@ -34,18 +35,6 @@ export type ReelMoment = {
   peopleCount: number;
   memoriam: boolean;
 };
-
-/** Deterministic hue pair from an id — the placeholder "film still". */
-function placeholderBackground(id: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const hue1 = (h >>> 0) % 360;
-  const hue2 = ((h >>> 12) % 360 | 0) % 360;
-  return `linear-gradient(160deg, hsl(${hue1} 35% 30%), hsl(${hue2} 30% 16%))`;
-}
 
 function byLine(m: ReelMoment): string {
   if (m.bySelf) return 'Your camera';

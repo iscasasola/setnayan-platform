@@ -76,6 +76,13 @@ export type SeatedInstance = {
    *  instance is zero-scaled out). Omit on every seat and the ring InstancedMesh
    *  isn't drawn at all (the public walk's ringless neutral crowd). */
   ringColor?: string | null;
+  /** Uniform figure-root scale (`FigureSpec.scale`; 1 = adult, e.g. 0.8 for a
+   *  child / 1.1 for VIP emphasis). Composed about the figure-root origin —
+   *  BETWEEN `matrix` and the baked part local, and over the ring too — so a
+   *  scaled seated occupant lands byte-identical to the individual
+   *  `<Figure>` whose root is `<group scale={spec.scale ?? 1}>` (figure.tsx).
+   *  Omitted / 1 → the allocation-free unscaled path (the neutral crowd). */
+  scale?: number;
 };
 
 /** Which shared geometry buffer each baked body part draws. */
@@ -98,10 +105,21 @@ const PART_GEO: Record<SitPartKey, THREE.BufferGeometry> = {
 
 // Module scratch (rendering + layout writes are single-threaded).
 const _m = new THREE.Matrix4();
+const _scaleM = new THREE.Matrix4();
 const _color = new THREE.Color();
 const _zero = new THREE.Vector3(0, 0, 0);
 const _q = new THREE.Quaternion();
 const _s0 = new THREE.Vector3(0, 0, 0);
+
+/** Compose `seat.matrix × (uniform figure-root scale) × partLocal` into `_m`.
+ *  Uniform scale about the figure-root origin === mounting the part under the
+ *  individual figure's `<group scale={sc}>`. `sc === 1` skips the scale multiply
+ *  (the neutral-crowd fast path). */
+function seatInstanceMatrix(rootMatrix: THREE.Matrix4, sc: number, partLocal: THREE.Matrix4): THREE.Matrix4 {
+  if (sc === 1) return _m.multiplyMatrices(rootMatrix, partLocal);
+  _scaleM.makeScale(sc, sc, sc);
+  return _m.multiplyMatrices(rootMatrix, _scaleM).multiply(partLocal);
+}
 
 /**
  * <InstancedSeatedCrowd> — draws every seat in `seats[]` as ~14 InstancedMesh
@@ -154,8 +172,7 @@ export function InstancedSeatedCrowd({
       const local = baked[SIT_PART_KEYS[p]!];
       for (let i = 0; i < count; i++) {
         const s = seats[i]!;
-        _m.multiplyMatrices(s.matrix, local);
-        mesh.setMatrixAt(i, _m);
+        mesh.setMatrixAt(i, seatInstanceMatrix(s.matrix, s.scale ?? 1, local));
         mesh.setColorAt(i, instanceColorFor(s.color, _color));
       }
       mesh.instanceMatrix.needsUpdate = true;
@@ -166,7 +183,7 @@ export function InstancedSeatedCrowd({
       for (let i = 0; i < count; i++) {
         const s = seats[i]!;
         if (s.ringColor) {
-          _m.multiplyMatrices(s.matrix, ringLocal);
+          seatInstanceMatrix(s.matrix, s.scale ?? 1, ringLocal);
           ring.setColorAt(i, _color.set(s.ringColor));
         } else {
           // No ring for this occupant — collapse the instance to nothing (the

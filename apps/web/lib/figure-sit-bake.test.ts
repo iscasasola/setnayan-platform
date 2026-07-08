@@ -343,6 +343,34 @@ test('table-local seatedFigureMatrix under an animated table group == the full w
   }
 });
 
+test('a scaled seat (seatRoot × scale × baked) matches an individual figure whose root is <group scale=s>', () => {
+  // FigureSpec.scale (kid / VIP sizing) is applied at the individual figure's
+  // ROOT (`<group scale={spec.scale}>`, figure.tsx). The instanced crowd composes
+  // that uniform scale about the figure-root origin — BETWEEN the seat matrix and
+  // the baked part local — so a scaled seated occupant must land byte-identical to
+  // the individual it replaces (otherwise it pops size at the walk-in handoff).
+  const baked = buildSitBakedLocals();
+  const [x, z, faceY] = [3.5, -2.1, Math.PI / 3];
+  for (const s of [0.8, 1, 1.1]) {
+    // Reference: the whole rig under a root placed at the seat AND scaled by s.
+    const root = new THREE.Group();
+    root.position.set(x, 0, z);
+    root.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), faceY);
+    root.scale.setScalar(s);
+    const ref = buildReferenceRig(root);
+    // Instanced: seatRoot × scale × baked (what seatInstanceMatrix composes).
+    const seatRoot = seatRootMatrix(x, z, faceY);
+    const scaleM = new THREE.Matrix4().makeScale(s, s, s);
+    for (const k of SIT_PART_KEYS) {
+      const instanced = seatRoot.clone().multiply(scaleM).multiply(baked[k]);
+      assert.ok(
+        matricesClose(instanced, ref[k].matrixWorld, 1e-8),
+        `scaled(${s}) instanced ${k} != individual figure at <group scale=${s}>`,
+      );
+    }
+  }
+});
+
 test('instanceColorFor mirrors the mannequin tint rule (tint → colour, else white)', () => {
   const white = new THREE.Color('#ffffff');
   // Neutral strangers (null / empty / bad hex) → white.

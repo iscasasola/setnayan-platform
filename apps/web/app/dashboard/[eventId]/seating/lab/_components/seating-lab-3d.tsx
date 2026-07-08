@@ -2587,6 +2587,7 @@ function TableMesh({
         }),
         color: tok.spec.outfitColor,
         ringColor: tok.spec.statusColor,
+        scale: tok.spec.scale,
       });
       idx.add(i);
     }

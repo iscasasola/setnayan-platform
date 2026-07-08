@@ -979,6 +979,7 @@ export function Plan3DScene({
         matrix: seatRootMatrix(pos.x, pos.z, heading),
         color: spec.outfitColor,
         ringColor: spec.statusColor,
+        scale: spec.scale,
       });
       ids.add(g.id);
     }

@@ -135,3 +135,13 @@ export {
   stringLightStrandCount,
   stringLightBulbColor,
 } from './string-lights';
+
+export { InstancedSeatedCrowd, type SeatedInstance } from './instanced-seated-crowd';
+export {
+  buildSitBakedLocals,
+  seatRootMatrix,
+  seatedFigureMatrix,
+  instanceColorFor,
+  SIT_PART_KEYS,
+  type SitPartKey,
+} from '@/lib/figure-sit-bake';

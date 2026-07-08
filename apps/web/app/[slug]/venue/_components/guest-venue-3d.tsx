@@ -65,8 +65,11 @@ import {
   EmoteBubbles,
   EMOTE_TABLE_Y,
   EMOTE_DANCE_Y,
+  InstancedSeatedCrowd,
+  seatedFigureMatrix,
   type EmoteEmitter,
   type FigureSpec,
+  type SeatedInstance,
 } from '@/app/_components/plan3d/kit';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
@@ -209,6 +212,11 @@ function GuestTable({
         // is drawn separately below. NO per-guest attire/hair variety here —
         // strangers stay neutral (privacy lock; Q5 unanswered).
         const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
+        // Neutral, ringless strangers render through the room-level
+        // <InstancedSeatedCrowd> (one batch for the whole walk). Only the
+        // viewer's own seat (accent + gold ring) and per-guest photo seats
+        // (billboard head) stay individual here.
+        if (!mine && !photoUrl) return null;
         const ringColor = mine ? palette.accent : palette.table;
         const spec: FigureSpec = {
           id: `${table.id}:${i}`,
@@ -518,6 +526,42 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     preloadGuestPhotos((scene.photos ?? []).map((p) => p.photoUrl));
   }, [scene.photos]);
 
+  // The anonymous seated crowd — every occupied seat that ISN'T the viewer's own
+  // (accent + gold ring) and ISN'T a photo seat (billboard head) — collapsed to
+  // ONE <InstancedSeatedCrowd> for the whole room (~14 draws + zero per-figure
+  // useFrame, vs. 14×N meshes + N no-op subscribers). Strangers are neutral +
+  // ringless (statusColor was always '' here), so no ring batch is drawn. Each
+  // world matrix reproduces the exact table→seat→nudge nesting the individual
+  // <SeatedFigure> used (proven in figure-sit-bake.test.ts).
+  const crowdSeats = useMemo<SeatedInstance[]>(() => {
+    const out: SeatedInstance[] = [];
+    for (const t of tables) {
+      const occupied = occByTable.get(t.id);
+      if (!occupied || occupied.size === 0) continue;
+      const chairs = chairPlacements(t.shape, t.capacity);
+      const home = pctToWorld(t.xPct, t.yPct, room);
+      const tableFaceY = (-t.rotationDeg * Math.PI) / 180;
+      const yourSeat = scene.you?.table === t.id ? scene.you.seatNumber : null;
+      const photoBySeat = photoByTable.get(t.id);
+      for (let i = 0; i < chairs.length; i++) {
+        if (!occupied.has(i) || yourSeat === i || photoBySeat?.get(i)) continue;
+        const c = chairs[i]!;
+        out.push({
+          matrix: seatedFigureMatrix({
+            homeX: home.x,
+            homeZ: home.z,
+            tableFaceY,
+            seatX: c.x,
+            seatZ: c.z,
+            seatFaceY: c.faceY,
+          }),
+          color: null, // neutral stranger — white mannequin
+        });
+      }
+    }
+    return out;
+  }, [tables, occByTable, photoByTable, room, scene.you]);
+
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):
   //  · seatObstacles = EVERY table, so the walk-to-seat routes around the guest's
@@ -685,6 +729,11 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             nameBySeat={nameByTable.get(t.id)}
           />
         ))}
+
+        {/* The anonymous seated crowd, one instanced batch for the whole room
+            (in the same world space as the tables above). Photo seats + the
+            viewer's own seat stay individual inside each GuestTable. */}
+        <InstancedSeatedCrowd seats={crowdSeats} quality="low" />
 
         {/* Placed venue fixtures — objects · booths · signs · cocktail room.
             quality 'low' (this surface is the phone walk) bakes every booth

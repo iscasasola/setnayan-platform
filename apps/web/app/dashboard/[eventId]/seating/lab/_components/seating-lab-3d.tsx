@@ -43,7 +43,17 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { Figure, SitController, SIT_TIMING, type FigureSpec, type FigureQuality } from '@/app/_components/plan3d/kit';
+import {
+  Figure,
+  SitController,
+  SIT_TIMING,
+  EmoteBubbles,
+  EMOTE_SEATED_Y,
+  type EmoteEmitter,
+  type EmoteGlyph,
+  type FigureSpec,
+  type FigureQuality,
+} from '@/app/_components/plan3d/kit';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
@@ -53,7 +63,8 @@ import {
   archetypeFloorColor,
   archetypeBackground,
 } from '@/app/_components/plan3d/venue-decor';
-import { type ReceptionDesign } from '@/lib/reception-scene';
+import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -149,6 +160,7 @@ import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 
 type Props = {
   eventId: string;
@@ -546,6 +558,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // Avoidance discs for the placed venue fixtures (objects + booths + sign posts
   // + cocktail walls) — merged into every walk/crowd obstacle set so the roam
   // avatar rounds the buffet / photo booth / cocktail room just like a table.
+  const coldSpark = sel(receptionDesign, 'tunnel', 'style') === 'cold_spark';
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
@@ -554,8 +567,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
+      // Cold-spark entrance tunnel (tunnel catalog 2026-07-08): its 8 machine
+      // boxes register like booth chassis discs (r 0.3; centre channel clear).
+      ...(coldSpark ? coldSparkObstacles(entranceWorld, room) : []),
     ],
-    [sceneObjects, booths, signs, cocktail, room],
+    [sceneObjects, booths, signs, cocktail, room, coldSpark, entranceWorld],
   );
   // What the walking camera can't pass through: TRUE table footprints (a
   // banquet reads as a capsule, a serpentine as its band — corners included) +
@@ -653,6 +669,35 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     }
     return out;
   }, [seats, guestById, tablesById, movingGuests, crowd, walker, tokenByGuest]);
+
+  // Emote-bubble emitters (Fable §3.6) — REAL data, Play mode only (Build stays
+  // clean for editing; the memo is empty there so the pool renders nothing).
+  // One emitter per seated guest at their seat's world anchor: RSVP drives the
+  // base glyph (attending ✓ · pending ? · maybe ~) and a chosen meal adds the
+  // plate to that guest's rotation (once per rotation, per the pure schedule).
+  // Guests mid-walk (single walk-in, populate-Play crowd, swap movers) are
+  // excluded exactly like seatedByTable — a bubble over an empty chair while
+  // its guest is still crossing the room reads as a ghost. +1 ghosts have no
+  // person, so no bubble.
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    if (mode !== 'play') return [];
+    const walkingIn = new Set<string>();
+    if (crowd) for (const a of crowd) walkingIn.add(a.id);
+    if (walker) walkingIn.add(walker.gid);
+    const out: EmoteEmitter[] = [];
+    for (const [gid, s] of seats) {
+      if (movingGuests.has(gid) || walkingIn.has(gid)) continue;
+      const g = guestById.get(gid);
+      if (!g || seatStatusOf(g.rsvp) === 'hidden') continue; // declined → freed seat
+      const t = tablesById.get(s.tableId);
+      if (!t) continue;
+      const p = seatWorld(t, s.seatNumber, room);
+      const glyphs: EmoteGlyph[] = [g.rsvp === 'attending' ? 'check' : g.rsvp === 'maybe' ? 'maybe' : 'pending'];
+      if (g.mealChosen) glyphs.push('meal');
+      out.push({ id: gid, x: p.x, y: EMOTE_SEATED_Y, z: p.z, glyphs });
+    }
+    return out;
+  }, [mode, seats, guestById, tablesById, room, movingGuests, crowd, walker]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -1695,6 +1740,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           room={room}
           floor={floor}
           palette={palette}
+          rolePalette={rolePalette}
           floorColor={archFloorColor}
           buildMode={mode === 'build'}
           monogram={monogram}
@@ -1791,6 +1837,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         {mode === 'play' && crowd ? (
           <Crowd agents={crowd} reduced={reduced} chairColor={palette.wall} onAllArrived={settleCrowd} />
         ) : null}
+
+        {/* Emote bubbles (Fable §3.6) — Play mode only (the emitters memo is
+            empty in Build, but the gate also keeps the pool's frame loop out
+            of the edit surface entirely). Pooled sprites, ≤6, wall-clock
+            rotation; real RSVP + meal data from the couple-scoped slice. */}
+        {mode === 'play' && emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
         {movers.map((m) => (
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
@@ -2139,6 +2191,7 @@ function RoomShell({
   room,
   floor,
   palette,
+  rolePalette,
   floorColor,
   buildMode,
   monogram,
@@ -2148,6 +2201,10 @@ function RoomShell({
   room: { w: number; d: number };
   floor: Lab3DFloor;
   palette: Lab3DPalette;
+  /** Couple's mood board — drives the dance-floor mural (Fable §3.7). Kept
+   *  separate from the DEMO-switchable `palette`: the mural is THEIR floor,
+   *  so the material switcher recolours walls/linen but never repaints it. */
+  rolePalette: RolePalette;
   /** Archetype-tinted floor colour (Wave 2b) — sand for beach, timber for barn,
    *  etc. Falls back to the palette floor for banquet/chapel. */
   floorColor: string;
@@ -2163,8 +2220,6 @@ function RoomShell({
     ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room)
     : pctToWorld(50, 96, room);
   const dance = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
-  const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
-  const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
 
   // The couple's mark on the floor centre (the Play-mode camera's focal point —
   // CameraRig lookAt 0,0.5,0). Rasterized once from the canonical SVG mark; the
@@ -2236,12 +2291,20 @@ function RoomShell({
         <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
-      {/* Dance floor */}
+      {/* Dance floor — the mood-board MURAL (Fable §3.7) replaces the old flat
+          accent plane. The couple's STATIC mark is baked into the mural only
+          when the dance floor sits AWAY from the room centre (else the origin
+          medallion below already lands on it — one mark on the floor, never
+          two). The paid ANIMATED_MONOGRAM bloom stays on MonogramPlane,
+          untouched. y 0.02 keeps it under the 0.022 medallion. */}
       {floor.dance.enabled ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[dance.x, 0.02, dance.z]}>
-          <planeGeometry args={[danceW, danceD]} />
-          <meshStandardMaterial color={palette.accent} roughness={0.25} metalness={0.2} transparent opacity={0.4} />
-        </mesh>
+        <DanceFloorMural
+          floor={floor}
+          room={room}
+          rolePalette={rolePalette}
+          monogram={Math.hypot(dance.x, dance.z) > medSize * 0.35 ? monogram : null}
+          y={0.02}
+        />
       ) : null}
 
       {/* Couple's monogram on the two iconic wedding spots — the floor centre

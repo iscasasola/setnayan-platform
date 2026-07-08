@@ -45,7 +45,14 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import {
+  EmoteBubbles,
+  EMOTE_TABLE_Y,
+  EMOTE_DANCE_Y,
+  type EmoteEmitter,
+} from '@/app/_components/plan3d/kit';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
@@ -57,7 +64,8 @@ import {
   archetypeFloorColor,
   archetypeBackground,
 } from '@/app/_components/plan3d/venue-decor';
-import { sanitizeReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
+import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 
 export type VenueScene = {
   published: boolean;
@@ -403,6 +411,11 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   const cocktail = useMemo<Lab3DCocktail>(() => scene.cocktail ?? null, [scene.cocktail]);
   // Fixture avoidance discs — merged into BOTH walk sets so the auto-walk and
   // every roam tap round the buffet / booth / cocktail room just like a table.
+  const entrance = useMemo<Vec2>(
+    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
+    [floor, room],
+  );
+  const coldSpark = sel(receptionDesign, 'tunnel', 'style') === 'cold_spark';
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
@@ -411,8 +424,11 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
       ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
+      // Cold-spark entrance tunnel (tunnel catalog 2026-07-08): its 8 machine
+      // boxes register like booth chassis discs (r 0.3; centre channel clear).
+      ...(coldSpark ? coldSparkObstacles(entrance, room) : []),
     ],
-    [sceneObjects, booths, signs, cocktail, room],
+    [sceneObjects, booths, signs, cocktail, room, coldSpark, entrance],
   );
 
   const occByTable = useMemo(() => new Map(scene.occupancy.map((o) => [o.table, new Set(o.seats)])), [scene]);
@@ -453,10 +469,6 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     preloadGuestPhotos((scene.photos ?? []).map((p) => p.photoUrl));
   }, [scene.photos]);
 
-  const entrance = useMemo<Vec2>(
-    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
-    [floor, room],
-  );
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):
   //  · seatObstacles = EVERY table, so the walk-to-seat routes around the guest's
@@ -471,6 +483,27 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     () => [...floorObstacles(floor, tables, room, [scene.you?.table]), ...fixtureObstacles],
     [floor, tables, room, scene.you, fixtureObstacles],
   );
+  // Emote bubbles (Fable §3.6) — AMBIENT ONLY on this anonymized surface:
+  // music notes over the dance floor + chat dots over tables that have people
+  // (table-level occupancy is already public via the tinted chairs, so a chat
+  // bubble leaks nothing new). NEVER per-guest status here — the RA 10173
+  // posture: the public walk shows a room, not anyone's RSVP.
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    const out: EmoteEmitter[] = [];
+    if (floor.dance.enabled) {
+      const d = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
+      const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
+      out.push({ id: 'ambient-music-a', x: d.x - danceW * 0.22, y: EMOTE_DANCE_Y, z: d.z, glyphs: ['music'] });
+      out.push({ id: 'ambient-music-b', x: d.x + danceW * 0.22, y: EMOTE_DANCE_Y, z: d.z, glyphs: ['music'] });
+    }
+    for (const t of tables) {
+      if (!occByTable.get(t.id)?.size) continue; // empty table, no chatter
+      const c = pctToWorld(t.xPct, t.yPct, room);
+      out.push({ id: `ambient-chat-${t.id}`, x: c.x, y: EMOTE_TABLE_Y, z: c.z, glyphs: ['chat'] });
+    }
+    return out;
+  }, [floor, room, tables, occByTable]);
+
   const youTable = useMemo<Lab3DTable | null>(
     () => (scene.you ? tables.find((x) => x.id === scene.you!.table) ?? null : null),
     [scene.you, tables],
@@ -568,6 +601,13 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           <meshStandardMaterial color={palette.table} roughness={0.6} />
         </mesh>
 
+        {/* Dance floor — the mood-board mural (Fable §3.7). This walk had NO
+            dance mesh: `floor.dance` fed floorObstacles only, so guests dodged
+            an invisible rectangle. Palette-only here (the anonymised public
+            payload carries no monogram source); raycast is off inside the
+            component so tap-to-roam passes through to the floor beneath. */}
+        <DanceFloorMural floor={floor} room={room} rolePalette={scene.rolePalette ?? null} />
+
         {tables.map((t) => (
           <GuestTable
             key={t.id}
@@ -594,6 +634,10 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           cocktail={cocktail}
           quality="low"
         />
+
+        {/* Ambient emote bubbles (Fable §3.6): music near the dance floor,
+            chatter at occupied tables — pooled sprites, ≤6, never per-guest. */}
+        {emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
         {/* Wave 2b: the couple's reception treatments (reduced set on phones). */}
         <VenueDecor

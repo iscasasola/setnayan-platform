@@ -32,7 +32,7 @@
  * READ-ONLY + presentational — no DB, no state, no editing.
  */
 
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import {
   pctToWorld,
@@ -41,6 +41,7 @@ import {
   type Lab3DFloor,
 } from '@/lib/seating-3d';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { ColdSparkTunnel } from '@/app/_components/plan3d/kit/entrance-tunnel';
 
 type Room = { w: number; d: number };
 export type DecorQuality = 'high' | 'low';
@@ -623,6 +624,7 @@ export function VenueDecor({
   palette,
   quality = 'high',
   archetype = 'banquet_hall',
+  tunnelProgressRef,
 }: {
   /** `events.reception_design`. Empty `{}` (the default) → DEFAULT_DESIGN via `sel()`. */
   design: ReceptionDesign;
@@ -636,6 +638,10 @@ export function VenueDecor({
    *  there; string lights stay (outdoor fairy-light canopies are strung, not
    *  hung from a slab). Pass the same value the surface gives `VenueShell`. */
   archetype?: VenueArchetype;
+  /** Walker path-t along the entrance-tunnel segment (see `coldSparkProgress`)
+   *  for walk-sequenced treatments like `cold_spark`; −1/absent = idle shimmer.
+   *  Only walking surfaces (plan3d-scene) feed it — the lab/orbit views omit it. */
+  tunnelProgressRef?: MutableRefObject<number>;
 }) {
   // No ceiling → nothing to hang chandeliers/lanterns/floral clusters from.
   const openAir = archetype === 'garden' || archetype === 'beach' || archetype === 'rooftop';
@@ -694,10 +700,22 @@ export function VenueDecor({
       )}
       {/* moon_gate / balloon / fringe → left to the fixture layer / future 2b */}
 
-      {/* Entrance arch */}
-      {entranceVariant !== 'plain' && (
+      {/* Entrance treatment: evolved tunnels render their own build (tunnel
+          catalog 2026-07-08 — cold_spark is ship-first #1); the rest keep the
+          classic arch. The tunnel runs along the entrance approach (inward
+          wall normal) — its machine-box obstacle discs are registered by each
+          surface via `coldSparkObstacles` (the booth-disc pattern). */}
+      {tunnel === 'cold_spark' ? (
+        <ColdSparkTunnel
+          entrance={{ x: entranceWorld.x, z: entranceWorld.z }}
+          room={room}
+          palette={palette}
+          quality={quality}
+          progressRef={tunnelProgressRef}
+        />
+      ) : entranceVariant !== 'plain' ? (
         <EntranceArch position={entranceWorld} palette={palette} variant={entranceVariant} />
-      )}
+      ) : null}
 
       {/* Table centrepieces (instanced across all tables) */}
       {tables.length > 0 && (

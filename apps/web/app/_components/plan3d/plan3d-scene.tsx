@@ -131,8 +131,19 @@ import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { preloadGuestPhotos } from './guest-avatar';
-import { Figure, SitController, SIT_TIMING, type FigureSpec, type FigureQuality } from './kit';
+import {
+  Figure,
+  SitController,
+  SIT_TIMING,
+  EmoteBubbles,
+  EMOTE_SEATED_Y,
+  type EmoteEmitter,
+  type EmoteGlyph,
+  type FigureSpec,
+  type FigureQuality,
+} from './kit';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import {
   SceneLighting,
   RECOMMENDED_TONEMAP,
@@ -150,7 +161,14 @@ import {
   archetypeFloorColor,
   archetypeBackground,
 } from '@/app/_components/plan3d/venue-decor';
-import type { ReceptionDesign } from '@/lib/reception-scene';
+import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import {
+  coldSparkFrame,
+  coldSparkObstacles,
+  coldSparkPathNodes,
+  coldSparkProgress,
+  type ColdSparkFrame,
+} from '@/app/_components/plan3d/kit/entrance-tunnel';
 
 const NEUTRAL_PALETTE = resolvePalette([]); // the lab's warm-neutral default
 
@@ -775,8 +793,22 @@ export function Plan3DScene({
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
   const floorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
   const bgColor = useMemo(() => archetypeBackground(archetype), [archetype]);
+  // Cold-spark entrance tunnel (tunnel catalog 2026-07-08): active when the
+  // couple's reception design picked it. Its frame (origin + inward approach
+  // vector) anchors the walk threading + the per-frame progress projection.
+  const coldSpark = receptionDesign ? sel(receptionDesign, 'tunnel', 'style') === 'cold_spark' : false;
+  const tunnelFrame = useMemo<ColdSparkFrame | null>(
+    () => (coldSpark ? coldSparkFrame(entranceWorld, room) : null),
+    [coldSpark, entranceWorld, room],
+  );
+  // Walker path-t along the tunnel segment, fed every frame by the in-Canvas
+  // <ColdSparkWalkFeed> and consumed by the tunnel's fountain sequencing.
+  // −1 = nobody walking (idle low shimmer).
+  const tunnelProgressRef = useRef(-1);
   // Fixture avoidance discs — merged into every walk/roam obstacle set so the
-  // demo walker rounds the buffet / booth / cocktail room like a table.
+  // demo walker rounds the buffet / booth / cocktail room like a table. The
+  // cold-spark tunnel's 8 machine boxes register here the same way booth
+  // chassis discs do (r 0.3 each; the 1.8 m centre channel stays clear).
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
@@ -785,8 +817,9 @@ export function Plan3DScene({
       ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
+      ...(coldSpark ? coldSparkObstacles(entranceWorld, room) : []),
     ],
-    [sceneObjects, booths, signs, cocktail, room],
+    [sceneObjects, booths, signs, cocktail, room, coldSpark, entranceWorld],
   );
   // Full obstacle set for a destination-less roam walk (floor taps, booth
   // walk-to, the roam step-in): TRUE table footprints (a banquet reads as a
@@ -865,6 +898,25 @@ export function Plan3DScene({
   const [sit, setSit] = useState<SitState | null>(null);
   // True once the sit clip has landed (tuck flush) — `onWalkComplete` has fired.
   const [arrived, setArrived] = useState(false);
+  // Emote bubbles (Fable §3.6) — the DEMO slice is deliberately name/seat/side
+  // (+attire) only, so bubbles here are side/rsvp-GENERIC: every seated guest
+  // rotates confirmed-check ↔ chat dots. No per-guest status beyond what the
+  // slice already shows. The mid-walk / roaming guest is skipped exactly like
+  // their GuestToken. The ambient crowd is room-wide SEATED (2026-07-08
+  // collision pass), so every bubble anchors at seated head height.
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    const glyphs: readonly EmoteGlyph[] = ['check', 'chat'];
+    const out: EmoteEmitter[] = [];
+    for (const g of guests) {
+      if (walkTarget?.guestId === g.id || roam?.guestId === g.id) continue;
+      const table = tablesById.get(g.tableId);
+      if (!table) continue;
+      const p = seatWorld(table, g.seatNumber ?? 0, room);
+      out.push({ id: g.id, x: p.x, y: EMOTE_SEATED_Y, z: p.z, glyphs });
+    }
+    return out;
+  }, [guests, tablesById, room, walkTarget?.guestId, roam?.guestId]);
+
   // Persistent "chase cam already framed" flag — survives Walker remounts so
   // a second walk eases from the current camera instead of hard-cutting.
   const chaseCamSeeded = useRef(false);
@@ -966,7 +1018,18 @@ export function Plan3DScene({
       ...fixtureObstacles,
       ...chairDiscs,
     ]);
-    const path = seatApproachPath(entranceWorld, walkTable, seatIndex, room, obstacles, AVATAR_BODY_R);
+    // Cold-spark tunnel threading (catalog § 4): the walk enters the room
+    // THROUGH the tunnel — fixed centreline nodes at each bay midpoint plus a
+    // lead-out 0.5 m beyond the inner mouth (so the chase cam settles straight
+    // before exiting), then the normal seat approach continues from the
+    // lead-out. The § 4 lead-IN node is the walk's own start: the demo walk
+    // begins AT the entrance mark, which is the tunnel's outer mouth.
+    const tunnelNodes = coldSpark ? coldSparkPathNodes(entranceWorld, room) : null;
+    const walkStart = tunnelNodes ? tunnelNodes[tunnelNodes.length - 1]! : entranceWorld;
+    const path = seatApproachPath(walkStart, walkTable, seatIndex, room, obstacles, AVATAR_BODY_R);
+    // path[0] === walkStart (the lead-out) — prepend the mouth + bay nodes so
+    // the spline is one continuous entrance → tunnel → aisle → seat walk.
+    if (tunnelNodes) path.unshift(entranceWorld, ...tunnelNodes.slice(0, -1));
     // Retarget the final step-in: the walk used to end ON the chair; the sit
     // clip owns the last half-metre, so end at its approach point instead
     // (0.55 m behind the chair along −faceY — where the controller takes over).
@@ -1004,7 +1067,7 @@ export function Plan3DScene({
       onComplete: () => beginSit(walkerHeadingRef.current ?? seat.faceY),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walkGuest?.id, walkTable?.id, Boolean(roam)]);
+  }, [walkGuest?.id, walkTable?.id, Boolean(roam), coldSpark]);
 
   // ── ROAM: entering the mode takes a small step-in from wherever the figure
   // is (seat after a finished walk, entrance on a fresh start) so the chase
@@ -1170,6 +1233,15 @@ export function Plan3DScene({
         />
         <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
+
+      {/* Dance floor — the mood-board mural (Fable §3.7). This room previously
+          had NO dance mesh: `floor.dance` fed the walk obstacles only, so the
+          walker dodged an invisible rectangle. Themed view paints the couple's
+          palette; the neutral view gets the mural's template triple. raycast is
+          off inside the component, so roam floor-taps pass through to the
+          floor plane beneath. */}
+      <DanceFloorMural floor={floor} room={room} rolePalette={rolePalette ?? null} />
+
       <EntranceMark position={entranceWorld} palette={palette} />
 
       {tables.map((t) => (
@@ -1201,6 +1273,20 @@ export function Plan3DScene({
           palette={palette}
           quality={quality}
           archetype={archetype}
+          tunnelProgressRef={tunnelProgressRef}
+        />
+      ) : null}
+
+      {/* Cold-spark sequencing feed: projects the walker's live position onto
+          the tunnel axis every frame and writes the path-t the fountains ramp
+          from (−1 when nobody walks → idle shimmer). Roam walks feed it too —
+          wandering back through the tunnel fires the pairs you pass. */}
+      {tunnelFrame ? (
+        <ColdSparkWalkFeed
+          frame={tunnelFrame}
+          posRef={walkerPosRef}
+          active={Boolean(walk)}
+          out={tunnelProgressRef}
         />
       ) : null}
 
@@ -1243,6 +1329,10 @@ export function Plan3DScene({
           />
         );
       })}
+
+      {/* Emote bubbles (Fable §3.6): pooled sprites, ≤6, wall-clock rotation —
+          side/rsvp-generic glyphs only (the demo slice carries no status). */}
+      {emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
       {/* Destination beacon: where the scripted walk is headed, shown until the
           avatar arrives so the guest can see their seat before the figure lands. */}
@@ -1371,6 +1461,34 @@ function BoothHitTarget({
       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   );
+}
+
+/**
+ * Feeds the cold-spark tunnel's fountain sequencing: every frame, project the
+ * walker's live (post-clamp) position onto the tunnel axis and write the
+ * path-t along the tunnel segment into `out` (−1 when no walk is live → the
+ * tunnel idles at low shimmer). Render-less; the projection is pure
+ * (`coldSparkProgress`) and LATERALLY GATED — a walker off the corridor's
+ * centreline strip reads −1, so a roam walk elsewhere in the room never
+ * sequences the fountains — and the value is always the walker's CURRENT
+ * truth, never an accumulated animation state (the wall-clock law).
+ */
+function ColdSparkWalkFeed({
+  frame,
+  posRef,
+  active,
+  out,
+}: {
+  frame: ColdSparkFrame;
+  posRef: React.MutableRefObject<Vec2 | null>;
+  active: boolean;
+  out: React.MutableRefObject<number>;
+}) {
+  useFrame(() => {
+    const p = active ? posRef.current : null;
+    out.current = p ? coldSparkProgress(p, frame) : -1;
+  });
+  return null;
 }
 
 /**

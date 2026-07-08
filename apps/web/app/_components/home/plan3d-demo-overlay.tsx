@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, QrCode } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
+import { useIsMobile } from '@/lib/use-responsive';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
 import {
   loadPlan3DDemoScene,
@@ -34,6 +35,11 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
   // Owner 2026-07-03: "apply mood board toggle so the place is themed." Default
   // ON — the couple's palette is the whole point; off shows the neutral shell.
   const [themed, setThemed] = useState(true);
+  // The homepage CTA has no device gate, so this overlay opens on phones too —
+  // pass the scene's 'low' budget there (SYS-1 lg switch) or the cold-spark
+  // tunnel (and shadow/env budget) renders its full desktop tier in a 360px
+  // canvas on mid-range mobile GPUs.
+  const isMobile = useIsMobile();
   const hasMood = scene ? Object.values(scene.rolePalette).some((a) => (a?.length ?? 0) > 0) : false;
 
   useEffect(() => {
@@ -167,6 +173,7 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               venueSetting={scene.venueSetting}
               onGuestClick={handleGuestClick}
               interactive
+              quality={isMobile ? 'low' : 'high'}
             />
           </div>
 

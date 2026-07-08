@@ -182,8 +182,9 @@ function StaticInstances({
 const bulbMat = new THREE.MeshStandardMaterial({
   color: '#fff6dd',
   emissive: '#ffd98a',
-  emissiveIntensity: 1.1,
+  emissiveIntensity: 2.0, // ≥2.0 HDR so it clears Tier B's 1.2 bloom luminance floor
   roughness: 0.3,
+  toneMapped: false, // designated cinematic-Play bloom star (the string-bulb pattern)
 });
 const beamMat = new THREE.MeshStandardMaterial({
   color: '#d98a3d',
@@ -242,10 +243,12 @@ function liveLampFaceMaterial(): THREE.MeshStandardMaterial {
     liveLampFaceMatCache = new THREE.MeshStandardMaterial({
       map: liveLampTexture(),
       emissive: '#ff3b30',
-      emissiveIntensity: 0.75,
+      // 2.8, not 2.0: red carries little LUMINANCE (0.2126·r), so the ON-AIR
+      // red needs the extra HDR headroom to clear Tier B's 1.2 bloom floor.
+      emissiveIntensity: 2.8,
       emissiveMap: liveLampTexture(),
       roughness: 0.4,
-      toneMapped: false,
+      toneMapped: false, // designated cinematic-Play bloom star
     });
   }
   return liveLampFaceMatCache;

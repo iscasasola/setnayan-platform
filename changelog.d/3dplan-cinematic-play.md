@@ -47,3 +47,45 @@ one extra env re-bake per Build↔Play flip. Verified in the lab preview: Play
 mounts all four, Build unmounts them; typecheck + 1184 unit tests green.
 
 SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md (§ 3.5 Tier A shipped — Tier B postprocessing dep remains the open owner question)
+
+## 2026-07-08 · feat(plan3d): cinematic Tier B — bloom + DoF, dynamically imported, auto-degrade
+
+Tier B of the cinematic Play pass (Fable dossier § 3.5): TRUE postprocessing
+via the Fable program's ONLY owner-approved new dependency —
+**`postprocessing@6.39.2` + `@react-three/postprocessing@3.0.4`** (pinned:
+r-p-p v3 is the react-19/fiber-9 major, peers `react ^19` · `@react-three/fiber
+^9` · `three >= 0.156`; postprocessing 6.39.2 peers `three >= 0.168 < 0.186` —
+both satisfied by react 19 / fiber 9.6.1 / three 0.184).
+
+- **`kit/cinematic.tsx`** (NEW — deliberately NOT in the kit barrel) —
+  `<CinematicPass>`: EffectComposer (HalfFloat buffer, multisampling 4) with
+  **DepthOfField** (target = room centre at 1.05 m, easing wall-clock-damped
+  (4 s⁻¹) onto the followed walk-in via the Walker's `posRef`; in-focus band
+  `span×0.6`, bokehScale 2.2) → **Bloom** (mipmapBlur, intensity 0.55,
+  **luminanceThreshold 1.2**, smoothing 0.1, radius 0.72 — the composer
+  renders un-tone-mapped HDR, so ONLY the ≥2.0-emissive `toneMapped={false}`
+  stars clear the floor: string bulbs, firing spark cores, LIVE lamp, mirror
+  bulbs; lit albedo/whites stay ≤ ~1) → **ToneMapping ACES** (the composer
+  forces `gl.toneMapping = NoToneMapping` while mounted, so the shared
+  RECOMMENDED_TONEMAP curve is re-applied post-bloom; restored on unmount =
+  bit-identical Tier A) → **Noise** (premultiplied grain, opacity 0.25) →
+  **Vignette** (offset 0.3, darkness 0.55 — Tier A's DOM div promoted into the
+  composer on this tier). Plus a drei **PerformanceMonitor**: 2 consecutive
+  decline windows with no incline between → `onDegrade` fires once
+  (console.info), the call site latches Tier B OFF for the session, and the
+  composer unmounts to Tier A — one-way latch, no thrash by construction.
+- **`seating-lab-3d.tsx`** — `React.lazy` mounts the pass ONLY when
+  `mode==='play' && quality 'high' (the lab's tier) && !reduced && !degraded`;
+  the DOM vignette now serves only the Tier A fallbacks (reduced motion + the
+  perf latch). The single `Walker` gained an optional `posRef` sink (root
+  world position, written per frame, nulled on unmount) feeding the DoF
+  follow-focus. The phone guest walk (`quality 'low'`) NEVER references the
+  module — the chunk is lab-Play-only.
+- **`kit/booth-props.tsx`** — the two designated bloom stars that sat under
+  the HDR floor got lifted onto the string-bulb pattern: mirror `bulbMat`
+  1.1 → **2.0** emissive + `toneMapped:false`; LIVE lamp 0.75 → **2.8**
+  (red carries little luminance — needs the headroom to clear 1.2).
+- **Bundle proof** — `postprocessing` lands in one async chunk loaded on Play
+  entry only; shared-bundle check green (see PR body for the chunk id).
+
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md (§ 3.5 Tier B shipped — the postprocessing-dep owner question is CLOSED: approved, Play-mode-only, dynamically imported)

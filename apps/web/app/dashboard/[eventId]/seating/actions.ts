@@ -17,6 +17,7 @@ import {
   fetchAssignments,
   fetchFloorPlan,
   fetchSeatingConstraints,
+  fetchGroupAdjacency,
   fetchTables,
   parsePriorityOrder,
   recommendTableSet,
@@ -419,6 +420,7 @@ export async function autoSeatGuests(formData: FormData) {
   // and fill tiers in the couple's saved priority order (Phase 2; null = default).
   // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
   const roleSet = await resolveRoleSetForEvent(eventId);
+  const groupAdjacency = await fetchGroupAdjacency(supabase, eventId);
   const rows = computeAutoSeat(
     tables,
     autoSeatGuestList,
@@ -426,6 +428,7 @@ export async function autoSeatGuests(formData: FormData) {
     { x: floorPlan.stage_x, y: floorPlan.stage_y },
     floorPlan.priority_order,
     roleSet,
+    groupAdjacency,
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -478,6 +481,29 @@ export async function setSeatingAutoplace(formData: FormData) {
   if (enabled) {
     await applyReconcileForEvent(supabase, eventId);
   }
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Smart Seat-Plan Phase 6 (gap G8): turn group-overflow adjacency on/off. When
+// off, a group's overflow reverts to the classic stage-ranked fill instead of
+// the nearest table by floor coordinates. Couple-scoped.
+export async function setSeatingGroupAdjacency(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return;
+  const enabled = formData.get('enabled') === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('events')
+    .update({ seating_group_adjacency: enabled })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
@@ -850,6 +876,7 @@ export async function lockAndFill(
     groupMembers: memberships,
     // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
     roleSet: await resolveRoleSetForEvent(eventId),
+    groupAdjacency: await fetchGroupAdjacency(supabase, eventId),
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -1696,6 +1723,7 @@ export async function autoArrange(
   const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
   // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
   const roleSet = await resolveRoleSetForEvent(eventId);
+  const groupAdjacency = await fetchGroupAdjacency(supabase, eventId);
   const solved =
     constraints.length > 0
       ? solveSeatPlan({
@@ -1707,11 +1735,12 @@ export async function autoArrange(
           constraints,
           groupMembers: memberships,
           roleSet,
+          groupAdjacency,
         })
       : null;
   const rows =
     solved?.assignments ??
-    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet);
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency);
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({

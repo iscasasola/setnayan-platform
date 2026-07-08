@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Video, Wand2 } from 'lucide-react';
+import { Users, Video, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -26,7 +26,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
 import { DayOfEditingBanner } from './_components/day-of-editing-banner';
-import { setSeatingAutoplace } from './actions';
+import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 
 export const metadata = { title: 'Seating chart' };
 
@@ -50,7 +50,7 @@ export default async function SeatingPage({ params }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled')
+        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -137,6 +137,10 @@ export default async function SeatingPage({ params }: Props) {
   const autoplaceEnabled =
     (eventRow.data as { seating_autoplace_enabled?: boolean | null } | null)
       ?.seating_autoplace_enabled ?? true;
+  // Group-overflow adjacency (gap G8) — ON unless the couple opted out.
+  const adjacencyEnabled =
+    (eventRow.data as { seating_group_adjacency?: boolean | null } | null)
+      ?.seating_group_adjacency ?? true;
   const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
   const totalSeats = tables.reduce(
     (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
@@ -184,6 +188,28 @@ export default async function SeatingPage({ params }: Props) {
             >
               <Wand2 className="h-3.5 w-3.5" strokeWidth={1.75} />
               Auto-seating {autoplaceEnabled ? 'On' : 'Off'}
+            </button>
+          </form>
+          {/* Smart Seat-Plan Phase 6 (gap G8): keep a group's overflow on adjacent
+              tables, or revert to the classic stage-order fill. */}
+          <form action={setSeatingGroupAdjacency}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="enabled" value={adjacencyEnabled ? 'false' : 'true'} />
+            <button
+              type="submit"
+              title={
+                adjacencyEnabled
+                  ? 'Groups stay together — an overflowing group spills to the nearest table. Click to use the classic stage-order fill instead.'
+                  : 'Classic fill — an overflowing group spills to the next stage-ranked table. Click to keep a group on adjacent tables.'
+              }
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors ${
+                adjacencyEnabled
+                  ? 'border-terracotta/40 bg-terracotta/5 text-terracotta hover:border-terracotta/60'
+                  : 'border-ink/15 bg-white text-ink/55 hover:border-ink/30'
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Keep groups together {adjacencyEnabled ? 'On' : 'Off'}
             </button>
           </form>
           {/* Walkthrough videos — icon-only so it stays out of the editor's way

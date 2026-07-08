@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { maybeAutoSurfaceEventForGuest } from '@/lib/account-autosurface';
 import {
   INVITED_TO_BLOCKS,
   singletonRoleDuplicateMessage,
@@ -204,6 +206,11 @@ export async function createGuest(eventId: string, formData: FormData) {
   // Smart seat-plan Phase 5: auto-place the new guest (+ any +1) into a
   // provisional seat. Best-effort — never blocks the add.
   await applyReconcileForEvent(supabase, eventId);
+
+  // Account auto-surface (#7b) — flag-gated OFF; a no-op until counsel clears
+  // FEATURE_ACCOUNT_AUTOSURFACE. Surfaces the event into the guest's own account
+  // when their person resolves to an already-claimed account.
+  await maybeAutoSurfaceEventForGuest(createAdminClient(), eventId, inserted.guest_id);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return redirect(`/dashboard/${eventId}/guests?added=1`);

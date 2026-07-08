@@ -50,10 +50,13 @@ import {
   EmoteBubbles,
   EMOTE_SEATED_Y,
   StringLights,
+  InstancedSeatedCrowd,
+  seatedFigureMatrix,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
   type FigureQuality,
+  type SeatedInstance,
 } from '@/app/_components/plan3d/kit';
 import {
   SceneLighting,
@@ -2541,6 +2544,54 @@ function TableMesh({
   const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
   // Occupied seat indices — drives the instanced chairs' per-instance tint.
   const occupiedSeats = useMemo(() => new Set(seated?.keys() ?? []), [seated]);
+
+  // ── Instanced seated crowd (2026-07-08) — mirrors the public walk + demo ────
+  // The STATIC seated figures at this table collapse into ONE
+  // <InstancedSeatedCrowd> mounted INSIDE this table's animated group (below), so
+  // they ride the drag slide-lag / scale-pop / rotation exactly like the
+  // individual <SeatedAvatar> did — the batch's InstancedMeshes are children of
+  // the same <group ref>, so the parent matrix applies to both paths identically.
+  // Gated to the SAME condition that makes a <Figure> static — crowdLow || far ||
+  // reduced — so a close-up table under motion keeps its per-figure idle sway and
+  // the shipped look is UNTOUCHED. Only CONFIRMED (opacity 1), non-photo real
+  // guests join the batch; tentative guests (translucent-ring semantics), photo
+  // seats (billboard head), and the "+1 reserved" ghost (spec null) stay
+  // individual. Matrices are TABLE-LOCAL — seatedFigureMatrix with an identity
+  // table composes exactly the seat group × the −0.04 nudge / π flip that
+  // <SeatedAvatar> renders — so batch-instance × parent-group reproduces the
+  // individual figure's world transform bit-for-bit (proven in
+  // figure-sit-bake.test.ts). This keeps the walk-in → sit → done → settle chain
+  // seamless: CrowdField's 'done' end-state is already transform-identical to
+  // <SeatedAvatar>, and this batch reproduces <SeatedAvatar>, so the settle
+  // handoff (Crowd unmounts → steady seated) lands on the identical transform.
+  const instanceSeated = crowdLow || far || reduced;
+  const { seatedInstances, instancedSeatIdx } = useMemo(() => {
+    const out: SeatedInstance[] = [];
+    const idx = new Set<number>();
+    if (!instanceSeated || !seated) return { seatedInstances: out, instancedSeatIdx: idx };
+    for (let i = 0; i < chairs.length; i++) {
+      const tok = seated.get(i);
+      if (!tok || !tok.spec) continue; // empty seat or "+1 reserved" ghost → individual
+      if (tok.spec.photoUrl) continue; // selfie billboard head → individual
+      if (tok.opacity !== 1) continue; // tentative RSVP (translucent semantics) → individual
+      if (table.removedSeats.includes(i)) continue;
+      const c = chairs[i]!;
+      out.push({
+        matrix: seatedFigureMatrix({
+          homeX: 0,
+          homeZ: 0,
+          tableFaceY: 0,
+          seatX: c.x,
+          seatZ: c.z,
+          seatFaceY: c.faceY,
+        }),
+        color: tok.spec.outfitColor,
+        ringColor: tok.spec.statusColor,
+      });
+      idx.add(i);
+    }
+    return { seatedInstances: out, instancedSeatIdx: idx };
+  }, [instanceSeated, seated, chairs, table.removedSeats]);
   // The serpentine table top is a real curved ribbon (104° quarter-donut),
   // extruded from the canonical outline. Built once per shape and laid flat
   // (extrude axis → world +Y), rising from the floor to the tabletop height.
@@ -2715,12 +2766,15 @@ function TableMesh({
             : undefined
         }
       />
-      {/* Removed-seat ghosts (tap to restore) + seated guests. */}
+      {/* Removed-seat ghosts (tap to restore) + seated guests. Confirmed static
+          figures are drawn by the <InstancedSeatedCrowd> batch below instead of
+          an individual <SeatedAvatar> (their seat index is in instancedSeatIdx). */}
       {chairs.map((c, i) => {
         const ang = c.faceY;
         const tok = seated?.get(i);
         const isRemoved = table.removedSeats.includes(i);
         if (!isRemoved && !tok) return null;
+        if (tok && !isRemoved && instancedSeatIdx.has(i)) return null; // body is in the batch
         return (
           <group
             key={i}
@@ -2747,6 +2801,17 @@ function TableMesh({
           </group>
         );
       })}
+
+      {/* The table's static seated crowd as one instanced batch (child of this
+          animated group, so it drags / scales / rotates with the table). Empty
+          — and unmounted — whenever the seated figures are individual (close-up
+          table under motion), so those keep their idle sway. `quality` mirrors
+          the individual SeatedAvatar so the batch's shadow pass matches (a
+          reduced-motion figure at quality 'high' still casts, so the batch does
+          too). */}
+      {seatedInstances.length > 0 ? (
+        <InstancedSeatedCrowd seats={seatedInstances} quality={crowdLow || far ? 'low' : 'high'} />
+      ) : null}
 
       {/* Selection ring */}
       {selected ? (

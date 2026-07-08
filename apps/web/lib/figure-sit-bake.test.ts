@@ -275,6 +275,74 @@ test('seatedFigureMatrix matches the nested table→seat→nudge groups', () => 
   }
 });
 
+test('table-local seatedFigureMatrix under an animated table group == the full world matrix', () => {
+  // The couple lab mounts <InstancedSeatedCrowd> INSIDE each table's animated
+  // <group> and feeds TABLE-LOCAL matrices (seatedFigureMatrix with an identity
+  // table: homeX/homeZ 0, tableFaceY 0). The parent group carries the table's
+  // home position + rotation (and a transient drag-pop scale). This proves that
+  // parentGroupMatrix × tableLocalMatrix reproduces the full-world
+  // seatedFigureMatrix(home, tableFaceY, seat) the public walk uses — so a lab
+  // instance lands exactly where the individual <SeatedAvatar> (same nesting)
+  // did, at rest AND while the group is scaled mid-drag.
+  const homeX = 2.0;
+  const homeZ = -3.0;
+  const tableFaceY = -0.5;
+  const seatX = 0.9;
+  const seatZ = 0.4;
+  const seatFaceY = 1.1;
+
+  const tableLocal = seatedFigureMatrix({ homeX: 0, homeZ: 0, tableFaceY: 0, seatX, seatZ, seatFaceY });
+  const full = seatedFigureMatrix({ homeX, homeZ, tableFaceY, seatX, seatZ, seatFaceY });
+
+  for (const scale of [1, 1.06]) {
+    // The parent <group ref> world matrix: home position, table yaw, uniform
+    // scale (rest = 1, drag pop = 1.06 — scale hits both paths identically).
+    const parent = new THREE.Matrix4().compose(
+      new THREE.Vector3(homeX, 0, homeZ),
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), tableFaceY),
+      new THREE.Vector3(scale, scale, scale),
+    );
+    const composed = parent.clone().multiply(tableLocal);
+    // At scale 1 the composed world equals the full matrix exactly; the scaled
+    // case must equal the full matrix likewise scaled about the table origin.
+    const expected =
+      scale === 1
+        ? full.clone()
+        : parent.clone().multiply(new THREE.Matrix4().compose(
+            new THREE.Vector3(-homeX, 0, -homeZ),
+            new THREE.Quaternion(),
+            new THREE.Vector3(1, 1, 1),
+          )).multiply(full).clone();
+    // Simpler invariant at rest (the load-bearing one for the settle handoff):
+    if (scale === 1) {
+      assert.ok(matricesClose(composed, expected, 1e-8), 'table-local × parent != full world matrix at rest');
+    } else {
+      // Under a uniform parent scale, both the batch and an individual figure are
+      // children of the SAME group, so they scale identically — assert the batch
+      // instance matches an individual figure mounted under that same scaled group.
+      const g = new THREE.Group();
+      g.position.set(homeX, 0, homeZ);
+      g.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), tableFaceY);
+      g.scale.setScalar(scale);
+      const seat = new THREE.Group();
+      seat.position.set(seatX, 0, seatZ);
+      seat.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), seatFaceY);
+      g.add(seat);
+      const nudge = new THREE.Group();
+      nudge.position.set(0, 0, -0.04);
+      nudge.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+      seat.add(nudge);
+      const figRoot = new THREE.Group();
+      nudge.add(figRoot);
+      g.updateWorldMatrix(true, true);
+      assert.ok(
+        matricesClose(composed, figRoot.matrixWorld, 1e-8),
+        'table-local instance != individual figure under the same scaled table group',
+      );
+    }
+  }
+});
+
 test('instanceColorFor mirrors the mannequin tint rule (tint → colour, else white)', () => {
   const white = new THREE.Color('#ffffff');
   // Neutral strangers (null / empty / bad hex) → white.

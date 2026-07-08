@@ -136,7 +136,11 @@ export default async function SeatingLabPage({ params }: Props) {
   // guest's colour resolves through the STRICT chain (specific role palette key →
   // wedding_party → bride/groom SIDE colour → kit default) via
   // resolveAttirePaletteColor, per guest role + side (below). A couple who set
-  // only `wedding_party` gets the identical result to the old gown/suit buckets.
+  // only `wedding_party` gets the identical result to the old GOWN bucket
+  // (`wedding_party ?? bride`); suit-class attire, which the old code took from
+  // groom/charcoal, now also degrades to `wedding_party` — the owner-locked v2
+  // intent (mood-board.test.ts "wedding_party-only dresses gowns AND suits
+  // identically"), NOT the old suit bucket.
   const rolePalette = sanitizeRolePalette((eventRow.data as Record<string, unknown> | null)?.role_palette);
   // Wave 2b: the couple's saved reception treatments + room archetype reach the
   // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).

@@ -239,6 +239,68 @@ test('staff idle buffer reuse never leaks channels between clip kinds', () => {
   assert.deepEqual({ ...buf }, { ...fresh }, 'buffered ≡ fresh');
 });
 
+// ── catalog-completion idles (the 11 added with the remaining-37 PR) ─────────
+
+const COMPLETION_IDLE_KINDS = [
+  'typing',
+  'pourArc',
+  'stretch',
+  'ribbonSwirl',
+  'countBeat',
+  'swaySing',
+  'strokeWork',
+  'polishWipe',
+  'measure',
+  'boxPass',
+  'thumbsUp',
+] as const;
+
+test('catalog completion ships all 21 idle kinds', () => {
+  assert.equal(STAFF_IDLE_KINDS.length, 21);
+  for (const kind of COMPLETION_IDLE_KINDS) {
+    assert.ok(STAFF_IDLE_KINDS.includes(kind), `${kind} registered`);
+  }
+});
+
+test('completion idles are wall-clock deterministic at a fixed t', () => {
+  // Same (kind, id, t) → the identical overlay, call after call — the
+  // wall-clock contract (never frame-count-bound) the renderer trusts.
+  for (const kind of COMPLETION_IDLE_KINDS) {
+    for (const t of [0, 1.7, 42.3, 3600.5]) {
+      const a = staffIdle(kind, 'booth-fixed', t);
+      const b = staffIdle(kind, 'booth-fixed', t);
+      assert.deepEqual({ ...a }, { ...b }, `${kind} deterministic at t=${t}`);
+    }
+  }
+});
+
+test('completion idles hold their signature poses', () => {
+  // The one readable claim per clip — the silhouette that names the job.
+  const t = 5.3;
+  const stretch = staffIdle('stretch', 'sig', t);
+  assert.ok((stretch.leftShoulder ?? 0) >= 1.9 && (stretch.rightShoulder ?? 0) >= 1.9, 'stretch reaches overhead');
+  const sing = staffIdle('swaySing', 'sig', t);
+  assert.ok((sing.leftElbow ?? 0) >= 1.2 && (sing.rightElbow ?? 0) >= 1.2, 'swaySing keeps hands folded at the chest');
+  const stroke = staffIdle('strokeWork', 'sig', t);
+  assert.ok((stroke.headPitch ?? 0) >= 0.25, 'strokeWork keeps eyes on the work');
+  assert.ok((stroke.torsoLean ?? 0) > 0.1, 'strokeWork leans over the work');
+  const thumbs = staffIdle('thumbsUp', 'sig', t);
+  assert.ok((thumbs.rightShoulder ?? 0) >= 1.4, 'thumbsUp parks the arm high');
+  assert.ok((thumbs.leftShoulder ?? 0) < 0.5, 'thumbsUp keeps the off arm low');
+  const swirl = staffIdle('ribbonSwirl', 'sig', t);
+  assert.ok((swirl.rightShoulder ?? 0) >= 1.8, 'ribbonSwirl raises the ribbon arm');
+  const type = staffIdle('typing', 'sig', t);
+  close(type.leftShoulder ?? 0, type.rightShoulder ?? 0, 1e-9, 'typing holds both forearms level');
+});
+
+test('measure pulls both elbows in phase (the tape, apart and together)', () => {
+  for (let i = 0; i < 40; i++) {
+    const s = staffIdle('measure', 'fitter', i * 0.31);
+    close(s.leftElbow ?? 0, s.rightElbow ?? 0, 1e-9, `elbows in phase at i=${i}`);
+    assert.ok((s.leftElbow ?? 0) >= 0.3, 'elbows never hyper-extend past the gather');
+  }
+});
+
 test('staff idles compose over standPose without breaking the record', () => {
   const base = standPose();
   for (const kind of STAFF_IDLE_KINDS) {

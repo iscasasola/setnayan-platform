@@ -1,10 +1,11 @@
 /**
  * kit — the public surface of the shared 3D figure kit (owner-locked
- * "Sims-like" direction). Import FROM HERE, not from the internal modules:
- * call sites (plan3d-scene's tokens, the lab's SeatedAvatar/MoverToken, the
- * guest venue walk) adopt `<Figure>`/`<SeatedFigure>`/`<WalkingFigure>` in a
- * later integration stage, and this barrel is the contract that stage codes
- * against.
+ * "Sims-like" direction). Import FROM HERE, not from the internal modules.
+ * All THREE seat-plan surfaces now render through `<Figure>`/`<SeatedFigure>`/
+ * `<WalkingFigure>` — the homepage demo (plan3d-scene's tokens + Walker), the
+ * couple lab (SeatedAvatar/Mover/SitController), and the public guest venue
+ * walk (guest-venue-3d, Fable slice 7) — so this barrel is the codebase's ONE
+ * human-figure implementation.
  *
  *   · lib/figure-rig.ts       — PURE pose math + deterministic looks (unit-tested)
  *   · kit/outfits.ts          — shared outfit shells (gown/suit/barong/filipiniana/neutral)

@@ -10,6 +10,17 @@
  * primitives (steerPath / floorObstacles / sceneObjectObstacles) the couple's
  * lab + crowd use. All math is unit-tested in lib; the visual FEEL is the part
  * to confirm on a preview.
+ *
+ * Kit consolidation (Fable slice 7): this walk renders through the SHARED
+ * figure kit (`plan3d/kit` <Figure>/<SeatedFigure>) — the same articulated
+ * "Sims-like" human the couple lab and homepage demo use — instead of its old
+ * self-contained cylinder+sphere tokens + capsule avatar. Seated occupants are
+ * NEUTRAL untinted mannequins (anonymised strangers; privacy lock 2026-06-26 —
+ * no per-guest attire/hair, no names beyond the RPC contract); the viewer's own
+ * figure is accent-tinted (self semantics). Cinematic Tier A (palette-warm grade
+ * + string lights) runs at quality 'low' to match the phone demo walk — Tier A
+ * only (no Tier B postprocessing, no dust motes on the public surface). The RPC
+ * payload is UNCHANGED — this is pure consolidation onto the shared kit.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -48,13 +59,17 @@ import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import {
+  Figure,
+  SeatedFigure,
+  StringLights,
   EmoteBubbles,
   EMOTE_TABLE_Y,
   EMOTE_DANCE_Y,
   type EmoteEmitter,
+  type FigureSpec,
 } from '@/app/_components/plan3d/kit';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
-import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
+import { preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
@@ -63,6 +78,7 @@ import {
   archetypeFor,
   archetypeFloorColor,
   archetypeBackground,
+  ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
@@ -124,14 +140,15 @@ export type VenueScene = {
   venueSetting?: string;
 };
 
-const TOKEN_GEO = new THREE.CylinderGeometry(0.14, 0.16, 0.5, 10);
-
-/** One table: a top + chairs, occupied seats get a token, the guest's own seat glows.
- *  When the host enabled photos AND this viewer is a token holder, a seat with a
- *  resolved photo wears the shared `GuestPhotoAvatar` (billboard disc) instead of
- *  the anonymous token; everything else stays a plain token. `photoBySeat` maps a
- *  seat number → resolved display URL; `nameBySeat` supplies the initials-fallback
- *  name where we know it (own tablemates) — both keyed by chair index (= seat #). */
+/** One table: a top + chairs, occupied seats get the shared kit figure, the
+ *  guest's own seat glows. Anonymous occupants are NEUTRAL untinted mannequins
+ *  (the anonymised-stranger default, privacy lock 2026-06-26); the viewer's own
+ *  seat is accent-tinted (self semantics). When the host enabled photos AND this
+ *  viewer is a token holder, a seat with a resolved photo wears the shared
+ *  `GuestPhotoAvatar` disc as the figure's head (routed through the ONE figure
+ *  kit — same billboard the pre-kit token used). `photoBySeat` maps a seat number
+ *  → resolved display URL; `nameBySeat` supplies the initials-fallback name where
+ *  we know it (own tablemates) — both keyed by chair index (= seat #). */
 function GuestTable({
   table,
   room,
@@ -183,28 +200,33 @@ function GuestTable({
         const taken = occupied?.has(i);
         const mine = yourSeat === i;
         if (!taken && !mine) return null;
-        // Host enabled photos + this seat has a resolved face → wear the shared
-        // photo avatar. Ring colour follows the token convention (own seat =
-        // accent, others = table). No photo → the plain token, unchanged.
+        // Host-opt-in selfie (token holder + venue_photo_visibility): a resolved
+        // photo becomes the figure's head (the SAME GuestPhotoAvatar disc as
+        // before, now via the ONE figure kit). No photo → a neutral untinted
+        // mannequin for anonymous strangers; the viewer's own seat is
+        // accent-tinted (self semantics). A floor status ring shows only under a
+        // photo seat (mirrors the old disc ringColor); the own seat's gold ring
+        // is drawn separately below. NO per-guest attire/hair variety here —
+        // strangers stay neutral (privacy lock; Q5 unanswered).
         const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
         const ringColor = mine ? palette.accent : palette.table;
+        const spec: FigureSpec = {
+          id: `${table.id}:${i}`,
+          outfit: 'neutral',
+          outfitColor: mine ? palette.accent : null,
+          photoUrl,
+          statusColor: photoUrl ? ringColor : '',
+        };
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
-            {taken && photoUrl ? (
-              // Billboard photo disc — must NOT cast a shadow (it would shadow
-              // as a floating circle); lifted above the new chair backrest.
-              <GuestPhotoAvatar
-                photoUrl={photoUrl}
-                name={nameBySeat?.get(i) ?? ''}
-                ringColor={ringColor}
-                radius={0.16}
-                height={1.05}
-              />
-            ) : taken ? (
-              <mesh geometry={TOKEN_GEO} position={[0, 0.75, -0.04]} castShadow>
-                <meshStandardMaterial color={mine ? palette.accent : palette.table} roughness={0.5} emissive={mine ? palette.accent : '#000'} emissiveIntensity={mine ? 0.5 : 0} />
-              </mesh>
-            ) : null}
+            {/* chairPlacements' faceY points local +Z OUTWARD (away from the
+                table); the rig faces local +Z, so the π flip + the −0.04 nudge
+                seat the figure facing the table — the couple lab's exact
+                SeatedAvatar convention (FIGURE_NUDGE_M parity). Quality 'low'
+                bakes the seated pose (phone crowd budget). */}
+            <group position={[0, 0, -0.04]} rotation={[0, Math.PI, 0]}>
+              <SeatedFigure spec={spec} quality="low" name={nameBySeat?.get(i) ?? ''} />
+            </group>
             {mine ? (
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
                 <ringGeometry args={[0.32, 0.42, 28]} />
@@ -248,9 +270,25 @@ function GuestAvatar({
   const ref = useRef<THREE.Group>(null);
   const path = useRef<Vec2[]>([]);
   const idx = useRef(0);
-  const t = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
+  // Gait phase clock for the kit figure — advances ~9 rad/s (the shared
+  // figure-kit gait rate) while translating and FREEZES on arrival, so the
+  // limbs stop swinging exactly when the figure stops. The rig carries its own
+  // pelvis bob (walkCyclePose), so the GROUP no longer hops.
+  const phaseRef = useRef(0);
+  // Walk → stand blend on arrival (the kit eases presets over ~⅓ s); a frozen
+  // mid-stride reads as a glitch otherwise. Reset when a new destination starts.
+  const [atRest, setAtRest] = useState(false);
+  const restedRef = useRef(false);
+
+  // The viewer's own figure — accent-tinted mannequin (self semantics; the
+  // pre-kit avatar was the accent capsule), never a photo. Neutral stays
+  // reserved for the anonymous seated crowd.
+  const selfSpec = useMemo<FigureSpec>(
+    () => ({ id: 'guest-self', outfit: 'neutral', outfitColor: palette.accent, statusColor: palette.accent }),
+    [palette.accent],
+  );
 
   useEffect(() => {
     const start = pos.current;
@@ -263,12 +301,13 @@ function GuestAvatar({
         : steerPath(start, target, roamObstacles, 0.2);
     idx.current = 0;
     arrivedRef.current = false; // a new destination → not there yet
+    restedRef.current = false;
+    setAtRest(false);
   }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles]);
 
   useFrame((_, delta) => {
     const g = ref.current;
     if (!g) return;
-    t.current += delta;
     const p = path.current;
     if (idx.current < p.length - 1) {
       const next = p[idx.current + 1]!;
@@ -285,10 +324,16 @@ function GuestAvatar({
         g.position.z += (dz / dist) * step;
         g.rotation.y = Math.atan2(dx, dz);
       }
-      g.position.y = Math.abs(Math.sin(t.current * 9)) * 0.06;
+      // Advance the gait while translating; the rig's own pelvis bob keeps the
+      // group grounded (no whole-body hop).
+      phaseRef.current += delta * 9;
     } else {
-      g.position.y += (0 - g.position.y) * Math.min(1, delta * 6);
-      // Reached the end of the path — if it was a seat walk, retire the beacon.
+      // Reached the path end — freeze the gait, ease walk → stand, and (seat
+      // walks only) retire the destination beacon.
+      if (!restedRef.current) {
+        restedRef.current = true;
+        setAtRest(true);
+      }
       if (isSeatTarget && !arrivedRef.current) {
         arrivedRef.current = true;
         onArrive?.();
@@ -299,14 +344,13 @@ function GuestAvatar({
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <mesh position={[0, 0.55, 0]} castShadow>
-        <capsuleGeometry args={[0.18, 0.5, 6, 12]} />
-        <meshStandardMaterial color={palette.accent} roughness={0.4} emissive={palette.accent} emissiveIntensity={0.3} />
-      </mesh>
-      <mesh position={[0, 1.0, 0]} castShadow>
-        <sphereGeometry args={[0.16, 16, 16]} />
-        <meshStandardMaterial color={palette.table} roughness={0.5} />
-      </mesh>
+      {/* The shared articulated kit figure — the ONE human implementation, now
+          on the public walk too. `phase` takes the gait CLOCK ref (read inside
+          the figure's own useFrame, no per-frame React re-render); the pose
+          eases walk → stand on arrival. Always quality 'high': this is the
+          single viewer figure that owns the camera, not the 'low'-tier crowd. */}
+      <Figure spec={selfSpec} pose={atRest ? 'stand' : 'walk'} phase={phaseRef} quality="high" />
+      {/* Keep the soft accent glow that has always marked "you". */}
       <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
     </group>
   );
@@ -562,8 +606,20 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
         <color attach="background" args={[bgColor]} />
         <fog attach="fog" args={[bgColor, room.d * 1.4, room.d * 3.2]} />
         {/* Shared rig (Wave 2a) at 'low' — guests explore on phones, so the
-            1024 shadow map + 128 env map budget. */}
-        <SceneLighting palette={palette} quality="low" room={room} />
+            1024 shadow map + 128 env map budget. Cinematic Tier A (Fable §3.5):
+            the palette-warm golden-hour grade, exactly what the phone demo walk
+            (plan3d-guest-view.tsx) already runs. Tier A only — NO Tier B
+            postprocessing, NO dust motes on the public walk ('low' = Tier A). */}
+        <SceneLighting palette={palette} quality="low" room={room} grade="play" />
+
+        {/* Tier A string lights — warm emissive strands, one static InstancedMesh
+            ('low' halves the strand count inside the component), so they ride the
+            phone walk at no per-frame cost. Skipped when the couple's OWN ceiling
+            decor occupies the hang band (fairy lights / chandeliers / lanterns /
+            hanging florals) — the same ceilingDecorOccupied gate the demo uses. */}
+        {!ceilingDecorOccupied(receptionDesign, archetype) ? (
+          <StringLights room={room} palette={palette} quality="low" />
+        ) : null}
 
         {/* Wave 2b: archetype room shell (garden / chapel / barn / …), reduced
             decor set at 'low' quality for phones. */}
@@ -595,10 +651,14 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           />
         </mesh>
 
-        {/* Stage */}
+        {/* Stage — unified stage material (Fable slice 7): the couple lab
+            (seating-lab-3d) and the homepage demo (plan3d-scene) both render the
+            stage in `palette.accent` at roughness 0.5 / metalness 0.1; this walk
+            used to diverge on `palette.table`. Canonical = the lab/demo accent
+            slab, so the same stage reads across all three surfaces. */}
         <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
           <boxGeometry args={[stageW, 0.3, stageD]} />
-          <meshStandardMaterial color={palette.table} roughness={0.6} />
+          <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
         </mesh>
 
         {/* Dance floor — the mood-board mural (Fable §3.7). This walk had NO

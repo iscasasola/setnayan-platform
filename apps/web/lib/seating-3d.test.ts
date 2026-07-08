@@ -38,6 +38,8 @@ import {
   worldSeatPose,
   approachPoint,
   rotateLocal,
+  rotateLocalRad,
+  boothFacingY,
   serpentineChairs,
   serpentineBand,
   BOOTH_FOOTPRINT_M,
@@ -659,6 +661,80 @@ test('boothApproach: walk-up point sits outside the booth avoidance ring, on the
   const centre = boothApproach({ xPct: 50, yPct: 50 }, room);
   assert.ok(Number.isFinite(centre.point.x) && Number.isFinite(centre.point.z));
   assert.ok(Math.hypot(centre.point.x, centre.point.z) > avoidR);
+});
+
+// The world heading a booth group's front (+z) points after `rotation.y = θ`.
+function frontHeading(theta: number): { x: number; z: number } {
+  return { x: Math.sin(theta), z: Math.cos(theta) };
+}
+
+test('boothFacingY: a perimeter booth turns its FRONT toward the room centre (cardinal walls)', () => {
+  const room = { w: 20, d: 30 };
+  // Left wall (small xPct) → front points +x (into the room from the left wall).
+  const left = frontHeading(boothFacingY({ xPct: 2, yPct: 50 }, room));
+  assert.ok(left.x > 0.999 && Math.abs(left.z) < 1e-6, `left → +x, got ${JSON.stringify(left)}`);
+  // Right wall → front points −x.
+  const right = frontHeading(boothFacingY({ xPct: 98, yPct: 50 }, room));
+  assert.ok(right.x < -0.999 && Math.abs(right.z) < 1e-6, `right → −x, got ${JSON.stringify(right)}`);
+  // Top wall (small yPct) → front points +z (yaw ≈ 0).
+  const top = boothFacingY({ xPct: 50, yPct: 2 }, room);
+  assert.ok(Math.abs(top) < 1e-6, `top → yaw ≈ 0, got ${top}`);
+  const topH = frontHeading(top);
+  assert.ok(topH.z > 0.999 && Math.abs(topH.x) < 1e-6, `top → +z, got ${JSON.stringify(topH)}`);
+  // Bottom wall (large yPct) → front points −z (yaw ≈ ±π).
+  const bottom = boothFacingY({ xPct: 50, yPct: 98 }, room);
+  assert.ok(Math.abs(Math.abs(bottom) - Math.PI) < 1e-6, `bottom → yaw ≈ π, got ${bottom}`);
+  const botH = frontHeading(bottom);
+  assert.ok(botH.z < -0.999 && Math.abs(botH.x) < 1e-6, `bottom → −z, got ${JSON.stringify(botH)}`);
+});
+
+test('boothFacingY: a dead-centre booth yaws 0 (front-of-house +z), matching boothApproach', () => {
+  const room = { w: 20, d: 30 };
+  assert.equal(boothFacingY({ xPct: 50, yPct: 50 }, room), 0);
+});
+
+test('boothFacingY: front faces the room centre ↔ boothApproach approaches from that same side', () => {
+  const room = { w: 20, d: 30 };
+  for (const booth of [
+    { xPct: 90, yPct: 48 },
+    { xPct: 12, yPct: 20 },
+    { xPct: 50, yPct: 4 },
+    { xPct: 33, yPct: 95 },
+  ]) {
+    const c = pctToWorld(booth.xPct, booth.yPct, room);
+    const yaw = boothFacingY(booth, room);
+    // Booth front points from the booth centre toward the origin (unit vector).
+    const front = frontHeading(yaw);
+    const toCentre = { x: -c.x / Math.hypot(c.x, c.z), z: -c.z / Math.hypot(c.x, c.z) };
+    assert.ok(
+      Math.abs(front.x - toCentre.x) < 1e-9 && Math.abs(front.z - toCentre.z) < 1e-9,
+      `front must aim at room centre for ${JSON.stringify(booth)}`,
+    );
+    // boothApproach stands on the room-centre (front) side, never wall-side:
+    // the approach point is displaced from the booth ALONG the booth's front.
+    const { point } = boothApproach(booth, room);
+    const disp = { x: point.x - c.x, z: point.z - c.z };
+    const dlen = Math.hypot(disp.x, disp.z);
+    assert.ok(
+      front.x * (disp.x / dlen) + front.z * (disp.z / dlen) > 0.999,
+      `approach point must lie on the booth's front (room) side for ${JSON.stringify(booth)}`,
+    );
+  }
+});
+
+test('rotateLocalRad: matches rotateLocal under the degree→radian convention (ry = −deg·π/180)', () => {
+  const p = { x: 1.3, z: -0.7 };
+  for (const deg of [0, 30, 90, 145, -60, 180]) {
+    const a = rotateLocal(p, deg);
+    const b = rotateLocalRad(p, (-deg * Math.PI) / 180);
+    assert.ok(Math.abs(a.x - b.x) < 1e-12 && Math.abs(a.z - b.z) < 1e-12, `mismatch at ${deg}°`);
+  }
+  // Rotating a booth-local offset by the booth's own yaw lands it on the world
+  // heading the booth's front points (a purely-forward offset stays forward).
+  const room = { w: 20, d: 30 };
+  const yaw = boothFacingY({ xPct: 90, yPct: 48 }, room);
+  const fwd = rotateLocalRad({ x: 0, z: 1 }, yaw);
+  assert.ok(Math.abs(fwd.x - Math.sin(yaw)) < 1e-12 && Math.abs(fwd.z - Math.cos(yaw)) < 1e-12);
 });
 
 // ── Avoidance engine v2: true footprints · chair discs · grid · prediction ──

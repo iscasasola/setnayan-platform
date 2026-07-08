@@ -59,53 +59,87 @@ import {
 } from '@/lib/figure-rig';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
 import { plainMaterial, mannequinMaterial } from './outfits';
+// Rig proportions + leaf placements + the pose applier now live in the PURE,
+// unit-tested `lib/figure-sit-bake` so the SINGLE source drives BOTH this
+// rendered figure AND the instanced seated crowd's baked-pose extraction — the
+// two can never silently diverge (that's the crowd's pixel-identity guarantee).
+import {
+  PELVIS_Y,
+  HIP_X,
+  THIGH_LEN,
+  SHIN_LEN,
+  SHOULDER_X,
+  SHOULDER_Y,
+  UPPER_ARM_LEN,
+  FOREARM_LEN,
+  NECK_Y,
+  HEAD_LIFT,
+  HIP_BLOCK_Y,
+  THIGH_SCALE_XZ,
+  THIGH_SCALE_Y,
+  SHIN_SCALE_XZ,
+  SHIN_SCALE_Y,
+  SHOE_POS_Y,
+  SHOE_POS_Z,
+  SHOE_SCALE_X,
+  SHOE_SCALE_Y,
+  SHOE_SCALE_Z,
+  NECK_POS_Y,
+  UPPER_ARM_SCALE_XZ,
+  UPPER_ARM_SCALE_Y,
+  FOREARM_SCALE_XZ,
+  FOREARM_SCALE_Y,
+  applyPose,
+  type JointGroups,
+} from '@/lib/figure-sit-bake';
 
 // ── Rig proportions (metres, adult at scale 1) ───────────────────────────────
 // Sized against the PRODUCT-TRUE furniture: 0.46 m chair seats + 0.74 m
 // tables. Standing hip pivot at 0.80 puts the head centre at ≈1.44 (a ~1.56 m
 // figure); the sitPose −0.30 m drop lands the hips at ≈0.50 — on the seat —
 // with the head at ≈1.14, matching where today's seated photo discs float.
-const PELVIS_Y = 0.8;
-const HIP_X = 0.062; // narrowed 2026-07-08 leg pass — closes the between-legs gap
-const THIGH_LEN = 0.34;
-const SHIN_LEN = 0.44;
-const SHOULDER_X = 0.165;
-const SHOULDER_Y = 0.46;
-const UPPER_ARM_LEN = 0.22;
-const FOREARM_LEN = 0.2;
-const NECK_Y = 0.52;
-const HEAD_LIFT = 0.12; // neck pivot → head centre
+// (The numeric constants themselves are imported from figure-sit-bake above.)
 const HEAD_R = 0.13; // mascot-smooth pass (2026-07-08): a touch larger head reads friendlier
 
 // ── Shared geometry owned by this file (module scope — 4 buffers) ───────────
-const ARM_GEO = new THREE.CapsuleGeometry(0.042, 0.14, 6, 14); // native ≈0.224 long · mascot-smooth segments
-const ARM_GEO_LEN = 0.224;
-const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 6, 14); // native ≈0.36 long · mascot-smooth segments
-const LEG_GEO_LEN = 0.36;
-const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 28, 20); // mascot-smooth: no visible facets on close-ups
-const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 14); // silhouette pass — collar→head bridge
+// The native (unscaled) capsule lengths these buffers expose — LEG_GEO_LEN /
+// ARM_GEO_LEN — are imported from figure-sit-bake alongside the proportions, so
+// the leaf stretch factors stay single-sourced with the baker.
+// EXPORTED so `kit/instanced-seated-crowd.tsx` draws the seated crowd with the
+// IDENTICAL geometry buffers (an instanced figure must be pixel-for-pixel the
+// figure it replaces — same buffer, never a re-model).
+export const ARM_GEO = new THREE.CapsuleGeometry(0.042, 0.14, 6, 14); // native ≈0.224 long · mascot-smooth segments
+export const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 6, 14); // native ≈0.36 long · mascot-smooth segments
+export const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 28, 20); // mascot-smooth: no visible facets on close-ups
+export const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 14); // silhouette pass — collar→head bridge
 // 2026-07-08 leg pass: the hip block that joins trousered legs (a squashed
 // capsule reads as soft tailoring, not a box) + the shoe nose.
-const HIP_GEO = (() => {
+export const HIP_GEO = (() => {
   const g = new THREE.CapsuleGeometry(0.095, 0.05, 6, 14);
   g.scale(1.3, 0.66, 1.0);
   return g;
 })();
-const SHOE_GEO = (() => {
+export const SHOE_GEO = (() => {
   const g = new THREE.CapsuleGeometry(0.036, 0.055, 6, 12);
   g.rotateX(Math.PI / 2); // long axis forward
   g.scale(1.05, 0.62, 1.15);
   return g;
 })();
-const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
+export const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
 // 2026-07-08 AVATAR PIVOT: the plump featureless mannequin torso — one smooth
 // capsule, softly flattened front-to-back. No shells, no wardrobe.
-const MANNEQUIN_TORSO_GEO = (() => {
+export const MANNEQUIN_TORSO_GEO = (() => {
   const g = new THREE.CapsuleGeometry(0.175, 0.22, 10, 24);
   g.scale(1, 1.05, 0.84);
   g.translate(0, 0.27, 0);
   return g;
 })();
+
+/** The status ring's fixed local placement under the figure root (child of
+ *  root, NOT pose-driven). Exported so the instanced crowd's ring instances
+ *  land exactly where the individual figure's ring mesh does. */
+export const STATUS_RING_POS_Y = 0.012;
+export const STATUS_RING_ROT_X = -Math.PI / 2;
 
 // Status-ring materials: the existing ring/marker convention (GuestToken's
 // photo ring, the roam seat marker) — unlit so the status colour stays true.
@@ -127,44 +161,8 @@ const SIT_BASE = sitPose();
 export type FigurePoseName = 'stand' | 'walk' | 'sit';
 export type FigureQuality = 'high' | 'low';
 
-type JointGroups = {
-  pelvis: THREE.Group | null;
-  torso: THREE.Group | null;
-  head: THREE.Group | null;
-  lShoulder: THREE.Group | null;
-  rShoulder: THREE.Group | null;
-  lElbow: THREE.Group | null;
-  rElbow: THREE.Group | null;
-  lHip: THREE.Group | null;
-  rHip: THREE.Group | null;
-  lKnee: THREE.Group | null;
-  rKnee: THREE.Group | null;
-};
-
-/**
- * Write a rig-space pose onto the joint groups. The rig convention is
- * "positive = swings forward"; three's +X rotation swings a hanging limb
- * BACKWARD, hence the negations (documented in figure-rig's header).
- */
-function applyPose(g: JointGroups, p: Pose): void {
-  if (g.pelvis) g.pelvis.position.set(0, PELVIS_Y + p.pelvisY, p.pelvisZ);
-  if (g.torso) {
-    g.torso.rotation.x = -p.torsoLean;
-    g.torso.rotation.z = p.torsoSway;
-  }
-  if (g.head) {
-    g.head.rotation.y = p.headYaw;
-    g.head.rotation.x = p.headPitch;
-  }
-  if (g.lShoulder) g.lShoulder.rotation.x = -p.leftShoulder;
-  if (g.rShoulder) g.rShoulder.rotation.x = -p.rightShoulder;
-  if (g.lElbow) g.lElbow.rotation.x = -p.leftElbow;
-  if (g.rElbow) g.rElbow.rotation.x = -p.rightElbow;
-  if (g.lHip) g.lHip.rotation.x = -p.leftHip;
-  if (g.rHip) g.rHip.rotation.x = -p.rightHip;
-  if (g.lKnee) g.lKnee.rotation.x = -p.leftKnee;
-  if (g.rKnee) g.rKnee.rotation.x = -p.rightKnee;
-}
+// `JointGroups` + `applyPose` are imported from `lib/figure-sit-bake` (the
+// single source shared with the instanced-crowd baker).
 
 export type FigureProps = {
   spec: FigureSpec;
@@ -222,6 +220,79 @@ function setMatrixFrozen(o: THREE.Object3D, frozen: boolean): void {
 }
 
 /**
+ * The per-frame joint driver — mounted by <Figure> ONLY while it animates
+ * (quality 'high' AND motion allowed). A STATIC figure (quality 'low' or
+ * reduced motion — the phone-crowd budget knob) simply doesn't render this
+ * child, so it registers NO `useFrame`: a room of baked seated guests costs
+ * ZERO frame-callback subscriptions instead of one no-op subscriber apiece.
+ * (The instanced seated crowd removes the many; this removes the few that stay
+ * individual — photo seats, the viewer's own figure.) Splitting the loop into
+ * a child keeps the subscription rules-of-hooks-clean: this component always
+ * calls `useFrame`; <Figure> just conditionally MOUNTS it.
+ *
+ * Owns all the smoothing state (it's the only reader): the frame-rate-
+ * independent preset blend so sit→stand→walk eases instead of popping, plus the
+ * reused per-figure pose buffers that avoid per-frame record allocation.
+ */
+function FigureFrameDriver({
+  groups,
+  pose,
+  phase,
+  specId,
+  idleClip,
+}: {
+  groups: React.MutableRefObject<JointGroups>;
+  pose: FigurePoseName;
+  phase: number | React.MutableRefObject<number>;
+  specId: string;
+  idleClip?: StaffIdleKind;
+}) {
+  const cur = useRef<Pose | null>(null);
+  const from = useRef<Pose | null>(null);
+  const blend = useRef(1);
+  const prevPose = useRef<FigurePoseName>(pose);
+  const targetBuf = useRef<Pose>({ ...ZERO_POSE });
+  const swayBuf = useRef<Partial<Pose>>({});
+
+  useFrame(({ clock }, delta) => {
+    const ph = typeof phase === 'number' ? phase : phase.current;
+    // Walk takes the raw cycle (phase is already continuous + frame-rate
+    // independent at the caller); stand/sit layer the per-id idle life on top.
+    const target =
+      pose === 'walk'
+        ? walkCyclePose(ph, targetBuf.current)
+        : overlayPose(
+            pose === 'sit' ? SIT_BASE : STAND_BASE,
+            // Booth staff swap the guests' idleSway for their job's clip —
+            // same additive-overlay composition, same wall-clock time base.
+            idleClip && pose === 'stand'
+              ? staffIdle(idleClip, specId, clock.elapsedTime, swayBuf.current)
+              : idleSway(specId, clock.elapsedTime, swayBuf.current),
+            targetBuf.current,
+          );
+    if (!cur.current || !from.current) {
+      cur.current = { ...target };
+      from.current = { ...target };
+    }
+    if (prevPose.current !== pose) {
+      // Preset switched — blend from wherever the joints ARE right now.
+      prevPose.current = pose;
+      from.current = { ...cur.current };
+      blend.current = 0;
+    }
+    // ~0.2% of the transition left after one second — settles in ≈⅓ s.
+    blend.current += (1 - blend.current) * damp(0.002, delta);
+    const b = blend.current;
+    const c = cur.current;
+    const f = from.current;
+    for (const j of JOINTS) c[j] = f[j] + (target[j] - f[j]) * b;
+    applyPose(groups.current, c);
+  });
+
+  return null;
+}
+
+/**
  * <Figure> — one articulated guest. Position/heading are the PARENT's job
  * (exactly like today's tokens: the Walker group moves, the token dresses),
  * so existing walk/roam/seat plumbing needs no changes to adopt it.
@@ -260,14 +331,6 @@ export const Figure = memo(function Figure({
     rKnee: null,
   });
 
-  // Live joint state for the frame-rate-independent preset blend: on a pose
-  // change we snapshot the CURRENT joints and damp toward the new target, so
-  // sit→stand→walk transitions ease instead of popping.
-  const cur = useRef<Pose | null>(null);
-  const from = useRef<Pose | null>(null);
-  const blend = useRef(1);
-  const prevPose = useRef<FigurePoseName>(pose);
-
   // Snapshot of a number-typed phase for the static bake (a ref-typed phase
   // is read imperatively and deliberately does NOT re-trigger the effect).
   const staticPhase = typeof phase === 'number' ? phase : 0;
@@ -291,7 +354,6 @@ export const Figure = memo(function Figure({
               // as a barista, and the booth flow completes without motion.
               overlayPose(STAND_BASE, staffIdle(idleClip, spec.id, 0))
             : STAND_BASE;
-    cur.current = { ...p };
     applyPose(groups.current, p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staticMode, pose, reduced, staticPhase, idleClip, spec.id]);
@@ -306,48 +368,6 @@ export const Figure = memo(function Figure({
     const root = rootRef.current;
     if (!root) return;
     setMatrixFrozen(root, staticMode);
-  });
-
-  // Reusable per-figure pose buffers — the frame loop writes targets into
-  // these instead of allocating 2–3 fresh 15-key records per figure per frame
-  // (60 animated guests × 60 fps was ~7k short-lived objects/s of GC churn).
-  const targetBuf = useRef<Pose>({ ...ZERO_POSE });
-  const swayBuf = useRef<Partial<Pose>>({});
-
-  useFrame(({ clock }, delta) => {
-    if (staticMode) return;
-    const ph = typeof phase === 'number' ? phase : phase.current;
-    // Walk takes the raw cycle (phase is already continuous + frame-rate
-    // independent at the caller); stand/sit layer the per-id idle life on top.
-    const target =
-      pose === 'walk'
-        ? walkCyclePose(ph, targetBuf.current)
-        : overlayPose(
-            pose === 'sit' ? SIT_BASE : STAND_BASE,
-            // Booth staff swap the guests' idleSway for their job's clip —
-            // same additive-overlay composition, same wall-clock time base.
-            idleClip && pose === 'stand'
-              ? staffIdle(idleClip, spec.id, clock.elapsedTime, swayBuf.current)
-              : idleSway(spec.id, clock.elapsedTime, swayBuf.current),
-            targetBuf.current,
-          );
-    if (!cur.current || !from.current) {
-      cur.current = { ...target };
-      from.current = { ...target };
-    }
-    if (prevPose.current !== pose) {
-      // Preset switched — blend from wherever the joints ARE right now.
-      prevPose.current = pose;
-      from.current = { ...cur.current };
-      blend.current = 0;
-    }
-    // ~0.2% of the transition left after one second — settles in ≈⅓ s.
-    blend.current += (1 - blend.current) * damp(0.002, delta);
-    const b = blend.current;
-    const c = cur.current;
-    const f = from.current;
-    for (const j of JOINTS) c[j] = f[j] + (target[j] - f[j]) * b;
-    applyPose(groups.current, c);
   });
 
   // 2026-07-08 AVATAR PIVOT: one blank glossy body material for everything —
@@ -370,6 +390,11 @@ export const Figure = memo(function Figure({
 
   return (
     <group ref={rootRef} scale={spec.scale ?? 1}>
+      {/* Per-frame joints ONLY while animating — a static (baked) figure never
+          mounts the driver, so it holds zero useFrame subscriptions. */}
+      {staticMode ? null : (
+        <FigureFrameDriver groups={groups} pose={pose} phase={phase} specId={spec.id} idleClip={idleClip} />
+      )}
       {/* Status colour, the existing ring convention: the selfie path gets it
           on the GuestPhotoAvatar disc; a drawn face gets a floor ring. Booth
           STAFF pass an empty statusColor — they have no RSVP status, so no
@@ -378,8 +403,8 @@ export const Figure = memo(function Figure({
         <mesh
           geometry={STATUS_RING_GEO}
           material={statusRingMaterial(spec.statusColor)}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.012, 0]}
+          rotation={[STATUS_RING_ROT_X, 0, 0]}
+          position={[0, STATUS_RING_POS_Y, 0]}
         />
       ) : null}
 
@@ -389,7 +414,7 @@ export const Figure = memo(function Figure({
             HIP BLOCK joins the leg tops so trousers read as one garment, the
             stance narrows, and every visible leg ends in a SHOE — the two
             floating capsules become a person standing in shoes. */}
-        <mesh geometry={HIP_GEO} material={bodyMat} position={[0, -0.045, 0]} castShadow={castShadow} />
+        <mesh geometry={HIP_GEO} material={bodyMat} position={[0, HIP_BLOCK_Y, 0]} castShadow={castShadow} />
         {[-1, 1].map((side) => (
           <group
             key={side}
@@ -400,7 +425,7 @@ export const Figure = memo(function Figure({
               geometry={LEG_GEO}
               material={bodyMat}
               position={[0, -THIGH_LEN / 2, 0]}
-              scale={[1.28, THIGH_LEN / LEG_GEO_LEN, 1.28]}
+              scale={[THIGH_SCALE_XZ, THIGH_SCALE_Y, THIGH_SCALE_XZ]}
               castShadow={castShadow}
             />
             <group
@@ -411,7 +436,7 @@ export const Figure = memo(function Figure({
                 geometry={LEG_GEO}
                 material={bodyMat}
                 position={[0, -SHIN_LEN / 2, 0]}
-                scale={[1.08, SHIN_LEN / LEG_GEO_LEN, 1.08]}
+                scale={[SHIN_SCALE_XZ, SHIN_SCALE_Y, SHIN_SCALE_XZ]}
                 castShadow={castShadow}
               />
               {/* Foot nub — same blank material (the mannequin has no shoes),
@@ -419,8 +444,8 @@ export const Figure = memo(function Figure({
               <mesh
                 geometry={SHOE_GEO}
                 material={bodyMat}
-                position={[0, -SHIN_LEN + 0.03, 0.04]}
-                scale={[1.4, 0.75, 1.4]}
+                position={[0, SHOE_POS_Y, SHOE_POS_Z]}
+                scale={[SHOE_SCALE_X, SHOE_SCALE_Y, SHOE_SCALE_Z]}
                 castShadow={castShadow}
               />
             </group>
@@ -431,7 +456,7 @@ export const Figure = memo(function Figure({
             no wardrobe, no shells) + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
           <mesh geometry={MANNEQUIN_TORSO_GEO} material={bodyMat} castShadow={castShadow} />
-          <mesh geometry={NECK_GEO} material={bodyMat} position={[0, 0.545, 0]} castShadow={castShadow} />
+          <mesh geometry={NECK_GEO} material={bodyMat} position={[0, NECK_POS_Y, 0]} castShadow={castShadow} />
 
           {/* ── Arms: shoulder → elbow. ── */}
           {[-1, 1].map((side) => (
@@ -444,7 +469,7 @@ export const Figure = memo(function Figure({
                 geometry={ARM_GEO}
                 material={bodyMat}
                 position={[0, -UPPER_ARM_LEN / 2, 0]}
-                scale={[1, UPPER_ARM_LEN / ARM_GEO_LEN, 1]}
+                scale={[UPPER_ARM_SCALE_XZ, UPPER_ARM_SCALE_Y, UPPER_ARM_SCALE_XZ]}
                 castShadow={castShadow}
               />
               <group
@@ -455,7 +480,7 @@ export const Figure = memo(function Figure({
                   geometry={ARM_GEO}
                   material={bodyMat}
                   position={[0, -FOREARM_LEN / 2, 0]}
-                  scale={[0.88, FOREARM_LEN / ARM_GEO_LEN, 0.88]}
+                  scale={[FOREARM_SCALE_XZ, FOREARM_SCALE_Y, FOREARM_SCALE_XZ]}
                   castShadow={castShadow}
                 />
               </group>

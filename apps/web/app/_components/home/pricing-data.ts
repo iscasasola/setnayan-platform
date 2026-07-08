@@ -149,7 +149,6 @@ export async function getHomePricingData(): Promise<PricingData> {
   // never a stale paid figure.
   const stories = priceOf(catalog, 'PAPIC_ADDON_STORIES', 0);
   const kwento = priceOf(catalog, 'KWENTO', 0);
-  const thankYou = priceOf(catalog, 'PAPIC_ADDON_THANK_YOU', 2499);
   const pabati = priceOf(catalog, 'PABATI', 0);
   const liveWall = priceOf(catalog, 'LIVE_WALL', 2499);
 
@@ -198,7 +197,6 @@ export async function getHomePricingData(): Promise<PricingData> {
         },
         { n: 'Stories · add-on', ...freeOrPrice(stories) },
         { n: 'Kwento · whole event', ...freeOrPrice(kwento) },
-        { n: 'Thank You · add-on', v: thankYou.v },
         { n: 'Pabati · add-on', ...freeOrPrice(pabati) },
         {
           n: 'Live Photo Wall',

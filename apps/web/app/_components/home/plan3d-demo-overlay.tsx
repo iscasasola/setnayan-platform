@@ -178,6 +178,11 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               onGuestClick={handleGuestClick}
               interactive
               quality={isMobile ? 'low' : 'high'}
+              // Golden-hour grade + string lights (Tier A — dep-free, no
+              // postprocessing). Phone-safe: rides the same quality knob (halved
+              // strands on mobile 'low'), and the heavy bloom/DoF pass lives only
+              // in the lab, never in this homepage chunk.
+              cinematic
             />
           </div>
 

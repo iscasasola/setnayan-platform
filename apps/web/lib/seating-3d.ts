@@ -456,6 +456,21 @@ export function rotateLocal(p: Vec2, deg: number): Vec2 {
 }
 
 /**
+ * Radian sibling of `rotateLocal`: rotate a group-local point to world by the
+ * group's yaw `ry` (three.js `rotation.y = ry`) directly — no degrees, no sign
+ * flip. Same (x,z) → (x·cos+z·sin, −x·sin+z·cos) map. Use this for booth-local
+ * offsets, whose group yaw is `boothFacingY` (radians): a booth turned to face
+ * the room must swing its chassis discs / staff discs / hit box / sign anchor
+ * by the SAME yaw, or collision + tap + logo de-register from the visual.
+ * Identity check: `rotateLocal(p, deg) === rotateLocalRad(p, -deg·π/180)`.
+ */
+export function rotateLocalRad(p: Vec2, ry: number): Vec2 {
+  const c = Math.cos(ry);
+  const s = Math.sin(ry);
+  return { x: p.x * c + p.z * s, z: -p.x * s + p.z * c };
+}
+
+/**
  * World-space pose of a specific seat at a table: position through the SAME
  * `pctToWorld` + `rotateLocal` pipeline the meshes use, and facing composed as
  * world faceY = local faceY + table rotation. rotateLocal spins by the render's
@@ -1017,6 +1032,26 @@ export function boothApproach(
   // Face from the approach point back toward the booth centre.
   const faceY = Math.atan2(c.x - point.x, c.z - point.z);
   return { point, faceY };
+}
+
+/**
+ * The yaw (radians, three.js `group.rotation.y`) that turns a booth's FRONT
+ * (default +z) to point at the room centre — the SAME bearing `boothApproach`
+ * walks in from, so a booth faces the room and is approached from the room
+ * side, back to its nearest wall. A group at `rotation.y = θ` maps local +z to
+ * world (sinθ, cosθ); setting θ = atan2(−c.x, −c.z) sends the front toward the
+ * origin. Dead-centre booth (no bearing to origin) → 0 (front-of-house +z),
+ * matching `boothApproach`'s centre fallback. Pure; used directly as
+ * `rotation.y` (no sign flip) and as the yaw for `rotateLocalRad` on every
+ * booth-local offset (chassis discs, staff discs, hit box, branded sign).
+ */
+export function boothFacingY(
+  booth: { xPct: number; yPct: number },
+  room: { w: number; d: number },
+): number {
+  const c = pctToWorld(booth.xPct, booth.yPct, room);
+  if (Math.hypot(c.x, c.z) < 1e-3) return 0; // dead-centre → +z front-of-house
+  return Math.atan2(-c.x, -c.z);
 }
 // A sign is a slim post — a small clearance disc so walkers don't stand on it.
 const SIGN_AVOID_R = 0.35;

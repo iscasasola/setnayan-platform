@@ -93,6 +93,8 @@ import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import {
   roomSize,
   pctToWorld,
+  boothFacingY,
+  rotateLocalRad,
   seatWorld,
   tableDims,
   floorObstacles,
@@ -1537,10 +1539,15 @@ function BoothHitTarget({
   // backdrop's panel all extend past the old fixed 2.3×1.3×1.3 box); generic
   // booths keep the historical box.
   const hit = useMemo(() => boothHitVolume(booth), [booth]);
+  // Rotate the tap box by the booth's computed facing so the non-square /
+  // front-shifted volume tracks the rotated chassis (no dead tap zones).
+  const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
+  const hc = useMemo(() => rotateLocalRad({ x: hit.center[0], z: hit.center[2] }, facingY), [hit, facingY]);
   if (!interactive) return null;
   return (
     <mesh
-      position={[pos.x + hit.center[0], hit.center[1], pos.z + hit.center[2]]}
+      position={[pos.x + hc.x, hit.center[1], pos.z + hc.z]}
+      rotation={[0, facingY, 0]}
       onClick={(e) => onTap(booth, e)}
       onPointerOver={(e) => {
         e.stopPropagation();

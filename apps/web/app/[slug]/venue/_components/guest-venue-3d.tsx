@@ -30,6 +30,8 @@ import * as THREE from 'three';
 import {
   roomSize,
   pctToWorld,
+  boothFacingY,
+  rotateLocalRad,
   tableDims,
   shapeHintFor,
   seatWorld,
@@ -773,10 +775,15 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           // panel extend past the old fixed 2.3×1.3×1.3 box); generic booths
           // keep the historical box.
           const hit = boothHitVolume(b);
+          // Rotate the tap box by the booth's computed facing so the non-square
+          // / front-shifted volume tracks the rotated chassis (no dead taps).
+          const facingY = boothFacingY(b, room);
+          const hc = rotateLocalRad({ x: hit.center[0], z: hit.center[2] }, facingY);
           return (
             <mesh
               key={`hit-${b.id}`}
-              position={[p.x + hit.center[0], hit.center[1], p.z + hit.center[2]]}
+              position={[p.x + hc.x, hit.center[1], p.z + hc.z]}
+              rotation={[0, facingY, 0]}
               onClick={(e: ThreeEvent<MouseEvent>) => {
                 if (e.delta > TAP_MAX_PX) return;
                 e.stopPropagation();

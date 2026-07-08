@@ -31,6 +31,8 @@ import * as THREE from 'three';
 import { floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
 import {
   pctToWorld,
+  boothFacingY,
+  rotateLocalRad,
   venueObjectDims,
   BOOTH_FOOTPRINT_M,
   boothCanBrand,
@@ -451,16 +453,22 @@ export function BoothMesh({
   quality?: FigureQuality;
 }) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
+  // Computed facing (front → room centre, back to nearest wall). The template /
+  // silhouette group children rotate for free; the branded BoothSign lives
+  // OUTSIDE the template group, so its booth-local anchor offset is rotated by
+  // the SAME yaw (rotateLocalRad) and the sign is spun to face the room.
+  const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
   const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
   const template = boothTemplateFor(booth);
   if (template) {
     const anchor = CHASSIS_SPECS[template.chassis].signAnchor;
+    const sr = rotateLocalRad({ x: anchor[0], z: anchor[2] }, facingY);
     return (
       <group>
         <BoothTemplate booth={booth} template={template} room={room} palette={palette} quality={quality} />
         {branded ? (
-          <group position={[pos.x + anchor[0], anchor[1], pos.z + anchor[2]]}>
+          <group position={[pos.x + sr.x, anchor[1], pos.z + sr.z]} rotation={[0, facingY, 0]}>
             <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} />
           </group>
         ) : null}
@@ -468,7 +476,7 @@ export function BoothMesh({
     );
   }
   return (
-    <group position={[pos.x, 0, pos.z]}>
+    <group position={[pos.x, 0, pos.z]} rotation={[0, facingY, 0]}>
       {boothSilhouette(booth.kind, w, d, palette)}
       {branded ? <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} /> : null}
     </group>

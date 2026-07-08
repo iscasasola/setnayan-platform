@@ -1218,6 +1218,128 @@ export function relaxLowestPriorityRule(
 }
 
 // ---------------------------------------------------------------------------
+// Smart seat-plan · Phase 5 — LIVE PROVISIONAL SEATING (guest-reactive).
+// Keeps the plan in sync with the guest list without the couple pressing
+// Auto-Arrange: every non-declined guest holds a provisional (unlocked) seat if
+// capacity exists, and a guest whose seating-relevant fields changed (role /
+// group / priority / +1) can be re-placed next to their new tier/group.
+//
+// Pure + deterministic — reuses computeAutoSeat / solveSeatPlan (so Phase 2
+// priority, Phase 3 keep-apart, and group/+1 clustering all carry through) and
+// returns a DELTA the caller applies:
+//   • assign   — seat rows to UPSERT (event_seat_assignments UNIQUE(event,guest)
+//                makes each a replace; covers new adds AND re-placed guests)
+//   • release  — guest_ids whose stale row must be DELETED (only when a vacated
+//                seat got reused and the guest couldn't be re-placed — rare)
+//   • needsTable — eligible guests left with no seat (drives "add a table")
+//
+// Invariants: a LOCKED (Phase 4) seat is never touched — an explicit pin beats
+// group-togetherness. A guest who currently has a seat is never stranded: if a
+// re-seat can't be improved, the original seat is restored. Newly-added
+// (unseated) guests are always gap-filled regardless of `reseatGuestIds`.
+// ---------------------------------------------------------------------------
+export type ReconcileInput = {
+  tables: EventTableRow[];
+  /** Non-declined guests for the event. */
+  guests: AutoSeatGuest[];
+  /** Current seat rows — the `locked` flag is honored. */
+  assignments: SeatAssignmentRow[];
+  /** Phase 3 keep-apart rules (optional; routes placement through solveSeatPlan). */
+  constraints?: KeepApartRule[];
+  /** guest_id → custom group_ids, for group-aware keep-apart expansion. */
+  groupMembers?: Map<string, string[]>;
+  priorityOrder?: PriorityOrder | null;
+  stage?: { x: number; y: number };
+  roleSet?: RoleSet;
+  /**
+   * Already-seated guests to RE-PLACE because a seating-relevant field changed.
+   * Only their UNLOCKED seat is vacated. Include a guest's +1 alongside them so
+   * the pair stays together. New/unseated guests are gap-filled regardless.
+   */
+  reseatGuestIds?: Iterable<string>;
+};
+
+export type ReconcileResult = {
+  assign: AutoSeatRow[];
+  release: string[];
+  needsTable: string[];
+};
+
+export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResult {
+  const {
+    tables,
+    guests,
+    assignments,
+    priorityOrder = null,
+    stage = STAGE_POINT,
+    roleSet = WEDDING_ROLE_SET,
+  } = input;
+  const constraints = input.constraints ?? [];
+  const reseat = new Set(input.reseatGuestIds ?? []);
+
+  // Locked seats are immovable — a pin beats group-togetherness.
+  const lockedGuestIds = new Set(
+    assignments.filter((a) => a.locked).map((a) => a.guest_id),
+  );
+  // Seats we may vacate: unlocked seats of guests flagged for re-placement.
+  const vacate = assignments.filter(
+    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id),
+  );
+  const vacateIds = new Set(vacate.map((a) => a.guest_id));
+  // Fixed occupancy = everything except the vacated seats. Newly-added guests
+  // aren't in `assignments`, so computeAutoSeat/solveSeatPlan seat them here too.
+  const kept = assignments.filter((a) => !vacateIds.has(a.guest_id));
+
+  const placed =
+    constraints.length > 0
+      ? solveSeatPlan({
+          tables,
+          guests,
+          assignments: kept,
+          stage,
+          priorityOrder,
+          constraints,
+          groupMembers: input.groupMembers,
+          roleSet,
+        }).assignments
+      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet);
+
+  const placedIds = new Set(placed.map((r) => r.guest_id));
+  const takenSeat = new Set(placed.map((r) => `${r.table_id}#${r.seat_number}`));
+
+  // A vacated guest not re-placed: restore their original seat if it's still
+  // free (never strand a guest who had a seat); else their row must be deleted
+  // so the seat someone else took isn't double-booked.
+  const restore: AutoSeatRow[] = [];
+  const release: string[] = [];
+  for (const a of vacate) {
+    if (placedIds.has(a.guest_id)) continue; // re-placed → upsert replaces old row
+    if (a.seat_number !== null && !takenSeat.has(`${a.table_id}#${a.seat_number}`)) {
+      restore.push({ guest_id: a.guest_id, table_id: a.table_id, seat_number: a.seat_number });
+    } else {
+      release.push(a.guest_id);
+    }
+  }
+
+  const assign = [...placed, ...restore];
+
+  const seatedNow = new Set<string>([
+    ...kept.map((a) => a.guest_id),
+    ...assign.map((r) => r.guest_id),
+  ]);
+  const needsTable = guests
+    .filter(
+      (g) =>
+        g.rsvp_status !== 'declined' &&
+        !roleSet.coupleRoles.has(g.role) &&
+        !seatedNow.has(g.guest_id),
+    )
+    .map((g) => g.guest_id);
+
+  return { assign, release, needsTable };
+}
+
+// ---------------------------------------------------------------------------
 // "Build my seating" starting draft (UX north-star — draft, don't blank; owner
 // goal 2026-06-20 to take the seating editor off a blank canvas). Pure: from the
 // guest list, recommend a SET of tables that seats everyone — one Sweetheart for

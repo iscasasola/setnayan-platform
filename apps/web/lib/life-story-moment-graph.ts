@@ -30,6 +30,7 @@ import type {
   MomentGraphEvent,
   MomentGraphViewer,
   MomentPerson,
+  ScoredMoment,
 } from './life-story-types';
 import { scoreMoments } from './life-story-significance';
 
@@ -394,19 +395,19 @@ export type MomentWindow = {
 };
 
 /**
- * Pure window filter over an assembled graph. Deliberate semantics
- * (DECISION_LOG 2026-07-08):
- *   · moments — only those captured inside the window;
- *   · events  — only those that still have an in-window moment (no chapter
- *     cards for out-of-window events inside a recap);
- *   · people  — restricted to those PRESENT in an in-window moment, but their
+ * Shared restriction core. Deliberate semantics (DECISION_LOG 2026-07-08):
+ *   · moments — only those the predicate keeps;
+ *   · events  — only those that still have a kept moment (no chapter cards for
+ *     out-of-scope events inside a recap);
+ *   · people  — restricted to those PRESENT in a kept moment, but their
  *     recurrence values stay LIFETIME-scoped: a year with Lola in it should
  *     still know she's your person.
  */
-export function filterMomentGraph(graph: MomentGraph, window: MomentWindow): MomentGraph {
-  const inWindow = (t: string) =>
-    (!window.from || t >= window.from) && (!window.to || t < window.to);
-  const moments = graph.moments.filter((m) => inWindow(m.capturedAt));
+function restrictGraph(
+  graph: MomentGraph,
+  keep: (m: ScoredMoment) => boolean,
+): MomentGraph {
+  const moments = graph.moments.filter(keep);
   const eventIds = new Set(moments.map((m) => m.eventId));
   const presentKeys = new Set(
     moments.flatMap((m) => m.peoplePresent.map((p) => p.personId)),
@@ -417,6 +418,117 @@ export function filterMomentGraph(graph: MomentGraph, window: MomentWindow): Mom
     events: graph.events.filter((e) => eventIds.has(e.eventId)),
     people: graph.people.filter((p) => presentKeys.has(p.personId)),
   };
+}
+
+/** Pure time-window filter over an assembled graph (see restrictGraph). */
+export function filterMomentGraph(graph: MomentGraph, window: MomentWindow): MomentGraph {
+  const inWindow = (t: string) =>
+    (!window.from || t >= window.from) && (!window.to || t < window.to);
+  return restrictGraph(graph, (m) => inWindow(m.capturedAt));
+}
+
+// ---------------------------------------------------------------------------
+// Life-Flash scopes (owner 2026-07-08: "monthly, annual, or whole lifetime, or
+// maybe just the event"). A scope is the same engine pointed at a slice.
+// ---------------------------------------------------------------------------
+
+export type FlashScope =
+  | { kind: 'life' }
+  | { kind: 'year'; year: number }
+  | { kind: 'month'; year: number; month: number } // month 1–12
+  | { kind: 'event'; eventId: string };
+
+/** Dignity thresholds — a scope is only OFFERED when it has enough substance
+ *  (Build Plan §11: no hollow recaps for quiet months). */
+export const SCOPE_MIN_MOMENTS = { year: 5, month: 5, event: 3 } as const;
+
+/** URL form: 'life' · 'y2026' · 'm2026-07' · 'e<eventId>'. */
+export function flashScopeKey(scope: FlashScope): string {
+  if (scope.kind === 'life') return 'life';
+  if (scope.kind === 'year') return `y${scope.year}`;
+  if (scope.kind === 'month')
+    return `m${scope.year}-${String(scope.month).padStart(2, '0')}`;
+  return `e${scope.eventId}`;
+}
+
+/** Inverse of flashScopeKey; anything malformed degrades to whole-life. */
+export function parseFlashScope(raw: string | null | undefined): FlashScope {
+  if (!raw || raw === 'life') return { kind: 'life' };
+  const year = /^y(\d{4})$/.exec(raw);
+  if (year) return { kind: 'year', year: Number(year[1]) };
+  const month = /^m(\d{4})-(\d{2})$/.exec(raw);
+  if (month) {
+    const mm = Number(month[2]);
+    if (mm >= 1 && mm <= 12) return { kind: 'month', year: Number(month[1]), month: mm };
+  }
+  const event = /^e(.+)$/.exec(raw);
+  if (event) return { kind: 'event', eventId: event[1]! };
+  return { kind: 'life' };
+}
+
+export function scopeMomentGraph(graph: MomentGraph, scope: FlashScope): MomentGraph {
+  if (scope.kind === 'life') return graph;
+  if (scope.kind === 'year') {
+    return filterMomentGraph(graph, {
+      from: `${scope.year}-01-01`,
+      to: `${scope.year + 1}-01-01`,
+    });
+  }
+  if (scope.kind === 'month') {
+    const from = `${scope.year}-${String(scope.month).padStart(2, '0')}-01`;
+    const nextYear = scope.month === 12 ? scope.year + 1 : scope.year;
+    const nextMonth = scope.month === 12 ? 1 : scope.month + 1;
+    const to = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+    return filterMomentGraph(graph, { from, to });
+  }
+  return restrictGraph(graph, (m) => m.eventId === scope.eventId);
+}
+
+const MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+export type ScopeOption = { key: string; label: string; count: number };
+
+/**
+ * Which scopes are worth offering, derived from the FULL graph — only those
+ * clearing SCOPE_MIN_MOMENTS. Years/months newest-first; events by event date
+ * newest-first.
+ */
+export function scopeOptions(graph: MomentGraph): {
+  years: ScopeOption[];
+  months: ScopeOption[];
+  events: ScopeOption[];
+} {
+  const byYear = new Map<string, number>();
+  const byMonth = new Map<string, number>();
+  const byEvent = new Map<string, number>();
+  for (const m of graph.moments) {
+    const y = m.capturedAt.slice(0, 4);
+    const ym = m.capturedAt.slice(0, 7);
+    byYear.set(y, (byYear.get(y) ?? 0) + 1);
+    byMonth.set(ym, (byMonth.get(ym) ?? 0) + 1);
+    byEvent.set(m.eventId, (byEvent.get(m.eventId) ?? 0) + 1);
+  }
+  const years = [...byYear.entries()]
+    .filter(([, count]) => count >= SCOPE_MIN_MOMENTS.year)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([y, count]) => ({ key: `y${y}`, label: y, count }));
+  const months = [...byMonth.entries()]
+    .filter(([, count]) => count >= SCOPE_MIN_MOMENTS.month)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([ym, count]) => ({
+      key: `m${ym}`,
+      label: `${MONTH_LABELS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`,
+      count,
+    }));
+  const events = graph.events
+    .map((e) => ({ e, count: byEvent.get(e.eventId) ?? 0 }))
+    .filter(({ count }) => count >= SCOPE_MIN_MOMENTS.event)
+    .sort((a, b) => b.e.eventDate.localeCompare(a.e.eventDate))
+    .map(({ e, count }) => ({ key: `e${e.eventId}`, label: e.eventName, count }));
+  return { years, months, events };
 }
 
 // ---------------------------------------------------------------------------

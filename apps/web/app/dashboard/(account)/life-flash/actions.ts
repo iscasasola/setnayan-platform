@@ -40,6 +40,6 @@ export async function markPersonInMemoriam(
     return { ok: false, error: 'Only people you added to your events can be marked.' };
   }
 
-  revalidatePath('/dashboard/life-story');
+  revalidatePath('/dashboard/life-flash');
   return { ok: true };
 }

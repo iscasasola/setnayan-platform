@@ -161,7 +161,7 @@ export function Flash({ beats }: { beats: FlashBeatView[] }) {
         className="group mb-8 flex w-full items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-ink p-5 text-left transition-transform hover:-translate-y-0.5"
       >
         <span>
-          <span className="block text-sm font-semibold text-white">▶ Play the flash</span>
+          <span className="block text-sm font-semibold text-white">▶ Play your Life-Flash</span>
           <span className="mt-0.5 block text-xs text-white/60">
             Your whole story in under a minute — the moments that mattered, rising out of the
             dark
@@ -177,7 +177,7 @@ export function Flash({ beats }: { beats: FlashBeatView[] }) {
           className={styles.overlay}
           role="dialog"
           aria-modal="true"
-          aria-label="Life Story — the flash"
+          aria-label="Life-Flash"
           onKeyDown={onOverlayKeyDown}
         >
           <div className={styles.controls}>

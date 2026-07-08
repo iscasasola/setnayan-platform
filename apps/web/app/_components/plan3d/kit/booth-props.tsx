@@ -29,6 +29,7 @@ import { useFrame } from '@react-three/fiber';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import type { Lab3DPalette } from '@/lib/seating-3d';
+import { CINEMATIC_BLOOM_LAYERS_MASK } from '@/app/_components/plan3d/scene-lighting';
 import { GOWN_GEO, SUIT_GEO, outfitMaterial } from './outfits';
 import {
   boothSheenMaterial,
@@ -143,11 +144,15 @@ function StaticInstances({
   material,
   transforms,
   castShadow = false,
+  layersMask,
 }: {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
   transforms: readonly InstanceXf[];
   castShadow?: boolean;
+  /** Optional `layers.mask` override — the bloom stars pass
+   *  CINEMATIC_BLOOM_LAYERS_MASK to enrol on the cinematic bloom layer. */
+  layersMask?: number;
 }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   useLayoutEffect(() => {
@@ -168,7 +173,8 @@ function StaticInstances({
       mesh.setMatrixAt(i, m);
     });
     mesh.instanceMatrix.needsUpdate = true;
-  }, [transforms]);
+    if (layersMask !== undefined) mesh.layers.mask = layersMask;
+  }, [transforms, layersMask]);
   return (
     <instancedMesh
       ref={ref}
@@ -178,13 +184,39 @@ function StaticInstances({
   );
 }
 
+// ── Cinematic bloom-star grade flip (Tier B) ─────────────────────────────────
+// The vanity-mirror bulbs + LIVE lamp are designated bloom stars, but their
+// HDR values (high emissive + toneMapped:false) only mean anything under the
+// Play composer's un-tone-mapped HalfFloat pipeline. These are MODULE
+// SINGLETONS shared by every surface — Build, the phone guest walk, and both
+// Tier A Play fallbacks have no tone mapping rescue, so the HDR values would
+// clip there: the warm-gold bulbs blow out to flat pale discs and the ON-AIR
+// red runs ~3.7× hot. kit/cinematic.tsx flips HDR on composer mount and
+// restores SDR (the shipped pre-Tier-B look) on unmount — one material
+// recompile per flip, and the HDR numbers exist ONLY where they bloom.
+// (Known limit: the flip is global, so a second live canvas WITHOUT the
+// composer would see the HDR look while the lab composer is up — surfaces
+// are full-page routes today, so two simultaneous canvases don't happen.)
+type StarGrade = { emissiveIntensity: number; toneMapped: boolean };
+const BULB_STAR: { sdr: StarGrade; hdr: StarGrade } = {
+  sdr: { emissiveIntensity: 1.1, toneMapped: true }, // warm ACES-compressed glow
+  hdr: { emissiveIntensity: 2.0, toneMapped: false }, // the string-bulb bloom pattern
+};
+const LAMP_STAR: { sdr: StarGrade; hdr: StarGrade } = {
+  sdr: { emissiveIntensity: 0.75, toneMapped: false }, // shipped pre-Tier-B look
+  // Red carries little LUMINANCE (0.2126·r) — the HDR headroom is what makes
+  // the ON-AIR dot/text clear the bloom floor under the composer.
+  hdr: { emissiveIntensity: 2.8, toneMapped: false },
+};
+let bloomStarsHDR = false;
+
 // Emissive singletons — fixed looks, no palette keying needed.
 const bulbMat = new THREE.MeshStandardMaterial({
   color: '#fff6dd',
   emissive: '#ffd98a',
-  emissiveIntensity: 2.0, // ≥2.0 HDR so it clears Tier B's 1.2 bloom luminance floor
+  emissiveIntensity: BULB_STAR.sdr.emissiveIntensity,
   roughness: 0.3,
-  toneMapped: false, // designated cinematic-Play bloom star (the string-bulb pattern)
+  toneMapped: BULB_STAR.sdr.toneMapped, // → HDR only while the Tier B composer is mounted
 });
 const beamMat = new THREE.MeshStandardMaterial({
   color: '#d98a3d',
@@ -240,18 +272,36 @@ let liveLampFaceMatCache: THREE.MeshStandardMaterial | null = null;
  *  material, per the kit's keyed-cache discipline. */
 function liveLampFaceMaterial(): THREE.MeshStandardMaterial {
   if (!liveLampFaceMatCache) {
+    const grade = bloomStarsHDR ? LAMP_STAR.hdr : LAMP_STAR.sdr;
     liveLampFaceMatCache = new THREE.MeshStandardMaterial({
       map: liveLampTexture(),
       emissive: '#ff3b30',
-      // 2.8, not 2.0: red carries little LUMINANCE (0.2126·r), so the ON-AIR
-      // red needs the extra HDR headroom to clear Tier B's 1.2 bloom floor.
-      emissiveIntensity: 2.8,
+      emissiveIntensity: grade.emissiveIntensity, // HDR only under the Tier B composer
       emissiveMap: liveLampTexture(),
       roughness: 0.4,
-      toneMapped: false, // designated cinematic-Play bloom star
+      toneMapped: grade.toneMapped, // designated cinematic-Play bloom star
     });
   }
   return liveLampFaceMatCache;
+}
+
+function applyStarGrade(mat: THREE.MeshStandardMaterial, grade: StarGrade): void {
+  mat.emissiveIntensity = grade.emissiveIntensity;
+  if (mat.toneMapped !== grade.toneMapped) {
+    mat.toneMapped = grade.toneMapped;
+    mat.needsUpdate = true; // toneMapped is a program define — recompile once
+  }
+}
+
+/** Flip the shared booth bloom-star singletons between their SDR (every
+ *  non-composer surface) and HDR (Tier B composer mounted) grades. Called by
+ *  kit/cinematic.tsx on mount/unmount — nothing else may call this. */
+export function setBoothBloomStarsHDR(hdr: boolean): void {
+  bloomStarsHDR = hdr;
+  applyStarGrade(bulbMat, hdr ? BULB_STAR.hdr : BULB_STAR.sdr);
+  if (liveLampFaceMatCache) {
+    applyStarGrade(liveLampFaceMatCache, hdr ? LAMP_STAR.hdr : LAMP_STAR.sdr);
+  }
 }
 
 let banigTex: THREE.CanvasTexture | null = null;
@@ -1252,7 +1302,12 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
       return (
         <group>
           <mesh geometry={LAMP_BOX_GEO} material={boothSheenMaterial(KIT_DARK)} castShadow />
-          <mesh geometry={LAMP_FACE_GEO} material={liveLampFaceMaterial()} position={[0, 0, 0.065]} />
+          <mesh
+            geometry={LAMP_FACE_GEO}
+            material={liveLampFaceMaterial()}
+            position={[0, 0, 0.065]}
+            onUpdate={(m) => (m.layers.mask = CINEMATIC_BLOOM_LAYERS_MASK)} // bloom star
+          />
         </group>
       );
     case 'bulb_mirror':
@@ -1261,7 +1316,12 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
           <mesh geometry={MIRROR_PANEL_GEO} material={boothSheenMaterial(KIT_CREAM)} position={[0, 0.62, 0]} castShadow />
           <mesh geometry={MIRROR_GLASS_GEO} material={mirrorMat} position={[0, 0.62, 0.045]} />
           <group position={[0, 0, -0.01]}>
-            <StaticInstances geometry={BULB_GEO} material={bulbMat} transforms={BULB_RING} />
+            <StaticInstances
+              geometry={BULB_GEO}
+              material={bulbMat}
+              transforms={BULB_RING}
+              layersMask={CINEMATIC_BLOOM_LAYERS_MASK} // bloom stars
+            />
           </group>
         </group>
       );
@@ -1624,7 +1684,12 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
       return (
         <group>
           <mesh geometry={CASE_PLINTH_GEO} material={boothSheenMaterial(palette.table)} position={[0, 0.45, 0]} castShadow />
-          <StaticInstances geometry={BULB_GEO} material={bulbMat} transforms={CASE_SPARKLES} />
+          <StaticInstances
+            geometry={BULB_GEO}
+            material={bulbMat}
+            transforms={CASE_SPARKLES}
+            layersMask={CINEMATIC_BLOOM_LAYERS_MASK} // bloom stars (same bulbMat)
+          />
           <mesh geometry={CASE_GLASS_GEO} material={glassMat} position={[0, 1.05, 0]} />
         </group>
       );

@@ -49,6 +49,18 @@ export const RECOMMENDED_TONEMAP = {
 
 export type SceneLightingQuality = 'high' | 'low';
 
+/** Scene layer reserved for the cinematic Play pass's designated bloom stars
+ *  (string-light bulbs, cold-spark cores, LIVE lamp, vanity-mirror bulbs).
+ *  Cameras stay on layer 0 — the layer is ONLY read by Tier B's SelectiveBloom
+ *  (kit/cinematic.tsx), which depth-masks its luminance pass to it so glossy
+ *  non-star specular can never halo. Dep-free const so star meshes in the main
+ *  bundle can enrol without ever touching the postprocessing chunk. */
+export const CINEMATIC_BLOOM_LAYER = 11;
+
+/** `layers.mask` for star meshes: the default render layer 0 PLUS the bloom
+ *  layer (a bare `layers.set` would pull the mesh out of the main render). */
+export const CINEMATIC_BLOOM_LAYERS_MASK = (1 << 0) | (1 << CINEMATIC_BLOOM_LAYER);
+
 /** Lighting grade (cinematic Play pass, Fable §3.5 Tier A). 'standard' is the
  *  everyday editing/orbit read; 'play' is the golden-hour film grade — slightly
  *  lower ambient, a warmer key mixed further toward the mood board, a touch

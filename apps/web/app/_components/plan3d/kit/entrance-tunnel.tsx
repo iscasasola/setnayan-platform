@@ -53,6 +53,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import type { Lab3DPalette, ObstacleDisc, Vec2 } from '@/lib/seating-3d';
+import { CINEMATIC_BLOOM_LAYERS_MASK } from '@/app/_components/plan3d/scene-lighting';
 
 type Room = { w: number; d: number };
 type TunnelQuality = 'high' | 'low';
@@ -418,7 +419,14 @@ export function ColdSparkTunnel({
                 }}
                 scale={[1, 0.45 + 0.55 * IDLE_LEVEL, 1]}
               >
-                <mesh geometry={CORE_GEO} material={coreMats[i]!} position={[0, 0.55, 0]} />
+                <mesh
+                  geometry={CORE_GEO}
+                  material={coreMats[i]!}
+                  position={[0, 0.55, 0]}
+                  // Cinematic bloom star (while firing) — enrol on the bloom
+                  // layer so Tier B's depth-masked SelectiveBloom can see it.
+                  onUpdate={(m) => (m.layers.mask = CINEMATIC_BLOOM_LAYERS_MASK)}
+                />
                 <Sparkles
                   ref={(pts: THREE.Points | null) => {
                     sparkRefs.current[i] = pts;

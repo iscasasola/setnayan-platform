@@ -612,6 +612,37 @@ function curvedPanelGeo(w: number, h: number, bow: number): THREE.BufferGeometry
   return geo;
 }
 
+/** Open-air archetypes have no slab to hang ceiling decor from. */
+function isOpenAir(archetype: VenueArchetype | undefined): boolean {
+  return archetype === 'garden' || archetype === 'beach' || archetype === 'rooftop';
+}
+
+/**
+ * True when the couple's ceiling choice already renders HUNG decor in the
+ * ~2.2–3.4 m band (fairy-light runs, chandelier crystals, lanterns, hanging
+ * florals/greenery — mirroring EXACTLY the mount conditions in VenueDecor
+ * below, open-air suppression included). The cinematic Play string lights
+ * (kit/string-lights.tsx) occupy the same band, so their call sites skip
+ * mounting when this returns true: a fairy_lights choice would otherwise
+ * double up two near-identical string systems, and the other treatments would
+ * have strands threading through crystals/floral clusters.
+ */
+export function ceilingDecorOccupied(
+  design: ReceptionDesign | null | undefined,
+  archetype: VenueArchetype | undefined,
+): boolean {
+  if (!design) return false;
+  const ceiling = sel(design, 'ceiling', 'treatment');
+  if (ceiling === 'fairy_lights') return true;
+  return (
+    !isOpenAir(archetype) &&
+    (ceiling === 'chandeliers' ||
+      ceiling === 'lanterns' ||
+      ceiling === 'hanging_florals' ||
+      ceiling === 'hanging_greenery')
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // PUBLIC: VenueDecor — one call renders every reception_design treatment.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -644,7 +675,7 @@ export function VenueDecor({
   tunnelProgressRef?: MutableRefObject<number>;
 }) {
   // No ceiling → nothing to hang chandeliers/lanterns/floral clusters from.
-  const openAir = archetype === 'garden' || archetype === 'beach' || archetype === 'rooftop';
+  const openAir = isOpenAir(archetype);
   const ceiling = sel(design, 'ceiling', 'treatment');
   const backdrop = sel(design, 'backdrop', 'style');
   const centerpiece = sel(design, 'tables', 'centerpiece');

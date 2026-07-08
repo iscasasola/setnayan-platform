@@ -12,10 +12,19 @@
  * couple-chosen reception design (renders in Build + Play whenever the design
  * says so, open-air archetypes included — the precedent this component
  * follows). THIS component is the cinematic grade's own layer — mounted by
- * Play mode / the phone demo walk regardless of the couple's ceiling choice,
+ * Play mode / the phone demo walk when the couple's ceiling band is FREE,
  * hung slightly lower and warmer so the film look never depends on a design
  * selection. Open-air archetypes keep them: strung lights hang from poles/
  * trees, not slabs (the venue-decor "strung, not slab-hung" rule).
+ *
+ * CEILING-BAND COORDINATION: the strands occupy y ≈ 2.5–3.45 m — the same band
+ * as VenueDecor's hanging treatments (fairy-light runs 2.5–3.4, chandelier
+ * crystals ~3.05, lanterns 2.4–2.9, hanging florals 2.2–3.3). Call sites gate
+ * the mount on `ceilingDecorOccupied()` (venue-decor.tsx): a fairy_lights
+ * choice would double up two near-identical string systems, and the other
+ * hung treatments would have strands threading through crystals/clusters.
+ * When the couple's own ceiling decor renders, it IS the film look's ceiling
+ * layer. (Booths stay clear — their tallest prop tops out ~2.24 m.)
  *
  * BUDGET (mascot-smooth): ONE InstancedMesh for every bulb across all strands
  * (matrices written once — the instanced-chairs discipline; nothing here ever
@@ -33,6 +42,7 @@ import * as THREE from 'three';
 import type { Lab3DPalette } from '@/lib/seating-3d';
 import {
   dominantWarmSwatch,
+  CINEMATIC_BLOOM_LAYERS_MASK,
   type SceneLightingQuality,
 } from '@/app/_components/plan3d/scene-lighting';
 
@@ -124,6 +134,9 @@ export function StringLights({
       mesh.setMatrixAt(i, m);
     }
     mesh.instanceMatrix.needsUpdate = true;
+    // Enrol on the cinematic bloom layer — Tier B's SelectiveBloom depth-masks
+    // its luminance pass to this layer so ONLY the designated stars halo.
+    mesh.layers.mask = CINEMATIC_BLOOM_LAYERS_MASK;
   }, [bulbs]);
 
   return (

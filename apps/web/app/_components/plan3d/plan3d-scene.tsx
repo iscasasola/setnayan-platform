@@ -161,6 +161,7 @@ import {
   archetypeFor,
   archetypeFloorColor,
   archetypeBackground,
+  ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
 import {
@@ -1223,8 +1224,13 @@ export function Plan3DScene({
 
       {/* Cinematic Tier A (Fable §3.5): warm string-light strands over the
           room — static instances, one draw, so they ride even 'low' (the
-          phone walk). 'low' halves the strand count inside the component. */}
-      {cinematic ? <StringLights room={room} palette={palette} quality={quality} /> : null}
+          phone walk). 'low' halves the strand count inside the component.
+          Skips when the couple's OWN ceiling decor occupies the hang band
+          (fairy lights / chandeliers / lanterns / hanging florals — see
+          ceilingDecorOccupied). */}
+      {cinematic && !ceilingDecorOccupied(receptionDesign, archetype) ? (
+        <StringLights room={room} palette={palette} quality={quality} />
+      ) : null}
 
       {/* Wave 2b: archetype room shell (garden greenery / chapel windows / …). */}
       <VenueShell archetype={archetype} room={room} palette={palette} quality={quality} />

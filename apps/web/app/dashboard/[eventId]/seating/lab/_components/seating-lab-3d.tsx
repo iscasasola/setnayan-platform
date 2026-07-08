@@ -72,6 +72,7 @@ import {
   archetypeFor,
   archetypeFloorColor,
   archetypeBackground,
+  ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
@@ -1831,9 +1832,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
         {/* Cinematic Tier A (Fable §3.5) — Play mode only, Build stays the
             neutral editing studio. String lights are static instances (fine
-            under reduced motion); the drifting motes honour the house law and
-            simply don't mount when motion is reduced. */}
-        {mode === 'play' ? <StringLights room={room} palette={palette} quality="high" /> : null}
+            under reduced motion) and skip when the couple's OWN ceiling decor
+            occupies the hang band (fairy lights / chandeliers / lanterns /
+            hanging florals — see ceilingDecorOccupied); the drifting motes
+            honour the house law and simply don't mount when motion is
+            reduced. */}
+        {mode === 'play' && !ceilingDecorOccupied(receptionDesign, archetype) ? (
+          <StringLights room={room} palette={palette} quality="high" />
+        ) : null}
         {mode === 'play' && !reduced ? (
           <DustMotes center={moteZone.center} size={moteZone.size} palette={palette} />
         ) : null}
@@ -1843,7 +1849,18 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             vignette). Suspense fallback null = Tier A carries the look while
             the async chunk streams in; unmount (Build, reduced motion, or the
             perf-degrade latch) restores the renderer's own tone mapping →
-            bit-identical Tier A pipeline. */}
+            bit-identical Tier A pipeline.
+            ⚠ UPSTREAM COST OF EACH MOUNT/UNMOUNT (r-p-p@3.0.4, verified in
+            dist): the wrapper never calls composer.dispose(), so each unmount
+            abandons the canvas-res MSAA-4 HalfFloat in/out buffers to GC
+            (tens of MB GPU on big canvases, freed on GC timing, not
+            deterministically), and each mount/unmount flips gl.toneMapping
+            (ACES ↔ NoToneMapping) → a one-time scene-wide toneMapped-material
+            program-variant switch on top of the Environment key's PMREM
+            re-bake. Toggling `enabled` instead of unmounting is NOT a safe
+            mitigation (enabled=false stops rendering but leaves gl.toneMapping
+            forced to NoToneMapping). Deps are exact-pinned in package.json —
+            re-verify this note on any postprocessing/r-p-p bump. */}
         {cinematicFx ? (
           <Suspense fallback={null}>
             <CinematicPass room={room} focusRef={walkerPosRef} onDegrade={onFxDegrade} />

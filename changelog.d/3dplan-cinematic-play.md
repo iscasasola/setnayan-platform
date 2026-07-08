@@ -89,3 +89,66 @@ both satisfied by react 19 / fiber 9.6.1 / three 0.184).
   entry only; shared-bundle check green (see PR body for the chunk id).
 
 SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md (§ 3.5 Tier B shipped — the postprocessing-dep owner question is CLOSED: approved, Play-mode-only, dynamically imported)
+
+## 2026-07-08 · chore(plan3d): cinematic Tier B review fixes — memoized composer, selective bloom, grade-scoped star materials
+
+Post-ship review pass on the cinematic Play slice (7 findings triaged; 2 major
++ 1 major-dup confirmed and fixed, 3 minors fixed, none skipped):
+
+- **`kit/cinematic.tsx` — `CinematicPass` is now `React.memo`** (major). The
+  r-p-p EffectComposer rebuilds its EffectPasses (full merged-shader
+  reassembly + undisposed EffectMaterial churn, a multi-ms hitch) whenever its
+  `children` JSX identity changes — i.e. on every lab re-render while Tier B
+  was mounted: walk-in start/arrival, toasts, movers, booth sheets — exactly
+  the beats the mascot-smooth law protects. All props are referentially stable
+  at the call site, so the memo keeps the composer subtree render-free.
+- **`kit/cinematic.tsx` — Bloom → depth-masked `SelectiveBloom`** (major). The
+  1.2 luminance threshold only separated emissives from diffuse albedo, not
+  from SPECULAR: the play-grade key panel bakes at 2.45 un-tone-mapped, so
+  grazing-angle Fresnel env reflections on the glossy white mannequins
+  (roughness 0.18) and the chrome/glass booth props cleared any floor the
+  stars could also clear — seated figures and booth trim grew rim/specular
+  halos, violating the pass's own "ONLY the designated stars glow" contract.
+  Now the stars enrol on a reserved scene layer (`CINEMATIC_BLOOM_LAYER` 11 +
+  `CINEMATIC_BLOOM_LAYERS_MASK`, dep-free consts in `scene-lighting.tsx`;
+  enrolled: string-light bulbs, cold-spark cores, LIVE lamp face,
+  vanity-mirror + glass-case bulbs) and SelectiveBloom depth-masks its
+  luminance pass to that layer — non-star geometry can never halo. Threshold
+  re-tuned 1.2 → 0.55 for its one remaining job (gating a star's own dim
+  texels: idle spark cores ≈0.43 stay out, the red LIVE dot ≈0.69 — small
+  luminance, 0.2126·r — finally blooms as designed). Costs one small depth
+  render of the star meshes + one fullscreen mask pass.
+- **`kit/booth-props.tsx` — bloom-star HDR values are now composer-scoped**
+  (major dup of the minor). The Tier B retune had edited the module-singleton
+  materials shared by EVERY surface — but Build, the phone walk and both
+  Tier A fallbacks have no tone mapping rescue, so the vanity bulbs' 2.0
+  emissive clipped to flat pale discs (warm-gold read lost exactly where the
+  heritage-warmth rules apply) and the ON-AIR lamp ran ~3.7× hot everywhere.
+  New `setBoothBloomStarsHDR()`: `CinematicPass` flips the singletons HDR on
+  mount (bulbs 1.1 tone-mapped → 2.0 `toneMapped:false`; lamp 0.75 → 2.8) and
+  restores the shipped SDR look on unmount — one material recompile per flip,
+  HDR numbers exist only where they bloom.
+- **`kit/cinematic.tsx` — degrade counter got a wall-clock adjacency window**
+  (minor). The counter only reset on a drei incline round, which needs fps AT
+  the refresh-rate bound — a healthy machine steady at e.g. 55 fps @60 Hz
+  never inclines, so two one-off stalls minutes apart latched Tier B off for
+  the session. Two declines now only count as "consecutive" within
+  `DECLINE_ADJACENT_MS` (8 s; genuine sustained declines fire ~2.5 s apart).
+- **`seating-lab-3d.tsx` — upstream composer-lifecycle cost documented at the
+  mount site** (minor): r-p-p@3.0.4 never calls `composer.dispose()` (MSAA-4
+  HalfFloat buffers → GC timing) and flips `gl.toneMapping` per mount/unmount
+  (scene-wide program-variant switch); `enabled` toggling is NOT a safe
+  mitigation. Deps stay exact-pinned; note flags re-verify-on-bump.
+- **`string-lights.tsx` + `venue-decor.tsx` — ceiling-band coordination**
+  (minor). Cinematic strands (y ≈ 2.5–3.45 m) mounted unconditionally in Play,
+  threading through VenueDecor's hanging florals/chandelier crystals/lanterns
+  and doubling a chosen `fairy_lights` design with a second near-identical
+  string system. New `ceilingDecorOccupied()` (mirrors VenueDecor's exact
+  mount conditions, open-air suppression included) gates the strand mount in
+  the lab + the phone walk: when the couple's own ceiling decor renders, it IS
+  the film look's ceiling layer.
+
+Gates: typecheck ✓ · 1184 unit tests ✓ · lint ✓ · shared-bundle budget ✓
+(199.6KB / 200KB — postprocessing stays in its async Play-only chunk).
+
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md (slice 6 shipped — the program's only new dep, Play-only)

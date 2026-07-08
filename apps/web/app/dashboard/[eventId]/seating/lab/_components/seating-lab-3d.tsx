@@ -166,6 +166,7 @@ import {
   pushOutOfDiscs,
   separateAgents,
   walkVector,
+  walkSpawnPoint,
   steerPath,
   seatApproachPath,
   resolvePalette,
@@ -647,6 +648,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         ...fixtureObstacles,
       ]),
     [floor, tables, room, fixtureObstacles],
+  );
+  // Entrance for the walk camera's SPAWN (walkSpawnPoint) — strictly null when
+  // the doorway is disabled, unlike entranceWorld's walk-in fallback: with no
+  // door there's nothing to step in through, so the spawn clamps in instead.
+  const walkEntrance = useMemo<Vec2 | null>(
+    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : null),
+    [floor, room],
   );
   // Walk mode only makes sense in Play — drop it whenever we leave.
   useEffect(() => {
@@ -1955,7 +1963,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         ))}
 
         {walking ? (
-          <WalkController active={walking} input={walkInput} room={room} obstacles={walkObstacles} />
+          <WalkController
+            active={walking}
+            input={walkInput}
+            room={room}
+            entrance={walkEntrance}
+            obstacles={walkObstacles}
+          />
         ) : (
           <CameraRig mode={mode} room={room} onBusy={setCamBusy} reduced={reduced} />
         )}
@@ -3440,11 +3454,14 @@ function WalkController({
   active,
   input,
   room,
+  entrance,
   obstacles,
 }: {
   active: boolean;
   input: React.MutableRefObject<WalkInput>;
   room: { w: number; d: number };
+  /** Entrance point (world m) — null when the couple disabled the doorway. */
+  entrance: Vec2 | null;
   obstacles: ObstacleDisc[] | ObstacleGrid;
 }) {
   const { camera } = useThree();
@@ -3461,9 +3478,19 @@ function WalkController({
     if (!active) return;
     const cam = camera as THREE.PerspectiveCamera;
     if (!inited.current) {
-      // Drop in at the current camera spot, at eye height, facing the room centre.
-      pos.current.set(camera.position.x, 1.6, camera.position.z);
-      yaw.current = Math.atan2(-camera.position.x, -camera.position.z);
+      // Drop in INSIDE the room (walkSpawnPoint): keep the camera's spot when
+      // it's already in the rectangle, otherwise step in just inside the
+      // entrance (or clamp in) — the orbit camera can be 15–30 m out at max
+      // zoom, and spawning there put the walker in the black void. Eye
+      // height, facing the room centre from wherever the spawn landed.
+      const spawn = walkSpawnPoint(
+        { x: camera.position.x, z: camera.position.z },
+        room,
+        entrance,
+        obstacles,
+      );
+      pos.current.set(spawn.x, 1.6, spawn.z);
+      yaw.current = Math.atan2(-spawn.x, -spawn.z);
       pitch.current = -0.06;
       inited.current = true;
     }

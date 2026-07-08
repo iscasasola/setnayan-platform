@@ -21,6 +21,7 @@ import {
   separateAgents,
   firstFreeSeatAtTable,
   walkVector,
+  walkSpawnPoint,
   contentBounds,
   checkPlacement,
   reconcileGrouping,
@@ -333,6 +334,85 @@ test('walkVector: forward follows yaw, strafe is 90° right of it', () => {
   assert.ok(near(v.dx, 1) && near(v.dz, 0), 'yaw90 forward → +x');
   v = walkVector(Math.PI / 2, 1, 0);
   assert.ok(near(v.dx, 0) && near(v.dz, -1), 'yaw90 strafe → -z');
+});
+
+test('walkSpawnPoint: a camera already inside the room keeps its spot', () => {
+  // Drop-in-where-you-are is preserved — no clamp, no entrance snap.
+  assert.deepEqual(walkSpawnPoint({ x: 2, z: 3 }, ROOM, { x: 0, z: 9.2 }, []), { x: 2, z: 3 });
+});
+
+test('walkSpawnPoint: a zoomed-out camera spawns just inside the entrance, clear of the posts', () => {
+  // The orbit camera at max zoom sits far outside the room (the void bug).
+  const entrance = pctToWorld(50, 96, ROOM); // {0, 9.2} — on the +z edge
+  const obs = floorObstacles(floor(false), [], ROOM, []); // stage + 2 entrance posts
+  const p = walkSpawnPoint({ x: 0, z: 40 }, ROOM, entrance, obs);
+  // 1.5 m from the doorway toward the room centre → inside, facing the party.
+  assert.ok(Math.abs(Math.hypot(p.x - entrance.x, p.z - entrance.z) - 1.5) < 1e-9, 'steps ~1.5 m inward');
+  assert.ok(Math.abs(p.x) <= 10 && Math.abs(p.z) <= 10, 'inside the room rectangle');
+  for (const post of obs.filter((o) => o.c.z > 5)) {
+    assert.ok(Math.hypot(p.x - post.c.x, p.z - post.c.z) >= post.r, 'clear of the doorway posts');
+  }
+});
+
+test('walkSpawnPoint: outside with no entrance clamps into the room with a wall margin', () => {
+  const p = walkSpawnPoint({ x: 30, z: -25 }, ROOM, null, []);
+  assert.deepEqual(p, { x: 9.2, z: -9.2 }, '0.8 m inside the nearest walls');
+});
+
+test('walkSpawnPoint: never spawns inside an obstacle disc', () => {
+  // Camera hovering over a table: the spawn is expelled to the disc edge.
+  const disc = { c: { x: 2, z: 3 }, r: 1.5 };
+  const p = walkSpawnPoint({ x: 2.5, z: 3 }, ROOM, null, [disc]);
+  assert.ok(Math.hypot(p.x - disc.c.x, p.z - disc.c.z) >= disc.r - 1e-9, 'pushed clear of the table');
+});
+
+test('walkSpawnPoint: disc overlapping the doorway cannot expel the spawn through the wall', () => {
+  // Dance-floor/buffet disc parked over the entrance: the 1.5 m step-in point
+  // (0, 7.7) sits inside it, and radial expulsion points OUT of the room
+  // ((0, 10.5) — the void). The interior-biased re-expulsion must land the
+  // spawn inside the room AND clear of the disc.
+  const entrance = { x: 0, z: 9.2 };
+  const disc = { c: { x: 0, z: 7 }, r: 3.5 };
+  const p = walkSpawnPoint({ x: 0, z: 40 }, ROOM, entrance, [disc]);
+  assert.ok(Math.abs(p.x) <= 10 && Math.abs(p.z) <= 10, 'inside the room rectangle');
+  assert.ok(Math.hypot(p.x - disc.c.x, p.z - disc.c.z) >= disc.r - 1e-9, 'clear of the disc');
+});
+
+test('walkSpawnPoint: wall-adjacent disc in the no-entrance clamp branch stays in-room', () => {
+  // Camera far outside, no entrance → clamp lands at (9.2, 0) inside a table
+  // disc hugging the +x wall; radial expulsion would exit at (10.8, 0).
+  const disc = { c: { x: 8.5, z: 0 }, r: 2.3 };
+  const p = walkSpawnPoint({ x: 40, z: 0 }, ROOM, null, [disc]);
+  assert.ok(Math.abs(p.x) <= 10 && Math.abs(p.z) <= 10, 'inside the room rectangle');
+  assert.ok(Math.hypot(p.x - disc.c.x, p.z - disc.c.z) >= disc.r - 1e-9, 'clear of the disc');
+});
+
+test('walkSpawnPoint: inside camera over a wall-adjacent disc stays in-room', () => {
+  // Properly-inside camera (9.5 ≤ hw − 0.4) hovering over a table against the
+  // wall; radial expulsion would exit at (10.35, 0).
+  const disc = { c: { x: 8.8, z: 0 }, r: 1.55 };
+  const p = walkSpawnPoint({ x: 9.5, z: 0 }, ROOM, null, [disc]);
+  assert.ok(Math.abs(p.x) <= 10 && Math.abs(p.z) <= 10, 'inside the room rectangle');
+  assert.ok(Math.hypot(p.x - disc.c.x, p.z - disc.c.z) >= disc.r - 1e-9, 'clear of the disc');
+});
+
+test('walkSpawnPoint: near-wall camera INSIDE the room never teleports to the entrance', () => {
+  // 0.2 m from the +x wall — inside the rectangle but past the 0.4 m inset.
+  // With an entrance on the opposite wall, the spawn must stay the user's
+  // spot (clamped ≤ 0.8 m off the wall), not jump cross-room to the doorway.
+  const entrance = { x: 0, z: 9.2 };
+  const p = walkSpawnPoint({ x: 9.8, z: -5 }, ROOM, entrance, []);
+  assert.deepEqual(p, { x: 9.2, z: -5 }, 'kept the spot, nudged off the wall');
+});
+
+test('walkSpawnPoint: degenerate tiny room stays finite and inside', () => {
+  const tiny = { w: 0.5, d: 0.5 };
+  const clamped = walkSpawnPoint({ x: 100, z: 100 }, tiny, null, []);
+  assert.deepEqual(clamped, { x: 0, z: 0 }, 'margins floor at 0 → room centre, no inverted bounds');
+  // Entrance step overshooting the centre of a 0.5 m room clamps back in too.
+  const doored = walkSpawnPoint({ x: 100, z: 100 }, tiny, { x: 0.25, z: 0 }, []);
+  assert.ok(Number.isFinite(doored.x) && Number.isFinite(doored.z), 'no NaN');
+  assert.ok(Math.abs(doored.x) <= 0.25 && Math.abs(doored.z) <= 0.25, 'still inside the tiny room');
 });
 
 test('contentBounds: empty board falls back to the room; spread tables grow the span', () => {

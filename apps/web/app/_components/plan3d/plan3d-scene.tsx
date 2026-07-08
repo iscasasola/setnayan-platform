@@ -128,7 +128,11 @@ import {
 import { useLookGesture, type LookState } from '@/app/_components/plan3d/use-look-gesture';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
-import type { RolePalette } from '@/lib/mood-board';
+import {
+  resolveAttirePaletteColor,
+  sideAttireColor,
+  type RolePalette,
+} from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { preloadGuestPhotos } from './guest-avatar';
 import {
@@ -771,31 +775,34 @@ export function Plan3DScene({
     () => (rolePalette ? resolvePaletteFromRoles(rolePalette) : NEUTRAL_PALETTE),
     [rolePalette],
   );
-  // Attire motif colours — the LAB's exact resolution chain (seating lab
-  // page.tsx): gowns/filipinianas take the wedding-party (else bride) attire
-  // colour, suits take the groom colour. Unlike the lab we fall through to
-  // NULL rather than blush/charcoal: the kit ships a tasteful default cloth
-  // per outfit, and the demo's untoggled (no-palette) view should wear those.
-  const gownColor = rolePalette?.wedding_party?.[0] ?? rolePalette?.bride?.[0] ?? null;
-  const suitColor = rolePalette?.groom?.[0] ?? null;
   // One FigureSpec per guest, shared by the seated crowd AND the walker so a
   // guest never re-dresses when they get up to walk. `statusColor` keeps the
   // existing side-colour semantics (SIDE_COLOR — now the kit's ring/photo-ring
   // hue instead of the whole token body).
   const figureSpecs = useMemo(() => {
+    // TAXONOMY v2: motif colour resolves through the STRICT attire chain
+    // (specific role palette key → wedding_party → bride/groom SIDE colour → kit
+    // default) — the SAME resolver the couple lab uses. No palette → the chain
+    // returns null and the kit wears its own tasteful default cloth per outfit.
+    const palette = rolePalette ?? {};
     const m = new Map<string, FigureSpec>();
     for (const g of guests) {
       const outfit = outfitForGuest(g);
+      // Neutral silhouettes carry no motif (kept as the unmarked shell).
+      const motif =
+        outfit === 'neutral'
+          ? null
+          : resolveAttirePaletteColor(g.role, palette, sideAttireColor(palette, g.side));
       m.set(g.id, {
         id: g.id,
         outfit,
-        outfitColor: outfit === 'gown' || outfit === 'filipiniana' ? gownColor : suitColor,
+        outfitColor: motif,
         photoUrl: g.photoUrl,
         statusColor: SIDE_COLOR[g.side],
       });
     }
     return m;
-  }, [guests, gownColor, suitColor]);
+  }, [guests, rolePalette]);
   // Wave 2b: room archetype + its floor/background tints. `venueSetting` is
   // independent of the mood-board toggle — the archetype room shows either way.
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);

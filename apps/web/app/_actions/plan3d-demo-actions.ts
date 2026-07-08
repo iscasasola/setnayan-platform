@@ -57,6 +57,10 @@ export type Plan3DGuest = {
    *  male-named sample guests in gowns. Non-PII: it's clothing, and the cast
    *  is fictional. 'neutral' guests render the unmarked humanoid shell. */
   attire: 'gown' | 'suit' | 'neutral';
+  /** The guest's role — drives the taxonomy-v2 attire-palette chain (a
+   *  specific role palette key wins over the shared wedding_party fallback).
+   *  Non-PII on the fictional sample cast, same posture as `attire`. */
+  role: GuestRole;
 };
 
 export type Plan3DScene = {
@@ -179,6 +183,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
         side: toPlan3DSide(g.side),
         photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
         attire: resolveGuestAttire(g.role, g.attire),
+        role: g.role,
       };
     })
     .filter((g): g is Plan3DGuest => g !== null);

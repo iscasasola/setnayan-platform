@@ -150,6 +150,7 @@ import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 
 type Props = {
   eventId: string;
@@ -1700,6 +1701,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           room={room}
           floor={floor}
           palette={palette}
+          rolePalette={rolePalette}
           floorColor={archFloorColor}
           buildMode={mode === 'build'}
           monogram={monogram}
@@ -2144,6 +2146,7 @@ function RoomShell({
   room,
   floor,
   palette,
+  rolePalette,
   floorColor,
   buildMode,
   monogram,
@@ -2153,6 +2156,10 @@ function RoomShell({
   room: { w: number; d: number };
   floor: Lab3DFloor;
   palette: Lab3DPalette;
+  /** Couple's mood board — drives the dance-floor mural (Fable §3.7). Kept
+   *  separate from the DEMO-switchable `palette`: the mural is THEIR floor,
+   *  so the material switcher recolours walls/linen but never repaints it. */
+  rolePalette: RolePalette;
   /** Archetype-tinted floor colour (Wave 2b) — sand for beach, timber for barn,
    *  etc. Falls back to the palette floor for banquet/chapel. */
   floorColor: string;
@@ -2168,8 +2175,6 @@ function RoomShell({
     ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room)
     : pctToWorld(50, 96, room);
   const dance = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
-  const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
-  const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
 
   // The couple's mark on the floor centre (the Play-mode camera's focal point —
   // CameraRig lookAt 0,0.5,0). Rasterized once from the canonical SVG mark; the
@@ -2241,12 +2246,20 @@ function RoomShell({
         <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
-      {/* Dance floor */}
+      {/* Dance floor — the mood-board MURAL (Fable §3.7) replaces the old flat
+          accent plane. The couple's STATIC mark is baked into the mural only
+          when the dance floor sits AWAY from the room centre (else the origin
+          medallion below already lands on it — one mark on the floor, never
+          two). The paid ANIMATED_MONOGRAM bloom stays on MonogramPlane,
+          untouched. y 0.02 keeps it under the 0.022 medallion. */}
       {floor.dance.enabled ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[dance.x, 0.02, dance.z]}>
-          <planeGeometry args={[danceW, danceD]} />
-          <meshStandardMaterial color={palette.accent} roughness={0.25} metalness={0.2} transparent opacity={0.4} />
-        </mesh>
+        <DanceFloorMural
+          floor={floor}
+          room={room}
+          rolePalette={rolePalette}
+          monogram={Math.hypot(dance.x, dance.z) > medSize * 0.35 ? monogram : null}
+          y={0.02}
+        />
       ) : null}
 
       {/* Couple's monogram on the two iconic wedding spots — the floor centre

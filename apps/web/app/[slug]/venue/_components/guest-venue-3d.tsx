@@ -45,6 +45,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
@@ -572,6 +573,13 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           <boxGeometry args={[stageW, 0.3, stageD]} />
           <meshStandardMaterial color={palette.table} roughness={0.6} />
         </mesh>
+
+        {/* Dance floor — the mood-board mural (Fable §3.7). This walk had NO
+            dance mesh: `floor.dance` fed floorObstacles only, so guests dodged
+            an invisible rectangle. Palette-only here (the anonymised public
+            payload carries no monogram source); raycast is off inside the
+            component so tap-to-roam passes through to the floor beneath. */}
+        <DanceFloorMural floor={floor} room={room} rolePalette={scene.rolePalette ?? null} />
 
         {tables.map((t) => (
           <GuestTable

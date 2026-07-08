@@ -133,6 +133,7 @@ import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { preloadGuestPhotos } from './guest-avatar';
 import { Figure, SitController, SIT_TIMING, type FigureSpec, type FigureQuality } from './kit';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import {
   SceneLighting,
   RECOMMENDED_TONEMAP,
@@ -1210,6 +1211,15 @@ export function Plan3DScene({
         />
         <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
+
+      {/* Dance floor — the mood-board mural (Fable §3.7). This room previously
+          had NO dance mesh: `floor.dance` fed the walk obstacles only, so the
+          walker dodged an invisible rectangle. Themed view paints the couple's
+          palette; the neutral view gets the mural's template triple. raycast is
+          off inside the component, so roam floor-taps pass through to the
+          floor plane beneath. */}
+      <DanceFloorMural floor={floor} room={room} rolePalette={rolePalette ?? null} />
+
       <EntranceMark position={entranceWorld} palette={palette} />
 
       {tables.map((t) => (

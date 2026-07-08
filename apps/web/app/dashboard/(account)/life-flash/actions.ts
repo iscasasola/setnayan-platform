@@ -15,6 +15,7 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
+import { captureEvent } from '@/lib/analytics';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -39,6 +40,13 @@ export async function markPersonInMemoriam(
   if (!data || data.length === 0) {
     return { ok: false, error: 'Only people you added to your events can be marked.' };
   }
+
+  // ✦ adoption (strategy §9). NO PII — the boolean only; no person id/name.
+  await captureEvent({
+    distinctId: user.id,
+    event: 'life_flash_person_remembered',
+    properties: { remembered },
+  });
 
   revalidatePath('/dashboard/life-flash');
   return { ok: true };

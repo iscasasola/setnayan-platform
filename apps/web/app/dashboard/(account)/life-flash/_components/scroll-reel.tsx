@@ -19,6 +19,7 @@ import {
   useReducedMotion,
 } from '@/app/[slug]/_components/editorial/living-moments';
 import { placeholderBackground } from './placeholder';
+import { captureLifeFlash } from './life-flash-analytics';
 
 export type ReelMoment = {
   id: string;
@@ -85,7 +86,10 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
           <button
             type="button"
             aria-pressed={order === 'time'}
-            onClick={() => setOrder('time')}
+            onClick={() => {
+              setOrder('time');
+              void captureLifeFlash('life_flash_reel_reordered', { order: 'time' });
+            }}
             className={`rounded-full px-3 py-1 font-medium transition-colors ${
               order === 'time' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
             }`}

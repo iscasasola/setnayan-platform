@@ -259,7 +259,7 @@ export default async function LifeFlashPage({
               Nothing gathered in this stretch yet — pick another scope above.
             </p>
           ) : (
-            <Flash beats={flashBeats} />
+            <Flash beats={flashBeats} scopeKind={scope.kind} />
           )}
 
           <ScrollReel moments={reelMoments} />

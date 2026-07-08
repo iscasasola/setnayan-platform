@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Download, Images } from 'lucide-react';
+import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -88,6 +88,15 @@ async function GuestGallery({
         <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download my photos
       </a>
+      {/* Kwento Decorator — stickers/effects on a photo → saved to the couple's
+          gallery (session-backed surface; the invite redeem set the cookie). */}
+      <Link
+        href="/papic/decorate"
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
+      >
+        <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
+        Decorate a photo
+      </Link>
       {/* FREE Guest Stories — one-tap 30s reel from these tagged photos. */}
       <GuestStoryMaker token={token} />
     </section>

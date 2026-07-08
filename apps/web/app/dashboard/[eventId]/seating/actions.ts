@@ -445,6 +445,30 @@ export async function autoSeatGuests(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Smart Seat-Plan Phase 5: turn live auto-seating on/off for the event. Couple-
+// scoped (the events RLS update backs it). When off, adding or re-roling a guest
+// no longer auto-places a provisional seat — the couple seats manually via
+// Auto-Arrange / drag.
+export async function setSeatingAutoplace(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return;
+  const enabled = formData.get('enabled') === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('events')
+    .update({ seating_autoplace_enabled: enabled })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Save the floor-plan markers (stage position + the single entrance door).
 // Upserts the per-event singleton row; coords are clamped to 0–100 percent.
 export async function saveFloorPlan(formData: FormData) {

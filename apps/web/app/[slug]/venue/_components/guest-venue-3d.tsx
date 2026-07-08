@@ -581,7 +581,10 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           />
         ))}
 
-        {/* Placed venue fixtures — objects · booths · signs · cocktail room. */}
+        {/* Placed venue fixtures — objects · booths · signs · cocktail room.
+            quality 'low' (this surface is the phone walk) bakes every booth
+            template's staff mascots to their held clip pose — a 10-booth
+            catalog-complete room otherwise animates ~16+ figures per frame. */}
         <VenueFixtures
           room={room}
           palette={palette}
@@ -589,6 +592,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           booths={booths}
           signs={signs}
           cocktail={cocktail}
+          quality="low"
         />
 
         {/* Wave 2b: the couple's reception treatments (reduced set on phones). */}

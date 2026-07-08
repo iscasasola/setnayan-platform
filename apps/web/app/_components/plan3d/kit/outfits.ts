@@ -96,6 +96,7 @@ export function outfitGeometry(outfit: OutfitKind): THREE.BufferGeometry {
   switch (outfit) {
     case 'gown':
     case 'filipiniana':
+    case 'robe': // the choir robe flows floor-length — the gown shell IS the silhouette
       return GOWN_GEO;
     case 'suit':
     case 'barong':
@@ -113,7 +114,7 @@ export function outfitGeometry(outfit: OutfitKind): THREE.BufferGeometry {
  *  under the flared shell (the lab's gown figures never drew legs at all;
  *  the kit keeps shins so a walking gown still shows footfall). */
 export function outfitIsSkirted(outfit: OutfitKind): boolean {
-  return outfit === 'gown' || outfit === 'filipiniana';
+  return outfit === 'gown' || outfit === 'filipiniana' || outfit === 'robe';
 }
 
 // ── Barong embroidery (lazy CanvasTexture — browser only) ───────────────────
@@ -177,10 +178,16 @@ export function barongEmbroideryBump(): THREE.CanvasTexture {
 // pick up the FIELD colour — keep details small and central so a sleeve
 // never wears a stray bib fragment.
 
-type StaffOutfit = 'chef_whites' | 'apron' | 'vest' | 'uniform';
+type StaffOutfit = 'chef_whites' | 'apron' | 'vest' | 'uniform' | 'robe';
 
 function isStaffOutfit(outfit: OutfitKind): outfit is StaffOutfit {
-  return outfit === 'chef_whites' || outfit === 'apron' || outfit === 'vest' || outfit === 'uniform';
+  return (
+    outfit === 'chef_whites' ||
+    outfit === 'apron' ||
+    outfit === 'vest' ||
+    outfit === 'uniform' ||
+    outfit === 'robe'
+  );
 }
 
 const staffTexCache = new Map<string, THREE.CanvasTexture>();
@@ -260,6 +267,19 @@ function staffGarmentTexture(outfit: StaffOutfit, color: string): THREE.CanvasTe
         ctx.fill();
         break;
       }
+      case 'robe': {
+        // The choir stole: two gold bands falling from the shoulders toward
+        // a low centre meet — the read that says "robe", not "gown".
+        ctx.strokeStyle = '#d4af5a';
+        ctx.lineWidth = 9;
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(cx + side * 20, 0);
+          ctx.lineTo(cx + side * 6, 96);
+          ctx.stroke();
+        }
+        break;
+      }
     }
   };
 
@@ -299,6 +319,7 @@ const DEFAULT_CLOTH: Record<OutfitKind, string> = {
   apron: '#b9673f', // warm terracotta canvas over a cream shirt
   vest: '#3a3f4d', // charcoal vest over a light shirt
   uniform: '#4f6b5e', // soft service green — the "branded staff polo"
+  robe: '#6e3344', // deep choir burgundy under the gold stole (catalog row 18)
 };
 
 const outfitMats = new Map<string, THREE.MeshStandardMaterial>();

@@ -2,17 +2,24 @@
  * kit/booth-templates — the CONFIG TABLE of the booth-template kit: taxonomy
  * leaf key → { chassis, props, staff, sign fallback, card kind } per the
  * owner-locked catalog (`0008_3DPlan_Booth_Template_Catalog_2026-07-08.md`,
- * 9 chassis × 57 categories). THIS PR ships the SYSTEM + the TOP-20
- * highest-traffic categories; the remaining 37 leaves deliberately resolve to
- * `null` here and FALL BACK to the existing generic BoothMesh silhouette in
- * venue-objects.tsx — the complete catalog is the next PR
- * (`3dplan-booth-catalog-complete`), exactly as the catalog doc sequences it.
+ * chassis × 57 categories). CATALOG COMPLETE — all 57 taxonomy leaves carry a
+ * template (the chassis PR shipped the system + the top-20; this PR lands the
+ * remaining 37), enforced at compile time by the full
+ * `Record<WeddingTile, BoothTemplateSpec>` below. The generic BoothMesh
+ * silhouette in venue-objects.tsx remains only for booths that resolve NO
+ * template at all (unlinked `custom` / `unassigned` pins, non-leaf vendor
+ * categories like `misc`).
  *
  * Data only (no React) — the renderer is kit/booth-template.tsx. Placements
  * are authored booth-local (origin = booth centre, front = +z, metres);
- * chassis surface heights: COUNTER top ≈1.075 · STATION top ≈0.93 · DESK
- * top ≈0.78 · RISER deck ≈0.175 · DISPLAY shelves ≈0.98/1.53 (lathe-based
- * props sit a few mm proud of their surface so caps never z-fight it).
+ * chassis surface heights: COUNTER top ≈1.075 · STATION top ≈0.93 · BUFFET
+ * top ≈0.94 · DESK top ≈0.78 · RISER deck ≈0.175 · DISPLAY plinth ≈0.32,
+ * shelves ≈0.98/1.53 · CHAIR_STATION cart tray ≈0.835 (lathe-based props sit
+ * a few mm proud of their surface so caps never z-fight it).
+ *
+ * PLACEMENT RULE (the polish-pass lesson): floor-standing props NEVER sit
+ * inside a staff anchor's spot — check the chassis' staffAnchors (booth-props
+ * figures read ~0.25 m radius) before authoring any y=0 placement.
  */
 
 import type { WeddingTile } from '@/lib/taxonomy';
@@ -63,10 +70,11 @@ export type BoothTemplateSpec = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The top-20 table
+// The full 57-template table (top-20 shipped with the chassis slice; the
+// remaining 37 land here — the full Record type IS the completeness check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const BOOTH_TEMPLATES: Partial<Record<WeddingTile, BoothTemplateSpec>> = {
+export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
   // ── FEAST ──────────────────────────────────────────────────────────────────
   catering: {
     // 2026-07-08 owner polish: "they have a LONG table of food" — the classic
@@ -283,10 +291,394 @@ export const BOOTH_TEMPLATES: Partial<Record<WeddingTile, BoothTemplateSpec>> = 
     signText: 'Coordinator',
     cardKind: 'inclusions',
   },
+  // ═══ Catalog completion (2026-07-08 · the remaining 37) ═══════════════════
+  // ── VENUE ──────────────────────────────────────────────────────────────────
+  reception: {
+    chassis: 'DESK',
+    // The ballroom scale model on the welcome table — the venue's sales piece.
+    props: [{ kind: 'maquette', position: [0, 0.79, 0.08] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Reception Venue',
+    cardKind: 'inclusions',
+  },
+  ceremony_venue: {
+    chassis: 'BACKDROP',
+    // Chapel arch across the floor zone + warm-gold capiz string in front of
+    // the panel. Arch offset left so its right pew clears the greeter anchor
+    // (0.95, 0.45) — pew lands at (0.47, 0.68), ~0.53 m away.
+    props: [
+      { kind: 'chapel_arch', position: [-0.3, 0, 0], scale: 0.9 },
+      { kind: 'capiz_string', position: [0, 0, -0.35] },
+    ],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Ceremony Venue',
+    cardKind: 'inclusions',
+  },
+  // ── PLANNING ───────────────────────────────────────────────────────────────
+  date_specialist: {
+    chassis: 'DESK',
+    props: [{ kind: 'calendar_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'vest', idle: 'cardFlip', count: 1 },
+    signText: 'Date Specialist',
+    cardKind: 'inclusions',
+  },
+  // ── FEAST ──────────────────────────────────────────────────────────────────
+  crew_meals: {
+    chassis: 'STATION',
+    // Warmer on the table, packed-meal crates beside it (the dj vinyl-crate
+    // floor spot — proven clear of both staff anchors at z −0.55/−0.62).
+    props: [
+      { kind: 'chafing_dish', position: [-0.35, 0.94, 0] },
+      { kind: 'plate_stack', position: [0.35, 0.94, 0.08] },
+      { kind: 'crate_stack', position: [1.0, 0, 0.35] },
+    ],
+    staff: { outfit: 'apron', idle: 'boxPass', count: 1 },
+    signText: 'Crew Meals',
+    cardKind: 'menu',
+  },
+  // ── DESIGN ─────────────────────────────────────────────────────────────────
+  dance_floor: {
+    chassis: 'BACKDROP',
+    // The LED tile sample laid flat ON the activity-zone pad (top y 0.0355 —
+    // at y 0 the 6 cm frame is 58% swallowed by the pad); panel spans x ±0.65
+    // so the staff anchor at x 0.95 stays clear.
+    props: [{ kind: 'led_floor', position: [0, 0.04, 0.3] }],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Dance Floor',
+    cardKind: 'inclusions',
+  },
+  outdoor: {
+    chassis: 'GARDEN',
+    // Capiz string swung under the pergola beam (pole tops ≈1.76 < beam 1.98)
+    // + a market umbrella clear of the planters and the florist-gap anchor.
+    props: [
+      { kind: 'capiz_string', position: [0, 0, -0.45] },
+      { kind: 'umbrella', position: [-0.7, 0, 0.55], scale: 0.9 },
+    ],
+    staff: { outfit: 'apron', idle: 'present', count: 1 },
+    signText: 'Outdoor & Garden',
+    cardKind: 'inclusions',
+  },
+  fireworks: {
+    chassis: 'STATION',
+    // The mortar battery demos in FRONT of the table (z 0.75 clears the
+    // tabletop's z ±0.46 span for BOTH sub-groups — the tubes at local −0.25
+    // AND the starburst sign post at local +0.5; the old beside-the-table
+    // x −0.85 spot only cleared the tubes and the post skewered the slab).
+    props: [{ kind: 'mortar_rack', position: [-0.6, 0, 0.75] }],
+    staff: { outfit: 'uniform', idle: 'thumbsUp', count: 1 },
+    signText: 'Fireworks',
+    cardKind: 'inclusions',
+  },
+  led_wall: {
+    chassis: 'BACKDROP',
+    // The animated panel hangs just in front of the backdrop panel (z −0.68)
+    // so it reads wall-mounted, not floating.
+    props: [{ kind: 'led_panel', position: [0, 0.15, -0.56] }],
+    staff: { outfit: 'vest', idle: 'tamp', count: 1 },
+    signText: 'LED Wall',
+    cardKind: 'inclusions',
+  },
+  digital_services: {
+    chassis: 'DESK',
+    props: [{ kind: 'tech_set', position: [0, 0.79, 0.08] }],
+    staff: { outfit: 'vest', idle: 'typing', count: 1 },
+    signText: 'Digital Services',
+    cardKind: 'inclusions',
+  },
+  // ── PROGRAM ────────────────────────────────────────────────────────────────
+  choir: {
+    chassis: 'RISER',
+    // Folder stands flank the front singer — ≥0.58 m from every deck anchor.
+    props: [
+      { kind: 'music_stand', position: [-0.55, 0.18, 0.35] },
+      { kind: 'music_stand', position: [0.55, 0.18, 0.4] },
+    ],
+    staff: { outfit: 'robe', idle: 'swaySing', count: 3 },
+    signText: 'Choir',
+    cardKind: 'songlist',
+  },
+  orchestra: {
+    chassis: 'RISER',
+    // Two players (front + left anchors); the cello leans by the UNUSED
+    // right anchor spot — count stays 2 so nobody stands in it.
+    props: [
+      { kind: 'music_stand', position: [0.3, 0.18, 0.55], rotY: Math.PI },
+      { kind: 'music_stand', position: [-0.55, 0.18, 0.3], rotY: 2.8 },
+      { kind: 'cello', position: [0.65, 0.18, -0.25], rotY: -0.5 },
+    ],
+    staff: { outfit: 'suit', idle: 'bowDraw', count: 2 },
+    signText: 'Orchestra',
+    cardKind: 'songlist',
+  },
+  choreographer: {
+    chassis: 'BACKDROP',
+    // Numbered floor marks are flat decals — walkable, so anchor clearance
+    // doesn't apply; they own the activity zone. Lifted to the chassis'
+    // floor-zone pad TOP (y 0.0355 + a few mm) — at y 0 the 12 mm discs sit
+    // entirely inside the pad and the booth reads as a bare backdrop.
+    props: [{ kind: 'dance_marks', position: [0, 0.038, 0.1] }],
+    staff: { outfit: 'uniform', idle: 'countBeat', count: 1 },
+    signText: 'Choreographer',
+    cardKind: 'inclusions',
+  },
+  performers: {
+    chassis: 'RISER',
+    // Hoop + frozen ribbon swirl stage-left; the ribbon column stays ~0.45 m
+    // from the front anchor so the idle's swinging arm never clips it.
+    props: [{ kind: 'hoop_ribbon', position: [-0.7, 0.18, 0.35], scale: 0.9 }],
+    staff: { outfit: 'uniform', idle: 'ribbonSwirl', count: 1 },
+    signText: 'Performers',
+    cardKind: 'songlist',
+  },
+  // ── DOCUMENTARY ────────────────────────────────────────────────────────────
+  editorial: {
+    chassis: 'DESK',
+    props: [{ kind: 'magazine_rack', position: [0, 0.79, 0.02] }],
+    staff: { outfit: 'vest', idle: 'cardFlip', count: 1 },
+    signText: 'Editorial',
+    cardKind: 'inclusions',
+  },
+  // ── LOOK ───────────────────────────────────────────────────────────────────
+  brides_attire: {
+    chassis: 'DISPLAY',
+    // Gown forms stand in FRONT of the plinth (z > 0.4 keeps their bases off
+    // its face) and ≥0.74 m from the attendant anchor (0.85, 0.3).
+    props: [
+      { kind: 'gown_form', position: [-0.45, 0, 0.62] },
+      { kind: 'gown_form', position: [0.15, 0, 0.68], scale: 0.9 },
+    ],
+    staff: { outfit: 'apron', idle: 'measure', count: 1 },
+    signText: "Bride's Attire",
+    cardKind: 'inclusions',
+  },
+  grooms_attire: {
+    chassis: 'DISPLAY',
+    props: [
+      { kind: 'barong_form', position: [-0.45, 0, 0.62] },
+      { kind: 'suit_form', position: [0.15, 0, 0.68], scale: 0.95 },
+    ],
+    staff: { outfit: 'suit', idle: 'measure', count: 1 },
+    signText: "Groom's Attire",
+    cardKind: 'inclusions',
+  },
+  womens_attire: {
+    chassis: 'DISPLAY',
+    // The rolling rack sits in front of the plinth — its uprights would
+    // pierce the plinth slab anywhere inside z ±0.4.
+    props: [{ kind: 'garment_rack', position: [-0.3, 0, 0.6] }],
+    staff: { outfit: 'apron', idle: 'present', count: 1 },
+    signText: "Women's Attire",
+    cardKind: 'inclusions',
+  },
+  mens_attire: {
+    chassis: 'DISPLAY',
+    props: [{ kind: 'suit_rack', position: [-0.3, 0, 0.6] }],
+    staff: { outfit: 'suit', idle: 'brushDab', count: 1 },
+    signText: "Men's Attire",
+    cardKind: 'inclusions',
+  },
+  filipiniana_barongs: {
+    chassis: 'DISPLAY',
+    // Barong + terno pair up front; the capiz string stands ON the plinth
+    // (y 0.32) — warm-gold heritage accent, right pole ~0.37 m from the
+    // attendant anchor (thin capsule, clears the figure's 0.25 m read).
+    props: [
+      { kind: 'barong_form', position: [-0.45, 0, 0.62] },
+      { kind: 'gown_form', position: [0.1, 0, 0.66], scale: 0.9 },
+      { kind: 'capiz_string', position: [-0.2, 0.32, 0.26], scale: 0.8 },
+    ],
+    staff: { outfit: 'barong', idle: 'measure', count: 1 },
+    signText: 'Filipiniana & Barongs',
+    cardKind: 'inclusions',
+  },
+  grooming: {
+    chassis: 'CHAIR_STATION',
+    // Spinning pole clear of the chair (0.68 m) + towels on the cart tray.
+    props: [
+      { kind: 'barber_pole', position: [-0.9, 0, 0.35] },
+      { kind: 'towel_stack', position: [0.62, 0.84, -0.35], scale: 0.7 },
+    ],
+    staff: { outfit: 'vest', idle: 'polishWipe', count: 1 },
+    signText: 'Grooming',
+    cardKind: 'inclusions',
+  },
+  wellness_fitness: {
+    chassis: 'STATION',
+    // Towels on the table + the 1.6× floor stack reading as the mat roll,
+    // front-right and clear of the table legs + both rear staff anchors.
+    props: [
+      { kind: 'towel_stack', position: [-0.35, 0.94, 0] },
+      { kind: 'towel_stack', position: [0.95, 0, 0.5], scale: 1.6 },
+    ],
+    staff: { outfit: 'uniform', idle: 'stretch', count: 1 },
+    signText: 'Wellness & Fitness',
+    cardKind: 'inclusions',
+  },
+  jewelleries_accessories: {
+    chassis: 'DISPLAY',
+    // Free-standing vitrines (each carries its own sparkle bulbs) in FRONT
+    // of the plinth — the DISPLAY rule the attire templates follow: z > 0.4
+    // keeps their 0.4 m-deep bases off the plinth face (at the old z 0.35 /
+    // 0.25 the cases sank 60–90% into the slab). Both stay 0.75+ m from the
+    // jeweler anchor (0.85, 0.3).
+    props: [
+      { kind: 'glass_case', position: [-0.45, 0, 0.62] },
+      { kind: 'glass_case', position: [0.15, 0, 0.6], scale: 0.85 },
+    ],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Jewelry & Accessories',
+    cardKind: 'inclusions',
+  },
+  // ── BOOTHS ─────────────────────────────────────────────────────────────────
+  mocktail: {
+    chassis: 'COUNTER',
+    props: [
+      { kind: 'fruit_tower', position: [-0.45, 1.08, 0.05] },
+      { kind: 'shaker', position: [0.4, 1.08, 0.12] },
+    ],
+    staff: { outfit: 'apron', idle: 'pourArc', count: 1 },
+    signText: 'Mocktail Bar',
+    cardKind: 'drinks',
+  },
+  massage_chair: {
+    chassis: 'CHAIR_STATION',
+    // The lounger angles across the front-left corner — legrest overhangs
+    // the footprint but the chassis discs (r 1.4) keep walkers off it.
+    props: [
+      { kind: 'recliner', position: [-0.8, 0, 0.55], rotY: 0.35 },
+      { kind: 'towel_stack', position: [0.62, 0.84, -0.35], scale: 0.7 },
+    ],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Massage',
+    cardKind: 'inclusions',
+  },
+  perfume_bar: {
+    chassis: 'COUNTER',
+    props: [{ kind: 'perfume_organ', position: [0, 1.08, -0.1] }],
+    staff: { outfit: 'vest', idle: 'present', count: 1 },
+    signText: 'Perfume Bar',
+    cardKind: 'inclusions',
+  },
+  arcade_games: {
+    chassis: 'STATION',
+    // Claw machine + hoop are floor cabinets — they play out FRONT of the
+    // worktable (z ≥ 0.5 clears the tabletop's ±0.46 edge).
+    props: [{ kind: 'arcade_set', position: [0.1, 0, 0.78], scale: 0.9 }],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Arcade & Games',
+    cardKind: 'inclusions',
+  },
+  henna_tattoo: {
+    chassis: 'CHAIR_STATION',
+    // Low table + cushion ring front-left: table corner 0.32 m off the chair
+    // pedestal disc, nearest cushion 0.97 m from the artist anchor.
+    props: [{ kind: 'low_table_cushions', position: [-0.8, 0, 0.5], scale: 0.8 }],
+    staff: { outfit: 'apron', idle: 'strokeWork', count: 1 },
+    signText: 'Henna & Tattoo',
+    cardKind: 'inclusions',
+  },
+  mini_nail_bar: {
+    chassis: 'CHAIR_STATION',
+    props: [{ kind: 'polish_rack', position: [0.62, 0.84, -0.36], scale: 0.9 }],
+    staff: { outfit: 'apron', idle: 'strokeWork', count: 1 },
+    signText: 'Nail Bar',
+    cardKind: 'inclusions',
+  },
+  tarot_astrology_palmistry: {
+    chassis: 'DESK',
+    props: [{ kind: 'crystal_set', position: [0, 0.79, 0.12] }],
+    staff: { outfit: 'robe', idle: 'cardFlip', count: 1 },
+    signText: 'Tarot & Astrology',
+    cardKind: 'inclusions',
+  },
+  caricature_calligraphy_painting: {
+    chassis: 'DESK',
+    // Sketch pad on the desk + working easel beside it (the shipped
+    // stylist_decorator easel read), clear of the rear artist anchor.
+    props: [
+      { kind: 'clipboard_board', position: [-0.3, 0.79, 0.08], rotY: 0.12 },
+      { kind: 'easel', position: [0.85, 0, 0.5], rotY: -0.5 },
+    ],
+    staff: { outfit: 'apron', idle: 'strokeWork', count: 1 },
+    signText: 'Caricature & Art',
+    cardKind: 'inclusions',
+  },
+  engraving_embroidery: {
+    chassis: 'STATION',
+    props: [
+      { kind: 'embroidery_hoop', position: [-0.35, 0.94, 0.02] },
+      { kind: 'embroidery_hoop', position: [0.4, 0.94, 0.05], rotY: 0.35, scale: 0.8 },
+    ],
+    staff: { outfit: 'apron', idle: 'strokeWork', count: 1 },
+    signText: 'Engraving & Embroidery',
+    cardKind: 'inclusions',
+  },
+  // ── PRINTS ─────────────────────────────────────────────────────────────────
+  printing: {
+    chassis: 'STATION',
+    props: [
+      { kind: 'print_press', position: [-0.3, 0.94, 0] },
+      { kind: 'magazine_rack', position: [0.5, 0.94, 0.02], rotY: -0.12 },
+    ],
+    staff: { outfit: 'apron', idle: 'present', count: 1 },
+    signText: 'Printing',
+    cardKind: 'inclusions',
+  },
+  souvenir_giveaways: {
+    chassis: 'DISPLAY',
+    // Ribboned boxes dress both shelves + the plinth top.
+    props: [
+      { kind: 'gift_shelf', position: [-0.35, 0.98, -0.12] },
+      { kind: 'gift_shelf', position: [0.35, 1.53, -0.12], scale: 0.85 },
+      { kind: 'gift_shelf', position: [0.3, 0.32, 0.12] },
+    ],
+    staff: { outfit: 'apron', idle: 'boxPass', count: 1 },
+    signText: 'Souvenirs & Giveaways',
+    cardKind: 'inclusions',
+  },
+  trophies_awards: {
+    chassis: 'DISPLAY',
+    props: [
+      { kind: 'trophy_shelf', position: [0, 0.985, -0.12] },
+      { kind: 'trophy_shelf', position: [0, 1.535, -0.12], scale: 0.9 },
+    ],
+    staff: { outfit: 'uniform', idle: 'polishWipe', count: 1 },
+    signText: 'Trophies & Awards',
+    cardKind: 'inclusions',
+  },
+  // ── TRANSPORT ──────────────────────────────────────────────────────────────
+  bridal_car: {
+    chassis: 'VEHICLE',
+    // Bow against the boot face (body rear = x 1.3), can trail strung out
+    // behind — rotY π/2 turns the trail down +x, away from the hatch anchor.
+    props: [{ kind: 'ribbon_cans', position: [1.35, 0, 0], rotY: Math.PI / 2 }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Bridal Car',
+    cardKind: 'inclusions',
+  },
+  guest_shuttle: {
+    chassis: 'VEHICLE',
+    // Route board at the door (the food_truck menu-board floor spot).
+    props: [{ kind: 'clipboard_board', position: [1.35, 0, 0.75], rotY: -0.4 }],
+    staff: { outfit: 'uniform', idle: 'wave', count: 1 },
+    signText: 'Guest Shuttle',
+    cardKind: 'inclusions',
+  },
+  escort: {
+    chassis: 'VEHICLE',
+    props: [
+      { kind: 'traffic_cone', position: [-1.3, 0, 0.6] },
+      { kind: 'traffic_cone', position: [1.35, 0, 0.45], scale: 0.9 },
+    ],
+    staff: { outfit: 'vest', idle: 'thumbsUp', count: 1 },
+    signText: 'Escort',
+    cardKind: 'inclusions',
+  },
 };
 
-/** The template keys shipped in this slice (exported for the admin/debug
- *  surfaces + the next PR's completeness check). */
+/** All 57 template keys (exported for the admin/debug surfaces — the
+ *  /dev/booth-lab stepper counts these). */
 export const BOOTH_TEMPLATE_KEYS = Object.keys(BOOTH_TEMPLATES) as WeddingTile[];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -295,27 +687,37 @@ export const BOOTH_TEMPLATE_KEYS = Object.keys(BOOTH_TEMPLATES) as WeddingTile[]
 
 /**
  * `event_vendors.category` (the couple's registry enum, lib/vendors.ts
- * VendorCategory) → taxonomy leaf. Only the categories whose template shipped
- * in this slice are mapped; everything else resolves null → generic BoothMesh.
+ * VendorCategory) → taxonomy leaf. Categories that ARE leaf keys (catering,
+ * florist, mobile_bar, crew_meals, choir…) resolve directly against
+ * BOOTH_TEMPLATES and don't need a row. The rest map to the honest template;
+ * only the categories with no booth read at all (officiant, church_fees,
+ * security, accommodation, misc) resolve null → generic BoothMesh.
  * `band_dj` maps to the band template (the fuller stage read — a booked
  * band_dj vendor gets the riser; the DJ template still serves taxonomy-keyed
  * callers and the booth_type fallback below).
  */
 const VENDOR_CATEGORY_TO_TILE: Record<string, WeddingTile> = {
-  catering: 'catering',
+  venue: 'reception',
+  religious_venue: 'ceremony_venue',
   cake_maker: 'cake',
   photographer: 'photo_video',
   videographer: 'photo_video',
-  florist: 'florist',
   host_emcee: 'host_mc',
   band_dj: 'live_band',
+  string_quartet: 'orchestra',
   planner_coordinator: 'coordinator',
   makeup_artist: 'hmua',
   hair_stylist: 'hmua',
+  gown_designer: 'brides_attire',
+  suit_designer: 'grooms_attire',
+  rings: 'jewelleries_accessories',
+  invitations_stationery: 'printing',
+  transportation: 'guest_shuttle',
   lights_and_sound: 'lights_sound',
+  led_screens: 'led_wall',
   photobooth: 'photo_booth',
-  mobile_bar: 'mobile_bar',
   reception_decor: 'stylist_decorator',
+  gifts_and_giveaways: 'souvenir_giveaways',
 };
 
 /**
@@ -329,15 +731,20 @@ const BOOTH_KIND_TO_TILE: Record<string, WeddingTile> = {
   live_cooking: 'stations',
   dessert_station: 'dessert',
   live_performance: 'wedding_singer',
+  gift_table: 'souvenir_giveaways',
+  souvenir_table: 'souvenir_giveaways',
+  // registration_desk / custom / unassigned stay untemplated — the front desk
+  // keeps its bespoke generic silhouette; blank pins have no identity yet.
 };
 
 /**
  * The template a placed booth renders, or null → the caller keeps the
- * existing generic BoothMesh silhouette (the documented fallback for the 37
- * categories the next PR completes). The booked vendor's category wins over
- * the couple's booth_type — the vendor IS the booth's identity once linked.
- * Accepts raw taxonomy leaf keys too (a vendor payload that already speaks
- * WeddingTile resolves directly).
+ * existing generic BoothMesh silhouette (now only for booths with no template
+ * identity at all: unlinked custom/unassigned/registration_desk pins and the
+ * few no-booth vendor categories — every taxonomy leaf resolves). The booked
+ * vendor's category wins over the couple's booth_type — the vendor IS the
+ * booth's identity once linked. Accepts raw taxonomy leaf keys too (a vendor
+ * payload that already speaks WeddingTile resolves directly).
  */
 export function boothTemplateFor(
   booth: Pick<Lab3DBooth, 'kind' | 'vendor'>,
@@ -377,8 +784,8 @@ export type BoothHitVolume = {
 };
 
 /** The historical fixed box (a touch larger than the generic 2×1 m booth
- *  footprint, floor-anchored) — still exactly right for the 37 fallback
- *  categories that render the generic BoothMesh. */
+ *  footprint, floor-anchored) — still exactly right for the untemplated
+ *  booths that render the generic BoothMesh. */
 export const GENERIC_BOOTH_HIT: BoothHitVolume = {
   size: [2.3, 1.3, 1.3],
   center: [0, 0.6, 0],
@@ -409,7 +816,7 @@ export function boothHitVolume(
  * registers its CHASSIS' authored footprint discs (a food-truck capsule, a
  * backdrop's two-lobe zone) placed at the booth's world centre; a
  * non-templated booth keeps the exact disc `boothObstacles` has always
- * emitted, so the 37 fallback categories steer identically to before.
+ * emitted, so generic-silhouette booths steer identically to before.
  * (Booths don't rotate on the percent canvas — no rotation composition.)
  */
 export function templateBoothObstacles(

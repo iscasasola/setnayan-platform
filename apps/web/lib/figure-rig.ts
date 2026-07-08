@@ -49,7 +49,8 @@ export type FigureSpec = {
     | 'chef_whites'
     | 'apron'
     | 'vest'
-    | 'uniform';
+    | 'uniform'
+    | 'robe';
   /** Motif colour for the outfit shell (mood-board attire palette); null →
    *  the outfit's own default cloth colour. */
   outfitColor: string | null;
@@ -318,8 +319,11 @@ function idlePhaseOffset(id: string): number {
 // idleSway. All channels stay inside the envelopes the unit suite asserts
 // (|shoulder| ≤ 3.0 rad — a raised wave; everything else ≤ 1.6 rad).
 
-/** The 10 staff idle clips the booth catalog assigns. `bowDraw` ships now for
- *  the catalog's orchestra template (next PR) — built + tested with the set. */
+/** The staff idle clips the booth catalog assigns. The first 10 shipped with
+ *  the chassis slice (`bowDraw` pre-built for orchestra); the 11 below the
+ *  marker land with the catalog-completion PR — every one of the remaining 37
+ *  templates maps onto this set (fine handwork shares `strokeWork`, fitters
+ *  share `measure`, etc. — reusable verbs, not 37 bespoke clips). */
 export const STAFF_IDLE_KINDS = [
   'pipingSwirl', // pastry chef — piping a cake, wrist circles
   'shake', //       bartender / live station — two-hand rhythmic shake
@@ -331,6 +335,18 @@ export const STAFF_IDLE_KINDS = [
   'wave', //        greeter — arm up, friendly hand waggle
   'snap', //        photographer / florist — raise-and-click (shutter / snips)
   'present', //     server / chef — an open palm-out presenting sweep
+  // ── catalog completion (2026-07-08 · the 37-template PR) ──
+  'typing', //      digital services — forearms at desk height, key patter
+  'pourArc', //     mocktail mixologist — high tilting pour over a held glass
+  'stretch', //     wellness trainer — slow overhead reach and settle
+  'ribbonSwirl', // performer — raised arm circling the ribbon
+  'countBeat', //   choreographer — the 5-6-7-8 count, arm beating time
+  'swaySing', //    choir — hands folded at the chest, deep song sway
+  'strokeWork', //  henna / nails / caricature / engraving — fine hand strokes
+  'polishWipe', //  trophies / grooming — small circular buffing wipe
+  'measure', //     tailors + fitters — tape pulled apart and re-gathered
+  'boxPass', //     crew meals — two-hand crate carry swinging side to side
+  'thumbsUp', //    pyrotech — held thumbs-up with a happy cheer bounce
 ] as const;
 
 export type StaffIdleKind = (typeof STAFF_IDLE_KINDS)[number];
@@ -486,6 +502,131 @@ export function staffIdle(
       o.leftElbow = 0.9;
       o.headYaw = (o.headYaw ?? 0) + 0.18 * sweep;
       o.torsoLean = 0.05;
+      break;
+    }
+    case 'typing': {
+      // Both forearms up at desk height, a quick alternating key patter;
+      // eyes on the screen.
+      const patter = Math.sin(t * 8 + off);
+      o.leftShoulder = 0.45;
+      o.rightShoulder = 0.45;
+      o.leftElbow = 1.2 + 0.05 * patter;
+      o.rightElbow = 1.2 - 0.05 * patter;
+      o.headPitch = 0.22;
+      break;
+    }
+    case 'pourArc': {
+      // The mixologist's high pour: right arm rides a slow tilt arc while the
+      // left steadies the glass below.
+      const arc = Math.sin(t * 1.8 + off);
+      o.rightShoulder = 1.35 + 0.12 * arc;
+      o.rightElbow = 0.5 + 0.18 * arc;
+      o.leftShoulder = 0.65;
+      o.leftElbow = 1.15;
+      o.headPitch = 0.14;
+      o.torsoLean = 0.04;
+      break;
+    }
+    case 'stretch': {
+      // Slow overhead reach and settle — both arms near-straight, chin
+      // lifting with the reach.
+      const reach = 0.5 + 0.5 * Math.sin(t * 0.9 + off);
+      o.leftShoulder = 1.9 + 0.7 * reach;
+      o.rightShoulder = 1.9 + 0.7 * reach;
+      o.leftElbow = 0.15;
+      o.rightElbow = 0.15;
+      o.torsoLean = -0.04 * reach;
+      o.headPitch = -0.1 * reach;
+      break;
+    }
+    case 'ribbonSwirl': {
+      // Performing arm raised overhead circling the ribbon; the torso rides
+      // a gentle extra sway underneath.
+      o.rightShoulder = 2.1 + 0.25 * Math.sin(t * 3 + off);
+      o.rightElbow = 0.4 + 0.3 * Math.cos(t * 3 + off);
+      o.leftShoulder = 0.3;
+      o.leftElbow = 0.7;
+      o.torsoSway = (o.torsoSway ?? 0) + 0.03 * Math.sin(t * 1.5 + off);
+      o.headPitch = -0.06;
+      break;
+    }
+    case 'countBeat': {
+      // The 5-6-7-8: the counting arm beats time in crisp pulses while the
+      // other hand sits on the hip; the head nods each beat.
+      const beat = pulse(t, 1.6, off);
+      o.rightShoulder = 0.85 + 0.35 * beat;
+      o.rightElbow = 0.6 + 0.25 * beat;
+      o.leftShoulder = 0.3;
+      o.leftElbow = 1.25;
+      o.headPitch = 0.05 + 0.08 * beat;
+      break;
+    }
+    case 'swaySing': {
+      // Choir: hands folded at the chest, a deeper-than-breathing song sway,
+      // chin lifted, head riding the same slow curve.
+      o.leftShoulder = 0.55;
+      o.rightShoulder = 0.55;
+      o.leftElbow = 1.35;
+      o.rightElbow = 1.35;
+      o.torsoSway = (o.torsoSway ?? 0) + 0.05 * Math.sin(t * 1.4 + off);
+      o.headYaw = (o.headYaw ?? 0) + 0.1 * Math.sin(t * 1.4 + off);
+      o.headPitch = -0.05;
+      break;
+    }
+    case 'strokeWork': {
+      // Fine handwork (henna / nail polish / pen / stitch): leaning over the
+      // work, eyes down, the working hand tracing small quick strokes.
+      o.torsoLean = 0.16;
+      o.headPitch = 0.3;
+      o.rightShoulder = 0.75 + 0.05 * Math.sin(t * 5.5 + off);
+      o.rightElbow = 1.0 + 0.08 * Math.sin(t * 5.5 + off + 0.8);
+      o.leftShoulder = 0.6;
+      o.leftElbow = 1.05;
+      break;
+    }
+    case 'polishWipe': {
+      // Small circular buffing wipe at chest height — shoulder + elbow trace
+      // a 90°-offset circle; the left hand holds the piece.
+      o.rightShoulder = 0.8 + 0.09 * Math.sin(t * 4.6 + off);
+      o.rightElbow = 0.9 + 0.09 * Math.cos(t * 4.6 + off);
+      o.leftShoulder = 0.7;
+      o.leftElbow = 1.1;
+      o.headPitch = 0.18;
+      break;
+    }
+    case 'measure': {
+      // The tape measure: both hands pull apart (elbows unfold) and gather
+      // back in phase — the fitter's read at booth distance.
+      const pull = 0.5 + 0.5 * Math.sin(t * 1.6 + off);
+      o.leftShoulder = 0.7;
+      o.rightShoulder = 0.7;
+      o.leftElbow = 0.35 + 0.75 * pull;
+      o.rightElbow = 0.35 + 0.75 * pull;
+      o.headPitch = 0.16;
+      break;
+    }
+    case 'boxPass': {
+      // Two-hand crate carry swinging side to side down the pass line; the
+      // head leads the swing.
+      const swing = Math.sin(t * 2 + off);
+      o.leftShoulder = 0.6;
+      o.rightShoulder = 0.6;
+      o.leftElbow = 1.15;
+      o.rightElbow = 1.15;
+      o.torsoSway = (o.torsoSway ?? 0) + 0.045 * swing;
+      o.headYaw = (o.headYaw ?? 0) + 0.16 * swing;
+      o.pelvisY = -0.006 + 0.006 * Math.sin(t * 4 + off);
+      break;
+    }
+    case 'thumbsUp': {
+      // Pyrotech's held thumbs-up: arm parked high, a happy cheer-pulse
+      // punches it a little higher every few seconds. Chin up, proud.
+      const cheer = pulse(t, 2.8, off);
+      o.rightShoulder = 1.5 + 0.2 * cheer;
+      o.rightElbow = 0.85 - 0.15 * cheer;
+      o.leftShoulder = 0.2;
+      o.leftElbow = 0.55;
+      o.headPitch = -0.08;
       break;
     }
   }

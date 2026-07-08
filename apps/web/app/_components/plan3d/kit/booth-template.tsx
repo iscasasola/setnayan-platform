@@ -7,8 +7,12 @@
  *
  *   CHASSIS (kit/booth-chassis — mascot-smooth shared geometry)
  *   + PROPS (kit/booth-props — the category's signature pieces)
- *   + STAFF MASCOT(s) (the shipped <Figure> kit, quality 'low', ≤ 3 figures,
- *     staff outfit + a per-category wall-clock idle clip)
+ *   + STAFF MASCOT(s) (the shipped <Figure> kit, ≤ 3 figures, staff outfit +
+ *     a per-category wall-clock idle clip; never shadow-casting. The scene's
+ *     `quality` knob flows through here — 'low' (phones) bakes each mascot to
+ *     its clip's held t=0 pose, 'high' animates. Catalog-complete perf rule:
+ *     a 10-booth phone room can carry ~16+ staff figures, which is exactly
+ *     the crowd scale the figure kit's 'low' bake exists for.)
  *   + SIGNAGE (the shared BoothSign logo backdrop stays with BoothMesh for
  *     PRO/ENTERPRISE vendors — boothCanBrand unchanged; unbranded booths get
  *     the drawn BoothTextSign nameboard at the same hang height).
@@ -24,8 +28,9 @@
  *     the booth still reads in-character with zero motion.
  *
  * Mounted by venue-objects' BoothMesh when `boothTemplateFor` resolves a
- * template; the 37 not-yet-templated categories keep the generic silhouette
- * (next PR: `3dplan-booth-catalog-complete`).
+ * template — all 57 taxonomy leaves now do (catalog complete); only booths
+ * with no template identity (unlinked custom pins, no-booth vendor
+ * categories) keep the generic silhouette.
  */
 
 import { useMemo } from 'react';
@@ -36,7 +41,7 @@ import {
   type Lab3DPalette,
 } from '@/lib/seating-3d';
 import type { FigureSpec } from '@/lib/figure-rig';
-import { Figure } from './figure';
+import { Figure, type FigureQuality } from './figure';
 import { BoothChassis, CHASSIS_SPECS } from './booth-chassis';
 import { BoothProp, BoothTextSign } from './booth-props';
 import type { BoothTemplateSpec } from './booth-templates';
@@ -46,11 +51,14 @@ export function BoothTemplate({
   template,
   room,
   palette,
+  quality = 'high',
 }: {
   booth: Lab3DBooth;
   template: BoothTemplateSpec;
   room: { w: number; d: number };
   palette: Lab3DPalette;
+  /** Scene quality — 'low' bakes staff mascots to their held clip pose. */
+  quality?: FigureQuality;
 }) {
   const pos = useMemo(
     () => pctToWorld(booth.xPct, booth.yPct, room),
@@ -97,7 +105,9 @@ export function BoothTemplate({
         const a = spec.staffAnchors[i]!;
         return (
           <group key={s.id} position={[a.x, a.y ?? 0, a.z]} rotation={[0, a.faceY, 0]}>
-            <Figure spec={s} pose="stand" quality="low" idleClip={template.staff.idle} />
+            {/* castShadow false: staff keep the crowd knob's shadow saving at
+                every quality (the pre-threading `quality="low"` behavior). */}
+            <Figure spec={s} pose="stand" quality={quality} idleClip={template.staff.idle} castShadow={false} />
           </group>
         );
       })}

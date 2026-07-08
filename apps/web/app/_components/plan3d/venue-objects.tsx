@@ -43,6 +43,7 @@ import {
 import { BoothTemplate } from '@/app/_components/plan3d/kit/booth-template';
 import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
 import { CHASSIS_SPECS } from '@/app/_components/plan3d/kit/booth-chassis';
+import type { FigureQuality } from '@/app/_components/plan3d/kit/figure';
 
 type Room = { w: number; d: number };
 
@@ -430,13 +431,25 @@ export function BoothSign({ url, w, palette }: { url: string; w: number; palette
 }
 
 /** A vendor booth. Booth-template kit (2026-07-08): when the booked vendor's
- *  category (or the booth type) resolves a top-20 template, the full
- *  chassis + props + staff-mascot build renders (kit/booth-template.tsx);
- *  the not-yet-templated categories keep the generic silhouette below —
- *  documented fallback until the catalog-complete PR ships the other 37.
+ *  category (or the booth type) resolves a catalog template — all 57
+ *  taxonomy leaves now do — the full chassis + props + staff-mascot build
+ *  renders (kit/booth-template.tsx); only booths with no template identity
+ *  (unlinked custom pins, no-booth vendor categories) keep the generic
+ *  silhouette below as the safe fallback.
  *  Pro / enterprise vendors additionally get the branded logo backdrop,
  *  hung at the template chassis' sign anchor when one is in play. */
-export function BoothMesh({ booth, room, palette }: { booth: Lab3DBooth; room: Room; palette: Lab3DPalette }) {
+export function BoothMesh({
+  booth,
+  room,
+  palette,
+  quality = 'high',
+}: {
+  booth: Lab3DBooth;
+  room: Room;
+  palette: Lab3DPalette;
+  /** Scene quality — 'low' (phones) bakes the template's staff mascots. */
+  quality?: FigureQuality;
+}) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
   const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
@@ -445,7 +458,7 @@ export function BoothMesh({ booth, room, palette }: { booth: Lab3DBooth; room: R
     const anchor = CHASSIS_SPECS[template.chassis].signAnchor;
     return (
       <group>
-        <BoothTemplate booth={booth} template={template} room={room} palette={palette} />
+        <BoothTemplate booth={booth} template={template} room={room} palette={palette} quality={quality} />
         {branded ? (
           <group position={[pos.x + anchor[0], anchor[1], pos.z + anchor[2]]}>
             <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} />
@@ -537,6 +550,7 @@ export function VenueFixtures({
   booths = [],
   signs = [],
   cocktail = null,
+  quality = 'high',
 }: {
   room: Room;
   palette: Lab3DPalette;
@@ -544,6 +558,9 @@ export function VenueFixtures({
   booths?: Lab3DBooth[];
   signs?: Lab3DSign[];
   cocktail?: Lab3DCocktail;
+  /** Scene quality — threaded to the booth templates' staff mascots
+   *  ('low' = baked held-clip pose, the phone budget knob). */
+  quality?: FigureQuality;
 }) {
   return (
     <group>
@@ -551,7 +568,7 @@ export function VenueFixtures({
         <SceneObjectMesh key={o.id} object={o} room={room} palette={palette} />
       ))}
       {booths.map((b) => (
-        <BoothMesh key={b.id} booth={b} room={room} palette={palette} />
+        <BoothMesh key={b.id} booth={b} room={room} palette={palette} quality={quality} />
       ))}
       {signs.map((s) => (
         <SignMesh key={s.id} sign={s} room={room} palette={palette} />

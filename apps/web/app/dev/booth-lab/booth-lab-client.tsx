@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * /dev/booth-lab client — one <BoothTemplate> per shipped top-20 category on
- * a simple orbitable floor. Uses the REAL renderer + a synthetic Lab3DBooth
+ * /dev/booth-lab client — one <BoothTemplate> per catalog category (all 57)
+ * on a simple orbitable floor. Uses the REAL renderer + a synthetic Lab3DBooth
  * per template (vendor.category = the taxonomy leaf, which boothTemplateFor
  * resolves directly), so what renders here is exactly what a placed booth
  * renders in the lab / demo / guest walk.

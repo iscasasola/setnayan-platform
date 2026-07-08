@@ -18,7 +18,7 @@
  *   · kit/booth-chassis.tsx   — the 9 mascot-smooth booth chassis (+ footprint
  *                               discs, sign + staff anchors)
  *   · kit/booth-props.tsx     — shared booth prop primitives (+ CanvasTextures)
- *   · kit/booth-templates.ts  — the top-20 category config table + resolution
+ *   · kit/booth-templates.ts  — the full 57-category config table + resolution
  *                               + template-aware obstacle registration
  *   · kit/booth-template.tsx  — <BoothTemplate>: chassis + props + staff
  *                               mascots + signage, mounted via BoothMesh

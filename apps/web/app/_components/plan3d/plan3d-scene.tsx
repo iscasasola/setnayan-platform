@@ -1183,7 +1183,9 @@ export function Plan3DScene({
         <TableMesh key={t.id} table={t} room={room} palette={palette} occupiedSeats={occupiedByTable.get(t.id)} />
       ))}
 
-      {/* Placed venue fixtures — objects · booths · signs · cocktail room. */}
+      {/* Placed venue fixtures — objects · booths · signs · cocktail room.
+          Scene quality flows to the booth templates' staff mascots ('low'
+          bakes them — the phone budget knob). */}
       <VenueFixtures
         room={room}
         palette={palette}
@@ -1191,6 +1193,7 @@ export function Plan3DScene({
         booths={booths}
         signs={signs}
         cocktail={cocktail}
+        quality={quality}
       />
 
       {/* Wave 2b: mood-board reception treatments (chandeliers / backdrop /

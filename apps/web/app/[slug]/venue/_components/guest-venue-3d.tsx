@@ -87,6 +87,7 @@ import {
 } from '@/app/_components/plan3d/venue-decor';
 import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
+import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 
 export type VenueScene = {
   published: boolean;
@@ -178,7 +179,13 @@ function GuestTable({
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   return (
     <group position={[home.x, 0, home.z]} rotation={[0, (-table.rotationDeg * Math.PI) / 180, 0]}>
-      {dims.round ? (
+      {/* Serpentine renders its real curved ribbon (shared SERPENTINE_TOP_GEO,
+          floor-to-top) instead of a bounding rectangle. */}
+      {table.shape === 'serpentine' ? (
+        <mesh geometry={SERPENTINE_TOP_GEO} castShadow receiveShadow>
+          <meshStandardMaterial color={palette.table} roughness={0.85} />
+        </mesh>
+      ) : dims.round ? (
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 28]} />
           <meshStandardMaterial color={palette.table} roughness={0.85} />
@@ -189,10 +196,13 @@ function GuestTable({
           <meshStandardMaterial color={palette.table} roughness={0.85} />
         </mesh>
       )}
-      <mesh position={[0, 0.37, 0]}>
-        <cylinderGeometry args={[0.12, 0.16, 0.72, 10]} />
-        <meshStandardMaterial color={palette.wall} roughness={0.6} />
-      </mesh>
+      {/* leg-post — skipped for the serpentine, whose ribbon is floor-to-top */}
+      {table.shape !== 'serpentine' ? (
+        <mesh position={[0, 0.37, 0]}>
+          <cylinderGeometry args={[0.12, 0.16, 0.72, 10]} />
+          <meshStandardMaterial color={palette.wall} roughness={0.6} />
+        </mesh>
+      ) : null}
       <InstancedChairs
         chairs={chairs}
         removedSeats={table.removedSeats}

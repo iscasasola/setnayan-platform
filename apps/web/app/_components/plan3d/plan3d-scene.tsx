@@ -130,6 +130,7 @@ import {
 import { useLookGesture, type LookState } from '@/app/_components/plan3d/use-look-gesture';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import {
   resolveAttirePaletteColor,
   sideAttireColor,
@@ -212,8 +213,14 @@ function TableMesh({
   return (
     <group position={[pos.x, 0, pos.z]} rotation={[0, ry, 0]}>
       {/* Tabletop at the product-true 0.74 m (was a toy-height 0.38 before the
-          chairs landed — a 0.46 m chair seat must tuck UNDER the top). */}
-      {dims.round ? (
+          chairs landed — a 0.46 m chair seat must tuck UNDER the top).
+          Serpentine renders its real curved ribbon (shared SERPENTINE_TOP_GEO,
+          floor-to-top) instead of a bounding rectangle. */}
+      {table.shape === 'serpentine' ? (
+        <mesh geometry={SERPENTINE_TOP_GEO} castShadow receiveShadow>
+          <meshStandardMaterial color={palette.table} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.006} />
+        </mesh>
+      ) : dims.round ? (
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.06, 24]} />
           <meshStandardMaterial color={palette.table} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.006} />
@@ -224,11 +231,14 @@ function TableMesh({
           <meshStandardMaterial color={palette.table} roughness={0.85} bumpMap={fabricBumpMap()} bumpScale={0.006} />
         </mesh>
       )}
-      {/* one leg-post per table, purely for a grounded look at low-poly cost */}
-      <mesh position={[0, 0.36, 0]}>
-        <cylinderGeometry args={[0.06, 0.06, 0.72, 8]} />
-        <meshStandardMaterial color={palette.wall} roughness={0.6} />
-      </mesh>
+      {/* one leg-post per table, purely for a grounded look at low-poly cost —
+          skipped for the serpentine, whose ribbon is already floor-to-top */}
+      {table.shape !== 'serpentine' ? (
+        <mesh position={[0, 0.36, 0]}>
+          <cylinderGeometry args={[0.06, 0.06, 0.72, 8]} />
+          <meshStandardMaterial color={palette.wall} roughness={0.6} />
+        </mesh>
+      ) : null}
       <InstancedChairs
         chairs={chairs}
         removedSeats={table.removedSeats}

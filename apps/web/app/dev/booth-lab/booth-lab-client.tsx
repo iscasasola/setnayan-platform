@@ -93,13 +93,13 @@ export default function BoothLabClient() {
           fontFamily: 'system-ui, sans-serif',
         }}
       >
-        <button type="button" onClick={() => setIndex((index + keys.length - 1) % keys.length)} style={btn}>
+        <button type="button" className="rounded-full" onClick={() => setIndex((index + keys.length - 1) % keys.length)} style={btn}>
           ← Prev
         </button>
-        <span style={{ ...btn, cursor: 'default' }}>
+        <span className="rounded-full" style={{ ...btn, cursor: 'default' }}>
           {index + 1}/{keys.length} · <strong>{key}</strong> · {template.chassis} · {template.staff.idle}
         </span>
-        <button type="button" onClick={() => setIndex((index + 1) % keys.length)} style={btn}>
+        <button type="button" className="rounded-full" onClick={() => setIndex((index + 1) % keys.length)} style={btn}>
           Next →
         </button>
       </div>
@@ -107,9 +107,10 @@ export default function BoothLabClient() {
   );
 }
 
+// Pill shape comes from the `rounded-full` utility on each element — the
+// radius-token lint forbids inline borderRadius px literals (house rule).
 const btn: React.CSSProperties = {
   padding: '8px 14px',
-  borderRadius: 999,
   border: '1px solid #c9c0b0',
   background: '#fffdf7',
   fontSize: 13,

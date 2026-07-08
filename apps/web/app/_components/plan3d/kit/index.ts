@@ -28,6 +28,9 @@
  *   · kit/emotes.tsx          — pooled emote-bubble sprites (drawn glyph
  *                               atlas); rotation policy is the PURE
  *                               lib/emote-schedule (unit-tested)
+ *   · kit/string-lights.tsx   — cinematic Play-mode string lights (Fable §3.5
+ *                               Tier A): catenary strands of warm emissive
+ *                               bulbs, one static InstancedMesh
  */
 
 export {
@@ -119,3 +122,9 @@ export {
   type SitControllerHandles,
   type SitControllerProps,
 } from './sit-controller';
+
+export {
+  StringLights,
+  stringLightStrandCount,
+  stringLightBulbColor,
+} from './string-lights';

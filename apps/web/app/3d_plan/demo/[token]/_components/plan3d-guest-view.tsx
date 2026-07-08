@@ -77,6 +77,10 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           interactive={false}
           // Phone surface — halve the shadow/env budget (Wave 2a quality knob).
           quality="low"
+          // Cinematic Tier A (Fable §3.5): golden-hour grade + string lights.
+          // Both are light-knob / static-instance cheap, so the phone keeps
+          // them at 'low' (which halves the strands); motes stay lab-only.
+          cinematic
         />
       </div>
 

@@ -49,12 +49,22 @@ import {
   SIT_TIMING,
   EmoteBubbles,
   EMOTE_SEATED_Y,
+  StringLights,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
   type FigureQuality,
 } from '@/app/_components/plan3d/kit';
-import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
+import {
+  SceneLighting,
+  DustMotes,
+  playGradeFog,
+  RECOMMENDED_TONEMAP,
+  floorRoughnessMap,
+  floorAlbedoMap,
+  floorBumpMap,
+  fabricBumpMap,
+} from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
   VenueShell,
@@ -392,6 +402,22 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // it toward their sky so the open-air shells don't float in black).
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
   const archFloorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
+  // Cinematic Tier A (Fable §3.5) — the dust motes hover in the key light's
+  // shaft over the dance floor; a disabled dance floor falls back to the room
+  // centre (the Play camera's focal point either way).
+  const moteZone = useMemo(() => {
+    if (floor.dance.enabled) {
+      const c = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
+      return {
+        center: { x: c.x, z: c.z },
+        size: {
+          w: Math.max(3, (floor.dance.wPct / 100) * room.w),
+          d: Math.max(3, (floor.dance.hPct / 100) * room.d),
+        },
+      };
+    }
+    return { center: { x: 0, z: 0 }, size: { w: room.w * 0.4, d: room.d * 0.4 } };
+  }, [floor.dance, room]);
 
   // Single-editor lock — the SAME one the 2D editor uses, so 3D and 2D never
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
@@ -1729,12 +1755,27 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         gl={{ antialias: true, powerPreference: 'high-performance', ...RECOMMENDED_TONEMAP }}
       >
         <color attach="background" args={[mode === 'play' ? '#0c0e14' : '#13151c']} />
-        <fog attach="fog" args={[mode === 'play' ? '#0c0e14' : '#13151c', room.d * 1.4, room.d * 3.2]} />
+        {/* Play's fog is the golden-hour tune (warmed toward the key, far
+            plane pulled in a touch); Build keeps the studio's neutral haze. */}
+        <fog
+          attach="fog"
+          args={
+            mode === 'play'
+              ? playGradeFog('#0c0e14', palette, room.d)
+              : ['#13151c', room.d * 1.4, room.d * 3.2]
+          }
+        />
 
         {/* Shared rig (Wave 2a): procedural Lightformer IBL + one warm shadow
             key, 2048 map fitted to the room. Replaces the flat ambient +
-            hemisphere + bare directional and the fake ContactShadows. */}
-        <SceneLighting palette={palette} quality="high" room={room} />
+            hemisphere + bare directional and the fake ContactShadows. Play
+            flips the cinematic golden-hour grade (Fable §3.5 Tier A). */}
+        <SceneLighting
+          palette={palette}
+          quality="high"
+          room={room}
+          grade={mode === 'play' ? 'play' : 'standard'}
+        />
 
         <RoomShell
           room={room}
@@ -1761,6 +1802,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           quality="high"
           archetype={archetype}
         />
+
+        {/* Cinematic Tier A (Fable §3.5) — Play mode only, Build stays the
+            neutral editing studio. String lights are static instances (fine
+            under reduced motion); the drifting motes honour the house law and
+            simply don't mount when motion is reduced. */}
+        {mode === 'play' ? <StringLights room={room} palette={palette} quality="high" /> : null}
+        {mode === 'play' && !reduced ? (
+          <DustMotes center={moteZone.center} size={moteZone.size} palette={palette} />
+        ) : null}
 
         {tables.map((t) => (
           <TableMesh
@@ -1963,6 +2013,21 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
       />
+
+      {/* Cinematic vignette (Fable §3.5 Tier A) — a dep-free screen-space
+          radial gradient over the canvas, Play only. Pure CSS on a DOM div:
+          zero GPU cost, no postprocessing. pointer-events-none + below the
+          z-20/z-30 walk controls so it never eats a tap. */}
+      {mode === 'play' ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{
+            background:
+              'radial-gradient(120% 90% at 50% 45%, transparent 58%, rgba(6,7,12,0.3) 100%)',
+          }}
+        />
+      ) : null}
 
       {/* Game-pad walk controls (Play): toggle + on-screen sticks. */}
       {mode === 'play' ? (

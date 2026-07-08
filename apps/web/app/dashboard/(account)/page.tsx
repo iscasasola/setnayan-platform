@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -8,7 +9,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { LifeFlashHomeCard } from './_components/life-flash-home-card';
+import {
+  LifeFlashHomeCard,
+  LifeFlashHomeCardSkeleton,
+} from './_components/life-flash-home-card';
 import { getMyLifeStory } from './people/life-stories';
 import {
   LifeStorySection,
@@ -181,7 +185,11 @@ export default async function DashboardIndexPage() {
 
           <CollectionLink />
 
-          {lifeStoryEnabled() ? <LifeFlashHomeCard userId={user.id} /> : null}
+          {lifeStoryEnabled() ? (
+            <Suspense fallback={<LifeFlashHomeCardSkeleton />}>
+              <LifeFlashHomeCard userId={user.id} />
+            </Suspense>
+          ) : null}
 
           {hasConsole ? <RoleSwitchRows roles={roles} /> : null}
         </div>

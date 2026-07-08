@@ -79,6 +79,7 @@ import {
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
+import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -2601,21 +2602,10 @@ function TableMesh({
     return { seatedInstances: out, instancedSeatIdx: idx };
   }, [instanceSeated, seated, chairs, table.removedSeats]);
   // The serpentine table top is a real curved ribbon (104° quarter-donut),
-  // extruded from the canonical outline. Built once per shape and laid flat
-  // (extrude axis → world +Y), rising from the floor to the tabletop height.
-  const serpGeo = useMemo(() => {
-    if (table.shape !== 'serpentine') return null;
-    const shape = new THREE.Shape();
-    serpentineBand().outline.forEach((p, i) => {
-      // Shape lives in XY; after rotateX(−90°) it maps (x, −z) → world (x, h, z).
-      if (i === 0) shape.moveTo(p.x, -p.z);
-      else shape.lineTo(p.x, -p.z);
-    });
-    shape.closePath();
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.74, bevelEnabled: false, steps: 1 });
-    geo.rotateX(-Math.PI / 2);
-    return geo;
-  }, [table.shape]);
+  // laid flat from the floor to the tabletop height — now the shared
+  // SERPENTINE_TOP_GEO so the lab, homepage demo, and guest walk render one
+  // identical ribbon (the demo + walk previously fell back to a rectangle).
+  const serpGeo = table.shape === 'serpentine' ? SERPENTINE_TOP_GEO : null;
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   // Share materials by reference (one per table, not one per token). Chairs
   // themselves are instanced now (see InstancedChairs below); the pedestal

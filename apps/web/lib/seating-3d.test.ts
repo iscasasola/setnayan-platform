@@ -51,6 +51,9 @@ import {
   CHAIR_OBSTACLE_R,
   buildObstacleGrid,
   obstaclesNear,
+  danceFloorRect,
+  pointInZone,
+  clampPointToZone,
   type ObstacleDisc,
   type Lab3DFloor,
   type Lab3DTable,
@@ -103,6 +106,52 @@ test('floorObstacles: adds the dance floor only when enabled', () => {
   const tables = [table('A', 30, 50)];
   assert.equal(floorObstacles(floor(true), tables, ROOM, ['A']).length, 4, 'A skipped → dance + stage + entrance posts');
   assert.equal(floorObstacles(floor(false), tables, ROOM, ['A']).length, 3, 'A skipped, no dance → stage + entrance posts');
+});
+
+test('floorObstacles: skipDanceFloor drops the dance disc (dance-destined walk reaches the floor)', () => {
+  const tables = [table('A', 30, 50)];
+  const f = floor(true);
+  const d = danceFloorRect(f, ROOM)!;
+  // Default: the dance disc is present (ordinary roam rounds the floor).
+  const withDance = floorObstacles(f, tables, ROOM, [], {});
+  const danceDisc = withDance.find((o) => Math.hypot(o.c.x - d.cx, o.c.z - d.cz) < 1e-9);
+  assert.ok(danceDisc, 'dance disc present by default');
+  // Skipped: the same set minus exactly that one disc — a dance walk can reach it.
+  const skipped = floorObstacles(f, tables, ROOM, [], { skipDanceFloor: true });
+  assert.equal(skipped.length, withDance.length - 1, 'exactly one fewer disc when skipped');
+  assert.ok(
+    !skipped.some((o) => Math.hypot(o.c.x - d.cx, o.c.z - d.cz) < 1e-9),
+    'the dropped disc is the dance-floor disc',
+  );
+  // skipDanceFloor is a no-op when there's no dance floor to drop.
+  assert.equal(
+    floorObstacles(floor(false), tables, ROOM, [], { skipDanceFloor: true }).length,
+    floorObstacles(floor(false), tables, ROOM, [], {}).length,
+    'no dance floor → skip is a harmless no-op',
+  );
+});
+
+test('danceFloorRect + pointInZone + clampPointToZone: hit test matches the mural rect', () => {
+  const f = floor(true); // dance at xPct 50, yPct 55, wPct 20, hPct 20 in a 20×20 room
+  const rect = danceFloorRect(f, ROOM);
+  assert.ok(rect, 'enabled → a rect');
+  // 20% of 20 m = 4 m wide/deep → half-extents 2 m, centred at (0, +1).
+  assert.ok(Math.abs(rect!.hw - 2) < 1e-9, 'half-width 2 m');
+  assert.ok(Math.abs(rect!.hd - 2) < 1e-9, 'half-depth 2 m');
+  assert.ok(Math.abs(rect!.cx - 0) < 1e-9, 'centre x = 0');
+  assert.ok(Math.abs(rect!.cz - 1) < 1e-9, 'centre z = +1');
+  // Disabled → null (no hit test, no clamp target).
+  assert.equal(danceFloorRect(floor(false), ROOM), null);
+  // A point at the centre is inside; a point well outside is not.
+  assert.ok(pointInZone({ x: 0, z: 1 }, rect!), 'centre is inside');
+  assert.ok(!pointInZone({ x: 8, z: 8 }, rect!), 'far corner is outside');
+  // A point on the very edge is inside at inset 0, outside once inset in.
+  assert.ok(pointInZone({ x: 2, z: 1 }, rect!), 'edge inside at inset 0');
+  assert.ok(!pointInZone({ x: 2, z: 1 }, rect!, 0.3), 'edge outside once inset');
+  // Clamp pulls an outside tap onto the floor (inset from the lip).
+  const clamped = clampPointToZone({ x: 9, z: 1 }, rect!, 0.3);
+  assert.ok(pointInZone(clamped, rect!), 'clamped point lands on the floor');
+  assert.ok(clamped.x <= 2 - 0.3 + 1e-9, 'clamped inside the inset edge');
 });
 
 test('floorObstacles: entrance posts become discs only when the entrance is enabled', () => {

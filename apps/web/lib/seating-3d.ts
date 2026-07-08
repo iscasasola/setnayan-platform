@@ -190,6 +190,44 @@ function discOverlapsZone(x: number, z: number, r: number, zone: PlaceZone): boo
 }
 
 /**
+ * The dance floor as a world rect (centre + half-extents), or null when the
+ * couple didn't enable one. SAME dimensions the mural mesh renders and the
+ * avoidance disc circumscribes (`floorObstacles`) — the single source the
+ * tap-to-dance hit test + clamp read, so "is this tap on the dance floor?" can
+ * never drift from what's drawn. Pure.
+ */
+export function danceFloorRect(
+  floor: Pick<Lab3DFloor, 'dance'>,
+  room: { w: number; d: number },
+): PlaceZone | null {
+  if (!floor.dance.enabled) return null;
+  const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
+  const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
+  const c = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
+  return { cx: c.x, cz: c.z, hw: danceW / 2, hd: danceD / 2 };
+}
+
+/** Is a world point inside a rect zone? `inset` shrinks the zone on every side
+ *  (a point exactly on the edge counts as inside at inset 0). Pure. */
+export function pointInZone(p: Vec2, zone: PlaceZone, inset = 0): boolean {
+  return (
+    Math.abs(p.x - zone.cx) <= Math.max(0, zone.hw - inset) &&
+    Math.abs(p.z - zone.cz) <= Math.max(0, zone.hd - inset)
+  );
+}
+
+/** Clamp a world point to inside a rect zone (optionally inset from the edge),
+ *  so a dance walk ends comfortably ON the floor rather than on its lip. Pure. */
+export function clampPointToZone(p: Vec2, zone: PlaceZone, inset = 0): Vec2 {
+  const hw = Math.max(0, zone.hw - inset);
+  const hd = Math.max(0, zone.hd - inset);
+  return {
+    x: Math.max(zone.cx - hw, Math.min(zone.cx + hw, p.x)),
+    z: Math.max(zone.cz - hd, Math.min(zone.cz + hd, p.z)),
+  };
+}
+
+/**
  * Placement rules (owner 2026-06-26): objects can't overlap each other · no
  * tables on the dance floor · only a SWEETHEART table may sit on the stage.
  * Pure — the editor calls this on drop and reverts + flags the reason if blocked.
@@ -786,12 +824,18 @@ export function reconcileGrouping<T extends { id: string; linkGroupId: string | 
  * walk path and the crowd populate-Play share ONE source of truth — and so
  * vendor booths slot in here later as just more discs. Skipping a table by id
  * skips ALL of its footprint discs.
+ *
+ * `opts.skipDanceFloor` drops the dance-floor disc for a DANCE-DESTINED walk —
+ * the tap-the-dance-floor flow, mirroring `skipTableIds` for a seat-destined
+ * walk: the floor stays an obstacle for ordinary roam (so the character rounds
+ * it), but a walk that MEANS to end on the floor must be able to reach it.
  */
 export function floorObstacles(
   floor: Lab3DFloor,
   tables: Lab3DTable[],
   room: { w: number; d: number },
   skipTableIds: readonly (string | null | undefined)[],
+  opts: { skipDanceFloor?: boolean } = {},
 ): ObstacleDisc[] {
   const skip = new Set(skipTableIds.filter(Boolean));
   const obs: ObstacleDisc[] = tables
@@ -813,8 +857,9 @@ export function floorObstacles(
     const e = pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room);
     obs.push({ c: { x: e.x - 0.55, z: e.z }, r: 0.2 }, { c: { x: e.x + 0.55, z: e.z }, r: 0.2 });
   }
-  // Dance floor — only when the couple enabled one.
-  if (floor.dance.enabled) {
+  // Dance floor — only when the couple enabled one, and NOT for a dance-destined
+  // walk (which needs to reach it). Ordinary roam keeps the disc and rounds it.
+  if (floor.dance.enabled && !opts.skipDanceFloor) {
     const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
     const danceD = Math.max(1.5, (floor.dance.hPct / 100) * room.d);
     obs.push({

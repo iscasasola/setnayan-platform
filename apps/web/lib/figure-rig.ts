@@ -633,6 +633,121 @@ export function staffIdle(
   return o;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Dance clip (tap-the-dance-floor · looping)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// A DANCE is the staffIdle pattern turned up: a pure additive overlay in
+// (id, t), WALL-CLOCK time-based, phase-offset per id (the same cached
+// idlePhaseOffset), composed over standPose exactly like idleSway/staffIdle.
+// The one thing every staff clip is forbidden — bending knees + bouncing the
+// pelvis — is the whole point here, so dancePose is a SEPARATE export with its
+// OWN (knee-aware, bounce-aware) unit envelope; it is NOT a StaffIdleKind and
+// must never be registered in STAFF_IDLE_KINDS (the staff suite asserts knees
+// < 1e-9 for every kind, which a dance would fail).
+//
+// Envelope (its own test block asserts it): |shoulder| ≤ 3.0 (raised arms) ·
+// elbow/head*/torso* ≤ 1.6 · |pelvisY| ≤ 0.06 (a few-cm bounce) · knees flex
+// only (≤ 0) and never hyperflex (≥ −0.3). Energetic but tasteful, and every
+// channel stays well inside those bounds for all t.
+
+/** Beat clock rate (rad/s of wall-clock time). ~0.54 Hz primary sway, with the
+ *  2b harmonic giving a ~1.08 Hz bounce/head-bob. */
+const DANCE_HZ = 3.4;
+
+/**
+ * One dance sample at wall-clock `t` (seconds) for a figure id — an additive
+ * overlay over standPose (compose via `overlayPose(standPose(), dancePose(id,
+ * t))`), same convention as idleSway/staffIdle. Deterministic in (id, t);
+ * per-id phase offset reuses idleSway's cached hash so a small crowd never
+ * dances in unison. 2–3 id-hashed style variants keep neighbours distinct
+ * beyond phase alone. Pass `out` to reuse a caller-owned buffer in the
+ * per-frame render loop. Every channel stays inside the dance envelope for all
+ * t (the unit suite asserts it); at t=0 it yields a stable, off-asymmetric
+ * held pose — a paused dancer, the reduced-motion / quality-'low' bake.
+ */
+export function dancePose(id: string, t: number, out?: Partial<Pose>): Partial<Pose> {
+  const off = idlePhaseOffset(id);
+  const b = t * DANCE_HZ + off;
+  const sb = Math.sin(b);
+  const s2 = Math.sin(2 * b);
+  const bounce = Math.abs(sb); // 0 at the low point, 1 at the top of the bounce
+  // Knee flex synced to the DOWN-beat: fully bent (−) when 2b crosses so the
+  // bounce reads as a spring, straight at the top. (0.5 − 0.5·sin2b) ∈ [0, 1].
+  const kneeCurve = 0.5 - 0.5 * s2;
+  const o = out ?? {};
+  // Buffer-reuse contract (a reused buffer may carry another clip's channels —
+  // reset every one before writing this clip's subset), same as staffIdle.
+  o.pelvisY = 0;
+  o.pelvisZ = 0;
+  o.torsoLean = 0;
+  o.torsoSway = 0;
+  o.headYaw = 0;
+  o.headPitch = 0;
+  o.leftShoulder = 0;
+  o.rightShoulder = 0;
+  o.leftElbow = 0;
+  o.rightElbow = 0;
+  o.leftHip = 0;
+  o.rightHip = 0;
+  o.leftKnee = 0;
+  o.rightKnee = 0;
+
+  // Fresh bit-window off the id hash (independent of look / idlePhaseOffset) so
+  // two ids don't just share one silhouette shifted in phase. Only the single
+  // self figure dances per surface, so re-hashing per frame is negligible.
+  const v = (hashId(id) >> 5) % 3;
+  switch (v) {
+    case 1: {
+      // "pump" — arms lower and driving, a stronger bounce, deeper head bob.
+      o.pelvisY = -0.01 + 0.04 * bounce; //           [-0.01, +0.03]
+      o.torsoSway = 0.14 * sb; //                     ±0.14
+      o.torsoLean = 0.05 + 0.03 * s2; //              [0.02, 0.08]
+      o.headPitch = 0.09 + 0.08 * s2; //              [0.01, 0.17]
+      o.headYaw = 0.08 * sb; //                       ±0.08
+      o.leftShoulder = 1.2 + 0.4 * sb; //             [0.8, 1.6]
+      o.rightShoulder = 1.2 - 0.4 * sb; //            [0.8, 1.6] (anti-phase)
+      o.leftElbow = 1.3 + 0.2 * sb; //                [1.1, 1.5]
+      o.rightElbow = 1.3 - 0.2 * sb; //               [1.1, 1.5]
+      o.leftKnee = -0.14 * kneeCurve; //              [-0.14, 0]
+      o.rightKnee = -0.14 * kneeCurve;
+      break;
+    }
+    case 2: {
+      // "raise-the-roof" — both arms punch UP together on the beat, calmer hips.
+      const raise = Math.max(0, s2); //               [0, 1] on the up-beat
+      o.pelvisY = -0.01 + 0.03 * bounce; //           [-0.01, +0.02]
+      o.torsoSway = 0.1 * sb; //                      ±0.10
+      o.torsoLean = 0.05 + 0.03 * s2; //              [0.02, 0.08]
+      o.headPitch = 0.05 + 0.05 * s2; //              [0, 0.10]
+      o.headYaw = 0.06 * sb; //                       ±0.06
+      o.leftShoulder = 2.0 + 0.4 * raise; //          [2.0, 2.4] (both together)
+      o.rightShoulder = 2.0 + 0.4 * raise; //         [2.0, 2.4]
+      o.leftElbow = 0.9; //                           held bent
+      o.rightElbow = 0.9;
+      o.leftKnee = -0.1 * kneeCurve; //               [-0.10, 0]
+      o.rightKnee = -0.1 * kneeCurve;
+      break;
+    }
+    default: {
+      // v0 "sway" — raised arms alternately pumping, hips/torso swaying.
+      o.pelvisY = -0.01 + 0.035 * bounce; //          [-0.01, +0.025]
+      o.torsoSway = 0.18 * sb; //                     ±0.18
+      o.torsoLean = 0.05 + 0.03 * s2; //              [0.02, 0.08]
+      o.headPitch = 0.06 + 0.06 * s2; //              [0, 0.12]
+      o.headYaw = 0.1 * sb; //                        ±0.10
+      o.leftShoulder = 1.7 + 0.5 * sb; //             [1.2, 2.2]
+      o.rightShoulder = 1.7 - 0.5 * sb; //            [1.2, 2.2] (anti-phase)
+      o.leftElbow = 1.1 + 0.25 * sb; //               [0.85, 1.35]
+      o.rightElbow = 1.1 - 0.25 * sb; //              [0.85, 1.35]
+      o.leftKnee = -0.12 * kneeCurve; //              [-0.12, 0]
+      o.rightKnee = -0.12 * kneeCurve;
+      break;
+    }
+  }
+  return o;
+}
+
 /**
  * Frame-rate-independent damping factor — the SAME `damp(base, delta)`
  * pattern the demo Walker uses (plan3d-scene.tsx): the fraction to move

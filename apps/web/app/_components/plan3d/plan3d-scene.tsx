@@ -110,6 +110,9 @@ import {
   chairObstaclesForWalk,
   dropDiscsContaining,
   buildObstacleGrid,
+  danceFloorRect,
+  pointInZone,
+  clampPointToZone,
   separateAgents,
   resolvePalette,
   resolvePaletteFromRoles,
@@ -480,6 +483,9 @@ const WALK_SPEED_MPS = 1.45; // an unhurried indoor stroll (scripted seat walk)
 const WALK_MIN_MS = 2800; // never so short the entrance→seat arc feels clipped
 const ROAM_SPEED = 1.7; // constant roam speed so cross-room taps don't fast-forward
 const AVATAR_BODY_R = 0.24; // keep the avatar's own girth clear of obstacles too
+// A dance target is pulled this far inside the dance-floor edge so the figure
+// lands squarely ON the floor (body clear of the lip), not straddling it.
+const DANCE_EDGE_INSET_M = AVATAR_BODY_R + 0.15;
 
 // ── Shared-room movers (slice-8 hook) ────────────────────────────────────────
 // The demo animates exactly ONE walker today, but the separation pass is wired
@@ -508,6 +514,11 @@ type WalkState = {
   startedAt: number;
   durationMs: number;
   onComplete?: () => void;
+  /** Tap-the-dance-floor: this walk ends ON the dance floor, so on arrival the
+   *  figure plays the looping dance instead of standing. Per-walk-scoped — every
+   *  fresh WalkState (a seat/booth/elsewhere tap) defaults this off, which is
+   *  exactly how "walk off the floor → stop dancing" falls out for free. */
+  dance?: boolean;
 };
 
 // Seconds of no look-input before the chase camera eases its facing back to
@@ -719,7 +730,10 @@ function Walker({
           there is exactly ONE player figure and it owns the camera — the
           crowd, not the player, is the phone budget knob. On arrival the pose
           eases into 'stand' so the figure never holds a frozen stride. */}
-      <Figure spec={spec} name={name} pose={atRest ? 'stand' : 'walk'} phase={bobRef} quality="high" />
+      {/* On arrival the pose eases to 'stand' — or to the looping 'dance' when
+          this walk ended on the dance floor (the kit blends walk↔dance exactly
+          like walk↔stand, so neither transition holds a frozen stride). */}
+      <Figure spec={spec} name={name} pose={atRest ? (walk.dance ? 'dance' : 'stand') : 'walk'} phase={bobRef} quality="high" />
     </group>
   );
 }
@@ -887,6 +901,24 @@ export function Plan3DScene({
       ]),
     [floor, tables, room, fixtureObstacles],
   );
+  // The dance floor as a world rect — the tap hit-test + the on-floor clamp
+  // target (null when the couple didn't enable one). Same rect the mural draws.
+  const danceRect = useMemo(() => danceFloorRect(floor, room), [floor, room]);
+  // The obstacle set for a DANCE-DESTINED walk: identical to roam EXCEPT the
+  // dance-floor disc is dropped (skipDanceFloor), so the figure can steer onto
+  // the floor AND the per-frame clamp doesn't shove it back off. Every other
+  // obstacle (tables — which can't sit on the dance floor — stage, serpentine
+  // chairs, fixtures) stays solid. Built once per scene like roamObstacles; a
+  // harmless no-op set when there's no dance floor (danceRect gates its use).
+  const danceObstacles = useMemo(
+    () =>
+      buildObstacleGrid([
+        ...floorObstacles(floor, tables, room, [], { skipDanceFloor: true }),
+        ...tables.filter((t) => t.shape === 'serpentine').flatMap((t) => chairObstacles(t, room)),
+        ...fixtureObstacles,
+      ]),
+    [floor, tables, room, fixtureObstacles],
+  );
 
   // Warm the texture cache for every seated guest's photo up front so the first
   // painted frame shows faces, not tokens. Shared decode with the mounting
@@ -1020,7 +1052,12 @@ export function Plan3DScene({
   // Steer the roaming figure to a world point, optionally around obstacles that
   // already include the fixtures. Shared by roam floor taps, the own-seat tap,
   // and the booth "walk to" button so they animate identically.
-  const walkToPoint = (dest: Vec2, obstacles: ObstacleDisc[] | ObstacleGrid, speed = ROAM_SPEED) => {
+  const walkToPoint = (
+    dest: Vec2,
+    obstacles: ObstacleDisc[] | ObstacleGrid,
+    speed = ROAM_SPEED,
+    dance = false,
+  ) => {
     // A walk tap COMMITS a direction: release the user's yaw offset so the
     // chase camera eases back behind the new walk heading. Without this the
     // retained offset re-applies on top of each new heading, so every
@@ -1028,13 +1065,31 @@ export function Plan3DScene({
     // chosen tilt shouldn't pop just because you started walking.)
     look.current.yawOffset = 0;
     const from = walkerPosRef.current ?? entranceWorld;
-    const path = steerPath(from, dest, obstacles, AVATAR_BODY_R);
+    // Escaping an avoidance disc the figure is STANDING inside. Today the only
+    // live case is resting ON the dance floor: the dance walk clamped against
+    // danceObstacles (which drops the dance-floor disc), so walkerPosRef comes
+    // to rest INSIDE that disc. If the walk-away kept the disc in its obstacle
+    // set (roamObstacles re-includes it), steerPath's path[0] === from would
+    // still be inside it and the first per-frame pushOutOfDiscs clamp would
+    // snap the figure to the disc edge in a SINGLE frame — a visible teleport
+    // pop outward on the first frame of every walk off the dance floor. Drop
+    // exactly the disc(s) that contain `from` so the figure walks out smoothly;
+    // every other obstacle stays solid. (Same relief the seat walks apply at
+    // their arrive point — here applied at the START.)
+    const allDiscs = Array.isArray(obstacles) ? obstacles : obstacles.all;
+    const freedDiscs = dropDiscsContaining(allDiscs, from, AVATAR_BODY_R);
+    const walkObstacles: ObstacleDisc[] | ObstacleGrid =
+      freedDiscs.length === allDiscs.length ? obstacles : buildObstacleGrid(freedDiscs);
+    const path = steerPath(from, dest, walkObstacles, AVATAR_BODY_R);
     if (reducedMotion) {
-      setWalk({ path: [dest], obstacles: [], startedAt: performance.now(), durationMs: 1 });
+      // No animated walk: teleport to the (already-clamped) dest and hold. A
+      // dance target still sets dance=true, so the figure holds the STATIC
+      // dance pose there — reduced motion still walks on + dances (frozen).
+      setWalk({ path: [dest], obstacles: [], startedAt: performance.now(), durationMs: 1, dance });
       return;
     }
     const durationMs = Math.min(6500, Math.max(500, (pathLength(path) / speed) * 1000));
-    setWalk({ path, obstacles, startedAt: performance.now(), durationMs });
+    setWalk({ path, obstacles: walkObstacles, startedAt: performance.now(), durationMs, dance });
   };
 
   useEffect(() => {
@@ -1196,6 +1251,16 @@ export function Plan3DScene({
     // A swipe that ended over the floor is a LOOK, not a walk — swallow it.
     if (look.current.suppressTap || e.delta > TAP_MAX_PX) return;
     e.stopPropagation();
+    const hit: Vec2 = { x: e.point.x, z: e.point.z };
+    // Tap ON the dance floor → walk onto it (the floor is walkable for THIS walk
+    // via danceObstacles) and, on arrival, dance. Clamp the target a body-radius
+    // inside the floor's edge so the figure lands comfortably on it, not on the
+    // lip. Any other tap below is an ordinary roam walk with dance=false, so a
+    // dancing figure that's tapped elsewhere walks off and stops dancing.
+    if (danceRect && pointInZone(hit, danceRect)) {
+      walkToPoint(clampPointToZone(hit, danceRect, DANCE_EDGE_INSET_M), danceObstacles, ROAM_SPEED, true);
+      return;
+    }
     // Clamp the tapped point inside the walls with a small margin.
     const margin = 0.4;
     const dest: Vec2 = {
@@ -1229,20 +1294,36 @@ export function Plan3DScene({
     // engine-documented as cheap enough to rebuild per FRAME, and taps are rare.
     const seatIndex = Math.max(0, Math.min(t.capacity - 1, roamGuest.seatNumber ?? 0));
     const chairDiscs = chairObstaclesForWalk(tables, room, { tableId: t.id, seatNumber: seatIndex });
+    // Start relief: if the figure is walking to its seat FROM inside an
+    // avoidance disc (today: resting on the dance floor, whose disc the dance
+    // walk didn't clamp against), keep that disc out of BOTH the path and the
+    // per-frame clamp — otherwise steerPath/seatApproachPath would route around
+    // it from inside (a contorted exit) and the first clamp frame would snap the
+    // figure to its edge (a teleport pop). Same drop the arrive point already
+    // gets below, applied at the START.
     const pathObstacles = buildObstacleGrid([
-      ...floorObstacles(floor, tables, room, []),
-      ...fixtureObstacles,
+      ...dropDiscsContaining(
+        [...floorObstacles(floor, tables, room, []), ...fixtureObstacles],
+        from,
+        AVATAR_BODY_R,
+      ),
       ...chairDiscs,
     ]);
     const path = seatApproachPath(from, t, seatIndex, room, pathObstacles, AVATAR_BODY_R);
     // Same neighbour-footprint relief as the scripted walk: a back-to-back
     // table's capsule disc can contain the chair itself — drop exactly the
     // discs that do, or the clamp shoves the figure off the seat on arrival.
+    // The from-disc drop rides along so the walk-off from the dance floor
+    // doesn't pop on frame one either.
     const arrivePoint = path[path.length - 1]!;
     const clampObstacles = buildObstacleGrid([
       ...dropDiscsContaining(
-        [...floorObstacles(floor, tables, room, [t.id]), ...fixtureObstacles],
-        arrivePoint,
+        dropDiscsContaining(
+          [...floorObstacles(floor, tables, room, [t.id]), ...fixtureObstacles],
+          arrivePoint,
+          AVATAR_BODY_R,
+        ),
+        from,
         AVATAR_BODY_R,
       ),
       ...chairDiscs,

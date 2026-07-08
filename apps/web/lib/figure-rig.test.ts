@@ -23,6 +23,7 @@ import {
   sitPose,
   idleSway,
   staffIdle,
+  dancePose,
   overlayPose,
   damp,
   JOINTS,
@@ -307,6 +308,106 @@ test('staff idles compose over standPose without breaking the record', () => {
     const out = overlayPose(base, staffIdle(kind, 'staff-y', 3.7));
     for (const j of JOINTS) assert.ok(Number.isFinite(out[j]), `${kind}.${j} finite composed`);
   }
+});
+
+// ── dance clip (tap-the-dance-floor) ─────────────────────────────────────────
+
+test('dancePose stays inside its (knee/bounce-aware) envelope for all sampled t', () => {
+  // Its OWN envelope — unlike staff, a dance bends knees and bounces the
+  // pelvis, but every channel is still bounded and tasteful: raised arms
+  // (≤ 3.0 rad), everything else ≤ 1.6 rad, a few-cm bounce (≤ 0.06 m), and
+  // knees that only flex (≤ 0) and never hyperflex (≥ −0.3).
+  for (const id of ['dancer-a', 'dancer-b', 'dancer-c', 'S89G-ZZZ9', 'x']) {
+    for (let i = 0; i < 400; i++) {
+      const t = i * 0.29;
+      const s = dancePose(id, t);
+      for (const j of JOINTS) {
+        assert.ok(Number.isFinite(s[j] ?? 0), `${id}.${j} finite at t=${t}`);
+      }
+      assert.ok(Math.abs(s.leftShoulder ?? 0) <= 3.0, `${id} left shoulder bounded at t=${t}`);
+      assert.ok(Math.abs(s.rightShoulder ?? 0) <= 3.0, `${id} right shoulder bounded at t=${t}`);
+      for (const j of ['leftElbow', 'rightElbow', 'headYaw', 'headPitch', 'torsoLean', 'torsoSway'] as const) {
+        assert.ok(Math.abs(s[j] ?? 0) <= 1.6, `${id}.${j} ≤ 1.6 rad at t=${t}`);
+      }
+      assert.ok(Math.abs(s.pelvisY ?? 0) <= 0.06, `${id} bounce stays a few cm at t=${t}`);
+      assert.ok((s.leftKnee ?? 0) <= 0 && (s.rightKnee ?? 0) <= 0, `${id} knees only flex at t=${t}`);
+      assert.ok((s.leftKnee ?? 0) >= -0.3 && (s.rightKnee ?? 0) >= -0.3, `${id} knees never hyperflex at t=${t}`);
+    }
+  }
+});
+
+test('dancePose is deterministic in (id, t)', () => {
+  for (const t of [0, 0.8, 12.5, 999.25]) {
+    const a = dancePose('dancer-fixed', t);
+    const b = dancePose('dancer-fixed', t);
+    assert.deepEqual({ ...a }, { ...b }, `same (id,t) → same overlay at t=${t}`);
+  }
+});
+
+test('dancePose actually moves over time (a loop, not a freeze frame)', () => {
+  let moved = false;
+  const first = { ...dancePose('dancer-move', 0) };
+  for (let i = 1; i < 40 && !moved; i++) {
+    const s = dancePose('dancer-move', i * 0.19);
+    for (const j of JOINTS) {
+      if (Math.abs((s[j] ?? 0) - (first[j] ?? 0)) > 0.02) {
+        moved = true;
+        break;
+      }
+    }
+  }
+  assert.ok(moved, 'the dance animates over time');
+});
+
+test('dancePose de-syncs across ids (distinct but bounded)', () => {
+  // Two ids must not trace an identical curve. With hash-derived phase AND
+  // style variants, at least one channel differs across a short sweep.
+  let differs = false;
+  for (let i = 0; i < 12; i++) {
+    const t = i * 0.53;
+    const a = dancePose('dancer-1', t);
+    const b = dancePose('dancer-2', t);
+    for (const j of JOINTS) {
+      if (Math.abs((a[j] ?? 0) - (b[j] ?? 0)) > 1e-3) {
+        differs = true;
+        break;
+      }
+    }
+  }
+  assert.ok(differs, 'per-id phase + variant produce different dance curves');
+});
+
+test('dancePose raises the arms (it reads as dancing, not standing)', () => {
+  // Across ids/time the shoulders lift well past a resting arm — the silhouette
+  // that names the pose. Sample several ids so every variant is exercised.
+  for (const id of ['dancer-a', 'dancer-b', 'dancer-c', 'dancer-d']) {
+    let maxShoulder = 0;
+    for (let i = 0; i < 60; i++) {
+      const s = dancePose(id, i * 0.21);
+      maxShoulder = Math.max(maxShoulder, s.leftShoulder ?? 0, s.rightShoulder ?? 0);
+    }
+    assert.ok(maxShoulder > 1.0, `${id} raises an arm well above rest (got ${maxShoulder})`);
+  }
+});
+
+test('dancePose held pose at t=0 is stable and composes legally over standPose', () => {
+  const base = standPose();
+  for (const id of ['dancer-a', 'dancer-b', 'dancer-c']) {
+    const held = dancePose(id, 0);
+    // Deterministic hold — the reduced-motion / quality-'low' bake.
+    assert.deepEqual({ ...held }, { ...dancePose(id, 0) }, `${id} t=0 hold stable`);
+    const out = overlayPose(base, held);
+    for (const j of JOINTS) assert.ok(Number.isFinite(out[j]), `${id}.${j} finite composed at t=0`);
+    // The composed hold keeps the same tasteful envelope (arms raised, subtle bounce).
+    assert.ok(Math.abs(out.leftShoulder) <= 3.0 && Math.abs(out.rightShoulder) <= 3.0, `${id} held shoulders bounded`);
+    assert.ok(out.leftKnee <= 1e-9 && out.rightKnee <= 1e-9, `${id} held knees only flex`);
+  }
+});
+
+test('dancePose is NOT registered as a staff idle kind (own envelope)', () => {
+  // A dance bends knees + bounces; the staff envelope forbids both. Guard that
+  // it never leaks into STAFF_IDLE_KINDS (where the staff suite would fail it).
+  assert.ok(!(STAFF_IDLE_KINDS as readonly string[]).includes('dance'), 'dance is not a staff kind');
 });
 
 // ── composition + damping helpers ────────────────────────────────────────────

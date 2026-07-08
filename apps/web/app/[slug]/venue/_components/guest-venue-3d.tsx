@@ -38,6 +38,9 @@ import {
   steerPath,
   seatApproachPath,
   floorObstacles,
+  danceFloorRect,
+  pointInZone,
+  clampPointToZone,
   sceneObjectObstacles,
   signObstacles,
   cocktailObstacles,
@@ -88,6 +91,10 @@ import {
 import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
+
+// A dance target is pulled this far inside the dance-floor edge so the avatar
+// lands squarely on the floor (body radius here is 0.2, matching the walk).
+const DANCE_EDGE_INSET_M = 0.35;
 
 export type VenueScene = {
   published: boolean;
@@ -266,6 +273,7 @@ function GuestAvatar({
   target,
   seat,
   isSeatTarget,
+  dance = false,
   room,
   seatObstacles,
   roamObstacles,
@@ -278,10 +286,15 @@ function GuestAvatar({
   seat: { table: Lab3DTable; seatNumber: number } | null;
   /** True when `target` is the guest's seat (walk-to-seat), false for a roam tap. */
   isSeatTarget: boolean;
+  /** True when `target` is ON the dance floor — on arrival the figure dances
+   *  (looping) instead of standing. `roamObstacles` is then the dance-skipped
+   *  set (the parent swaps it) so the walk can steer onto the floor. */
+  dance?: boolean;
   room: { w: number; d: number };
   /** Full obstacle set (destination table INCLUDED) for the seat walk. */
   seatObstacles: { c: Vec2; r: number }[];
-  /** Obstacle set with the guest's own table skipped, for free-roam taps. */
+  /** Obstacle set with the guest's own table skipped, for free-roam taps (and,
+   *  for a dance target, the dance-floor disc skipped too — parent-swapped). */
   roamObstacles: { c: Vec2; r: number }[];
   /** Fired once when a walk-to-seat reaches the chair — hides the beacon. */
   onArrive?: () => void;
@@ -328,7 +341,7 @@ function GuestAvatar({
     arrivedRef.current = false; // a new destination → not there yet
     restedRef.current = false;
     setAtRest(false);
-  }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles]);
+  }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles, dance]);
 
   useFrame((_, delta) => {
     const g = ref.current;
@@ -374,7 +387,12 @@ function GuestAvatar({
           the figure's own useFrame, no per-frame React re-render); the pose
           eases walk → stand on arrival. Always quality 'high': this is the
           single viewer figure that owns the camera, not the 'low'-tier crowd. */}
-      <Figure spec={selfSpec} pose={atRest ? 'stand' : 'walk'} phase={phaseRef} quality="high" />
+      <Figure
+        spec={selfSpec}
+        pose={atRest ? (dance ? 'dance' : 'stand') : 'walk'}
+        phase={phaseRef}
+        quality="high"
+      />
       {/* Keep the soft accent glow that has always marked "you". */}
       <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
     </group>
@@ -588,6 +606,16 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     () => [...floorObstacles(floor, tables, room, [scene.you?.table]), ...fixtureObstacles],
     [floor, tables, room, scene.you, fixtureObstacles],
   );
+  // Tap-to-dance: the dance floor as a world rect (the mural's rect) for the
+  // tap hit-test, and a roam obstacle set with the dance-floor disc DROPPED so a
+  // dance-destined tap can steer onto the floor (ordinary roam keeps it, so the
+  // avatar still rounds the floor otherwise). Own table stays skipped as in the
+  // plain roam set.
+  const danceRect = useMemo(() => danceFloorRect(floor, room), [floor, room]);
+  const danceObstacles = useMemo(
+    () => [...floorObstacles(floor, tables, room, [scene.you?.table], { skipDanceFloor: true }), ...fixtureObstacles],
+    [floor, tables, room, scene.you, fixtureObstacles],
+  );
   // Emote bubbles (Fable §3.6) — AMBIENT ONLY on this anonymized surface:
   // music notes over the dance floor + chat dots over tables that have people
   // (table-level occupancy is already public via the tinted chairs, so a chat
@@ -629,9 +657,14 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   // Whether the avatar has reached its seat — hides the destination beacon once
   // it's standing there. Reset whenever the seat walk (re)starts.
   const [seatReached, setSeatReached] = useState(false);
+  // Whether the current target is ON the dance floor — the avatar dances on
+  // arrival. Every non-dance destination (seat, booth, elsewhere) clears it, so
+  // walking away stops the dance. State-scoped to the current target.
+  const [danceTarget, setDanceTarget] = useState(false);
   useEffect(() => {
     setTarget(seatTarget);
     setSeatReached(false);
+    setDanceTarget(false);
   }, [seatTarget]);
   const isSeatTarget = target === seatTarget;
 
@@ -643,6 +676,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   // same way a floor tap does.
   const walkToBooth = (booth: Lab3DBooth) => {
     setOpenBooth(null);
+    setDanceTarget(false); // walking to a booth ends any dancing
     setTarget(boothApproach(booth, room).point);
   };
 
@@ -696,8 +730,19 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           receiveShadow
           onClick={(e: ThreeEvent<MouseEvent>) => {
             if (e.delta > TAP_MAX_PX) return; // that was a look-drag, not a tap
-            const x = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
-            const z = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
+            const hit: Vec2 = { x: e.point.x, z: e.point.z };
+            // Tap ON the dance floor → walk onto it (dance-skipped obstacles let
+            // the walk steer on) and dance on arrival; clamp inside the edge so
+            // the figure lands squarely on the floor. Any other tap clears the
+            // dance flag, so walking elsewhere stops the dance.
+            if (danceRect && pointInZone(hit, danceRect)) {
+              setDanceTarget(true);
+              setTarget(clampPointToZone(hit, danceRect, DANCE_EDGE_INSET_M));
+              return;
+            }
+            setDanceTarget(false);
+            const x = Math.max(-room.w / 2, Math.min(room.w / 2, hit.x));
+            const z = Math.max(-room.d / 2, Math.min(room.d / 2, hit.z));
             setTarget({ x, z });
           }}
         >
@@ -821,6 +866,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             position={seatTarget}
             color={palette.accent}
             onTap={() => {
+              setDanceTarget(false); // sitting down ends any dancing
               setTarget(seatTarget);
               setSeatReached(false);
             }}
@@ -839,9 +885,12 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             target={target}
             seat={youSeat}
             isSeatTarget={isSeatTarget}
+            dance={danceTarget}
             room={room}
             seatObstacles={seatObstacles}
-            roamObstacles={roamObstacles}
+            // A dance target steers with the dance-floor disc dropped so the
+            // walk can reach the floor; every other roam tap keeps it (rounds it).
+            roamObstacles={danceTarget ? danceObstacles : roamObstacles}
             onArrive={() => setSeatReached(true)}
             palette={palette}
           />

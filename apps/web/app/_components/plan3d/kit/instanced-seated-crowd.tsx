@@ -20,6 +20,20 @@
  * and `instanceColor` multiplies over white — so a neutral stranger (white) and
  * a tinted figure both render byte-identically to `mannequinMaterial(tint)`.
  *
+ * ⚠ SCOPE — this batch is byte-identical to a STATIC seated figure ONLY (an
+ * individual `<Figure pose="sit">` at `quality="low"` OR under reduced motion).
+ * It bakes the CONSTANT `sitPose()` once and never animates — there is no
+ * per-frame path here at all (the `quality` prop below only gates the shadow
+ * pass, never motion). An ANIMATED seated `<Figure>` (default `quality="high"`,
+ * motion allowed) mounts `FigureFrameDriver`, which layers a live
+ * `idleSway(id, t)` — a slow ±torso sway + occasional head turn — over
+ * `SIT_BASE` every frame; the instanced crowd deliberately drops that idle life
+ * for the phone budget, so it diverges from a HIGH figure by exactly that sway.
+ * Hence the default `quality` here is `'low'`: the crowd always renders what a
+ * static figure renders. Feed this component only the static/budget seated
+ * occupants (which is the whole reason it exists); to keep a specific seat's
+ * idle breathing, leave it as an individual `<Figure>`.
+ *
  * WHO STAYS INDIVIDUAL (not passed here): figures with a `photoUrl` (the
  * per-guest GuestPhotoAvatar billboard), the viewer's own SELF figure, and any
  * WALKING figure — all still mount as `<Figure>` exactly as before. The caller
@@ -97,11 +111,14 @@ const _s0 = new THREE.Vector3(0, 0, 0);
  */
 export function InstancedSeatedCrowd({
   seats,
-  quality = 'high',
+  quality = 'low',
   castShadow: castShadowProp,
 }: {
   seats: readonly SeatedInstance[];
-  /** Mirrors `<Figure>`'s crowd knob: 'low' drops the shadow-caster pass. */
+  /** Shadow-pass knob only — the crowd is ALWAYS statically baked (no idle
+   *  sway; see the module header's SCOPE note), so `quality` here never gates
+   *  motion, only the shadow-caster pass. 'low' (the default, matching the
+   *  budget crowd this batch replaces) drops shadows; 'high' casts them. */
   quality?: FigureQuality;
   /** Explicit shadow override; defaults to the quality rule (only non-'low'
    *  figures cast) — identical to `<Figure>`. */

@@ -1,5 +1,17 @@
 # Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
 
+## 2026-07-08 · fix(plan3d): scope InstancedSeatedCrowd to static figures (pixel-identity guard)
+
+Triage of the instanced-seated-crowd slice caught a latent pixel-divergence footgun: `<InstancedSeatedCrowd>` defaulted to `quality='high'` and its docstring claimed a blanket "pixel-identity" with the individual `<Figure pose="sit">`. But the batch bakes the CONSTANT `sitPose()` once and has NO per-frame path — its `quality` prop only gates the shadow pass — whereas an individual seated `<Figure>` at `quality='high'` (its own default, motion allowed) mounts `FigureFrameDriver`, which layers a live `idleSway(id, t)` (a slow ±torso sway + occasional head turn) over `SIT_BASE` every frame. So the two are byte-identical only against a STATIC figure (`quality='low'` OR reduced motion), not at the component's own advertised default. The single shipped call site (`guest-venue-3d.tsx`) already passes `quality='low'`, so there is NO divergence in production today; the `'high'` default + unqualified guarantee were an invitation to reintroduce the sway-vs-frozen mismatch the moment another surface mounted the batch on defaults.
+
+- **`kit/instanced-seated-crowd.tsx`** — default `quality` flipped `'high'` → `'low'` (a careless mount now matches the static bake it replaces; the wired call site was already explicit `'low'`, so runtime behaviour is unchanged). Docstring pixel-identity guarantee re-scoped to STATIC seated figures, with an explicit note that the batch never animates and `quality` here gates only shadows. `quality`-prop JSDoc corrected to say the same.
+
+**Draw-call win (unchanged by this fix — restated for the owner):** the seated crowd drew ~14 non-instanced meshes PER occupant, one `<Figure pose="sit">` per occupied seat, no cap/LOD/instancing. On the phone-first public guest walk at 250 pax that was ≈ **14 × N = ~3,200 color-pass draws + ~250 `useFrame` subscribers**. Instanced, the whole seated room collapses to **~14 InstancedMesh draws (+1 optional status-ring batch) + 0 per-figure `useFrame` subscribers** — the phone draw ceiling drops from **14×N to ~14**, flat in occupant count.
+
+**LOD / hard-cap recommendation (evaluated, NOT shipped — needs owner sign-off):** a seat cap or distance-LOD would push the phone budget further, but BOTH change the locked look (a cap renders fewer figures than were seated; an LOD swaps silhouettes at range) — so they are deliberately out of this slice. Recommendation: the instancing win alone already flattens the ceiling to ~14 draws, so a cap/LOD is not needed for the 250-pax phone target and should ship (if ever) only as an explicit owner-approved look change, never folded in silently.
+
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md — seated crowd instanced (pixel-identical); draw-call ceiling on phones cut from 14×N to ~14. LOD/hard-cap options evaluated but NOT shipped — pending owner sign-off as they alter the locked look.
+
 ## 2026-07-08 · perf(plan3d): instanced seated crowd — collapse the phone-walk draw ceiling
 
 > ⚠ OWNER SIGN-OFF PENDING — this changes the seated-crowd RENDERING PATH (individual articulated meshes → instanced), which brushes the owner-locked "one articulated figure everywhere" direction. The LOOK is preserved pixel-for-pixel; the direction nuance is flagged for sign-off before this ships. No PR opened.

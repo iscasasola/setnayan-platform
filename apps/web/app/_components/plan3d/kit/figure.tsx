@@ -188,12 +188,20 @@ export type FigureProps = {
   /**
    * Booth-staff idle clip (2026-07-08 booth kit): replaces idleSway on the
    * STAND pose with the named staff loop (lib/figure-rig staffIdle — pure,
-   * wall-clock time-based). A clip OVERRIDES the quality-'low' static bake
-   * for its ≤3 figures per booth (that knob exists for 60-guest crowds; the
-   * shadow-cast saving still applies) — but never reduced motion, which
-   * bakes the clip's held t=0 pose so the mascot still reads in-character.
+   * wall-clock time-based). Quality 'low' and reduced motion both bake the
+   * clip's HELD t=0 pose (a barista frozen mid-tamp still reads as a
+   * barista) — with the catalog complete, a phone room can hold 10+ booths
+   * × up to 3 staff, which IS the crowd scale the 'low' knob exists for; the
+   * original "a clip un-bakes 'low'" carve-out is gone (catalog-complete
+   * review, 2026-07-08).
    */
   idleClip?: StaffIdleKind;
+  /**
+   * Explicit shadow-cast override. Default keeps the quality rule (only
+   * 'high' figures cast); booth staff pass `false` so they keep the crowd
+   * knob's shadow saving even while animating at quality 'high'.
+   */
+  castShadow?: boolean;
 };
 
 /**
@@ -232,11 +240,12 @@ export const Figure = memo(function Figure({
   quality = 'high',
   name,
   idleClip,
+  castShadow: castShadowProp,
 }: FigureProps) {
   const reduced = usePrefersReducedMotion();
-  // Static mode: bake once, never animate. Reduced motion wins over quality
-  // AND over an idle clip; a clip un-bakes quality-'low' (see FigureProps).
-  const staticMode = (quality === 'low' && !idleClip) || reduced;
+  // Static mode: bake once, never animate. Reduced motion and quality 'low'
+  // both bake; an idle clip bakes to its held t=0 pose (see FigureProps).
+  const staticMode = quality === 'low' || reduced;
   const rootRef = useRef<THREE.Group>(null);
 
   const look = useMemo(
@@ -285,8 +294,8 @@ export const Figure = memo(function Figure({
             ? STAND_BASE
             : walkCyclePose(typeof phase === 'number' ? phase : phase.current)
           : idleClip
-            ? // Reduced-motion staff (the only static path with a clip): hold
-              // the clip's t=0 pose — a barista frozen mid-tamp still reads
+            ? // Static staff (reduced motion OR quality 'low'): hold the
+              // clip's t=0 pose — a barista frozen mid-tamp still reads
               // as a barista, and the booth flow completes without motion.
               overlayPose(STAND_BASE, staffIdle(idleClip, spec.id, 0))
             : STAND_BASE;
@@ -372,8 +381,9 @@ export const Figure = memo(function Figure({
   // ~12 meshes to the shadow depth pass. The old 2-mesh tokens cost 2 shadow
   // casters each; a kit crowd at 12 apiece doubled-plus the shadow pass on
   // exactly the devices 'low' exists for. Ground contact still reads — the
-  // room, tables and 'high' figures keep casting.
-  const castShadow = quality !== 'low';
+  // room, tables and 'high' figures keep casting. An explicit prop wins
+  // (booth staff stay shadowless at every quality).
+  const castShadow = castShadowProp ?? quality !== 'low';
 
   return (
     <group ref={rootRef} scale={spec.scale ?? 1}>

@@ -27,6 +27,7 @@ import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import type { Lab3DPalette } from '@/lib/seating-3d';
 import { GOWN_GEO, SUIT_GEO, outfitMaterial } from './outfits';
 import {
@@ -127,7 +128,9 @@ function lathe(points: ReadonlyArray<readonly [number, number]>, segments = 28):
 
 type InstanceXf = {
   p: readonly [number, number, number];
-  s?: number;
+  /** Uniform scale, or a per-axis tuple (the perfume organ's squashed upper
+   *  shelf). Omitted = 1. */
+  s?: number | readonly [number, number, number];
   /** Optional per-instance Euler (XYZ, radians) — leaning covers, fanned
    *  cards, trailing cans. Omitted = identity, exactly as before. */
   r?: readonly [number, number, number];
@@ -159,7 +162,8 @@ function StaticInstances({
       e.set(t.r?.[0] ?? 0, t.r?.[1] ?? 0, t.r?.[2] ?? 0);
       q.setFromEuler(e);
       pos.set(t.p[0], t.p[1], t.p[2]);
-      scl.setScalar(t.s ?? 1);
+      if (typeof t.s === 'object') scl.set(t.s[0], t.s[1], t.s[2]);
+      else scl.setScalar(t.s ?? 1);
       m.compose(pos, q, scl);
       mesh.setMatrixAt(i, m);
     });
@@ -1033,10 +1037,14 @@ const GIFT_ROW: readonly InstanceXf[] = [
   { p: [0.02, 0.22, 0.01], s: 0.8 },
 ];
 // Two crossed ribbon bands per box (one instanced draw for all 8 bands).
-const GIFT_BOWS: readonly InstanceXf[] = GIFT_ROW.flatMap((g) => [
-  { p: g.p, s: (g.s ?? 1) * 1.02 },
-  { p: g.p, s: (g.s ?? 1) * 1.02, r: [0, Math.PI / 2, 0] as const },
-]);
+// GIFT_ROW scales are uniform numbers — narrow past the tuple arm of s.
+const GIFT_BOWS: readonly InstanceXf[] = GIFT_ROW.flatMap((g) => {
+  const s = (typeof g.s === 'number' ? g.s : 1) * 1.02;
+  return [
+    { p: g.p, s },
+    { p: g.p, s, r: [0, Math.PI / 2, 0] as const },
+  ];
+});
 
 const TROPHY_ROW: readonly InstanceXf[] = [
   { p: [-0.26, 0, 0], s: 0.85 },
@@ -1099,12 +1107,21 @@ const BARBER_CAPS: readonly InstanceXf[] = [
   { p: [0, 0.6, 0], s: 0.9 },
   { p: [0, 1.16, 0], s: 0.9 },
 ];
+const FRUIT_BOWLS: readonly InstanceXf[] = [
+  { p: [0, 0, 0] },
+  { p: [0, 0.2, 0], s: 0.68 },
+];
+const ORGAN_SHELVES: readonly InstanceXf[] = [
+  { p: [0, 0.01, 0] },
+  { p: [0, 0.23, -0.05], s: [0.85, 1, 0.75] },
+];
 
 // ── Wall-clock-animated sub-components (never frame-count-bound) ────────────
 
 /** The LED content plane — advances the shared texture's `offset.x` as a pure
  *  function of `clock.elapsedTime` (an idempotent assignment, so any number of
- *  mounted panels/floors agree and reduced-motion pausing is trivial). */
+ *  mounted panels/floors agree). prefers-reduced-motion holds the offset
+ *  still — the kit contract: figures bake, so no prop keeps scrolling. */
 function LedScreen({
   geometry,
   position,
@@ -1112,16 +1129,21 @@ function LedScreen({
   geometry: THREE.BufferGeometry;
   position: readonly [number, number, number];
 }) {
+  const reduced = usePrefersReducedMotion();
   useFrame(({ clock }) => {
+    if (reduced) return;
     ledTexture().offset.x = (clock.elapsedTime * 0.06) % 1;
   });
   return <mesh geometry={geometry} material={ledMaterial()} position={[position[0], position[1], position[2]]} />;
 }
 
 /** The spinning barber-pole cylinder — same wall-clock idempotent-assignment
- *  discipline, advancing the stripe texture's `offset.y`. */
+ *  discipline, advancing the stripe texture's `offset.y`; same reduced-motion
+ *  hold as LedScreen (a frozen pole still reads as a barber pole). */
 function BarberSpinner() {
+  const reduced = usePrefersReducedMotion();
   useFrame(({ clock }) => {
+    if (reduced) return;
     barberTexture().offset.y = (clock.elapsedTime * 0.18) % 1;
   });
   return <mesh geometry={BARBER_POLE_GEO} material={barberMaterial()} position={[0, 0.88, 0]} castShadow />;
@@ -1604,12 +1626,11 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
         </group>
       );
     case 'fruit_tower':
-      // Stacked garnish bowls + FOOD-TRUE fruit (citrus + berry — never
-      // palette-tinted). 4 draws.
+      // Stacked garnish bowls (ONE instanced draw — same geo + cream sheen)
+      // + FOOD-TRUE fruit (citrus + berry — never palette-tinted). 3 draws.
       return (
         <group>
-          <mesh geometry={FRUIT_BOWL_GEO} material={boothSheenMaterial(KIT_CREAM)} castShadow />
-          <mesh geometry={FRUIT_BOWL_GEO} material={boothSheenMaterial(KIT_CREAM)} position={[0, 0.2, 0]} scale={0.68} />
+          <StaticInstances geometry={FRUIT_BOWL_GEO} material={boothSheenMaterial(KIT_CREAM)} transforms={FRUIT_BOWLS} castShadow />
           <StaticInstances geometry={FRUIT_GEO} material={boothSheenMaterial('#e8a33d')} transforms={FRUIT_CITRUS} />
           <StaticInstances geometry={FRUIT_GEO} material={boothSheenMaterial('#a83a4e')} transforms={FRUIT_BERRY} />
         </group>
@@ -1636,7 +1657,9 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
             <mesh geometry={CLAW_BODY_GEO} material={boothSheenMaterial(palette.table)} position={[0, 0.375, 0]} castShadow />
             <StaticInstances geometry={PRIZE_GEO} material={boothSheenMaterial('#d98a9b')} transforms={PRIZE_PILE} />
             <mesh geometry={CLAW_GLASS_GEO} material={glassMat} position={[0, 1.0, 0]} />
-            <mesh geometry={MARQUEE_GEO} material={marqueeMat} position={[0, 1.32, 0]} castShadow />
+            {/* Emissive marquee: NO castShadow — a light emitter in the
+                shadow depth pass costs a draw and darkens its own cabinet. */}
+            <mesh geometry={MARQUEE_GEO} material={marqueeMat} position={[0, 1.32, 0]} />
           </group>
           <group position={[0.5, 0, 0]}>
             <mesh geometry={HOOP_STAND_GEO} material={boothMetalMaterial(KIT_DARK)} position={[0, 0.55, -0.08]} scale={[1, 2.2, 1]} />
@@ -1665,7 +1688,7 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
       );
     case 'crystal_set':
       // The reader's table set: crystal ball on its stand + a fanned card
-      // spread. 4 draws.
+      // spread. 3 draws.
       return (
         <group>
           <group position={[-0.12, 0, -0.04]}>
@@ -1709,8 +1732,10 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
       // catalog's envMap glint comes free from the shared env). 1 draw.
       return <StaticInstances geometry={TROPHY_GEO} material={boothMetalMaterial('#d4a94a')} transforms={TROPHY_ROW} castShadow />;
     case 'dance_marks':
-      // The choreographer's floor spots — flat accent discs. 1 draw.
-      return <StaticInstances geometry={MARK_GEO} material={boothSheenMaterial(palette.accent)} transforms={MARK_SPOTS} />;
+      // The choreographer's floor spots — flat cream discs (the BACKDROP
+      // activity pad is already palette-accent; accent-on-accent marks
+      // vanish). 1 draw.
+      return <StaticInstances geometry={MARK_GEO} material={boothSheenMaterial(KIT_CREAM)} transforms={MARK_SPOTS} />;
     case 'ribbon_cans':
       // The just-married tail: crossed bow lobes + knot + trailing cans.
       // 3 draws (lobes instanced).
@@ -1737,7 +1762,7 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
       );
     case 'barber_pole':
       // Post + the spinning striped cylinder + caps (wall-clock texture
-      // spin). 4 draws.
+      // spin; caps instanced). 3 draws.
       return (
         <group>
           <mesh geometry={BARBER_POST_GEO} material={boothMetalMaterial(KIT_DARK)} position={[0, 0.28, 0]} />
@@ -1750,12 +1775,12 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
         </group>
       );
     case 'perfume_organ':
-      // Stepped shelves of translucent bottles (BOTTLE_GEO scaled up) — the
-      // perfumer's organ. 3 draws.
+      // Stepped shelves (ONE instanced draw — per-axis instance scale) of
+      // translucent bottles (BOTTLE_GEO scaled up) — the perfumer's organ.
+      // 2 draws.
       return (
         <group>
-          <mesh geometry={ORGAN_SHELF_GEO} material={boothSheenMaterial(KIT_WOOD)} position={[0, 0.01, 0]} castShadow />
-          <mesh geometry={ORGAN_SHELF_GEO} material={boothSheenMaterial(KIT_WOOD)} position={[0, 0.23, -0.05]} scale={[0.85, 1, 0.75]} />
+          <StaticInstances geometry={ORGAN_SHELF_GEO} material={boothSheenMaterial(KIT_WOOD)} transforms={ORGAN_SHELVES} castShadow />
           <StaticInstances geometry={BOTTLE_GEO} material={perfumeMat} transforms={PERFUME_ROWS} />
         </group>
       );

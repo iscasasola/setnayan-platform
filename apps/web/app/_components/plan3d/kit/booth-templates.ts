@@ -339,9 +339,10 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
   // ── DESIGN ─────────────────────────────────────────────────────────────────
   dance_floor: {
     chassis: 'BACKDROP',
-    // The LED tile sample laid flat on the activity zone (panel spans x ±0.65
-    // — the staff anchor at x 0.95 stays clear).
-    props: [{ kind: 'led_floor', position: [0, 0, 0.3] }],
+    // The LED tile sample laid flat ON the activity-zone pad (top y 0.0355 —
+    // at y 0 the 6 cm frame is 58% swallowed by the pad); panel spans x ±0.65
+    // so the staff anchor at x 0.95 stays clear.
+    props: [{ kind: 'led_floor', position: [0, 0.04, 0.3] }],
     staff: { outfit: 'uniform', idle: 'present', count: 1 },
     signText: 'Dance Floor',
     cardKind: 'inclusions',
@@ -360,9 +361,11 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
   },
   fireworks: {
     chassis: 'STATION',
-    // The mortar battery demos BESIDE the table (x −0.85 puts the tubes past
-    // the tabletop's ±0.85 edge), starburst sign riding its post.
-    props: [{ kind: 'mortar_rack', position: [-0.85, 0, 0.35] }],
+    // The mortar battery demos in FRONT of the table (z 0.75 clears the
+    // tabletop's z ±0.46 span for BOTH sub-groups — the tubes at local −0.25
+    // AND the starburst sign post at local +0.5; the old beside-the-table
+    // x −0.85 spot only cleared the tubes and the post skewered the slab).
+    props: [{ kind: 'mortar_rack', position: [-0.6, 0, 0.75] }],
     staff: { outfit: 'uniform', idle: 'thumbsUp', count: 1 },
     signText: 'Fireworks',
     cardKind: 'inclusions',
@@ -411,8 +414,10 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
   choreographer: {
     chassis: 'BACKDROP',
     // Numbered floor marks are flat decals — walkable, so anchor clearance
-    // doesn't apply; they own the activity zone.
-    props: [{ kind: 'dance_marks', position: [0, 0, 0.1] }],
+    // doesn't apply; they own the activity zone. Lifted to the chassis'
+    // floor-zone pad TOP (y 0.0355 + a few mm) — at y 0 the 12 mm discs sit
+    // entirely inside the pad and the booth reads as a bare backdrop.
+    props: [{ kind: 'dance_marks', position: [0, 0.038, 0.1] }],
     staff: { outfit: 'uniform', idle: 'countBeat', count: 1 },
     signText: 'Choreographer',
     cardKind: 'inclusions',
@@ -512,11 +517,14 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
   },
   jewelleries_accessories: {
     chassis: 'DISPLAY',
-    // Free-standing vitrines (each carries its own sparkle bulbs) in front
-    // of the shelf wall, 0.7+ m from the jeweler anchor.
+    // Free-standing vitrines (each carries its own sparkle bulbs) in FRONT
+    // of the plinth — the DISPLAY rule the attire templates follow: z > 0.4
+    // keeps their 0.4 m-deep bases off the plinth face (at the old z 0.35 /
+    // 0.25 the cases sank 60–90% into the slab). Both stay 0.75+ m from the
+    // jeweler anchor (0.85, 0.3).
     props: [
-      { kind: 'glass_case', position: [-0.45, 0, 0.35] },
-      { kind: 'glass_case', position: [0.15, 0, 0.25], scale: 0.85 },
+      { kind: 'glass_case', position: [-0.45, 0, 0.62] },
+      { kind: 'glass_case', position: [0.15, 0, 0.6], scale: 0.85 },
     ],
     staff: { outfit: 'suit', idle: 'present', count: 1 },
     signText: 'Jewelry & Accessories',

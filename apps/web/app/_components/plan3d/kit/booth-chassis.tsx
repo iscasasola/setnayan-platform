@@ -99,6 +99,10 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     w: 2.0,
     d: 1.1,
     discs: [{ x: 0, z: 0, r: 1.4 }],
+    // Front-extended + raised tap volume: arcade_games' claw cabinet reaches
+    // z ≈ 1.03 and fireworks' starburst sign tops out ≈ 1.5 m — the default
+    // footprint box (z ±0.7, y ≤ 1.25) left both hero props untappable.
+    hit: { h: 1.7, d: 1.8, z: 0.2 },
     signAnchor: [0, 0, 0],
     staffAnchors: [
       { x: 0.15, z: -0.62, faceY: 0 },
@@ -138,11 +142,16 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     discs: [
       { x: -0.6, z: -0.5, r: 1.0 },
       { x: 0.6, z: -0.5, r: 1.0 },
-      // Front lobe — covers the photo_booth template's room-side tripod
+      // Front lobes — cover the photo_booth template's room-side tripod
       // (booth-local 0.4, 1.15) + greeter anchor (0.95, 0.45), both of which
       // the two panel lobes miss (the pre-template generic r=1.4 disc covered
-      // them; without this, walkers path straight through the camera).
+      // them; without this, walkers path straight through the camera). The
+      // mirrored −x lobe covers front-of-booth props on the OTHER side — the
+      // ceremony_venue chapel arch's left pew (world −1.065, 0.675) and the
+      // −x half of the activity-zone pad (dance marks, LED tile) — which the
+      // +x lobe alone left walkable.
       { x: 0.55, z: 0.75, r: 1.0 },
+      { x: -0.55, z: 0.75, r: 1.0 },
     ],
     // Tall + deep tap volume: the panel tops out ~2.24 m and the tripod sits
     // ~1.15–1.35 m in FRONT of centre — the default 1.3-tall, footprint-deep
@@ -165,7 +174,10 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     w: 2.0,
     d: 0.9,
     discs: [{ x: 0, z: 0, r: 1.35 }],
-    hit: { h: 2.3 }, // vitrine back panel tops out ~2.17 m
+    // h: back panel tops out ~2.17 m. d/z: every attire/jewellery template
+    // stands its hero forms/racks/vitrines in FRONT of the plinth (z 0.6–0.68
+    // + ~0.25 m prop extent ≈ 0.93) — past the default z ±0.6 box.
+    hit: { h: 2.3, d: 1.55, z: 0.18 },
     signAnchor: [0, 0, 0],
     staffAnchors: [{ x: 0.85, z: 0.3, faceY: -0.6 }],
   },

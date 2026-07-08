@@ -1425,6 +1425,10 @@ export function walkVector(yaw: number, moveX: number, moveForward: number): { d
  *   - camera already inside the room rectangle (small 0.4 m inset, so "inside"
  *     means properly inside rather than straddling a wall) → keep its x/z:
  *     the original drop-in-where-you-are feel is preserved;
+ *   - camera inside the rectangle but within the 0.4 m near-wall band (or
+ *     exactly on a wall) → still YOUR spot: clamp it 0.8 m off the wall.
+ *     The entrance jump is reserved for cameras genuinely OUTSIDE the room —
+ *     a strictly-inside camera must never cross-room teleport to the doorway;
  *   - outside with an entrance → stand ~1.5 m inside the doorway, stepping
  *     from the entrance point toward the room centre (the entrance sits on
  *     the room edge, so "toward (0,0)" always points inward) — clear of the
@@ -1432,8 +1436,13 @@ export function walkVector(yaw: number, moveX: number, moveForward: number): { d
  *   - outside with no entrance → clamp the camera's x/z into the rectangle
  *     with a 0.8 m wall margin.
  * Every branch finishes through pushOutOfDiscs so the spawn can never sit
- * inside a table / booth / stage disc. Margins are floored at 0 so a
- * degenerate (tiny) room clamps to its centre instead of inverting the bounds.
+ * inside a table / booth / stage disc — and if that radial expulsion would
+ * eject the spawn THROUGH a wall (a dance-floor/buffet disc overlapping the
+ * doorway or a wall-adjacent table), the offending discs are re-expelled
+ * toward the room centre instead, then the result is clamped into the
+ * rectangle: the spawn is always inside the room, the exact void bug this
+ * function exists to fix. Margins are floored at 0 so a degenerate (tiny)
+ * room clamps to its centre instead of inverting the bounds.
  */
 export function walkSpawnPoint(
   cam: Vec2,
@@ -1444,12 +1453,16 @@ export function walkSpawnPoint(
   const hw = room.w / 2;
   const hd = room.d / 2;
   let p: Vec2;
+  const insideRect = Math.abs(cam.x) <= hw && Math.abs(cam.z) <= hd;
   if (Math.abs(cam.x) <= Math.max(0, hw - 0.4) && Math.abs(cam.z) <= Math.max(0, hd - 0.4)) {
     // Inside: keep the spot as-is (no wall clamp — the inset already vouches
     // for it); only the disc expulsion below may still move it.
     p = { x: cam.x, z: cam.z };
   } else {
-    if (entrance) {
+    if (entrance && !insideRect) {
+      // Genuinely outside → doorway spawn. (A camera inside the rectangle but
+      // within the 0.4 m band falls through to the clamp: keep-your-spot,
+      // nudged ≤ 0.8 m off the wall — never a jump to the opposite doorway.)
       // Unit vector entrance → room centre. A centred (degenerate) entrance
       // has no direction — fall back to −z, the doorway's usual inward facing.
       const len = Math.hypot(entrance.x, entrance.z);
@@ -1465,7 +1478,34 @@ export function walkSpawnPoint(
     const mz = Math.max(0, hd - 0.8);
     p = { x: Math.max(-mx, Math.min(mx, p.x)), z: Math.max(-mz, Math.min(mz, p.z)) };
   }
-  return pushOutOfDiscs(p, obstacles);
+  const q = pushOutOfDiscs(p, obstacles);
+  // In-room guarantee: the radial expulsion above can eject the spawn through
+  // a wall when the containing disc overlaps one (doorway dance floor, wall-
+  // adjacent table). Detect it and redo the expulsion with an interior bias.
+  const mx = Math.max(0, hw - 0.4);
+  const mz = Math.max(0, hd - 0.4);
+  if (Math.abs(q.x) <= mx + 1e-9 && Math.abs(q.z) <= mz + 1e-9) return q;
+  // Re-expel each containing disc toward the room centre (from the disc's
+  // centre toward (0,0), one radius out) — obstacle centres live in the room,
+  // so the exit lands room-side of the disc instead of through the wall. The
+  // 3·maxR reach keeps chained discs in the candidate list across the larger
+  // interior jump (radial expulsion budgets 2·maxR). Final clamp is the hard
+  // never-in-the-void guarantee for degenerate layouts (disc at the origin,
+  // disc wider than the room).
+  const source = Array.isArray(obstacles)
+    ? obstacles
+    : obstaclesNear(obstacles, p, 3 * obstacles.maxR);
+  let x = p.x;
+  let z = p.z;
+  for (const d of source) {
+    if (Math.hypot(x - d.c.x, z - d.c.z) >= d.r - 1e-9) continue;
+    const len = Math.hypot(d.c.x, d.c.z);
+    if (len < 1e-6) continue; // disc at the room centre: no inward direction — leave to the clamp
+    const k = 1 - d.r / len;
+    x = d.c.x * k;
+    z = d.c.z * k;
+  }
+  return { x: Math.max(-mx, Math.min(mx, x)), z: Math.max(-mz, Math.min(mz, z)) };
 }
 
 /**

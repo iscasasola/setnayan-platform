@@ -835,6 +835,17 @@ export function templateBoothObstacles(
     for (const d of spec.discs) {
       out.push({ c: { x: c.x + d.x, z: c.z + d.z }, r: d.r });
     }
+    // Staff mascots are solid too (2026-07-08 collision pass): one r 0.3 disc
+    // per RENDERED staff anchor — some anchors (e.g. the buffet's two servers
+    // at z −0.6) stand outside their chassis footprint discs, and walkers
+    // could pass straight through them.
+    const tpl = boothTemplateFor(b);
+    if (tpl) {
+      const anchors = spec.staffAnchors.slice(0, tpl.staff.count);
+      for (const a of anchors) {
+        out.push({ c: { x: c.x + a.x, z: c.z + a.z }, r: 0.3 });
+      }
+    }
   }
   return out;
 }

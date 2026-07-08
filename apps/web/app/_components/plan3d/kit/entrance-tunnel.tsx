@@ -13,11 +13,21 @@
  *
  * SEQUENCED TO THE WALK: the component consumes a `progressRef` — the walker's
  * path-t along the tunnel segment (0 at the entrance mouth, 1 at the exit,
- * −1 = nobody walking). Fountain pairs ramp opacity/intensity as the walker
- * approaches them, so the tunnel of light builds in real time; at
- * t ≥ COLD_SPARK_CLIMAX_T (0.85) the FINAL pair ignites brighter — intensity
- * ramp only in this slice (the chase-cam tilt-up ships with cinematic Play).
- * Idle (progressRef −1 / absent) = gentle low shimmer.
+ * −1 = nobody walking). The projection is LATERALLY GATED: a walker more than
+ * COLD_SPARK_GATE_M off the centreline reads as −1, so roam walks elsewhere in
+ * the room (or a seat approach swinging back near the entrance wall) can
+ * neither fire the fountains nor dim pairs a real tunnel pass lit. Fountain
+ * pairs ramp opacity/intensity as the walker approaches them, so the tunnel of
+ * light builds in real time; at t ≥ COLD_SPARK_CLIMAX_T (0.85) the FINAL pair
+ * ignites brighter — intensity ramp only in this slice (the chase-cam tilt-up
+ * ships with cinematic Play). Idle (progressRef −1 / absent) = gentle low
+ * shimmer.
+ *
+ * SHALLOW ROOMS: the 6.0 m corridor is the NOMINAL build — the frame clamps
+ * the effective length (`frame.len`) to the room's inward depth (minus the
+ * lead-out + a wall clearance), scaling every bay with it, so a 4–6 m room
+ * keeps machines, path nodes and the lead-out INSIDE the walls instead of
+ * threading the demo walker through the far wall.
  *
  * WALL-CLOCK LAW: every ramp is a PURE function of the walker's progress plus
  * a frame-rate-independent damp toward it — nothing accumulates per frame, so
@@ -49,30 +59,45 @@ type TunnelQuality = 'high' | 'low';
 
 // ── Catalog § 4 geometry (cold_spark row) ────────────────────────────────────
 
-/** Corridor length — cold_spark runs 6.0 m (catalog exception to the 9 m default). */
+/** NOMINAL corridor length — cold_spark runs 6.0 m (catalog exception to the
+ *  9 m default). The frame clamps the EFFECTIVE length (`frame.len`) to the
+ *  room's inward depth; every bay position scales with it. */
 export const COLD_SPARK_LENGTH_M = 6.0;
 /** Machine rows flank the 2.4 m interior clear width. */
 const ROW_X_M = 1.2;
 /** Obstacle disc radius at each machine box (catalog § 4: r 0.3 m). */
 const MACHINE_R_M = 0.3;
-/** 4 fountain pairs at the midpoints of four 1.5 m bays. */
+/** 4 fountain pairs at the midpoints of four 1.5 m bays (nominal-length s). */
 const PAIR_S_M = [0.75, 2.25, 3.75, 5.25] as const;
 /** Lead-in/lead-out path nodes sit 0.5 m beyond the mouths (§ 4 path threading). */
 const LEAD_M = 0.5;
+/** Clearance kept between the lead-out node and the far wall (machine half-
+ *  depth 0.22 m + walker body radius headroom) when clamping `frame.len`. */
+const WALL_CLEAR_M = 0.45;
+/** Degenerate floor on the clamped corridor length (one nominal bay). */
+const MIN_LENGTH_M = 1.5;
 /** Path-t along the tunnel segment where the final pair's climax beat fires. */
 export const COLD_SPARK_CLIMAX_T = 0.85;
+/** Lateral half-width of the progress projection: a walker further than this
+ *  off the centreline is NOT in the tunnel (projection reads −1). Matches the
+ *  machine-row offset — the corridor's own width. */
+export const COLD_SPARK_GATE_M = 1.2;
 
 // Titanium gold-white — the fixed cold-pyro colour. NEVER palette-tinted.
 const SPARK_COLOR = '#fff1d9';
 
 /** The tunnel's world frame: outer mouth at the entrance mark, axis along the
- *  room-inward normal of the wall the entrance sits on. */
-export type ColdSparkFrame = { origin: Vec2; dir: Vec2 };
+ *  room-inward normal of the wall the entrance sits on, `len` = the EFFECTIVE
+ *  corridor length (nominal 6.0 m, clamped to the room's inward depth so
+ *  shallow custom rooms never push the build through the far wall). */
+export type ColdSparkFrame = { origin: Vec2; dir: Vec2; len: number };
 
 /** Inward approach vector: axis-aligned normal of the NEAREST wall (the
  *  entrance always sits on one), pointing into the room. A dead-centre
  *  entrance (degenerate) falls back to "faces −z", matching the default
- *  `{ xPct: 50, yPct: 96 }` entrance on the +z wall. */
+ *  `{ xPct: 50, yPct: 96 }` entrance on the +z wall. The corridor length is
+ *  clamped so the lead-out node keeps WALL_CLEAR_M off the far wall (venue
+ *  dims are user-editable down to 4 m — seating-editor clamp). */
 export function coldSparkFrame(entrance: Vec2, room: Room): ColdSparkFrame {
   const dLeft = entrance.x + room.w / 2;
   const dRight = room.w / 2 - entrance.x;
@@ -80,10 +105,26 @@ export function coldSparkFrame(entrance: Vec2, room: Room): ColdSparkFrame {
   const dFront = room.d / 2 - entrance.z;
   const min = Math.min(dLeft, dRight, dBack, dFront);
   let dir: Vec2 = { x: 0, z: -1 }; // +z wall (the default entrance) → walk −z
-  if (min === dLeft) dir = { x: 1, z: 0 };
-  else if (min === dRight) dir = { x: -1, z: 0 };
-  else if (min === dBack) dir = { x: 0, z: 1 };
-  return { origin: { x: entrance.x, z: entrance.z }, dir };
+  let avail = dBack; // walking −z: depth from the entrance to the −z wall
+  if (min === dLeft) {
+    dir = { x: 1, z: 0 };
+    avail = dRight;
+  } else if (min === dRight) {
+    dir = { x: -1, z: 0 };
+    avail = dLeft;
+  } else if (min === dBack) {
+    dir = { x: 0, z: 1 };
+    avail = dFront;
+  }
+  const len = Math.min(COLD_SPARK_LENGTH_M, Math.max(MIN_LENGTH_M, avail - LEAD_M - WALL_CLEAR_M));
+  return { origin: { x: entrance.x, z: entrance.z }, dir, len };
+}
+
+/** Bay-midpoint axial positions, scaled from nominal to the frame's clamped
+ *  length — the ONE place the shallow-room compression happens. */
+export function coldSparkBayS(frame: ColdSparkFrame): number[] {
+  const f = frame.len / COLD_SPARK_LENGTH_M;
+  return PAIR_S_M.map((s) => s * f);
 }
 
 /** World positions of the 8 machine boxes (2 rows × 4 pairs). */
@@ -91,7 +132,7 @@ function machinePositions(frame: ColdSparkFrame): Vec2[] {
   const { origin, dir } = frame;
   const perp: Vec2 = { x: -dir.z, z: dir.x };
   const out: Vec2[] = [];
-  for (const s of PAIR_S_M) {
+  for (const s of coldSparkBayS(frame)) {
     for (const side of [-1, 1]) {
       out.push({
         x: origin.x + dir.x * s + perp.x * ROW_X_M * side,
@@ -122,22 +163,29 @@ export function coldSparkObstacles(entrance: Vec2, room: Room): ObstacleDisc[] {
  * hand-off point the seat-approach path continues from.
  */
 export function coldSparkPathNodes(entrance: Vec2, room: Room): Vec2[] {
-  const { origin, dir } = coldSparkFrame(entrance, room);
+  const frame = coldSparkFrame(entrance, room);
+  const { origin, dir } = frame;
   const along = (s: number): Vec2 => ({ x: origin.x + dir.x * s, z: origin.z + dir.z * s });
-  return [...PAIR_S_M.map(along), along(COLD_SPARK_LENGTH_M + LEAD_M)];
+  return [...coldSparkBayS(frame).map(along), along(frame.len + LEAD_M)];
 }
 
 /**
  * The walker's path-t along the tunnel segment: the axial projection of a
  * world position onto the tunnel frame, normalised by the corridor length.
  * 0 = outer mouth, 1 = inner mouth; unclamped (<0 before, >1 after) so the
- * consumer can tell "approaching" from "gone". Pure — the scene feeds this
- * into the tunnel's `progressRef` every frame from the walker's live position.
+ * consumer can tell "approaching" from "gone". LATERALLY GATED: a position
+ * more than COLD_SPARK_GATE_M off the centreline is not in the corridor at
+ * all → −1 (idle), so a roam walk crossing the room beside the tunnel (or a
+ * seat approach swinging back near the entrance wall) never sequences the
+ * fountains. Pure — the scene feeds this into the tunnel's `progressRef`
+ * every frame from the walker's live position.
  */
 export function coldSparkProgress(pos: Vec2, frame: ColdSparkFrame): number {
   const dx = pos.x - frame.origin.x;
   const dz = pos.z - frame.origin.z;
-  return (dx * frame.dir.x + dz * frame.dir.z) / COLD_SPARK_LENGTH_M;
+  const perp = Math.abs(dx * -frame.dir.z + dz * frame.dir.x);
+  if (perp > COLD_SPARK_GATE_M) return -1;
+  return (dx * frame.dir.x + dz * frame.dir.z) / frame.len;
 }
 
 // ── Sequencing (pure — the wall-clock law lives on these being stateless) ────
@@ -156,14 +204,20 @@ function smoothstep(x: number): number {
 
 /**
  * Target intensity for the fountain at axial position `s` given the walker's
- * tunnel path-t (`t`; −1 or NaN = idle). PURE function of progress — a starved
- * frame computes the same target an unbroken stream would, so owed progress is
- * always consumable in one frame. Fired pairs STAY lit ("the tunnel of light
- * builds in real time"); the final pair exceeds 1 at the climax beat.
+ * tunnel path-t (`t`; −1 or NaN = idle) and the frame's effective corridor
+ * length. PURE function of progress — a starved frame computes the same target
+ * an unbroken stream would, so owed progress is always consumable in one
+ * frame. Fired pairs STAY lit ("the tunnel of light builds in real time");
+ * the final pair exceeds 1 at the climax beat.
  */
-export function coldSparkIntensity(t: number, s: number, isFinalPair: boolean): number {
+export function coldSparkIntensity(
+  t: number,
+  s: number,
+  isFinalPair: boolean,
+  lengthM: number = COLD_SPARK_LENGTH_M,
+): number {
   if (!Number.isFinite(t) || t < 0) return IDLE_LEVEL;
-  const m = t * COLD_SPARK_LENGTH_M; // walker's axial metres
+  const m = t * lengthM; // walker's axial metres
   const fire = smoothstep((m - (s - RAMP_AHEAD_M)) / RAMP_AHEAD_M);
   let v = IDLE_LEVEL + (1 - IDLE_LEVEL) * fire;
   if (isFinalPair && t >= COLD_SPARK_CLIMAX_T) v = CLIMAX_GAIN; // the § 4 climax beat
@@ -203,7 +257,10 @@ export function ColdSparkTunnel({
   room: Room;
   palette: Lab3DPalette;
   /** 'low' (phone walk) = 4 fountains × 100 particles, no fog planes (catalog
-   *  mobile fallback); 'high' = 8 fountains × 250 + fog. */
+   *  mobile fallback); 'high' = 8 fountains × 250 + fog. ALL 8 machine boxes
+   *  render on both tiers — they're one instanced draw, and every surface
+   *  registers all 8 obstacle discs (`coldSparkObstacles`), so dropping the
+   *  visuals would leave walkers dodging invisible boxes. */
   quality?: TunnelQuality;
   /** Walker's path-t along the tunnel segment (see coldSparkProgress); −1 or
    *  absent = idle low shimmer. The scene writes it every frame. */
@@ -215,20 +272,24 @@ export function ColdSparkTunnel({
   // the tunnel axis (rotation.y = atan2(dir.x, dir.z) — the walker-heading
   // convention), so fountains/fog/runner lay out on plain (±ROW_X, s) coords.
   const yaw = Math.atan2(frame.dir.x, frame.dir.z);
-  // Mobile fallback keeps pairs 2 + 4 so the final (climax) pair survives.
-  const pairS = useMemo(
-    () => (quality === 'low' ? [PAIR_S_M[1], PAIR_S_M[3]] : [...PAIR_S_M]),
-    [quality],
+  // All 4 bay midpoints, scaled to the frame's (possibly clamped) length —
+  // the machine boxes ALWAYS sit at all 4 (they match the obstacle discs).
+  const bayS = useMemo(() => coldSparkBayS(frame), [frame]);
+  // Mobile fallback keeps FOUNTAINS at pairs 2 + 4 only (final/climax pair
+  // survives); the machine boxes stay at all 4 pairs on both tiers.
+  const fountainS = useMemo(
+    () => (quality === 'low' ? [bayS[1]!, bayS[3]!] : bayS),
+    [quality, bayS],
   );
   const particleCount = quality === 'low' ? 100 : 250;
-  const finalS = pairS[pairS.length - 1]!;
+  const fountainCount = fountainS.length * 2;
 
   // Per-fountain core-cone materials (2 per pair) — cloned so each fountain's
   // emissiveIntensity ramps independently; disposed on unmount. Geometry stays
   // the module-scope shared CORE_GEO.
   const coreMats = useMemo(
     () =>
-      pairS.flatMap(() => [
+      fountainS.flatMap(() => [
         new THREE.MeshStandardMaterial({
           color: SPARK_COLOR,
           emissive: SPARK_COLOR,
@@ -242,7 +303,7 @@ export function ColdSparkTunnel({
           toneMapped: false,
         }),
       ]),
-    [pairS],
+    [fountainS],
   );
   useLayoutEffect(() => () => coreMats.forEach((m) => m.dispose()), [coreMats]);
 
@@ -251,13 +312,15 @@ export function ColdSparkTunnel({
   const sparkRefs = useRef<(THREE.Points | null)[]>([]);
   const columnRefs = useRef<(THREE.Group | null)[]>([]);
   const level = useRef<Float32Array | null>(null);
-  if (level.current === null || level.current.length !== pairS.length * 2) {
-    level.current = new Float32Array(pairS.length * 2).fill(IDLE_LEVEL);
+  if (level.current === null || level.current.length !== fountainCount) {
+    level.current = new Float32Array(fountainCount).fill(IDLE_LEVEL);
   }
 
-  // Machine boxes — ONE InstancedMesh for all of them.
+  // Machine boxes — ONE InstancedMesh for all 8 of them, on BOTH quality
+  // tiers: the obstacle discs (`coldSparkObstacles`) always register all 8,
+  // so the visuals must too or low-quality walkers dodge invisible boxes.
   const machineRef = useRef<THREE.InstancedMesh>(null);
-  const machineCount = pairS.length * 2;
+  const machineCount = bayS.length * 2;
   useLayoutEffect(() => {
     const mesh = machineRef.current;
     if (!mesh) return;
@@ -266,7 +329,7 @@ export function ColdSparkTunnel({
     const q = new THREE.Quaternion();
     const s = new THREE.Vector3(1, 1, 1);
     let i = 0;
-    for (const sPos of pairS) {
+    for (const sPos of bayS) {
       for (const side of [-1, 1]) {
         p.set(ROW_X_M * side, 0.17, sPos);
         m.compose(p, q, s);
@@ -274,7 +337,7 @@ export function ColdSparkTunnel({
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
-  }, [pairS]);
+  }, [bayS]);
 
   // The sequencing loop: ease each fountain toward its PURE target intensity.
   // Wall-clock damped (frame-rate independent) and target-stateless — a
@@ -285,11 +348,15 @@ export function ColdSparkTunnel({
     const t = progressRef?.current ?? -1;
     const lv = level.current!;
     const k = 1 - Math.pow(0.002, delta); // ≈ fully converged within ~1 s
-    for (let i = 0; i < machineCount; i++) {
-      const s = pairS[i >> 1]!;
-      const target = coldSparkIntensity(t, s, s === finalS);
-      const next = lv[i]! + (target - lv[i]!) * k;
-      if (Math.abs(next - lv[i]!) < 0.002) continue; // settled — skip the writes
+    for (let i = 0; i < fountainCount; i++) {
+      const s = fountainS[i >> 1]!;
+      const target = coldSparkIntensity(t, s, (i >> 1) === fountainS.length - 1, frame.len);
+      const cur = lv[i]!;
+      if (cur === target) continue; // settled — zero-write steady state
+      let next = cur + (target - cur) * k;
+      // Snap when within epsilon OF THE TARGET (not of the per-frame step —
+      // a step test stalls at a frame-rate-dependent deadband short of it).
+      if (Math.abs(target - next) < 0.002) next = target;
       lv[i] = next;
       // Spark particles: per-particle opacity attribute filled with the eased
       // level (clamped — the climax overdrive goes to emissive + height).
@@ -321,8 +388,8 @@ export function ColdSparkTunnel({
       <mesh
         geometry={RUNNER_GEO}
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.006, COLD_SPARK_LENGTH_M / 2]}
-        scale={[1.2, COLD_SPARK_LENGTH_M, 1]}
+        position={[0, 0.006, frame.len / 2]}
+        scale={[1.2, frame.len, 1]}
         receiveShadow
       >
         <meshStandardMaterial color={palette.accent} roughness={0.85} />
@@ -340,7 +407,7 @@ export function ColdSparkTunnel({
       {/* Fountains: per machine, an emissive core cone + a tall thin Sparkles
           column (fast upward drift; static when reduced motion). The column
           group's y-scale is the ramp's "fires up" height. */}
-      {pairS.map((s, pi) =>
+      {fountainS.map((s, pi) =>
         [-1, 1].map((side, si) => {
           const i = pi * 2 + si;
           return (
@@ -380,8 +447,8 @@ export function ColdSparkTunnel({
               key={i}
               geometry={FOG_GEO}
               rotation={[-Math.PI / 2, 0, 0]}
-              position={[0, f.y, COLD_SPARK_LENGTH_M / 2]}
-              scale={[f.sx, f.sz, 1]}
+              position={[0, f.y, frame.len / 2]}
+              scale={[f.sx, (f.sz * frame.len) / COLD_SPARK_LENGTH_M, 1]}
             >
               <meshBasicMaterial color={fogColor} transparent opacity={f.o} depthWrite={false} />
             </mesh>

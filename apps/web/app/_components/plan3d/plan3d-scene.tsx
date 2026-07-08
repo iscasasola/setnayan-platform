@@ -1484,8 +1484,10 @@ function BoothHitTarget({
  * walker's live (post-clamp) position onto the tunnel axis and write the
  * path-t along the tunnel segment into `out` (−1 when no walk is live → the
  * tunnel idles at low shimmer). Render-less; the projection is pure
- * (`coldSparkProgress`), so the value is always the walker's CURRENT truth —
- * never an accumulated animation state (the wall-clock law).
+ * (`coldSparkProgress`) and LATERALLY GATED — a walker off the corridor's
+ * centreline strip reads −1, so a roam walk elsewhere in the room never
+ * sequences the fountains — and the value is always the walker's CURRENT
+ * truth, never an accumulated animation state (the wall-clock law).
  */
 function ColdSparkWalkFeed({
   frame,

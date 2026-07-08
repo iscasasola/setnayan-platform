@@ -8,10 +8,14 @@
  * chase cam. A bubble here is a `THREE.Sprite` (auto-billboarded quad) reading
  * one cell of a glyph ATLAS.
  *
- * ATLAS: one CanvasTexture, rasterized ONCE at module scope (the
- * `danceMuralTexture` / `floorRoughnessMap` lazy-singleton discipline —
- * browser-only, cached forever, shared across every surface). Six glyphs,
- * every one DRAWN with canvas paths — no emoji fonts (they render
+ * GLYPH CELLS: one 128px canvas + CanvasTexture PER GLYPH, rasterized ONCE at
+ * module scope (the `danceMuralTexture` / `floorRoughnessMap` lazy-singleton
+ * discipline — browser-only, cached forever, shared across every surface).
+ * Per-glyph cells rather than one shared atlas because WebGL keys GPU uploads
+ * by Texture object — six offset/repeat "windows" onto one atlas canvas would
+ * upload the FULL atlas six times (6× the texture memory); six cell-sized
+ * canvases upload exactly one atlas's worth, total. Six glyphs, every one
+ * DRAWN with canvas paths — no emoji fonts (they render
  * platform-inconsistently and break the mascot-smooth look):
  *   check   ✓-stroke on the bubble — RSVP confirmed
  *   pending drawn question hook + dot — RSVP pending
@@ -20,7 +24,7 @@
  *   music   eighth note — ambient, near the dance floor
  *   chat    three typing dots — idle chatter at a table
  * Glyph inks are fixed semantic constants (status colours), deliberately NOT
- * palette-tinted — the atlas is painted once for every event.
+ * palette-tinted — the cells are painted once for every event.
  *
  * POOL: exactly `EMOTE_MAX_VISIBLE` (6) sprites, one per rotation LANE — the
  * ≤6 cap is structural, not policed. All scheduling (which emitter, which
@@ -28,7 +32,7 @@
  * from `clock.elapsedTime` — closed-form wall-clock math, so a starved rAF
  * frame lands exactly where the elapsed time says (the arrival-fix law; no
  * frame-count accumulation anywhere). Each glyph owns ONE module-scope
- * SpriteMaterial (an atlas-windowed texture view); the frame loop only swaps
+ * SpriteMaterial (its own cell texture); the frame loop only swaps
  * `sprite.material` — zero per-frame texture or material mutation.
  *
  * Reduced motion: static bubbles (each lane pins its first emitter's first
@@ -63,20 +67,9 @@ export const EMOTE_DANCE_Y = 1.8;
 /** Bubble world size (m) at full pop — reads at both chase-cam and orbit range. */
 const EMOTE_SIZE_M = 0.36;
 
-// ── Glyph atlas — 3×2 grid, rasterized once (module singleton) ───────────────
+// ── Glyph cells — one 128px canvas per glyph, rasterized once (singletons) ───
 
 const CELL = 128;
-const COLS = 3;
-const ROWS = 2;
-/** Atlas cell per glyph: [col, row]. Row 0 is the TOP of the canvas. */
-const GLYPH_CELL: Record<EmoteGlyph, readonly [number, number]> = {
-  check: [0, 0],
-  pending: [1, 0],
-  maybe: [2, 0],
-  meal: [0, 1],
-  music: [1, 1],
-  chat: [2, 1],
-};
 
 // Semantic inks — status colours stay fixed per glyph (never palette-tinted).
 const INK: Record<EmoteGlyph, string> = {
@@ -201,38 +194,32 @@ function drawGlyph(ctx: CanvasRenderingContext2D, glyph: EmoteGlyph): void {
 
 // Lazy module singletons (browser-only, cached for the page's lifetime — the
 // booth-props / dance-mural texture discipline; never disposed on purpose).
-let atlasCanvas: HTMLCanvasElement | null = null;
-function emoteAtlas(): HTMLCanvasElement {
-  if (atlasCanvas) return atlasCanvas;
-  const canvas = document.createElement('canvas');
-  canvas.width = CELL * COLS;
-  canvas.height = CELL * ROWS;
-  const ctx = canvas.getContext('2d')!;
-  for (const glyph of Object.keys(GLYPH_CELL) as EmoteGlyph[]) {
-    const [col, row] = GLYPH_CELL[glyph];
-    ctx.save();
-    ctx.translate(col * CELL, row * CELL);
+// One CELL-sized canvas per glyph: each material's texture uploads exactly
+// its own cell (six cells ≈ one atlas's worth of GPU memory, total) instead
+// of six windowed views each uploading the full shared atlas.
+const glyphCanvases = new Map<EmoteGlyph, HTMLCanvasElement>();
+function glyphCanvas(glyph: EmoteGlyph): HTMLCanvasElement {
+  let canvas = glyphCanvases.get(glyph);
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.width = CELL;
+    canvas.height = CELL;
+    const ctx = canvas.getContext('2d')!;
     drawBubble(ctx);
     drawGlyph(ctx, glyph);
-    ctx.restore();
+    glyphCanvases.set(glyph, canvas);
   }
-  atlasCanvas = canvas;
   return canvas;
 }
 
-// One SpriteMaterial per glyph — an atlas-windowed CanvasTexture view (clones
-// share the ONE canvas; offset/repeat select the cell and are never mutated
-// after creation, so the frame loop's only write is `sprite.material = …`).
+// One SpriteMaterial per glyph over its own cell texture — nothing is mutated
+// after creation, so the frame loop's only write is `sprite.material = …`.
 const glyphMats = new Map<EmoteGlyph, THREE.SpriteMaterial>();
 function glyphMaterial(glyph: EmoteGlyph): THREE.SpriteMaterial {
   let m = glyphMats.get(glyph);
   if (!m) {
-    const tex = new THREE.CanvasTexture(emoteAtlas());
+    const tex = new THREE.CanvasTexture(glyphCanvas(glyph));
     tex.colorSpace = THREE.SRGBColorSpace;
-    const [col, row] = GLYPH_CELL[glyph];
-    tex.repeat.set(1 / COLS, 1 / ROWS);
-    // Canvas rows count DOWN from the top; UV v counts UP — flip the row.
-    tex.offset.set(col / COLS, 1 - (row + 1) / ROWS);
     m = new THREE.SpriteMaterial({
       map: tex,
       transparent: true,

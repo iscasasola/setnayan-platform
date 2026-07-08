@@ -86,6 +86,7 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
   const reducedMotion = useReducedMotion();
 
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
   const stopBtnRef = useRef<HTMLButtonElement | null>(null);
   // Fire-once guards so a metric never double-counts within one playthrough.
@@ -175,10 +176,35 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
     setStage('playing');
   };
 
+  // Keep Tab inside the fullscreen room (modal focus trap) — Tab is navigation,
+  // so it never triggers the pause-on-interaction rule below.
+  const trapTab = (e: React.KeyboardEvent) => {
+    const root = overlayRef.current;
+    if (!root) return;
+    const focusable = Array.from(
+      root.querySelectorAll<HTMLElement>('button, a[href], [tabindex]:not([tabindex="-1"])'),
+    ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+    if (focusable.length === 0) return;
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   const onOverlayKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       close();
+      return;
+    }
+    if (e.key === 'Tab') {
+      trapTab(e);
       return;
     }
     // Any other key during playback pauses instantly (manual-interaction rule).
@@ -217,6 +243,7 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
 
       {open ? (
         <div
+          ref={overlayRef}
           className={styles.overlay}
           role="dialog"
           aria-modal="true"

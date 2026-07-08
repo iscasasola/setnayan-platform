@@ -19,6 +19,17 @@ import { orbBackground } from '../life-flash/_components/placeholder';
 
 const MAX_FACES = 5;
 
+/** Streaming placeholder — keeps the (busiest authed page) dashboard painting
+ *  instantly while the graph summary resolves behind a Suspense boundary. */
+export function LifeFlashHomeCardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      className="h-[132px] animate-pulse rounded-lg border border-white/10 bg-ink/90"
+    />
+  );
+}
+
 export async function LifeFlashHomeCard({ userId }: { userId: string }) {
   let momentCount = 0;
   let peopleCount = 0;

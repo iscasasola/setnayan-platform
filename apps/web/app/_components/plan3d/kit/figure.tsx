@@ -49,6 +49,7 @@ import {
   sitPose,
   idleSway,
   staffIdle,
+  dancePose,
   overlayPose,
   damp,
   JOINTS,
@@ -158,7 +159,7 @@ function statusRingMaterial(color: string): THREE.MeshBasicMaterial {
 const STAND_BASE = standPose();
 const SIT_BASE = sitPose();
 
-export type FigurePoseName = 'stand' | 'walk' | 'sit';
+export type FigurePoseName = 'stand' | 'walk' | 'sit' | 'dance';
 export type FigureQuality = 'high' | 'low';
 
 // `JointGroups` + `applyPose` are imported from `lib/figure-sit-bake` (the
@@ -261,15 +262,21 @@ function FigureFrameDriver({
     const target =
       pose === 'walk'
         ? walkCyclePose(ph, targetBuf.current)
-        : overlayPose(
-            pose === 'sit' ? SIT_BASE : STAND_BASE,
-            // Booth staff swap the guests' idleSway for their job's clip —
-            // same additive-overlay composition, same wall-clock time base.
-            idleClip && pose === 'stand'
-              ? staffIdle(idleClip, specId, clock.elapsedTime, swayBuf.current)
-              : idleSway(specId, clock.elapsedTime, swayBuf.current),
-            targetBuf.current,
-          );
+        : pose === 'dance'
+          ? // Tap-the-dance-floor: the looping dance clip layered over the
+            // stand base — same additive composition, same wall-clock time base
+            // as idleSway/staffIdle. The walk→dance / dance→walk preset switch
+            // eases through the generic blend below (no special-casing).
+            overlayPose(STAND_BASE, dancePose(specId, clock.elapsedTime, swayBuf.current), targetBuf.current)
+          : overlayPose(
+              pose === 'sit' ? SIT_BASE : STAND_BASE,
+              // Booth staff swap the guests' idleSway for their job's clip —
+              // same additive-overlay composition, same wall-clock time base.
+              idleClip && pose === 'stand'
+                ? staffIdle(idleClip, specId, clock.elapsedTime, swayBuf.current)
+                : idleSway(specId, clock.elapsedTime, swayBuf.current),
+              targetBuf.current,
+            );
     if (!cur.current || !from.current) {
       cur.current = { ...target };
       from.current = { ...target };
@@ -348,12 +355,18 @@ export const Figure = memo(function Figure({
           ? reduced
             ? STAND_BASE
             : walkCyclePose(typeof phase === 'number' ? phase : phase.current)
-          : idleClip
-            ? // Static staff (reduced motion OR quality 'low'): hold the
-              // clip's t=0 pose — a barista frozen mid-tamp still reads
-              // as a barista, and the booth flow completes without motion.
-              overlayPose(STAND_BASE, staffIdle(idleClip, spec.id, 0))
-            : STAND_BASE;
+          : pose === 'dance'
+            ? // Static dancer (reduced motion OR quality 'low'): hold the
+              // dance clip's t=0 pose — a paused dancer, arms raised, still
+              // reads as dancing, and the tap-to-dance flow completes without
+              // motion (the figure still walked ONTO the floor to get here).
+              overlayPose(STAND_BASE, dancePose(spec.id, 0))
+            : idleClip
+              ? // Static staff (reduced motion OR quality 'low'): hold the
+                // clip's t=0 pose — a barista frozen mid-tamp still reads
+                // as a barista, and the booth flow completes without motion.
+                overlayPose(STAND_BASE, staffIdle(idleClip, spec.id, 0))
+              : STAND_BASE;
     applyPose(groups.current, p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staticMode, pose, reduced, staticPhase, idleClip, spec.id]);

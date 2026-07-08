@@ -281,19 +281,56 @@ export default async function VendorWorkspacePage({ params }: Props) {
   // and how many meals does it cover (Σ crew_size of the vendors marked covered)?
   const { data: eventVendorCrewRows } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, crew_size, crew_meal_covered')
+    .select('vendor_id, category, crew_size, crew_meal_covered, marketplace_vendor_id')
     .eq('event_id', eventId);
   const crewRows = (eventVendorCrewRows ?? []) as Array<{
     vendor_id: string;
     category: string;
     crew_size: number | null;
     crew_meal_covered: boolean | null;
+    marketplace_vendor_id: string | null;
   }>;
+
+  // "Quantity set by vendors" (owner 2026-07-09): a marketplace vendor DECLARES
+  // its crew size on its listing — that's the source of truth. So crew_size flows
+  // through automatically; the couple never has to re-key it. event_vendors.crew_size
+  // is only the couple's optional OVERRIDE. Effective crew = override ?? the
+  // vendor's largest listed crew_size (a vendor may list several services).
+  const mpIds = Array.from(
+    new Set(
+      crewRows.map((r) => r.marketplace_vendor_id).filter((x): x is string => !!x),
+    ),
+  );
+  const listingCrewByProfile = new Map<string, number>();
+  if (mpIds.length > 0) {
+    const { data: svcCrewRows } = await supabase
+      .from('vendor_services')
+      .select('vendor_profile_id, crew_size')
+      .in('vendor_profile_id', mpIds)
+      .not('crew_size', 'is', null);
+    for (const s of (svcCrewRows ?? []) as Array<{
+      vendor_profile_id: string;
+      crew_size: number | null;
+    }>) {
+      const cur = listingCrewByProfile.get(s.vendor_profile_id) ?? 0;
+      if ((s.crew_size ?? 0) > cur) listingCrewByProfile.set(s.vendor_profile_id, s.crew_size ?? 0);
+    }
+  }
+  const effectiveCrew = (r: {
+    crew_size: number | null;
+    marketplace_vendor_id: string | null;
+  }): number | null =>
+    r.crew_size ??
+    (r.marketplace_vendor_id ? listingCrewByProfile.get(r.marketplace_vendor_id) ?? null : null);
+
   const hasCrewMealProvider = crewRows.some((r) => r.category === 'crew_meals');
   const coveredCrewMeals = crewRows.reduce(
-    (sum, r) => sum + (r.crew_meal_covered ? r.crew_size ?? 0 : 0),
+    (sum, r) => sum + (r.crew_meal_covered ? effectiveCrew(r) ?? 0 : 0),
     0,
   );
+  // This vendor's crew size, pre-filled from its listing so the couple sees the
+  // vendor-declared number (editable as an override).
+  const thisVendorCrew = effectiveCrew(ev);
 
   // Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log for
   // this booking. RLS-gated to couple-on-event reads. Rendered immutable-trail
@@ -1606,7 +1643,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
                   min="0"
                   step="1"
                   inputMode="numeric"
-                  defaultValue={ev.crew_size ?? ''}
+                  defaultValue={thisVendorCrew ?? ''}
                   className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                 />
               </label>

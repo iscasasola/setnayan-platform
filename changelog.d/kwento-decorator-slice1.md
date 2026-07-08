@@ -17,6 +17,11 @@ kwento"), persisting to the couple's gallery. Slice 1 = a client-side photo deco
   explicit RA 10173 consent) on the returned `captureId` via the shipped `/api/papic/kwento`
   contract. Words + decoration together.
 
+- **Selection UX (owner):** no square outline — a selected overlay gets a shape-tracing
+  **glow** (drop-shadow) + a **pop** (scale keyframe); resize/rotate knob + a delete **×** ride
+  the overlay corners. **Fixes a sizing bug:** the glyph font-size used `min(100%, 60vh)` (percent
+  = parent font-size ≈ 16px → ~3px stickers); now `cqw` off the stage width, matching the export.
+
 ⚠ VISUAL — held for owner review on the Vercel preview (a canvas editor can't be verified by
 typecheck). `tsc --noEmit` → 0 new errors.
 

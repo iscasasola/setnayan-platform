@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImagePlus, Loader2, RotateCw, Smile, Trash2, Type } from 'lucide-react';
+import { ImagePlus, Loader2, RotateCw, Smile, Type, X } from 'lucide-react';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 
 const STICKERS = ['❤️', '😍', '🎉', '🥂', '💍', '💐', '✨', '🔥', '😂', '🥹', '👑', '🕊️'];
@@ -181,8 +181,6 @@ export function KwentoDecorator({
     dragRef.current = null;
   };
 
-  const active = overlays.find((o) => o.id === activeId) ?? null;
-
   const save = useCallback(async () => {
     const img = imgElRef.current;
     if (!img || !img.naturalWidth) return;
@@ -311,9 +309,11 @@ export function KwentoDecorator({
           </label>
         ) : (
           <>
+            <style>{`@keyframes kdpop{0%{transform:scale(1)}42%{transform:scale(1.22)}100%{transform:scale(1)}}`}</style>
             <div
               ref={stageRef}
               className="relative mt-5 touch-none select-none overflow-hidden rounded-2xl bg-ink/5 shadow-sm"
+              style={{ containerType: 'inline-size' }}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
@@ -327,38 +327,64 @@ export function KwentoDecorator({
                 style={{ filter: cssPreviewFilter(style) }}
                 draggable={false}
               />
-              {overlays.map((ov) => (
-                <div
-                  key={ov.id}
-                  onPointerDown={(e) => onBodyDown(e, ov.id)}
-                  className={`absolute cursor-move leading-none ${
-                    ov.id === activeId ? 'outline outline-2 outline-terracotta/70' : ''
-                  }`}
-                  style={{
-                    left: `${ov.x * 100}%`,
-                    top: `${ov.y * 100}%`,
-                    transform: `translate(-50%, -50%) rotate(${ov.rotation}deg)`,
-                    fontSize: `calc(${ov.size} * min(100%, 60vh))`,
-                    color: ov.color,
-                    fontWeight: ov.kind === 'text' ? 700 : 400,
-                    textShadow: ov.kind === 'text' ? '0 1px 2px rgba(0,0,0,0.35)' : undefined,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {ov.content}
-                  {ov.id === activeId ? (
+              {overlays.map((ov) => {
+                const isActive = ov.id === activeId;
+                return (
+                  <div
+                    key={ov.id}
+                    onPointerDown={(e) => onBodyDown(e, ov.id)}
+                    className="absolute cursor-move leading-none"
+                    style={{
+                      left: `${ov.x * 100}%`,
+                      top: `${ov.y * 100}%`,
+                      transform: `translate(-50%, -50%) rotate(${ov.rotation}deg)`,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {/* Selection is a shape-tracing GLOW + a POP — no square outline.
+                        cqw sizes the glyph off the stage width (matches the export). */}
                     <span
-                      onPointerDown={(e) => onHandleDown(e, ov)}
-                      role="button"
-                      aria-label="Resize and rotate"
-                      className="absolute -bottom-3 -right-3 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta text-cream shadow"
-                      style={{ fontSize: '12px' }}
+                      style={{
+                        display: 'inline-block',
+                        fontSize: `${ov.size * 100}cqw`,
+                        color: ov.color,
+                        fontWeight: ov.kind === 'text' ? 700 : 400,
+                        textShadow: ov.kind === 'text' ? '0 1px 2px rgba(0,0,0,0.35)' : undefined,
+                        filter: isActive
+                          ? 'drop-shadow(0 0 5px rgba(216,90,48,0.95)) drop-shadow(0 0 12px rgba(216,90,48,0.55))'
+                          : undefined,
+                        animation: isActive ? 'kdpop 0.3s ease' : undefined,
+                      }}
                     >
-                      <RotateCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+                      {ov.content}
                     </span>
-                  ) : null}
-                </div>
-              ))}
+                    {isActive ? (
+                      <>
+                        <span
+                          onPointerDown={(e) => onHandleDown(e, ov)}
+                          role="button"
+                          aria-label="Resize and rotate"
+                          className="absolute -bottom-3 -right-3 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta text-cream shadow"
+                        >
+                          <RotateCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+                        </span>
+                        <span
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeActive();
+                          }}
+                          role="button"
+                          aria-label="Delete"
+                          className="absolute -left-3 -top-3 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-ink text-cream shadow"
+                        >
+                          <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Filter picker — the 5 shipped Papic looks. */}
@@ -430,22 +456,10 @@ export function KwentoDecorator({
               </button>
             </div>
 
-            {/* Active-overlay hint + delete. */}
-            {active ? (
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-ink/[0.03] px-3 py-2">
-                <span className="text-xs text-ink/55">
-                  Drag to move · drag the corner handle to resize &amp; rotate
-                </span>
-                <button
-                  type="button"
-                  onClick={removeActive}
-                  aria-label="Delete selected"
-                  className="flex-none rounded p-1 text-terracotta hover:bg-terracotta/10"
-                >
-                  <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-                </button>
-              </div>
-            ) : null}
+            {/* Interaction hint — delete now lives on the overlay's × handle. */}
+            <p className="mt-3 text-center text-xs text-ink/45">
+              Drag to move · corner knob to resize &amp; rotate · × to delete
+            </p>
 
             <button
               type="button"

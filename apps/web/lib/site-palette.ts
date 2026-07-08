@@ -116,7 +116,10 @@ export function buildSitePaletteVars(
   };
   for (const key of POOL_ORDER) (palette[key] ?? []).forEach(pushHex);
   for (const key of Object.keys(palette) as PaletteKey[]) {
-    if (!POOL_ORDER.includes(key)) (palette[key] ?? []).forEach(pushHex);
+    // Guard non-array values (taxonomy v2's `room_dressing` object) — this loop
+    // walks arbitrary keys, and only color keys hold arrays.
+    const v = palette[key];
+    if (!POOL_ORDER.includes(key) && Array.isArray(v)) v.forEach(pushHex);
   }
   if (pool.length === 0) return null;
 
@@ -175,7 +178,9 @@ function palettePool(palette: RolePalette | null | undefined): RGB[] {
   };
   for (const key of POOL_ORDER) (palette[key] ?? []).forEach(push);
   for (const key of Object.keys(palette) as PaletteKey[]) {
-    if (!POOL_ORDER.includes(key)) (palette[key] ?? []).forEach(push);
+    // Guard non-array values (taxonomy v2's `room_dressing` object).
+    const v = palette[key];
+    if (!POOL_ORDER.includes(key) && Array.isArray(v)) v.forEach(push);
   }
   return pool;
 }

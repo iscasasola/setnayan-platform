@@ -1653,16 +1653,30 @@ export function resolvePalette(hexes: string[]): Lab3DPalette {
  * Map `events.role_palette` (the couple's mood-board palette) to scene materials.
  * Reception colors drive venue surfaces: [0]=accent/stage, [1]=table linen,
  * [2]=floor, [3]=backdrop wall. Falls back to resolvePalette([]) when unset.
+ *
+ * TAXONOMY v2: the couple's optional room-dressing OVERRIDES (linens/lighting)
+ * are applied on top of the reception-derived surfaces — linen → the table
+ * material, lighting warmth → the ambient wash. Applied surgically so a palette
+ * with NO `room_dressing` override returns the exact pre-taxonomy result.
  */
 export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
   const r = (rp.reception ?? []).filter((h): h is string => HEX.test(h));
-  if (r.length === 0) return resolvePalette([]);
+  const base: Lab3DPalette =
+    r.length === 0
+      ? resolvePalette([])
+      : {
+          accent:  r[0] ?? '#c89b6c',
+          table:   r[1] ?? '#f3efe9',
+          floor:   r[2] ?? '#e7e1d8',
+          wall:    r[3] ?? '#d8cfc2',
+          ambient: r[0] ?? '#fbe9d8',
+        };
+  const rd = rp.room_dressing;
+  if (!rd) return base;
   return {
-    accent:  r[0] ?? '#c89b6c',
-    table:   r[1] ?? '#f3efe9',
-    floor:   r[2] ?? '#e7e1d8',
-    wall:    r[3] ?? '#d8cfc2',
-    ambient: r[0] ?? '#fbe9d8',
+    ...base,
+    table:   rd.linens ?? base.table,
+    ambient: rd.lighting_warmth ?? base.ambient,
   };
 }
 

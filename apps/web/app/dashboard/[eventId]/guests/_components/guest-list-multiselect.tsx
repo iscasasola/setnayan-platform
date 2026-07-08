@@ -28,7 +28,7 @@ import {
   type GuestSide,
   type RsvpStatus,
 } from '@/lib/guests';
-import { getPrimaryColor, type RolePalette } from '@/lib/mood-board';
+import { getPrimaryColor, paletteKeyForRole, type RolePalette } from '@/lib/mood-board';
 import {
   importanceGroupOf,
   ROLE_GROUP_CHIP,
@@ -1445,7 +1445,14 @@ function RsvpPill({ status }: { status: RsvpStatus }) {
 
 function RoleChip({ role, palette }: { role: GuestRole; palette: RolePalette }) {
   const group = roleGroupOf(role);
-  const accent = getPrimaryColor(palette, group);
+  // Taxonomy v2: resolve the accent dot the SAME way the 3D scene resolves
+  // attire — the guest's SPECIFIC palette key first (e.g. `bridesmaids`), then
+  // the coarse group's shared fallback (`wedding_party`). `roleGroupOf` alone
+  // returns only the group key, so a couple who filled a split sub-key but left
+  // `wedding_party` empty would otherwise see no dot even though the avatar is
+  // painted that color. Specific-key-first also gives bride/groom chips their
+  // own attire dot (the `couple` group has no aggregate primary).
+  const accent = getPrimaryColor(palette, paletteKeyForRole(role)) ?? getPrimaryColor(palette, group);
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}

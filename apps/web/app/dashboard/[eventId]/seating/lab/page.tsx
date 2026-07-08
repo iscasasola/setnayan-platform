@@ -39,7 +39,11 @@ import { fetchBoothCardItems } from '@/lib/vendor-services';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { sanitizeRolePalette } from '@/lib/mood-board';
+import {
+  sanitizeRolePalette,
+  resolveAttirePaletteColor,
+  sideAttireColor,
+} from '@/lib/mood-board';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 
@@ -128,13 +132,16 @@ export default async function SeatingLabPage({ params }: Props) {
     ).filter((e): e is [string, string] => e[1] !== null),
   );
 
-  // Attire motif colours from the mood-board role palette: a gown takes the
-  // wedding-party (else bride) attire colour, a suit takes the groom attire
-  // colour — each with a tasteful fallback (blush / charcoal) so an avatar
-  // always has a sensible hue even before the couple builds a palette.
+  // Attire motif colours from the mood-board role palette. TAXONOMY v2: each
+  // guest's colour resolves through the STRICT chain (specific role palette key →
+  // wedding_party → bride/groom SIDE colour → kit default) via
+  // resolveAttirePaletteColor, per guest role + side (below). A couple who set
+  // only `wedding_party` gets the identical result to the old GOWN bucket
+  // (`wedding_party ?? bride`); suit-class attire, which the old code took from
+  // groom/charcoal, now also degrades to `wedding_party` — the owner-locked v2
+  // intent (mood-board.test.ts "wedding_party-only dresses gowns AND suits
+  // identically"), NOT the old suit bucket.
   const rolePalette = sanitizeRolePalette((eventRow.data as Record<string, unknown> | null)?.role_palette);
-  const gownColor = rolePalette.wedding_party?.[0] ?? rolePalette.bride?.[0] ?? '#c9a4ad';
-  const suitColor = rolePalette.groom?.[0] ?? '#2b2f38';
   // Wave 2b: the couple's saved reception treatments + room archetype reach the
   // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).
   const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
@@ -163,7 +170,12 @@ export default async function SeatingLabPage({ params }: Props) {
       plusOneOfGuestId: g.plus_one_of_guest_id ?? null,
       photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       attire,
-      attireColor: attire === 'gown' ? gownColor : attire === 'suit' ? suitColor : null,
+      // Neutral silhouettes keep the RSVP-coloured token body (no motif); gown /
+      // suit silhouettes resolve their motif through the taxonomy-v2 attire chain.
+      attireColor:
+        attire === 'neutral'
+          ? null
+          : resolveAttirePaletteColor(g.role, rolePalette, sideAttireColor(rolePalette, g.side)),
       // LAB-ONLY meal emote source (Fable §3.6): meal_preference already rides
       // the couple-scoped fetchGuestsByEvent select (RLS scopes it to this
       // member's event, same as every guest field above) — boil it to a

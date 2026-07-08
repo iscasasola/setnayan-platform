@@ -6,9 +6,25 @@ import {
   PALETTE_LIMITS,
   PALETTE_ORDER,
   DEFAULT_PALETTE_SUGGESTIONS,
+  resolveRoomDressing,
   type PaletteKey,
   type RolePalette,
+  type RoomDressing,
 } from '@/lib/mood-board';
+
+// The four advanced room-dressing surfaces + their copy. Each is DERIVED from
+// the reception palette by default; a field becomes a stored override only when
+// the couple picks a custom color.
+const ROOM_DRESSING_META: ReadonlyArray<{
+  field: keyof RoomDressing;
+  label: string;
+  hint: string;
+}> = [
+  { field: 'linens', label: 'Linens', hint: 'Tablecloths & runners' },
+  { field: 'chairs', label: 'Chairs', hint: 'Chair covers & finish' },
+  { field: 'florals', label: 'Florals', hint: 'Centerpiece & arch blooms' },
+  { field: 'lighting_warmth', label: 'Lighting warmth', hint: 'Ambient wash' },
+];
 
 type Props = {
   eventId: string;
@@ -29,8 +45,30 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
       PALETTE_ORDER.map((k) => [k, initial[k] ?? []]),
     ) as RolePalette,
   );
+  // Room-dressing overrides live outside the PaletteKey grid — only overridden
+  // fields are stored; the rest stay derived from the reception palette.
+  const [roomDressing, setRoomDressing] = useState<RoomDressing>(
+    () => initial.room_dressing ?? {},
+  );
   const [pending, startTransition] = useTransition();
   const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Live derived values (ignoring any override) so the panel can preview what a
+  // field would be by default and offer a "use derived" reset.
+  const derivedDressing = useMemo(
+    () => resolveRoomDressing({ reception: palette.reception }),
+    [palette.reception],
+  );
+
+  const setDressing = (field: keyof RoomDressing, color: string) =>
+    setRoomDressing((p) => ({ ...p, [field]: color.toUpperCase() }));
+
+  const resetDressing = (field: keyof RoomDressing) =>
+    setRoomDressing((p) => {
+      const next = { ...p };
+      delete next[field];
+      return next;
+    });
 
   const updateColor = (key: PaletteKey, index: number, color: string) => {
     setPalette((p) => {
@@ -70,7 +108,12 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
   }, [palette]);
 
   const handleSubmit = (formData: FormData) => {
-    formData.set('palette_json', JSON.stringify(palette));
+    // Fold the room-dressing overrides back into the payload; only include the
+    // block when the couple actually set at least one field (empty → omitted, so
+    // sanitize drops it and the room stays fully reception-derived).
+    const payload: RolePalette = { ...palette };
+    if (Object.keys(roomDressing).length > 0) payload.room_dressing = roomDressing;
+    formData.set('palette_json', JSON.stringify(payload));
     startTransition(async () => {
       await saveAction(formData);
       setSavedAt(new Date().toISOString());
@@ -122,6 +165,71 @@ export function PaletteEditor({ eventId, initial, visibleKeys, saveAction, seede
         onAdd={addColor}
         onRemove={removeColor}
       />
+
+      <details className="group rounded-xl border border-ink/10 bg-cream">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4">
+          <div className="min-w-0 space-y-0.5">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Advanced · Room dressing
+            </h2>
+            <p className="text-xs text-ink/55">
+              Fine-tune linens, chairs, florals, and lighting. Each follows your
+              reception palette until you set a custom color.
+            </p>
+          </div>
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open:hidden">
+            Show
+          </span>
+          <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45 group-open:inline">
+            Hide
+          </span>
+        </summary>
+        <div className="grid gap-3 border-t border-ink/10 p-4 sm:grid-cols-2">
+          {ROOM_DRESSING_META.map(({ field, label, hint }) => {
+            const overridden = roomDressing[field] != null;
+            const value = roomDressing[field] ?? derivedDressing[field];
+            return (
+              <div
+                key={field}
+                className="flex items-center gap-3 rounded-lg border border-ink/10 bg-white p-3"
+              >
+                <input
+                  type="color"
+                  aria-label={`${label} color — ${value}`}
+                  title={value}
+                  value={value}
+                  onChange={(e) => setDressing(field, e.target.value)}
+                  className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-ink/10 p-0.5"
+                />
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-ink">{label}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] ${
+                        overridden
+                          ? 'bg-terracotta/10 text-terracotta-700'
+                          : 'bg-ink/5 text-ink/50'
+                      }`}
+                    >
+                      {overridden ? 'Custom' : 'Derived'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink/55">{hint}</p>
+                </div>
+                {overridden ? (
+                  <button
+                    type="button"
+                    onClick={() => resetDressing(field)}
+                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:bg-ink/5 hover:text-terracotta"
+                  >
+                    Use derived
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </details>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-xs text-ink/55">

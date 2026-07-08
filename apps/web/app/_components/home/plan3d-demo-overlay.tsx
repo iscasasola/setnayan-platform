@@ -40,7 +40,11 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
   // tunnel (and shadow/env budget) renders its full desktop tier in a 360px
   // canvas on mid-range mobile GPUs.
   const isMobile = useIsMobile();
-  const hasMood = scene ? Object.values(scene.rolePalette).some((a) => (a?.length ?? 0) > 0) : false;
+  // `room_dressing` is a non-array value on RolePalette (taxonomy v2), so gate on
+  // array palettes only — a mood board "has color" when any color key is filled.
+  const hasMood = scene
+    ? Object.values(scene.rolePalette).some((a) => Array.isArray(a) && a.length > 0)
+    : false;
 
   useEffect(() => {
     if (current !== 'plan3d-demo') return;

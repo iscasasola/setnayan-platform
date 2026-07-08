@@ -43,7 +43,6 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import {
-  resolveFigureLook,
   standPose,
   walkCyclePose,
   sitPose,
@@ -58,17 +57,7 @@ import {
   type StaffIdleKind,
 } from '@/lib/figure-rig';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
-import {
-  outfitGeometry,
-  outfitIsSkirted,
-  outfitMaterial,
-  trouserMaterial,
-  plainMaterial,
-  skinMaterial,
-  SLEEVE_GEO,
-} from './outfits';
-import { hairPartsFor, hairMaterial } from './hair';
-import { FACE_GEO, faceMaterial } from './face';
+import { plainMaterial, mannequinMaterial } from './outfits';
 
 // ── Rig proportions (metres, adult at scale 1) ───────────────────────────────
 // Sized against the PRODUCT-TRUE furniture: 0.46 m chair seats + 0.74 m
@@ -108,6 +97,14 @@ const SHOE_GEO = (() => {
   return g;
 })();
 const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
+// 2026-07-08 AVATAR PIVOT: the plump featureless mannequin torso — one smooth
+// capsule, softly flattened front-to-back. No shells, no wardrobe.
+const MANNEQUIN_TORSO_GEO = (() => {
+  const g = new THREE.CapsuleGeometry(0.175, 0.22, 10, 24);
+  g.scale(1, 1.05, 0.84);
+  g.translate(0, 0.27, 0);
+  return g;
+})();
 
 // Status-ring materials: the existing ring/marker convention (GuestToken's
 // photo ring, the roam seat marker) — unlit so the status colour stays true.
@@ -248,12 +245,6 @@ export const Figure = memo(function Figure({
   const staticMode = quality === 'low' || reduced;
   const rootRef = useRef<THREE.Group>(null);
 
-  const look = useMemo(
-    () => resolveFigureLook(spec),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spec.id, spec.skinTone, spec.hairStyle, spec.hairColor],
-  );
-
   const groups = useRef<JointGroups>({
     pelvis: null,
     torso: null,
@@ -358,18 +349,9 @@ export const Figure = memo(function Figure({
     applyPose(groups.current, c);
   });
 
-  const skirted = outfitIsSkirted(spec.outfit);
-  const outfitGeo = outfitGeometry(spec.outfit);
-  const outfitMat = outfitMaterial(spec.outfit, spec.outfitColor);
-  const trouserMat = trouserMaterial(spec.outfit, spec.outfitColor);
-  const shoeMat = plainMaterial('#1d1a17'); // shared near-black leather
-  const skinMat = skinMaterial(look.skinTone); // mascot sheen — smoother than generic plain
-  const hairMat = hairMaterial(look.hairColor);
-  const hairParts = hairPartsFor(look.hairStyle);
-  // Skirted outfits bare the arms + shins (skin); trousered ones sleeve the
-  // upper arm in the shell cloth and trouser the whole leg.
-  const upperArmMat = skirted ? skinMat : outfitMat;
-  const shinMat = skirted ? skinMat : trouserMat;
+  // 2026-07-08 AVATAR PIVOT: one blank glossy body material for everything —
+  // white by default, tintable via the spec's outfitColor (flat colour slate).
+  const bodyMat = mannequinMaterial(spec.outfitColor);
 
   // Shell placement: the re-proportioned lathe shells (2026-07-08 silhouette
   // pass) are authored directly in torso space — collar at ≈0.50, waist,
@@ -406,77 +388,49 @@ export const Figure = memo(function Figure({
             HIP BLOCK joins the leg tops so trousers read as one garment, the
             stance narrows, and every visible leg ends in a SHOE — the two
             floating capsules become a person standing in shoes. */}
-        {!skirted ? (
-          <mesh
-            geometry={HIP_GEO}
-            material={trouserMat}
-            position={[0, -0.045, 0]}
-            castShadow={castShadow}
-          />
-        ) : null}
+        <mesh geometry={HIP_GEO} material={bodyMat} position={[0, -0.045, 0]} castShadow={castShadow} />
         {[-1, 1].map((side) => (
           <group
             key={side}
             ref={(el) => void (groups.current[side < 0 ? 'lHip' : 'rHip'] = el)}
             position={[side * HIP_X, 0, 0]}
           >
-            {!skirted ? (
-              <mesh
-                geometry={LEG_GEO}
-                material={trouserMat}
-                position={[0, -THIGH_LEN / 2, 0]}
-                scale={[1.28, THIGH_LEN / LEG_GEO_LEN, 1.28]}
-                castShadow={castShadow}
-              />
-            ) : null}
+            <mesh
+              geometry={LEG_GEO}
+              material={bodyMat}
+              position={[0, -THIGH_LEN / 2, 0]}
+              scale={[1.28, THIGH_LEN / LEG_GEO_LEN, 1.28]}
+              castShadow={castShadow}
+            />
             <group
               ref={(el) => void (groups.current[side < 0 ? 'lKnee' : 'rKnee'] = el)}
               position={[0, -THIGH_LEN, 0]}
             >
               <mesh
                 geometry={LEG_GEO}
-                material={shinMat}
+                material={bodyMat}
                 position={[0, -SHIN_LEN / 2, 0]}
-                scale={[skirted ? 0.85 : 1.08, SHIN_LEN / LEG_GEO_LEN, skirted ? 0.85 : 1.08]}
+                scale={[1.08, SHIN_LEN / LEG_GEO_LEN, 1.08]}
                 castShadow={castShadow}
               />
-              {/* Shoe: a low flattened capsule nosing forward from the ankle —
-                  follows the knee group so it swings with the stride. */}
+              {/* Foot nub — same blank material (the mannequin has no shoes),
+                  still swinging with the knee group. */}
               <mesh
                 geometry={SHOE_GEO}
-                material={shoeMat}
-                position={[0, -SHIN_LEN + 0.03, 0.045]}
-                scale={[1.5, 0.8, 1.55]}
+                material={bodyMat}
+                position={[0, -SHIN_LEN + 0.03, 0.04]}
+                scale={[1.4, 0.75, 1.4]}
                 castShadow={castShadow}
               />
             </group>
           </group>
         ))}
 
-        {/* ── Torso: shell + arms + head ride the lean/sway together. ── */}
+        {/* ── Torso: the blank plump mannequin body (2026-07-08 avatar pivot —
+            no wardrobe, no shells) + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
-          <mesh geometry={outfitGeo} material={outfitMat} castShadow={castShadow} />
-
-          {/* Neck — a short skin cylinder bridging the collar to the head so
-              the head reads as attached to a person, not balanced on a shell
-              (part of the 2026-07-08 silhouette pass). Lives on the torso (a
-              turning head pivots above it, like a real neck). */}
-          <mesh geometry={NECK_GEO} material={skinMat} position={[0, 0.545, 0]} castShadow={castShadow} />
-
-          {/* Filipiniana: the terno's butterfly sleeves — two flattened
-              spheres peaking just above the shoulder line. */}
-          {spec.outfit === 'filipiniana'
-            ? [-1, 1].map((side) => (
-                <mesh
-                  key={side}
-                  geometry={SLEEVE_GEO}
-                  material={outfitMat}
-                  position={[side * SHOULDER_X, SHOULDER_Y + 0.03, 0]}
-                  scale={[1.5, 0.8, 1.05]}
-                  castShadow={castShadow}
-                />
-              ))
-            : null}
+          <mesh geometry={MANNEQUIN_TORSO_GEO} material={bodyMat} castShadow={castShadow} />
+          <mesh geometry={NECK_GEO} material={bodyMat} position={[0, 0.545, 0]} castShadow={castShadow} />
 
           {/* ── Arms: shoulder → elbow. ── */}
           {[-1, 1].map((side) => (
@@ -487,7 +441,7 @@ export const Figure = memo(function Figure({
             >
               <mesh
                 geometry={ARM_GEO}
-                material={upperArmMat}
+                material={bodyMat}
                 position={[0, -UPPER_ARM_LEN / 2, 0]}
                 scale={[1, UPPER_ARM_LEN / ARM_GEO_LEN, 1]}
                 castShadow={castShadow}
@@ -498,7 +452,7 @@ export const Figure = memo(function Figure({
               >
                 <mesh
                   geometry={ARM_GEO}
-                  material={skinMat}
+                  material={bodyMat}
                   position={[0, -FOREARM_LEN / 2, 0]}
                   scale={[0.88, FOREARM_LEN / ARM_GEO_LEN, 0.88]}
                   castShadow={castShadow}
@@ -531,21 +485,9 @@ export const Figure = memo(function Figure({
                   />
                 </group>
               ) : (
-                <>
-                  <mesh geometry={HEAD_GEO} material={skinMat} castShadow={castShadow} />
-                  <mesh geometry={FACE_GEO} material={faceMaterial(look.faceVariant)} />
-                  {hairParts.map((h, i) => (
-                    <mesh
-                      key={i}
-                      geometry={h.geo}
-                      material={hairMat}
-                      position={[h.position[0], h.position[1], h.position[2]]}
-                      scale={[h.scale[0], h.scale[1], h.scale[2]]}
-                      rotation={[h.rotation[0], h.rotation[1], h.rotation[2]]}
-                      castShadow={castShadow}
-                    />
-                  ))}
-                </>
+                // 2026-07-08 avatar pivot: the blank featureless head — no
+                // face, no hair. Pure silhouette (the owner's blueprint).
+                <mesh geometry={HEAD_GEO} material={bodyMat} castShadow={castShadow} />
               )}
             </group>
           </group>

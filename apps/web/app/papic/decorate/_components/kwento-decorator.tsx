@@ -17,10 +17,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImagePlus, Loader2, RotateCw, Smile, Type, X } from 'lucide-react';
+import { ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 
-const STICKERS = ['❤️', '😍', '🎉', '🥂', '💍', '💐', '✨', '🔥', '😂', '🥹', '👑', '🕊️'];
+const STICKERS = [
+  '❤️', '😍', '🥰', '😘', '😂', '🥹', '😭', '🔥',
+  '🎉', '🥂', '🍾', '🎊', '💍', '💐', '🌸', '🌺',
+  '🕊️', '🦋', '✨', '🌟', '💫', '👑', '🫶', '💯',
+];
 const TEXT_COLORS = ['#ffffff', '#1f1a17', '#e2725b', '#b3446c', '#d4af37'];
 const MAX_EXPORT_PX = 1440; // cap the long edge → sane JPEG size
 const MIN_SIZE = 0.04;
@@ -69,6 +73,7 @@ export function KwentoDecorator({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [history, setHistory] = useState<Overlay[][]>([]); // undo stack (add/delete)
 
   // Slice 2 — the Kwento CAPTION on the decorated photo (words + decoration).
   const [savedCaptureId, setSavedCaptureId] = useState<string | null>(null);
@@ -99,7 +104,18 @@ export function KwentoDecorator({
     setStatus(null);
   };
 
+  // Undo stack — snapshots the overlays before each add/delete (drags are easy
+  // to redo by hand; this covers the "oops, wrong sticker / deleted it" case).
+  const pushHistory = () => setHistory((h) => [...h.slice(-29), overlays]);
+  const undo = () => {
+    if (history.length === 0) return;
+    setOverlays(history[history.length - 1]!);
+    setHistory((h) => h.slice(0, -1));
+    setActiveId(null);
+  };
+
   const addSticker = (emoji: string) => {
+    pushHistory();
     const id = nextId();
     setOverlays((o) => [
       ...o,
@@ -111,6 +127,7 @@ export function KwentoDecorator({
   const addText = () => {
     const t = textDraft.trim();
     if (!t) return;
+    pushHistory();
     const id = nextId();
     setOverlays((o) => [
       ...o,
@@ -120,7 +137,10 @@ export function KwentoDecorator({
     setTextDraft('');
   };
 
-  const removeActive = () => setOverlays((o) => o.filter((x) => x.id !== activeId));
+  const removeActive = () => {
+    pushHistory();
+    setOverlays((o) => o.filter((x) => x.id !== activeId));
+  };
 
   // BODY drag → move (fraction-based). stopPropagation so tapping an overlay
   // doesn't bubble to the stage's deselect handler.
@@ -409,9 +429,19 @@ export function KwentoDecorator({
 
             {/* Sticker palette. */}
             <div className="mt-3">
-              <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink/50">
-                <Smile aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Stickers
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink/50">
+                  <Smile aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Stickers
+                </p>
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={history.length === 0}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ink/60 hover:bg-ink/5 disabled:opacity-40"
+                >
+                  <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Undo
+                </button>
+              </div>
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {STICKERS.map((emoji) => (
                   <button

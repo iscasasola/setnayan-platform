@@ -25,6 +25,10 @@ kwento"), persisting to the couple's gallery. Slice 1 = a client-side photo deco
 ⚠ VISUAL — held for owner review on the Vercel preview (a canvas editor can't be verified by
 typecheck). `tsc --noEmit` → 0 new errors.
 
-Next: larger sticker set / more text styles / undo / mood-board-themed stickers (slice 3).
+- **Slice 3 (part): bigger sticker set (12 → 24) + undo.** Palette expanded (love / celebration /
+  wedding / nature / reactions). Undo stack snapshots overlays before each add/delete (`Undo` button
+  in the sticker header). Deselect on tap-away also landed.
+
+Still to come: text-readability pill · mood-board-themed stickers (need the couple's palette).
 
 SPEC IMPACT: Applied — `0012_papic/Kwento_Decorator_Build_Plan_2026-07-08.md`; DECISION_LOG 2026-07-08.

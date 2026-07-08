@@ -916,3 +916,49 @@ BEGIN
     VALUES (v_event, r.btype, r.blabel, r.x, r.y, 0, 'reception', v_ev, r.offer);
   END LOOP;
 END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Room-magic demo enablement (2026-07-08): the sample event demos the
+-- cold-spark entrance tunnel, and the second serpentine ("Table 9") seats
+-- four guests so both serpentine tables read as real. Idempotent.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+  v_t9 uuid;
+  v_gid uuid;
+  r RECORD;
+  i INT := 0;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' AND event_type = 'wedding' LIMIT 1;
+  IF v_event IS NULL THEN RAISE NOTICE 'sample event missing — skip room-magic seed'; RETURN; END IF;
+
+  -- Tunnel selection → cold_spark (the shipped ship-first treatment).
+  UPDATE public.events
+  SET reception_design = jsonb_set(COALESCE(reception_design, '{}'::jsonb), '{tunnel,style}', '"cold_spark"')
+  WHERE event_id = v_event;
+
+  SELECT table_id INTO v_t9 FROM public.event_tables
+  WHERE event_id = v_event AND table_label = 'Table 9' LIMIT 1;
+  IF v_t9 IS NULL THEN RAISE NOTICE 'Table 9 missing — skip serpentine cast'; RETURN; END IF;
+
+  FOR r IN SELECT * FROM (VALUES
+    ('Nena','Villar','gown','bride'),
+    ('Tomas','Villar','suit','bride'),
+    ('Cita','Ramos','gown','groom'),
+    ('Efren','Ramos','suit','groom')
+  ) AS c(fn, ln, att, sd) LOOP
+    SELECT guest_id INTO v_gid FROM public.guests
+    WHERE event_id = v_event AND first_name = r.fn AND last_name = r.ln AND deleted_at IS NULL LIMIT 1;
+    IF v_gid IS NULL THEN
+      INSERT INTO public.guests (event_id, first_name, last_name, role, attire, side, group_category, rsvp_status, qr_token)
+      VALUES (v_event, r.fn, r.ln, 'guest', r.att::guest_attire, r.sd::guest_side, 'friends', 'attending', encode(extensions.gen_random_bytes(16), 'hex'))
+      RETURNING guest_id INTO v_gid;
+    END IF;
+    DELETE FROM public.event_seat_assignments WHERE event_id = v_event AND guest_id = v_gid;
+    INSERT INTO public.event_seat_assignments (event_id, table_id, guest_id, seat_number)
+    VALUES (v_event, v_t9, v_gid, i);
+    i := i + 1;
+  END LOOP;
+END $$;

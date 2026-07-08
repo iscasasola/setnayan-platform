@@ -53,7 +53,13 @@ type Drag =
 let seq = 0;
 const nextId = () => `o${++seq}`;
 
-export function KwentoDecorator({ eventName }: { eventName: string }) {
+export function KwentoDecorator({
+  eventName,
+  canKwento,
+}: {
+  eventName: string;
+  canKwento: boolean;
+}) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<PapicStyle>('ORIG');
   const [overlays, setOverlays] = useState<Overlay[]>([]);
@@ -63,6 +69,14 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  // Slice 2 — the Kwento CAPTION on the decorated photo (words + decoration).
+  const [savedCaptureId, setSavedCaptureId] = useState<string | null>(null);
+  const [caption, setCaption] = useState('');
+  const [captionConsent, setCaptionConsent] = useState(false);
+  const [captionSaving, setCaptionSaving] = useState(false);
+  const [captionDone, setCaptionDone] = useState(false);
+  const [captionStatus, setCaptionStatus] = useState<string | null>(null);
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imgElRef = useRef<HTMLImageElement | null>(null);
@@ -220,9 +234,14 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
       form.append('file', blob, `kwento-${Date.now()}.jpg`);
       form.append('media_type', 'photo');
       const resp = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-      const data = (await resp.json().catch(() => ({}))) as { status?: string; error?: string };
+      const data = (await resp.json().catch(() => ({}))) as {
+        status?: string;
+        error?: string;
+        captureId?: string | null;
+      };
       if (resp.ok && data.status === 'ok') {
         setDone(true);
+        setSavedCaptureId(data.captureId ?? null);
         setStatus('Saved to the couple’s gallery ✨');
       } else if (data.status === 'quota_exhausted') {
         setStatus('You’ve used all your photos for this wedding.');
@@ -237,6 +256,44 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
       setSaving(false);
     }
   }, [overlays, style]);
+
+  // Slice 2 — anchor a Kwento caption on the just-saved decorated photo. Uses
+  // the shipped /api/papic/kwento contract (story voice, ≤280, explicit consent).
+  const saveCaption = useCallback(async () => {
+    const text = caption.trim();
+    if (!savedCaptureId || text.length < 1) return;
+    setCaptionSaving(true);
+    setCaptionStatus(null);
+    try {
+      const resp = await fetch('/api/papic/kwento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          captureId: savedCaptureId,
+          body: text,
+          consent: captionConsent,
+          voiceDepth: 'story',
+        }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (resp.ok && data.ok) {
+        setCaptionDone(true);
+        setCaptionStatus('Your caption was added ✨');
+      } else if (data.error === 'consent_required') {
+        setCaptionStatus('Please tick the box to share your caption.');
+      } else if (data.error === 'keep_it_sweet') {
+        setCaptionStatus('Let’s keep it kind — try rephrasing.');
+      } else if (data.error === 'limit_reached') {
+        setCaptionStatus('You’ve reached the caption limit for this wedding.');
+      } else {
+        setCaptionStatus('Couldn’t add the caption — please try again.');
+      }
+    } catch {
+      setCaptionStatus('Couldn’t add the caption — please try again.');
+    } finally {
+      setCaptionSaving(false);
+    }
+  }, [caption, savedCaptureId, captionConsent]);
 
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
@@ -403,6 +460,51 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
               <p className={`mt-2 text-center text-sm ${done ? 'text-success-600' : 'text-ink/70'}`}>
                 {status}
               </p>
+            ) : null}
+
+            {/* Slice 2 — the Kwento caption on the saved decorated photo. Only
+                after a successful save, and only if the event has Kwento on. */}
+            {done && canKwento && savedCaptureId && !captionDone ? (
+              <div className="mt-5 rounded-xl border border-ink/10 bg-surface p-4">
+                <p className="text-sm font-medium text-ink">Add a caption</p>
+                <p className="mt-0.5 text-xs text-ink/55">
+                  Tell the couple the story behind this photo.
+                </p>
+                <textarea
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  maxLength={280}
+                  rows={3}
+                  placeholder="What was happening here?"
+                  className="mt-2 w-full rounded-md border border-ink/15 bg-cream px-2.5 py-2 text-sm"
+                />
+                <label className="mt-2 flex items-start gap-2 text-xs text-ink/65">
+                  <input
+                    type="checkbox"
+                    checked={captionConsent}
+                    onChange={(e) => setCaptionConsent(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>I&rsquo;m okay with the couple sharing my caption with this photo.</span>
+                </label>
+                <button
+                  type="button"
+                  disabled={captionSaving || caption.trim().length < 1}
+                  onClick={saveCaption}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-cream hover:bg-ink/90 disabled:opacity-60"
+                >
+                  {captionSaving ? (
+                    <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+                  ) : null}
+                  Add caption
+                </button>
+                {captionStatus ? (
+                  <p className="mt-2 text-center text-sm text-ink/70">{captionStatus}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {captionDone ? (
+              <p className="mt-3 text-center text-sm text-success-600">{captionStatus}</p>
             ) : null}
           </>
         )}

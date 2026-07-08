@@ -2,6 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { KwentoDecorator } from './_components/kwento-decorator';
 
 // Papic · Kwento Decorator (owner 2026-07-08 "this is ideally kwento"). The
@@ -51,12 +52,17 @@ export default async function PapicDecoratePage() {
     );
   }
 
-  const { data: ev } = await admin
-    .from('events')
-    .select('display_name')
-    .eq('event_id', session.event_id)
-    .maybeSingle();
+  const [{ data: ev }, canKwento] = await Promise.all([
+    admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', session.event_id)
+      .maybeSingle(),
+    // Kwento (the caption step) is a paid unlock — mirror the server gate so the
+    // caption composer only appears when POST /api/papic/kwento would accept it.
+    eventKwentoEnabled(admin, session.event_id),
+  ]);
   const eventName = (ev?.display_name as string | null) || 'the wedding';
 
-  return <KwentoDecorator eventName={eventName} />;
+  return <KwentoDecorator eventName={eventName} canKwento={canKwento} />;
 }

@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import { readGuestSession } from '@/lib/guest-session';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
@@ -137,6 +138,17 @@ export async function submitRsvp(
       payload_snapshot: { eventId, guestId, status, meal },
     });
     return;
+  }
+
+  // Smart seat-plan Phase 5 (gap G2): a guest confirming from their own invite
+  // should get a seat if they don't have one (e.g. added before any tables
+  // existed, or self-joined). Gap-fill only — NO reseat, so a confirmed guest's
+  // existing chair never jumps just because they replied. Reconcile on any
+  // NON-declined reply (declined is handled DB-side by free_seat_on_decline).
+  // Admin client — the guest session has no RLS write on event_seat_assignments.
+  // Best-effort; no-op if autoplace is off or they're already seated.
+  if (status !== 'declined') {
+    await applyReconcileForEvent(admin, eventId);
   }
 
   // Persist the RSVP selfie + face-recognition enrollment (owner directive

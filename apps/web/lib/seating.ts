@@ -138,6 +138,26 @@ export async function fetchAssignments(
 // RLS. Graceful-degrade: a read error (or not-yet-migrated table) yields no
 // rules so auto-seat still runs (it just won't separate anyone). Returned as
 // KeepApartRule pairs; solveSeatPlan expands them to whole groups at solve time.
+/**
+ * Phase 6 (gap G8): the event's group-overflow adjacency preference. Defaults to
+ * ON — only an explicit FALSE (`events.seating_group_adjacency`) reverts a couple
+ * to the classic stage-ranked fill. Shared by the reactive reconcile path and the
+ * couple-triggered Auto-Arrange so the toggle is honored consistently.
+ */
+export async function fetchGroupAdjacency(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('events')
+    .select('seating_group_adjacency')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return (
+    (data as { seating_group_adjacency?: boolean | null } | null)?.seating_group_adjacency !== false
+  );
+}
+
 export async function fetchSeatingConstraints(
   supabase: SupabaseClient,
   eventId: string,
@@ -838,6 +858,10 @@ export function computeAutoSeat(
   // existing caller is byte-identical; a generic event passes its set to tier
   // host/vip→1, family→3 and to exclude the right principals (none).
   roleSet: RoleSet = WEDDING_ROLE_SET,
+  // Phase 6 (gap G8): group-overflow adjacency. TRUE (default) spills a group's
+  // overflow to the nearest table by floor coordinates; FALSE reverts to the
+  // classic stage-ranked fill (the couple's per-event opt-out).
+  groupAdjacency: boolean = true,
 ): AutoSeatRow[] {
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
 
@@ -949,7 +973,7 @@ export function computeAutoSeat(
   const result: AutoSeatRow[] = [];
   for (const g of ordered) {
     let table: EventTableRow | undefined;
-    const anchorId = g.group_id ? groupAnchor.get(g.group_id) : undefined;
+    const anchorId = groupAdjacency && g.group_id ? groupAnchor.get(g.group_id) : undefined;
     if (anchorId) {
       // Nearest free table to the group's anchor (the anchor itself while it has
       // room, then its physical neighbours). Ties fall back to stage order.
@@ -1012,6 +1036,8 @@ export type SolveInput = {
   groupMembers?: Map<string, string[]>;
   // Iteration 0053 P2: per-event-type role set (omitted = wedding default).
   roleSet?: RoleSet;
+  // Phase 6 (gap G8): group-overflow adjacency, threaded to the warm start.
+  groupAdjacency?: boolean;
 };
 
 export type SolveResult = {
@@ -1034,10 +1060,11 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
     constraints,
     groupMembers = new Map<string, string[]>(),
     roleSet = WEDDING_ROLE_SET,
+    groupAdjacency = true,
   } = input;
 
   // Warm start (priority + stage aware; ignores constraints). No rules → done.
-  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet);
+  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet, groupAdjacency);
   const totalRules = constraints.length;
   if (totalRules === 0) {
     return { assignments: warm, violations: [], satisfiedCount: 0, totalRules: 0 };
@@ -1293,6 +1320,8 @@ export type ReconcileInput = {
    * the pair stays together. New/unseated guests are gap-filled regardless.
    */
   reseatGuestIds?: Iterable<string>;
+  /** Phase 6 (gap G8): group-overflow adjacency; default TRUE. */
+  groupAdjacency?: boolean;
 };
 
 export type ReconcileResult = {
@@ -1309,6 +1338,7 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
     priorityOrder = null,
     stage = STAGE_POINT,
     roleSet = WEDDING_ROLE_SET,
+    groupAdjacency = true,
   } = input;
   const constraints = input.constraints ?? [];
   const reseat = new Set(input.reseatGuestIds ?? []);
@@ -1337,8 +1367,9 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
           constraints,
           groupMembers: input.groupMembers,
           roleSet,
+          groupAdjacency,
         }).assignments
-      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet);
+      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency);
 
   const placedIds = new Set(placed.map((r) => r.guest_id));
   const takenSeat = new Set(placed.map((r) => `${r.table_id}#${r.seat_number}`));

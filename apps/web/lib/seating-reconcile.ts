@@ -34,12 +34,15 @@ export async function applyReconcileForEvent(
   try {
     const { data: ev } = await supabase
       .from('events')
-      .select('seating_autoplace_enabled')
+      .select('seating_autoplace_enabled, seating_group_adjacency')
       .eq('event_id', eventId)
       .maybeSingle();
     // Column DEFAULTs TRUE; a null/missing value is treated as enabled so the
     // feature is on out-of-the-box (only an explicit FALSE opts out).
     if (ev && ev.seating_autoplace_enabled === false) return;
+    // Group-overflow adjacency (gap G8) — ON unless the couple explicitly opted out.
+    const groupAdjacency = (ev as { seating_group_adjacency?: boolean | null } | null)
+      ?.seating_group_adjacency !== false;
 
     const [tables, assignments, guests, floorPlan, memberships, constraints] =
       await Promise.all([
@@ -88,6 +91,7 @@ export async function applyReconcileForEvent(
       stage: { x: floorPlan.stage_x, y: floorPlan.stage_y },
       roleSet,
       reseatGuestIds: reseat,
+      groupAdjacency,
     });
 
     // Delete stale rows first (a displaced guest whose seat got reused), then

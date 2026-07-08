@@ -594,3 +594,13 @@ test('Phase 6: WITHOUT a group the fill is unchanged (stage order → overflow l
   assert.equal(seatTableOf(rows, 'g1'), 'anc');
   assert.equal(seatTableOf(rows, 'g2'), 'far'); // pure stage order — proves the superset property
 });
+
+test('Phase 6 (G8 toggle): groupAdjacency=false reverts a grouped overflow to the classic stage-order fill', () => {
+  const g1 = guest({ guest_id: 'g1', group_id: 'grp' });
+  const g2 = guest({ guest_id: 'g2', group_id: 'grp' });
+  // 7th arg = groupAdjacency OFF → the group's overflow uses stage order, not
+  // coordinate adjacency, so g2 lands on 'far' exactly like the ungrouped case.
+  const rows = computeAutoSeat(ADJ_TABLES, [g1, g2], [], { x: 50, y: 8 }, null, undefined, false);
+  assert.equal(seatTableOf(rows, 'g1'), 'anc');
+  assert.equal(seatTableOf(rows, 'g2'), 'far');
+});

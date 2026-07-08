@@ -1418,6 +1418,57 @@ export function walkVector(yaw: number, moveX: number, moveForward: number): { d
 }
 
 /**
+ * Where the first-person walk camera DROPS IN when Walk around starts. The
+ * orbit camera's maxDistance rides room depth, so it can sit 15–30 m OUTSIDE
+ * the venue — naively spawning at its x/z put the walker in the black void
+ * with the room reading as a thin band. Rules, in order:
+ *   - camera already inside the room rectangle (small 0.4 m inset, so "inside"
+ *     means properly inside rather than straddling a wall) → keep its x/z:
+ *     the original drop-in-where-you-are feel is preserved;
+ *   - outside with an entrance → stand ~1.5 m inside the doorway, stepping
+ *     from the entrance point toward the room centre (the entrance sits on
+ *     the room edge, so "toward (0,0)" always points inward) — clear of the
+ *     two r 0.2 doorway-post discs at ±0.55 m local X;
+ *   - outside with no entrance → clamp the camera's x/z into the rectangle
+ *     with a 0.8 m wall margin.
+ * Every branch finishes through pushOutOfDiscs so the spawn can never sit
+ * inside a table / booth / stage disc. Margins are floored at 0 so a
+ * degenerate (tiny) room clamps to its centre instead of inverting the bounds.
+ */
+export function walkSpawnPoint(
+  cam: Vec2,
+  room: { w: number; d: number },
+  entrance: Vec2 | null,
+  obstacles: ObstacleDisc[] | ObstacleGrid,
+): Vec2 {
+  const hw = room.w / 2;
+  const hd = room.d / 2;
+  let p: Vec2;
+  if (Math.abs(cam.x) <= Math.max(0, hw - 0.4) && Math.abs(cam.z) <= Math.max(0, hd - 0.4)) {
+    // Inside: keep the spot as-is (no wall clamp — the inset already vouches
+    // for it); only the disc expulsion below may still move it.
+    p = { x: cam.x, z: cam.z };
+  } else {
+    if (entrance) {
+      // Unit vector entrance → room centre. A centred (degenerate) entrance
+      // has no direction — fall back to −z, the doorway's usual inward facing.
+      const len = Math.hypot(entrance.x, entrance.z);
+      const ux = len < 1e-6 ? 0 : -entrance.x / len;
+      const uz = len < 1e-6 ? -1 : -entrance.z / len;
+      p = { x: entrance.x + ux * 1.5, z: entrance.z + uz * 1.5 };
+    } else {
+      p = { x: cam.x, z: cam.z };
+    }
+    // Clamp into the rectangle with a wall margin — covers the no-entrance
+    // fallback AND the entrance step overshooting the centre of a tiny room.
+    const mx = Math.max(0, hw - 0.8);
+    const mz = Math.max(0, hd - 0.8);
+    p = { x: Math.max(-mx, Math.min(mx, p.x)), z: Math.max(-mz, Math.min(mz, p.z)) };
+  }
+  return pushOutOfDiscs(p, obstacles);
+}
+
+/**
  * Lightweight "walk around the tables" path: sample the straight line start→end,
  * push each interior sample out of any table's avoidance disc (a cheap potential
  * field), then return the smoothed waypoints. Not a true NavMesh — it just reads

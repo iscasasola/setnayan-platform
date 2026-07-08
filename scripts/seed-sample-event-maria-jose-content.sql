@@ -889,9 +889,20 @@ END $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Demo floor booths (2026-07-08). Persists the live 3D-demo booth ring: 14
 -- perimeter booths at their flush wall positions (PERCENT scale). Each booth
--- resolves its event_vendor_id by CATEGORY (more robust than by vendor_name):
--- the chosen vendor per category is the contracted/deposit-paid one, tie-broken
--- by vendor_name. A NULL category = an intentionally unlinked booth (Dessert
+-- resolves its event_vendor_id in one of two ways:
+--   • an explicit vendor_name PIN (5th column) → resolve by
+--     (event_id, category, vendor_name). Used where a category holds several
+--     event_vendors and the booth must link the one its offering copy names —
+--     e.g. band_dj holds Saysay Live Band (live_band) + Tugtog Collective +
+--     DJ Indak (dj), and mobile_bar holds Tagay Mobile Bar + Inuman Tea Cart +
+--     Barkada Bar (mocktail_bar). Resolving those by contracted-status alone
+--     mis-linked the 'Live Band' booth to DJ Indak and the 'Mobile Bar' booth
+--     to Barkada Bar, contradicting each booth's own copy and the card-content
+--     businesses (Saysay / Tagay) seeded above.
+--   • NULL pin → resolve by CATEGORY: the chosen vendor is the
+--     contracted/deposit-paid one, tie-broken by vendor_name. Safe where a
+--     category has exactly one stamped (chosen) vendor.
+-- A NULL category = an intentionally unlinked booth (Dessert
 -- Bar / Souvenirs / Wedding Singer) — event_vendor_id stays NULL and the 3D
 -- template falls back to booth_type; the booth is still inserted (not skipped).
 -- booth_type values are all CHECK-valid (band/live_cooking/live_performance
@@ -914,51 +925,59 @@ BEGIN
 
   FOR r IN
     SELECT * FROM (VALUES
-      -- (booth_type, label, vendor category (NULL = unlinked), x%, y%, sort, offerings)
-      ('band',             'Live Band',      'band_dj',             72.0,  6.0, 0,
+      -- (booth_type, label, category (NULL=unlinked), vendor_name pin (NULL=resolve by category), x%, y%, sort, offerings)
+      ('band',             'Live Band',      'band_dj',             'Saysay Live Band', 72.0,  6.0, 0,
        'Saysay Live Band — 5-piece set from first dance to last call. Request a song at the booth.'),
-      ('custom',           'Lights & Sound', 'lights_and_sound',    28.0,  6.0, 1,
+      ('custom',           'Lights & Sound', 'lights_and_sound',    NULL,               28.0,  6.0, 1,
        'Ilaw Productions — stage lighting, sound system and AV for the program.'),
-      ('photo_booth',      'Photo Booth',    'photobooth',           4.0, 22.0, 2,
+      ('photo_booth',      'Photo Booth',    'photobooth',          NULL,                4.0, 22.0, 2,
        'Kuha Booth — unlimited 4R prints, props trunk, same-night QR gallery.'),
-      ('dessert_station',  'Dessert Bar',    NULL,                  96.0, 20.0, 3,
+      ('dessert_station',  'Dessert Bar',    NULL,                  NULL,               96.0, 20.0, 3,
        'Sweets table — ube cake, silvanas and leche flan tartlets all night.'),
-      ('custom',           'Glam Bar',       'hair_stylist',         4.0, 35.0, 4,
+      ('custom',           'Glam Bar',       'hair_stylist',        NULL,                4.0, 35.0, 4,
        'Buhok Bridal Hair — touch-up station for hair and makeup.'),
-      ('custom',           'Cake Table',     'cake_maker',          96.0, 33.0, 5,
+      ('custom',           'Cake Table',     'cake_maker',          NULL,               96.0, 33.0, 5,
        'Matamis Bakeshop — three-tier ube-vanilla display cake, cut at the reception.'),
-      ('mobile_bar',       'Mobile Bar',     'mobile_bar',           4.0, 48.0, 6,
+      ('mobile_bar',       'Mobile Bar',     'mobile_bar',          'Tagay Mobile Bar',  4.0, 48.0, 6,
        'Tagay Mobile Bar — signature calamansi gin fizz plus a full cocktail list.'),
-      ('custom',           'Florals',        'florist',             96.0, 47.0, 7,
+      ('custom',           'Florals',        'florist',             NULL,               96.0, 47.0, 7,
        'Bulaklak & Co. — garden florals, arch and centerpiece styling.'),
-      ('custom',           'Coordinator',    'planner_coordinator',  4.0, 61.0, 8,
+      ('custom',           'Coordinator',    'planner_coordinator', NULL,                4.0, 61.0, 8,
        'Araw Planners — on-the-day coordination base and timeline HQ.'),
-      ('custom',           'Photo & Video',  'photographer',        96.0, 60.0, 9,
+      ('custom',           'Photo & Video',  'photographer',        NULL,               96.0, 60.0, 9,
        'Habi Photo Co. — whole-day photo and video coverage crew.'),
-      ('gift_table',       'Souvenirs',      NULL,                   4.0, 74.0, 10,
+      ('gift_table',       'Souvenirs',      NULL,                  NULL,                4.0, 74.0, 10,
        'Giveaways table — take-home tokens and thank-you favors for guests.'),
-      ('live_cooking',     'Buffet',         'catering',            96.0, 75.0, 11,
+      ('live_cooking',     'Buffet',         'catering',            NULL,               96.0, 75.0, 11,
        'Hain Catering — 10-course Filipino menu, lechon belly carved live.'),
-      ('custom',           'Host & Emcee',   'host_emcee',          35.0, 95.0, 12,
+      ('custom',           'Host & Emcee',   'host_emcee',          NULL,               35.0, 95.0, 12,
        'Kuya Mike Events — program host and emcee station.'),
-      ('live_performance', 'Wedding Singer', NULL,                  65.0, 95.0, 13,
+      ('live_performance', 'Wedding Singer', NULL,                  NULL,               65.0, 95.0, 13,
        'Live acoustic act — serenades during dinner and the couple''s first dance.')
-    ) AS t(btype, blabel, cat, x, y, sort, offer)
+    ) AS t(btype, blabel, cat, vname, x, y, sort, offer)
   LOOP
-    -- Resolve the chosen vendor for this category (contracted ≻ deposit_paid ≻
-    -- rest, then vendor_name). NULL category → unlinked booth (v_ev stays NULL).
+    -- Resolve the chosen vendor. Explicit vname pin → exact
+    -- (category, vendor_name). Else category (contracted ≻ deposit_paid ≻ rest,
+    -- then vendor_name). NULL category → unlinked booth (v_ev stays NULL).
     v_ev := NULL;
     IF r.cat IS NOT NULL THEN
-      SELECT ev.vendor_id INTO v_ev FROM public.event_vendors ev
-      WHERE ev.event_id = v_event AND ev.category::text = r.cat
-      ORDER BY CASE ev.status
-                 WHEN 'contracted'   THEN 0
-                 WHEN 'deposit_paid' THEN 1
-                 ELSE 2
-               END, ev.vendor_name
-      LIMIT 1;
+      IF r.vname IS NOT NULL THEN
+        SELECT ev.vendor_id INTO v_ev FROM public.event_vendors ev
+        WHERE ev.event_id = v_event AND ev.category::text = r.cat
+          AND ev.vendor_name = r.vname
+        LIMIT 1;
+      ELSE
+        SELECT ev.vendor_id INTO v_ev FROM public.event_vendors ev
+        WHERE ev.event_id = v_event AND ev.category::text = r.cat
+        ORDER BY CASE ev.status
+                   WHEN 'contracted'   THEN 0
+                   WHEN 'deposit_paid' THEN 1
+                   ELSE 2
+                 END, ev.vendor_name
+        LIMIT 1;
+      END IF;
       IF v_ev IS NULL THEN
-        RAISE NOTICE 'no event vendor in category % — booth % inserted unlinked', r.cat, r.blabel;
+        RAISE NOTICE 'no event vendor in category % (pin %) — booth % inserted unlinked', r.cat, r.vname, r.blabel;
       END IF;
     END IF;
     INSERT INTO public.event_floor_booths
@@ -969,8 +988,12 @@ END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Room-magic demo enablement (2026-07-08): the sample event demos the
--- cold-spark entrance tunnel, and the second serpentine ("Table 9") seats
--- four guests so both serpentine tables read as real. Idempotent.
+-- cold-spark entrance tunnel, and the lone serpentine ("Table 9", the only
+-- serpentine table_type in this seed) seats four guests so it reads as real.
+-- NOTE: live prod also renders "Friends — Barkada" as a serpentine, but this
+-- seed intentionally keeps Barkada as round_10 (see the fragment for
+-- persist-demo-layout-seed) — so "Table 9" is the single serpentine here, not
+-- the "second" of two. Idempotent.
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $$
 DECLARE

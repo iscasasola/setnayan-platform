@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchBooths } from '@/lib/seating';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -27,7 +28,7 @@ export default async function VenuePage({
   const admin = createAdminClient();
   const [{ data, error }, paletteRow] = await Promise.all([
     admin.rpc('public_venue_scene', { p_slug: slug, p_token: token }),
-    admin.from('events').select('role_palette').eq('slug', slug).maybeSingle(),
+    admin.from('events').select('event_id, role_palette').eq('slug', slug).maybeSingle(),
   ]);
   const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
   let scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
@@ -70,6 +71,39 @@ export default async function VenuePage({
         booths: scene.booths.map((b) =>
           b.vendor?.logoUrl
             ? { ...b, vendor: { ...b.vendor, logoUrl: resolvedLogos[b.vendor.logoUrl] ?? null } }
+            : b,
+        ),
+      };
+    }
+
+    // Booth vendors' marketplace profile slugs (the booth card's free
+    // "Book this vendor" CTA — owner-locked surface D). The RPC payload
+    // predates the slug field, so join it here via fetchBooths, which already
+    // nulls the slug unless the profile is publicly visible — and carries
+    // `bookable` (verified-only) so the card only says "Book" when the
+    // profile can actually take bookings. Public business info only;
+    // fail-soft (a missing event row just means no CTA).
+    const eventId = (paletteRow.data as { event_id?: string } | null)?.event_id;
+    if (eventId) {
+      const boothRows = await fetchBooths(admin, eventId);
+      const profileById = new Map(
+        boothRows.map((b) => [
+          b.booth_id,
+          { slug: b.vendor?.slug ?? null, bookable: b.vendor?.bookable ?? false },
+        ]),
+      );
+      scene = {
+        ...scene,
+        booths: (scene.booths ?? []).map((b) =>
+          b.vendor
+            ? {
+                ...b,
+                vendor: {
+                  ...b.vendor,
+                  slug: profileById.get(b.id)?.slug ?? null,
+                  bookable: profileById.get(b.id)?.bookable ?? false,
+                },
+              }
             : b,
         ),
       };

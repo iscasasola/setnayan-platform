@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VendorCategory } from '@/lib/vendors';
+import type { BoothCardItem } from '@/lib/seating-3d';
 
 export type VendorServiceRow = {
   vendor_service_id: string;
@@ -255,6 +256,133 @@ export async function fetchBracketsByService(
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
     out.set(row.vendor_service_id, list);
+  }
+  return out;
+}
+
+// ── Booth card items (3D booth vendor card · booth-kit slice 4) ─────────────
+
+/**
+ * Legacy `vendor_services.package_inclusions` JSONB → card items. The column
+ * predates the vendor_service_inclusions table and holds either plain strings
+ * or `{ label, worth_php? }` objects (same tolerant parse the explore/compare
+ * table uses). Exported for unit tests; pure.
+ */
+export function parsePackageInclusions(raw: unknown): BoothCardItem[] {
+  if (!Array.isArray(raw)) return [];
+  const items: BoothCardItem[] = [];
+  for (const it of raw) {
+    if (typeof it === 'string') {
+      if (it.trim()) items.push({ label: it.trim() });
+    } else if (typeof it === 'object' && it !== null && 'label' in it) {
+      const lbl = (it as { label?: unknown }).label;
+      const worth = (it as { worth_php?: unknown }).worth_php;
+      if (typeof lbl === 'string' && lbl.trim()) {
+        items.push({ label: lbl.trim(), worthPhp: typeof worth === 'number' && worth > 0 ? worth : null });
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * Structured "what you get" lines for placed vendor booths, keyed by booth id
+ * — the data behind the 3D booth card's kind-aware list (menu / set list / on
+ * the bar / inclusions). Resolution per booth (booth-kit slice 4):
+ *
+ *   1. `booth.event_vendor_id` → event_vendors (category · marketplace link ·
+ *      host_inclusions).
+ *   2. Marketplace vendors: the linked profile's ACTIVE vendor_services
+ *      listing whose category matches the booking (else its first active
+ *      listing), that listing's vendor_service_inclusions rows
+ *      (label + worth_php), falling back to the listing's legacy
+ *      package_inclusions JSONB.
+ *   3. Manual (off-platform) vendors: the host-authored host_inclusions[]
+ *      lines (DIY parity — always [] on marketplace rows).
+ *
+ * Fail-soft end to end (the fetchInclusionsByService contract): any query
+ * error degrades to "no list", never a crashed scene. Pure read composition —
+ * no schema changes. Booths whose resolution yields nothing simply have no
+ * entry in the returned map.
+ */
+export async function fetchBoothCardItems(
+  supabase: SupabaseClient,
+  booths: Array<{ booth_id: string; event_vendor_id: string | null }>,
+): Promise<Map<string, BoothCardItem[]>> {
+  const out = new Map<string, BoothCardItem[]>();
+  const eventVendorIds = [...new Set(booths.map((b) => b.event_vendor_id).filter((v): v is string => !!v))];
+  if (eventVendorIds.length === 0) return out;
+
+  type EvRow = {
+    vendor_id: string;
+    category: string;
+    marketplace_vendor_id: string | null;
+    host_inclusions: string[] | null;
+  };
+  const evRes = await supabase
+    .from('event_vendors')
+    .select('vendor_id,category,marketplace_vendor_id,host_inclusions')
+    .in('vendor_id', eventVendorIds);
+  if (evRes.error) return out;
+  const evRows = (evRes.data ?? []) as EvRow[];
+  const evById = new Map(evRows.map((r) => [r.vendor_id, r]));
+
+  // Marketplace side: every linked profile's active listings, oldest first
+  // (matching fetchVendorServices' ordering so "first active" is stable).
+  const profileIds = [...new Set(evRows.map((r) => r.marketplace_vendor_id).filter((v): v is string => !!v))];
+  type SvcRow = {
+    vendor_service_id: string;
+    vendor_profile_id: string;
+    category: string;
+    package_inclusions: unknown;
+    is_active: boolean;
+  };
+  const servicesByProfile = new Map<string, SvcRow[]>();
+  if (profileIds.length > 0) {
+    const svcRes = await supabase
+      .from('vendor_services')
+      .select('vendor_service_id,vendor_profile_id,category,package_inclusions,is_active')
+      .in('vendor_profile_id', profileIds)
+      .order('created_at', { ascending: true });
+    if (!svcRes.error) {
+      for (const s of (svcRes.data ?? []) as SvcRow[]) {
+        if (s.is_active === false) continue;
+        const list = servicesByProfile.get(s.vendor_profile_id) ?? [];
+        list.push(s);
+        servicesByProfile.set(s.vendor_profile_id, list);
+      }
+    }
+  }
+
+  // The listing a booking's card reads: category match beats first-active.
+  const chosen = new Map<string, SvcRow>(); // event_vendor_id → listing
+  for (const ev of evRows) {
+    const list = ev.marketplace_vendor_id ? servicesByProfile.get(ev.marketplace_vendor_id) ?? [] : [];
+    const svc = list.find((s) => s.category === ev.category) ?? list[0] ?? null;
+    if (svc) chosen.set(ev.vendor_id, svc);
+  }
+  const inclusions = await fetchInclusionsByService(
+    supabase,
+    [...new Set([...chosen.values()].map((s) => s.vendor_service_id))],
+  );
+
+  for (const b of booths) {
+    const ev = b.event_vendor_id ? evById.get(b.event_vendor_id) : null;
+    if (!ev) continue;
+    const svc = chosen.get(ev.vendor_id) ?? null;
+    const inclusionRows = svc ? inclusions.get(svc.vendor_service_id) ?? [] : [];
+    let items: BoothCardItem[] =
+      inclusionRows.length > 0
+        ? inclusionRows.map((r) => ({ label: r.label, worthPhp: r.worth_php }))
+        : svc
+          ? parsePackageInclusions(svc.package_inclusions)
+          : [];
+    if (items.length === 0) {
+      items = (ev.host_inclusions ?? [])
+        .filter((s) => typeof s === 'string' && s.trim())
+        .map((s) => ({ label: s.trim() }));
+    }
+    if (items.length > 0) out.set(b.booth_id, items);
   }
   return out;
 }

@@ -35,6 +35,7 @@ import {
   type Lab3DSign,
   type VenueObjectKind,
 } from '@/lib/seating-3d';
+import { fetchBoothCardItems } from '@/lib/vendor-services';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -226,12 +227,18 @@ export default async function SeatingLabPage({ params }: Props) {
     }));
   // Booths carry their offerings copy + booked-vendor business identity (Slice
   // B fields) so the lab's scene data matches the guest surfaces. Logo refs
-  // resolve to display URLs the same way guest photos do above.
+  // resolve to display URLs the same way guest photos do above. Card items
+  // (the kind-aware Menu / Set list / inclusions lines, booth-kit slice 4)
+  // resolve through the couple-authed client: event_vendor → vendor_services →
+  // vendor_service_inclusions, with package_inclusions + host_inclusions
+  // fallbacks — RLS scopes every read to this member's event.
   const boothLogoRefs = [...new Set(boothsRaw.map((b) => b.vendor?.logo_url).filter((r): r is string => !!r))];
+  const [boothLogoUrlEntries, boothCardItems] = await Promise.all([
+    Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const)),
+    fetchBoothCardItems(supabase, boothsRaw),
+  ]);
   const boothLogoUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
-    ).filter((e): e is [string, string] => e[1] !== null),
+    boothLogoUrlEntries.filter((e): e is [string, string] => e[1] !== null),
   );
   const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
     id: b.booth_id,
@@ -240,12 +247,15 @@ export default async function SeatingLabPage({ params }: Props) {
     xPct: b.x_pos,
     yPct: b.y_pos,
     offerings: b.offerings,
+    cardItems: boothCardItems.get(b.booth_id) ?? null,
     vendor: b.vendor
       ? {
           name: b.vendor.vendor_name,
           category: b.vendor.category,
           logoUrl: b.vendor.logo_url ? boothLogoUrls[b.vendor.logo_url] ?? null : null,
           tier: b.vendor.tier,
+          slug: b.vendor.slug,
+          bookable: b.vendor.bookable,
         }
       : null,
   }));

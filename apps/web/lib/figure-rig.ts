@@ -36,7 +36,20 @@
 export type FigureSpec = {
   /** Stable identity — the SAME id always resolves to the SAME look. */
   id: string;
-  outfit: 'gown' | 'suit' | 'barong' | 'filipiniana' | 'neutral';
+  /** Guest formalwear plus the booth-kit STAFF variants (2026-07-08 booth
+   *  chassis slice). Staff kinds reuse the suit / neutral shell profiles
+   *  recoloured + detail-textured in kit/outfits.ts — append-only so every
+   *  existing consumer keeps compiling. */
+  outfit:
+    | 'gown'
+    | 'suit'
+    | 'barong'
+    | 'filipiniana'
+    | 'neutral'
+    | 'chef_whites'
+    | 'apron'
+    | 'vest'
+    | 'uniform';
   /** Motif colour for the outfit shell (mood-board attire palette); null →
    *  the outfit's own default cloth colour. */
   outfitColor: string | null;
@@ -290,6 +303,193 @@ function idlePhaseOffset(id: string): number {
     idleOffsets.set(id, off);
   }
   return off;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Staff idle clips (booth-template kit · 2026-07-08)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Tiny per-category 2-key loops for booth STAFF mascots — the idleSway pattern
+// scaled up: each clip is a pure additive overlay in (kind, id, t), WALL-CLOCK
+// time-based (t = elapsed seconds; never frame counts — the arrival-fix
+// lesson), phase-offset per id so two neighbouring booths never metronome.
+// A clip = a HELD pose (arms where the job puts them) + one small periodic
+// motion on top; the renderer composes it over standPose exactly like
+// idleSway. All channels stay inside the envelopes the unit suite asserts
+// (|shoulder| ≤ 3.0 rad — a raised wave; everything else ≤ 1.6 rad).
+
+/** The 10 staff idle clips the booth catalog assigns. `bowDraw` ships now for
+ *  the catalog's orchestra template (next PR) — built + tested with the set. */
+export const STAFF_IDLE_KINDS = [
+  'pipingSwirl', // pastry chef — piping a cake, wrist circles
+  'shake', //       bartender / live station — two-hand rhythmic shake
+  'tamp', //        barista / console op — pressing down in a beat
+  'bowDraw', //     violinist — bow arm draws while the neck arm holds
+  'headBob', //     band / DJ / singer — grooving to the set
+  'cardFlip', //    MC / coordinator — flipping cue cards / clipboard pages
+  'brushDab', //    MUA — small quick brush dabs at face height
+  'wave', //        greeter — arm up, friendly hand waggle
+  'snap', //        photographer / florist — raise-and-click (shutter / snips)
+  'present', //     server / chef — an open palm-out presenting sweep
+] as const;
+
+export type StaffIdleKind = (typeof STAFF_IDLE_KINDS)[number];
+
+// Shared clip tuning. Motions stay small (mascots at booth distance) and every
+// frequency is in rad/s of WALL-CLOCK time.
+const CLIP_SWAY = SWAY_MAX; // staff keep the same breathing torso as guests
+
+/** A smooth 0..1 pulse that spends most of its cycle near 0 and swells once
+ *  per `period` seconds — the "occasionally do the thing" shape (cardFlip's
+ *  flip, snap's click) without a keyframe table. Pure in (t, period, off). */
+function pulse(t: number, period: number, off: number): number {
+  const s = Math.max(0, Math.sin(((t + off) / period) * Math.PI * 2));
+  return s * s * s; // sharpen: brief action, long hold
+}
+
+/**
+ * One staff idle sample at wall-clock `t` (seconds) for a clip kind — an
+ * additive overlay over standPose, exactly like idleSway (compose via
+ * `overlayPose(standPose(), staffIdle(kind, id, t))`). Deterministic in
+ * (kind, id, t); per-id phase offsets reuse idleSway's cached hash. Pass
+ * `out` to reuse a caller-owned buffer in per-frame loops.
+ */
+export function staffIdle(
+  kind: StaffIdleKind,
+  id: string,
+  t: number,
+  out?: Partial<Pose>,
+): Partial<Pose> {
+  const off = idlePhaseOffset(id);
+  const o = out ?? {};
+  // Reset every channel a previous buffer reuse may have written — clips set
+  // different channel subsets, so a stale value from another kind must not
+  // leak through (the buffer-reuse contract idleSway never needed).
+  o.pelvisY = 0;
+  o.pelvisZ = 0;
+  o.torsoLean = 0;
+  o.headPitch = 0;
+  o.leftShoulder = 0;
+  o.rightShoulder = 0;
+  o.leftElbow = 0;
+  o.rightElbow = 0;
+  o.leftHip = 0;
+  o.rightHip = 0;
+  o.leftKnee = 0;
+  o.rightKnee = 0;
+  // Every clip keeps the guests' gentle breathing sway underneath its action.
+  o.torsoSway = CLIP_SWAY * Math.sin(t * SWAY_HZ + off);
+  o.headYaw = 0;
+  switch (kind) {
+    case 'pipingSwirl': {
+      // Right arm piping at counter height, wrist circling; eyes on the cake.
+      o.rightShoulder = 0.85 + 0.07 * Math.sin(t * 4.2 + off);
+      o.rightElbow = 1.15 + 0.07 * Math.cos(t * 4.2 + off);
+      o.leftShoulder = 0.5;
+      o.leftElbow = 1.0;
+      o.headPitch = 0.22;
+      break;
+    }
+    case 'shake': {
+      // Both hands up on the shaker, a brisk two-beat vertical shake.
+      const beat = Math.sin(t * 7 + off);
+      o.leftShoulder = 0.7 + 0.12 * beat;
+      o.rightShoulder = 0.7 + 0.12 * beat;
+      o.leftElbow = 1.3 + 0.1 * beat;
+      o.rightElbow = 1.3 + 0.1 * beat;
+      o.torsoSway = (o.torsoSway ?? 0) + 0.02 * Math.sin(t * 3.5 + off);
+      break;
+    }
+    case 'tamp': {
+      // Right arm pressing down in a steady beat (tamper / cue button).
+      const press = Math.max(0, Math.sin(t * 3.2 + off));
+      o.rightShoulder = 0.55 + 0.18 * press;
+      o.rightElbow = 1.05 - 0.25 * press;
+      o.leftShoulder = 0.45;
+      o.leftElbow = 1.1;
+      o.headPitch = 0.18;
+      break;
+    }
+    case 'bowDraw': {
+      // Neck arm (left) holds high + still; bow arm (right) draws long
+      // smooth strokes — elbow extends and folds while the shoulder rides.
+      const draw = Math.sin(t * 2.2 + off);
+      o.leftShoulder = 0.95;
+      o.leftElbow = 1.35;
+      o.rightShoulder = 0.7 + 0.1 * draw;
+      o.rightElbow = 0.65 + 0.3 * draw;
+      o.headYaw = (o.headYaw ?? 0) - 0.12; // cheek toward the violin
+      o.headPitch = 0.1;
+      break;
+    }
+    case 'headBob': {
+      // The groove: head + torso ride the beat, arms keep a low bounce.
+      const beat = Math.sin(t * 5.5 + off);
+      o.headPitch = 0.1 + 0.09 * beat;
+      o.torsoSway = (o.torsoSway ?? 0) + 0.035 * Math.sin(t * 2.75 + off);
+      o.leftShoulder = 0.25 + 0.06 * beat;
+      o.rightShoulder = 0.25 - 0.06 * beat;
+      o.leftElbow = 0.9;
+      o.rightElbow = 0.9;
+      o.pelvisY = -0.008 + 0.008 * Math.sin(t * 5.5 + off);
+      break;
+    }
+    case 'cardFlip': {
+      // Left hand holds the cards/clipboard; the right flips a page every
+      // few seconds (a pulse), eyes down between flips.
+      const flip = pulse(t, 3.4, off);
+      o.leftShoulder = 0.6;
+      o.leftElbow = 1.25;
+      o.rightShoulder = 0.35 + 0.3 * flip;
+      o.rightElbow = 0.55 + 0.55 * flip;
+      o.headPitch = 0.24 - 0.12 * flip; // glance up as the card turns
+      break;
+    }
+    case 'brushDab': {
+      // Brush arm at face height, small quick dabs; head tilts toward work.
+      o.rightShoulder = 0.9;
+      o.rightElbow = 0.95 + 0.09 * Math.sin(t * 6 + off);
+      o.leftShoulder = 0.55;
+      o.leftElbow = 1.15;
+      o.headYaw = (o.headYaw ?? 0) + 0.14;
+      o.headPitch = 0.08;
+      break;
+    }
+    case 'wave': {
+      // Arm straight up (shoulder ≈ π forward-over), hand waggling — the
+      // elbow oscillation reads as the wave at booth distance.
+      o.rightShoulder = 2.75;
+      o.rightElbow = 0.35 + 0.25 * Math.sin(t * 4.5 + off);
+      o.leftShoulder = 0.15;
+      o.leftElbow = 0.5;
+      o.headPitch = -0.06; // chin up, friendly
+      break;
+    }
+    case 'snap': {
+      // Hands raised to the face (camera / snips), a click-pulse every
+      // couple of seconds.
+      const click = pulse(t, 2.6, off);
+      o.leftShoulder = 1.15;
+      o.rightShoulder = 1.2 + 0.12 * click;
+      o.leftElbow = 1.5;
+      o.rightElbow = 1.45 - 0.2 * click;
+      o.headPitch = 0.12;
+      break;
+    }
+    case 'present': {
+      // The open-palm presenting sweep — right arm out, slowly arcing across
+      // the wares; the head follows the hand.
+      const sweep = Math.sin(t * 1.2 + off);
+      o.rightShoulder = 0.95 + 0.15 * sweep;
+      o.rightElbow = 0.35;
+      o.leftShoulder = 0.3;
+      o.leftElbow = 0.9;
+      o.headYaw = (o.headYaw ?? 0) + 0.18 * sweep;
+      o.torsoLean = 0.05;
+      break;
+    }
+  }
+  return o;
 }
 
 /**

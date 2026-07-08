@@ -12,17 +12,32 @@
  *   · the booked vendor's business name + logo (or initials) + category, when
  *     the booth is linked to an event_vendor (business identity only — zero PII).
  *   · the "what they're serving" offerings line, when set.
+ *   · the KIND-AWARE list (booth-kit slice 4): the booth template's `cardKind`
+ *     titles the vendor's structured lines — Menu / Set list / On the bar /
+ *     What's included — when the surface fetched `cardItems` server-side.
  *   · a "Walk to this booth" button — steers the walker to a point just in
- *     front of the booth, facing it (handled by the scene via `onWalkTo`).
+ *     front of the booth, facing it (handled by the scene via `onWalkTo`;
+ *     optional — the couple lab opens the card without a walker).
+ *   · the marketplace profile CTA (owner-locked surface D, free for verified
+ *     vendors): "Book this vendor for your event" → /v/[slug] on the demo +
+ *     public walk; the couple's own lab passes `profileCta="view"` ("View
+ *     vendor profile" — they already booked them). Only when the vendor has a
+ *     publicly visible marketplace profile (`vendor.slug` non-null) — and the
+ *     "Book" wording additionally requires `vendor.bookable` (verified-only,
+ *     lib/vendor-visibility isBookable): a coming_soon profile links as "View
+ *     vendor profile" instead, matching /v/[slug]'s own hidden booking CTA.
  *
  * Unlinked booths just show label/type (+ offerings if the couple set one).
  * Pure presentational — the scene owns booth state + the walk-to action.
  */
 
 import { useId, useMemo } from 'react';
-import { Footprints, Store } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowUpRight, Footprints, Store } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { boothTypeLabel, type Lab3DBooth } from '@/lib/seating-3d';
+import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
+import { BoothCardContent } from '@/app/_components/plan3d/kit/booth-card-content';
 
 /** Two-letter initials fallback for a vendor with no logo. */
 function initials(name: string): string {
@@ -42,15 +57,26 @@ export function BoothVendorCard({
   booth,
   onClose,
   onWalkTo,
+  profileCta = 'book',
 }: {
   booth: Lab3DBooth | null;
   onClose: () => void;
-  /** Steer the walker to a point in front of this booth, facing it. */
-  onWalkTo: (booth: Lab3DBooth) => void;
+  /** Steer the walker to a point in front of this booth, facing it. Absent →
+   *  the walk button is hidden (the couple lab's card is inspect-only). */
+  onWalkTo?: (booth: Lab3DBooth) => void;
+  /** Marketplace-profile CTA wording: 'book' (demo + public walk — "Book this
+   *  vendor for your event") or 'view' (the couple's own lab — they already
+   *  booked them). Renders only when `booth.vendor.slug` is set; 'book' also
+   *  needs `vendor.bookable` (verified-only) or it downgrades to the view
+   *  wording — the surface must never invite a booking the vendor can't take. */
+  profileCta?: 'book' | 'view';
 }) {
   const headingId = useId();
   const vendor = booth?.vendor ?? null;
   const typeLabel = useMemo(() => (booth ? boothTypeLabel(booth.kind) : ''), [booth]);
+  // The booth template's card kind (menu / songlist / drinks); a booth whose
+  // category has no template yet reads as the default inclusions list.
+  const cardKind = useMemo(() => (booth ? boothTemplateFor(booth)?.cardKind ?? 'inclusions' : 'inclusions'), [booth]);
 
   return (
     <Sheet open={booth != null} onClose={onClose} labelledById={headingId} title="Booth">
@@ -100,18 +126,41 @@ export function BoothVendorCard({
             </div>
           ) : null}
 
+          {/* Kind-aware list — the vendor's structured menu / set list / bar /
+              inclusions lines, when the surface fetched them. */}
+          {booth.cardItems && booth.cardItems.length > 0 ? (
+            <BoothCardContent kind={cardKind} items={booth.cardItems} />
+          ) : null}
+
           {/* Walk-to action */}
-          <button
-            type="button"
-            onClick={() => {
-              onWalkTo(booth);
-              onClose();
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
-          >
-            <Footprints aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Walk to this booth
-          </button>
+          {onWalkTo ? (
+            <button
+              type="button"
+              onClick={() => {
+                onWalkTo(booth);
+                onClose();
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
+            >
+              <Footprints aria-hidden className="h-4 w-4" strokeWidth={2} />
+              Walk to this booth
+            </button>
+          ) : null}
+
+          {/* Marketplace profile CTA — new tab so the 3D scene keeps running. */}
+          {vendor?.slug ? (
+            <Link
+              href={`/v/${vendor.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-ink/5"
+            >
+              {profileCta === 'book' && vendor.bookable === true
+                ? 'Book this vendor for your event'
+                : 'View vendor profile'}
+              <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </Sheet>

@@ -88,7 +88,10 @@ export const SLEEVE_GEO = new THREE.SphereGeometry(0.085, 10, 8);
 
 /** The shell geometry for an outfit. Barong wears the suit silhouette (it IS
  *  a suit-shaped garment — only cloth + texture differ); filipiniana wears
- *  the gown shell (sleeves are added by the renderer as separate meshes). */
+ *  the gown shell (sleeves are added by the renderer as separate meshes).
+ *  The booth-staff variants (2026-07-08) reuse the existing profiles: chef
+ *  whites + vest are jacket-shaped (SUIT), apron + uniform are soft columns
+ *  (NEUTRAL) — recolour + a CanvasTexture detail do the storytelling. */
 export function outfitGeometry(outfit: OutfitKind): THREE.BufferGeometry {
   switch (outfit) {
     case 'gown':
@@ -96,8 +99,12 @@ export function outfitGeometry(outfit: OutfitKind): THREE.BufferGeometry {
       return GOWN_GEO;
     case 'suit':
     case 'barong':
+    case 'chef_whites':
+    case 'vest':
       return SUIT_GEO;
     case 'neutral':
+    case 'apron':
+    case 'uniform':
       return NEUTRAL_GEO;
   }
 }
@@ -152,6 +159,129 @@ export function barongEmbroideryBump(): THREE.CanvasTexture {
   return tex;
 }
 
+// ── Staff garment textures (lazy CanvasTextures — browser only) ─────────────
+//
+// The four booth-staff variants (2026-07-08) are the suit / neutral shells
+// recoloured + ONE small drawn detail each — double-breasted buttons, an
+// apron bib, a vest V, a uniform chest stripe. The detail canvas IS the
+// garment colour map (drawn in full colour, material base stays white), so
+// the bib/vest panels can sit over a contrasting shirt without multiply
+// artefacts. Cached per (outfit, colour) — bounded like every kit cache.
+//
+// UV mapping notes (LatheGeometry, verified empirically on the rendered rig
+// with a quadrant-colour test — 2026-07-08): the FIGURE'S FRONT samples the
+// canvas HORIZONTAL CENTRE (u = 0.5), so the chest detail is drawn at
+// cx = width/2 with no texture offset; the u = 0/1 seam sits at the BACK.
+// `flipY = false` makes canvas top = collar (v = 0, the profile's first
+// point). The upper-arm sleeves share this material, so their capsule UVs
+// pick up the FIELD colour — keep details small and central so a sleeve
+// never wears a stray bib fragment.
+
+type StaffOutfit = 'chef_whites' | 'apron' | 'vest' | 'uniform';
+
+function isStaffOutfit(outfit: OutfitKind): outfit is StaffOutfit {
+  return outfit === 'chef_whites' || outfit === 'apron' || outfit === 'vest' || outfit === 'uniform';
+}
+
+const staffTexCache = new Map<string, THREE.CanvasTexture>();
+
+function staffGarmentTexture(outfit: StaffOutfit, color: string): THREE.CanvasTexture {
+  const key = `${outfit}|${color}`;
+  const cached = staffTexCache.get(key);
+  if (cached) return cached;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+
+  // The chest detail, drawn relative to a horizontal centre `cx` — the
+  // canvas centre, which the verified UV mapping puts on the figure's front.
+  const detail = (cx: number) => {
+    switch (outfit) {
+      case 'chef_whites': {
+        // The double-breasted twin button columns + the overlap seam.
+        ctx.fillStyle = '#a89f90';
+        for (const side of [-1, 1]) {
+          for (let y = 34; y <= 88; y += 18) {
+            ctx.beginPath();
+            ctx.arc(cx + side * 9, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.strokeStyle = 'rgba(120, 112, 98, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, 26);
+        ctx.lineTo(cx, 100);
+        ctx.stroke();
+        break;
+      }
+      case 'apron': {
+        // Apron bib + waist-down skirt in the cloth colour + neck straps.
+        ctx.fillStyle = color;
+        ctx.fillRect(cx - 17, 30, 34, 40); // bib
+        ctx.fillRect(cx - 26, 70, 52, 58); // waist-down skirt
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(cx + side * 14, 32);
+          ctx.lineTo(cx + side * 24, 4);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cx - 9, 46, 18, 14); // bib pocket
+        break;
+      }
+      case 'vest': {
+        // The open shirt V + closure buttons on the vest field.
+        ctx.fillStyle = '#f1eee6';
+        ctx.beginPath();
+        ctx.moveTo(cx - 13, 8);
+        ctx.lineTo(cx + 13, 8);
+        ctx.lineTo(cx, 62);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        for (let y = 70; y <= 100; y += 15) {
+          ctx.beginPath();
+          ctx.arc(cx, y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'uniform': {
+        // A badge dot beside the placket.
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.beginPath();
+        ctx.arc(cx + 18, 28, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+    }
+  };
+
+  // Field first (full canvas), then the centre-anchored chest detail.
+  ctx.fillStyle = outfit === 'apron' ? '#efe8db' : color;
+  ctx.fillRect(0, 0, size, size);
+  if (outfit === 'uniform') {
+    // The lighter chest stripe rides the full wrap.
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.fillRect(0, 40, size, 10);
+  }
+  detail(size / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.flipY = false; // canvas top → v = 0 → the collar
+  staffTexCache.set(key, tex);
+  return tex;
+}
+
 // ── Material caches (module scope, keyed — bounded by palette size) ─────────
 
 // Default cloth colours when a figure carries no motif colour. Warm neutrals
@@ -162,6 +292,13 @@ const DEFAULT_CLOTH: Record<OutfitKind, string> = {
   barong: '#f3eddd', // near-white jusi — barong IGNORES motif colour by design
   filipiniana: '#e9d9c4',
   neutral: '#b9b2a6',
+  // Booth staff (2026-07-08). Chef whites stay white whatever the motif (like
+  // the barong — a lilac chef reads as a costume); the rest take a workwear
+  // default a template can still recolour.
+  chef_whites: '#f6f3ec',
+  apron: '#b9673f', // warm terracotta canvas over a cream shirt
+  vest: '#3a3f4d', // charcoal vest over a light shirt
+  uniform: '#4f6b5e', // soft service green — the "branded staff polo"
 };
 
 const outfitMats = new Map<string, THREE.MeshStandardMaterial>();
@@ -175,8 +312,11 @@ const outfitMats = new Map<string, THREE.MeshStandardMaterial>();
  */
 export function outfitMaterial(outfit: OutfitKind, outfitColor: string | null): THREE.MeshStandardMaterial {
   // Barong stays near-white whatever the motif — recolouring it reads as a
-  // polo, not a barong. (Surface this if a couple ever asks for tinted jusi.)
-  const color = outfit === 'barong' ? DEFAULT_CLOTH.barong : outfitColor ?? DEFAULT_CLOTH[outfit];
+  // polo, not a barong. Chef whites likewise (a lilac chef is a costume).
+  const color =
+    outfit === 'barong' || outfit === 'chef_whites'
+      ? DEFAULT_CLOTH[outfit]
+      : outfitColor ?? DEFAULT_CLOTH[outfit];
   const key = `${outfit}|${color}`;
   let m = outfitMats.get(key);
   if (!m) {
@@ -188,12 +328,23 @@ export function outfitMaterial(outfit: OutfitKind, outfitColor: string | null): 
             bumpMap: barongEmbroideryBump(),
             bumpScale: 0.01,
           })
-        : new THREE.MeshStandardMaterial({
-            color,
-            roughness: 0.8,
-            bumpMap: fabricBumpMap(),
-            bumpScale: 0.005,
-          });
+        : isStaffOutfit(outfit)
+          ? // Staff garments carry their colour IN the detail canvas (bib /
+            // vest panels sit over a contrasting shirt), so the material base
+            // stays white and the shared fabric bump keeps the cloth read.
+            new THREE.MeshStandardMaterial({
+              color: '#ffffff',
+              map: staffGarmentTexture(outfit, color),
+              roughness: 0.8,
+              bumpMap: fabricBumpMap(),
+              bumpScale: 0.005,
+            })
+          : new THREE.MeshStandardMaterial({
+              color,
+              roughness: 0.8,
+              bumpMap: fabricBumpMap(),
+              bumpScale: 0.005,
+            });
     outfitMats.set(key, m);
   }
   return m;
@@ -207,7 +358,13 @@ const trouserMats = new Map<string, THREE.MeshStandardMaterial>();
  * Barong pairs with the traditional charcoal slacks regardless of motif.
  */
 export function trouserMaterial(outfit: OutfitKind, outfitColor: string | null): THREE.MeshStandardMaterial {
-  const base = outfit === 'barong' ? '#2c2f36' : darken(outfitColor ?? DEFAULT_CLOTH[outfit], 0.55);
+  // Barong pairs with charcoal slacks; chef whites with checks-read charcoal
+  // too (darkening white would give pale-grey trousers that vanish into the
+  // jacket). Everything else darkens its own cloth.
+  const base =
+    outfit === 'barong' || outfit === 'chef_whites'
+      ? '#2c2f36'
+      : darken(outfitColor ?? DEFAULT_CLOTH[outfit], 0.55);
   let m = trouserMats.get(base);
   if (!m) {
     m = new THREE.MeshStandardMaterial({ color: base, roughness: 0.85 });

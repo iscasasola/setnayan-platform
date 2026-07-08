@@ -40,6 +40,9 @@ import {
   type Lab3DSign,
   type Lab3DCocktail,
 } from '@/lib/seating-3d';
+import { BoothTemplate } from '@/app/_components/plan3d/kit/booth-template';
+import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
+import { CHASSIS_SPECS } from '@/app/_components/plan3d/kit/booth-chassis';
 
 type Room = { w: number; d: number };
 
@@ -369,7 +372,7 @@ function boothSilhouette(kind: string, w: number, d: number, palette: Lab3DPalet
  *  (gated by boothCanBrand at the call site). Manual TextureLoader (no Suspense
  *  boundary in these scenes); the plane keeps the logo's real aspect ratio so a
  *  wordmark isn't stretched, and drops silently if the image fails. */
-function BoothSign({ url, w, palette }: { url: string; w: number; palette: Lab3DPalette }) {
+export function BoothSign({ url, w, palette }: { url: string; w: number; palette: Lab3DPalette }) {
   const [logo, setLogo] = useState<{ tex: THREE.Texture; aspect: number } | null>(null);
   useEffect(() => {
     let live = true;
@@ -426,12 +429,31 @@ function BoothSign({ url, w, palette }: { url: string; w: number; palette: Lab3D
   );
 }
 
-/** A vendor booth — silhouette chosen by its type (event_floor_booths.booth_type).
- *  Pro / enterprise vendors additionally get a branded logo backdrop. */
+/** A vendor booth. Booth-template kit (2026-07-08): when the booked vendor's
+ *  category (or the booth type) resolves a top-20 template, the full
+ *  chassis + props + staff-mascot build renders (kit/booth-template.tsx);
+ *  the not-yet-templated categories keep the generic silhouette below —
+ *  documented fallback until the catalog-complete PR ships the other 37.
+ *  Pro / enterprise vendors additionally get the branded logo backdrop,
+ *  hung at the template chassis' sign anchor when one is in play. */
 export function BoothMesh({ booth, room, palette }: { booth: Lab3DBooth; room: Room; palette: Lab3DPalette }) {
   const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
   const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
+  const template = boothTemplateFor(booth);
+  if (template) {
+    const anchor = CHASSIS_SPECS[template.chassis].signAnchor;
+    return (
+      <group>
+        <BoothTemplate booth={booth} template={template} room={room} palette={palette} />
+        {branded ? (
+          <group position={[pos.x + anchor[0], anchor[1], pos.z + anchor[2]]}>
+            <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} />
+          </group>
+        ) : null}
+      </group>
+    );
+  }
   return (
     <group position={[pos.x, 0, pos.z]}>
       {boothSilhouette(booth.kind, w, d, palette)}

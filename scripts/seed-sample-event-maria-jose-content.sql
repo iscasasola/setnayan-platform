@@ -760,3 +760,159 @@ BEGIN
   WHERE event_id = v_event AND deleted_at IS NULL
     AND first_name IN ('Andrea','Angela','Bianca','Corazon','Divina','Estrella','Imelda','Joana','Lourdes','Maria','Patricia','Rosa','Sofia','Teresita');
 END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Booth card content (2026-07-08 · 3D Plan booth-kit slice 4 follow-up).
+-- The kind-aware booth vendor card (fetchBoothCardItems) reads, in order:
+-- vendor_service_inclusions rows (label + worth_php) → legacy
+-- package_inclusions JSONB → host_inclusions[]. This block gives the five
+-- demo vendors the booths link to REAL content — a plated Filipino menu
+-- (Hain Catering · cardKind 'menu'), a 10-song set list (Saysay Live Band ·
+-- 'songlist'), a drinks list (Tagay Mobile Bar · 'drinks'), a dessert list
+-- (Matamis Bakeshop · 'menu' via the cake tile) and photobooth inclusions
+-- (Kuha Booth · 'inclusions'). Rows land in vendor_service_inclusions (the
+-- primary read) AND mirror into package_inclusions (the legacy fallback the
+-- couple-lab path hits when RLS hides the inclusions table for unpublished
+-- demo profiles). Idempotent: resolves everything by demo_batch_id +
+-- business_name (re-seed-safe — never by uuid), deletes its own rows, then
+-- re-inserts. Apply as ONE db query call.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_batch uuid := 'a1a1a1a1-0000-4000-8000-000000000a01';
+  v_vp uuid; v_svc uuid;
+  r record;
+BEGIN
+  FOR r IN
+    SELECT * FROM (VALUES
+      -- (business, listing category, sort, label, worth_php)
+      -- ── Hain Catering · plated Filipino wedding menu ──────────────────────
+      ('Hain Catering','catering', 0,'Kinilaw na Tanigue · calamansi & coconut cream',350),
+      ('Hain Catering','catering', 1,'Crab & Corn Soup · kasubha threads',280),
+      ('Hain Catering','catering', 2,'Lechon Belly · liver sauce, carved tableside',650),
+      ('Hain Catering','catering', 3,'Chicken Galantina · giblet gravy',480),
+      ('Hain Catering','catering', 4,'Kare-Kare with Bagnet · house bagoong',560),
+      ('Hain Catering','catering', 5,'Grilled Blue Marlin · ensaladang mangga',520),
+      ('Hain Catering','catering', 6,'Garlic Butter Prawns · aligue rice',590),
+      ('Hain Catering','catering', 7,'Pancit Canton · long-life noodles',320),
+      ('Hain Catering','catering', 8,'Bringhe · Kapampangan-style paella',300),
+      ('Hain Catering','catering', 9,'Leche Flan & Halo-Halo Verrine duo',330),
+      -- ── Saysay Live Band · 10-song reception set ──────────────────────────
+      ('Saysay Live Band','live_band', 0,'Ikaw — Yeng Constantino · first dance',NULL),
+      ('Saysay Live Band','live_band', 1,'Can''t Help Falling in Love — Elvis · strings intro',NULL),
+      ('Saysay Live Band','live_band', 2,'Tadhana — Up Dharma Down',NULL),
+      ('Saysay Live Band','live_band', 3,'Sa Ngalan ng Pag-Ibig — December Avenue',NULL),
+      ('Saysay Live Band','live_band', 4,'Ikaw at Ako — Moira & Jason',NULL),
+      ('Saysay Live Band','live_band', 5,'Harana — Parokya ni Edgar',NULL),
+      ('Saysay Live Band','live_band', 6,'Kahit Maputi Na ang Buhok Ko — Rey Valera',NULL),
+      ('Saysay Live Band','live_band', 7,'Buwan — Juan Karlos',NULL),
+      ('Saysay Live Band','live_band', 8,'Perfect — Ed Sheeran · dinner set',NULL),
+      ('Saysay Live Band','live_band', 9,'Salamat — The Dawn · closing number',NULL),
+      -- ── Tagay Mobile Bar · on the bar ──────────────────────────────────────
+      ('Tagay Mobile Bar','mobile_bar', 0,'Tagay Toast · calamansi gin fizz (signature)',280),
+      ('Tagay Mobile Bar','mobile_bar', 1,'Lambanog Mojito',260),
+      ('Tagay Mobile Bar','mobile_bar', 2,'Mango Rum Slush',250),
+      ('Tagay Mobile Bar','mobile_bar', 3,'Espresso Martini',300),
+      ('Tagay Mobile Bar','mobile_bar', 4,'Classic Margarita · dayap salt rim',280),
+      ('Tagay Mobile Bar','mobile_bar', 5,'San Miguel draft station',180),
+      ('Tagay Mobile Bar','mobile_bar', 6,'House red & white wine',220),
+      ('Tagay Mobile Bar','mobile_bar', 7,'Buko-Lychee Cooler · zero-proof',150),
+      ('Tagay Mobile Bar','mobile_bar', 8,'Cucumber-Pandan Spritz · zero-proof',150),
+      -- ── Matamis Bakeshop · dessert bar ─────────────────────────────────────
+      ('Matamis Bakeshop','wedding_cake', 0,'Three-tier ube-vanilla display cake · real cutting tier',NULL),
+      ('Matamis Bakeshop','wedding_cake', 1,'Leche flan tartlets',90),
+      ('Matamis Bakeshop','wedding_cake', 2,'Ube-macapuno cupcakes',85),
+      ('Matamis Bakeshop','wedding_cake', 3,'Silvanas · frozen cashew meringue',95),
+      ('Matamis Bakeshop','wedding_cake', 4,'Mango royale cups',90),
+      ('Matamis Bakeshop','wedding_cake', 5,'Yema brazo bites',80),
+      ('Matamis Bakeshop','wedding_cake', 6,'Cassava cake squares',70),
+      ('Matamis Bakeshop','wedding_cake', 7,'Buko pandan panna cotta',95),
+      -- ── Kuha Booth · what's included ───────────────────────────────────────
+      ('Kuha Booth','photo_booth', 0,'3 hours unlimited 4R prints · double copies',NULL),
+      ('Kuha Booth','photo_booth', 1,'Custom couple monogram print layout',1500),
+      ('Kuha Booth','photo_booth', 2,'Props trunk + neon ''Kuha!'' marquee',800),
+      ('Kuha Booth','photo_booth', 3,'On-site attendant & lighting setup',NULL),
+      ('Kuha Booth','photo_booth', 4,'Digital gallery via QR · same night',800),
+      ('Kuha Booth','photo_booth', 5,'Boomerang GIF station',1000),
+      ('Kuha Booth','photo_booth', 6,'Guestbook album with extra prints',1200)
+    ) AS t(biz, cat, sort, label, worth)
+    ORDER BY biz, sort
+  LOOP
+    SELECT vp.vendor_profile_id, vs.vendor_service_id INTO v_vp, v_svc
+    FROM public.vendor_profiles vp
+    JOIN public.vendor_services vs ON vs.vendor_profile_id = vp.vendor_profile_id
+                                  AND vs.category = r.cat AND vs.is_active
+    WHERE vp.demo_batch_id = v_batch AND vp.business_name = r.biz
+    LIMIT 1;
+    IF v_svc IS NULL THEN
+      RAISE NOTICE 'demo listing % / % missing — skipped', r.biz, r.cat;
+      CONTINUE;
+    END IF;
+    -- first row per listing clears that listing's prior seed (idempotent)
+    IF r.sort = 0 THEN
+      DELETE FROM public.vendor_service_inclusions WHERE vendor_service_id = v_svc;
+    END IF;
+    INSERT INTO public.vendor_service_inclusions
+      (vendor_service_id, vendor_profile_id, label, worth_php, sort_order)
+    VALUES (v_svc, v_vp, r.label, r.worth, r.sort);
+  END LOOP;
+
+  -- Legacy JSONB mirror (parsePackageInclusions understands {label, worth_php})
+  UPDATE public.vendor_services vs
+     SET package_inclusions = agg.items, updated_at = NOW()
+    FROM (
+      SELECT i.vendor_service_id,
+             jsonb_agg(jsonb_strip_nulls(jsonb_build_object('label', i.label, 'worth_php', i.worth_php))
+                       ORDER BY i.sort_order) AS items
+      FROM public.vendor_service_inclusions i
+      JOIN public.vendor_profiles vp ON vp.vendor_profile_id = i.vendor_profile_id
+      WHERE vp.demo_batch_id = v_batch
+        AND vp.business_name IN ('Hain Catering','Saysay Live Band','Tagay Mobile Bar','Matamis Bakeshop','Kuha Booth')
+      GROUP BY i.vendor_service_id
+    ) agg
+   WHERE vs.vendor_service_id = agg.vendor_service_id;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Demo floor booths (2026-07-08). The published sample plan shipped with ONE
+-- booth (the Mobile Bar, owner-placed 2026-07-03 — left untouched here). Add
+-- the four booths that exercise every remaining card kind, each linked to its
+-- shortlisted demo vendor so boothTemplateFor resolves the vendor-category
+-- template (catering→menu, band_dj→songlist, cake_maker→menu,
+-- photobooth→inclusions). Positions are wall-side percents clear of the
+-- published tables / stage(50,6) / entrance(50,94). Idempotent by label.
+-- Apply as ONE db query call.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+  r record; v_ev uuid;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' LIMIT 1;
+  IF v_event IS NULL THEN RAISE EXCEPTION 'Maria & Jose sample event not found'; END IF;
+
+  FOR r IN
+    SELECT * FROM (VALUES
+      ('live_cooking','Plated Dinner','Hain Catering', 12.0, 88.0,
+       'Hain Catering plated service — a 10-course Filipino wedding menu, lechon belly carved live.'),
+      ('band','Live Band','Saysay Live Band', 18.0, 10.0,
+       'Saysay Live Band — a 5-piece set from first dance to last call. Request a song at the booth.'),
+      ('dessert_station','Dessert Bar','Matamis Bakeshop', 90.0, 22.0,
+       'Matamis Bakeshop dessert bar — ube cake, silvanas, leche flan tartlets. Sweets all night.'),
+      ('photo_booth','Photo Booth','Kuha Booth', 10.0, 22.0,
+       'Kuha Booth — unlimited 4R prints, props trunk, same-night QR gallery.')
+    ) AS t(btype, blabel, vname, x, y, offer)
+  LOOP
+    SELECT ev.vendor_id INTO v_ev FROM public.event_vendors ev
+    WHERE ev.event_id = v_event AND ev.vendor_name = r.vname LIMIT 1;
+    IF v_ev IS NULL THEN
+      RAISE NOTICE 'event vendor % missing — booth % skipped', r.vname, r.blabel;
+      CONTINUE;
+    END IF;
+    DELETE FROM public.event_floor_booths WHERE event_id = v_event AND label = r.blabel;
+    INSERT INTO public.event_floor_booths
+      (event_id, booth_type, label, x_pos, y_pos, sort_order, zone, event_vendor_id, offerings)
+    VALUES (v_event, r.btype, r.blabel, r.x, r.y, 0, 'reception', v_ev, r.offer);
+  END LOOP;
+END $$;

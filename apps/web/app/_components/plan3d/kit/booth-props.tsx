@@ -70,7 +70,8 @@ export type BoothPropKind =
   | 'turntable_deck'
   | 'vinyl_crate'
   | 'speaker_tower'
-  | 'light_tree';
+  | 'light_tree'
+  | 'food_tray';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Small helpers
@@ -389,6 +390,8 @@ const MH_HEAD_GEO = new RoundedBoxGeometry(0.14, 0.22, 0.14, 3, 0.04);
 const MH_BEAM_GEO = new THREE.ConeGeometry(0.35, 1.0, 20, 1, true);
 // 2026-07-08 polish props — the DJ's deck + crate, and Lights&Sound's towers
 // + light tree (the moving heads move UP onto the tree, out of the staff zone).
+const TRAY_GEO = new RoundedBoxGeometry(0.42, 0.06, 0.3, 3, 0.02);
+const FOOD_MOUND_GEO = new THREE.SphereGeometry(0.06, 12, 9);
 const TT_BODY_GEO = new RoundedBoxGeometry(0.78, 0.07, 0.4, 3, 0.03);
 const TT_DISC_GEO = new THREE.CylinderGeometry(0.14, 0.14, 0.022, 26);
 const TT_MIXER_GEO = new RoundedBoxGeometry(0.16, 0.05, 0.3, 3, 0.02);
@@ -603,6 +606,21 @@ export function BoothProp({ kind, palette }: { kind: BoothPropKind; palette: Lab
           <mesh geometry={MH_HEAD_GEO} material={boothSheenMaterial(KIT_DARK)} position={[0, 0.2, 0]} rotation={[0.5, 0, 0]} castShadow />
           {/* The soft beam cone — one of the cinematic-Play bloom stars. */}
           <mesh geometry={MH_BEAM_GEO} material={beamMat} position={[0, 0.72, -0.26]} rotation={[-0.5, 0, 0]} />
+        </group>
+      );
+    case 'food_tray':
+      // An OPEN tray — the food is visible (owner: "a long table of food").
+      // Mound colours are food-true, never palette-tinted.
+      return (
+        <group>
+          <mesh geometry={TRAY_GEO} material={boothMetalMaterial(KIT_CHROME)} position={[0, 0.03, 0]} castShadow />
+          {[
+            { x: -0.12, c: '#f3ead8' }, // garlic rice
+            { x: 0.02, c: '#8a4a2b' }, // lechon / adobo browns
+            { x: 0.14, c: '#6f8f3f' }, // greens
+          ].map((m) => (
+            <mesh key={m.x} geometry={FOOD_MOUND_GEO} material={boothSheenMaterial(m.c)} position={[m.x, 0.075, 0]} scale={[1.1, 0.72, 0.9]} castShadow />
+          ))}
         </group>
       );
     case 'turntable_deck':

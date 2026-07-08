@@ -69,13 +69,19 @@ export type BoothTemplateSpec = {
 export const BOOTH_TEMPLATES: Partial<Record<WeddingTile, BoothTemplateSpec>> = {
   // ── FEAST ──────────────────────────────────────────────────────────────────
   catering: {
-    chassis: 'STATION',
+    // 2026-07-08 owner polish: "they have a LONG table of food" — the classic
+    // PH buffet run: draped table, a row of chafing dishes with OPEN trays of
+    // visible food between them, plates at the service end, two staff behind.
+    chassis: 'BUFFET',
     props: [
-      { kind: 'chafing_dish', position: [-0.5, 0.94, 0] },
-      { kind: 'chafing_dish', position: [-0.05, 0.94, 0.05] },
-      { kind: 'plate_stack', position: [0.55, 0.94, 0] },
+      { kind: 'chafing_dish', position: [-1.25, 0.95, 0] },
+      { kind: 'food_tray', position: [-0.7, 0.95, 0.02] },
+      { kind: 'chafing_dish', position: [-0.15, 0.95, 0] },
+      { kind: 'food_tray', position: [0.4, 0.95, 0.02] },
+      { kind: 'chafing_dish', position: [0.95, 0.95, 0] },
+      { kind: 'plate_stack', position: [1.4, 0.95, 0] },
     ],
-    staff: { outfit: 'chef_whites', idle: 'present', count: 1 },
+    staff: { outfit: 'chef_whites', idle: 'present', count: 2 },
     signText: 'Catering',
     cardKind: 'menu',
   },

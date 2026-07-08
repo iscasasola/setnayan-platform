@@ -24,8 +24,9 @@
  *     the booth still reads in-character with zero motion.
  *
  * Mounted by venue-objects' BoothMesh when `boothTemplateFor` resolves a
- * template; the 37 not-yet-templated categories keep the generic silhouette
- * (next PR: `3dplan-booth-catalog-complete`).
+ * template — all 57 taxonomy leaves now do (catalog complete); only booths
+ * with no template identity (unlinked custom pins, no-booth vendor
+ * categories) keep the generic silhouette.
  */
 
 import { useMemo } from 'react';

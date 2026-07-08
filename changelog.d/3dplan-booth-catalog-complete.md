@@ -42,3 +42,42 @@ The prop + idle + outfit foundation for the remaining 37 booth templates
   automatically. 1132/1132 unit tests green.
 
 SPEC IMPACT: None (implements `0008_3DPlan_Booth_Template_Catalog_2026-07-08.md` as written; templates wiring lands in the next stage of this PR).
+
+## 2026-07-08 · feat(plan3d): all 57 booth templates — catalog complete
+
+Every taxonomy leaf now renders a full chassis + props + staff-mascot booth
+(`0008_3DPlan_Booth_Template_Catalog_2026-07-08.md` rows 1–57).
+
+- **`kit/booth-templates.ts`** — 37 new template configs (57 total):
+  reception · ceremony_venue · date_specialist · crew_meals · dance_floor ·
+  outdoor · fireworks · led_wall · digital_services · choir · orchestra ·
+  choreographer · performers · editorial · brides_attire · grooms_attire ·
+  womens_attire · mens_attire · filipiniana_barongs · grooming ·
+  wellness_fitness · jewelleries_accessories · mocktail · massage_chair ·
+  perfume_bar · arcade_games · henna_tattoo · mini_nail_bar ·
+  tarot_astrology_palmistry · caricature_calligraphy_painting ·
+  engraving_embroidery · printing · souvenir_giveaways · trophies_awards ·
+  bridal_car · guest_shuttle · escort. `BOOTH_TEMPLATES` is now a full
+  `Record<WeddingTile, BoothTemplateSpec>` — the type IS the completeness
+  check. Every floor placement authored clear of its chassis' staffAnchors
+  (the polish-pass rule), each entry commented with the clearance math where
+  it's tight.
+- **Resolution maps** — `VENDOR_CATEGORY_TO_TILE` extended with the newly
+  honest mappings (venue→reception, religious_venue→ceremony_venue,
+  string_quartet→orchestra, gown/suit_designer→attire,
+  rings→jewelleries_accessories, invitations_stationery→printing,
+  transportation→guest_shuttle, led_screens→led_wall,
+  gifts_and_giveaways→souvenir_giveaways); leaf-named categories (catering,
+  florist, mobile_bar, crew_meals, choir…) resolve directly.
+  `BOOTH_KIND_TO_TILE` adds gift_table/souvenir_table→souvenir_giveaways.
+  Only identity-less booths (custom/unassigned/registration_desk pins,
+  officiant/church_fees/security/accommodation/misc vendors) keep the
+  generic BoothMesh fallback — unchanged and safe.
+- **Verified** — typecheck + 1132/1132 unit tests green; /dev/booth-lab
+  steps 57/57 with spot-checks across all 9 chassis (ceremony arch + capiz,
+  led_wall animated panel, choir ×3 robes, orchestra duo + cello,
+  filipiniana forms, massage recliner, henna low table, souvenir shelves,
+  tarot crystal set, bridal-car ribbon + cans, escort cones, reception
+  maquette) — no prop/staff overlaps, no console errors.
+
+SPEC IMPACT: None (implements the 0008 booth-template catalog as written).

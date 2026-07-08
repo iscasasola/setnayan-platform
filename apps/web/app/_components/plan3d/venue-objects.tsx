@@ -430,10 +430,11 @@ export function BoothSign({ url, w, palette }: { url: string; w: number; palette
 }
 
 /** A vendor booth. Booth-template kit (2026-07-08): when the booked vendor's
- *  category (or the booth type) resolves a top-20 template, the full
- *  chassis + props + staff-mascot build renders (kit/booth-template.tsx);
- *  the not-yet-templated categories keep the generic silhouette below —
- *  documented fallback until the catalog-complete PR ships the other 37.
+ *  category (or the booth type) resolves a catalog template — all 57
+ *  taxonomy leaves now do — the full chassis + props + staff-mascot build
+ *  renders (kit/booth-template.tsx); only booths with no template identity
+ *  (unlinked custom pins, no-booth vendor categories) keep the generic
+ *  silhouette below as the safe fallback.
  *  Pro / enterprise vendors additionally get the branded logo backdrop,
  *  hung at the template chassis' sign anchor when one is in play. */
 export function BoothMesh({ booth, room, palette }: { booth: Lab3DBooth; room: Room; palette: Lab3DPalette }) {

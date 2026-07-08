@@ -2,7 +2,7 @@
 
 /**
  * kit/booth-props — the shared PROP primitives the booth-template kit's
- * top-20 categories place on their chassis (owner-locked catalog:
+ * 57 catalog categories place on their chassis (owner-locked catalog:
  * `0008_3DPlan_Booth_Template_Catalog_2026-07-08.md`). One module, every
  * prop mascot-smooth (filleted RoundedBox / high-segment lathes / capsules),
  * every geometry a MODULE-SCOPE shared buffer, materials from the chassis

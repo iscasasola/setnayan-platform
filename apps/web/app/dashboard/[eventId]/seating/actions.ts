@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { SeatingLockError } from './seating-lock-error';
 import {
@@ -128,6 +129,11 @@ export async function createTable(formData: FormData) {
     capacity,
   });
   if (error) throw new Error(error.message);
+
+  // Smart seat-plan Phase 5 (gap G1): a new table is fresh capacity — gap-fill
+  // any guests who were waiting for a seat. Best-effort; no-op when autoplace is
+  // off. This is what makes the "add more tables" nudge actually seat people.
+  await applyReconcileForEvent(supabase, eventId);
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -465,6 +471,13 @@ export async function setSeatingAutoplace(formData: FormData) {
     .update({ seating_autoplace_enabled: enabled })
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  // Gap G4: turning auto-seating ON should catch up the guests who piled up
+  // while it was off — gap-fill them now (respects locked seats; no-op if the
+  // room is already seated or full).
+  if (enabled) {
+    await applyReconcileForEvent(supabase, eventId);
+  }
 
   revalidatePath(`/dashboard/${eventId}/seating`);
 }

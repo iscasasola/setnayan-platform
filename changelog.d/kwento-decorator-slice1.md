@@ -4,8 +4,10 @@ Owner reframed the retired "Thank You" as Kwento's decoration layer ("this is id
 kwento"), persisting to the couple's gallery. Slice 1 = a client-side photo decorator.
 
 - New session-backed route `/papic/decorate` + `KwentoDecorator` component: pick a device
-  photo → layer the 5 shipped Papic filters + emoji stickers + draggable text → bake to a
-  canvas on-device (₱0) → upload via the EXISTING `/api/papic/guest-capture` pipeline (R2 +
+  photo → layer the 5 shipped Papic filters + emoji stickers + text. Each overlay is
+  **draggable (body) + resizable & rotatable (corner handle)** — the standard transform model;
+  rotation is baked into the canvas export. Bake on-device (₱0) → upload via the EXISTING
+  `/api/papic/guest-capture` pipeline (R2 +
   NSFW screen + quota + wall + Drive), so it lands as a first-class, moderation-gated capture.
 - "Decorate a photo" entry link on the guest gallery (`/papic/me/[token]`).
 - Decorates a device-SELECTED photo (local object URL) → no cross-origin canvas tainting;

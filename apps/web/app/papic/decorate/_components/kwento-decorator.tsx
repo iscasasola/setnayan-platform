@@ -10,20 +10,21 @@
  * /api/papic/guest-capture route (R2 + NSFW screen + wall + Drive), so a
  * decorated photo is a first-class, moderation-gated gallery capture.
  *
- * Design notes:
- *  • Decorate a DEVICE-SELECTED photo (local object URL) → no cross-origin
- *    canvas tainting (a presigned R2 image would taint toBlob).
- *  • Overlay positions are FRACTIONS of the stage (0..1) so the edit stage and
- *    the export canvas agree regardless of pixel size.
+ * Overlays are draggable (body) + resizable & rotatable (corner handle), the
+ * standard transform-handle model. Positions/rotation are FRACTIONS / degrees
+ * relative to the stage, so the edit stage and the export canvas agree exactly
+ * regardless of pixel size.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImagePlus, Loader2, Smile, Trash2, Type } from 'lucide-react';
+import { ImagePlus, Loader2, RotateCw, Smile, Trash2, Type } from 'lucide-react';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 
 const STICKERS = ['❤️', '😍', '🎉', '🥂', '💍', '💐', '✨', '🔥', '😂', '🥹', '👑', '🕊️'];
 const TEXT_COLORS = ['#ffffff', '#1f1a17', '#e2725b', '#b3446c', '#d4af37'];
 const MAX_EXPORT_PX = 1440; // cap the long edge → sane JPEG size
+const MIN_SIZE = 0.04;
+const MAX_SIZE = 0.6;
 
 type Overlay = {
   id: string;
@@ -32,8 +33,22 @@ type Overlay = {
   x: number; // 0..1 of stage width (center)
   y: number; // 0..1 of stage height (center)
   size: number; // fraction of stage width
+  rotation: number; // degrees
   color: string;
 };
+
+type Drag =
+  | { id: string; mode: 'move'; dx: number; dy: number }
+  | {
+      id: string;
+      mode: 'transform';
+      cx: number;
+      cy: number;
+      startDist: number;
+      startAngle: number;
+      startSize: number;
+      startRot: number;
+    };
 
 let seq = 0;
 const nextId = () => `o${++seq}`;
@@ -51,9 +66,8 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imgElRef = useRef<HTMLImageElement | null>(null);
-  const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const dragRef = useRef<Drag | null>(null);
 
-  // Revoke the object URL when the photo changes/unmounts.
   useEffect(() => {
     return () => {
       if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -71,27 +85,31 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
     setStatus(null);
   };
 
-  const addSticker = (emoji: string) =>
-    setOverlays((o) => {
-      const id = nextId();
-      setActiveId(id);
-      return [...o, { id, kind: 'sticker', content: emoji, x: 0.5, y: 0.5, size: 0.16, color: '#000' }];
-    });
+  const addSticker = (emoji: string) => {
+    const id = nextId();
+    setOverlays((o) => [
+      ...o,
+      { id, kind: 'sticker', content: emoji, x: 0.5, y: 0.5, size: 0.18, rotation: 0, color: '#000' },
+    ]);
+    setActiveId(id);
+  };
 
   const addText = () => {
     const t = textDraft.trim();
     if (!t) return;
     const id = nextId();
-    setOverlays((o) => [...o, { id, kind: 'text', content: t, x: 0.5, y: 0.5, size: 0.09, color: textColor }]);
+    setOverlays((o) => [
+      ...o,
+      { id, kind: 'text', content: t, x: 0.5, y: 0.5, size: 0.09, rotation: 0, color: textColor },
+    ]);
     setActiveId(id);
     setTextDraft('');
   };
 
-  const removeActive = () =>
-    setOverlays((o) => o.filter((x) => x.id !== activeId));
+  const removeActive = () => setOverlays((o) => o.filter((x) => x.id !== activeId));
 
-  // Pointer drag — fraction-based so it maps 1:1 to the export canvas.
-  const onPointerDown = (e: React.PointerEvent, id: string) => {
+  // BODY drag → move (fraction-based).
+  const onBodyDown = (e: React.PointerEvent, id: string) => {
     e.preventDefault();
     const stage = stageRef.current?.getBoundingClientRect();
     const ov = overlays.find((o) => o.id === id);
@@ -99,25 +117,55 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
     setActiveId(id);
     dragRef.current = {
       id,
+      mode: 'move',
       dx: (e.clientX - stage.left) / stage.width - ov.x,
       dy: (e.clientY - stage.top) / stage.height - ov.y,
     };
     (e.target as Element).setPointerCapture?.(e.pointerId);
   };
+
+  // CORNER handle → resize + rotate around the overlay's center.
+  const onHandleDown = (e: React.PointerEvent, ov: Overlay) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const stage = stageRef.current?.getBoundingClientRect();
+    if (!stage) return;
+    setActiveId(ov.id);
+    const cx = stage.left + ov.x * stage.width;
+    const cy = stage.top + ov.y * stage.height;
+    dragRef.current = {
+      id: ov.id,
+      mode: 'transform',
+      cx,
+      cy,
+      startDist: Math.hypot(e.clientX - cx, e.clientY - cy) || 1,
+      startAngle: Math.atan2(e.clientY - cy, e.clientX - cx),
+      startSize: ov.size,
+      startRot: ov.rotation,
+    };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  };
+
   const onPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     const stage = stageRef.current?.getBoundingClientRect();
     if (!d || !stage) return;
-    const x = Math.min(1, Math.max(0, (e.clientX - stage.left) / stage.width - d.dx));
-    const y = Math.min(1, Math.max(0, (e.clientY - stage.top) / stage.height - d.dy));
-    setOverlays((o) => o.map((ov) => (ov.id === d.id ? { ...ov, x, y } : ov)));
+    if (d.mode === 'move') {
+      const x = Math.min(1, Math.max(0, (e.clientX - stage.left) / stage.width - d.dx));
+      const y = Math.min(1, Math.max(0, (e.clientY - stage.top) / stage.height - d.dy));
+      setOverlays((o) => o.map((ov) => (ov.id === d.id ? { ...ov, x, y } : ov)));
+    } else {
+      const dist = Math.hypot(e.clientX - d.cx, e.clientY - d.cy);
+      const angle = Math.atan2(e.clientY - d.cy, e.clientX - d.cx);
+      const size = Math.min(MAX_SIZE, Math.max(MIN_SIZE, (d.startSize * dist) / d.startDist));
+      const rotation = d.startRot + ((angle - d.startAngle) * 180) / Math.PI;
+      setOverlays((o) => o.map((ov) => (ov.id === d.id ? { ...ov, size, rotation } : ov)));
+    }
   };
+
   const onPointerUp = () => {
     dragRef.current = null;
   };
-
-  const resizeActive = (v: number) =>
-    setOverlays((o) => o.map((ov) => (ov.id === activeId ? { ...ov, size: v } : ov)));
 
   const active = overlays.find((o) => o.id === activeId) ?? null;
 
@@ -146,17 +194,21 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
         const px = ov.x * w;
         const py = ov.y * h;
         const fontPx = ov.size * w;
+        ctx.save();
+        ctx.translate(px, py);
+        if (ov.rotation) ctx.rotate((ov.rotation * Math.PI) / 180);
         if (ov.kind === 'text') {
           ctx.font = `700 ${fontPx}px ui-sans-serif, system-ui, sans-serif`;
           ctx.fillStyle = ov.color;
           ctx.strokeStyle = 'rgba(0,0,0,0.35)';
           ctx.lineWidth = Math.max(1, fontPx * 0.06);
-          ctx.strokeText(ov.content, px, py);
-          ctx.fillText(ov.content, px, py);
+          ctx.strokeText(ov.content, 0, 0);
+          ctx.fillText(ov.content, 0, 0);
         } else {
           ctx.font = `${fontPx}px sans-serif`;
-          ctx.fillText(ov.content, px, py);
+          ctx.fillText(ov.content, 0, 0);
         }
+        ctx.restore();
       }
 
       const blob: Blob | null = await new Promise((res) =>
@@ -204,10 +256,10 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
           <>
             <div
               ref={stageRef}
-              className="relative mt-5 overflow-hidden rounded-2xl bg-ink/5 shadow-sm"
+              className="relative mt-5 touch-none select-none overflow-hidden rounded-2xl bg-ink/5 shadow-sm"
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
-              onPointerLeave={onPointerUp}
+              onPointerCancel={onPointerUp}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- local object URL, not remote */}
               <img
@@ -221,23 +273,33 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
               {overlays.map((ov) => (
                 <div
                   key={ov.id}
-                  onPointerDown={(e) => onPointerDown(e, ov.id)}
-                  className={`absolute cursor-move select-none leading-none ${
+                  onPointerDown={(e) => onBodyDown(e, ov.id)}
+                  className={`absolute cursor-move leading-none ${
                     ov.id === activeId ? 'outline outline-2 outline-terracotta/70' : ''
                   }`}
                   style={{
                     left: `${ov.x * 100}%`,
                     top: `${ov.y * 100}%`,
-                    transform: 'translate(-50%, -50%)',
+                    transform: `translate(-50%, -50%) rotate(${ov.rotation}deg)`,
                     fontSize: `calc(${ov.size} * min(100%, 60vh))`,
                     color: ov.color,
                     fontWeight: ov.kind === 'text' ? 700 : 400,
                     textShadow: ov.kind === 'text' ? '0 1px 2px rgba(0,0,0,0.35)' : undefined,
-                    touchAction: 'none',
                     whiteSpace: 'nowrap',
                   }}
                 >
                   {ov.content}
+                  {ov.id === activeId ? (
+                    <span
+                      onPointerDown={(e) => onHandleDown(e, ov)}
+                      role="button"
+                      aria-label="Resize and rotate"
+                      className="absolute -bottom-3 -right-3 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta text-cream shadow"
+                      style={{ fontSize: '12px' }}
+                    >
+                      <RotateCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    </span>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -311,24 +373,17 @@ export function KwentoDecorator({ eventName }: { eventName: string }) {
               </button>
             </div>
 
-            {/* Active-overlay controls. */}
+            {/* Active-overlay hint + delete. */}
             {active ? (
-              <div className="mt-3 flex items-center gap-3 rounded-lg bg-ink/[0.03] px-3 py-2">
-                <span className="text-xs text-ink/60">Size</span>
-                <input
-                  type="range"
-                  min={0.05}
-                  max={0.4}
-                  step={0.01}
-                  value={active.size}
-                  onChange={(e) => resizeActive(Number(e.target.value))}
-                  className="flex-1"
-                />
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-ink/[0.03] px-3 py-2">
+                <span className="text-xs text-ink/55">
+                  Drag to move · drag the corner handle to resize &amp; rotate
+                </span>
                 <button
                   type="button"
                   onClick={removeActive}
                   aria-label="Delete selected"
-                  className="rounded p-1 text-terracotta hover:bg-terracotta/10"
+                  className="flex-none rounded p-1 text-terracotta hover:bg-terracotta/10"
                 >
                   <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
                 </button>

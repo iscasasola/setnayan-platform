@@ -69,13 +69,19 @@ export type BoothTemplateSpec = {
 export const BOOTH_TEMPLATES: Partial<Record<WeddingTile, BoothTemplateSpec>> = {
   // ── FEAST ──────────────────────────────────────────────────────────────────
   catering: {
-    chassis: 'STATION',
+    // 2026-07-08 owner polish: "they have a LONG table of food" — the classic
+    // PH buffet run: draped table, a row of chafing dishes with OPEN trays of
+    // visible food between them, plates at the service end, two staff behind.
+    chassis: 'BUFFET',
     props: [
-      { kind: 'chafing_dish', position: [-0.5, 0.94, 0] },
-      { kind: 'chafing_dish', position: [-0.05, 0.94, 0.05] },
-      { kind: 'plate_stack', position: [0.55, 0.94, 0] },
+      { kind: 'chafing_dish', position: [-1.25, 0.95, 0] },
+      { kind: 'food_tray', position: [-0.7, 0.95, 0.02] },
+      { kind: 'chafing_dish', position: [-0.15, 0.95, 0] },
+      { kind: 'food_tray', position: [0.4, 0.95, 0.02] },
+      { kind: 'chafing_dish', position: [0.95, 0.95, 0] },
+      { kind: 'plate_stack', position: [1.4, 0.95, 0] },
     ],
-    staff: { outfit: 'chef_whites', idle: 'present', count: 1 },
+    staff: { outfit: 'chef_whites', idle: 'present', count: 2 },
     signText: 'Catering',
     cardKind: 'menu',
   },
@@ -193,9 +199,13 @@ export const BOOTH_TEMPLATES: Partial<Record<WeddingTile, BoothTemplateSpec>> = 
   },
   dj: {
     chassis: 'STATION',
+    // 2026-07-08 polish: the DJ is TURNTABLES + a vinyl crate — the console
+    // silhouette belongs to Lights & Sound (owner: "look the same"). Floor
+    // props sit BESIDE the counter, clear of the staff anchor (z −0.55).
     props: [
-      { kind: 'console_speakers', position: [0, 0.94, 0], scale: 0.95 },
-      { kind: 'moving_head', position: [0.85, 0, -0.4] },
+      { kind: 'turntable_deck', position: [0, 0.94, 0] },
+      { kind: 'vinyl_crate', position: [1.0, 0, 0.35] },
+      { kind: 'stage_monitor', position: [-1.0, 0, 0.35] },
     ],
     staff: { outfit: 'uniform', idle: 'headBob', count: 1 },
     signText: 'DJ',
@@ -241,10 +251,15 @@ export const BOOTH_TEMPLATES: Partial<Record<WeddingTile, BoothTemplateSpec>> = 
   },
   lights_sound: {
     chassis: 'STATION',
+    // 2026-07-08 polish: the mixing console stays, and the identity comes
+    // from tall PA TOWERS flanking the station + a LIGHT TREE rising behind
+    // the tech (heads up high — they were floor-standing at z −0.45, inside
+    // the staff anchor's spot, which is the owner-caught people overlap).
     props: [
-      { kind: 'console_speakers', position: [0, 0.94, 0], scale: 0.9 },
-      { kind: 'moving_head', position: [-0.85, 0, -0.45] },
-      { kind: 'moving_head', position: [0.85, 0, -0.45] },
+      { kind: 'console_speakers', position: [0, 0.94, 0], scale: 0.85 },
+      { kind: 'speaker_tower', position: [-1.25, 0, 0.1] },
+      { kind: 'speaker_tower', position: [1.25, 0, 0.1] },
+      { kind: 'light_tree', position: [0, 0, -1.05] },
     ],
     staff: { outfit: 'uniform', idle: 'tamp', count: 1 },
     signText: 'Lights & Sound',

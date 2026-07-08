@@ -40,6 +40,7 @@ import { plainMaterial } from './outfits';
 export type BoothChassisKind =
   | 'COUNTER'
   | 'STATION'
+  | 'BUFFET'
   | 'RISER'
   | 'BACKDROP'
   | 'DESK'
@@ -102,6 +103,21 @@ export const CHASSIS_SPECS: Record<BoothChassisKind, ChassisSpec> = {
     staffAnchors: [
       { x: 0.15, z: -0.62, faceY: 0 },
       { x: -0.7, z: -0.55, faceY: 0.35 },
+    ],
+  },
+  // 2026-07-08 owner polish: catering is "a LONG table of food" — a draped
+  // buffet spread, not a work station. Two servers stand behind the run.
+  BUFFET: {
+    w: 3.4,
+    d: 1.0,
+    discs: [
+      { x: -0.85, z: 0, r: 1.15 },
+      { x: 0.85, z: 0, r: 1.15 },
+    ],
+    signAnchor: [0, 0, -0.05],
+    staffAnchors: [
+      { x: -0.6, z: -0.6, faceY: 0 },
+      { x: 0.7, z: -0.6, faceY: 0 },
     ],
   },
   RISER: {
@@ -208,6 +224,9 @@ const BACK_SHELF_GEO = new RoundedBoxGeometry(1.7, 0.06, 0.28, 3, 0.03);
 
 // STATION — a work table: filleted top slab + two rounded pedestal legs.
 const STATION_TOP_GEO = new RoundedBoxGeometry(1.7, 0.1, 0.92, 4, 0.05);
+const BUFFET_TOP_GEO = new RoundedBoxGeometry(3.2, 0.08, 0.9, 4, 0.035);
+const BUFFET_SKIRT_GEO = new RoundedBoxGeometry(3.1, 0.88, 0.82, 4, 0.06);
+const BUFFET_RUNNER_GEO = new RoundedBoxGeometry(3.24, 0.012, 0.34, 2, 0.005);
 const STATION_LEG_GEO = new RoundedBoxGeometry(0.34, 0.82, 0.7, 4, 0.06);
 
 // RISER — a drum platform: a properly-capped cylinder (lathe caps on a huge
@@ -329,6 +348,22 @@ function StationChassis({ palette }: { palette: Lab3DPalette }) {
         <mesh key={x} geometry={STATION_LEG_GEO} material={leg} position={[x, 0.41, 0]} castShadow receiveShadow />
       ))}
       <mesh geometry={STATION_TOP_GEO} material={top} position={[0, 0.88, 0]} castShadow />
+    </group>
+  );
+}
+
+/** The long draped buffet: a cloth skirt to the floor under a wide top —
+ *  the classic PH wedding food run. Props (chafing dishes, open trays,
+ *  plates) line up along the top; two servers work behind it. */
+function BuffetChassis({ palette }: { palette: Lab3DPalette }) {
+  const cloth = boothSheenMaterial('#f6f1e6');
+  const runner = boothSheenMaterial(palette.accent);
+  return (
+    <group>
+      <mesh geometry={BUFFET_SKIRT_GEO} material={cloth} position={[0, 0.44, 0]} castShadow receiveShadow />
+      <mesh geometry={BUFFET_TOP_GEO} material={cloth} position={[0, 0.9, 0]} castShadow />
+      {/* A palette runner down the spread — ties the buffet to the mood board. */}
+      <mesh geometry={BUFFET_RUNNER_GEO} material={runner} position={[0, 0.945, 0]} />
     </group>
   );
 }
@@ -470,6 +505,8 @@ export function BoothChassis({ kind, palette }: { kind: BoothChassisKind; palett
       return <CounterChassis palette={palette} />;
     case 'STATION':
       return <StationChassis palette={palette} />;
+    case 'BUFFET':
+      return <BuffetChassis palette={palette} />;
     case 'RISER':
       return <RiserChassis palette={palette} />;
     case 'BACKDROP':

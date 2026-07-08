@@ -76,7 +76,7 @@ import { FACE_GEO, faceMaterial } from './face';
 // figure); the sitPose −0.30 m drop lands the hips at ≈0.50 — on the seat —
 // with the head at ≈1.14, matching where today's seated photo discs float.
 const PELVIS_Y = 0.8;
-const HIP_X = 0.075;
+const HIP_X = 0.062; // narrowed 2026-07-08 leg pass — closes the between-legs gap
 const THIGH_LEN = 0.34;
 const SHIN_LEN = 0.44;
 const SHOULDER_X = 0.165;
@@ -94,6 +94,19 @@ const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 6, 14); // native ≈0.36
 const LEG_GEO_LEN = 0.36;
 const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 28, 20); // mascot-smooth: no visible facets on close-ups
 const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 14); // silhouette pass — collar→head bridge
+// 2026-07-08 leg pass: the hip block that joins trousered legs (a squashed
+// capsule reads as soft tailoring, not a box) + the shoe nose.
+const HIP_GEO = (() => {
+  const g = new THREE.CapsuleGeometry(0.095, 0.05, 6, 14);
+  g.scale(1.3, 0.66, 1.0);
+  return g;
+})();
+const SHOE_GEO = (() => {
+  const g = new THREE.CapsuleGeometry(0.036, 0.055, 6, 12);
+  g.rotateX(Math.PI / 2); // long axis forward
+  g.scale(1.05, 0.62, 1.15);
+  return g;
+})();
 const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
 
 // Status-ring materials: the existing ring/marker convention (GuestToken's
@@ -340,6 +353,7 @@ export const Figure = memo(function Figure({
   const outfitGeo = outfitGeometry(spec.outfit);
   const outfitMat = outfitMaterial(spec.outfit, spec.outfitColor);
   const trouserMat = trouserMaterial(spec.outfit, spec.outfitColor);
+  const shoeMat = plainMaterial('#1d1a17'); // shared near-black leather
   const skinMat = skinMaterial(look.skinTone); // mascot sheen — smoother than generic plain
   const hairMat = hairMaterial(look.hairColor);
   const hairParts = hairPartsFor(look.hairStyle);
@@ -377,7 +391,19 @@ export const Figure = memo(function Figure({
       ) : null}
 
       <group ref={(el) => void (groups.current.pelvis = el)} position={[0, PELVIS_Y, 0]}>
-        {/* ── Legs: hip → knee. Thigh meshes hide under a skirted shell. ── */}
+        {/* ── Legs: hip → knee. Thigh meshes hide under a skirted shell. ──
+            2026-07-08 leg pass (owner: "the 2 oblong look for the legs"): a
+            HIP BLOCK joins the leg tops so trousers read as one garment, the
+            stance narrows, and every visible leg ends in a SHOE — the two
+            floating capsules become a person standing in shoes. */}
+        {!skirted ? (
+          <mesh
+            geometry={HIP_GEO}
+            material={trouserMat}
+            position={[0, -0.045, 0]}
+            castShadow={castShadow}
+          />
+        ) : null}
         {[-1, 1].map((side) => (
           <group
             key={side}
@@ -389,7 +415,7 @@ export const Figure = memo(function Figure({
                 geometry={LEG_GEO}
                 material={trouserMat}
                 position={[0, -THIGH_LEN / 2, 0]}
-                scale={[1, THIGH_LEN / LEG_GEO_LEN, 1]}
+                scale={[1.28, THIGH_LEN / LEG_GEO_LEN, 1.28]}
                 castShadow={castShadow}
               />
             ) : null}
@@ -401,7 +427,16 @@ export const Figure = memo(function Figure({
                 geometry={LEG_GEO}
                 material={shinMat}
                 position={[0, -SHIN_LEN / 2, 0]}
-                scale={[0.85, SHIN_LEN / LEG_GEO_LEN, 0.85]}
+                scale={[skirted ? 0.85 : 1.08, SHIN_LEN / LEG_GEO_LEN, skirted ? 0.85 : 1.08]}
+                castShadow={castShadow}
+              />
+              {/* Shoe: a low flattened capsule nosing forward from the ankle —
+                  follows the knee group so it swings with the stride. */}
+              <mesh
+                geometry={SHOE_GEO}
+                material={shoeMat}
+                position={[0, -SHIN_LEN + 0.03, 0.045]}
+                scale={[1.5, 0.8, 1.55]}
                 castShadow={castShadow}
               />
             </group>

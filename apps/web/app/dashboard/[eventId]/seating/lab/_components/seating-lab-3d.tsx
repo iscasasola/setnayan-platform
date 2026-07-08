@@ -53,7 +53,8 @@ import {
   archetypeFloorColor,
   archetypeBackground,
 } from '@/app/_components/plan3d/venue-decor';
-import { type ReceptionDesign } from '@/lib/reception-scene';
+import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
@@ -546,6 +547,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // Avoidance discs for the placed venue fixtures (objects + booths + sign posts
   // + cocktail walls) — merged into every walk/crowd obstacle set so the roam
   // avatar rounds the buffet / photo booth / cocktail room just like a table.
+  const coldSpark = sel(receptionDesign, 'tunnel', 'style') === 'cold_spark';
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
@@ -554,8 +556,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
+      // Cold-spark entrance tunnel (tunnel catalog 2026-07-08): its 8 machine
+      // boxes register like booth chassis discs (r 0.3; centre channel clear).
+      ...(coldSpark ? coldSparkObstacles(entranceWorld, room) : []),
     ],
-    [sceneObjects, booths, signs, cocktail, room],
+    [sceneObjects, booths, signs, cocktail, room, coldSpark, entranceWorld],
   );
   // What the walking camera can't pass through: TRUE table footprints (a
   // banquet reads as a capsule, a serpentine as its band — corners included) +

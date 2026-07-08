@@ -22,6 +22,9 @@
  *                               + template-aware obstacle registration
  *   · kit/booth-template.tsx  — <BoothTemplate>: chassis + props + staff
  *                               mascots + signage, mounted via BoothMesh
+ *   · kit/entrance-tunnel.tsx — evolved entrance-tunnel treatments (tunnel
+ *                               catalog 2026-07-08): <ColdSparkTunnel> +
+ *                               pure frame/obstacle/path-node helpers
  */
 
 export {
@@ -80,6 +83,18 @@ export {
   type PropPlacement,
 } from './booth-templates';
 export { BoothTemplate } from './booth-template';
+
+export {
+  ColdSparkTunnel,
+  coldSparkFrame,
+  coldSparkObstacles,
+  coldSparkPathNodes,
+  coldSparkProgress,
+  coldSparkIntensity,
+  COLD_SPARK_LENGTH_M,
+  COLD_SPARK_CLIMAX_T,
+  type ColdSparkFrame,
+} from './entrance-tunnel';
 
 export { ActiveChair, type ActiveChairProps } from './active-chair';
 export {

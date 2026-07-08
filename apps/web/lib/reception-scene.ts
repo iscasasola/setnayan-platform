@@ -195,6 +195,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('crystal', 'Crystal tunnel', 'a sparkling crystal-beaded entrance tunnel'),
           O('butterfly', 'Butterfly tunnel', 'a whimsical butterfly entrance tunnel'),
           O('cherry_blossom', 'Cherry blossom', 'a cherry-blossom entrance tunnel'),
+          O('cold_spark', 'Cold spark walk', 'a walkway of cold-spark fountains firing as the couple enters'),
           O('none', 'No tunnel', 'no entrance tunnel'),
         ],
       },
@@ -714,6 +715,30 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     }
 
   if (tunnelT === 'none') return s;
+  if (tunnelT === 'cold_spark') {
+    // Cold-spark fountain walk — no arches: dark machine boxes flank the aisle
+    // and fire titanium gold-white spark columns. Sparks are NEVER palette-
+    // tinted (realism rule — tunnel catalog 2026-07-08); only the runner
+    // (drawn above) carries the couple's colours.
+    const SPARK = '#FFF3D9';
+    depths.forEach((d, idx) => {
+      const bw = 24 - idx * 6; // machine box width, receding with depth
+      const boxTop = d.y0 - bw * 0.55;
+      for (const mx of [cx - d.half * 0.7, cx + d.half * 0.7]) {
+        s += `<rect x="${(mx - bw / 2).toFixed(1)}" y="${boxTop.toFixed(1)}" width="${bw}" height="${(bw * 0.55).toFixed(1)}" rx="3" fill="#23252B"/>`;
+        // Upward spark fan: a few bright rays + tip dots out of each box.
+        const h = 92 - idx * 24;
+        for (let i = 0; i < 7; i++) {
+          const a = -0.5 + i / 6; // −0.5..0.5 fan spread
+          const x2 = mx + a * (24 - idx * 6);
+          const y2 = boxTop - h * (0.55 + ((i * 29) % 10) / 22);
+          s += `<line x1="${mx.toFixed(1)}" y1="${boxTop.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${SPARK}" stroke-width="${(1.5 - idx * 0.3).toFixed(1)}" opacity="0.85"/>`;
+          s += `<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="${(1.9 - idx * 0.4).toFixed(1)}" fill="${SPARK}"/>`;
+        }
+      }
+    });
+    return s;
+  }
   depths.forEach((d, idx) => {
     const left = cx - d.half,
       right = cx + d.half;

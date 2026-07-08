@@ -57,7 +57,8 @@ import {
   archetypeFloorColor,
   archetypeBackground,
 } from '@/app/_components/plan3d/venue-decor';
-import { sanitizeReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
+import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 
 export type VenueScene = {
   published: boolean;
@@ -403,6 +404,11 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   const cocktail = useMemo<Lab3DCocktail>(() => scene.cocktail ?? null, [scene.cocktail]);
   // Fixture avoidance discs — merged into BOTH walk sets so the auto-walk and
   // every roam tap round the buffet / booth / cocktail room just like a table.
+  const entrance = useMemo<Vec2>(
+    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
+    [floor, room],
+  );
+  const coldSpark = sel(receptionDesign, 'tunnel', 'style') === 'cold_spark';
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
@@ -411,8 +417,11 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
       ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
+      // Cold-spark entrance tunnel (tunnel catalog 2026-07-08): its 8 machine
+      // boxes register like booth chassis discs (r 0.3; centre channel clear).
+      ...(coldSpark ? coldSparkObstacles(entrance, room) : []),
     ],
-    [sceneObjects, booths, signs, cocktail, room],
+    [sceneObjects, booths, signs, cocktail, room, coldSpark, entrance],
   );
 
   const occByTable = useMemo(() => new Map(scene.occupancy.map((o) => [o.table, new Set(o.seats)])), [scene]);
@@ -453,10 +462,6 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     preloadGuestPhotos((scene.photos ?? []).map((p) => p.photoUrl));
   }, [scene.photos]);
 
-  const entrance = useMemo<Vec2>(
-    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
-    [floor, room],
-  );
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):
   //  · seatObstacles = EVERY table, so the walk-to-seat routes around the guest's

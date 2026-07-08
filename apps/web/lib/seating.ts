@@ -930,15 +930,51 @@ export function computeAutoSeat(
     }
   }
 
+  // Smart seat-plan · Phase 6 — group-overflow ADJACENCY. A custom group's first
+  // member takes the stage-nearest free table (VIP weighting preserved); when the
+  // group overflows that table, the rest spill onto the table nearest BY FLOOR
+  // COORDINATES to the group's anchor — not the next stage-ranked table, which can
+  // be across the room. Ungrouped guests keep the pure stage-ranked fill, so this
+  // is a strict superset (no behaviour change without custom groups). Deterministic:
+  // ties break on pool (stage) order.
+  const pointById = new Map<string, { x: number; y: number }>();
+  tables.forEach((t, i) => pointById.set(t.table_id, tablePoint(t, i, tables.length)));
+  const dist2 = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  };
+  const groupAnchor = new Map<string, string>();
+
   const result: AutoSeatRow[] = [];
   for (const g of ordered) {
-    const table = pool.find((t) => (freeCount.get(t.table_id) ?? 0) > 0);
+    let table: EventTableRow | undefined;
+    const anchorId = g.group_id ? groupAnchor.get(g.group_id) : undefined;
+    if (anchorId) {
+      // Nearest free table to the group's anchor (the anchor itself while it has
+      // room, then its physical neighbours). Ties fall back to stage order.
+      const anchorPt = pointById.get(anchorId);
+      let bestD = Infinity;
+      for (const t of pool) {
+        if ((freeCount.get(t.table_id) ?? 0) <= 0) continue;
+        const d = anchorPt ? dist2(pointById.get(t.table_id)!, anchorPt) : 0;
+        if (d < bestD) {
+          bestD = d;
+          table = t;
+        }
+      }
+    }
+    if (!table) table = pool.find((t) => (freeCount.get(t.table_id) ?? 0) > 0);
     if (!table) break; // pool exhausted — remaining guests stay unseated
     const occ = occupied.get(table.table_id)!;
     let seat = 0;
     while (occ.has(seat)) seat++;
     occ.add(seat);
     freeCount.set(table.table_id, (freeCount.get(table.table_id) ?? 0) - 1);
+    // Anchor the group on the first table one of its members lands on.
+    if (g.group_id && !groupAnchor.has(g.group_id)) {
+      groupAnchor.set(g.group_id, table.table_id);
+    }
     result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
   }
   return result;

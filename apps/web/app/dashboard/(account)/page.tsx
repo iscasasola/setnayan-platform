@@ -7,6 +7,7 @@ import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
+import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getMyLifeStory } from './people/life-stories';
 import {
   LifeStorySection,
@@ -178,6 +179,8 @@ export default async function DashboardIndexPage() {
           ) : null}
 
           <CollectionLink />
+
+          {lifeStoryEnabled() ? <LifeStoryCard /> : null}
 
           {hasConsole ? <RoleSwitchRows roles={roles} /> : null}
         </div>
@@ -396,6 +399,29 @@ function CollectionLink() {
       </div>
       <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
         ›
+      </span>
+    </Link>
+  );
+}
+
+/** Life Story entry — the living memorial of your celebrations (Phase 1,
+ *  flag-gated via NEXT_PUBLIC_LIFE_STORY; Build Plan §5). Named "Life Story",
+ *  never "Your Story" — that name belongs to the counsel-gated
+ *  person_story_items surface below. */
+function LifeStoryCard() {
+  return (
+    <Link
+      href="/dashboard/life-story"
+      className="group flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+    >
+      <div>
+        <p className="text-sm font-medium text-ink">Life Story</p>
+        <p className="text-xs text-ink/55">
+          The moments that mattered, through every camera that was there
+        </p>
+      </div>
+      <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
+        ▶
       </span>
     </Link>
   );

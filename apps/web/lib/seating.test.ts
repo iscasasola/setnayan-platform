@@ -561,3 +561,36 @@ test('computeTableSwap on identical tables is a no-op', () => {
   const rows = [asg({ guest_id: 'A', table_id: 't1', seat_number: 0 })];
   assert.equal(computeTableSwap(rows, 't1', 't1').size, 0);
 });
+
+// ---------------------------------------------------------------------------
+// Smart seat-plan · Phase 6 — group-overflow adjacency. When a custom group
+// overflows its anchor table, the spillover lands on the table nearest BY FLOOR
+// COORDINATES to the anchor, not the next stage-ranked table (which can be
+// across the room). Ungrouped guests keep the pure stage-ranked fill.
+// ---------------------------------------------------------------------------
+
+// Stage at (50,8): 'anc' is stage-nearest (dist² 3208); 'far' is the NEXT
+// stage-ranked table (3281) but physically across the room; 'left' (3364) sits
+// right beside 'anc'. So stage order = [anc, far, left] while the anchor's
+// physical neighbour is 'left'.
+const ADJ_TABLES = [
+  tbl({ table_id: 'anc', capacity: 1, x_pos: 12, y_pos: 50 }),
+  tbl({ table_id: 'far', capacity: 1, x_pos: 90, y_pos: 49 }),
+  tbl({ table_id: 'left', capacity: 1, x_pos: 10, y_pos: 50 }),
+];
+
+test('Phase 6: a grouped overflow spills to the physically ADJACENT table, not the next stage-ranked one', () => {
+  const g1 = guest({ guest_id: 'g1', group_id: 'grp' });
+  const g2 = guest({ guest_id: 'g2', group_id: 'grp' });
+  const rows = computeAutoSeat(ADJ_TABLES, [g1, g2], [], { x: 50, y: 8 }, null);
+  assert.equal(seatTableOf(rows, 'g1'), 'anc'); // anchor = stage-nearest
+  assert.equal(seatTableOf(rows, 'g2'), 'left'); // overflow → nearest to anchor, NOT 'far'
+});
+
+test('Phase 6: WITHOUT a group the fill is unchanged (stage order → overflow lands on far)', () => {
+  const g1 = guest({ guest_id: 'g1' }); // no group_id
+  const g2 = guest({ guest_id: 'g2' });
+  const rows = computeAutoSeat(ADJ_TABLES, [g1, g2], [], { x: 50, y: 8 }, null);
+  assert.equal(seatTableOf(rows, 'g1'), 'anc');
+  assert.equal(seatTableOf(rows, 'g2'), 'far'); // pure stage order — proves the superset property
+});

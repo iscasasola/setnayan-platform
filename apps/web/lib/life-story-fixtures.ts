@@ -77,6 +77,24 @@ const CAST: Record<string, { name: string; inMemoriam?: boolean }> = {
 const VIEWER_PERSON_ID = 'fx-person-viewer';
 
 /**
+ * Fixture media = REAL external demo imagery so owner QA can actually judge
+ * the experience (owner 2026-07-08: gradients alone were "not decipherable").
+ * Deterministic: picsum seeds derive from event+frame ids (same moment always
+ * shows the same picture); clips rotate through Google's long-lived sample
+ * video bucket. FIXTURE-ONLY: the page's fixture branch passes https:// keys
+ * straight through as display URLs — production media never takes this path
+ * (real rows carry R2 keys, signed per-surface).
+ */
+function fixturePhotoUrl(seed: string): string {
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/1200/900`;
+}
+const SAMPLE_CLIPS = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+];
+
+/**
  * Build a fixture MomentGraph covering the first `eventCount` fixture events
  * (1..8). Deterministic for a given count.
  */
@@ -136,11 +154,14 @@ export function lifeStoryFixtureGraph(eventCount = 4): MomentGraph {
       if (capturer === 'self' || capturer === 'bea' || capturer === 'anon-seat') {
         // Papic crew frame (seat claim → captured_by_person_id).
         const photoId = `fx-photo-${event.id}-${index}`;
+        const isClip = index % 4 === 3;
         raw.photos.push({
           photo_id: photoId,
           event_id: event.id,
-          r2_object_key: `fixtures/${event.id}/${index}.jpg`,
-          photo_type: index % 4 === 3 ? 'clip' : 'photo',
+          r2_object_key: isClip
+            ? SAMPLE_CLIPS[index % SAMPLE_CLIPS.length]!
+            : fixturePhotoUrl(`${event.id}-${index}`),
+          photo_type: isClip ? 'clip' : 'photo',
           captured_at: capturedAt,
           captured_by_person_id:
             capturer === 'self' ? VIEWER_PERSON_ID : capturer === 'bea' ? 'fx-person-bea' : null,
@@ -155,7 +176,7 @@ export function lifeStoryFixtureGraph(eventCount = 4): MomentGraph {
           capture_id: captureId,
           event_id: event.id,
           guest_id: guestIdFor(capturer),
-          r2_object_key: `fixtures/${event.id}/${index}.jpg`,
+          r2_object_key: fixturePhotoUrl(`${event.id}-guest-${index}`),
           captured_at: capturedAt,
         });
         for (const castKey of tagged) {

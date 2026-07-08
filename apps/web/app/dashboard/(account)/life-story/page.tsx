@@ -62,10 +62,16 @@ export default async function LifeStoryPage({
     }
   }
 
+  // Fixture media carry real https demo URLs (picsum / sample clips) — pass
+  // them straight through. Real rows always carry R2 keys and take the signed
+  // path; this branch never runs in production (useFixtures gate above).
+  const fixtureUrl = (key: string | null | undefined) =>
+    key && key.startsWith('https://') ? key : null;
+
   // Surface-only signing: the first reel page (graph is significance-ordered).
   const surfaced = graph.moments.slice(0, REEL_PAGE_SIZE);
   const urls = useFixtures
-    ? surfaced.map(() => null)
+    ? surfaced.map((m) => fixtureUrl(m.media.r2Key))
     : await displayUrlsForStoredAssets(surfaced.map((m) => m.media.r2Key));
 
   const reelMoments: ReelMoment[] = surfaced.map((m, i) => ({
@@ -88,7 +94,7 @@ export default async function LifeStoryPage({
   const eventIdsWithMoments = new Set(graph.moments.map((m) => m.eventId));
   const emptyEvents = graph.events.filter((e) => !eventIdsWithMoments.has(e.eventId));
   const heroUrls = useFixtures
-    ? emptyEvents.map(() => null)
+    ? emptyEvents.map((e) => fixtureUrl(e.heroImageUrl))
     : await displayUrlsForStoredAssets(emptyEvents.map((e) => e.heroImageUrl));
 
   // ✦ opt-in rows: durable people only (pseudo guest:* keys can't be marked),
@@ -120,7 +126,7 @@ export default async function LifeStoryPage({
     'moment' in b && b.moment ? [b.moment] : [],
   ) as ScoredMoment[];
   const beatUrls = useFixtures
-    ? beatMoments.map(() => null)
+    ? beatMoments.map((m) => fixtureUrl(m.media.r2Key))
     : await displayUrlsForStoredAssets(beatMoments.map((m) => m.media.r2Key));
   const urlByMomentId = new Map(beatMoments.map((m, i) => [m.id, beatUrls[i] ?? null]));
 

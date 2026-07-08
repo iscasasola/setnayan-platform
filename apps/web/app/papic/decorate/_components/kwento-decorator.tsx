@@ -122,9 +122,11 @@ export function KwentoDecorator({
 
   const removeActive = () => setOverlays((o) => o.filter((x) => x.id !== activeId));
 
-  // BODY drag → move (fraction-based).
+  // BODY drag → move (fraction-based). stopPropagation so tapping an overlay
+  // doesn't bubble to the stage's deselect handler.
   const onBodyDown = (e: React.PointerEvent, id: string) => {
     e.preventDefault();
+    e.stopPropagation();
     const stage = stageRef.current?.getBoundingClientRect();
     const ov = overlays.find((o) => o.id === id);
     if (!stage || !ov) return;
@@ -314,6 +316,7 @@ export function KwentoDecorator({
               ref={stageRef}
               className="relative mt-5 touch-none select-none overflow-hidden rounded-2xl bg-ink/5 shadow-sm"
               style={{ containerType: 'inline-size' }}
+              onPointerDown={() => setActiveId(null)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}

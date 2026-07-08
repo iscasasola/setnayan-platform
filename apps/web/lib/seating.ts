@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isPubliclyVisible, parseVisibility } from './vendor-visibility';
 // Iteration 0053 Phase 2: the wedding seating-tier data now lives in
 // lib/role-sets.ts (single source). We import WEDDING_ROLE_SET as the DEFAULT
 // for every tier classifier so un-threaded callers behave exactly as before;
@@ -1403,6 +1404,10 @@ export type FloorBoothRow = {
     // The vendor's subscription tier — gates 3D booth logo branding to
     // pro / enterprise (boothCanBrand). Null when the join is absent.
     tier: string | null;
+    // Marketplace profile slug (/v/[slug]) — null unless the linked profile is
+    // publicly visible (isPubliclyVisible), so a hidden/archived vendor never
+    // leaks a profile link onto a booth card.
+    slug: string | null;
   } | null;
 };
 
@@ -1417,7 +1422,7 @@ export async function fetchBooths(
       // TWO relationships to vendor_profiles (linked_vendor_profile_id and
       // marketplace_vendor_id) and an unhinted embed errors as ambiguous.
       'booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings,' +
-        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url,tier_state))',
+        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url,tier_state,business_slug,public_visibility))',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -1445,7 +1450,12 @@ export async function fetchBooths(
       vendor: null,
     }));
   }
-  type VP = { logo_url: string | null; tier_state: string | null } | null;
+  type VP = {
+    logo_url: string | null;
+    tier_state: string | null;
+    business_slug: string | null;
+    public_visibility: string | null;
+  } | null;
   type Joined = Omit<FloorBoothRow, 'vendor'> & {
     event_vendors:
       | { vendor_name: string; category: string; vendor_profiles: VP }
@@ -1474,6 +1484,7 @@ export async function fetchBooths(
             category: ev.category,
             logo_url: vp?.logo_url ?? null,
             tier: vp?.tier_state ?? null,
+            slug: vp && isPubliclyVisible(parseVisibility(vp.public_visibility)) ? vp.business_slug ?? null : null,
           }
         : null,
     };

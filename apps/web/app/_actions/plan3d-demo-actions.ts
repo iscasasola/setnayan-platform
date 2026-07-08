@@ -20,6 +20,7 @@ import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
 import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition } from '@/lib/seating';
+import { fetchBoothCardItems } from '@/lib/vendor-services';
 import { guestDisplayName, resolveGuestAttire, type GuestRole, type GuestAttire } from '@/lib/guests';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -212,12 +213,18 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     }));
   // Resolve booked-vendor logos (raw stored refs) to display URLs, same as the
   // guest avatars above — booth vendor identity is PUBLIC business info, so no
-  // token gate, but an r2:// ref still needs server-side resolution.
+  // token gate, but an r2:// ref still needs server-side resolution. Card items
+  // (the kind-aware Menu / Set list / inclusions lines, booth-kit slice 4) ride
+  // along: the booths already came through the getSampleEventId trust boundary,
+  // and the fetch is read-only, display-safe fields only (label + worth_php —
+  // the tour contract).
   const boothLogoRefs = [...new Set(boothsRaw.map((b) => b.vendor?.logo_url).filter((r): r is string => !!r))];
+  const [boothLogoUrlEntries, boothCardItems] = await Promise.all([
+    Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const)),
+    fetchBoothCardItems(admin, boothsRaw),
+  ]);
   const boothLogoUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
-    ).filter((e): e is [string, string] => e[1] !== null),
+    boothLogoUrlEntries.filter((e): e is [string, string] => e[1] !== null),
   );
   const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
     id: b.booth_id,
@@ -226,12 +233,14 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     xPct: b.x_pos,
     yPct: b.y_pos,
     offerings: b.offerings,
+    cardItems: boothCardItems.get(b.booth_id) ?? null,
     vendor: b.vendor
       ? {
           name: b.vendor.vendor_name,
           category: b.vendor.category,
           logoUrl: b.vendor.logo_url ? boothLogoUrls[b.vendor.logo_url] ?? null : null,
           tier: b.vendor.tier,
+          slug: b.vendor.slug,
         }
       : null,
   }));

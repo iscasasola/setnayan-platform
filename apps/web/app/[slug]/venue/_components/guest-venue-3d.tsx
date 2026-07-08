@@ -73,7 +73,9 @@ export type VenueScene = {
   /** Vendor booths (v2 payload; absent on an old cached payload → treated as []).
    *  v4 adds `offerings` + a PUBLIC booth-vendor block for the booth card (both
    *  optional so an older cached payload still parses). `logoUrl` is the SERVER-
-   *  RESOLVED display URL (the page rewrites the raw stored ref). */
+   *  RESOLVED display URL (the page rewrites the raw stored ref). `slug` is the
+   *  vendor's PUBLIC marketplace profile (/v/[slug]) — the page joins it in
+   *  (visibility-gated) for the booth card's "Book this vendor" CTA. */
   booths?: {
     id: string;
     kind: string;
@@ -81,7 +83,7 @@ export type VenueScene = {
     xPct: number;
     yPct: number;
     offerings?: string | null;
-    vendor?: { name: string; category: string; logoUrl: string | null } | null;
+    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null } | null;
   }[];
   /** Wayfinding signs (v2 payload). */
   signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];

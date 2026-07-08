@@ -148,6 +148,7 @@ import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 
 type Props = {
   eventId: string;
@@ -430,6 +431,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const [walking, setWalking] = useState(false);
   const walkInput = useRef<WalkInput>({ moveX: 0, moveZ: 0, lookDX: 0, lookDY: 0, pinch: 0 });
   const [notice, setNotice] = useState<string | null>(null);
+  // Tapped booth → its vendor card (booth-kit slice 4). Booths stay read-only
+  // fixtures in the lab; the card is inspect-only here ("View vendor profile"
+  // CTA — the couple already booked them — and no walk-to button).
+  const [openBooth, setOpenBooth] = useState<Lab3DBooth | null>(null);
   const [walker, setWalker] = useState<WalkerState>(null);
   // Populate-Play: when set, the whole seated list walks in at once (mutually
   // exclusive with the single `walker`).
@@ -1743,6 +1748,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           cocktail={cocktail}
         />
 
+        {/* Invisible per-booth tap targets (the plan3d-scene precedent) —
+            tapping a booth opens its vendor card. Kept off the shared fixture
+            renderer so it stays a pure visual (no interaction coupling). */}
+        {booths.map((b) => (
+          <LabBoothHitTarget key={b.id} booth={b} room={room} onTap={setOpenBooth} />
+        ))}
+
         {/* Invisible floor catcher for drag-move + tap-to-drop + deselect. */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
@@ -1790,6 +1802,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           target={[0, 0.5, 0]}
         />
       </Canvas>
+
+      {/* Booth vendor card (bottom sheet / side drawer) — 2D chrome outside the
+          Canvas, shared Sheet conventions. Inspect-only in the lab: no walk-to,
+          and the marketplace CTA reads "View vendor profile". */}
+      <BoothVendorCard booth={openBooth} onClose={() => setOpenBooth(null)} profileCta="view" />
 
       <Hud
         mode={mode}
@@ -1906,6 +1923,47 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         </>
       ) : null}
     </div>
+  );
+}
+
+/* ---------------------------- Booth tap target ---------------------------- */
+
+// An invisible, slightly-oversized box over a booth's footprint that catches
+// the tap and opens the vendor card (the plan3d-scene / guest-venue-3d
+// precedent, with this lab's own drag-vs-tap threshold). Pointer cursor on
+// hover as the desktop affordance.
+function LabBoothHitTarget({
+  booth,
+  room,
+  onTap,
+}: {
+  booth: Lab3DBooth;
+  room: { w: number; d: number };
+  onTap: (booth: Lab3DBooth) => void;
+}) {
+  const pos = useMemo(() => pctToWorld(booth.xPct, booth.yPct, room), [booth.xPct, booth.yPct, room]);
+  return (
+    <mesh
+      position={[pos.x, 0.6, pos.z]}
+      onClick={(e) => {
+        // `e.delta` is the pointer's pixel travel — ignore drags (orbit/pan).
+        if (e.delta > 4) return;
+        e.stopPropagation();
+        onTap(booth);
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = '';
+      }}
+    >
+      {/* A touch larger than the booth footprint so it's easy to hit; the
+          material is invisible (a pure hit volume, never rendered). */}
+      <boxGeometry args={[2.3, 1.3, 1.3]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
   );
 }
 

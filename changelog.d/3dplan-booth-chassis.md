@@ -50,3 +50,41 @@ casting off · sign 2). typecheck + lint + 1124 unit tests green.
 
 SPEC IMPACT: None (implements the already-locked 2026-07-08 booth-template
 catalog; slice 1 of 2 — system + top-20).
+
+## 2026-07-08 · feat(plan3d): kind-aware booth cards — menus, songlists, book-CTA
+
+Slice 4 of the booth kit: the booth vendor card now consumes the `cardKind`
+each template carries, plus the vendor's structured "what you get" lines and
+a marketplace-profile CTA (owner-locked surface D — free for verified vendors).
+
+- **`kit/booth-card-content.tsx`** (new) — the kind-aware list section inside
+  the existing `booth-vendor-card.tsx`: `menu` → "Menu" · `songlist` →
+  "Set list" · `drinks` → "On the bar" · `inclusions` → "What's included",
+  one `Array<{label, worthPhp?}>` shape for all four; stated-worth items get
+  the marketplace "₱X free" chip. Pure presentational.
+- **`fetchBoothCardItems`** (lib/vendor-services.ts, new) — fail-soft read
+  composition, no schema change: booth `event_vendor_id` → `event_vendors` →
+  the linked profile's active `vendor_services` listing (category match beats
+  first-active) → `vendor_service_inclusions` (label + worth_php), falling
+  back to the listing's legacy `package_inclusions` JSONB, then to the
+  host-authored `event_vendors.host_inclusions[]` for manual vendors.
+  `parsePackageInclusions` exported pure + 4 unit tests.
+- **LAB** — `seating/lab/page.tsx` fetches card items through the
+  couple-authed client (RLS-scoped); the lab now opens the booth card on
+  booth tap (invisible hit targets, plan3d-scene precedent; inspect-only —
+  no walk-to) with the CTA reading "View vendor profile" (they already
+  booked them).
+- **DEMO** — `plan3d-demo-actions.ts` rides the same fetch through the
+  `getSampleEventId` trust boundary (read-only, display-safe fields only —
+  label + worth_php; the tour contract).
+- **CTA** — "Book this vendor for your event" → `/v/[slug]` (new tab, so the
+  3D scene keeps running) on the demo + public venue walk whenever the booth
+  vendor has a PUBLICLY VISIBLE marketplace profile: `fetchBooths` now joins
+  `business_slug` + `public_visibility` and nulls the slug via
+  `isPubliclyVisible`, so hidden/archived vendors never leak a link. The
+  public walk page joins slugs post-RPC (the v4 payload predates the field).
+
+typecheck + lint + 1128 unit tests green.
+
+SPEC IMPACT: None (implements the locked 2026-07-08 booth-template catalog's
+cardKind contract + the owner-locked free book-this-vendor booth CTA).

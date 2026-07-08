@@ -885,7 +885,18 @@ export type BoothVendor = {
    *  logo (see boothCanBrand); free / verified / solo render the generic booth.
    *  Optional so an older cached scene payload (pre-tier) still parses. */
   tier?: string | null;
+  /** Marketplace profile slug (`vendor_profiles.business_slug`) when the vendor
+   *  has a PUBLICLY VISIBLE profile — powers the booth card's `/v/[slug]`
+   *  profile CTA (owner-locked surface D: free for verified vendors). Null /
+   *  absent → no CTA. Optional so older cached scene payloads still parse. */
+  slug?: string | null;
 };
+
+/** One structured "what you get" line on the booth vendor card — a menu dish,
+ *  a set-list song, a bar pour, or a package inclusion, per the booth
+ *  template's `cardKind`. `worthPhp` renders the marketplace's "₱X free"
+ *  value chip; null/absent = no stated worth. */
+export type BoothCardItem = { label: string; worthPhp?: number | null };
 
 /** Booth branding is a PRO / ENTERPRISE perk (owner-locked 2026-07-04): those
  *  tiers texture their logo onto the 3D booth; free / verified / solo stay
@@ -905,6 +916,10 @@ export type Lab3DBooth = {
   offerings?: string | null;
   /** Booked booth vendor's public business identity, or null when unlinked. */
   vendor?: BoothVendor | null;
+  /** Structured card lines (vendor-authored service inclusions / menu items),
+   *  fetched server-side per surface via `fetchBoothCardItems`. Null / absent
+   *  → the card shows the free-text offerings line only. */
+  cardItems?: BoothCardItem[] | null;
 };
 
 /** A wayfinding sign (percent canvas). `rotationDeg` = the arrow heading. */

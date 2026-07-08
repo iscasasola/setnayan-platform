@@ -64,7 +64,8 @@ export default async function EventChecklistPage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
   const eventDate = (eventRow?.event_date as string | null) ?? null;
-  const chrome = checklistChrome((eventRow?.event_type as string | null) ?? null);
+  const eventType = (eventRow?.event_type as string | null) ?? null;
+  const chrome = checklistChrome(eventType);
 
   const rows = await fetchChecklistItems(supabase, eventId);
   const now = new Date();
@@ -73,10 +74,17 @@ export default async function EventChecklistPage({ params }: Props) {
 
   // Live budget health-check — null when the couple hasn't set a budget yet, or
   // graceful-degrades to null if the budget tables aren't present. Never blocks
-  // the checklist render.
+  // the checklist render. WEDDING-ONLY for now: computeBudgetHealth's tiers,
+  // benchmarks, and paperwork line are all wedding-shaped, and generic
+  // onboarding DOES write estimated_budget_centavos — without this guard a
+  // birthday with a budget would render wedding-shaped health numbers. The
+  // per-event-type budget model lifts this (see
+  // Budget_Genericization_Design_2026-07-08.md §4 PR-B3); mirrors the
+  // isWeddingBudget gate on the budget page itself.
+  const isWeddingBudget = eventType == null || eventType === 'wedding';
   let budgetHealth: ChecklistBudgetHealth | null = null;
   try {
-    budgetHealth = await computeBudgetHealth(eventId);
+    budgetHealth = isWeddingBudget ? await computeBudgetHealth(eventId) : null;
   } catch (caught) {
     logQueryError(
       'EventChecklistPage (computeBudgetHealth threw)',

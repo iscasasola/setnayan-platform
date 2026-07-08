@@ -87,25 +87,36 @@ function table(id: string, xPct: number, yPct: number): Lab3DTable {
 test('floorObstacles: skips the destination table, always adds the stage', () => {
   const tables = [table('A', 30, 50), table('B', 70, 50)];
   const obs = floorObstacles(floor(false), tables, ROOM, ['A']);
-  // B (1) + stage (1) — A skipped, dance disabled.
-  assert.equal(obs.length, 2);
-  // The stage disc sits at the top of the room (yPct 8 → negative z).
-  const stage = obs[obs.length - 1]!;
-  assert.ok(stage.c.z < -5, 'stage obstacle is at the top of the room');
-  assert.ok(stage.r > 0);
+  // B (1) + stage (1) + entrance posts (2) — A skipped, dance disabled.
+  assert.equal(obs.length, 4);
+  // The stage disc sits at the top of the room (yPct 8 → negative z); the
+  // entrance posts (collision pass 2026-07-08) come after it in the array.
+  const stage = obs.find((o) => o.c.z < -5);
+  assert.ok(stage, 'stage obstacle is at the top of the room');
+  assert.ok(stage!.r > 0);
 });
 
 test('floorObstacles: adds the dance floor only when enabled', () => {
   const tables = [table('A', 30, 50)];
-  assert.equal(floorObstacles(floor(true), tables, ROOM, ['A']).length, 2, 'A skipped → dance + stage');
-  assert.equal(floorObstacles(floor(false), tables, ROOM, ['A']).length, 1, 'A skipped, no dance → stage only');
+  assert.equal(floorObstacles(floor(true), tables, ROOM, ['A']).length, 4, 'A skipped → dance + stage + entrance posts');
+  assert.equal(floorObstacles(floor(false), tables, ROOM, ['A']).length, 3, 'A skipped, no dance → stage + entrance posts');
+});
+
+test('floorObstacles: entrance posts become discs only when the entrance is enabled', () => {
+  const f = floor(false);
+  const posts = floorObstacles(f, [], ROOM, []).filter((o) => o.c.z > 5);
+  // yPct 96 in a 20 m room → z ≈ +9.2; two r 0.2 posts at ±0.55 m.
+  assert.equal(posts.length, 2, 'two entrance post discs');
+  assert.ok(Math.abs(posts[0]!.c.x - posts[1]!.c.x) > 1.0, 'posts flank the doorway gap');
+  const off = { ...f, entrance: { ...f.entrance, enabled: false } };
+  assert.equal(floorObstacles(off, [], ROOM, []).filter((o) => o.c.z > 5).length, 0, 'disabled → no post discs');
 });
 
 test('floorObstacles: skips every id passed (swap excludes both tables)', () => {
   const tables = [table('A', 30, 50), table('B', 70, 50), table('C', 50, 80)];
   const obs = floorObstacles(floor(false), tables, ROOM, ['A', 'B', undefined]);
-  // Only C (1) + stage (1); A and B skipped, undefined ignored.
-  assert.equal(obs.length, 2);
+  // Only C (1) + stage (1) + entrance posts (2); A and B skipped, undefined ignored.
+  assert.equal(obs.length, 4);
 });
 
 test('steerPath hard-clears its discs: no interior waypoint stays inside an obstacle', () => {
@@ -689,9 +700,9 @@ test('floorObstacles: emits multi-disc footprints per table (capsule banquet + s
   const tables = [banquet(0), table('R', 20, 20)];
   const obs = floorObstacles(floor(false), tables, ROOM, []);
   const banquetDiscs = tableFootprintDiscs(banquet(0), ROOM).length;
-  assert.equal(obs.length, banquetDiscs + 1 + 1, 'banquet capsule + round disc + stage');
+  assert.equal(obs.length, banquetDiscs + 1 + 1 + 2, 'banquet capsule + round disc + stage + entrance posts');
   // Skipping the banquet drops ALL of its footprint discs.
-  assert.equal(floorObstacles(floor(false), tables, ROOM, ['B']).length, 2);
+  assert.equal(floorObstacles(floor(false), tables, ROOM, ['B']).length, 4);
 });
 
 test('chairObstacles: a disc per chair; destination chair + approach corridor excluded; removed seats skipped', () => {

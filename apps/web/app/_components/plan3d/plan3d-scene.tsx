@@ -137,7 +137,6 @@ import {
   SIT_TIMING,
   EmoteBubbles,
   EMOTE_SEATED_Y,
-  EMOTE_STANDING_Y,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
@@ -326,10 +325,11 @@ function GuestToken({
   const [hovered, setHovered] = useState(false);
   return (
     <group position={[position.x, 0, position.z]} rotation={[0, heading, 0]}>
-      {/* Slice 1 keeps the crowd STANDING at their seats (the animated sit
-          pose is slice 2) — the exact world position the old token occupied,
-          so QR clicks, camera framing and roam obstacles are unchanged. The
-          selfie/photo path and side-colour ring live inside the kit figure. */}
+      {/* Room-wide seated default (2026-07-08 collision pass — the owner kept
+          seeing figures standing THROUGH their chairs): the ambient crowd sits
+          in its chairs, exactly like the lab's SeatedAvatar. `seated={false}`
+          remains available for callers that need a stander. QR hit target is
+          full-height, so taps are unchanged. */}
       <Figure spec={spec} pose={seated ? 'sit' : 'stand'} quality={quality} name={name} />
       {onClick ? (
         // PERF: the hit cylinder is `visible` only while hovered (when it doubles
@@ -898,15 +898,12 @@ export function Plan3DScene({
   const [sit, setSit] = useState<SitState | null>(null);
   // True once the sit clip has landed (tuck flush) — `onWalkComplete` has fired.
   const [arrived, setArrived] = useState(false);
-  // Guests whose sit choreography completed this session — they stay seated
-  // after their SitController unmounts (slice-2 review fix; see GuestToken).
-  const [seatedIds, setSeatedIds] = useState<ReadonlySet<string>>(() => new Set());
   // Emote bubbles (Fable §3.6) — the DEMO slice is deliberately name/seat/side
   // (+attire) only, so bubbles here are side/rsvp-GENERIC: every seated guest
-  // rotates confirmed-check ↔ chat dots (the whole sample cast is seated =
-  // confirmed). No per-guest status beyond what the slice already shows, and
-  // the slice is NOT widened for this. The mid-walk / roaming guest is skipped
-  // exactly like their GuestToken (their anchor moves every frame).
+  // rotates confirmed-check ↔ chat dots. No per-guest status beyond what the
+  // slice already shows. The mid-walk / roaming guest is skipped exactly like
+  // their GuestToken. The ambient crowd is room-wide SEATED (2026-07-08
+  // collision pass), so every bubble anchors at seated head height.
   const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
     const glyphs: readonly EmoteGlyph[] = ['check', 'chat'];
     const out: EmoteEmitter[] = [];
@@ -915,18 +912,10 @@ export function Plan3DScene({
       const table = tablesById.get(g.tableId);
       if (!table) continue;
       const p = seatWorld(table, g.seatNumber ?? 0, room);
-      out.push({
-        id: g.id,
-        x: p.x,
-        // Slice-1 crowd STANDS at their seats; a guest whose sit choreography
-        // completed is seated — anchor the bubble to the matching head height.
-        y: seatedIds.has(g.id) ? EMOTE_SEATED_Y : EMOTE_STANDING_Y,
-        z: p.z,
-        glyphs,
-      });
+      out.push({ id: g.id, x: p.x, y: EMOTE_SEATED_Y, z: p.z, glyphs });
     }
     return out;
-  }, [guests, tablesById, room, seatedIds, walkTarget?.guestId, roam?.guestId]);
+  }, [guests, tablesById, room, walkTarget?.guestId, roam?.guestId]);
 
   // Persistent "chase cam already framed" flag — survives Walker remounts so
   // a second walk eases from the current camera instead of hard-cutting.
@@ -1101,13 +1090,8 @@ export function Plan3DScene({
   // must never precede the figure actually being in the chair.
   const handleSeated = () => {
     setArrived(true);
-    // Remember who completed the sit choreography: when this SitController
-    // later unmounts (retarget to another guest, roam), the guest keeps a
-    // seated GuestToken instead of popping upright (slice-2 review fix).
-    if (walkGuest) {
-      const id = walkGuest.id;
-      setSeatedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-    }
+    // (The room-wide seated default made the old per-guest seatedIds ledger
+    // unnecessary — every ambient guest sits now; 2026-07-08 collision pass.)
     onWalkComplete?.();
   };
 
@@ -1333,7 +1317,7 @@ export function Plan3DScene({
             spec={figureSpecs.get(g.id)!}
             name={g.name}
             quality={quality}
-            seated={seatedIds.has(g.id)}
+            seated
             onClick={
               interactive && onGuestClick
                 ? (e) => {

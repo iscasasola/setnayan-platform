@@ -789,6 +789,15 @@ export function floorObstacles(
     c: pctToWorld(floor.stage.xPct, floor.stage.yPct, room),
     r: Math.max(stageW, stageD) / 2 + 0.6,
   });
+  // Entrance doorway frame (2026-07-08 collision pass): the two metal posts
+  // (±0.55 m local X, 0.1 m square) get small discs so walkers and the roam
+  // step-in never stand THROUGH them. The 1.1 m gap between posts stays a
+  // legal channel (0.7 m clear at r 0.2 — wider than a chair corridor), and
+  // the scripted walk's start point at the frame centre remains outside both.
+  if (floor.entrance.enabled) {
+    const e = pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room);
+    obs.push({ c: { x: e.x - 0.55, z: e.z }, r: 0.2 }, { c: { x: e.x + 0.55, z: e.z }, r: 0.2 });
+  }
   // Dance floor — only when the couple enabled one.
   if (floor.dance.enabled) {
     const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);

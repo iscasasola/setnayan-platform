@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Images, Heart, Newspaper, UserCircle, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
@@ -72,6 +73,26 @@ export default async function LibraryPage({
           </Link>
         </div>
       </header>
+
+      {/* Life Story entry — the everyone-reachable path (single-event couples
+          bypass the account hub via its redirect); flag-gated (Build Plan §5) */}
+      {lifeStoryEnabled() ? (
+        <Link
+          href="/dashboard/life-story"
+          className="group mb-8 flex items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+        >
+          <div>
+            <p className="text-sm font-medium text-ink">Life Story</p>
+            <p className="text-xs text-ink/55">
+              The moments that mattered most, through every camera that was there — gathered
+              while you&rsquo;re living them
+            </p>
+          </div>
+          <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
+            ▶
+          </span>
+        </Link>
+      ) : null}
 
       {/* Tab bar — plain links so the page stays a server component */}
       <nav className="mb-8 flex gap-1 overflow-x-auto border-b border-ink/10">

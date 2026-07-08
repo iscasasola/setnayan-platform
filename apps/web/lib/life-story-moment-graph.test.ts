@@ -15,6 +15,11 @@ import {
   personKeyForGuest,
   assembleMomentGraph,
   filterMomentGraph,
+  parseFlashScope,
+  flashScopeKey,
+  scopeMomentGraph,
+  scopeOptions,
+  type FlashScope,
   type RawInputs,
 } from './life-story-moment-graph';
 
@@ -224,4 +229,55 @@ test('filterMomentGraph: open-ended windows and the identity window are no-ops',
     same.moments.map((m) => m.id),
     graph.moments.map((m) => m.id),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Life-Flash scopes (event / month / year / lifetime)
+// ---------------------------------------------------------------------------
+
+test('parseFlashScope ⇄ flashScopeKey round-trip; malformed degrades to life', () => {
+  const cases: FlashScope[] = [
+    { kind: 'life' },
+    { kind: 'year', year: 2026 },
+    { kind: 'month', year: 2026, month: 7 },
+    { kind: 'event', eventId: 'e1' },
+  ];
+  for (const scope of cases) {
+    assert.deepEqual(parseFlashScope(flashScopeKey(scope)), scope);
+  }
+  assert.deepEqual(parseFlashScope('m2026-13'), { kind: 'life' }); // bad month
+  assert.deepEqual(parseFlashScope('zzz'), { kind: 'life' });
+  assert.deepEqual(parseFlashScope(undefined), { kind: 'life' });
+});
+
+test('scopeMomentGraph: event scope slices to one event; life is identity', () => {
+  const graph = assembleMomentGraph(raw(), VIEWER);
+  const e1 = scopeMomentGraph(graph, { kind: 'event', eventId: 'e1' });
+  assert.ok(e1.moments.length > 0);
+  assert.ok(e1.moments.every((m) => m.eventId === 'e1'));
+  assert.deepEqual(e1.events.map((e) => e.eventId), ['e1']);
+
+  const life = scopeMomentGraph(graph, { kind: 'life' });
+  assert.equal(life.moments.length, graph.moments.length);
+  assert.equal(life.events.length, graph.events.length); // identity — chapter cards survive
+});
+
+test('scopeMomentGraph: month scope windows correctly incl. December rollover', () => {
+  const graph = assembleMomentGraph(raw(), VIEWER); // all captures 2024-06-01
+  const june = scopeMomentGraph(graph, { kind: 'month', year: 2024, month: 6 });
+  assert.equal(june.moments.length, graph.moments.length);
+  const december = scopeMomentGraph(graph, { kind: 'month', year: 2024, month: 12 });
+  assert.equal(december.moments.length, 0);
+});
+
+test('scopeOptions: only scopes clearing the dignity thresholds are offered', () => {
+  const graph = assembleMomentGraph(raw(), VIEWER);
+  // raw() yields 4 moments total: 3 in e1, 1 in e2 — below year/month min (5),
+  // e1 clears the event min (3), e2 does not.
+  const options = scopeOptions(graph);
+  assert.equal(options.years.length, 0);
+  assert.equal(options.months.length, 0);
+  assert.deepEqual(options.events.map((o) => o.key), ['ee1']);
+  assert.equal(options.events[0]!.count, 3);
+  assert.equal(options.events[0]!.label, 'The wedding');
 });

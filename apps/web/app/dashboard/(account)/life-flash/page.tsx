@@ -5,7 +5,13 @@ import { ArrowLeft } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { fetchMomentGraph } from '@/lib/life-story-moment-graph';
+import {
+  fetchMomentGraph,
+  parseFlashScope,
+  scopeMomentGraph,
+  scopeOptions,
+  flashScopeKey,
+} from '@/lib/life-story-moment-graph';
 import { lifeStoryFixtureGraph } from '@/lib/life-story-fixtures';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import type { MomentGraph, ScoredMoment } from '@/lib/life-story-types';
@@ -14,14 +20,18 @@ import { ScrollReel, type ReelMoment } from './_components/scroll-reel';
 import { StoryPeople, type StoryPerson } from './_components/story-people';
 import { Flash, type FlashBeatView } from './_components/flash';
 
-export const metadata = { title: 'Life Story' };
+export const metadata = { title: 'Life-Flash' };
 
 /**
- * Life Story — the living memorial of your celebrations (Phase 1 · own events).
+ * Life-Flash — the living memorial of your celebrations (Phase 1 · own events).
+ * Product name owner-locked 2026-07-08 ("name it Life-Flash"); internal lib
+ * modules keep the life-story-* codename.
  *
  * Reframe owner-locked 2026-07-08: experienced while you're alive, pointed
- * forward — never a death surface. This route hosts the scroll reel + the ✦
- * opt-in (PR-3); the cinematic flash mounts here in PR-4.
+ * forward — never a death surface. Scopes (owner, same day): whole life ·
+ * per-year · per-month · per-event — one engine pointed at a slice, offered
+ * only where the dignity thresholds clear. Strategic frame: the payoff engine
+ * that maximizes the value of everything Papic collects.
  *
  * Media discipline (Build Plan §1): presign only what's surfaced — the first
  * REEL_PAGE_SIZE moments — never the whole graph. Fixture mode (dev/preview
@@ -31,10 +41,10 @@ export const metadata = { title: 'Life Story' };
 
 const REEL_PAGE_SIZE = 48;
 
-export default async function LifeStoryPage({
+export default async function LifeFlashPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fixtures?: string }>;
+  searchParams: Promise<{ fixtures?: string; scope?: string }>;
 }) {
   if (!lifeStoryEnabled()) notFound();
 
@@ -62,6 +72,20 @@ export default async function LifeStoryPage({
     }
   }
 
+  // Scope — whole life (default) · year · month · event. The scoped graph
+  // drives the flash + reel; the ✦ people section stays LIFETIME-scoped.
+  const scope = parseFlashScope(sp.scope);
+  const scoped = scopeMomentGraph(graph, scope);
+  const options = scopeOptions(graph);
+  const activeScopeKey = flashScopeKey(scope);
+  const scopeHref = (key: string) => {
+    const params = new URLSearchParams();
+    if (useFixtures) params.set('fixtures', '1');
+    if (key !== 'life') params.set('scope', key);
+    const qs = params.toString();
+    return qs ? `/dashboard/life-flash?${qs}` : '/dashboard/life-flash';
+  };
+
   // Fixture media carry real https demo URLs (picsum / sample clips) — pass
   // them straight through. Real rows always carry R2 keys and take the signed
   // path; this branch never runs in production (useFixtures gate above).
@@ -69,7 +93,7 @@ export default async function LifeStoryPage({
     key && key.startsWith('https://') ? key : null;
 
   // Surface-only signing: the first reel page (graph is significance-ordered).
-  const surfaced = graph.moments.slice(0, REEL_PAGE_SIZE);
+  const surfaced = scoped.moments.slice(0, REEL_PAGE_SIZE);
   const urls = useFixtures
     ? surfaced.map((m) => fixtureUrl(m.media.r2Key))
     : await displayUrlsForStoredAssets(surfaced.map((m) => m.media.r2Key));
@@ -91,8 +115,9 @@ export default async function LifeStoryPage({
   }));
 
   // Sparse dignity: events with no surfaced media become quiet chapter cards.
-  const eventIdsWithMoments = new Set(graph.moments.map((m) => m.eventId));
-  const emptyEvents = graph.events.filter((e) => !eventIdsWithMoments.has(e.eventId));
+  // (Scoped recaps drop empty events by construction — cards appear on whole-life.)
+  const eventIdsWithMoments = new Set(scoped.moments.map((m) => m.eventId));
+  const emptyEvents = scoped.events.filter((e) => !eventIdsWithMoments.has(e.eventId));
   const heroUrls = useFixtures
     ? emptyEvents.map((e) => fixtureUrl(e.heroImageUrl))
     : await displayUrlsForStoredAssets(emptyEvents.map((e) => e.heroImageUrl));
@@ -119,9 +144,9 @@ export default async function LifeStoryPage({
     canEdit: useFixtures ? false : editableIds.has(p.personId),
   }));
 
-  // The flash — compile the arc server-side (pure), presign only its media
-  // (≤ MAX_BEATS items), and hand the client a serializable view.
-  const beats = compileBeats(graph);
+  // The flash — compile the arc server-side (pure) from the SCOPED graph,
+  // presign only its media (≤ MAX_BEATS items), hand the client a view.
+  const beats = compileBeats(scoped);
   const beatMoments = beats.flatMap((b) =>
     'moment' in b && b.moment ? [b.moment] : [],
   ) as ScoredMoment[];
@@ -178,12 +203,36 @@ export default async function LifeStoryPage({
       </Link>
 
       <header className="mb-6 space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Life Story</h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Life-Flash</h1>
         <p className="max-w-prose text-base text-ink/65">
           The moments that mattered most, and the people who kept showing up — seen through
           every camera that was there. Gathered while you&rsquo;re living them.
         </p>
       </header>
+
+      {!loadError && !empty ? (
+        <nav aria-label="Flash scope" className="mb-6 flex flex-wrap gap-2">
+          {[
+            { key: 'life', label: 'Whole life', count: graph.moments.length },
+            ...options.years,
+            ...options.months,
+            ...options.events,
+          ].map((o) => (
+            <Link
+              key={o.key}
+              href={scopeHref(o.key)}
+              aria-current={o.key === activeScopeKey ? 'page' : undefined}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                o.key === activeScopeKey
+                  ? 'border-terracotta bg-terracotta/10 text-ink'
+                  : 'border-ink/15 text-ink/60 hover:border-ink/30 hover:text-ink'
+              }`}
+            >
+              {o.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
 
       {loadError ? (
         <p className="rounded-xl border border-ink/10 bg-white/40 px-4 py-6 text-sm text-ink/60">
@@ -205,7 +254,13 @@ export default async function LifeStoryPage({
         </div>
       ) : (
         <>
-          {graph.moments.length > 0 ? <Flash beats={flashBeats} /> : null}
+          {scoped.moments.length === 0 ? (
+            <p className="mb-6 rounded-xl border border-ink/10 bg-white/40 px-4 py-6 text-sm text-ink/60">
+              Nothing gathered in this stretch yet — pick another scope above.
+            </p>
+          ) : (
+            <Flash beats={flashBeats} />
+          )}
 
           <ScrollReel moments={reelMoments} />
 

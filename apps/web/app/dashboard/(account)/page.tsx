@@ -404,18 +404,18 @@ function CollectionLink() {
   );
 }
 
-/** Life Story entry — the living memorial of your celebrations (Phase 1,
- *  flag-gated via NEXT_PUBLIC_LIFE_STORY; Build Plan §5). Named "Life Story",
- *  never "Your Story" — that name belongs to the counsel-gated
+/** Life-Flash entry — the living memorial of your celebrations (Phase 1,
+ *  flag-gated via NEXT_PUBLIC_LIFE_STORY; product name owner-locked
+ *  2026-07-08). Never "Your Story" — that name belongs to the counsel-gated
  *  person_story_items surface below. */
 function LifeStoryCard() {
   return (
     <Link
-      href="/dashboard/life-story"
+      href="/dashboard/life-flash"
       className="group flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
     >
       <div>
-        <p className="text-sm font-medium text-ink">Life Story</p>
+        <p className="text-sm font-medium text-ink">Life-Flash</p>
         <p className="text-xs text-ink/55">
           The moments that mattered, through every camera that was there
         </p>

@@ -42,7 +42,6 @@ type Props = {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
-  paletteHexes: string[];
   rolePalette: RolePalette;
   /** Couple's saved reception treatments (Wave 2b) — drives the 3D decor. */
   receptionDesign: ReceptionDesign;

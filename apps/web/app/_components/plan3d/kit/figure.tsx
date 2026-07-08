@@ -2,8 +2,9 @@
 
 /**
  * kit/figure — the articulated "Sims-like" figure every 3D seat-plan surface
- * will share (owner-locked direction; replaces the cylinder+sphere GuestToken
- * / Walker tokens in a later integration stage). One rig, three poses:
+ * shares (owner-locked direction; replaced the cylinder+sphere GuestToken /
+ * Walker tokens on all three surfaces — homepage demo, couple lab, and the
+ * public guest venue walk as of Fable slice 7). One rig, three poses:
  *
  *   group hierarchy: pelvis → torso → head, with two 2-segment arms
  *   (shoulder→elbow) and two 2-segment legs (hip→knee) hanging off it. Pose

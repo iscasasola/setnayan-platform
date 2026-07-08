@@ -189,7 +189,6 @@ type Props = {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
-  paletteHexes: string[];
   /** Structured role palette from `events.role_palette` — the canonical source for scene materials. */
   rolePalette: RolePalette;
   /** Couple's saved reception treatments (Wave 2b · events.reception_design) —
@@ -383,7 +382,7 @@ function SeatedAvatar({ tok, bodyMat, quality }: { tok: SeatToken; bodyMat: THRE
 // person who sat.
 type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target: SeatRef };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, paletteHexes, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server

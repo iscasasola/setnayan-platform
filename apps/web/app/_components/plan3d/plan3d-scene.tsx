@@ -1065,7 +1065,22 @@ export function Plan3DScene({
     // chosen tilt shouldn't pop just because you started walking.)
     look.current.yawOffset = 0;
     const from = walkerPosRef.current ?? entranceWorld;
-    const path = steerPath(from, dest, obstacles, AVATAR_BODY_R);
+    // Escaping an avoidance disc the figure is STANDING inside. Today the only
+    // live case is resting ON the dance floor: the dance walk clamped against
+    // danceObstacles (which drops the dance-floor disc), so walkerPosRef comes
+    // to rest INSIDE that disc. If the walk-away kept the disc in its obstacle
+    // set (roamObstacles re-includes it), steerPath's path[0] === from would
+    // still be inside it and the first per-frame pushOutOfDiscs clamp would
+    // snap the figure to the disc edge in a SINGLE frame — a visible teleport
+    // pop outward on the first frame of every walk off the dance floor. Drop
+    // exactly the disc(s) that contain `from` so the figure walks out smoothly;
+    // every other obstacle stays solid. (Same relief the seat walks apply at
+    // their arrive point — here applied at the START.)
+    const allDiscs = Array.isArray(obstacles) ? obstacles : obstacles.all;
+    const freedDiscs = dropDiscsContaining(allDiscs, from, AVATAR_BODY_R);
+    const walkObstacles: ObstacleDisc[] | ObstacleGrid =
+      freedDiscs.length === allDiscs.length ? obstacles : buildObstacleGrid(freedDiscs);
+    const path = steerPath(from, dest, walkObstacles, AVATAR_BODY_R);
     if (reducedMotion) {
       // No animated walk: teleport to the (already-clamped) dest and hold. A
       // dance target still sets dance=true, so the figure holds the STATIC
@@ -1074,7 +1089,7 @@ export function Plan3DScene({
       return;
     }
     const durationMs = Math.min(6500, Math.max(500, (pathLength(path) / speed) * 1000));
-    setWalk({ path, obstacles, startedAt: performance.now(), durationMs, dance });
+    setWalk({ path, obstacles: walkObstacles, startedAt: performance.now(), durationMs, dance });
   };
 
   useEffect(() => {
@@ -1279,20 +1294,36 @@ export function Plan3DScene({
     // engine-documented as cheap enough to rebuild per FRAME, and taps are rare.
     const seatIndex = Math.max(0, Math.min(t.capacity - 1, roamGuest.seatNumber ?? 0));
     const chairDiscs = chairObstaclesForWalk(tables, room, { tableId: t.id, seatNumber: seatIndex });
+    // Start relief: if the figure is walking to its seat FROM inside an
+    // avoidance disc (today: resting on the dance floor, whose disc the dance
+    // walk didn't clamp against), keep that disc out of BOTH the path and the
+    // per-frame clamp — otherwise steerPath/seatApproachPath would route around
+    // it from inside (a contorted exit) and the first clamp frame would snap the
+    // figure to its edge (a teleport pop). Same drop the arrive point already
+    // gets below, applied at the START.
     const pathObstacles = buildObstacleGrid([
-      ...floorObstacles(floor, tables, room, []),
-      ...fixtureObstacles,
+      ...dropDiscsContaining(
+        [...floorObstacles(floor, tables, room, []), ...fixtureObstacles],
+        from,
+        AVATAR_BODY_R,
+      ),
       ...chairDiscs,
     ]);
     const path = seatApproachPath(from, t, seatIndex, room, pathObstacles, AVATAR_BODY_R);
     // Same neighbour-footprint relief as the scripted walk: a back-to-back
     // table's capsule disc can contain the chair itself — drop exactly the
     // discs that do, or the clamp shoves the figure off the seat on arrival.
+    // The from-disc drop rides along so the walk-off from the dance floor
+    // doesn't pop on frame one either.
     const arrivePoint = path[path.length - 1]!;
     const clampObstacles = buildObstacleGrid([
       ...dropDiscsContaining(
-        [...floorObstacles(floor, tables, room, [t.id]), ...fixtureObstacles],
-        arrivePoint,
+        dropDiscsContaining(
+          [...floorObstacles(floor, tables, room, [t.id]), ...fixtureObstacles],
+          arrivePoint,
+          AVATAR_BODY_R,
+        ),
+        from,
         AVATAR_BODY_R,
       ),
       ...chairDiscs,

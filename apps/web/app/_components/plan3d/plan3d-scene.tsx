@@ -142,10 +142,13 @@ import {
   EmoteBubbles,
   EMOTE_SEATED_Y,
   StringLights,
+  InstancedSeatedCrowd,
+  seatRootMatrix,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
   type FigureQuality,
+  type SeatedInstance,
 } from './kit';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
@@ -311,6 +314,7 @@ function GuestToken({
   quality,
   onClick,
   seated = false,
+  bodyless = false,
 }: {
   position: Vec2;
   /** Facing (radians) — each figure looks toward its own table's centre. */
@@ -327,6 +331,12 @@ function GuestToken({
    *  watched. The rest of the crowd stays standing until slice 3's room-wide
    *  seated default. */
   seated?: boolean;
+  /** Drop the articulated `<Figure>` body but KEEP the per-guest hit/hover
+   *  cylinder (2026-07-08 instancing split). A static seated guest's body is
+   *  drawn by the room-wide `<InstancedSeatedCrowd>` batch instead; the QR-mint
+   *  tap target has no per-instance equivalent, so it stays here individually so
+   *  tap-to-open-card + the hover shell keep working. */
+  bodyless?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -335,8 +345,11 @@ function GuestToken({
           seeing figures standing THROUGH their chairs): the ambient crowd sits
           in its chairs, exactly like the lab's SeatedAvatar. `seated={false}`
           remains available for callers that need a stander. QR hit target is
-          full-height, so taps are unchanged. */}
-      <Figure spec={spec} pose={seated ? 'sit' : 'stand'} quality={quality} name={name} />
+          full-height, so taps are unchanged. `bodyless` skips the body when this
+          guest's static seated figure is drawn by the instanced batch. */}
+      {bodyless ? null : (
+        <Figure spec={spec} pose={seated ? 'sit' : 'stand'} quality={quality} name={name} />
+      )}
       {onClick ? (
         // PERF: the hit cylinder is `visible` only while hovered (when it doubles
         // as the hover shell). three's Raycaster never tests object.visible, so
@@ -932,6 +945,46 @@ export function Plan3DScene({
     return out;
   }, [guests, tablesById, room, walkTarget?.guestId, roam?.guestId]);
 
+  // ── Instanced seated crowd (2026-07-08) — mirrors the public walk ──────────
+  // Collapse the STATIC seated crowd to ONE <InstancedSeatedCrowd> for the whole
+  // room (~14 draws + zero per-figure useFrame) instead of 14×N meshes. Gated to
+  // the SAME condition that already makes a <Figure> static — quality 'low' OR
+  // reduced motion — so at quality 'high' + motion every figure stays individual
+  // and keeps its FigureFrameDriver idle sway (the shipped desktop-overlay look
+  // is UNTOUCHED). Photo guests (billboard head) and the active walk/sit/roam
+  // guest stay individual too; the excluded active guest is drawn by <Walker> /
+  // <SitController>. Each instanced guest STILL renders its own bodyless
+  // <GuestToken> below for the QR-mint hit/hover cylinder — only the body moves
+  // into the batch. Matrices use seatRootMatrix (the DEMO's flat
+  // position+heading placement — no table→seat nudge/flip), tint = the SAME
+  // resolved attire colour the individual <Figure> wears (spec.outfitColor), ring
+  // = spec.statusColor (SIDE_COLOR[side]) — reproducing the figure's status ring.
+  const instanceSeatedCrowd = quality === 'low' || reducedMotion;
+  const { crowdSeats, instancedIds } = useMemo(() => {
+    const seats: SeatedInstance[] = [];
+    const ids = new Set<string>();
+    if (!instanceSeatedCrowd) return { crowdSeats: seats, instancedIds: ids };
+    for (const g of guests) {
+      // Same exclusions as the guests.map render below.
+      if ((walk || sit) && walkGuest && g.id === walkGuest.id) continue;
+      if (roamGuest && g.id === roamGuest.id) continue;
+      const table = tablesById.get(g.tableId);
+      if (!table) continue;
+      const spec = figureSpecs.get(g.id)!;
+      if (spec.photoUrl) continue; // billboard head — stays an individual GuestToken
+      const pos = seatWorld(table, g.seatNumber ?? 0, room);
+      const tableCentre = pctToWorld(table.xPct, table.yPct, room);
+      const heading = Math.atan2(tableCentre.x - pos.x, tableCentre.z - pos.z);
+      seats.push({
+        matrix: seatRootMatrix(pos.x, pos.z, heading),
+        color: spec.outfitColor,
+        ringColor: spec.statusColor,
+      });
+      ids.add(g.id);
+    }
+    return { crowdSeats: seats, instancedIds: ids };
+  }, [instanceSeatedCrowd, guests, walk, sit, walkGuest, roamGuest, tablesById, figureSpecs, room]);
+
   // Persistent "chase cam already framed" flag — survives Walker remounts so
   // a second walk eases from the current camera instead of hard-cutting.
   const chaseCamSeeded = useRef(false);
@@ -1348,6 +1401,9 @@ export function Plan3DScene({
             name={g.name}
             quality={quality}
             seated
+            // This guest's static body is drawn by <InstancedSeatedCrowd>; keep
+            // only its hit/hover cylinder so tap-to-open-card still works.
+            bodyless={instancedIds.has(g.id)}
             onClick={
               interactive && onGuestClick
                 ? (e) => {
@@ -1359,6 +1415,14 @@ export function Plan3DScene({
           />
         );
       })}
+
+      {/* The static seated crowd, one instanced batch for the whole room (photo
+          guests + the active walk/sit/roam guest stay individual above). Only
+          mounted when the seated figures would be static (quality 'low' or
+          reduced motion); at quality 'high' + motion crowdSeats is empty and
+          every figure keeps its individual idle sway. `quality={quality}` so the
+          batch's shadow pass matches what the individual figures cast. */}
+      {crowdSeats.length > 0 ? <InstancedSeatedCrowd seats={crowdSeats} quality={quality} /> : null}
 
       {/* Emote bubbles (Fable §3.6): pooled sprites, ≤6, wall-clock rotation —
           side/rsvp-generic glyphs only (the demo slice carries no status). */}

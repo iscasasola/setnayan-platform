@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Video } from 'lucide-react';
+import { Video, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -12,6 +12,7 @@ import {
   guestInitials,
 } from '@/lib/guests';
 import {
+  effectiveCapacity,
   fetchAssignments,
   fetchBooths,
   fetchFloorPlan,
@@ -25,6 +26,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
 import { DayOfEditingBanner } from './_components/day-of-editing-banner';
+import { setSeatingAutoplace } from './actions';
 
 export const metadata = { title: 'Seating chart' };
 
@@ -48,7 +50,7 @@ export default async function SeatingPage({ params }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation')
+        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -128,6 +130,20 @@ export default async function SeatingPage({ params }: Props) {
   const seatedCount = reservedGuests.filter((g) => g.seated_table_id !== null).length;
   const toSeatCount = reservedCount - seatedCount;
 
+  // Smart Seat-Plan Phase 5: live auto-seating on/off + a capacity check.
+  // Reconcile can only seat as many guests as there are chairs, so surface when
+  // the couple needs more tables. Counts every NON-declined guest (pending +
+  // maybe get held seats too) against total effective (occupiable) capacity.
+  const autoplaceEnabled =
+    (eventRow.data as { seating_autoplace_enabled?: boolean | null } | null)
+      ?.seating_autoplace_enabled ?? true;
+  const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
+  const totalSeats = tables.reduce(
+    (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
+    0,
+  );
+  const seatShortfall = Math.max(0, nonDeclinedCount - totalSeats);
+
   return (
     <section className="space-y-3">
       {/* The hero title + description were removed so the editor canvas fills
@@ -147,16 +163,40 @@ export default async function SeatingPage({ params }: Props) {
         ) : (
           <span aria-hidden />
         )}
-        {/* Walkthrough videos — icon-only so it stays out of the editor's way
-            (owner request 2026-06-21). Title/aria-label carry the meaning. */}
-        <Link
-          href={`/dashboard/${eventId}/seating/walkthrough`}
-          title="Walkthrough videos"
-          aria-label="Walkthrough videos"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/12 bg-white text-terracotta shadow-sm transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
-        >
-          <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </Link>
+        <div className="flex items-center gap-2">
+          {/* Smart Seat-Plan Phase 5: turn live auto-seating on/off. A plain
+              server-action form (no client JS) that flips the flag. */}
+          <form action={setSeatingAutoplace}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="enabled" value={autoplaceEnabled ? 'false' : 'true'} />
+            <button
+              type="submit"
+              title={
+                autoplaceEnabled
+                  ? 'Auto-seating is ON — new guests get a provisional seat and role/group changes re-seat them. Click to turn off.'
+                  : 'Auto-seating is OFF — seat guests manually with Auto-Arrange or drag. Click to turn on.'
+              }
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors ${
+                autoplaceEnabled
+                  ? 'border-terracotta/40 bg-terracotta/5 text-terracotta hover:border-terracotta/60'
+                  : 'border-ink/15 bg-white text-ink/55 hover:border-ink/30'
+              }`}
+            >
+              <Wand2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Auto-seating {autoplaceEnabled ? 'On' : 'Off'}
+            </button>
+          </form>
+          {/* Walkthrough videos — icon-only so it stays out of the editor's way
+              (owner request 2026-06-21). Title/aria-label carry the meaning. */}
+          <Link
+            href={`/dashboard/${eventId}/seating/walkthrough`}
+            title="Walkthrough videos"
+            aria-label="Walkthrough videos"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/12 bg-white text-terracotta shadow-sm transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+          >
+            <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </Link>
+        </div>
       </div>
 
       <DayOfEditingBanner eventDate={eventDate} />
@@ -165,6 +205,17 @@ export default async function SeatingPage({ params }: Props) {
         <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3 text-sm text-ink/80">
           <span className="font-medium text-emerald-800">Walima seating:</span>{' '}
           {genderSeparationNote}
+        </div>
+      ) : null}
+
+      {/* Smart Seat-Plan Phase 5/6: capacity shortfall — reconcile can only seat
+          guests it has chairs for, so nudge the couple to add tables. */}
+      {seatShortfall > 0 ? (
+        <div className="rounded-xl border border-amber-200/70 bg-amber-50/50 px-4 py-3 text-sm text-ink/80">
+          <span className="font-medium text-amber-800">Not enough seats:</span>{' '}
+          {nonDeclinedCount} guests but only {totalSeats} {totalSeats === 1 ? 'seat' : 'seats'} — add{' '}
+          more tables to seat everyone
+          {autoplaceEnabled ? ' (auto-seating fills them as you add tables)' : ''}.
         </div>
       ) : null}
 

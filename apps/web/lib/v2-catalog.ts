@@ -117,7 +117,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
 
   // Partially working
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
-  PANOOD_SYSTEM:       'partial',  // OAuth + UI shipped · pending YouTube verified-app
+  PANOOD_SYSTEM:       'partial',  // = Live Studio Desktop tier ₱2,499/day · OAuth + UI shipped · pending YouTube verified-app + real-event test gate
+  PANOOD_SYSTEM_MOBILE: 'partial', // Live Studio Mobile tier ₱1,299/day (owner-locked 2026-07-08 · migration 20270526326110) · same in-build state as Desktop
   PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01

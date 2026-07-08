@@ -34,6 +34,8 @@ import type { BoothPropKind } from './booth-props';
 import {
   BOOTH_FOOTPRINT_M,
   pctToWorld,
+  boothFacingY,
+  rotateLocalRad,
   type Lab3DBooth,
   type ObstacleDisc,
 } from '@/lib/seating-3d';
@@ -817,7 +819,11 @@ export function boothHitVolume(
  * backdrop's two-lobe zone) placed at the booth's world centre; a
  * non-templated booth keeps the exact disc `boothObstacles` has always
  * emitted, so generic-silhouette booths steer identically to before.
- * (Booths don't rotate on the percent canvas — no rotation composition.)
+ * Every booth-local disc offset is rotated by the booth's computed facing
+ * (`boothFacingY`) so the avoidance footprint tracks the rotated chassis — a
+ * booth turned 90° swings its multi-lobe footprint to the other axis. The
+ * generic booth's single disc sits at the booth centre (zero offset) → its
+ * position is rotation-invariant, unchanged.
  */
 export function templateBoothObstacles(
   booths: Lab3DBooth[],
@@ -832,18 +838,22 @@ export function templateBoothObstacles(
       out.push({ c, r: genericR });
       continue;
     }
+    const facingY = boothFacingY(b, room);
     for (const d of spec.discs) {
-      out.push({ c: { x: c.x + d.x, z: c.z + d.z }, r: d.r });
+      const r = rotateLocalRad({ x: d.x, z: d.z }, facingY);
+      out.push({ c: { x: c.x + r.x, z: c.z + r.z }, r: d.r });
     }
     // Staff mascots are solid too (2026-07-08 collision pass): one r 0.3 disc
     // per RENDERED staff anchor — some anchors (e.g. the buffet's two servers
     // at z −0.6) stand outside their chassis footprint discs, and walkers
-    // could pass straight through them.
+    // could pass straight through them. Rotated by the booth facing so the
+    // discs land under the (now rotated) staff.
     const tpl = boothTemplateFor(b);
     if (tpl) {
       const anchors = spec.staffAnchors.slice(0, tpl.staff.count);
       for (const a of anchors) {
-        out.push({ c: { x: c.x + a.x, z: c.z + a.z }, r: 0.3 });
+        const r = rotateLocalRad({ x: a.x, z: a.z }, facingY);
+        out.push({ c: { x: c.x + r.x, z: c.z + r.z }, r: 0.3 });
       }
     }
   }

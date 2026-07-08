@@ -36,6 +36,7 @@
 import { useMemo } from 'react';
 import {
   pctToWorld,
+  boothFacingY,
   boothCanBrand,
   type Lab3DBooth,
   type Lab3DPalette,
@@ -64,6 +65,11 @@ export function BoothTemplate({
     () => pctToWorld(booth.xPct, booth.yPct, room),
     [booth.xPct, booth.yPct, room],
   );
+  // Computed facing: front (+z) points at the room centre, back to the nearest
+  // wall (boothFacingY). Chassis / props / staff / nameboard are CHILDREN of
+  // this group → they rotate coherently for free; the collision footprint
+  // (templateBoothObstacles) and tap box rotate by the SAME yaw at their sites.
+  const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
   const spec = CHASSIS_SPECS[template.chassis];
 
   // ≤ 3 staff mascots (the catalog cap), clamped to the chassis' anchors.
@@ -87,7 +93,7 @@ export function BoothTemplate({
     booth.label.trim() || booth.vendor?.name.trim() || template.signText;
 
   return (
-    <group position={[pos.x, 0, pos.z]}>
+    <group position={[pos.x, 0, pos.z]} rotation={[0, facingY, 0]}>
       <BoothChassis kind={template.chassis} palette={palette} />
 
       {template.props.map((p, i) => (

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
@@ -147,6 +148,10 @@ export async function quickAddGuest(
         });
     }
   }
+
+  // Smart seat-plan Phase 5: auto-place the new guest (clusters with its group
+  // when one was picked). Best-effort — never blocks the add.
+  await applyReconcileForEvent(supabase, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return {
@@ -346,6 +351,10 @@ export async function setGuestPrimaryRole(
     });
     return { ok: false, error: friendly };
   }
+
+  // Smart seat-plan Phase 5: the primary role drives the seating tier, so
+  // re-place this guest (and their +1) next to their new tier/group.
+  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true, guest: { guest_id: g.guest_id, role, extra_roles: nextExtras } };

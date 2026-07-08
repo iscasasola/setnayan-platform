@@ -20,6 +20,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 
@@ -190,6 +191,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   }
 
   const supabase = await createClient();
+  // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write
+  // so we only re-place the guest when role / group_category actually changed.
+  const { data: prevGuest } = await supabase
+    .from('guests')
+    .select('role, group_category')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .maybeSingle();
   const { error } = await supabase
     .from('guests')
     .update({
@@ -297,6 +306,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
         /* non-blocking — edges regenerate idempotently on the next role/roster edit */
       }
     });
+  }
+
+  // Smart seat-plan Phase 5: role + group_category drive the seating tier — re-place
+  // this guest (and their +1) only when one of those actually changed on this save.
+  if (prevGuest && (prevGuest.role !== role || prevGuest.group_category !== group_category)) {
+    await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);

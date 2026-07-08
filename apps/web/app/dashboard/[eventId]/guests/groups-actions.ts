@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import {
   GUEST_GROUP_TEAM_SIDES,
   SINGLETON_GUEST_ROLES,
@@ -134,6 +135,9 @@ export async function bulkAssignGuestRole(
     redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
   }
 
+  // Smart seat-plan Phase 5: role drives the seating tier — re-place the changed guests.
+  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: guestIds });
+
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(
     backToList(eventId, {
@@ -184,6 +188,9 @@ export async function bulkAddGuestsToGroup(
   if (error) {
     redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
   }
+
+  // Smart seat-plan Phase 5: joining a group re-clusters these guests with it (#9).
+  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: guestIds });
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(
@@ -305,6 +312,12 @@ export async function bulkApplyRoleAndGroup(
       );
     }
     didGroup = true;
+  }
+
+  // Smart seat-plan Phase 5: re-place the changed guests when role or group moved
+  // (a side-only change doesn't affect the seating tier, so it's skipped).
+  if (didRole || didGroup) {
+    await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: guestIds });
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import {
   INVITED_TO_BLOCKS,
   singletonRoleDuplicateMessage,
@@ -199,6 +200,10 @@ export async function createGuest(eventId: string, formData: FormData) {
       );
     }
   }
+
+  // Smart seat-plan Phase 5: auto-place the new guest (+ any +1) into a
+  // provisional seat. Best-effort — never blocks the add.
+  await applyReconcileForEvent(supabase, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return redirect(`/dashboard/${eventId}/guests?added=1`);

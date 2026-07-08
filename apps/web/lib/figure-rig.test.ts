@@ -22,6 +22,7 @@ import {
   walkCyclePose,
   sitPose,
   idleSway,
+  staffIdle,
   overlayPose,
   damp,
   JOINTS,
@@ -29,6 +30,7 @@ import {
   HAIR_COLORS,
   HAIR_STYLE_COUNT,
   FACE_VARIANT_COUNT,
+  STAFF_IDLE_KINDS,
 } from './figure-rig';
 
 const close = (a: number, b: number, tol: number, msg: string) =>
@@ -163,6 +165,86 @@ test('idle sway de-syncs per id (no metronome crowd)', () => {
     if (Math.abs(a - b) > 1e-4) differs = true;
   }
   assert.ok(differs, 'per-id phase offsets produce different sway curves');
+});
+
+// ── staff idle clips (booth-template kit) ────────────────────────────────────
+
+test('staff idles: every clip stays bounded + finite for all sampled t', () => {
+  // Envelope contract the renderer trusts: shoulders never wind past a raised
+  // wave (≤ 3.0 rad), every other rotation channel stays ≤ 1.6 rad, and the
+  // translation channels stay millimetric — a clip can never fold a mascot
+  // through the counter.
+  for (const kind of STAFF_IDLE_KINDS) {
+    for (let i = 0; i < 300; i++) {
+      const t = i * 0.41;
+      const s = staffIdle(kind, `staff-${kind}`, t);
+      for (const j of JOINTS) {
+        const v = s[j] ?? 0;
+        assert.ok(Number.isFinite(v), `${kind}.${j} finite at t=${t}`);
+      }
+      assert.ok(Math.abs(s.leftShoulder ?? 0) <= 3.0, `${kind} left shoulder bounded`);
+      assert.ok(Math.abs(s.rightShoulder ?? 0) <= 3.0, `${kind} right shoulder bounded`);
+      for (const j of ['leftElbow', 'rightElbow', 'headYaw', 'headPitch', 'torsoLean', 'torsoSway'] as const) {
+        assert.ok(Math.abs(s[j] ?? 0) <= 1.6, `${kind}.${j} ≤ 1.6 rad at t=${t}`);
+      }
+      assert.ok(Math.abs(s.pelvisY ?? 0) <= 0.05, `${kind} pelvis bob stays subtle`);
+      assert.ok(Math.abs(s.leftKnee ?? 0) < 1e-9 && Math.abs(s.rightKnee ?? 0) < 1e-9, `${kind} never bends knees (a standing loop)`);
+    }
+  }
+});
+
+test('staff idles are deterministic in (kind, id, t) and de-sync per id', () => {
+  const a1 = staffIdle('shake', 'booth-a', 2.5);
+  const a2 = staffIdle('shake', 'booth-a', 2.5);
+  assert.deepEqual({ ...a1 }, { ...a2 }, 'same inputs → same overlay');
+  // Two ids must not trace identical curves (per-id phase offsets).
+  let differs = false;
+  for (let i = 0; i < 8; i++) {
+    const t = i * 0.9;
+    const a = staffIdle('headBob', 'booth-a', t).headPitch ?? 0;
+    const b = staffIdle('headBob', 'booth-b', t).headPitch ?? 0;
+    if (Math.abs(a - b) > 1e-4) differs = true;
+  }
+  assert.ok(differs, 'per-id phase offsets de-sync neighbouring booths');
+});
+
+test('staff idles actually MOVE over time (a loop, not a freeze frame)', () => {
+  for (const kind of STAFF_IDLE_KINDS) {
+    let moved = false;
+    const first = staffIdle(kind, 'staff-x', 0);
+    const firstSnap = { ...first };
+    for (let i = 1; i < 40 && !moved; i++) {
+      const s = staffIdle(kind, 'staff-x', i * 0.23);
+      for (const j of JOINTS) {
+        if (Math.abs((s[j] ?? 0) - (firstSnap[j] ?? 0)) > 0.01) {
+          moved = true;
+          break;
+        }
+      }
+    }
+    assert.ok(moved, `${kind} animates over time`);
+  }
+});
+
+test('staff idle buffer reuse never leaks channels between clip kinds', () => {
+  // `wave` writes a big rightShoulder; a reused buffer sampled for `headBob`
+  // must come back with headBob's own (small) value, not wave's leftover.
+  const buf: Partial<Record<(typeof JOINTS)[number], number>> = {};
+  staffIdle('wave', 'staff-x', 1.0, buf);
+  const wavedShoulder = buf.rightShoulder ?? 0;
+  assert.ok(wavedShoulder > 2, 'wave raises the arm');
+  staffIdle('headBob', 'staff-x', 1.0, buf);
+  assert.ok((buf.rightShoulder ?? 0) < 1, 'reused buffer re-written, not leaked');
+  const fresh = staffIdle('headBob', 'staff-x', 1.0);
+  assert.deepEqual({ ...buf }, { ...fresh }, 'buffered ≡ fresh');
+});
+
+test('staff idles compose over standPose without breaking the record', () => {
+  const base = standPose();
+  for (const kind of STAFF_IDLE_KINDS) {
+    const out = overlayPose(base, staffIdle(kind, 'staff-y', 3.7));
+    for (const j of JOINTS) assert.ok(Number.isFinite(out[j]), `${kind}.${j} finite composed`);
+  }
 });
 
 // ── composition + damping helpers ────────────────────────────────────────────

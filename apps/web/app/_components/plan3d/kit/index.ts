@@ -15,6 +15,13 @@
  *                               InstancedChairs instance during a sit clip
  *   · kit/sit-controller.tsx  — the owner-locked sit/stand choreography
  *                               (pull-back → step+turn+sit → tuck → handoff)
+ *   · kit/booth-chassis.tsx   — the 9 mascot-smooth booth chassis (+ footprint
+ *                               discs, sign + staff anchors)
+ *   · kit/booth-props.tsx     — shared booth prop primitives (+ CanvasTextures)
+ *   · kit/booth-templates.ts  — the top-20 category config table + resolution
+ *                               + template-aware obstacle registration
+ *   · kit/booth-template.tsx  — <BoothTemplate>: chassis + props + staff
+ *                               mascots + signage, mounted via BoothMesh
  */
 
 export {
@@ -32,6 +39,9 @@ export {
   walkCyclePose,
   sitPose,
   idleSway,
+  staffIdle,
+  STAFF_IDLE_KINDS,
+  type StaffIdleKind,
   overlayPose,
   damp,
   JOINTS,
@@ -47,6 +57,26 @@ export {
 
 export { outfitGeometry, outfitIsSkirted, outfitMaterial, type OutfitKind } from './outfits';
 export { hairPartsFor, type HairPart } from './hair';
+
+export {
+  BoothChassis,
+  CHASSIS_SPECS,
+  type BoothChassisKind,
+  type ChassisSpec,
+  type StaffAnchor,
+} from './booth-chassis';
+export { BoothProp, BoothTextSign, type BoothPropKind } from './booth-props';
+export {
+  BOOTH_TEMPLATES,
+  BOOTH_TEMPLATE_KEYS,
+  boothTemplateFor,
+  boothChassisSpec,
+  templateBoothObstacles,
+  type BoothTemplateSpec,
+  type BoothCardKind,
+  type PropPlacement,
+} from './booth-templates';
+export { BoothTemplate } from './booth-template';
 
 export { ActiveChair, type ActiveChairProps } from './active-chair';
 export {

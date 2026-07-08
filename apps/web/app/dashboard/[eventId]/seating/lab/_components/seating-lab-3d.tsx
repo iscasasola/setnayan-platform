@@ -128,7 +128,6 @@ import {
   dropDiscsContaining,
   buildObstacleGrid,
   sceneObjectObstacles,
-  boothObstacles,
   signObstacles,
   cocktailObstacles,
   firstFreeSeatAtTable,
@@ -148,6 +147,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 
 type Props = {
   eventId: string;
@@ -544,7 +544,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
-      ...boothObstacles(booths, room),
+      // Template-aware (booth kit 2026-07-08): a templated booth registers
+      // its chassis' authored footprint discs; the rest keep the classic disc.
+      ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
     ],

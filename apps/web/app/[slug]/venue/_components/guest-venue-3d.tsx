@@ -26,7 +26,6 @@ import {
   seatApproachPath,
   floorObstacles,
   sceneObjectObstacles,
-  boothObstacles,
   signObstacles,
   cocktailObstacles,
   boothApproach,
@@ -46,6 +45,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
@@ -404,7 +404,9 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
-      ...boothObstacles(booths, room),
+      // Template-aware (booth kit 2026-07-08): a templated booth registers
+      // its chassis' authored footprint discs; the rest keep the classic disc.
+      ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
     ],

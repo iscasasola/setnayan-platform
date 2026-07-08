@@ -97,7 +97,6 @@ import {
   tableDims,
   floorObstacles,
   sceneObjectObstacles,
-  boothObstacles,
   signObstacles,
   cocktailObstacles,
   pushOutOfDiscs,
@@ -128,6 +127,7 @@ import {
 } from '@/lib/seating-3d';
 import { useLookGesture, type LookState } from '@/app/_components/plan3d/use-look-gesture';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
+import { templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { preloadGuestPhotos } from './guest-avatar';
@@ -779,7 +779,9 @@ export function Plan3DScene({
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
-      ...boothObstacles(booths, room),
+      // Template-aware (booth kit 2026-07-08): a templated booth registers
+      // its chassis' authored footprint discs; the rest keep the classic disc.
+      ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
     ],

@@ -48,12 +48,14 @@ import {
   walkCyclePose,
   sitPose,
   idleSway,
+  staffIdle,
   overlayPose,
   damp,
   JOINTS,
   ZERO_POSE,
   type FigureSpec,
   type Pose,
+  type StaffIdleKind,
 } from '@/lib/figure-rig';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
 import {
@@ -170,6 +172,15 @@ export type FigureProps = {
   /** Display name for the selfie path's initials fallback (GuestPhotoAvatar).
    *  Falls back to the spec id — pass the guest's name when you have one. */
   name?: string;
+  /**
+   * Booth-staff idle clip (2026-07-08 booth kit): replaces idleSway on the
+   * STAND pose with the named staff loop (lib/figure-rig staffIdle — pure,
+   * wall-clock time-based). A clip OVERRIDES the quality-'low' static bake
+   * for its ≤3 figures per booth (that knob exists for 60-guest crowds; the
+   * shadow-cast saving still applies) — but never reduced motion, which
+   * bakes the clip's held t=0 pose so the mascot still reads in-character.
+   */
+  idleClip?: StaffIdleKind;
 };
 
 /**
@@ -207,10 +218,12 @@ export const Figure = memo(function Figure({
   phase = 0,
   quality = 'high',
   name,
+  idleClip,
 }: FigureProps) {
   const reduced = usePrefersReducedMotion();
-  // Static mode: bake once, never animate. Reduced motion wins over quality.
-  const staticMode = quality === 'low' || reduced;
+  // Static mode: bake once, never animate. Reduced motion wins over quality
+  // AND over an idle clip; a clip un-bakes quality-'low' (see FigureProps).
+  const staticMode = (quality === 'low' && !idleClip) || reduced;
   const rootRef = useRef<THREE.Group>(null);
 
   const look = useMemo(
@@ -258,11 +271,16 @@ export const Figure = memo(function Figure({
           ? reduced
             ? STAND_BASE
             : walkCyclePose(typeof phase === 'number' ? phase : phase.current)
-          : STAND_BASE;
+          : idleClip
+            ? // Reduced-motion staff (the only static path with a clip): hold
+              // the clip's t=0 pose — a barista frozen mid-tamp still reads
+              // as a barista, and the booth flow completes without motion.
+              overlayPose(STAND_BASE, staffIdle(idleClip, spec.id, 0))
+            : STAND_BASE;
     cur.current = { ...p };
     applyPose(groups.current, p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staticMode, pose, reduced, staticPhase]);
+  }, [staticMode, pose, reduced, staticPhase, idleClip, spec.id]);
 
   // PERF (declared AFTER the bake effect so the freeze captures the baked
   // pose): while static, stop three recomposing the figure's local matrices
@@ -292,7 +310,11 @@ export const Figure = memo(function Figure({
         ? walkCyclePose(ph, targetBuf.current)
         : overlayPose(
             pose === 'sit' ? SIT_BASE : STAND_BASE,
-            idleSway(spec.id, clock.elapsedTime, swayBuf.current),
+            // Booth staff swap the guests' idleSway for their job's clip —
+            // same additive-overlay composition, same wall-clock time base.
+            idleClip && pose === 'stand'
+              ? staffIdle(idleClip, spec.id, clock.elapsedTime, swayBuf.current)
+              : idleSway(spec.id, clock.elapsedTime, swayBuf.current),
             targetBuf.current,
           );
     if (!cur.current || !from.current) {
@@ -342,8 +364,10 @@ export const Figure = memo(function Figure({
   return (
     <group ref={rootRef} scale={spec.scale ?? 1}>
       {/* Status colour, the existing ring convention: the selfie path gets it
-          on the GuestPhotoAvatar disc; a drawn face gets a floor ring. */}
-      {!spec.photoUrl ? (
+          on the GuestPhotoAvatar disc; a drawn face gets a floor ring. Booth
+          STAFF pass an empty statusColor — they have no RSVP status, so no
+          ring renders (2026-07-08 booth kit). */}
+      {!spec.photoUrl && spec.statusColor ? (
         <mesh
           geometry={STATUS_RING_GEO}
           material={statusRingMaterial(spec.statusColor)}

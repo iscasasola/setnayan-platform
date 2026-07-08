@@ -6,6 +6,10 @@ import {
 } from '@/lib/supabase/error-detect';
 
 export type NotificationType =
+  // Account auto-surface (#7b, gap G6) — the RA 10173 "you were added" notice.
+  // Fires ONLY behind FEATURE_ACCOUNT_AUTOSURFACE (default OFF) from
+  // lib/account-autosurface.ts; inert in prod until counsel clears the flag.
+  | 'event_auto_surfaced'
   | 'chat_message'
   | 'order_quoted'
   | 'order_paid'
@@ -189,6 +193,7 @@ export type NotificationType =
   | 'vendor_feature_suggested';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  event_auto_surfaced: 'You were added to an event',
   chat_message: 'New message',
   order_quoted: 'Order quoted',
   order_paid: 'Order paid',
@@ -249,6 +254,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
+  event_auto_surfaced: 'bg-sky-100 text-sky-800',
   chat_message: 'bg-sky-100 text-sky-800',
   order_quoted: 'bg-warn-100 text-warn-900',
   order_paid: 'bg-success-200 text-success-900',

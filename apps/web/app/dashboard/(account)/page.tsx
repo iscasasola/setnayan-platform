@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, formatEventDate, type EventWithRole } from '@/lib/events';
+import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
+import { AutoSurfacedEvents } from './_components/autosurfaced-events';
 import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventMonogram } from '@/app/_components/event-monogram';
@@ -186,6 +188,15 @@ export default async function DashboardIndexPage() {
           {hasConsole ? <RoleSwitchRows roles={roles} /> : null}
         </div>
       )}
+
+      {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
+          Flag-gated so there is ZERO extra query while FEATURE_ACCOUNT_AUTOSURFACE
+          is off (the default). */}
+      {accountAutosurfaceEnabled() ? (
+        <div className="mt-10">
+          <AutoSurfacedEvents userId={user.id} />
+        </div>
+      ) : null}
 
       {lifeStoryGroups ? (
         <section className="mt-10">

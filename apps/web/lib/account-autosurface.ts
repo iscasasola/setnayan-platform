@@ -1,5 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { accountAutosurfaceEnabled } from './account-autosurface-flag';
+import { emitNotification } from './notification-emit';
+
+/**
+ * COUNSEL SIGN-OFF REQUIRED — the RA 10173 "you were added" notice copy.
+ *
+ * This is the consent-facing language a guest sees when an event is auto-attached
+ * to their account. PH counsel MUST review + approve it before
+ * FEATURE_ACCOUNT_AUTOSURFACE is enabled. Placeholder-factual until then; the
+ * whole path is flag-gated OFF, so this never reaches a real guest.
+ */
+const AUTOSURFACE_NOTICE = {
+  title: (eventName: string) => `You were added to ${eventName}`,
+  body: 'A couple added you to their event on Setnayan. You can leave any time from your events.',
+};
 
 /**
  * Account auto-surface (#7b) — FLAG-GATED, ships OFF (counsel-blocked, RA 10173).
@@ -41,18 +55,42 @@ export async function maybeAutoSurfaceEventForGuest(
     const userId = person?.claimed_by_user_id as string | null | undefined;
     if (!userId) return; // unclaimed person → no account to surface to
 
-    // Insert the guest membership; ON CONFLICT keeps any existing (couple / guest)
-    // membership untouched — this only ADDS a surfaced row for a not-yet-member
-    // account. `auto_surfaced` marks it for the picker + the opt-out paths.
-    await admin.from('event_members').upsert(
-      { event_id: eventId, user_id: userId, member_type: 'guest', auto_surfaced: true },
-      { onConflict: 'event_id,user_id', ignoreDuplicates: true },
-    );
+    // Only surface + notify when the account is NOT already a member — so a
+    // couple/guest membership is never touched, and we don't re-notify on every
+    // subsequent guest add for the same person.
+    const { data: existing } = await admin
+      .from('event_members')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (existing) return;
 
-    // TODO(counsel): fire the RA 10173 "you were added to {couple}'s event" in-app
-    // notice + one-tap Leave here once counsel signs off the copy + a notification
-    // type. The membership already surfaces the event card; the notice is the
-    // consent-UX layer and is deliberately not shipped until the flag is cleared.
+    const { error: insErr } = await admin.from('event_members').insert({
+      event_id: eventId,
+      user_id: userId,
+      member_type: 'guest',
+      auto_surfaced: true,
+    });
+    // A race (the same (event_id,user_id) inserted concurrently) trips the UNIQUE
+    // constraint → treat as already-surfaced, don't notify.
+    if (insErr) return;
+
+    // RA 10173 notice (gap G6) — counsel-approved copy (AUTOSURFACE_NOTICE).
+    // Best-effort; a failed notice must not undo the surfacing above.
+    const { data: ev } = await admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const eventName = (ev?.display_name as string | null) || 'an event';
+    await emitNotification({
+      userId,
+      type: 'event_auto_surfaced',
+      title: AUTOSURFACE_NOTICE.title(eventName),
+      body: AUTOSURFACE_NOTICE.body,
+      relatedUrl: `/dashboard/${eventId}`,
+    });
   } catch (err) {
     console.error('maybeAutoSurfaceEventForGuest failed', eventId, guestId, err);
   }

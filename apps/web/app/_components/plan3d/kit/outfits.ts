@@ -403,6 +403,23 @@ export function skinMaterial(color: string): THREE.MeshStandardMaterial {
   return m;
 }
 
+const mannequinMats = new Map<string, THREE.MeshStandardMaterial>();
+
+/** 2026-07-08 AVATAR PIVOT (owner blueprint): the figure is a blank glossy
+ *  mannequin — pure white #FFFFFF default at LOW roughness (the "glossy 3D
+ *  canvas" of the spec), tintable via a flat colour so surfaces can re-skin
+ *  it dynamically (mood-board tints, future camo/theme maps). One cached
+ *  material per tint. */
+export function mannequinMaterial(tint?: string | null): THREE.MeshStandardMaterial {
+  const color = tint && /^#[0-9a-fA-F]{6}$/.test(tint) ? tint : '#ffffff';
+  let m = mannequinMats.get(color);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color, roughness: 0.18, metalness: 0.02 });
+    mannequinMats.set(color, m);
+  }
+  return m;
+}
+
 const plainMats = new Map<string, THREE.MeshStandardMaterial>();
 
 /** Cached plain standard material per colour — skin, hair, status accents.

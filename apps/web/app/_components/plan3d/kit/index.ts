@@ -25,6 +25,9 @@
  *   · kit/entrance-tunnel.tsx — evolved entrance-tunnel treatments (tunnel
  *                               catalog 2026-07-08): <ColdSparkTunnel> +
  *                               pure frame/obstacle/path-node helpers
+ *   · kit/emotes.tsx          — pooled emote-bubble sprites (drawn glyph
+ *                               atlas); rotation policy is the PURE
+ *                               lib/emote-schedule (unit-tested)
  */
 
 export {
@@ -95,6 +98,16 @@ export {
   COLD_SPARK_CLIMAX_T,
   type ColdSparkFrame,
 } from './entrance-tunnel';
+
+export {
+  EmoteBubbles,
+  EMOTE_SEATED_Y,
+  EMOTE_STANDING_Y,
+  EMOTE_TABLE_Y,
+  EMOTE_DANCE_Y,
+  type EmoteEmitter,
+  type EmoteGlyph,
+} from './emotes';
 
 export { ActiveChair, type ActiveChairProps } from './active-chair';
 export {

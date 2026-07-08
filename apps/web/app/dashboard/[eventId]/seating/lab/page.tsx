@@ -171,6 +171,11 @@ export default async function SeatingLabPage({ params }: Props) {
       photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       attire,
       attireColor: attire === 'gown' ? gownColor : attire === 'suit' ? suitColor : null,
+      // LAB-ONLY meal emote source (Fable §3.6): meal_preference already rides
+      // the couple-scoped fetchGuestsByEvent select (RLS scopes it to this
+      // member's event, same as every guest field above) — boil it to a
+      // boolean so only "picked a meal", never the choice, reaches the scene.
+      mealChosen: g.meal_preference != null,
     };
   });
 

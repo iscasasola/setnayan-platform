@@ -43,7 +43,17 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { Figure, SitController, SIT_TIMING, type FigureSpec, type FigureQuality } from '@/app/_components/plan3d/kit';
+import {
+  Figure,
+  SitController,
+  SIT_TIMING,
+  EmoteBubbles,
+  EMOTE_SEATED_Y,
+  type EmoteEmitter,
+  type EmoteGlyph,
+  type FigureSpec,
+  type FigureQuality,
+} from '@/app/_components/plan3d/kit';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
@@ -659,6 +669,35 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     }
     return out;
   }, [seats, guestById, tablesById, movingGuests, crowd, walker, tokenByGuest]);
+
+  // Emote-bubble emitters (Fable §3.6) — REAL data, Play mode only (Build stays
+  // clean for editing; the memo is empty there so the pool renders nothing).
+  // One emitter per seated guest at their seat's world anchor: RSVP drives the
+  // base glyph (attending ✓ · pending ? · maybe ~) and a chosen meal adds the
+  // plate to that guest's rotation (once per rotation, per the pure schedule).
+  // Guests mid-walk (single walk-in, populate-Play crowd, swap movers) are
+  // excluded exactly like seatedByTable — a bubble over an empty chair while
+  // its guest is still crossing the room reads as a ghost. +1 ghosts have no
+  // person, so no bubble.
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    if (mode !== 'play') return [];
+    const walkingIn = new Set<string>();
+    if (crowd) for (const a of crowd) walkingIn.add(a.id);
+    if (walker) walkingIn.add(walker.gid);
+    const out: EmoteEmitter[] = [];
+    for (const [gid, s] of seats) {
+      if (movingGuests.has(gid) || walkingIn.has(gid)) continue;
+      const g = guestById.get(gid);
+      if (!g || seatStatusOf(g.rsvp) === 'hidden') continue; // declined → freed seat
+      const t = tablesById.get(s.tableId);
+      if (!t) continue;
+      const p = seatWorld(t, s.seatNumber, room);
+      const glyphs: EmoteGlyph[] = [g.rsvp === 'attending' ? 'check' : g.rsvp === 'maybe' ? 'maybe' : 'pending'];
+      if (g.mealChosen) glyphs.push('meal');
+      out.push({ id: gid, x: p.x, y: EMOTE_SEATED_Y, z: p.z, glyphs });
+    }
+    return out;
+  }, [mode, seats, guestById, tablesById, room, movingGuests, crowd, walker]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -1798,6 +1837,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         {mode === 'play' && crowd ? (
           <Crowd agents={crowd} reduced={reduced} chairColor={palette.wall} onAllArrived={settleCrowd} />
         ) : null}
+
+        {/* Emote bubbles (Fable §3.6) — Play mode only (the emitters memo is
+            empty in Build, but the gate also keeps the pool's frame loop out
+            of the edit surface entirely). Pooled sprites, ≤6, wall-clock
+            rotation; real RSVP + meal data from the couple-scoped slice. */}
+        {mode === 'play' && emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
         {movers.map((m) => (
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />

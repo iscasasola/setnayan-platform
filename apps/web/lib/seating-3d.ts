@@ -109,6 +109,12 @@ export type Lab3DGuest = {
   /** Motif colour for a gown/suit body (mood-board attire palette); null for
    * neutral, which keeps the RSVP-coloured token body. */
   attireColor: string | null;
+  /** LAB-ONLY (couple-scoped): the guest picked a meal — `guests.meal_preference`
+   * boiled to a boolean (the choice itself never rides the slice). Drives the
+   * Play-mode plate emote (Fable §3.6). The demo/public slices deliberately
+   * never widen to this: Plan3DGuest stays name/seat/side(+attire) and the
+   * public venue walk stays anonymized (RA 10173 posture). */
+  mealChosen: boolean;
 };
 
 /** How a guest's RSVP maps to a seat's treatment. */

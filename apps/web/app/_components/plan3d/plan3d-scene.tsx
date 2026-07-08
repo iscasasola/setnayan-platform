@@ -131,7 +131,18 @@ import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d
 import type { RolePalette } from '@/lib/mood-board';
 import type { Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
 import { preloadGuestPhotos } from './guest-avatar';
-import { Figure, SitController, SIT_TIMING, type FigureSpec, type FigureQuality } from './kit';
+import {
+  Figure,
+  SitController,
+  SIT_TIMING,
+  EmoteBubbles,
+  EMOTE_SEATED_Y,
+  EMOTE_STANDING_Y,
+  type EmoteEmitter,
+  type EmoteGlyph,
+  type FigureSpec,
+  type FigureQuality,
+} from './kit';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import {
@@ -890,6 +901,33 @@ export function Plan3DScene({
   // Guests whose sit choreography completed this session — they stay seated
   // after their SitController unmounts (slice-2 review fix; see GuestToken).
   const [seatedIds, setSeatedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Emote bubbles (Fable §3.6) — the DEMO slice is deliberately name/seat/side
+  // (+attire) only, so bubbles here are side/rsvp-GENERIC: every seated guest
+  // rotates confirmed-check ↔ chat dots (the whole sample cast is seated =
+  // confirmed). No per-guest status beyond what the slice already shows, and
+  // the slice is NOT widened for this. The mid-walk / roaming guest is skipped
+  // exactly like their GuestToken (their anchor moves every frame).
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    const glyphs: readonly EmoteGlyph[] = ['check', 'chat'];
+    const out: EmoteEmitter[] = [];
+    for (const g of guests) {
+      if (walkTarget?.guestId === g.id || roam?.guestId === g.id) continue;
+      const table = tablesById.get(g.tableId);
+      if (!table) continue;
+      const p = seatWorld(table, g.seatNumber ?? 0, room);
+      out.push({
+        id: g.id,
+        x: p.x,
+        // Slice-1 crowd STANDS at their seats; a guest whose sit choreography
+        // completed is seated — anchor the bubble to the matching head height.
+        y: seatedIds.has(g.id) ? EMOTE_SEATED_Y : EMOTE_STANDING_Y,
+        z: p.z,
+        glyphs,
+      });
+    }
+    return out;
+  }, [guests, tablesById, room, seatedIds, walkTarget?.guestId, roam?.guestId]);
+
   // Persistent "chase cam already framed" flag — survives Walker remounts so
   // a second walk eases from the current camera instead of hard-cutting.
   const chaseCamSeeded = useRef(false);
@@ -1307,6 +1345,10 @@ export function Plan3DScene({
           />
         );
       })}
+
+      {/* Emote bubbles (Fable §3.6): pooled sprites, ≤6, wall-clock rotation —
+          side/rsvp-generic glyphs only (the demo slice carries no status). */}
+      {emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
       {/* Destination beacon: where the scripted walk is headed, shown until the
           avatar arrives so the guest can see their seat before the figure lands. */}

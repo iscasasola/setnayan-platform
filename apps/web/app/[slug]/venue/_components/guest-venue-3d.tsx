@@ -47,6 +47,12 @@ import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import {
+  EmoteBubbles,
+  EMOTE_TABLE_Y,
+  EMOTE_DANCE_Y,
+  type EmoteEmitter,
+} from '@/app/_components/plan3d/kit';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
 import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
@@ -477,6 +483,27 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     () => [...floorObstacles(floor, tables, room, [scene.you?.table]), ...fixtureObstacles],
     [floor, tables, room, scene.you, fixtureObstacles],
   );
+  // Emote bubbles (Fable §3.6) — AMBIENT ONLY on this anonymized surface:
+  // music notes over the dance floor + chat dots over tables that have people
+  // (table-level occupancy is already public via the tinted chairs, so a chat
+  // bubble leaks nothing new). NEVER per-guest status here — the RA 10173
+  // posture: the public walk shows a room, not anyone's RSVP.
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    const out: EmoteEmitter[] = [];
+    if (floor.dance.enabled) {
+      const d = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
+      const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
+      out.push({ id: 'ambient-music-a', x: d.x - danceW * 0.22, y: EMOTE_DANCE_Y, z: d.z, glyphs: ['music'] });
+      out.push({ id: 'ambient-music-b', x: d.x + danceW * 0.22, y: EMOTE_DANCE_Y, z: d.z, glyphs: ['music'] });
+    }
+    for (const t of tables) {
+      if (!occByTable.get(t.id)?.size) continue; // empty table, no chatter
+      const c = pctToWorld(t.xPct, t.yPct, room);
+      out.push({ id: `ambient-chat-${t.id}`, x: c.x, y: EMOTE_TABLE_Y, z: c.z, glyphs: ['chat'] });
+    }
+    return out;
+  }, [floor, room, tables, occByTable]);
+
   const youTable = useMemo<Lab3DTable | null>(
     () => (scene.you ? tables.find((x) => x.id === scene.you!.table) ?? null : null),
     [scene.you, tables],
@@ -607,6 +634,10 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           cocktail={cocktail}
           quality="low"
         />
+
+        {/* Ambient emote bubbles (Fable §3.6): music near the dance floor,
+            chatter at occupied tables — pooled sprites, ≤6, never per-guest. */}
+        {emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
         {/* Wave 2b: the couple's reception treatments (reduced set on phones). */}
         <VenueDecor

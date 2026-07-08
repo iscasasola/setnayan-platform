@@ -503,6 +503,17 @@ export type PaxProgress = {
   overBy: number;
   /** Guests still needed to reach the floor (0 once met). */
   remaining: number;
+  // ── Unassigned-pax pool (S1 · smart seat-plan guest-reactive, 2026-07-08) ──
+  // A target-vs-listed view: the pool starts full at event creation (0 guests →
+  // unassigned = target) and fills as guests are LISTED (any non-declined guest),
+  // independent of the attending-based meter above. Display-only — pricing and
+  // final_pax stay on the attending basis (owner-locked headcount_basis).
+  /** Everyone still on the list (total − declined) — what fills the pool. */
+  listed: number;
+  /** Seats left toward the target: max(0, target − listed). Full at 0 guests. */
+  unassigned: number;
+  /** Listed guests above the target (0 until the list passes the floor). */
+  overListed: number;
 };
 
 // Progress of the live headcount toward the couple's minimum pax (the pricing
@@ -518,6 +529,10 @@ export function computePaxProgress(
   if (!estimatedPax || estimatedPax <= 0) return null;
   const headcount = headcountForBasis(stats, basis);
   const livePax = Math.max(estimatedPax, headcount);
+  // The pool always counts everyone still on the list (non-declined), regardless
+  // of the display basis, so "list a guest → fills the pool" holds even when the
+  // meter above is showing sure-attending only.
+  const listed = headcountForBasis(stats, 'invited');
   return {
     target: estimatedPax,
     headcount,
@@ -526,6 +541,9 @@ export function computePaxProgress(
     exceeded: headcount > estimatedPax,
     overBy: Math.max(0, headcount - estimatedPax),
     remaining: Math.max(0, estimatedPax - headcount),
+    listed,
+    unassigned: Math.max(0, estimatedPax - listed),
+    overListed: Math.max(0, listed - estimatedPax),
   };
 }
 

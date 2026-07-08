@@ -962,6 +962,16 @@ function SummaryStrip({
                 style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
               />
             </div>
+            {/* Unassigned-pax pool (S1) — fills as guests are LISTED, distinct
+                from the sure-attending meter above. */}
+            <div className="mt-1.5 flex items-baseline justify-between text-[11px] text-ink/55">
+              <span className="font-mono uppercase tracking-[0.12em]">Pax pool</span>
+              <span className="tabular-nums">
+                {paxProgress.overListed > 0
+                  ? `${paxProgress.listed} listed · ${paxProgress.overListed} over target`
+                  : `${paxProgress.unassigned} unassigned · ${paxProgress.listed} of ${paxProgress.target} listed`}
+              </span>
+            </div>
           </div>
         ) : null}
         <div className="flex items-baseline justify-between text-xs text-ink/55">

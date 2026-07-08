@@ -89,3 +89,40 @@ test('computePaxProgress: null / 0 / negative target yields null (meter hidden)'
   assert.equal(computePaxProgress(STATS, 0), null);
   assert.equal(computePaxProgress(STATS, -5), null);
 });
+
+// ── Unassigned-pax pool (S1 · smart seat-plan guest-reactive) ────────────────
+
+test('pax pool: unassigned = target − listed (non-declined), under target', () => {
+  const p = computePaxProgress(STATS, 180);
+  assert.ok(p);
+  assert.equal(p.listed, 90); // total 100 − declined 10
+  assert.equal(p.unassigned, 90); // 180 − 90
+  assert.equal(p.overListed, 0);
+});
+
+test('pax pool: list past the target → unassigned 0, overListed reports the excess', () => {
+  const p = computePaxProgress(STATS, 50);
+  assert.ok(p);
+  assert.equal(p.listed, 90);
+  assert.equal(p.unassigned, 0);
+  assert.equal(p.overListed, 40); // 90 − 50
+});
+
+test('pax pool: counts ALL listed guests regardless of the display basis', () => {
+  const attending = computePaxProgress(STATS, 180, 'attending');
+  const withMaybe = computePaxProgress(STATS, 180, 'attending_plus_maybe');
+  assert.ok(attending && withMaybe);
+  // the meter headcount differs by basis, but the pool always counts non-declined
+  assert.notEqual(attending.headcount, withMaybe.headcount);
+  assert.equal(attending.listed, 90);
+  assert.equal(withMaybe.listed, 90);
+});
+
+test('pax pool: a fresh event (0 guests) starts with the full target unassigned (point #1)', () => {
+  const empty: GuestStats = { total: 0, attending: 0, pending: 0, declined: 0, maybe: 0, plus_ones: 0 };
+  const p = computePaxProgress(empty, 120);
+  assert.ok(p);
+  assert.equal(p.listed, 0);
+  assert.equal(p.unassigned, 120);
+  assert.equal(p.overListed, 0);
+});

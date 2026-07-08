@@ -285,6 +285,12 @@ export function MobileGuestCarousel({
                     style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
                   />
                 </div>
+                {/* Unassigned-pax pool (S1) — fills as guests are listed. */}
+                <div className="mt-1 text-right text-[10px] tabular-nums text-ink/55">
+                  {paxProgress.overListed > 0
+                    ? `${paxProgress.listed} listed · ${paxProgress.overListed} over target`
+                    : `${paxProgress.unassigned} unassigned of ${paxProgress.target}`}
+                </div>
               </div>
             ) : null}
             <div className="grid grid-cols-4 gap-2">

@@ -60,6 +60,9 @@ export function Plan3DSceneLoader(props: {
   /** Lighting/shadow budget — the desktop overlay runs 'high' (default), the
    *  phone guest walk passes 'low' (1024 shadow map + 128 env map). */
   quality?: 'high' | 'low';
+  /** Cinematic Tier A grade + string lights (Fable §3.5) — the phone guest
+   *  walk passes it; the neutral desktop overlay stays ungraded. */
+  cinematic?: boolean;
 }) {
   return <Plan3DSceneInner {...props} />;
 }

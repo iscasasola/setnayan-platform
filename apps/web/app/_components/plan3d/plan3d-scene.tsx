@@ -137,6 +137,7 @@ import {
   SIT_TIMING,
   EmoteBubbles,
   EMOTE_SEATED_Y,
+  StringLights,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
@@ -160,6 +161,7 @@ import {
   archetypeFor,
   archetypeFloorColor,
   archetypeBackground,
+  ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
 import {
@@ -725,6 +727,7 @@ export function Plan3DScene({
   roam,
   interactive = true,
   quality = 'high',
+  cinematic = false,
 }: {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
@@ -754,6 +757,11 @@ export function Plan3DScene({
   /** Lighting/shadow budget — 'high' for the desktop overlay, 'low' for the
    *  phone walk (1024 shadow map + 128 env map). Defaults to 'high'. */
   quality?: SceneLightingQuality;
+  /** Cinematic Tier A (Fable §3.5): the golden-hour lighting grade + string
+   *  lights. The phone demo walk passes it (grade + lights work at 'low' —
+   *  static instances + light knobs, no per-frame cost); dust motes + the
+   *  vignette stay lab-Play concerns, this surface adds neither. */
+  cinematic?: boolean;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const room = useMemo(() => roomSize(floor), [floor]);
@@ -1207,7 +1215,22 @@ export function Plan3DScene({
       {...canvasLookHandlers}
     >
       <color attach="background" args={[bgColor]} />
-      <SceneLighting palette={palette} quality={quality} room={room} />
+      <SceneLighting
+        palette={palette}
+        quality={quality}
+        room={room}
+        grade={cinematic ? 'play' : 'standard'}
+      />
+
+      {/* Cinematic Tier A (Fable §3.5): warm string-light strands over the
+          room — static instances, one draw, so they ride even 'low' (the
+          phone walk). 'low' halves the strand count inside the component.
+          Skips when the couple's OWN ceiling decor occupies the hang band
+          (fairy lights / chandeliers / lanterns / hanging florals — see
+          ceilingDecorOccupied). */}
+      {cinematic && !ceilingDecorOccupied(receptionDesign, archetype) ? (
+        <StringLights room={room} palette={palette} quality={quality} />
+      ) : null}
 
       {/* Wave 2b: archetype room shell (garden greenery / chapel windows / …). */}
       <VenueShell archetype={archetype} room={room} palette={palette} quality={quality} />

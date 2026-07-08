@@ -37,7 +37,7 @@
  * a fit-frame transform (like the 2D editor's) is the documented follow-up.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
@@ -49,12 +49,22 @@ import {
   SIT_TIMING,
   EmoteBubbles,
   EMOTE_SEATED_Y,
+  StringLights,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
   type FigureQuality,
 } from '@/app/_components/plan3d/kit';
-import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap, fabricBumpMap } from '@/app/_components/plan3d/scene-lighting';
+import {
+  SceneLighting,
+  DustMotes,
+  playGradeFog,
+  RECOMMENDED_TONEMAP,
+  floorRoughnessMap,
+  floorAlbedoMap,
+  floorBumpMap,
+  fabricBumpMap,
+} from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
   VenueShell,
@@ -62,6 +72,7 @@ import {
   archetypeFor,
   archetypeFloorColor,
   archetypeBackground,
+  ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
@@ -96,6 +107,16 @@ import {
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
+
+// Cinematic Tier B (Fable §3.5) — the program's ONLY new dependency
+// (postprocessing + @react-three/postprocessing) lives behind THIS dynamic
+// import and nowhere else: React.lazy keeps kit/cinematic.tsx (and the dep) in
+// its own async chunk, fetched the first time Play mode actually mounts the
+// pass. Deliberately NOT imported from the kit barrel (a static barrel export
+// would weld the dep onto every kit consumer, phone-walk chunk included).
+const CinematicPass = lazy(() =>
+  import('@/app/_components/plan3d/kit/cinematic').then((m) => ({ default: m.CinematicPass })),
+);
 
 // A server action's lock guard throws SeatingLockError, but the class identity
 // is lost across the RSC boundary — match defensively (instanceof → code →
@@ -392,6 +413,38 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // it toward their sky so the open-air shells don't float in black).
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
   const archFloorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
+  // Cinematic Tier A (Fable §3.5) — the dust motes hover in the key light's
+  // shaft over the dance floor; a disabled dance floor falls back to the room
+  // centre (the Play camera's focal point either way).
+  const moteZone = useMemo(() => {
+    if (floor.dance.enabled) {
+      const c = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
+      return {
+        center: { x: c.x, z: c.z },
+        size: {
+          w: Math.max(3, (floor.dance.wPct / 100) * room.w),
+          d: Math.max(3, (floor.dance.hPct / 100) * room.d),
+        },
+      };
+    }
+    return { center: { x: 0, z: 0 }, size: { w: room.w * 0.4, d: room.d * 0.4 } };
+  }, [floor.dance, room]);
+  // Cinematic Tier B (Fable §3.5) — true postprocessing (Bloom + DoF + grain +
+  // composer vignette), mounted ONLY when Play needs it: Play mode && this
+  // surface's quality knob ('high' — the lab always runs the desktop tier; the
+  // phone guest walk runs 'low' and NEVER loads the chunk) && motion OK (house
+  // law: reduced = static grade, no composer) && not perf-degraded. The
+  // degrade latch is ONE-WAY for the session — PerformanceMonitor inside the
+  // pass fires onDegrade once on sustained decline, we unmount to Tier A and
+  // never remount, so there is no incline/decline thrash by construction.
+  const [fxDegraded, setFxDegraded] = useState(false);
+  const onFxDegrade = useCallback(() => setFxDegraded(true), []);
+  const cinematicFx = mode === 'play' && !reduced && !fxDegraded;
+  // Live world position of the followed walk-in — written by the Walker's
+  // frame loop (nulled on unmount), read by the Tier B DepthOfField so focus
+  // eases onto whoever is walking to their seat. A ref, never state: the DoF
+  // consumes it per-frame without re-rendering React (MASCOT-SMOOTH).
+  const walkerPosRef = useRef<THREE.Vector3 | null>(null);
 
   // Single-editor lock — the SAME one the 2D editor uses, so 3D and 2D never
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
@@ -1729,12 +1782,27 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         gl={{ antialias: true, powerPreference: 'high-performance', ...RECOMMENDED_TONEMAP }}
       >
         <color attach="background" args={[mode === 'play' ? '#0c0e14' : '#13151c']} />
-        <fog attach="fog" args={[mode === 'play' ? '#0c0e14' : '#13151c', room.d * 1.4, room.d * 3.2]} />
+        {/* Play's fog is the golden-hour tune (warmed toward the key, far
+            plane pulled in a touch); Build keeps the studio's neutral haze. */}
+        <fog
+          attach="fog"
+          args={
+            mode === 'play'
+              ? playGradeFog('#0c0e14', palette, room.d)
+              : ['#13151c', room.d * 1.4, room.d * 3.2]
+          }
+        />
 
         {/* Shared rig (Wave 2a): procedural Lightformer IBL + one warm shadow
             key, 2048 map fitted to the room. Replaces the flat ambient +
-            hemisphere + bare directional and the fake ContactShadows. */}
-        <SceneLighting palette={palette} quality="high" room={room} />
+            hemisphere + bare directional and the fake ContactShadows. Play
+            flips the cinematic golden-hour grade (Fable §3.5 Tier A). */}
+        <SceneLighting
+          palette={palette}
+          quality="high"
+          room={room}
+          grade={mode === 'play' ? 'play' : 'standard'}
+        />
 
         <RoomShell
           room={room}
@@ -1761,6 +1829,43 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           quality="high"
           archetype={archetype}
         />
+
+        {/* Cinematic Tier A (Fable §3.5) — Play mode only, Build stays the
+            neutral editing studio. String lights are static instances (fine
+            under reduced motion) and skip when the couple's OWN ceiling decor
+            occupies the hang band (fairy lights / chandeliers / lanterns /
+            hanging florals — see ceilingDecorOccupied); the drifting motes
+            honour the house law and simply don't mount when motion is
+            reduced. */}
+        {mode === 'play' && !ceilingDecorOccupied(receptionDesign, archetype) ? (
+          <StringLights room={room} palette={palette} quality="high" />
+        ) : null}
+        {mode === 'play' && !reduced ? (
+          <DustMotes center={moteZone.center} size={moteZone.size} palette={palette} />
+        ) : null}
+
+        {/* Cinematic Tier B (Fable §3.5) — the dynamically-imported composer
+            (Bloom on the emissive stars, subtle DoF onto the walk-in, grain,
+            vignette). Suspense fallback null = Tier A carries the look while
+            the async chunk streams in; unmount (Build, reduced motion, or the
+            perf-degrade latch) restores the renderer's own tone mapping →
+            bit-identical Tier A pipeline.
+            ⚠ UPSTREAM COST OF EACH MOUNT/UNMOUNT (r-p-p@3.0.4, verified in
+            dist): the wrapper never calls composer.dispose(), so each unmount
+            abandons the canvas-res MSAA-4 HalfFloat in/out buffers to GC
+            (tens of MB GPU on big canvases, freed on GC timing, not
+            deterministically), and each mount/unmount flips gl.toneMapping
+            (ACES ↔ NoToneMapping) → a one-time scene-wide toneMapped-material
+            program-variant switch on top of the Environment key's PMREM
+            re-bake. Toggling `enabled` instead of unmounting is NOT a safe
+            mitigation (enabled=false stops rendering but leaves gl.toneMapping
+            forced to NoToneMapping). Deps are exact-pinned in package.json —
+            re-verify this note on any postprocessing/r-p-p bump. */}
+        {cinematicFx ? (
+          <Suspense fallback={null}>
+            <CinematicPass room={room} focusRef={walkerPosRef} onDegrade={onFxDegrade} />
+          </Suspense>
+        ) : null}
 
         {tables.map((t) => (
           <TableMesh
@@ -1831,6 +1936,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             entrance={entranceWorld}
             onArrive={() => setArrived(walker.name)}
             reduced={reduced}
+            posRef={walkerPosRef}
           />
         ) : null}
 
@@ -1963,6 +2069,23 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
       />
+
+      {/* Cinematic vignette (Fable §3.5 Tier A) — a dep-free screen-space
+          radial gradient over the canvas, Play only. Pure CSS on a DOM div:
+          zero GPU cost, no postprocessing. pointer-events-none + below the
+          z-20/z-30 walk controls so it never eats a tap. On Tier B the
+          vignette moves INTO the composer (kit/cinematic.tsx), so this div
+          only serves the Tier A fallbacks: reduced motion + the perf latch. */}
+      {mode === 'play' && !cinematicFx ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{
+            background:
+              'radial-gradient(120% 90% at 50% 45%, transparent 58%, rgba(6,7,12,0.3) 100%)',
+          }}
+        />
+      ) : null}
 
       {/* Game-pad walk controls (Play): toggle + on-screen sticks. */}
       {mode === 'play' ? (
@@ -2652,6 +2775,7 @@ function Walker({
   entrance,
   onArrive,
   reduced,
+  posRef,
 }: {
   walker: NonNullable<WalkerState>;
   /** The guest's figure spec (null only if the guest row vanished mid-walk —
@@ -2661,6 +2785,11 @@ function Walker({
   entrance: Vec2;
   onArrive: () => void;
   reduced: boolean;
+  /** Live world position sink for the Tier B DepthOfField follow-focus —
+   *  written per frame while walking (the sit leg holds the approach point,
+   *  which sits right next to the chair), nulled on unmount so the DoF eases
+   *  back to the room centre. */
+  posRef?: { current: THREE.Vector3 | null };
 }) {
   const ref = useRef<THREE.Group>(null);
   const idx = useRef(0);
@@ -2736,7 +2865,17 @@ function Walker({
     // Same clock, new consumer: the old ~9 rad/s bob frequency now advances
     // the rig's walk cycle (frame-rate independent — t integrates real delta).
     phase.current = t.current * 9;
+    // Tier B follow-focus: publish the live root position (a ref write per
+    // frame, zero React work; the DoF reads it in ITS frame loop).
+    if (posRef) (posRef.current ??= new THREE.Vector3()).copy(g.position);
   });
+
+  // The follow-focus sink dies with the walker — the DoF eases back home.
+  useEffect(() => {
+    return () => {
+      if (posRef) posRef.current = null;
+    };
+  }, [posRef]);
 
   const figSpec =
     spec ?? { id: walker.gid, outfit: 'neutral' as const, outfitColor: null, statusColor: palette.accent };

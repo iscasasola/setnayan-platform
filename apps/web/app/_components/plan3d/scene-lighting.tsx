@@ -37,7 +37,7 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { Environment, Lightformer } from '@react-three/drei';
+import { Environment, Lightformer, Sparkles } from '@react-three/drei';
 import type { Lab3DPalette } from '@/lib/seating-3d';
 
 /** Canvas `gl` tone-mapping every 3D seat-plan surface should pass so the three
@@ -48,6 +48,73 @@ export const RECOMMENDED_TONEMAP = {
 } as const;
 
 export type SceneLightingQuality = 'high' | 'low';
+
+/** Scene layer reserved for the cinematic Play pass's designated bloom stars
+ *  (string-light bulbs, cold-spark cores, LIVE lamp, vanity-mirror bulbs).
+ *  Cameras stay on layer 0 — the layer is ONLY read by Tier B's SelectiveBloom
+ *  (kit/cinematic.tsx), which depth-masks its luminance pass to it so glossy
+ *  non-star specular can never halo. Dep-free const so star meshes in the main
+ *  bundle can enrol without ever touching the postprocessing chunk. */
+export const CINEMATIC_BLOOM_LAYER = 11;
+
+/** `layers.mask` for star meshes: the default render layer 0 PLUS the bloom
+ *  layer (a bare `layers.set` would pull the mesh out of the main render). */
+export const CINEMATIC_BLOOM_LAYERS_MASK = (1 << 0) | (1 << CINEMATIC_BLOOM_LAYER);
+
+/** Lighting grade (cinematic Play pass, Fable §3.5 Tier A). 'standard' is the
+ *  everyday editing/orbit read; 'play' is the golden-hour film grade — slightly
+ *  lower ambient, a warmer key mixed further toward the mood board, a touch
+ *  more key intensity. Pure light-knob changes, NO postprocessing dep. */
+export type SceneLightingGrade = 'standard' | 'play';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Palette-warm key (Fable §3.5 Tier A) — the '#fff6ea' overhead wash + the
+// '#fff3e2' directional key were the theming read's hardcoded extension point.
+// The key now mixes ≤20% toward the mood board's dominant WARM swatch so a
+// terracotta wedding sunlights terracotta and a sage one sunlights honey —
+// subtly. A palette with no warm swatch (or none at all) falls back to the
+// exact legacy colours, bit-for-bit.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function mixHex(a: string, b: string, t: number): string {
+  return `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
+}
+
+/** The mood board's dominant warm swatch: the warmest (red-over-blue bias) of
+ *  accent → ambient → table → wall, and only if it actually reads warm
+ *  (warmth > 0.04 in linear r−b). Cool/neutral palettes return null so the
+ *  key light NEVER tints cold — warmth is the only thing a palette may add. */
+export function dominantWarmSwatch(palette: Lab3DPalette): string | null {
+  const candidates = [palette.accent, palette.ambient, palette.table, palette.wall];
+  let best: string | null = null;
+  let bestWarmth = 0.04;
+  for (const hex of candidates) {
+    if (!hex) continue;
+    const c = new THREE.Color(hex);
+    const warmth = c.r - c.b;
+    if (warmth > bestWarmth) {
+      bestWarmth = warmth;
+      best = hex;
+    }
+  }
+  return best;
+}
+
+/** How far the key mixes toward the warm swatch, per grade. ≤20% by design —
+ *  the key must stay "warm white sunlight", never a coloured stage light. */
+const KEY_MIX: Record<SceneLightingGrade, number> = { standard: 0.12, play: 0.2 };
+
+/** Play-grade fog for surfaces that carry a `<fog>` (the couple lab): warms the
+ *  surface's own base fog colour faintly toward the key and pulls the far plane
+ *  in a touch — the golden-hour haze half of the grade. Returns `<fog args>`. */
+export function playGradeFog(
+  base: string,
+  palette: Lab3DPalette,
+  roomD: number,
+): [string, number, number] {
+  const warm = dominantWarmSwatch(palette) ?? '#fff6ea';
+  return [mixHex(base, warm, 0.08), roomD * 1.3, roomD * 2.9];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared floor roughness variation — a tiny grayscale noise CanvasTexture so
@@ -260,13 +327,18 @@ export function SceneLighting({
   palette,
   quality,
   room,
+  grade = 'standard',
 }: {
   palette: Lab3DPalette;
   quality: SceneLightingQuality;
   /** Room footprint in metres — fits the shadow camera + scales the env panels. */
   room: { w: number; d: number };
+  /** 'play' = the cinematic golden-hour grade (lab Play mode + the phone demo
+   *  walk). Defaults to 'standard' so every existing call site is unchanged. */
+  grade?: SceneLightingGrade;
 }) {
   const shadowMap = quality === 'high' ? 2048 : 1024;
+  const play = grade === 'play';
 
   // Warm key colour derives from the palette's ambient (its warmest hue) so a
   // mood-board recolour tints the "sunlight"; the fill is a cool complement so
@@ -276,6 +348,20 @@ export function SceneLighting({
   const keyColor = palette.ambient || '#fbe9d8';
   const fillColor = '#aebdd6';
   const bounceColor = palette.floor || '#e7e1d8';
+
+  // Palette-warm key (Tier A): the overhead wash + directional key mix ≤20%
+  // toward the mood board's dominant warm swatch. No warm swatch → the legacy
+  // '#fff6ea' / '#fff3e2', bit-for-bit.
+  const warmSwatch = useMemo(() => dominantWarmSwatch(palette), [palette]);
+  const keyMix = warmSwatch ? KEY_MIX[grade] : 0;
+  const washColor = useMemo(
+    () => (keyMix > 0 ? mixHex('#fff6ea', warmSwatch!, keyMix) : '#fff6ea'),
+    [warmSwatch, keyMix],
+  );
+  const dirKeyColor = useMemo(
+    () => (keyMix > 0 ? mixHex('#fff3e2', warmSwatch!, keyMix) : '#fff3e2'),
+    [warmSwatch, keyMix],
+  );
 
   // Fit the shadow camera to the room (+ margin for chairs standing proud of
   // the footprint) so every texel of the shadow map covers furniture, not empty
@@ -290,31 +376,36 @@ export function SceneLighting({
   return (
     <>
       {/* ── Image-based lighting: a procedural room, baked ONCE (frames=1).
-          Inline emissive panels only — no preset, no file, no network. ────── */}
-      <Environment frames={1} resolution={quality === 'high' ? 256 : 128}>
+          Inline emissive panels only — no preset, no file, no network. The key
+          on grade+wash remounts the Environment when the grade flips (or the
+          palette-mixed key changes) so the one-shot bake re-runs — still a
+          single PMREM pass per look, never per frame. ────────────────────── */}
+      <Environment key={`${grade}:${washColor}`} frames={1} resolution={quality === 'high' ? 256 : 128}>
         {/* Warm key panel — the late-afternoon window wall. */}
         <Lightformer
           form="rect"
-          intensity={2.2}
+          intensity={play ? 2.45 : 2.2}
           color={keyColor}
           position={[span * 0.6, span * 0.5, -span * 0.4]}
           scale={[span, span * 0.7, 1]}
           target={[0, 0, 0]}
         />
-        {/* Cool fill from the opposite side — keeps shadow sides from going dead. */}
+        {/* Cool fill from the opposite side — keeps shadow sides from going dead.
+            Play eases it off so the warm key dominates (golden-hour contrast). */}
         <Lightformer
           form="rect"
-          intensity={0.9}
+          intensity={play ? 0.72 : 0.9}
           color={fillColor}
           position={[-span * 0.6, span * 0.4, span * 0.3]}
           scale={[span * 0.9, span * 0.6, 1]}
           target={[0, 0, 0]}
         />
-        {/* Soft overhead wash so tabletops + shoulders catch a highlight. */}
+        {/* Soft overhead wash so tabletops + shoulders catch a highlight —
+            palette-warm mixed (the old '#fff6ea' hardcode, Tier A). */}
         <Lightformer
           form="rect"
           intensity={1.1}
-          color="#fff6ea"
+          color={washColor}
           rotation={[Math.PI / 2, 0, 0]}
           position={[0, span * 0.8, 0]}
           scale={[span * 0.8, span * 0.8, 1]}
@@ -332,16 +423,19 @@ export function SceneLighting({
       </Environment>
 
       {/* Dim cool ambient so the darkest shadow still reads as a surface, not a
-          hole — the IBL does the heavy lifting, this only lifts the floor. */}
-      <ambientLight intensity={0.28} color={palette.ambient} />
+          hole — the IBL does the heavy lifting, this only lifts the floor.
+          Play drops it a step: deeper shadow sides = the film grade's contrast. */}
+      <ambientLight intensity={play ? 0.22 : 0.28} color={palette.ambient} />
 
       {/* The one shadow-casting key: warm, high, raking across the room like sun
           through a window wall. 'low' quality halves the shadow map, and a
-          surface can veto the depth pass entirely via its Canvas `shadows` flag. */}
+          surface can veto the depth pass entirely via its Canvas `shadows` flag.
+          Colour is the palette-warm mix (the old '#fff3e2' hardcode); Play adds
+          a nudge of intensity so the golden hour actually rakes. */}
       <directionalLight
         position={keyPos}
-        intensity={1.35}
-        color="#fff3e2"
+        intensity={play ? 1.5 : 1.35}
+        color={dirKeyColor}
         castShadow
         shadow-mapSize-width={shadowMap}
         shadow-mapSize-height={shadowMap}
@@ -355,5 +449,52 @@ export function SceneLighting({
         shadow-normalBias={0.02}
       />
     </>
+  );
+}
+
+/**
+ * DustMotes — dust drifting in the key light's shaft over the dance floor
+ * (cinematic Tier A, Fable §3.5). One drei `<Sparkles>` volume: ~40 tiny warm
+ * points drifting slowly inside a box over the dance floor, where the raking
+ * key + the Play camera's low angle catch them. Deliberately subtle — motes
+ * read as atmosphere, never as confetti.
+ *
+ * GATING lives at the call site (the component itself is dumb): Play mode
+ * only, quality 'high' only (phones skip the extra draw + per-frame drift),
+ * and OFF under prefers-reduced-motion (house law: reduced = static grade,
+ * no petals, no motes — simply don't mount it).
+ */
+export function DustMotes({
+  center,
+  size,
+  palette,
+}: {
+  /** Dance-floor centre in world metres. */
+  center: { x: number; z: number };
+  /** Dance-floor footprint in metres — the volume hugs it (+15% spill). */
+  size: { w: number; d: number };
+  palette: Lab3DPalette;
+}) {
+  // Motes borrow the key's warmth (same dominant-warm-swatch mix, a touch
+  // stronger) so they read as dust IN that light, not free-floating glitter.
+  const color = useMemo(
+    () => mixHex('#ffe9c4', dominantWarmSwatch(palette) ?? '#fff6ea', 0.15),
+    [palette],
+  );
+  const w = Math.max(3, size.w * 1.15);
+  const d = Math.max(3, size.d * 1.15);
+  return (
+    <Sparkles
+      count={40}
+      // A broad, chest-to-rafters volume over the dance floor — the key
+      // shaft's landing zone.
+      scale={[w, 3.2, d]}
+      position={[center.x, 1.9, center.z]}
+      speed={0.12}
+      size={1.6}
+      opacity={0.32}
+      color={color}
+      noise={0.35}
+    />
   );
 }

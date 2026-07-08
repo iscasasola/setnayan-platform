@@ -28,6 +28,15 @@
  *   · kit/emotes.tsx          — pooled emote-bubble sprites (drawn glyph
  *                               atlas); rotation policy is the PURE
  *                               lib/emote-schedule (unit-tested)
+ *   · kit/string-lights.tsx   — cinematic Play-mode string lights (Fable §3.5
+ *                               Tier A): catenary strands of warm emissive
+ *                               bulbs, one static InstancedMesh
+ *
+ * ⚠ kit/cinematic.tsx (Tier B postprocessing) is DELIBERATELY NOT exported
+ * here: it carries the program's only new dependency (postprocessing +
+ * @react-three/postprocessing) and must only ever be reached via a dynamic
+ * import from a Play-mode branch, so the dep stays in its own async chunk —
+ * never the main bundle, the phone-walk chunk, or SSR. Do not add it.
  */
 
 export {
@@ -119,3 +128,9 @@ export {
   type SitControllerHandles,
   type SitControllerProps,
 } from './sit-controller';
+
+export {
+  StringLights,
+  stringLightStrandCount,
+  stringLightBulbColor,
+} from './string-lights';

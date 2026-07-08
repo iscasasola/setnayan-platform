@@ -182,10 +182,23 @@ export async function updateVendorCosts(formData: FormData) {
   const totalChanged =
     existing != null && Number(existing.total_cost_php ?? 0) !== Number(newTotal ?? 0);
 
+  // Crew-meal coverage (2026-07-09): when the couple marks this vendor's crew as
+  // fed by the event's crew-meal provider, its own crew-meal line
+  // (food_allowance_php) is SUPERSEDED — nulled here so the budget rollup counts
+  // the crew-meal cost ONCE (in the provider's package), never twice. crew_size
+  // is the crew this vendor brings (feeds the provider's derived meal count).
+  const crewMealCovered = formData.get('crew_meal_covered') === 'on';
+  const crewSizeRaw = formData.get('crew_size');
+  const crewSizeNum =
+    typeof crewSizeRaw === 'string' && crewSizeRaw.trim() !== '' ? Number(crewSizeRaw) : NaN;
+  const crewSize = Number.isFinite(crewSizeNum) ? Math.max(0, Math.trunc(crewSizeNum)) : null;
+
   const updatePayload: Record<string, unknown> = {
     total_cost_php: newTotal,
     transport_php: parseMoney(formData.get('transport_php')),
-    food_allowance_php: parseMoney(formData.get('food_allowance_php')),
+    food_allowance_php: crewMealCovered ? null : parseMoney(formData.get('food_allowance_php')),
+    crew_size: crewSize,
+    crew_meal_covered: crewMealCovered,
   };
   if (totalChanged) {
     const livePax = await resolveLivePax(supabase, eventId);

@@ -241,7 +241,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, crew_size, crew_meal_covered, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -271,8 +271,29 @@ export default async function VendorWorkspacePage({ params }: Props) {
     event_vendor_package_id: string | null;
     host_inclusions: string[] | null;
     covers_plan_groups: string[] | null;
+    crew_size: number | null;
+    crew_meal_covered: boolean | null;
     created_at: string;
   };
+
+  // Crew-meal coverage context (2026-07-09): does the event have a crew-meal
+  // provider booked (gates the "covered by crew meals" toggle on other vendors),
+  // and how many meals does it cover (Σ crew_size of the vendors marked covered)?
+  const { data: eventVendorCrewRows } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, category, crew_size, crew_meal_covered')
+    .eq('event_id', eventId);
+  const crewRows = (eventVendorCrewRows ?? []) as Array<{
+    vendor_id: string;
+    category: string;
+    crew_size: number | null;
+    crew_meal_covered: boolean | null;
+  }>;
+  const hasCrewMealProvider = crewRows.some((r) => r.category === 'crew_meals');
+  const coveredCrewMeals = crewRows.reduce(
+    (sum, r) => sum + (r.crew_meal_covered ? r.crew_size ?? 0 : 0),
+    0,
+  );
 
   // Change-Order Trail (Wave 3) — the both-acknowledged add-on/removal log for
   // this booking. RLS-gated to couple-on-event reads. Rendered immutable-trail
@@ -1561,6 +1582,53 @@ export default async function VendorWorkspacePage({ params }: Props) {
               </span>
             </label>
           ))}
+
+          {/* Crew-meal coverage (2026-07-09). On the crew-meal PROVIDER: the
+              derived meal count. On every OTHER vendor: its crew size + a toggle
+              to have the provider feed this crew (supersedes its food allowance,
+              so the cost is counted once — in the provider's package). */}
+          {ev.category === 'crew_meals' ? (
+            <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
+              Covering{' '}
+              <span className="font-medium text-ink">
+                {coveredCrewMeals} meal{coveredCrewMeals === 1 ? '' : 's'}
+              </span>{' '}
+              across the vendors you&rsquo;ve marked as crew-meal covered. Set the Service
+              price above to your per-meal rate × this count.
+            </p>
+          ) : (
+            <>
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-ink/65">Crew size on the day</span>
+                <input
+                  name="crew_size"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  defaultValue={ev.crew_size ?? ''}
+                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                />
+              </label>
+              {hasCrewMealProvider ? (
+                <label className="flex items-start gap-2 rounded-md bg-cream/60 px-2 py-2 text-sm text-ink/75">
+                  <input
+                    type="checkbox"
+                    name="crew_meal_covered"
+                    defaultChecked={ev.crew_meal_covered ?? false}
+                    className="mt-0.5 h-4 w-4 accent-mulberry"
+                  />
+                  <span>
+                    Crew fed by your crew-meal provider
+                    <span className="block text-xs text-ink/50">
+                      Covers this crew&rsquo;s meals in that booking — its food allowance
+                      above won&rsquo;t be counted again.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+            </>
+          )}
 
           <div className="flex items-center justify-between border-t border-ink/10 pt-3">
             <span className="text-sm font-medium text-ink">Total</span>

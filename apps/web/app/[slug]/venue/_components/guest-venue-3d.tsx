@@ -284,9 +284,14 @@ function GuestAvatar({
 
   // The viewer's own figure — accent-tinted mannequin (self semantics; the
   // pre-kit avatar was the accent capsule), never a photo. Neutral stays
-  // reserved for the anonymous seated crowd.
+  // reserved for the anonymous seated crowd. statusColor is EMPTY (the kit's
+  // "no ring" sentinel): the pre-kit capsule avatar had no floor status ring,
+  // and the moving avatar drawing one would slide an accent disc across the
+  // floor tracking the viewer. "You" is marked by the accent pointLight glow
+  // (kept below) + the separate gold seat ring GuestTable draws — not a ring
+  // on the walking figure.
   const selfSpec = useMemo<FigureSpec>(
-    () => ({ id: 'guest-self', outfit: 'neutral', outfitColor: palette.accent, statusColor: palette.accent }),
+    () => ({ id: 'guest-self', outfit: 'neutral', outfitColor: palette.accent, statusColor: '' }),
     [palette.accent],
   );
 

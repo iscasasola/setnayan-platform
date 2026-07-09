@@ -686,13 +686,14 @@ function Walker({
     const camH = h + lookYaw;
 
     // The walk-cycle clock, now shared with the kit <Figure> as its gait
-    // phase: advances ~9 rad/s while the walk is live and FREEZES on arrival,
+    // phase: advances ~11 rad/s while the walk is live and FREEZES on arrival,
     // so the limbs stop swinging exactly when the figure stops translating.
+    // (11, up from 9 — the Meccha-cute quick-little-steps cadence, 2026-07-09.)
     // The rig's own pelvisY carries the bob these days (walkCyclePose), so the
     // group stays ON the floor — no more whole-body hop. Reduced motion never
     // reads the clock: the kit bakes a neutral stand in that mode, and the
     // figure still relocates so the flow completes.
-    bobRef.current += delta * (raw < 1 ? 9 : 0);
+    bobRef.current += delta * (raw < 1 ? 11 : 0);
 
     if (groupRef.current) {
       groupRef.current.position.set(p.x, 0, p.z);

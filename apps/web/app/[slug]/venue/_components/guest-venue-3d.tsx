@@ -305,10 +305,11 @@ function GuestAvatar({
   const idx = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
-  // Gait phase clock for the kit figure — advances ~9 rad/s (the shared
-  // figure-kit gait rate) while translating and FREEZES on arrival, so the
-  // limbs stop swinging exactly when the figure stops. The rig carries its own
-  // pelvis bob (walkCyclePose), so the GROUP no longer hops.
+  // Gait phase clock for the kit figure — advances ~11 rad/s (the shared
+  // figure-kit gait rate; the Meccha-cute quick-steps cadence, 2026-07-09) while
+  // translating and FREEZES on arrival, so the limbs stop swinging exactly when
+  // the figure stops. The rig carries its own pelvis bob (walkCyclePose), so the
+  // GROUP no longer hops.
   const phaseRef = useRef(0);
   // Walk → stand blend on arrival (the kit eases presets over ~⅓ s); a frozen
   // mid-stride reads as a glitch otherwise. Reset when a new destination starts.
@@ -364,7 +365,7 @@ function GuestAvatar({
       }
       // Advance the gait while translating; the rig's own pelvis bob keeps the
       // group grounded (no whole-body hop).
-      phaseRef.current += delta * 9;
+      phaseRef.current += delta * 11;
     } else {
       // Reached the path end — freeze the gait, ease walk → stand, and (seat
       // walks only) retire the destination beacon.

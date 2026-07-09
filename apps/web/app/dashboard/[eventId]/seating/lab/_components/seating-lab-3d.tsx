@@ -3056,9 +3056,10 @@ function Walker({
       g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
     }
-    // Same clock, new consumer: the old ~9 rad/s bob frequency now advances
-    // the rig's walk cycle (frame-rate independent — t integrates real delta).
-    phase.current = t.current * 9;
+    // Same clock, new consumer: the ~11 rad/s cadence (Meccha-cute quick steps,
+    // 2026-07-09) advances the rig's walk cycle (frame-rate independent — t
+    // integrates real delta).
+    phase.current = t.current * 11;
     // Tier B follow-focus: publish the live root position (a ref write per
     // frame, zero React work; the DoF reads it in ITS frame loop).
     if (posRef) (posRef.current ??= new THREE.Vector3()).copy(g.position);
@@ -3558,8 +3559,8 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
   const idx = useRef(0);
   const done = useRef(false);
   const t = useRef(0);
-  // Gait phase — the mover's existing motion clock (t × 9 rad/s, matching the
-  // old bob frequency) feeds the rig's walk cycle via a ref (no re-renders).
+  // Gait phase — the mover's motion clock (t × 11 rad/s, the Meccha-cute
+  // quick-steps cadence) feeds the rig's walk cycle via a ref (no re-renders).
   const phase = useRef(0);
   const start = mover.path[0] ?? { x: 0, z: 0 };
   // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
@@ -3607,7 +3608,7 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
       g.rotation.y = Math.atan2(dx, dz);
     }
     // The old parent-group y-bob is retired — walkCyclePose bobs the pelvis.
-    phase.current = t.current * 9;
+    phase.current = t.current * 11;
   });
   return (
     <group ref={ref} position={[start.x, 0, start.z]}>

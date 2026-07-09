@@ -58,6 +58,44 @@
 
 ---
 
+## 2026-07-09 · Smart Seat-Plan — what's next 🟢 config + testing, no code
+
+The guest ↔ pax ↔ seating "smart seat plan" (9 PRs) is **built, deployed, and
+live** (schema verified on prod 2026-07-09). Everything is active for couples
+now EXCEPT **account auto-surface** (#7b), which is complete but intentionally
+OFF. Remaining owner steps:
+
+1. **[Testing] Turn on account auto-surface to try it.** Vercel → your Setnayan
+   project → **Settings → Environment Variables** → add
+   `FEATURE_ACCOUNT_AUTOSURFACE` = `1` (scope **Production**) → **Deployments →
+   ⋯ → Redeploy**. Safe while you're in testing mode (only your own accounts).
+   **To test:** sign up a test *guest* account with an email you own → sign in as
+   a couple → add a guest using that email → the event appears in the guest
+   account + a "You were added" notice → Decline or Leave hides it. To turn off:
+   delete the var → redeploy. **~5 min.**
+2. **[Before real guests] PH counsel sign-off — REQUIRED.** Auto-surface auto-adds
+   an event to a *real person's* account without their prior acceptance (RA 10173
+   sensitive). Do NOT leave it on once real couples/guests use the site until
+   counsel approves the notice copy + lawful basis. Turnkey packet:
+   `02_Specifications/Account_Autosurface_Counsel_Brief_2026-07-09.md` (spec
+   corpus). Counsel may redline the notice copy — a one-line code change — so run
+   this review *before* launch, not after.
+3. **[Optional] Full behavioral smoke test.** DB migrations are verified in prod
+   (2026-07-09); the only unrun check is the authenticated add-guest → seat flow
+   end-to-end (needs a test login). Runbook: spec
+   `Smart_Seat_Planning_Guest_Reactive_2026-07-08.md` § Verification runbook.
+
+> **Do NOT bulk-enable the other ~24 feature flags.** A 2026-07-09 audit found the
+> 6 genuinely-complete ones are already default-ON, and the rest are off for real
+> reasons — would 404 without Supabase dashboard config (Apple OAuth · anon
+> onboarding · Papic/Panood-anon), half-built (Life-Flash `NEXT_PUBLIC_LIFE_STORY`,
+> PR-5 pending · Vendor add-ons = "Coming soon" placeholder), DPO/counsel-gated
+> (face profile · bazi birth-data · people-connections), a pricing/product call
+> (`SETNAYAN_AI_PAYWALL_ENABLED`), or would lock YOU out (`VENDOR_TIER_FEATURE_GATE`
+> — you're on the free tier). Enabling those shows broken UI, not working features.
+
+---
+
 ## 2026-06-30 · ACTIVATE Papic face recognition (host the face model on R2) 🟢 one-time, no code
 
 **What this turns on:** the *entire* Papic face engine — guests' photos automatically

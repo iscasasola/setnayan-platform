@@ -221,29 +221,38 @@ export function ServicesTakeover({
           `goToSection` listener above consumes (now scrolling, not swapping).
           Desktop (lg+) uses the sticky strip above. */}
 
-      {/* Single-scroll stack. Reserve bottom space on mobile for the docked
-          sub-nav + global bottom nav (safe-area + 40px), matching the previous
-          panel's padding; desktop has no docked pill → pb-0. */}
-      <div className="min-w-0 space-y-10 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:space-y-14 lg:pb-0">
-        <ServiceSection tab="shortlist" heading={SECTION_HEADING.shortlist}>
-          {shortlistSlot ?? <SectionStub tab="shortlist" />}
-        </ServiceSection>
+      {/* Merkado layout (S1 · 2026-07-09): MOBILE stacks (shortlist → build →
+          compare) exactly as before — the grid collapses to one column and the
+          right wrapper is a normal block, so the docked sub-nav + scroll-spy keep
+          working. DESKTOP (lg+) becomes TWO COLUMNS: the tall shortlist on the
+          left, the build + compare in a STICKY right rail that stays in view while
+          you browse categories. Same single DOM — the slots are never mounted
+          twice (no duplicate client state) — only reflowed by grid + sticky. The
+          BB_TAB_EVENT bus, anchor nav, and scroll-spy are untouched. */}
+      <div className="grid min-w-0 gap-8 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6 lg:pb-0">
+        <div className="min-w-0">
+          <ServiceSection tab="shortlist" heading={SECTION_HEADING.shortlist}>
+            {shortlistSlot ?? <SectionStub tab="shortlist" />}
+          </ServiceSection>
+        </div>
 
-        <ServiceSection tab="build" heading={SECTION_HEADING.build}>
-          {buildSlot ?? <SectionStub tab="build" />}
-        </ServiceSection>
+        <div className="min-w-0 space-y-8 lg:sticky lg:top-4 lg:self-start">
+          <ServiceSection tab="build" heading={SECTION_HEADING.build}>
+            {buildSlot ?? <SectionStub tab="build" />}
+          </ServiceSection>
 
-        {/* Compare — collapsed by default (least-used + longest). Expands in
-            place; selecting/scrolling to it auto-opens (compareOpen). */}
-        <ServiceSection
-          tab="compare"
-          heading={SECTION_HEADING.compare}
-          collapsible
-          open={compareOpen}
-          onToggle={() => setCompareOpen((v) => !v)}
-        >
-          {compareSlot ?? <SectionStub tab="compare" />}
-        </ServiceSection>
+          {/* Compare — collapsed by default (least-used + longest). Expands in
+              place; selecting/scrolling to it auto-opens (compareOpen). */}
+          <ServiceSection
+            tab="compare"
+            heading={SECTION_HEADING.compare}
+            collapsible
+            open={compareOpen}
+            onToggle={() => setCompareOpen((v) => !v)}
+          >
+            {compareSlot ?? <SectionStub tab="compare" />}
+          </ServiceSection>
+        </div>
       </div>
     </section>
   );

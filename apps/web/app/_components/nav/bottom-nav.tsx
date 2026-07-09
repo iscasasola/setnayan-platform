@@ -848,7 +848,7 @@ function BottomNavTab({
             text is lost, the icon above is untouched. Kept in the DOM (not
             unmounted) so the accessible name survives and the transition runs. */}
         <span
-          className="whitespace-nowrap text-[10px] tracking-wide"
+          className="max-w-full truncate whitespace-nowrap text-[10px] tracking-wide"
           style={{
             fontWeight: active ? 600 : 400,
             maxHeight: compact ? 0 : 16,
@@ -1052,13 +1052,16 @@ function BadgeDot({
   const { bg, fg } = toneStyle[tone];
   const display = count > 9 ? '9+' : String(count);
 
+  // aria-label on a role-less <span> is naming-prohibited (ignored by most
+  // screen readers) — the visible/sr-only pair below actually announces the
+  // built label ("12 pending, 2 overdue"). Council fix #6 2026-07-09.
   return (
     <span
-      aria-label={label ?? `${count} new`}
       className="absolute -right-1.5 -top-1 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none"
       style={{ background: bg, color: fg }}
     >
-      {display}
+      <span aria-hidden>{display}</span>
+      <span className="sr-only">{label ?? `${count} new`}</span>
     </span>
   );
 }

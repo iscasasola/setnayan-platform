@@ -271,7 +271,7 @@ export default async function VendorDashboardLayout({
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-20 lg:pb-0">{children}</div>
+        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">{children}</div>
       </SidebarShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't

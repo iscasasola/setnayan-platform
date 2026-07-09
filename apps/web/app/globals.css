@@ -668,6 +668,12 @@ html.subnav-docked [data-shell-main] {
   --m-nav-active:      #5C2542;   /* = --color-mulberry (light) — active bar · icon · focus ring */
   --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
 
+  /* Admin doorway accent — VIOLET ("Energy, not skin" 2026-07-09: couple =
+   * wine, vendor = wine+blue, admin = wine+violet). Used for the Setnayan HQ
+   * sidebar-header dot + the Internal role-badge dot; the wine nav-active
+   * chrome above is shared by all three doorways. */
+  --a-violet: #6D28D9;
+
   /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
   --m-mulberry:    #1E2229;
   --m-mulberry-2:  #343A44;

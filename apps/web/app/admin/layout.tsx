@@ -1,10 +1,11 @@
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -80,14 +81,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }),
   ]);
 
-  const isAdmin =
-    profile?.is_internal ||
-    profile?.is_team_member ||
-    profile?.account_type === 'admin';
-
-  // Non-admins get a 404 rather than a redirect so the /admin route doesn't
-  // leak its own existence.
-  if (!isAdmin) notFound();
+  // Shared admin gate (lib/admin/require-admin.ts · council fix #1): login
+  // redirect when signed out, 404 (never a redirect — the /admin route doesn't
+  // leak its own existence) when signed in but not admin. The same cache()'d
+  // gate is called by admin PAGES directly, because a layout alone is not a
+  // safe auth boundary in front of the service-role client.
+  await requireAdmin();
 
   // Social auto-publish flush — cron-free: dispatch piggybacks on admin
   // traffic via after(). Fire-and-forget; the 10-min throttle inside
@@ -104,11 +103,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
+  // Role badge — the violet dot is the admin doorway's accent (couple = wine,
+  // vendor = wine+blue, admin = wine+violet — "Energy, not skin" 2026-07-09).
+  // Emoji retired: screen readers read it aloud and it renders inconsistently.
   const badge = profile?.is_internal
-    ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
+    ? {
+        label: 'Internal',
+        tone: 'bg-purple-100 text-purple-800',
+        dot: 'bg-[var(--a-violet)]',
+      }
     : profile?.is_team_member
-      ? { label: '🟢 Team Pool', tone: 'bg-success-100 text-success-800' }
-      : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
+      ? {
+          label: 'Team Pool',
+          tone: 'bg-success-100 text-success-800',
+          dot: 'bg-success-600',
+        }
+      : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70', dot: null };
 
   // Nav registry + live queue digest (count + oldest-open age per Work queue).
   // Fails open to {}. cache()'d, so the /admin/work command center shares this
@@ -129,12 +139,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // escalation pill leads the cluster so a breach is visible on EVERY admin
   // page, not just when the eye is on the Work nav group.
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-3 sm:gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      {/* SLA escalation pills — semantic red/warn classes (council fix #12:
+          same color family per urgency state as the sidebar badges + overview
+          tiles; the stock Untitled-UI hexes are retired). The ::before inset
+          extends the small pill's hit area toward the 44px floor without
+          changing its visual size (fix #15). A third branch surfaces DEGRADED
+          counts (fix #3): a failed digest used to render pixel-identical to a
+          clear day — no pill, no badges — so an outage read as "all clear". */}
       {urgency.overdue > 0 ? (
         <Link
           href="/admin/work"
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-90"
-          style={{ background: '#FEE4E2', color: '#B42318' }}
+          className="relative inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
           aria-label={`${urgency.overdue} ${urgency.overdue === 1 ? 'queue is' : 'queues are'} past SLA — open the work list`}
         >
           <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -143,12 +159,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ) : urgency.dueSoon > 0 ? (
         <Link
           href="/admin/work"
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-90"
-          style={{ background: '#FEF0C7', color: '#B54708' }}
+          className="relative inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-2.5 py-1 text-xs font-semibold text-warn-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
           aria-label={`${urgency.dueSoon} ${urgency.dueSoon === 1 ? 'queue is' : 'queues are'} approaching SLA — open the work list`}
         >
           <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
           {urgency.dueSoon} due soon
+        </Link>
+      ) : urgency.unknownCount > 0 ? (
+        <Link
+          href="/admin/work"
+          className="relative inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink/70 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          aria-label={`${urgency.unknownCount} queue ${urgency.unknownCount === 1 ? 'count is' : 'counts are'} unavailable — open the work list`}
+        >
+          <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Queue counts unavailable
         </Link>
       ) : null}
       <UnreadBellBadge
@@ -159,8 +183,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         ariaUnreadSuffix="unread"
       />
       <span
-        className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
       >
+        {badge.dot ? (
+          <span
+            aria-hidden
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${badge.dot}`}
+          />
+        ) : null}
         {badge.label}
       </span>
       <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
@@ -178,7 +208,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="app-surface">
       <SidebarShell
-        sidebarHeader={<DoorwaySidebarHeader label="Setnayan HQ" switcherData={switcherData} />}
+        sidebarHeader={
+          <DoorwaySidebarHeader
+            label="Setnayan HQ"
+            accentColor="var(--a-violet)"
+            switcherData={switcherData}
+          />
+        }
         sidebar={
           <AdminSidebar
             navSlots={navSlots}
@@ -188,10 +224,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         }
         topBar={topBar}
       >
-        {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-            row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-20 lg:pb-0">{children}</div>
+        {/* Pad the bottom on mobile so the FLOATING BottomNav pill (12px float
+            + ~64px bar + 16px breathing + the device's home-indicator inset)
+            doesn't cover the last row of content — a fixed pb-20 under-reserved
+            on safe-area devices (council fix #4). SidebarShell already handles
+            the desktop sidebar offset via its lg:pl-[var(--shell-main-offset)]
+            math. */}
+        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">{children}</div>
       </SidebarShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't

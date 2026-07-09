@@ -44,6 +44,7 @@ import {
 import {
   getAdminQueueDigest,
   computeDueState,
+  ageShort,
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
@@ -78,16 +79,6 @@ const BASE_ROWS: BaseRow[] = [
   { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },
   { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest-gallery content awaiting moderation.' },
 ];
-
-// Compact age string from the oldest open item: 45m · 6h · 3d.
-function ageShort(iso: string | null, nowMs: number): string | null {
-  if (!iso) return null;
-  const mins = Math.max(0, Math.floor((nowMs - new Date(iso).getTime()) / 60_000));
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 48) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
-}
 
 // Worklist priority: overdue first, then due-soon, then open work (busiest),
 // then unknown, then clear — canonical order breaks ties within a band.

@@ -110,6 +110,12 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
     hipJ.add(thigh);
     parts[side < 0 ? 'thighL' : 'thighR'] = thigh;
 
+    // Joint-blend balls (independent literals, cross-checking the exported R's).
+    const hipBall = m4();
+    hipBall.scale.set(0.0705, 0.0705, 0.0705);
+    hipJ.add(hipBall);
+    parts[side < 0 ? 'hipBallL' : 'hipBallR'] = hipBall;
+
     const kneeJ = new THREE.Group();
     kneeJ.position.set(0, -R_THIGH_LEN, 0);
     hipJ.add(kneeJ);
@@ -120,6 +126,11 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
     shin.scale.set(1.08, R_SHIN_LEN / R_LEG_GEO_LEN, 1.08);
     kneeJ.add(shin);
     parts[side < 0 ? 'shinL' : 'shinR'] = shin;
+
+    const kneeBall = m4();
+    kneeBall.scale.set(0.0705, 0.0705, 0.0705);
+    kneeJ.add(kneeBall);
+    parts[side < 0 ? 'kneeBallL' : 'kneeBallR'] = kneeBall;
 
     const shoe = m4();
     shoe.position.set(0, -R_SHIN_LEN + 0.03, 0.04);
@@ -154,6 +165,11 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
     shoulderJ.add(upper);
     parts[side < 0 ? 'upperArmL' : 'upperArmR'] = upper;
 
+    const shoulderBall = m4();
+    shoulderBall.scale.set(0.052, 0.052, 0.052);
+    shoulderJ.add(shoulderBall);
+    parts[side < 0 ? 'shoulderBallL' : 'shoulderBallR'] = shoulderBall;
+
     const elbowJ = new THREE.Group();
     elbowJ.position.set(0, -R_UPPER_ARM_LEN, 0);
     shoulderJ.add(elbowJ);
@@ -164,6 +180,11 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
     fore.scale.set(0.88, R_FOREARM_LEN / R_ARM_GEO_LEN, 0.88);
     elbowJ.add(fore);
     parts[side < 0 ? 'forearmL' : 'forearmR'] = fore;
+
+    const elbowBall = m4();
+    elbowBall.scale.set(0.0425, 0.0425, 0.0425);
+    elbowJ.add(elbowBall);
+    parts[side < 0 ? 'elbowBallL' : 'elbowBallR'] = elbowBall;
   }
 
   const headJ = new THREE.Group();
@@ -189,9 +210,9 @@ function matricesClose(a: THREE.Matrix4, b: THREE.Matrix4, eps = EPS): boolean {
   return true;
 }
 
-test('SIT_PART_KEYS covers exactly the 14 seated body meshes', () => {
-  assert.equal(SIT_PART_KEYS.length, 14);
-  assert.equal(new Set(SIT_PART_KEYS).size, 14); // no dupes
+test('SIT_PART_KEYS covers exactly the 22 seated body meshes', () => {
+  assert.equal(SIT_PART_KEYS.length, 22);
+  assert.equal(new Set(SIT_PART_KEYS).size, 22); // no dupes
 });
 
 test('buildSitBakedLocals is deterministic (same matrices every call)', () => {

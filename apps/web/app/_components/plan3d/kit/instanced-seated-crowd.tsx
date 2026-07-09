@@ -3,12 +3,12 @@
 /**
  * InstancedSeatedCrowd — the seated-crowd draw-call collapse (2026-07-08),
  * modelled on `instanced-chairs.tsx`. The articulated `<Figure pose="sit">`
- * draws ~14 non-instanced meshes PER occupant; three surfaces mount one per
+ * draws ~22 non-instanced meshes PER occupant; three surfaces mount one per
  * occupied seat with no cap/LOD/instancing, so the phone-first public walk hit
  * ~3.2k color-pass draws + ~250 no-op `useFrame` subscribers at 250 pax. Since
  * the sit pose is a CONSTANT (`sitPose()`), every seated figure shares the
  * IDENTICAL baked joint transform — so the whole seated crowd collapses to ONE
- * InstancedMesh per body part (≈14 draws total, +1 for the optional status
+ * InstancedMesh per body part (≈22 draws total, +1 for the optional status
  * ring) and ZERO per-figure `useFrame`.
  *
  * PIXEL-IDENTITY (proven in `lib/figure-sit-bake.test.ts`): each instance's
@@ -56,6 +56,7 @@ import {
   NECK_GEO,
   HIP_GEO,
   SHOE_GEO,
+  JOINT_GEO,
   MANNEQUIN_TORSO_GEO,
   STATUS_RING_GEO,
   STATUS_RING_POS_Y,
@@ -101,6 +102,16 @@ const PART_GEO: Record<SitPartKey, THREE.BufferGeometry> = {
   forearmL: ARM_GEO,
   forearmR: ARM_GEO,
   head: HEAD_GEO,
+  // Joint-blend balls (2026-07-09 seamless-joints pass) — the unit sphere,
+  // scaled by the baked leaf matrices to KNEE/HIP/ELBOW/SHOULDER_BALL_R.
+  hipBallL: JOINT_GEO,
+  hipBallR: JOINT_GEO,
+  kneeBallL: JOINT_GEO,
+  kneeBallR: JOINT_GEO,
+  shoulderBallL: JOINT_GEO,
+  shoulderBallR: JOINT_GEO,
+  elbowBallL: JOINT_GEO,
+  elbowBallR: JOINT_GEO,
 };
 
 // Module scratch (rendering + layout writes are single-threaded).
@@ -122,7 +133,7 @@ function seatInstanceMatrix(rootMatrix: THREE.Matrix4, sc: number, partLocal: TH
 }
 
 /**
- * <InstancedSeatedCrowd> — draws every seat in `seats[]` as ~14 InstancedMesh
+ * <InstancedSeatedCrowd> — draws every seat in `seats[]` as ~22 InstancedMesh
  * body parts (+ an optional ring). Mount it ONCE at the scene root (not per
  * table) with world-space seat matrices, so the entire room's seated crowd is
  * one batch.

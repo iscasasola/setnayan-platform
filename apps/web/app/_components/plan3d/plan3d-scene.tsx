@@ -1008,7 +1008,7 @@ export function Plan3DScene({
 
   // ── Instanced seated crowd (2026-07-08) — mirrors the public walk ──────────
   // Collapse the STATIC seated crowd to ONE <InstancedSeatedCrowd> for the whole
-  // room (~14 draws + zero per-figure useFrame) instead of 14×N meshes. Gated to
+  // room (~22 draws + zero per-figure useFrame) instead of 22×N meshes. Gated to
   // the SAME condition that already makes a <Figure> static — quality 'low' OR
   // reduced motion — so at quality 'high' + motion every figure stays individual
   // and keeps its FigureFrameDriver idle sway (the shipped desktop-overlay look

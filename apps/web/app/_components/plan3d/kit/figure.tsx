@@ -13,13 +13,12 @@
  *   file only owns applying them to group rotations and the mesh dressing.
  *
  * BUDGET (why the numbers below): every geometry is a MODULE-SCOPE shared
- * buffer (the lab's GOWN_GEO/SUIT_GEO precedent) — this file owns 4 (arm +
- * leg capsules, head sphere, status ring) and borrows the outfit / hair /
- * face buffers from their kit modules. Meshes per figure: 8 limb segments +
- * torso + head + face decal + 1–2 hair parts + the status ring ≈ 12–13 for a
- * trousered outfit; skirted outfits hide the thigh meshes under the flared
- * shell (→ 10–11). Materials come from keyed module caches, so a 200-guest
- * room shares a handful of GPU programs.
+ * buffer (the lab's GOWN_GEO/SUIT_GEO precedent) — this file owns the arm +
+ * leg capsules, head sphere, status ring, and the unit JOINT_GEO ball.
+ * Meshes per figure: 8 limb segments + 8 joint-blend balls (2026-07-09
+ * seamless-joints pass) + hip block + torso + neck + head + 2 shoes + the
+ * status ring ≈ 22. All ONE shared body material, so a 200-guest room still
+ * shares a handful of GPU programs.
  *
  * MOTION RULES (house):
  *   · All smoothing is frame-rate independent via the shared `damp(base,
@@ -94,6 +93,10 @@ import {
   UPPER_ARM_SCALE_Y,
   FOREARM_SCALE_XZ,
   FOREARM_SCALE_Y,
+  KNEE_BALL_R,
+  HIP_BALL_R,
+  ELBOW_BALL_R,
+  SHOULDER_BALL_R,
   applyPose,
   type JointGroups,
 } from '@/lib/figure-sit-bake';
@@ -131,6 +134,12 @@ export const SHOE_GEO = (() => {
   return g;
 })();
 export const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
+// Joint-blend ball (2026-07-09 seamless-joints pass — owner: "no twisted
+// balloon"): a UNIT sphere scaled per joint to the radii in figure-sit-bake
+// (KNEE/HIP/ELBOW/SHOULDER_BALL_R). One sphere at each bending pivot bridges
+// the two capsule ends so a bent limb reads as one smooth tube — no pinch, no
+// taper step. Same body material → the union is seamless.
+export const JOINT_GEO = new THREE.SphereGeometry(1, 20, 16);
 // 2026-07-08 AVATAR PIVOT: the plump featureless mannequin torso — one smooth
 // capsule, softly flattened front-to-back. No shells, no wardrobe.
 export const MANNEQUIN_TORSO_GEO = (() => {
@@ -484,6 +493,14 @@ export const Figure = memo(function Figure({
               scale={[THIGH_SCALE_XZ, THIGH_SCALE_Y, THIGH_SCALE_XZ]}
               castShadow={castShadow}
             />
+            {/* Hip joint-blend ball — fills the groin crease when the hip folds
+                (seated); hides inside the hip block + thigh when standing. */}
+            <mesh
+              geometry={JOINT_GEO}
+              material={bodyMat}
+              scale={[HIP_BALL_R, HIP_BALL_R, HIP_BALL_R]}
+              castShadow={castShadow}
+            />
             <group
               ref={(el) => void (groups.current[side < 0 ? 'lKnee' : 'rKnee'] = el)}
               position={[0, -THIGH_LEN, 0]}
@@ -493,6 +510,14 @@ export const Figure = memo(function Figure({
                 material={bodyMat}
                 position={[0, -SHIN_LEN / 2, 0]}
                 scale={[SHIN_SCALE_XZ, SHIN_SCALE_Y, SHIN_SCALE_XZ]}
+                castShadow={castShadow}
+              />
+              {/* Knee joint-blend ball — the bent knee reads as one smooth
+                  tube instead of two capsules pinching (balloon twist). */}
+              <mesh
+                geometry={JOINT_GEO}
+                material={bodyMat}
+                scale={[KNEE_BALL_R, KNEE_BALL_R, KNEE_BALL_R]}
                 castShadow={castShadow}
               />
               {/* Foot nub — same blank material (the mannequin has no shoes),
@@ -528,6 +553,14 @@ export const Figure = memo(function Figure({
                 scale={[UPPER_ARM_SCALE_XZ, UPPER_ARM_SCALE_Y, UPPER_ARM_SCALE_XZ]}
                 castShadow={castShadow}
               />
+              {/* Shoulder joint-blend ball — a soft deltoid that keeps the
+                  swinging arm attached to the torso (no armpit gap). */}
+              <mesh
+                geometry={JOINT_GEO}
+                material={bodyMat}
+                scale={[SHOULDER_BALL_R, SHOULDER_BALL_R, SHOULDER_BALL_R]}
+                castShadow={castShadow}
+              />
               <group
                 ref={(el) => void (groups.current[side < 0 ? 'lElbow' : 'rElbow'] = el)}
                 position={[0, -UPPER_ARM_LEN, 0]}
@@ -537,6 +570,13 @@ export const Figure = memo(function Figure({
                   material={bodyMat}
                   position={[0, -FOREARM_LEN / 2, 0]}
                   scale={[FOREARM_SCALE_XZ, FOREARM_SCALE_Y, FOREARM_SCALE_XZ]}
+                  castShadow={castShadow}
+                />
+                {/* Elbow joint-blend ball — smooth bent-elbow bend. */}
+                <mesh
+                  geometry={JOINT_GEO}
+                  material={bodyMat}
+                  scale={[ELBOW_BALL_R, ELBOW_BALL_R, ELBOW_BALL_R]}
                   castShadow={castShadow}
                 />
               </group>

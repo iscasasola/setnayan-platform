@@ -52,6 +52,7 @@ import {
   StringLights,
   InstancedSeatedCrowd,
   seatedFigureMatrix,
+  RUN_CLOCK_RAD_S,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
@@ -2944,9 +2945,9 @@ function TableMesh({
  * The single walk-in — an articulated kit `<Figure>` DRESSED AS THE GUEST
  * (same spec as their seated figure: outfit, selfie head, status colour).
  * This group owns position + heading for the WALK leg only (the kit contract:
- * parents move, figures dress); the walk-cycle gait is driven by the SAME
- * motion clock that used to drive the bob (t × 9 rad/s), fed through a phase
- * ref so the gait advances without re-rendering React each frame.
+ * parents move, figures dress); the RUN-cycle gait (this walker jogs at
+ * ~2.4 m/s) is driven by the motion clock at RUN_CLOCK_RAD_S, fed through a
+ * phase ref so the gait advances without re-rendering React each frame.
  *
  * ARRIVAL — the old teleport seam, now the sit choreography: the path ends at
  * the sit APPROACH POINT (0.55 m behind the chair — retargeted in sendGuest),
@@ -3056,10 +3057,11 @@ function Walker({
       g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
     }
-    // Same clock, new consumer: the ~11 rad/s cadence (Meccha-cute quick steps,
-    // 2026-07-09) advances the rig's walk cycle (frame-rate independent — t
+    // Same clock, new consumer: the RUN cadence (this walker jogs at ~2.4 m/s;
+    // the scurry cycle keeps the feet planted — ChameleonMovement port,
+    // 2026-07-09) advances the rig's run cycle (frame-rate independent — t
     // integrates real delta).
-    phase.current = t.current * 11;
+    phase.current = t.current * RUN_CLOCK_RAD_S;
     // Tier B follow-focus: publish the live root position (a ref write per
     // frame, zero React work; the DoF reads it in ITS frame loop).
     if (posRef) (posRef.current ??= new THREE.Vector3()).copy(g.position);
@@ -3102,7 +3104,13 @@ function Walker({
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <Figure spec={figSpec} pose="walk" phase={phase} name={walker.name} />
+      {/* 'run' — this walker jogs at ~2.4 m/s. KNOWN SEAM (pre-existing, run
+          makes it more visible): on arrival the root swaps <group> →
+          <SitController>, REMOUNTING the figure — the fresh driver snaps to
+          'stand' in one frame instead of easing (the kit's ⅓ s preset blend
+          only runs within a mounted driver). Threading the arrival pose +
+          phase into the controller is the follow-up fix. */}
+      <Figure spec={figSpec} pose="run" phase={phase} name={walker.name} />
       {/* The follow light keeps the walk-in readable in the darker Play room. */}
       <pointLight position={[0, 1.2, 0]} intensity={0.4} distance={3} color={palette.accent} />
     </group>
@@ -3559,8 +3567,8 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
   const idx = useRef(0);
   const done = useRef(false);
   const t = useRef(0);
-  // Gait phase — the mover's motion clock (t × 11 rad/s, the Meccha-cute
-  // quick-steps cadence) feeds the rig's walk cycle via a ref (no re-renders).
+  // Gait phase — the mover's motion clock (the RUN cadence: this mover darts
+  // at 2.6 m/s) feeds the rig's run cycle via a ref (no re-renders).
   const phase = useRef(0);
   const start = mover.path[0] ?? { x: 0, z: 0 };
   // Mirror into a ref so the useFrame loop reads the live value (no hook in loop).
@@ -3607,12 +3615,12 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
       g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
     }
-    // The old parent-group y-bob is retired — walkCyclePose bobs the pelvis.
-    phase.current = t.current * 11;
+    // The old parent-group y-bob is retired — runCyclePose bobs the pelvis.
+    phase.current = t.current * RUN_CLOCK_RAD_S;
   });
   return (
     <group ref={ref} position={[start.x, 0, start.z]}>
-      <Figure spec={mover.spec} pose="walk" phase={phase} name={mover.name} />
+      <Figure spec={mover.spec} pose="run" phase={phase} name={mover.name} />
     </group>
   );
 }
@@ -3695,7 +3703,9 @@ function DancerToken({ dancer, reduced, onReturn }: { dancer: Dancer; reduced: b
       g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
     }
-    phase.current = t.current * 9;
+    // RUN cadence — the dancer darts to the floor at 2.6 m/s (this clock was
+    // still the pre-kit ×9; retuned with the ChameleonMovement port 2026-07-09).
+    phase.current = t.current * RUN_CLOCK_RAD_S;
   });
   return (
     <group
@@ -3706,7 +3716,7 @@ function DancerToken({ dancer, reduced, onReturn }: { dancer: Dancer; reduced: b
         onReturn(dancer.gid);
       }}
     >
-      <Figure spec={dancer.spec} pose={dancing ? 'dance' : 'walk'} phase={phase} name={dancer.name} />
+      <Figure spec={dancer.spec} pose={dancing ? 'dance' : 'run'} phase={phase} name={dancer.name} />
     </group>
   );
 }

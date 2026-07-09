@@ -4,7 +4,8 @@
  * kit/figure — the articulated "Sims-like" figure every 3D seat-plan surface
  * shares (owner-locked direction; replaced the cylinder+sphere GuestToken /
  * Walker tokens on all three surfaces — homepage demo, couple lab, and the
- * public guest venue walk as of Fable slice 7). One rig, three poses:
+ * public guest venue walk as of Fable slice 7). One rig, five poses
+ * (stand · walk · run · sit · dance):
  *
  *   group hierarchy: pelvis → torso → head, with two 2-segment arms
  *   (shoulder→elbow) and two 2-segment legs (hip→knee) hanging off it. Pose
@@ -46,6 +47,8 @@ import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import {
   standPose,
   walkCyclePose,
+  runCyclePose,
+  jellySquash,
   sitPose,
   idleSway,
   staffIdle,
@@ -55,6 +58,7 @@ import {
   JOINTS,
   ZERO_POSE,
   type FigureSpec,
+  type JellyScale,
   type Pose,
   type StaffIdleKind,
 } from '@/lib/figure-rig';
@@ -159,15 +163,19 @@ function statusRingMaterial(color: string): THREE.MeshBasicMaterial {
 const STAND_BASE = standPose();
 const SIT_BASE = sitPose();
 
-// Meccha-style walk squash-&-stretch (owner direction 2026-07-09): the body
-// stretches tall at the bounce apex and squashes wide at each footfall, giving
-// the springy toy-walk its bounce. Applied to the TORSO group only (legs keep
-// their plant) and synced to the SAME |sin(phase)| bounce as walkCyclePose's
-// pelvisY. `applyPose` never writes torso.scale, so this survives the frame.
-// One number to tune "more/less spring".
-const WALK_SQUASH = 0.06; // ±6% body scale over the bounce
+// Meccha-style jelly squash-&-stretch (the ChameleonMovement prototype port,
+// 2026-07-09): the torso squashes WIDE at each footfall and stretches tall
+// toward the bounce apex — impact-weighted (squash > stretch, the jelly-toy
+// weight landing), computed by the PURE `jellySquash` in lib/figure-rig and
+// applied to the TORSO group only (legs keep their plant). `applyPose` never
+// writes torso.scale, so this survives the frame. Two numbers per gait to
+// tune ("more/less spring"); the run squashes harder than the walk.
+const GAIT_SQUASH: Record<'walk' | 'run', { squash: number; stretch: number }> = {
+  walk: { squash: 0.09, stretch: 0.05 },
+  run: { squash: 0.14, stretch: 0.08 },
+};
 
-export type FigurePoseName = 'stand' | 'walk' | 'sit' | 'dance';
+export type FigurePoseName = 'stand' | 'walk' | 'run' | 'sit' | 'dance';
 export type FigureQuality = 'high' | 'low';
 
 // `JointGroups` + `applyPose` are imported from `lib/figure-sit-bake` (the
@@ -178,10 +186,11 @@ export type FigureProps = {
   /** Which figure-rig preset drives the joints. Default 'stand'. */
   pose?: FigurePoseName;
   /**
-   * Walk-cycle phase in radians (the demo Walker's existing ~9 rad/s bob
-   * clock plugs straight in; freeze it on arrival exactly as today). Pass a
-   * ref to advance the gait WITHOUT re-rendering React each frame — the
-   * figure reads `.current` inside its own useFrame.
+   * Gait phase in radians — advance by `WALK_CLOCK_RAD_S` (or
+   * `RUN_CLOCK_RAD_S` for pose 'run') from lib/figure-rig while translating;
+   * freeze it on arrival exactly as today. Pass a ref to advance the gait
+   * WITHOUT re-rendering React each frame — the figure reads `.current`
+   * inside its own useFrame.
    */
   phase?: number | React.MutableRefObject<number>;
   /** 'low' bakes a static pose (no per-frame joint updates) — the crowd /
@@ -262,29 +271,35 @@ function FigureFrameDriver({
   const prevPose = useRef<FigurePoseName>(pose);
   const targetBuf = useRef<Pose>({ ...ZERO_POSE });
   const swayBuf = useRef<Partial<Pose>>({});
+  const jellyBuf = useRef<JellyScale>({ y: 1, xz: 1 });
+  // Live squash/stretch amplitudes — damped toward the pose's GAIT_SQUASH
+  // targets (or 0) each frame; see the jelly block at the bottom of the loop.
+  const jellyAmp = useRef({ squash: 0, stretch: 0 });
 
   useFrame(({ clock }, delta) => {
     const ph = typeof phase === 'number' ? phase : phase.current;
-    // Walk takes the raw cycle (phase is already continuous + frame-rate
+    // Walk/run take the raw cycle (phase is already continuous + frame-rate
     // independent at the caller); stand/sit layer the per-id idle life on top.
     const target =
       pose === 'walk'
         ? walkCyclePose(ph, targetBuf.current)
-        : pose === 'dance'
-          ? // Tap-the-dance-floor: the looping dance clip layered over the
-            // stand base — same additive composition, same wall-clock time base
-            // as idleSway/staffIdle. The walk→dance / dance→walk preset switch
-            // eases through the generic blend below (no special-casing).
-            overlayPose(STAND_BASE, dancePose(specId, clock.elapsedTime, swayBuf.current), targetBuf.current)
-          : overlayPose(
-              pose === 'sit' ? SIT_BASE : STAND_BASE,
-              // Booth staff swap the guests' idleSway for their job's clip —
-              // same additive-overlay composition, same wall-clock time base.
-              idleClip && pose === 'stand'
-                ? staffIdle(idleClip, specId, clock.elapsedTime, swayBuf.current)
-                : idleSway(specId, clock.elapsedTime, swayBuf.current),
-              targetBuf.current,
-            );
+        : pose === 'run'
+          ? runCyclePose(ph, targetBuf.current)
+          : pose === 'dance'
+            ? // Tap-the-dance-floor: the looping dance clip layered over the
+              // stand base — same additive composition, same wall-clock time base
+              // as idleSway/staffIdle. The walk→dance / dance→walk preset switch
+              // eases through the generic blend below (no special-casing).
+              overlayPose(STAND_BASE, dancePose(specId, clock.elapsedTime, swayBuf.current), targetBuf.current)
+            : overlayPose(
+                pose === 'sit' ? SIT_BASE : STAND_BASE,
+                // Booth staff swap the guests' idleSway for their job's clip —
+                // same additive-overlay composition, same wall-clock time base.
+                idleClip && pose === 'stand'
+                  ? staffIdle(idleClip, specId, clock.elapsedTime, swayBuf.current)
+                  : idleSway(specId, clock.elapsedTime, swayBuf.current),
+                targetBuf.current,
+              );
     if (!cur.current || !from.current) {
       cur.current = { ...target };
       from.current = { ...target };
@@ -302,17 +317,21 @@ function FigureFrameDriver({
     const f = from.current;
     for (const j of JOINTS) c[j] = f[j] + (target[j] - f[j]) * b;
     applyPose(groups.current, c);
-    // Squash-&-stretch: only while walking, and eased in/out by the same blend
-    // `b` as the joints so it fades up when the walk starts and back to neutral
-    // when the figure sits/stands/dances (no stuck-tall body on the seated pose).
+    // Jelly squash-&-stretch: the squash/stretch AMPLITUDES are damped toward
+    // the current pose's targets (zero when not gaited) with the same
+    // frame-rate-independent ⅓ s settle as the joint blend — so walk→run
+    // deepens the jelly smoothly, and a figure that stops mid-squash relaxes
+    // to neutral instead of popping in one frame. At rest the amplitudes decay
+    // to ~0 and the torso holds 1,1,1 (jellySquash(ph, 0, 0) is exactly 1).
     const torso = groups.current.torso;
     if (torso) {
-      const walking = pose === 'walk';
-      const bounce = walking ? Math.abs(Math.sin(ph)) : 0; // 0 footfall → 1 apex
-      // (2·bounce − 1) ∈ [−1, 1]; the `walking ? b : 0` factor collapses the
-      // scale back to neutral (s = 0 → 1,1,1) the moment the figure isn't walking.
-      const s = (bounce * 2 - 1) * WALK_SQUASH * (walking ? b : 0);
-      torso.scale.set(1 - s * 0.6, 1 + s, 1 - s * 0.6);
+      const jt = pose === 'walk' || pose === 'run' ? GAIT_SQUASH[pose] : null;
+      const amp = jellyAmp.current;
+      const k = damp(0.002, delta);
+      amp.squash += ((jt?.squash ?? 0) - amp.squash) * k;
+      amp.stretch += ((jt?.stretch ?? 0) - amp.stretch) * k;
+      const jelly = jellySquash(ph, amp.squash, amp.stretch, jellyBuf.current);
+      torso.scale.set(jelly.xz, jelly.y, jelly.xz);
     }
   });
 
@@ -371,10 +390,10 @@ export const Figure = memo(function Figure({
     const p =
       pose === 'sit'
         ? SIT_BASE
-        : pose === 'walk'
+        : pose === 'walk' || pose === 'run'
           ? reduced
             ? STAND_BASE
-            : walkCyclePose(typeof phase === 'number' ? phase : phase.current)
+            : (pose === 'run' ? runCyclePose : walkCyclePose)(typeof phase === 'number' ? phase : phase.current)
           : pose === 'dance'
             ? // Static dancer (reduced motion OR quality 'low'): hold the
               // dance clip's t=0 pose — a paused dancer, arms raised, still
@@ -388,6 +407,10 @@ export const Figure = memo(function Figure({
                 overlayPose(STAND_BASE, staffIdle(idleClip, spec.id, 0))
               : STAND_BASE;
     applyPose(groups.current, p);
+    // A driver that unmounted mid-gait leaves the torso at its last jelly
+    // squash — a baked figure must hold the neutral body, or the matrix
+    // freeze below would capture the squashed scale forever.
+    groups.current.torso?.scale.set(1, 1, 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staticMode, pose, reduced, staticPhase, idleClip, spec.id]);
 

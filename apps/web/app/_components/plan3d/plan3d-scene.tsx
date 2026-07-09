@@ -29,8 +29,9 @@
  * cylinder+sphere tokens. Seated guests STAND at their seats for now (the
  * crowd's baked sit pose is a later slice) in side-derived Filipino formalwear
  * (gown/filipiniana · suit/barong, deterministic per guest id), and the
- * walker is a walk-cycle figure phased by the same bob clock as before. The
- * crowd inherits the scene `quality` knob ('low' bakes static poses on the
+ * walker is a gait-cycle figure — walk for the scripted seat stroll, RUN for
+ * roam taps (WalkState.run) — phased by the named WALK/RUN_CLOCK_RAD_S clocks.
+ * The crowd inherits the scene `quality` knob ('low' bakes static poses on the
  * phone); the single player figure always runs 'high'.
  *
  * Sit clip (kit slice 2, 2026-07-08): the scripted "Where am I seated?" walk no
@@ -150,6 +151,8 @@ import {
   StringLights,
   InstancedSeatedCrowd,
   seatRootMatrix,
+  WALK_CLOCK_RAD_S,
+  RUN_CLOCK_RAD_S,
   type EmoteEmitter,
   type EmoteGlyph,
   type FigureSpec,
@@ -482,6 +485,9 @@ function damp(base: number, delta: number): number {
 const WALK_SPEED_MPS = 1.45; // an unhurried indoor stroll (scripted seat walk)
 const WALK_MIN_MS = 2800; // never so short the entrance→seat arc feels clipped
 const ROAM_SPEED = 1.7; // constant roam speed so cross-room taps don't fast-forward
+// At/above this requested speed a walk plays the RUN cycle (the scurry) —
+// roam taps qualify, the scripted 1.45 m/s seat stroll doesn't.
+const RUN_AT_MPS = 1.6;
 const AVATAR_BODY_R = 0.24; // keep the avatar's own girth clear of obstacles too
 // A dance target is pulled this far inside the dance-floor edge so the figure
 // lands squarely ON the floor (body clear of the lip), not straddling it.
@@ -519,6 +525,11 @@ type WalkState = {
    *  fresh WalkState (a seat/booth/elsewhere tap) defaults this off, which is
    *  exactly how "walk off the floor → stop dancing" falls out for free. */
   dance?: boolean;
+  /** Fast walk (roam taps at ROAM_SPEED ≥ RUN_AT_MPS): the figure plays the
+   *  runCyclePose scurry at the run gait clock instead of the walk cycle —
+   *  the ChameleonMovement port (2026-07-09). Scripted seat walks
+   *  (WALK_SPEED_MPS) leave it unset and keep the stroll. */
+  run?: boolean;
 };
 
 // Seconds of no look-input before the chase camera eases its facing back to
@@ -685,15 +696,14 @@ function Walker({
     }
     const camH = h + lookYaw;
 
-    // The walk-cycle clock, now shared with the kit <Figure> as its gait
-    // phase: advances ~11 rad/s while the walk is live and FREEZES on arrival,
-    // so the limbs stop swinging exactly when the figure stops translating.
-    // (11, up from 9 — the Meccha-cute quick-little-steps cadence, 2026-07-09.)
-    // The rig's own pelvisY carries the bob these days (walkCyclePose), so the
-    // group stays ON the floor — no more whole-body hop. Reduced motion never
-    // reads the clock: the kit bakes a neutral stand in that mode, and the
-    // figure still relocates so the flow completes.
-    bobRef.current += delta * (raw < 1 ? 11 : 0);
+    // The gait clock, shared with the kit <Figure> as its phase: advances at
+    // the walk or run cadence (single-sourced in lib/figure-rig) while the
+    // walk is live and FREEZES on arrival, so the limbs stop swinging exactly
+    // when the figure stops translating. The rig's own pelvisY carries the
+    // bob these days, so the group stays ON the floor — no whole-body hop.
+    // Reduced motion never reads the clock: the kit bakes a neutral stand in
+    // that mode, and the figure still relocates so the flow completes.
+    bobRef.current += delta * (raw < 1 ? (walk.run ? RUN_CLOCK_RAD_S : WALK_CLOCK_RAD_S) : 0);
 
     if (groupRef.current) {
       groupRef.current.position.set(p.x, 0, p.z);
@@ -734,7 +744,13 @@ function Walker({
       {/* On arrival the pose eases to 'stand' — or to the looping 'dance' when
           this walk ended on the dance floor (the kit blends walk↔dance exactly
           like walk↔stand, so neither transition holds a frozen stride). */}
-      <Figure spec={spec} name={name} pose={atRest ? (walk.dance ? 'dance' : 'stand') : 'walk'} phase={bobRef} quality="high" />
+      <Figure
+        spec={spec}
+        name={name}
+        pose={atRest ? (walk.dance ? 'dance' : 'stand') : walk.run ? 'run' : 'walk'}
+        phase={bobRef}
+        quality="high"
+      />
     </group>
   );
 }
@@ -1089,8 +1105,15 @@ export function Plan3DScene({
       setWalk({ path: [dest], obstacles: [], startedAt: performance.now(), durationMs: 1, dance });
       return;
     }
-    const durationMs = Math.min(6500, Math.max(500, (pathLength(path) / speed) * 1000));
-    setWalk({ path, obstacles: walkObstacles, startedAt: performance.now(), durationMs, dance });
+    const length = pathLength(path);
+    const durationMs = Math.min(6500, Math.max(500, (length / speed) * 1000));
+    // Fast taps play the run cycle (the ChameleonMovement scurry) — decided by
+    // the REALIZED speed (post-clamp), not the requested one: a sub-metre roam
+    // tap gets its duration floored to 500 ms, dropping the actual pace below
+    // walking — playing the 16 rad/s sprint there would churn ~1.3 frantic
+    // cycles in place, the exact clock/speed mispairing the run cycle kills.
+    const run = length / (durationMs / 1000) >= RUN_AT_MPS;
+    setWalk({ path, obstacles: walkObstacles, startedAt: performance.now(), durationMs, dance, run });
   };
 
   useEffect(() => {

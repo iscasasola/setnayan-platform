@@ -46,7 +46,9 @@ const R_ARM_GEO_LEN = 0.224;
 function refApplyPose(g: Record<string, THREE.Object3D | null>, p: Pose): void {
   if (g.pelvis) g.pelvis.position.set(0, R_PELVIS_Y + p.pelvisY, p.pelvisZ);
   if (g.torso) {
-    g.torso.rotation.x = -p.torsoLean;
+    // Un-negated, mirroring the 2026-07-09 applier fix (an up-pointing child
+    // tips forward with +rotation.x·lean — see applyPose's doc).
+    g.torso.rotation.x = p.torsoLean;
     g.torso.rotation.z = p.torsoSway;
   }
   if (g.head) {

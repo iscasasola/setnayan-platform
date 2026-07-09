@@ -96,11 +96,20 @@ export type JointGroups = {
  * BACKWARD, hence the negations (documented in figure-rig's header). This is
  * the ONE applier — kit/figure.tsx imports it, so the animated figure and the
  * baked crowd apply poses identically.
+ *
+ * torsoLean applies UN-negated (2026-07-09 run-cycle review fix): the
+ * hanging-limb negation is wrong for an UP-pointing child — rotation.x = −lean
+ * tips a (0,1,0) torso toward local −Z, i.e. BACKWARD. The head channels
+ * always applied un-negated for exactly this reason (headPitch + = look down);
+ * the torso now matches. Every authored torsoLean (sit's social forward lean,
+ * the walk/run momentum pitch, staff-idle leans) was written believing
+ * "+ = forward", so this restores their INTENT — the old negation had them
+ * all silently rendering mirrored.
  */
 export function applyPose(g: JointGroups, p: Pose): void {
   if (g.pelvis) g.pelvis.position.set(0, PELVIS_Y + p.pelvisY, p.pelvisZ);
   if (g.torso) {
-    g.torso.rotation.x = -p.torsoLean;
+    g.torso.rotation.x = p.torsoLean;
     g.torso.rotation.z = p.torsoSway;
   }
   if (g.head) {

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Wallet, CalendarHeart } from 'lucide-react';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import {
   formatEventDateWithPrecision,
   type EventDatePrecision,
@@ -59,6 +60,14 @@ export function BudgetCountdownHeader({
   const targetPhp = targetCentavos !== null ? targetCentavos / 100 : null;
   const committedPhp = committedCentavos / 100;
 
+  // Committed as a % of the stated budget — the header mini-donut ("Energy, not
+  // skin" density, 2026-07-09). Null when no target is set (donut hidden). Can
+  // exceed 100 (over budget); the ring clamps visually, the label shows true %.
+  const budgetPct =
+    targetPhp !== null && targetPhp > 0
+      ? Math.round((committedPhp / targetPhp) * 100)
+      : null;
+
   // Projected final: trust the host's target when set; otherwise
   // gently inflate committed by 10% so the rightmost number is
   // never zero out the gate.
@@ -82,13 +91,27 @@ export function BudgetCountdownHeader({
        * bumped from text-ink/55 → text-ink/75 + date line from /80 → full
        * ink so the "Date to be confirmed" placeholder reads cleanly on
        * Warm Alabaster bg per Clean Editorial WCAG AAA target. */}
-      <div className="flex items-baseline gap-2">
-        <CalendarHeart aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/75">
-          {countdownLabel(daysOut)}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-baseline gap-2">
+            <CalendarHeart aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/75">
+              {countdownLabel(daysOut)}
+            </p>
+          </div>
+          <p className="mt-1 font-display text-xl italic text-ink sm:text-2xl">{dateLabel}</p>
+        </div>
+        {budgetPct !== null ? (
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <ProgressRing pct={Math.min(100, budgetPct)} size={64} stroke={6}>
+              <span className="text-sm font-semibold text-ink">{budgetPct}%</span>
+            </ProgressRing>
+            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+              of budget
+            </span>
+          </div>
+        ) : null}
       </div>
-      <p className="mt-1 font-display text-xl italic text-ink sm:text-2xl">{dateLabel}</p>
 
       {/* Three-number row. Stacked on mobile, horizontal on desktop. */}
       <div className="mt-5 grid grid-cols-1 gap-4 border-t border-ink/10 pt-5 sm:grid-cols-3 sm:gap-6">

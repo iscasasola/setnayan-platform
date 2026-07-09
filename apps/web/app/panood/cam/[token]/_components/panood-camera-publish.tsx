@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Video, VideoOff, CircleAlert, Wifi } from 'lucide-react';
+import {
+  publishPanoodCamera,
+  type CameraPublisher,
+  type PeerConnectionState,
+} from '@/lib/panood-webrtc';
 
 // Panood · camera-operator local preview (PR5 — join + local preview only).
 //
@@ -20,16 +25,22 @@ import { Video, VideoOff, CircleAlert, Wifi } from 'lucide-react';
 type Props = {
   cameraIndex: number;
   label: string | null;
+  eventId: string;
+  streamingEnabled: boolean;
 };
 
-export function PanoodCameraPublish({ cameraIndex, label }: Props) {
+export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnabled }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const publisherRef = useRef<CameraPublisher | null>(null);
   const [state, setState] = useState<'starting' | 'live' | 'denied' | 'error'>(
     'starting',
   );
+  const [link, setLink] = useState<PeerConnectionState | null>(null);
 
   const stop = useCallback(() => {
+    publisherRef.current?.close();
+    publisherRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
@@ -53,11 +64,23 @@ export function PanoodCameraPublish({ cameraIndex, label }: Props) {
         await videoRef.current.play().catch(() => {});
       }
       setState('live');
+      // Real streaming (owner-gated): publish this camera to the couple's control
+      // room over WebRTC — P2P, STUN-only, nothing stored. When the flag is OFF
+      // this is skipped and the view stays local-preview-only (the honest default).
+      if (streamingEnabled) {
+        publisherRef.current?.close();
+        publisherRef.current = publishPanoodCamera({
+          eventId,
+          slot: `cam${cameraIndex}`,
+          stream,
+          onState: setLink,
+        });
+      }
     } catch (err) {
       const name = (err as { name?: string } | null)?.name;
       setState(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error');
     }
-  }, []);
+  }, [streamingEnabled, eventId, cameraIndex]);
 
   useEffect(() => {
     void start();
@@ -153,9 +176,15 @@ export function PanoodCameraPublish({ cameraIndex, label }: Props) {
         <div className="flex items-start gap-2.5 rounded-xl border border-cream/10 bg-cream/[0.04] px-3.5 py-3">
           <Wifi aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-cream/55" strokeWidth={1.75} />
           <p className="text-xs leading-relaxed text-cream/70">
-            You&rsquo;re <span className="font-medium text-cream">{camLabel}</span> · connected · the
-            operator will bring you live from the controller. Keep this screen
-            open and your camera pointed where you want.
+            You&rsquo;re <span className="font-medium text-cream">{camLabel}</span> ·{' '}
+            {streamingEnabled
+              ? link === 'connected'
+                ? "live to the controller — the operator picks when you're on screen."
+                : link === 'failed'
+                  ? "couldn't reach the controller on this network — try the same Wi-Fi as the operator."
+                  : 'connecting to the controller…'
+              : 'connected · the operator will bring you live from the controller.'}{' '}
+            Keep this screen open and your camera pointed where you want.
           </p>
         </div>
       </footer>

@@ -38,7 +38,7 @@
 import {
   Home, Users, Compass, Sparkles, Palette, Wallet,
   // Home children:
-  LayoutDashboard, ClipboardList,
+  LayoutDashboard, ClipboardList, Route,
   // Studio children:
   Gem, Globe, Camera, Eye,
   // Budget children:
@@ -178,9 +178,9 @@ export function buildCustomerMenuTree(
       label: 'Home',
       icon: Home,
       href: base,
-      activeMatch: [base, `${base}/checklist`],
+      activeMatch: [base, `${base}/checklist`, `${base}/progress`],
       activeMatchExact: true,
-      sectionMatch: [base, `${base}/checklist`],
+      sectionMatch: [base, `${base}/checklist`, `${base}/progress`],
       sectionMatchExact: true,
       subnavLabel: 'Home',
       children: [
@@ -201,6 +201,16 @@ export function buildCustomerMenuTree(
           href: `${base}/checklist`,
           match: `${base}/checklist`,
           slotKey: 'customer.home-subnav.checklist',
+        },
+        {
+          // Decisions & Progress — journey rail + decisions board.
+          key: 'progress',
+          label: 'Progress',
+          icon: Route,
+          kind: 'route' as const,
+          href: `${base}/progress`,
+          match: `${base}/progress`,
+          slotKey: 'customer.home-subnav.progress',
         },
       ],
     },

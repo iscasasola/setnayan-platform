@@ -762,6 +762,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 1,
   },
   {
+    key: "customer.home-subnav.progress",
+    scope: "customer",
+    area: "home-section-subnav",
+    route: "/dashboard/[eventId]/progress",
+    label: "Progress",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Route",
+    customRef: null,
+    sortOrder: 2,
+  },
+  {
     key: "customer.guest-journey.build",
     scope: "customer",
     area: "guests-section-subnav",

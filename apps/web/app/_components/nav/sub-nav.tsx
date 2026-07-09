@@ -148,7 +148,7 @@ export function SubNav({
               aria-hidden
               className="h-5 w-5 shrink-0"
               strokeWidth={1.75}
-              style={{ color: on ? 'var(--m-orange)' : 'var(--m-slate)' }}
+              style={{ color: on ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
             />
             <span
               className="max-w-full truncate text-[10px] tracking-wide"

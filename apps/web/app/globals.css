@@ -658,6 +658,16 @@ html.subnav-docked [data-shell-main] {
   --m-orange-3:   #E0CCA0;
   --m-orange-4:   #F4ECD8;
 
+  /* Chrome nav active-state — Rich Mulberry WINE (NOT the champagne gold accent).
+   * "Energy, not skin" reskin 2026-07-09: the sidebar / bottom-nav active row +
+   * focus ring read in wine (= --color-mulberry #5C2542) so the app chrome
+   * matches the wine content behind it — the gold rail was the first seam users
+   * noticed (wine content behind a gold rail). Gold (--m-orange) STAYS the
+   * secondary accent (eyebrows · filter chips · "new" badges); only the nav
+   * active-state moves to wine. Owner-flagged open reskin item. */
+  --m-nav-active:      #5C2542;   /* = --color-mulberry (light) — active bar · icon · focus ring */
+  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
+
   /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
   --m-mulberry:    #1E2229;
   --m-mulberry-2:  #343A44;

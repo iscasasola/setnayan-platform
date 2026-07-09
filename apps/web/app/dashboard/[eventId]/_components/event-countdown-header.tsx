@@ -107,7 +107,7 @@ export function EventCountdownHeader({
       </p>
       <h1
         id="event-countdown-heading"
-        className="mt-1 font-display text-3xl leading-tight text-ink sm:text-4xl"
+        className="mt-1 m-serif text-3xl leading-tight text-ink sm:text-4xl"
       >
         {eventName}
       </h1>

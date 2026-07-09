@@ -105,7 +105,7 @@ export function EventCountdownHeader({
       </p>
       <h1
         id="event-countdown-heading"
-        className="mt-1 font-display text-3xl leading-tight text-ink sm:text-4xl"
+        className="mt-1 m-serif text-3xl leading-tight text-ink sm:text-4xl"
       >
         {eventName}
       </h1>
@@ -138,19 +138,50 @@ export function EventCountdownHeader({
       ) : null}
 
       {totalLockable > 0 ? (
-        <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between text-xs text-ink/55">
-            <span>Vendors locked</span>
+        // "Energy, not skin" reskin (2026-07-09): the flat vendors-locked bar
+        // becomes the signature planning progress RING — a wine (mulberry
+        // token) donut with a serif percent in the centre. Same data
+        // (pct / lockedCount / totalLockable), denser read.
+        <div className="mt-5 flex flex-col items-center gap-2">
+          <div className="relative h-24 w-24">
+            <svg viewBox="0 0 96 96" className="h-24 w-24 -rotate-90" aria-hidden="true">
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                fill="none"
+                strokeWidth="8"
+                stroke="currentColor"
+                className="text-ink/10"
+              />
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                fill="none"
+                strokeWidth="8"
+                strokeLinecap="round"
+                stroke="currentColor"
+                className="text-mulberry transition-[stroke-dashoffset] duration-700"
+                strokeDasharray={2 * Math.PI * 40}
+                strokeDashoffset={(2 * Math.PI * 40 * (100 - pct)) / 100}
+              />
+            </svg>
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="text-center">
+                <div className="m-serif text-2xl leading-none text-ink">{pct}%</div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink/45">
+                  locked
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-ink/55">
             <span className="font-medium text-ink">
-              {lockedCount} / {totalLockable}
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-            <span
-              className="block h-full rounded-full bg-terracotta transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+              {lockedCount} of {totalLockable}
+            </span>{' '}
+            vendors locked
+          </p>
         </div>
       ) : null}
     </section>

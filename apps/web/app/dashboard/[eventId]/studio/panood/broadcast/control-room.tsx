@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import {
   Radio,
   Star,
@@ -24,6 +24,8 @@ import {
 } from './actions';
 import type { PanoodMomentRow } from '@/lib/panood-moments';
 import type { PanoodControlState } from '@/lib/panood-control';
+import { watchPanoodCameras } from '@/lib/panood-webrtc';
+import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 
 // Client-safe row shapes. The server page (broadcast/page.tsx) STRIPS server-only
 // secrets — the camera claim_qr_token (a per-camera seat-hijack credential) and
@@ -122,6 +124,25 @@ export function PanoodControlRoom({
   );
   const [mobileTab, setMobileTab] = useState<MobileTab>('moments');
 
+  // Real streaming (owner-gated NEXT_PUBLIC_PANOOD_STREAMING_ENABLED). When ON,
+  // watch every publishing camera over WebRTC (P2P, STUN-only, nothing stored) and
+  // keep each camera's live stream — the PROGRAM monitor shows the on-air one and
+  // every SOURCE tile shows its own feed (multiview). When OFF, this is inert and
+  // both the monitor and the tiles show placeholders.
+  const streamingOn = panoodStreamingEnabled();
+  const [camStreams, setCamStreams] = useState<Record<string, MediaStream>>({});
+  useEffect(() => {
+    if (!streamingOn) return;
+    const viewer = watchPanoodCameras({
+      eventId,
+      onTrack: (slot, stream) =>
+        setCamStreams((prev) => (prev[slot] === stream ? prev : { ...prev, [slot]: stream })),
+      onSlotState: () => {},
+    });
+    return () => viewer.close();
+  }, [eventId, streamingOn]);
+  const programStream = program ? camStreams[program] ?? null : null;
+
   function run(
     action: () => Promise<ControlActionResult>,
     onError?: () => void,
@@ -203,29 +224,32 @@ export function PanoodControlRoom({
 
   return (
     <div className="space-y-5">
-      {/* Preview-mode honesty banner */}
-      <div className="rounded-lg border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
-        <span className="inline-flex items-center gap-1.5 font-medium">
-          <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Live control — video preview pending
-        </span>
-        <p className="mt-1">
-          Your taps below are <strong>real</strong> and saved — they set the program
-          source, fire moments, and route your venue screens right now. The video tiles
-          are placeholders; live video arrives with the streaming rollout.
-        </p>
-      </div>
+      {/* Preview-mode honesty banner — only while real streaming is OFF */}
+      {!streamingOn && (
+        <div className="rounded-lg border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Live control — video preview pending
+          </span>
+          <p className="mt-1">
+            Your taps below are <strong>real</strong> and saved — they set the program
+            source, fire moments, and route your venue screens right now. The video tiles
+            are placeholders; live video arrives with the streaming rollout.
+          </p>
+        </div>
+      )}
 
       {/* ===== DESKTOP BOARD ===== */}
       <div className="hidden gap-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column: program + sources + moments */}
         <div className="space-y-5">
-          <ProgramMonitor label={programLabel} live={live} />
+          <ProgramMonitor label={programLabel} live={live} stream={programStream} />
           <SourcesRail
             cameras={cameras}
             program={program}
             onPick={handleSetProgram}
             disabled={isPending}
+            camStreams={camStreams}
           />
           <MomentDirector
             moments={moments}
@@ -254,7 +278,7 @@ export function PanoodControlRoom({
 
       {/* ===== MOBILE STACK ===== */}
       <div className="space-y-4 lg:hidden">
-        <ProgramMonitor label={programLabel} live={live} />
+        <ProgramMonitor label={programLabel} live={live} stream={programStream} />
 
         {/* Swipeable camera strip — always visible above the tabs */}
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -278,6 +302,7 @@ export function PanoodControlRoom({
                   label={cameraLabel(cam)}
                   onAir={program === cameraSourceKey(cam)}
                   status={cam.status}
+                  stream={camStreams[cameraSourceKey(cam)] ?? null}
                 />
               </button>
             ))
@@ -300,6 +325,7 @@ export function PanoodControlRoom({
               program={program}
               onPick={handleSetProgram}
               disabled={isPending}
+              camStreams={camStreams}
             />
           )}
           {mobileTab === 'walls' && (
@@ -374,7 +400,26 @@ function labelForSource(source: string | null, cameras: PanoodCameraRow[]): stri
   return source;
 }
 
-function ProgramMonitor({ label, live }: { label: string; live: boolean }) {
+function ProgramMonitor({
+  label,
+  live,
+  stream,
+}: {
+  label: string;
+  live: boolean;
+  stream?: MediaStream | null;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (stream) {
+      el.srcObject = stream;
+      void el.play().catch(() => {});
+    } else {
+      el.srcObject = null;
+    }
+  }, [stream]);
   return (
     <section aria-label="Program monitor" className="space-y-2">
       <div className="flex items-center justify-between">
@@ -400,17 +445,29 @@ function ProgramMonitor({ label, live }: { label: string; live: boolean }) {
           live ? 'border-danger-500' : 'border-ink/15'
         }`}
       >
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.12),transparent_70%)]"
-        />
-        <div className="relative text-center">
-          <Tv aria-hidden className="mx-auto h-8 w-8 text-cream/60" strokeWidth={1.5} />
-          <p className="mt-2 text-sm font-medium text-cream">{label}</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-cream/55">
-            preview — live video arrives with the streaming rollout
-          </p>
-        </div>
+        {stream ? (
+          <video
+            ref={videoRef}
+            playsInline
+            autoPlay
+            muted
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <>
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.12),transparent_70%)]"
+            />
+            <div className="relative text-center">
+              <Tv aria-hidden className="mx-auto h-8 w-8 text-cream/60" strokeWidth={1.5} />
+              <p className="mt-2 text-sm font-medium text-cream">{label}</p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-cream/55">
+                preview — live video arrives with the streaming rollout
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
@@ -429,16 +486,39 @@ function SourceTileBody({
   label,
   onAir,
   status,
+  stream,
 }: {
   Icon: typeof Camera;
   label: string;
   onAir: boolean;
   status?: string;
+  stream?: MediaStream | null;
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (stream) {
+      el.srcObject = stream;
+      void el.play().catch(() => {});
+    } else {
+      el.srcObject = null;
+    }
+  }, [stream]);
   return (
     <>
-      <div className="relative flex aspect-video items-center justify-center bg-ink/85 text-cream/70">
-        <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
+      <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-ink/85 text-cream/70">
+        {stream ? (
+          <video
+            ref={videoRef}
+            playsInline
+            autoPlay
+            muted
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
+        )}
         {onAir && (
           <span className="absolute left-1.5 top-1.5 rounded-full bg-danger-600 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-cream">
             On air
@@ -460,11 +540,13 @@ function SourcesRail({
   program,
   onPick,
   disabled,
+  camStreams,
 }: {
   cameras: PanoodCameraRow[];
   program: string | null;
   onPick: (source: string) => void;
   disabled: boolean;
+  camStreams: Record<string, MediaStream>;
 }) {
   return (
     <section
@@ -495,6 +577,7 @@ function SourcesRail({
                 label={cameraLabel(cam)}
                 onAir={onAir}
                 status={cam.status}
+                stream={camStreams[key] ?? null}
               />
             </button>
           );

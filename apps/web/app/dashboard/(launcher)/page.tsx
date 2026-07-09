@@ -3,11 +3,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   Sparkles,
-  Compass,
   Store,
   ShieldCheck,
   Plus,
   ArrowUpRight,
+  Users,
+  LayoutGrid,
+  Wand2,
+  Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -16,50 +19,50 @@ import { fetchChecklistItems, daysUntilEvent } from '@/lib/checklist';
 import { deriveMonogram } from '@/lib/monogram';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
-import { AutoSurfacedEvents } from './_components/autosurfaced-events';
+import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import {
   LifeFlashHomeCard,
   LifeFlashHomeCardSkeleton,
-} from './_components/life-flash-home-card';
-import { getMyLifeStory } from './people/life-stories';
+} from '../(account)/_components/life-flash-home-card';
+import { getMyLifeStory } from '../(account)/people/life-stories';
 import {
   LifeStorySection,
   type LifeStoryGroup,
-} from './_components/life-story-section';
+} from '../(account)/_components/life-story-section';
 
 export const metadata = {
   title: 'Your events',
 };
 
 /**
- * "Where to?" account home — the person's hub (owner design, 2026-07-09,
- * mockup-driven). Replaces the earlier Ongoing/Upcoming/Completed lifecycle
- * buckets with two collections:
- *   • YOUR EVENTS — every event the person hosts, as rich cards (badge · monogram
- *     · place/date · "% planned · N days"), plus a "New event" tile.
- *   • YOUR SPACES — the cross-cutting doorways: Life Story · Marketplace ·
- *     Your shop (vendor console, gated) · HQ (admin console, gated). This folds
- *     in the old RoleSwitchRows (Shop console / Setnayan HQ) as gated cards.
+ * "Where to?" — the full-screen account LAUNCHER (owner design 2026-07-09,
+ * "splash screen to control where they want to go"). This route lives in its own
+ * `(launcher)` group (NOT the `(account)` sidebar group), so it renders
+ * chrome-less: a slim top bar (brand · notifications · account menu, from
+ * `(launcher)/layout.tsx`) over three tile groups —
+ *   • YOUR EVENTS — upcoming events as rich cards (badge · monogram · place/date ·
+ *     a wine progress ring · N-days) + a "New event" tile. FINISHED (past +
+ *     archived) events are hidden behind a "Show all events" toggle (`?show=all`).
+ *   • YOUR SPACES — the doorways into surfaces with their OWN dashboards:
+ *     Life Story · Your shop (vendor console, gated) · HQ (admin console, gated).
+ *   • YOUR ACCOUNT — the remaining account features as tiles: People · Memories
+ *     Hub · Setnayan AI. (Notifications = the top-bar bell; Settings + sign-out =
+ *     the top-bar account menu.)
  *
- * SKIN — this is the FIRST surface of the "Energy, not skin" wine reskin (owner
- * 2026-07-09): wine #5C2542 + display serif (`.m-serif`), 16px tiles, an
- * obsidian Life-Story hero, violet admin accent. Wine is introduced page-scoped
- * (arbitrary values) because the shipped `mulberry` token was repurposed to
- * obsidian at the Clean-Editorial rebrand — the wine palette is not yet an
- * app-wide token. Neutrals stay on the theme-aware cream/ink tokens so light +
- * dark both render.
+ * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
+ * in-event surface (`/explore` from an event), not an account-level destination.
  *
- * Landing rule (owner 2026-07-04, preserved verbatim): a single-event,
- * non-console user still jumps straight into their one event; a 0-event console
- * user is sent to create-event; everyone else lands on this hub.
+ * Landing rule (owner 2026-07-04, preserved): a single-event, non-console user
+ * still jumps straight into their one event; a 0-event console user is sent to
+ * create-event; everyone else lands on this launcher.
  *
- * Flag-gated blocks preserved from the prior hub (all default-OFF in prod, so
- * zero visible change there): LifeFlashHomeCard (`lifeStoryEnabled`),
- * AutoSurfacedEvents (`accountAutosurfaceEnabled`), and the person-spine
- * "Your story" section (`personLifeStoriesEnabled`).
+ * Flag-gated blocks preserved (all default-OFF in prod): LifeFlashHomeCard
+ * (`lifeStoryEnabled`), AutoSurfacedEvents (`accountAutosurfaceEnabled`), and the
+ * person-spine "Your story" section (`personLifeStoriesEnabled`).
  */
 
 /**
@@ -119,22 +122,28 @@ function placeLabel(event: EventWithRole): string | null {
   return addr.split(',')[0]?.trim() || null;
 }
 
-export default async function DashboardIndexPage() {
+export default async function LauncherPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ show?: string }>;
+}) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
   if (!user) redirect('/login');
   const supabase = await createClient();
+  const sp = (await searchParams) ?? {};
+  const showAll = sp.show === 'all';
 
   // OAuth-race graceful-degrade shielding (preserved from the prior hub): the
   // users / events rows this page reads are the SAME rows supabase-auth just
   // inserted via the auth → public.users sync trigger, so reads can race the
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
-  // hub instead of flashing the global error boundary.
+  // launcher instead of flashing the global error boundary.
   const [events, profileRes, roles] = await Promise.all([
     fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
       logQueryError(
-        'DashboardIndex (fetchUserEvents threw)',
+        'Launcher (fetchUserEvents threw)',
         err instanceof Error ? err : new Error(String(err)),
         { user_id: user.id },
         'graceful_degrade',
@@ -150,7 +159,7 @@ export default async function DashboardIndexPage() {
           .maybeSingle();
       } catch (caught) {
         logQueryError(
-          'DashboardIndex (users.display_name SELECT threw)',
+          'Launcher (users.display_name SELECT threw)',
           caught instanceof Error ? caught : new Error(String(caught)),
           { user_id: user.id },
           'graceful_degrade',
@@ -160,7 +169,7 @@ export default async function DashboardIndexPage() {
     })(),
     fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
       logQueryError(
-        'DashboardIndex (fetchUserRoleSummary threw)',
+        'Launcher (fetchUserRoleSummary threw)',
         err instanceof Error ? err : new Error(String(err)),
         { user_id: user.id },
         'graceful_degrade',
@@ -177,13 +186,12 @@ export default async function DashboardIndexPage() {
   ]);
 
   const active = events.filter((e) => !e.archived);
-  const archived = events.filter((e) => e.archived);
   const hasConsole = roles.hasVendorAccess || roles.hasAdminAccess;
 
   // Landing (owner 2026-07-04, preserved verbatim from the prior hub):
   //   - single-event, non-console user → jump straight into their one event.
   //   - 0-event console user → send to create-event.
-  //   - everyone else → render the hub below.
+  //   - everyone else → render the launcher below.
   if (active.length === 1 && !hasConsole) {
     redirect(`/dashboard/${active[0]!.event_id}`);
   }
@@ -191,13 +199,25 @@ export default async function DashboardIndexPage() {
     redirect('/dashboard/create-event');
   }
 
+  // Split for display: upcoming (shown) vs finished (hidden behind "Show all").
+  // Finished = archived OR the event date has passed (PH-local date compare).
+  const todayISO = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Manila',
+  });
+  const isPast = (e: EventWithRole) =>
+    !!e.event_date && e.event_date.slice(0, 10) < todayISO;
+  const upcoming = active.filter((e) => !isPast(e));
+  const finished = [...active.filter(isPast), ...events.filter((e) => e.archived)];
+
   const profile = profileRes.data;
   const greeting =
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
+  const noEvents = events.length === 0;
 
   // "% planned" per event — real done/total from the event checklist, fetched in
-  // parallel (active event count is small). Null when an event has no checklist
-  // rows yet → the card shows the countdown without a fabricated percentage.
+  // parallel (event count is small). Null when an event has no checklist rows yet
+  // → the card shows the countdown without a fabricated percentage. Only the
+  // non-archived set is scored; archived cards read null (caption only).
   const progressEntries = await Promise.all(
     active.map(async (e): Promise<[string, number | null]> => {
       try {
@@ -219,28 +239,25 @@ export default async function DashboardIndexPage() {
     ? await buildLifeStoryGroups(supabase)
     : null;
 
-  // YOUR SPACES — cross-cutting doorways, gated by role. Folds in the old
-  // RoleSwitchRows (Shop console / Setnayan HQ).
-  // Life Story → the Life-Flash experience (/dashboard/life-flash) when its
-  // rollout flag is on. That route `notFound()`s while the flag is off, so in
-  // prod (flag off) the card falls back to the Memories Hub — the real
-  // cross-event collection — until Life-Flash launches.
-  const spaces: SpaceCardProps[] = [
-    {
-      href: lifeStoryEnabled() ? '/dashboard/life-flash' : '/dashboard/library',
+  // YOUR SPACES — doorways into surfaces with their own dashboards. Marketplace
+  // is intentionally excluded (it's an in-event vendor-discovery surface).
+  //
+  // Life Story dedup (owner default, reversible via `lifeStoryEnabled`): when the
+  // flag is ON, the richer <LifeFlashHomeCard/> below is the SOLE Life-Story
+  // doorway, so we DROP this flat hero SpaceCard to avoid rendering the surface
+  // twice. When the flag is OFF (prod today), the flat hero card stays as the
+  // fallback into the Memories Hub (/dashboard/library) — prod is unchanged.
+  const lifeOn = lifeStoryEnabled();
+  const spaces: SpaceCardProps[] = [];
+  if (!lifeOn) {
+    spaces.push({
+      href: '/dashboard/library',
       icon: Sparkles,
       title: 'Life Story',
       subtitle: 'Your whole life, from every celebration.',
       tone: 'hero',
-    },
-    {
-      href: '/explore',
-      icon: Compass,
-      title: 'Marketplace',
-      subtitle: 'Merkado · discover vendors',
-      tone: 'default',
-    },
-  ];
+    });
+  }
   if (roles.hasVendorAccess) {
     spaces.push({
       href: '/vendor-dashboard',
@@ -264,13 +281,13 @@ export default async function DashboardIndexPage() {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <header className="mb-8 space-y-2">
         <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/45">
-          <span aria-hidden className="h-px w-5 bg-[#5C2542]/60" />
-          Kumusta, {greeting} · {active.length === 0 ? 'Welcome' : 'Welcome back'}
+          <span aria-hidden className="h-px w-5 bg-mulberry/60" />
+          Kumusta, {greeting} · {noEvents ? 'Welcome' : 'Welcome back'}
         </p>
         <h1 className="m-serif text-3xl leading-tight text-ink sm:text-[2.6rem]">
           Where to?{' '}
           <span className="text-ink/40">
-            {active.length === 0
+            {noEvents
               ? 'Let’s set up your first event.'
               : 'Pick up where you left off.'}
           </span>
@@ -280,31 +297,41 @@ export default async function DashboardIndexPage() {
       <section className="mb-10">
         <SectionLabel
           action={
-            archived.length > 0 ? (
-              <Link
-                href="#archived"
-                className="text-xs font-medium text-ink/50 transition-colors hover:text-[#5C2542]"
-              >
-                All events →
-              </Link>
+            finished.length > 0 ? (
+              <ShowAllToggle showAll={showAll} />
             ) : null
           }
         >
           Your events
         </SectionLabel>
         <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:thin] sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
-          {active.map((event) => (
+          {upcoming.map((event) => (
             <EventCard
               key={event.event_id}
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
             />
           ))}
+          {showAll
+            ? finished.map((event) => (
+                <EventCard
+                  key={event.event_id}
+                  event={event}
+                  pct={progressByEvent.get(event.event_id) ?? null}
+                  finished
+                />
+              ))
+            : null}
           <NewEventCard />
         </div>
+        {!showAll && finished.length > 0 ? (
+          <p className="mt-3 text-xs text-ink/40">
+            {finished.length} finished event{finished.length > 1 ? 's' : ''} hidden
+          </p>
+        ) : null}
       </section>
 
-      <section>
+      <section className="mb-10">
         <SectionLabel>Your spaces</SectionLabel>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {spaces.map((space) => (
@@ -313,8 +340,34 @@ export default async function DashboardIndexPage() {
         </div>
       </section>
 
-      {/* Flag-gated (default OFF in prod). LIFE-FLASH home card. */}
-      {lifeStoryEnabled() ? (
+      <section>
+        <SectionLabel>Your account</SectionLabel>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <AccountTile
+            href="/dashboard/people"
+            icon={Users}
+            title="People"
+            subtitle="Everyone across your events"
+          />
+          <AccountTile
+            href="/dashboard/library"
+            icon={LayoutGrid}
+            title="Memories Hub"
+            subtitle="Photos · videos · saved vendors"
+          />
+          <AccountTile
+            href="/dashboard/setnayan-ai"
+            icon={Wand2}
+            title="Setnayan AI"
+            subtitle="Your planning copilot"
+          />
+        </div>
+      </section>
+
+      {/* Flag-gated (default OFF in prod). LIFE-FLASH home card — the SOLE
+          Life-Story doorway when the flag is on (the flat hero SpaceCard above
+          is dropped in that case; see the `spaces` construction). */}
+      {lifeOn ? (
         <div className="mt-10">
           <Suspense fallback={<LifeFlashHomeCardSkeleton />}>
             <LifeFlashHomeCard userId={user.id} />
@@ -342,29 +395,6 @@ export default async function DashboardIndexPage() {
             <LifeStorySection groups={lifeStoryGroups} />
           )}
         </section>
-      ) : null}
-
-      {archived.length > 0 ? (
-        <details
-          id="archived"
-          className="mt-10 rounded-2xl border border-ink/10 bg-cream/60 p-4 text-sm text-ink/70"
-        >
-          <summary className="cursor-pointer font-medium">
-            Archived events ({archived.length})
-          </summary>
-          <ul className="mt-3 space-y-2">
-            {archived.map((event) => (
-              <li key={event.event_id}>
-                <Link
-                  href={`/dashboard/${event.event_id}`}
-                  className="text-ink/80 underline-offset-4 hover:underline"
-                >
-                  {event.display_name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </details>
       ) : null}
     </div>
   );
@@ -435,8 +465,41 @@ function SectionLabel({
   );
 }
 
-/** A rich event card — badge · monogram · title · place/date · progress. */
-function EventCard({ event, pct }: { event: EventWithRole; pct: number | null }) {
+/**
+ * "Show all events" toggle — a checkbox-styled link that flips the `?show=all`
+ * search param (server-only; no client JS). Reveals the finished/archived
+ * events, which are hidden by default. `scroll={false}` keeps the viewport put.
+ */
+function ShowAllToggle({ showAll }: { showAll: boolean }) {
+  return (
+    <Link
+      href={showAll ? '/dashboard' : '/dashboard?show=all'}
+      scroll={false}
+      className="flex items-center gap-2 text-xs font-medium text-ink/55 transition-colors hover:text-mulberry"
+    >
+      <span
+        aria-hidden
+        className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
+          showAll ? 'border-mulberry bg-mulberry text-white' : 'border-ink/25'
+        }`}
+      >
+        {showAll ? <Check className="h-3 w-3" /> : null}
+      </span>
+      Show all events
+    </Link>
+  );
+}
+
+/** A rich event card — badge · monogram · title · place/date · progress ring. */
+function EventCard({
+  event,
+  pct,
+  finished,
+}: {
+  event: EventWithRole;
+  pct: number | null;
+  finished?: boolean;
+}) {
   const badge = eventTypeBadge(event.event_type);
   const letter = monogramLetter(event);
   const days = daysUntilEvent(event.event_date);
@@ -453,9 +516,12 @@ function EventCard({ event, pct }: { event: EventWithRole; pct: number | null })
           : days === 0
             ? 'today'
             : null;
-  const caption =
-    pct != null
-      ? `${pct}% planned${countdown ? ` · ${countdown}` : ''}`
+  const caption = finished
+    ? pct != null
+      ? `${pct}% planned · done`
+      : 'Wrapped'
+    : pct != null
+      ? `Planned${countdown ? ` · ${countdown}` : ''}`
       : countdown
         ? `${countdown} to go`
         : 'In planning';
@@ -463,15 +529,17 @@ function EventCard({ event, pct }: { event: EventWithRole; pct: number | null })
   return (
     <Link
       href={`/dashboard/${event.event_id}`}
-      className="group flex min-h-[11rem] min-w-[15rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-ink/10 bg-cream transition-all hover:-translate-y-0.5 hover:border-[#5C2542]/30 hover:shadow-lg sm:min-w-0"
+      className={`group flex min-h-[11rem] min-w-[15rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-ink/10 bg-cream transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg sm:min-w-0 ${
+        finished ? 'opacity-70 hover:opacity-100' : ''
+      }`}
     >
-      <div className="relative h-20 bg-gradient-to-br from-[#5C2542]/12 via-[#5C2542]/5 to-transparent">
-        <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#5C2542] shadow-sm">
+      <div className="relative h-20 bg-gradient-to-br from-mulberry/12 via-mulberry/5 to-transparent">
+        <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry shadow-sm">
           {badge}
         </span>
         <span
           aria-hidden
-          className="m-serif pointer-events-none absolute -bottom-3 right-3 select-none text-6xl leading-none text-[#5C2542]/20"
+          className="m-serif pointer-events-none absolute -bottom-3 right-3 select-none text-6xl leading-none text-mulberry/20"
         >
           {letter}
         </span>
@@ -486,16 +554,13 @@ function EventCard({ event, pct }: { event: EventWithRole; pct: number | null })
           <span className="truncate">{event.display_name}</span>
         </p>
         <p className="truncate text-sm text-ink/55">{meta}</p>
-        <div className="mt-auto space-y-1.5 pt-3">
+        <div className="mt-auto flex items-center gap-2.5 pt-3">
           {pct != null ? (
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-              <div
-                className="h-full rounded-full bg-[#5C2542] transition-all"
-                style={{ width: `${Math.max(3, Math.min(100, pct))}%` }}
-              />
-            </div>
+            <ProgressRing pct={pct} size={42} stroke={4}>
+              <span className="text-[9px] font-semibold text-ink">{pct}%</span>
+            </ProgressRing>
           ) : null}
-          <p className="text-xs text-ink/50">{caption}</p>
+          <p className="text-xs text-ink/55">{caption}</p>
         </div>
       </div>
     </Link>
@@ -507,11 +572,11 @@ function NewEventCard() {
   return (
     <Link
       href="/dashboard/create-event"
-      className="group flex min-h-[11rem] min-w-[15rem] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/20 bg-cream/40 p-4 text-center transition-colors hover:border-[#5C2542]/40 hover:bg-[#5C2542]/5 sm:min-w-0"
+      className="group flex min-h-[11rem] min-w-[15rem] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/20 bg-cream/40 p-4 text-center transition-colors hover:border-mulberry/40 hover:bg-mulberry/5 sm:min-w-0"
     >
       <span
         aria-hidden
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition-colors group-hover:border-[#5C2542]/40 group-hover:text-[#5C2542]"
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition-colors group-hover:border-mulberry/40 group-hover:text-mulberry"
       >
         <Plus className="h-5 w-5" />
       </span>
@@ -541,7 +606,7 @@ function SpaceCard({ href, icon: Icon, title, subtitle, tone }: SpaceCardProps) 
       className={`group flex min-h-[9rem] flex-col justify-between rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
         hero
           ? 'border-white/10 bg-gradient-to-br from-[#3f1a2e] to-[#1E2229] text-white'
-          : 'border-ink/10 bg-cream text-ink hover:border-[#5C2542]/30'
+          : 'border-ink/10 bg-cream text-ink hover:border-mulberry/30'
       }`}
     >
       <div className="flex items-start justify-between">
@@ -551,7 +616,7 @@ function SpaceCard({ href, icon: Icon, title, subtitle, tone }: SpaceCardProps) 
               ? 'bg-white/10 text-white'
               : admin
                 ? 'bg-violet-100 text-violet-700'
-                : 'bg-[#5C2542]/10 text-[#5C2542]'
+                : 'bg-mulberry/10 text-mulberry'
           }`}
         >
           <Icon className="h-[18px] w-[18px]" />
@@ -571,6 +636,34 @@ function SpaceCard({ href, icon: Icon, title, subtitle, tone }: SpaceCardProps) 
           {subtitle}
         </p>
       </div>
+    </Link>
+  );
+}
+
+/** A compact "YOUR ACCOUNT" tile — icon chip + title + subtitle, horizontal. */
+function AccountTile({
+  href,
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-ink">{title}</span>
+        <span className="block truncate text-xs text-ink/55">{subtitle}</span>
+      </span>
     </Link>
   );
 }

@@ -35,6 +35,11 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
   // Owner 2026-07-03: "apply mood board toggle so the place is themed." Default
   // ON — the couple's palette is the whole point; off shows the neutral shell.
   const [themed, setThemed] = useState(true);
+  // "Walk around" — opt-in roam, mirroring the phone guest-view. OFF (default) =
+  // the whole-room orbit + click-a-guest-QR pitch. ON = a chase cam follows a
+  // guest; tap the floor to walk, tap the DANCE FLOOR to dance. Lets a desktop
+  // visitor try tap-to-dance without scanning the QR to their phone first.
+  const [roaming, setRoaming] = useState(false);
   // The homepage CTA has no device gate, so this overlay opens on phones too —
   // pass the scene's 'low' budget there (SYS-1 lg switch) or the cold-spark
   // tunnel (and shadow/env budget) renders its full desktop tier in a 360px
@@ -154,6 +159,35 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               </button>
             </div>
           ) : null}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={roaming}
+              aria-label="Walk around"
+              onClick={() => setRoaming((v) => !v)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                border: '1px solid rgba(42,43,46,.2)',
+                borderRadius: 'var(--m-r-full)',
+                padding: '6px 14px',
+                background: roaming ? '#2a2925' : 'transparent',
+                color: roaming ? '#fff' : '#2a2925',
+                cursor: 'pointer',
+                fontSize: 12.5,
+                fontWeight: 500,
+              }}
+            >
+              {roaming ? '● Walking the room' : 'Walk around'}
+            </button>
+            {roaming ? (
+              <span style={{ fontSize: 12, color: '#6c675e' }}>
+                Tap the floor to walk · tap the dance floor to dance
+              </span>
+            ) : null}
+          </div>
           <div
             style={{
               width: '100%',
@@ -177,6 +211,10 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               venueSetting={scene.venueSetting}
               onGuestClick={handleGuestClick}
               interactive
+              // Opt-in "Walk around": roam a guest (chase cam) so a floor tap
+              // walks them and a dance-floor tap makes them dance. Guest-click
+              // (find-my-seat QR) still works inside roam. Off → whole-room orbit.
+              roam={roaming && scene.guests[0] ? { guestId: scene.guests[0].id } : null}
               quality={isMobile ? 'low' : 'high'}
               // Golden-hour grade + string lights (Tier A — dep-free, no
               // postprocessing). Phone-safe: rides the same quality knob (halved

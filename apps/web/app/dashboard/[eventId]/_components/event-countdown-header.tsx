@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { LiveCountdown } from './live-countdown';
+import { ProgressRing } from '@/app/_components/progress-ring';
 
 /**
  * EventCountdownHeader — the emotional anchor at the top of the couple Home.
@@ -9,7 +10,8 @@ import { LiveCountdown } from './live-countdown';
  * hero ported from the couple-app-flow prototype 2026-06-05). Home is a
  * cockpit, not a catalog: this centered header answers "how close are we?" at a
  * glance — the couple's names, a big dominant days-to-go count to their event
- * date, the date + venue beneath it, and a thin "X of N vendors locked" bar.
+ * date, the date + venue beneath it, and an "X of N vendors locked" progress
+ * ring (the "Energy, not skin" density primitive · reskin 2026-07-09).
  *
  * Counts down to the EARLIEST chosen date until the couple settles on one
  * (owner 2026-06-04): targets the committed `event_date`, else the earliest
@@ -138,50 +140,20 @@ export function EventCountdownHeader({
       ) : null}
 
       {totalLockable > 0 ? (
-        // "Energy, not skin" reskin (2026-07-09): the flat vendors-locked bar
-        // becomes the signature planning progress RING — a wine (mulberry
-        // token) donut with a serif percent in the centre. Same data
-        // (pct / lockedCount / totalLockable), denser read.
-        <div className="mt-5 flex flex-col items-center gap-2">
-          <div className="relative h-24 w-24">
-            <svg viewBox="0 0 96 96" className="h-24 w-24 -rotate-90" aria-hidden="true">
-              <circle
-                cx="48"
-                cy="48"
-                r="40"
-                fill="none"
-                strokeWidth="8"
-                stroke="currentColor"
-                className="text-ink/10"
-              />
-              <circle
-                cx="48"
-                cy="48"
-                r="40"
-                fill="none"
-                strokeWidth="8"
-                strokeLinecap="round"
-                stroke="currentColor"
-                className="text-mulberry transition-[stroke-dashoffset] duration-700"
-                strokeDasharray={2 * Math.PI * 40}
-                strokeDashoffset={(2 * Math.PI * 40 * (100 - pct)) / 100}
-              />
-            </svg>
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="text-center">
-                <div className="m-serif text-2xl leading-none text-ink">{pct}%</div>
-                <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink/45">
-                  locked
-                </div>
-              </div>
-            </div>
+        <div className="mt-5 flex items-center justify-center gap-4">
+          <ProgressRing pct={pct} size={76} stroke={7}>
+            <span className="text-lg font-semibold text-ink">{pct}%</span>
+          </ProgressRing>
+          <div className="text-left">
+            <p className="text-sm font-medium text-ink">
+              {lockedCount} of {totalLockable} vendors locked
+            </p>
+            <p className="text-xs text-ink/55">
+              {lockedCount >= totalLockable
+                ? 'Every supplier locked in'
+                : `${totalLockable - lockedCount} more to lock in`}
+            </p>
           </div>
-          <p className="text-xs text-ink/55">
-            <span className="font-medium text-ink">
-              {lockedCount} of {totalLockable}
-            </span>{' '}
-            vendors locked
-          </p>
         </div>
       ) : null}
     </section>

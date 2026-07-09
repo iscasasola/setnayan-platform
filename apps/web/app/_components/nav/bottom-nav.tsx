@@ -819,7 +819,7 @@ function BottomNavTab({
         className="flex min-h-[56px] min-h-[44pt] select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
           color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          outlineColor: 'var(--m-orange)',
+          outlineColor: 'var(--m-nav-active)',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
           // Compact: drop the cell's min-height so losing the label row makes
@@ -835,7 +835,7 @@ function BottomNavTab({
             className="h-[22px] w-[22px]"
             strokeWidth={1.75}
             style={{
-              color: active ? 'var(--m-orange)' : 'var(--m-slate)',
+              color: active ? 'var(--m-nav-active)' : 'var(--m-slate)',
               transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
               transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
@@ -870,7 +870,7 @@ function BottomNavTab({
  * AccordionCell — one absolutely-positioned cell in the accordion bar. A
  * menu without children + every child renders as a <Link> (real navigation);
  * a menu WITH children + the back-hinge render as a <button> (open/close the
- * section). All share the locked icon-grow-on-press + the gold active icon.
+ * section). All share the locked icon-grow-on-press + the wine active icon.
  *
  * The hinge KEEPS the open menu's own glyph (e.g. the Setnayan logo) rather than
  * swapping to a back-chevron, and tapping it collapses the section back to the
@@ -926,10 +926,10 @@ function AccordionCell({
             color:
               role === 'hinge'
                 ? active
-                  ? 'var(--m-orange)'
+                  ? 'var(--m-nav-active)'
                   : 'var(--m-ink)'
                 : active
-                  ? 'var(--m-orange)'
+                  ? 'var(--m-nav-active)'
                   : 'var(--m-slate)',
             transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
             transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -971,7 +971,7 @@ function AccordionCell({
     'flex min-h-[56px] min-h-[44pt] h-full w-full select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
   const contentStyle: CSSProperties = {
     color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-    outlineColor: 'var(--m-orange)',
+    outlineColor: 'var(--m-nav-active)',
     WebkitTapHighlightColor: 'transparent',
     touchAction: 'manipulation',
   };

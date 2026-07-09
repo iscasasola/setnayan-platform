@@ -228,6 +228,65 @@ export function clampPointToZone(p: Vec2, zone: PlaceZone, inset = 0): Vec2 {
 }
 
 /**
+ * Standing spots on the dance floor for the tap-to-dance party — a grid of
+ * non-overlapping points inside the rect, INSET from the lip (a dancer stands ON
+ * the floor, not on its edge), ordered CENTRE-FIRST so the party grows from the
+ * middle outward as more guests are tapped out. `spacing` is the minimum gap
+ * between neighbouring dancers (personal space): it lays the grid AND guarantees
+ * no two dancers overlap — the actual grid pitch is ≥ `spacing` by construction
+ * (`floor(span/spacing)` cells over the span), so the closest pair is never
+ * nearer than `spacing`. The array length is the floor's dance capacity: the Nth
+ * dancer takes `spots[N-1]`; past the last spot the caller stops adding (floor
+ * full). Deterministic in its inputs → unit-tested.
+ */
+export function danceSpots(
+  rect: PlaceZone,
+  opts: { spacing?: number; inset?: number } = {},
+): Vec2[] {
+  const spacing = Math.max(0.5, opts.spacing ?? 0.9);
+  const inset = Math.max(0, opts.inset ?? 0.35);
+  const hw = Math.max(0, rect.hw - inset);
+  const hd = Math.max(0, rect.hd - inset);
+  const nx = Math.max(1, Math.floor((hw * 2) / spacing) + 1);
+  const nz = Math.max(1, Math.floor((hd * 2) / spacing) + 1);
+  const spots: { x: number; z: number; k: number; d: number }[] = [];
+  let k = 0;
+  for (let i = 0; i < nx; i++) {
+    for (let j = 0; j < nz; j++) {
+      const x = nx === 1 ? rect.cx : rect.cx - hw + (i * (hw * 2)) / (nx - 1);
+      const z = nz === 1 ? rect.cz : rect.cz - hd + (j * (hd * 2)) / (nz - 1);
+      spots.push({ x, z, k: k++, d: (x - rect.cx) ** 2 + (z - rect.cz) ** 2 });
+    }
+  }
+  // Centre-first: closest to the rect centre dances first; ties break by the
+  // stable generation order (i-major, j-minor) so the layout is deterministic.
+  return spots.sort((a, b) => a.d - b.d || a.k - b.k).map(({ x, z }) => ({ x, z }));
+}
+
+/**
+ * Pick the seated guest to send to the dance floor: the candidate nearest the
+ * `target` spot (shortest walk onto the floor). The caller pre-filters out
+ * anyone already dancing / mid-swap / walking in, so this just minimises
+ * distance; ties break by the given order (stable — first candidate wins).
+ * Returns the guest id, or null when there's no one to send. Pure → unit-tested.
+ */
+export function pickDanceGuest(
+  candidates: readonly { gid: string; world: Vec2 }[],
+  target: Vec2,
+): string | null {
+  let best: string | null = null;
+  let bestD = Infinity;
+  for (const c of candidates) {
+    const d = (c.world.x - target.x) ** 2 + (c.world.z - target.z) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c.gid;
+    }
+  }
+  return best;
+}
+
+/**
  * Placement rules (owner 2026-06-26): objects can't overlap each other · no
  * tables on the dance floor · only a SWEETHEART table may sit on the stage.
  * Pure — the editor calls this on drop and reverts + flags the reason if blocked.

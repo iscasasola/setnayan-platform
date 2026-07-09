@@ -94,6 +94,7 @@ import {
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { EventCountdownHeader } from './_components/event-countdown-header';
+import { OverviewAtAGlance } from './_components/overview-at-a-glance';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import { TodaysOneThing } from './_components/todays-one-thing';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
@@ -1682,6 +1683,32 @@ export default async function EventHomePage({
         now={now}
       />
 
+      {/* At a glance — "Energy, not skin" density row (reskin 2026-07-09). A
+       *  compact bento of the numbers the page already computed (days-out,
+       *  guests attending, budget committed, vendors locked) reusing the wine
+       *  ProgressRing primitive. Presentation only — no new queries; every
+       *  value below is derived upstream from data the home shell loaded. */}
+      <OverviewAtAGlance
+        daysOut={daysOut}
+        guestsAttending={stats.attending}
+        guestsTotal={stats.total}
+        committedCentavos={committedCentavos}
+        budgetTargetCentavos={
+          (event as { estimated_budget_centavos?: number | string | null })
+            .estimated_budget_centavos != null
+            ? Number(
+                (event as { estimated_budget_centavos?: number | string | null })
+                  .estimated_budget_centavos,
+              )
+            : null
+        }
+        vendorsLocked={lockedVendorCount}
+        vendorsLockable={totalLockableCategories}
+        seatedGuests={seatedGuests}
+        scheduleBlocks={scheduleBlockCount}
+        tasksRemaining={remainingTaskCount}
+      />
+
       {/* The five essentials of your Nikah — the signature card for the Muslim
        *  wedding track. Shows ONLY for muslim weddings (primary ceremony OR a
        *  mixed ceremony with a muslim leg). Turns the five validity pillars of
@@ -1831,7 +1858,9 @@ export default async function EventHomePage({
        *  used to live inside the removed recap card. Redesign (2026-06-21):
        *  adopts the canonical `.m-card` primitive (CARD-1) with its built-in
        *  hover-lift, and swaps the legacy terracotta accent for Clean Editorial
-       *  mulberry (VIS-11 / palette lock). */}
+       *  mulberry (VIS-11 / palette lock). The serif section heading (reskin
+       *  2026-07-09) frames the doorway so the cockpit reads editorially. */}
+      <h2 className="m-serif text-lg leading-none text-ink">Explore</h2>
       <Link
         href={`/dashboard/${eventId}/vendors`}
         className="m-card flex items-center justify-between gap-3 px-4 py-4"

@@ -190,7 +190,24 @@ export type NotificationType =
   // per couple member, deep-linking to /dashboard/[eventId]/studio where the
   // "Suggested by your vendors" strip renders it. ON the email allowlist (reaches
   // a couple who isn't currently in the app); NOT on the push allowlist.
-  | 'vendor_feature_suggested';
+  | 'vendor_feature_suggested'
+  // Added 2026-07-09 alongside migration
+  // 20270527224949_setnayan_ai_guard_notifications.sql — the Setnayan AI GUARD
+  // delivery layer (Setnayan_AI_Realtime_Notifications_2026-07-02 spec; the
+  // 2026-07-08 recon verified the union had NO AI/guard member, making guard
+  // notifications structurally impossible). Both are couple/host-recipient,
+  // emitted from lib/setnayan-ai-notify.ts → sweepGuardNotifications() (the
+  // cron-free lazy sweep mounted in the event dashboard layout), gated on
+  // isSetnayanAiActiveForUser — no active Setnayan AI, no guard notifications.
+  //   ai_payment_due → GRD-01: a vendor payment milestone is due within 7 days
+  //                    (event_vendor_line_items due dates). ON the email
+  //                    allowlist per spec § 4.1 ("payment due soon → email").
+  //   ai_guard_alert → the other honestly-sourced guard templates today:
+  //                    GRD-02 (statutory paperwork deadline) + GRD-05 (over
+  //                    budget). In-app only — spec § 4.1 keeps non-payment
+  //                    guards out of the interrupt channels.
+  | 'ai_payment_due'
+  | 'ai_guard_alert';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -251,6 +268,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // The couple shared their mood board with their booked vendors (2026-06-28).
   mood_board_share: 'Mood board shared',
   vendor_feature_suggested: 'A vendor suggested a service',
+  // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
+  // GRD template body carries the specifics.
+  ai_payment_due: 'Payment due soon',
+  ai_guard_alert: 'Setnayan AI flagged something',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -355,6 +376,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // the vendor's tray → sky (matches editorial_decision / the informational register).
   mood_board_share: 'bg-sky-100 text-sky-800',
   vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
+  // Setnayan AI guard delivery (2026-07-09). Both are "action needed, not an
+  // error" — amber, matching review_request / payment_logged. A payment coming
+  // due or a budget/document flag needs the couple's attention, but nothing has
+  // gone wrong yet (that register belongs to rose/danger).
+  ai_payment_due: 'bg-warn-100 text-warn-900',
+  ai_guard_alert: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

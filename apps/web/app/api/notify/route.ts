@@ -21,8 +21,8 @@
 import 'server-only';
 
 import { after, NextResponse, type NextRequest } from 'next/server';
-import { timingSafeEqual } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { webhookSecretAuthorized } from '@/lib/webhook-secret-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,31 +33,27 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Constant-time compare of the incoming `x-webhook-secret` header against the
- * configured `NOTIFY_WEBHOOK_SECRET`.
+ * configured `NOTIFY_WEBHOOK_SECRET` — see lib/webhook-secret-auth.ts (pure +
+ * unit-tested).
  *
- * Fail policy (Data Flow Map audit gap #3):
- *  - env var UNSET  → fail OPEN (return true) + console.warn, so a fresh deploy
- *    doesn't silently break push notifications before the owner configures the
- *    secret in Vercel + the Supabase webhook config.
- *  - env var SET, header missing/wrong → fail CLOSED (caller returns 401).
- *
- * timingSafeEqual requires equal-length buffers, so the length check is folded
- * in via an early return — the provided header is never leaked by timing.
+ * Fail policy (FIXED 2026-07-09 — was fail-open):
+ *  - env var UNSET → fail CLOSED (401) + console.error. The old fail-open
+ *    "so a fresh deploy doesn't silently break push" meant one missing env var
+ *    silently accepted unauthenticated internet traffic on an endpoint that
+ *    reads DB rows and fires push sends. A fresh deploy now loses webhook
+ *    pushes LOUDLY until the secret is configured, never its auth.
+ *  - env var SET, header missing/wrong → fail CLOSED (401).
  */
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.NOTIFY_WEBHOOK_SECRET;
   if (!secret) {
-    console.warn(
-      '[notify] NOTIFY_WEBHOOK_SECRET is not set — accepting webhook UNAUTHENTICATED (fail-open). ' +
+    console.error(
+      '[notify] NOTIFY_WEBHOOK_SECRET is not set — REJECTING webhook (fail-closed). ' +
         'Set NOTIFY_WEBHOOK_SECRET in Vercel and add the x-webhook-secret header to the Supabase webhook config.',
     );
-    return true;
+    return false;
   }
-
-  const provided = req.headers.get('x-webhook-secret') ?? '';
-  const a = Buffer.from(provided);
-  const b = Buffer.from(secret);
-  return a.length === b.length && timingSafeEqual(a, b);
+  return webhookSecretAuthorized(req.headers.get('x-webhook-secret'), secret);
 }
 
 // ---------------------------------------------------------------------------

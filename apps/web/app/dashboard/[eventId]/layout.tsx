@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
@@ -232,6 +234,15 @@ export default async function EventLayout({ children, params }: Props) {
   }
   const event = eventRes.data;
   if (!event) notFound();
+
+  // Setnayan AI guard sweep (guards-notify, 2026-07-09) — the cron-free lazy
+  // invocation (house pattern: sweepExpiredConcierge / runLoginGhostingCheck).
+  // Runs post-response via after() so it never delays a render; internally
+  // throttled to once per event per 6h via the setnayan_ai_guard_log
+  // '__sweep__' row (the common case exits after one cheap query), gated on
+  // isSetnayanAiActiveForUser, and fully fail-soft. Mounted in the LAYOUT so
+  // any event-scoped page visit keeps the guards live — not just the Overview.
+  after(() => sweepGuardNotifications(eventId));
 
   // Event Lifecycle Menu (2026-06-16): the bottom-nav roster swaps by lifecycle
   // phase (Plan → Day-of → After). Computed SERVER-SIDE so there's no client

@@ -101,6 +101,17 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // mood_board_share stays in-app-only; this earns email because it's a
   // paid-service nudge the couple acts on, not an informational fan-out.)
   'vendor_feature_suggested',
+  // Setnayan AI guard delivery (2026-07-09,
+  // Setnayan_AI_Realtime_Notifications_2026-07-02 § 4.1): "payment due soon
+  // (GRD-01) → email" is the ONE guard the spec puts on the email channel — a
+  // missed vendor payment is the highest-stakes thing the Guard watches, and
+  // the couple may not be in the app when the window opens. ai_guard_alert
+  // (GRD-02 statutory / GRD-05 over-budget) is deliberately NOT here: per the
+  // spec's restraint rules everything non-payment stays in-app + weekly digest.
+  // Neither AI type joins PUSH_ENABLED_TYPES — the push-worthy guards
+  // (GRD-09/10 booked-out, GRD-03 price change) have no data source yet
+  // (availability/price-change log = the MI spec's net-new table).
+  'ai_payment_due',
 ]);
 
 export type EmitNotificationArgs = {

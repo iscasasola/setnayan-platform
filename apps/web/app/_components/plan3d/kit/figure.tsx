@@ -16,8 +16,9 @@
  * buffer (the lab's GOWN_GEO/SUIT_GEO precedent) — this file owns the arm +
  * leg capsules, head sphere, status ring, and the unit JOINT_GEO ball.
  * Meshes per figure: 8 limb segments + 8 joint-blend balls (2026-07-09
- * seamless-joints pass) + hip block + torso + neck + head + 2 shoes + the
- * status ring ≈ 22. All ONE shared body material, so a 200-guest room still
+ * seamless-joints pass) + pelvis + torso + head + 2 leg stumps + the
+ * status ring ≈ 21 — no neck, no shoes since the one-piece silhouette pass
+ * (same day). All ONE shared body material, so a 200-guest room still
  * shares a handful of GPU programs.
  *
  * MOTION RULES (house):
@@ -88,7 +89,6 @@ import {
   SHOE_SCALE_X,
   SHOE_SCALE_Y,
   SHOE_SCALE_Z,
-  NECK_POS_Y,
   UPPER_ARM_SCALE_XZ,
   UPPER_ARM_SCALE_Y,
   FOREARM_SCALE_XZ,
@@ -107,7 +107,7 @@ import {
 // figure); the sitPose −0.30 m drop lands the hips at ≈0.50 — on the seat —
 // with the head at ≈1.14, matching where today's seated photo discs float.
 // (The numeric constants themselves are imported from figure-sit-bake above.)
-const HEAD_R = 0.13; // mascot-smooth pass (2026-07-08): a touch larger head reads friendlier
+const HEAD_R = 0.16; // one-piece pass (2026-07-09): big ball head resting ON the shoulders
 
 // ── Shared geometry owned by this file (module scope — 4 buffers) ───────────
 // The native (unscaled) capsule lengths these buffers expose — LEG_GEO_LEN /
@@ -116,21 +116,26 @@ const HEAD_R = 0.13; // mascot-smooth pass (2026-07-08): a touch larger head rea
 // EXPORTED so `kit/instanced-seated-crowd.tsx` draws the seated crowd with the
 // IDENTICAL geometry buffers (an instanced figure must be pixel-for-pixel the
 // figure it replaces — same buffer, never a re-model).
-export const ARM_GEO = new THREE.CapsuleGeometry(0.042, 0.14, 6, 14); // native ≈0.224 long · mascot-smooth segments
-export const LEG_GEO = new THREE.CapsuleGeometry(0.055, 0.25, 6, 14); // native ≈0.36 long · mascot-smooth segments
+// One-piece silhouette pass (2026-07-09, owner: the Meccha-blob direction):
+// CHUNKY low-taper limbs — radii up ~38%, native lengths UNCHANGED (r + mid
+// still sum to the same LEG/ARM_GEO_LEN, so every leaf scale stays valid).
+export const ARM_GEO = new THREE.CapsuleGeometry(0.058, 0.108, 6, 14); // native ≈0.224 long
+export const LEG_GEO = new THREE.CapsuleGeometry(0.075, 0.21, 6, 14); // native ≈0.36 long
 export const HEAD_GEO = new THREE.SphereGeometry(HEAD_R, 28, 20); // mascot-smooth: no visible facets on close-ups
-export const NECK_GEO = new THREE.CylinderGeometry(0.042, 0.048, 0.09, 14); // silhouette pass — collar→head bridge
 // 2026-07-08 leg pass: the hip block that joins trousered legs (a squashed
 // capsule reads as soft tailoring, not a box) + the shoe nose.
 export const HIP_GEO = (() => {
-  const g = new THREE.CapsuleGeometry(0.095, 0.05, 6, 14);
-  g.scale(1.3, 0.66, 1.0);
+  // One-piece pass: a fuller pelvis capsule that overlaps the torso bottom AND
+  // the thigh tops — the body reads as one form flowing into the legs.
+  const g = new THREE.CapsuleGeometry(0.115, 0.08, 6, 14);
+  g.scale(1.25, 0.85, 0.95);
   return g;
 })();
 export const SHOE_GEO = (() => {
-  const g = new THREE.CapsuleGeometry(0.036, 0.055, 6, 12);
-  g.rotateX(Math.PI / 2); // long axis forward
-  g.scale(1.05, 0.62, 1.15);
+  // One-piece pass: no shoes — the leg ends in a ROUNDED STUMP that grazes the
+  // ground (the reference blob has no feet). Historical export name kept (the
+  // baked part keys are 'shoeL/R').
+  const g = new THREE.SphereGeometry(0.08, 16, 12);
   return g;
 })();
 export const STATUS_RING_GEO = new THREE.RingGeometry(0.16, 0.235, 24);
@@ -143,8 +148,10 @@ export const JOINT_GEO = new THREE.SphereGeometry(1, 20, 16);
 // 2026-07-08 AVATAR PIVOT: the plump featureless mannequin torso — one smooth
 // capsule, softly flattened front-to-back. No shells, no wardrobe.
 export const MANNEQUIN_TORSO_GEO = (() => {
-  const g = new THREE.CapsuleGeometry(0.175, 0.22, 10, 24);
-  g.scale(1, 1.05, 0.84);
+  // One-piece pass round 2: slimmer + rounder, so the chunky arms hang JUST
+  // outside the body instead of merging into one lump.
+  const g = new THREE.CapsuleGeometry(0.16, 0.24, 10, 24);
+  g.scale(1, 1.02, 0.9);
   g.translate(0, 0.27, 0);
   return g;
 })();
@@ -526,8 +533,8 @@ export const Figure = memo(function Figure({
                 scale={[KNEE_BALL_R, KNEE_BALL_R, KNEE_BALL_R]}
                 castShadow={castShadow}
               />
-              {/* Foot nub — same blank material (the mannequin has no shoes),
-                  still swinging with the knee group. */}
+              {/* Rounded leg stump — the one-piece blob has no feet; it still
+                  swings with the knee group so the gait reads. */}
               <mesh
                 geometry={SHOE_GEO}
                 material={bodyMat}
@@ -543,7 +550,6 @@ export const Figure = memo(function Figure({
             no wardrobe, no shells) + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
           <mesh geometry={MANNEQUIN_TORSO_GEO} material={bodyMat} castShadow={castShadow} />
-          <mesh geometry={NECK_GEO} material={bodyMat} position={[0, NECK_POS_Y, 0]} castShadow={castShadow} />
 
           {/* ── Arms: shoulder → elbow. ── */}
           {[-1, 1].map((side) => (
@@ -609,7 +615,7 @@ export const Figure = memo(function Figure({
                     name={name ?? spec.id}
                     ringColor={spec.statusColor}
                     height={0.02}
-                    radius={0.13}
+                    radius={0.16}
                   />
                 </group>
               ) : (

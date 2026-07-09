@@ -37,12 +37,12 @@ export const PELVIS_Y = 0.8;
 export const HIP_X = 0.062;
 export const THIGH_LEN = 0.34;
 export const SHIN_LEN = 0.44;
-export const SHOULDER_X = 0.165;
+export const SHOULDER_X = 0.175; // one-piece pass: arm pivots just outside the slimmer torso
 export const SHOULDER_Y = 0.46;
 export const UPPER_ARM_LEN = 0.22;
 export const FOREARM_LEN = 0.2;
 export const NECK_Y = 0.52;
-export const HEAD_LIFT = 0.12;
+export const HEAD_LIFT = 0.095; // one-piece pass: ball head rests ON the shoulders, slight overlap (was 0.12 over a neck)
 
 // Native (unscaled) lengths of the shared limb capsules — the denominators the
 // leaf scales use to stretch one buffer to thigh / shin / arm length. Kept in
@@ -54,17 +54,25 @@ export const ARM_GEO_LEN = 0.224;
 // These are the fixed local transforms each body mesh carries relative to its
 // parent joint group; they do NOT change with pose (only the joint groups
 // rotate). Single-sourced here and consumed verbatim by the figure JSX.
+// One-piece silhouette pass (owner picked the Meccha-blob direction,
+// 2026-07-09 "let's try this" — reference: the Sketchfab one-piece white
+// character): NO neck (head nestles into the shoulders), NO shoes (legs end
+// in rounded STUMPS that graze the ground), CHUNKY low-taper limbs, and a
+// fuller pelvis that fuses the torso into the legs. Lengths and pivot heights
+// are UNCHANGED — every seat/approach/camera constant stays valid; only radii,
+// leaf dressing, and the head lift moved.
 export const HIP_BLOCK_Y = -0.045;
-export const THIGH_SCALE_XZ = 1.28;
-export const SHIN_SCALE_XZ = 1.08;
-export const SHOE_POS_Y = -SHIN_LEN + 0.03;
-export const SHOE_POS_Z = 0.04;
-export const SHOE_SCALE_X = 1.4;
-export const SHOE_SCALE_Y = 0.75;
-export const SHOE_SCALE_Z = 1.4;
-export const NECK_POS_Y = 0.545;
+export const THIGH_SCALE_XZ = 1.14; // chunky but barely tapered (was 1.28 → thin shin)
+export const SHIN_SCALE_XZ = 1.06;
+// The rounded leg end (historically the shoe — the part keys keep the name).
+// Centred nearly under the shin; the barest forward bias keeps the walk read.
+export const SHOE_POS_Y = -SHIN_LEN + 0.055;
+export const SHOE_POS_Z = 0.015;
+export const SHOE_SCALE_X = 1.05;
+export const SHOE_SCALE_Y = 0.85;
+export const SHOE_SCALE_Z = 1.1;
 export const UPPER_ARM_SCALE_XZ = 1;
-export const FOREARM_SCALE_XZ = 0.88;
+export const FOREARM_SCALE_XZ = 0.94; // near-constant arm width (was 0.88)
 
 // Derived limb scales (the Y stretch = target length ÷ native capsule length).
 export const THIGH_SCALE_Y = THIGH_LEN / LEG_GEO_LEN;
@@ -81,10 +89,10 @@ export const FOREARM_SCALE_Y = FOREARM_LEN / ARM_GEO_LEN;
 // radial radius, bridges both surfaces — the bend reads as ONE smooth
 // constant-radius tube at any angle. Same body material, so the union is
 // invisible when straight (the ball hides inside the wider member).
-export const KNEE_BALL_R = 0.0705; // thigh radial radius (the wider side)
-export const HIP_BALL_R = 0.0705; // thigh top — fills the groin crease when seated
-export const ELBOW_BALL_R = 0.0425; // upper-arm radial radius (forearm tapers to 0.037)
-export const SHOULDER_BALL_R = 0.052; // slightly over the arm's 0.042 — blends into the torso
+export const KNEE_BALL_R = 0.086; // thigh radial radius (the wider side)
+export const HIP_BALL_R = 0.086; // thigh top — fills the groin crease when seated
+export const ELBOW_BALL_R = 0.059; // upper-arm radial radius (forearm tapers to ~0.055)
+export const SHOULDER_BALL_R = 0.068; // soft deltoid — blends the chunky arm into the torso
 
 // ── Pose application (shared with the renderer) ─────────────────────────────
 
@@ -142,10 +150,12 @@ export function applyPose(g: JointGroups, p: Pose): void {
 
 // ── Baked sit-pose extraction ───────────────────────────────────────────────
 
-/** The 22 seated body parts, in a stable canonical order (the instanced crowd
+/** The 21 seated body parts, in a stable canonical order (the instanced crowd
  *  pairs each key with the matching geometry buffer from kit/figure.tsx).
- *  APPEND-ONLY — the joint-blend balls (2026-07-09 seamless-joints pass) were
- *  added at the tail so every existing index pairing stayed put. */
+ *  APPEND-ONLY at the tail (the joint-blend balls, 2026-07-09); 'neck' was
+ *  REMOVED by the one-piece silhouette pass the same day (the blob has no
+ *  neck), and 'shoeL/R' keep their historical names but are now the rounded
+ *  leg stumps. */
 export const SIT_PART_KEYS = [
   'hip',
   'thighL',
@@ -155,7 +165,6 @@ export const SIT_PART_KEYS = [
   'shoeL',
   'shoeR',
   'torso',
-  'neck',
   'upperArmL',
   'upperArmR',
   'forearmL',
@@ -280,7 +289,6 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
   groups.torso = torso;
 
   const torsoMesh = leaf(torso, [0, 0, 0]);
-  const neck = leaf(torso, [0, NECK_POS_Y, 0]);
 
   const armLeaves: Record<
     | 'upperArmL'
@@ -352,7 +360,6 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
     shoeL: legLeaves.shoeL.matrixWorld.clone(),
     shoeR: legLeaves.shoeR.matrixWorld.clone(),
     torso: torsoMesh.matrixWorld.clone(),
-    neck: neck.matrixWorld.clone(),
     upperArmL: armLeaves.upperArmL.matrixWorld.clone(),
     upperArmR: armLeaves.upperArmR.matrixWorld.clone(),
     forearmL: armLeaves.forearmL.matrixWorld.clone(),

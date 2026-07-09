@@ -435,7 +435,10 @@ export function mannequinMaterial(tint?: string | null): THREE.MeshStandardMater
   const color = tint && /^#[0-9a-fA-F]{6}$/.test(tint) ? tint : '#ffffff';
   let m = mannequinMats.get(color);
   if (!m) {
-    m = new THREE.MeshStandardMaterial({ color, roughness: 0.18, metalness: 0.02 });
+    // One-piece pass (2026-07-09): satin, not gloss — the hard specular of the
+    // old 0.18 highlighted every mesh-intersection crease and made the blob
+    // read as plates; the reference model is a soft satin one-piece.
+    m = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.02 });
     mannequinMats.set(color, m);
   }
   return m;

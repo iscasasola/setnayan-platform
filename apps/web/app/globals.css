@@ -88,9 +88,9 @@
     --color-terracotta: 197 160 89;    /* accent → Royal Champagne Gold #C5A059 */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 30 34 41;        /* CTA → Deep Obsidian #1E2229 (was Mulberry; token name kept) */
-    --color-mulberry-600: 52 58 68;    /* CTA hover (lifted charcoal) → #343A44 */
-    --color-mulberry-700: 21 23 27;    /* CTA deepest → #15171B */
+    --color-mulberry: 92 37 66;        /* CTA → Rich Mulberry wine #5C2542 ("Energy, not skin" reskin 2026-07-09; reverses the 2026-05-29 Clean-Editorial obsidian lock, owner-authorized) */
+    --color-mulberry-600: 122 49 87;   /* CTA hover (lifted wine) → #7A3157 */
+    --color-mulberry-700: 63 26 46;    /* CTA deepest → wine-deep #3F1A2E */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -106,9 +106,9 @@
     --color-terracotta: 224 204 160;   /* accent → brighter champagne #E0CCA0 */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 74 81 92;        /* CTA → charcoal #4A515C (reads on the dark bg) */
-    --color-mulberry-600: 92 99 110;   /* CTA hover lighter → #5C636E */
-    --color-mulberry-700: 30 34 41;    /* CTA deepest → Deep Obsidian #1E2229 */
+    --color-mulberry: 143 44 84;       /* CTA → wine-bright #8F2C54 (reads on the dark obsidian bg) */
+    --color-mulberry-600: 165 66 106;  /* CTA hover lighter → #A5426A */
+    --color-mulberry-700: 92 37 66;    /* CTA deepest → Rich Mulberry wine #5C2542 */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */

@@ -44,6 +44,10 @@ import {
   type BenchSort,
   type SortReason,
 } from '@/lib/bench-sort';
+import {
+  FREE_VENUE_ASSIST_CHIP,
+  isSuriAssistFreeForCategory,
+} from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import {
@@ -171,7 +175,11 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(197,160,89,.2)}
 .slcat .plan-chip.done .pc-dot{background:#2e7d4f}
 /* "In your plan" marker beside a category name */
 .slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(197,160,89,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+/* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
+   presentational chip on the venue category while its shortlist is empty */
+.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,34,41,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 
+html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
 html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
 html.dark .slcat .plan-chip{background:#2A2E36}
 html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
@@ -571,6 +579,14 @@ export function ShortlistCategories({
                         >
                           <span className="cat-nm">{t.label}</span>
                           <span className="cat-rt">
+                            {/* Free first-venue-shortlist carve-out (owner
+                                2026-07-09 · Pricing.md § 00): presentational
+                                chip, live only while the venue shortlist is
+                                empty (the offer's "first" gate). */}
+                            {isSuriAssistFreeForCategory(t.category) &&
+                            t.vendors.length === 0 ? (
+                              <span className="cat-free">{FREE_VENUE_ASSIST_CHIP}</span>
+                            ) : null}
                             {t.planned && t.vendors.length === 0 ? (
                               <span className="cat-plan">In your plan</span>
                             ) : null}

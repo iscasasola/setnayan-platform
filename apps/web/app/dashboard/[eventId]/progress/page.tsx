@@ -38,8 +38,13 @@ import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { formatPeso } from '@/lib/checklist-budget-format';
+import {
+  isFirstVenueShortlistOfferAvailable,
+  isSuriAssistFreeDecisionId,
+} from '@/lib/setnayan-ai-free-assist';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { JourneyRail } from './_components/journey-rail';
+import { FreeVenueShortlistOffer } from './_components/free-venue-shortlist-offer';
 
 export const dynamic = 'force-dynamic';
 
@@ -557,6 +562,18 @@ export default async function EventProgressPage({
   );
   const openDecisionCount = decisionGroups.reduce((acc, g) => acc + g.items.length, 0);
 
+  // ---- FREE first-venue-shortlist offer (owner-locked 2026-07-09 ·
+  // Pricing.md § 00 carve-out). Free (non-AI) state only, and ONLY while the
+  // venue shortlist is EMPTY — any venue pick (Suri-built or manual) consumes
+  // it; the shortlist state itself records consumption. When the venue
+  // decision item renders (the resolver's 'start'/'pick' on reception_venue),
+  // the offer embeds under it; otherwise it stands alone atop the board. ----
+  const venueOfferAvailable =
+    !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+  const venueOfferInline =
+    venueOfferAvailable &&
+    decisionGroups.some((g) => g.items.some((i) => isSuriAssistFreeDecisionId(i.id)));
+
   // ---- Journey stages (pure lib — see lib/progress-stages.ts). ------------
   const stageModel = buildProgressStages({
     eventType,
@@ -899,6 +916,11 @@ export default async function EventProgressPage({
                 : 'Choices only you can make — everything else keeps moving without you.'}
             </p>
           </div>
+          {venueOfferAvailable && !venueOfferInline ? (
+            <div className="mb-3.5">
+              <FreeVenueShortlistOffer eventId={eventId} variant="card" />
+            </div>
+          ) : null}
           {decisionGroups.length > 0 ? (
             <div className="grid gap-3.5 lg:grid-cols-2">
               {decisionGroups.map((group, gi) => (
@@ -942,6 +964,9 @@ export default async function EventProgressPage({
                       >
                         {item.ctaLabel}
                       </Link>
+                      {venueOfferInline && isSuriAssistFreeDecisionId(item.id) ? (
+                        <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
+                      ) : null}
                     </div>
                   ))}
                 </article>

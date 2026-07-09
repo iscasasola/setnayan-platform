@@ -1,11 +1,11 @@
 /**
  * figure-sit-bake — the SINGLE SOURCE of the shared 3D figure's rig proportions
  * + the "bake the sit pose once" extraction that lets the seated crowd render as
- * a handful of InstancedMeshes instead of ~14 meshes PER occupant.
+ * a handful of InstancedMeshes instead of ~22 meshes PER occupant.
  *
  * WHY this file exists (and is pure — no React, no @react-three/fiber, only
  * `three` scene-graph math + `figure-rig`): the articulated `<Figure>`
- * (`app/_components/plan3d/kit/figure.tsx`) draws a seated guest as ~14 non-
+ * (`app/_components/plan3d/kit/figure.tsx`) draws a seated guest as ~22 non-
  * instanced meshes hung off posed joint groups. Three surfaces mount one
  * `<Figure pose="sit">` per occupied seat with no cap/LOD/instancing — up to
  * 250 pax on the phone-first public walk ≈ 3.2k color-pass draws. The sit pose
@@ -72,6 +72,20 @@ export const SHIN_SCALE_Y = SHIN_LEN / LEG_GEO_LEN;
 export const UPPER_ARM_SCALE_Y = UPPER_ARM_LEN / ARM_GEO_LEN;
 export const FOREARM_SCALE_Y = FOREARM_LEN / ARM_GEO_LEN;
 
+// Joint-blend balls (owner 2026-07-09: "like a long balloon twisted — we want
+// no twisting; the joints area smooth and seamless"). The limbs are two
+// tapered capsules whose rounded ends APEX exactly at the pivot, so any bend
+// pinches like a balloon twist (outside crease + inside fold, plus a radius
+// step where the taper changes: thigh 0.055×1.28 = 0.0704 vs shin ×1.08 =
+// 0.0594). One sphere AT each bending pivot, sized to the LARGER adjoining
+// radial radius, bridges both surfaces — the bend reads as ONE smooth
+// constant-radius tube at any angle. Same body material, so the union is
+// invisible when straight (the ball hides inside the wider member).
+export const KNEE_BALL_R = 0.0705; // thigh radial radius (the wider side)
+export const HIP_BALL_R = 0.0705; // thigh top — fills the groin crease when seated
+export const ELBOW_BALL_R = 0.0425; // upper-arm radial radius (forearm tapers to 0.037)
+export const SHOULDER_BALL_R = 0.052; // slightly over the arm's 0.042 — blends into the torso
+
 // ── Pose application (shared with the renderer) ─────────────────────────────
 
 /** The posable joint groups. `THREE.Object3D` (not `Group`) so the renderer's
@@ -128,8 +142,10 @@ export function applyPose(g: JointGroups, p: Pose): void {
 
 // ── Baked sit-pose extraction ───────────────────────────────────────────────
 
-/** The 14 seated body parts, in a stable canonical order (the instanced crowd
- *  pairs each key with the matching geometry buffer from kit/figure.tsx). */
+/** The 22 seated body parts, in a stable canonical order (the instanced crowd
+ *  pairs each key with the matching geometry buffer from kit/figure.tsx).
+ *  APPEND-ONLY — the joint-blend balls (2026-07-09 seamless-joints pass) were
+ *  added at the tail so every existing index pairing stayed put. */
 export const SIT_PART_KEYS = [
   'hip',
   'thighL',
@@ -145,6 +161,14 @@ export const SIT_PART_KEYS = [
   'forearmL',
   'forearmR',
   'head',
+  'hipBallL',
+  'hipBallR',
+  'kneeBallL',
+  'kneeBallR',
+  'shoulderBallL',
+  'shoulderBallR',
+  'elbowBallL',
+  'elbowBallR',
 ] as const;
 
 export type SitPartKey = (typeof SIT_PART_KEYS)[number];
@@ -194,10 +218,23 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
     rKnee: null,
   };
 
-  // ── Legs: pelvis → hip block + (hip → thigh, knee → shin + shoe) ──
+  // ── Legs: pelvis → hip block + (hip → thigh + hip ball, knee → shin +
+  // shoe + knee ball). Joint-blend balls sit AT each pivot (a sphere is
+  // rotation-invariant, so the parent group only fixes its position). ──
   const hip = leaf(pelvis, [0, HIP_BLOCK_Y, 0]);
-  const legLeaves: Record<'thighL' | 'thighR' | 'shinL' | 'shinR' | 'shoeL' | 'shoeR', THREE.Object3D> =
-    {} as never;
+  const legLeaves: Record<
+    | 'thighL'
+    | 'thighR'
+    | 'shinL'
+    | 'shinR'
+    | 'shoeL'
+    | 'shoeR'
+    | 'hipBallL'
+    | 'hipBallR'
+    | 'kneeBallL'
+    | 'kneeBallR',
+    THREE.Object3D
+  > = {} as never;
   for (const side of [-1, 1] as const) {
     const hipJ = new THREE.Group();
     hipJ.position.set(side * HIP_X, 0, 0);
@@ -209,6 +246,11 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
       [0, -THIGH_LEN / 2, 0],
       [THIGH_SCALE_XZ, THIGH_SCALE_Y, THIGH_SCALE_XZ],
     );
+    legLeaves[side < 0 ? 'hipBallL' : 'hipBallR'] = leaf(
+      hipJ,
+      [0, 0, 0],
+      [HIP_BALL_R, HIP_BALL_R, HIP_BALL_R],
+    );
 
     const kneeJ = new THREE.Group();
     kneeJ.position.set(0, -THIGH_LEN, 0);
@@ -219,6 +261,11 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
       kneeJ,
       [0, -SHIN_LEN / 2, 0],
       [SHIN_SCALE_XZ, SHIN_SCALE_Y, SHIN_SCALE_XZ],
+    );
+    legLeaves[side < 0 ? 'kneeBallL' : 'kneeBallR'] = leaf(
+      kneeJ,
+      [0, 0, 0],
+      [KNEE_BALL_R, KNEE_BALL_R, KNEE_BALL_R],
     );
     legLeaves[side < 0 ? 'shoeL' : 'shoeR'] = leaf(
       kneeJ,
@@ -235,8 +282,17 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
   const torsoMesh = leaf(torso, [0, 0, 0]);
   const neck = leaf(torso, [0, NECK_POS_Y, 0]);
 
-  const armLeaves: Record<'upperArmL' | 'upperArmR' | 'forearmL' | 'forearmR', THREE.Object3D> =
-    {} as never;
+  const armLeaves: Record<
+    | 'upperArmL'
+    | 'upperArmR'
+    | 'forearmL'
+    | 'forearmR'
+    | 'shoulderBallL'
+    | 'shoulderBallR'
+    | 'elbowBallL'
+    | 'elbowBallR',
+    THREE.Object3D
+  > = {} as never;
   for (const side of [-1, 1] as const) {
     const shoulderJ = new THREE.Group();
     shoulderJ.position.set(side * SHOULDER_X, SHOULDER_Y, 0);
@@ -248,6 +304,11 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
       [0, -UPPER_ARM_LEN / 2, 0],
       [UPPER_ARM_SCALE_XZ, UPPER_ARM_SCALE_Y, UPPER_ARM_SCALE_XZ],
     );
+    armLeaves[side < 0 ? 'shoulderBallL' : 'shoulderBallR'] = leaf(
+      shoulderJ,
+      [0, 0, 0],
+      [SHOULDER_BALL_R, SHOULDER_BALL_R, SHOULDER_BALL_R],
+    );
 
     const elbowJ = new THREE.Group();
     elbowJ.position.set(0, -UPPER_ARM_LEN, 0);
@@ -258,6 +319,11 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
       elbowJ,
       [0, -FOREARM_LEN / 2, 0],
       [FOREARM_SCALE_XZ, FOREARM_SCALE_Y, FOREARM_SCALE_XZ],
+    );
+    armLeaves[side < 0 ? 'elbowBallL' : 'elbowBallR'] = leaf(
+      elbowJ,
+      [0, 0, 0],
+      [ELBOW_BALL_R, ELBOW_BALL_R, ELBOW_BALL_R],
     );
   }
 
@@ -292,6 +358,14 @@ export function buildSitBakedLocals(): Record<SitPartKey, THREE.Matrix4> {
     forearmL: armLeaves.forearmL.matrixWorld.clone(),
     forearmR: armLeaves.forearmR.matrixWorld.clone(),
     head: headMesh.matrixWorld.clone(),
+    hipBallL: legLeaves.hipBallL.matrixWorld.clone(),
+    hipBallR: legLeaves.hipBallR.matrixWorld.clone(),
+    kneeBallL: legLeaves.kneeBallL.matrixWorld.clone(),
+    kneeBallR: legLeaves.kneeBallR.matrixWorld.clone(),
+    shoulderBallL: armLeaves.shoulderBallL.matrixWorld.clone(),
+    shoulderBallR: armLeaves.shoulderBallR.matrixWorld.clone(),
+    elbowBallL: armLeaves.elbowBallL.matrixWorld.clone(),
+    elbowBallR: armLeaves.elbowBallR.matrixWorld.clone(),
   };
 }
 

@@ -544,6 +544,7 @@ function Walker({
   posRef,
   // Renamed locally: `headingRef` below is the Walker's own smoothed-facing ref.
   headingRef: headingOutRef,
+  gaitPhaseRef,
   look,
   reducedMotion,
   camSeededRef,
@@ -558,6 +559,10 @@ function Walker({
   /** Live smoothed facing, shared out so the sit clip can start its turn from
    *  the walker's ACTUAL arrival heading (not a re-derived path tangent). */
   headingRef?: React.MutableRefObject<number | null>;
+  /** Live gait-clock value (same contract as headingRef) — read at scripted-walk
+   *  completion as the sit clip's `arrivePhase`, so the controller's takeover
+   *  figure starts from the walker's EXACT frozen stride sample. */
+  gaitPhaseRef?: React.MutableRefObject<number>;
   /** Shared swipe-to-look state (yaw offset + pitch + last-look timestamp). When
    *  absent, the camera behaves exactly as before (pure auto-facing chase). */
   look?: React.MutableRefObject<LookState> | null;
@@ -704,6 +709,9 @@ function Walker({
     // Reduced motion never reads the clock: the kit bakes a neutral stand in
     // that mode, and the figure still relocates so the flow completes.
     bobRef.current += delta * (raw < 1 ? (walk.run ? RUN_CLOCK_RAD_S : WALK_CLOCK_RAD_S) : 0);
+    // Share the live gait phase (posRef/headingRef contract) — the sit clip
+    // reads it at completion as its arrivePhase.
+    if (gaitPhaseRef) gaitPhaseRef.current = bobRef.current;
 
     if (groupRef.current) {
       groupRef.current.position.set(p.x, 0, p.z);
@@ -766,6 +774,9 @@ type SitState = {
   seat: SeatPose;
   /** Walker's actual smoothed facing on arrival — seeds the turn-to-seat. */
   arriveHeading: number;
+  /** Walker's frozen gait-clock value on arrival — seeds the controller's
+   *  arrival-blend takeover figure (arrivePose='walk' + this phase). */
+  arrivePhase: number;
   /** Whether the detached seat carried the occupied instance tint. */
   occupied: boolean;
 };
@@ -1008,7 +1019,7 @@ export function Plan3DScene({
 
   // ── Instanced seated crowd (2026-07-08) — mirrors the public walk ──────────
   // Collapse the STATIC seated crowd to ONE <InstancedSeatedCrowd> for the whole
-  // room (~14 draws + zero per-figure useFrame) instead of 14×N meshes. Gated to
+  // room (~22 draws + zero per-figure useFrame) instead of 22×N meshes. Gated to
   // the SAME condition that already makes a <Figure> static — quality 'low' OR
   // reduced motion — so at quality 'high' + motion every figure stays individual
   // and keeps its FigureFrameDriver idle sway (the shipped desktop-overlay look
@@ -1057,6 +1068,9 @@ export function Plan3DScene({
   // as the sit clip's `arriveHeading` so the turn starts from where the figure
   // ACTUALLY faces (not a snap to a re-derived path tangent).
   const walkerHeadingRef = useRef<number | null>(null);
+  // The Walker's live gait-clock value — read once at scripted-walk completion
+  // as the sit clip's `arrivePhase` (same contract as walkerHeadingRef).
+  const walkerGaitPhaseRef = useRef(0);
 
   // Swipe-to-look: a drag on the canvas rotates the chase camera (yaw) + tilts
   // it (clamped pitch) while roaming; a short tap stays "walk here". `handlers`
@@ -1147,6 +1161,7 @@ export function Plan3DScene({
         seatIndex,
         seat,
         arriveHeading,
+        arrivePhase: walkerGaitPhaseRef.current,
         // The DRAWN truth (slice-2 review fix): tint matches whatever the
         // clamped instance actually renders — covers an out-of-range
         // seatNumber AND a null seatNumber landing on another guest's chair 0.
@@ -1582,6 +1597,7 @@ export function Plan3DScene({
           name={(roamGuest ?? walkGuest)?.name}
           posRef={walkerPosRef}
           headingRef={walkerHeadingRef}
+          gaitPhaseRef={walkerGaitPhaseRef}
           // Swipe-to-look only steers the roam chase camera; the scripted seat
           // walk keeps its cinematic auto-facing (no look ref passed then).
           look={roam ? look : null}
@@ -1603,13 +1619,16 @@ export function Plan3DScene({
           tableId={sit.tableId}
           seatIndex={sit.seatIndex}
           arriveHeading={sit.arriveHeading}
+          arrivePose="walk"
+          arrivePhase={sit.arrivePhase}
           chairColor={sitChairColor}
           onSeated={handleSeated}
         >
-          {(pose) => (
+          {(pose, phase) => (
             // Same spec as seated/walking — the guest never re-dresses. Always
             // 'high': this is the single player figure (the Walker's own rule).
-            <Figure spec={figureSpecs.get(walkGuest.id)!} name={walkGuest.name} pose={pose} quality="high" />
+            // `phase` = the frozen arrival stride (arrival-blend fix 2026-07-09).
+            <Figure spec={figureSpecs.get(walkGuest.id)!} name={walkGuest.name} pose={pose} phase={phase} quality="high" />
           )}
         </SitController>
       ) : null}

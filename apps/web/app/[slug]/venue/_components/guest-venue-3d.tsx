@@ -563,7 +563,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
 
   // The anonymous seated crowd — every occupied seat that ISN'T the viewer's own
   // (accent + gold ring) and ISN'T a photo seat (billboard head) — collapsed to
-  // ONE <InstancedSeatedCrowd> for the whole room (~14 draws + zero per-figure
+  // ONE <InstancedSeatedCrowd> for the whole room (~22 draws + zero per-figure
   // useFrame, vs. 14×N meshes + N no-op subscribers). Strangers are neutral +
   // ringless (statusColor was always '' here), so no ring batch is drawn. Each
   // world matrix reproduces the exact table→seat→nudge nesting the individual

@@ -3089,11 +3089,16 @@ function Walker({
         seatIndex={walker.seatNumber}
         chairColor={palette.wall}
         arriveHeading={arriveHeading.current}
+        arrivePose="run"
+        arrivePhase={phase.current}
         onSeated={onArrive}
       >
-        {(pose) => (
+        {(pose, ph) => (
           <>
-            <Figure spec={figSpec} pose={pose} name={walker.name} />
+            {/* `ph` = the walker's frozen run stride — the controller starts
+                the takeover figure there and eases run → stand through the
+                kit's generic blend (arrival-blend fix 2026-07-09). */}
+            <Figure spec={figSpec} pose={pose} phase={ph} name={walker.name} />
             {/* The follow light rides the figure root through the sit, same as the walk. */}
             <pointLight position={[0, 1.2, 0]} intensity={0.4} distance={3} color={palette.accent} />
           </>
@@ -3104,12 +3109,11 @@ function Walker({
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      {/* 'run' — this walker jogs at ~2.4 m/s. KNOWN SEAM (pre-existing, run
-          makes it more visible): on arrival the root swaps <group> →
-          <SitController>, REMOUNTING the figure — the fresh driver snaps to
-          'stand' in one frame instead of easing (the kit's ⅓ s preset blend
-          only runs within a mounted driver). Threading the arrival pose +
-          phase into the controller is the follow-up fix. */}
+      {/* 'run' — this walker jogs at ~2.4 m/s. On arrival the root swaps
+          <group> → <SitController>, remounting the figure; the controller's
+          arrivePose/arrivePhase (passed above) start the takeover figure from
+          this exact frozen stride and ease it down — the old one-frame snap
+          to 'stand' is gone (arrival-blend fix 2026-07-09). */}
       <Figure spec={figSpec} pose="run" phase={phase} name={walker.name} />
       {/* The follow light keeps the walk-in readable in the darker Play room. */}
       <pointLight position={[0, 1.2, 0]} intensity={0.4} distance={3} color={palette.accent} />
@@ -3534,9 +3538,19 @@ function Crowd({
               seatIndex={a.seatIndex}
               chairColor={chairColor}
               arriveHeading={headings.current[i]}
+              {...(crowdQuality === 'high'
+                ? // Arrival blend only at quality 'high': a 'low' figure never
+                  // mounts the frame driver, so nothing eases — passing the
+                  // frozen stride there would STATIC-BAKE an arbitrary sample
+                  // the walk leg never painted (the walking 'low' crowd holds
+                  // stride 0) and pop TWICE instead of once (review 2026-07-09).
+                  { arrivePose: 'walk' as const, arrivePhase: phases[i]?.current ?? 0 }
+                : {})}
               onSeated={() => onAgentSeated(i)}
             >
-              {(pose) => <Figure spec={a.spec} pose={pose} quality={crowdQuality} name={a.name} />}
+              {(pose, ph) => (
+                <Figure spec={a.spec} pose={pose} phase={ph} quality={crowdQuality} name={a.name} />
+              )}
             </SitController>
           );
         }

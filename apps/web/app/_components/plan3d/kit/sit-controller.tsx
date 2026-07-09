@@ -6,7 +6,11 @@
  *
  *   (a) the walker arrives at `approachPoint` — 0.55 m out along −faceY,
  *       directly behind the chair (the CALLER's walk system delivers it there;
- *       this controller takes over the figure group from that spot);
+ *       this controller takes over the figure group from that spot). When the
+ *       caller passes `arrivePose`/`arrivePhase`, the figure STARTS in that
+ *       frozen gait sample and eases to 'stand' over the kit's ⅓ s blend
+ *       DURING the pull — the arrival-blend fix (2026-07-09); previously the
+ *       remounted figure snapped to neutral in one frame;
  *   (b) PULL   — the chair eases BACK 0.35 m along −faceY, 350 ms ease-out;
  *   (c) STEP   — the figure steps into the gap, turns to the seat gaze via a
  *       shortest-arc angle lerp, and blends stand→sit over 450 ms (the kit
@@ -160,6 +164,24 @@ export type SitControllerOptions = {
   /** Walker heading on arrival (start of the shortest-arc turn). Defaults to
    *  the seat gaze — a straight walk-in needs no turn. */
   arriveHeading?: number;
+  /**
+   * Gait pose the walker ARRIVED in ('walk' | 'run') — the arrival-blend fix
+   * (2026-07-09): mounting this controller REMOUNTS the kit <Figure>, and a
+   * fresh FigureFrameDriver initialises cur = from = target, so without this
+   * the mid-stride pose snapped to neutral 'stand' in ONE frame (clearly
+   * visible since the walkers went 'run' — ±0.85 rad hips + jelly squash).
+   * With it, the controller starts the figure IN this pose (frozen at
+   * `arrivePhase`), holds it for exactly one rendered frame (the fresh
+   * driver's first frame snapshots it as its blend source), then flips to
+   * 'stand' — the kit's ⅓ s preset blend eases the limbs down WHILE the
+   * chair pulls back (350 ms — the two windows overlap almost exactly).
+   * Ignored under reduced motion (which snaps to the end state, as ever).
+   */
+  arrivePose?: FigurePoseName;
+  /** The walker's frozen gait-clock value at arrival — feeds the figure's
+   *  `phase` so the first painted sample matches the unmounted walker's last
+   *  frame exactly (same pose + same phase ⇒ identical joints). */
+  arrivePhase?: number;
   /** Heading the stand-up clip turns to while rising. Defaults to gaze + π
    *  (facing away from the table, ready to walk off). */
   departHeading?: number;
@@ -194,12 +216,26 @@ export function useSitController({
   figureRef,
   chairRef,
   arriveHeading,
+  arrivePose,
+  arrivePhase,
   departHeading,
   onSeated,
   onStood,
 }: SitControllerOptions): SitControllerHandles {
   const reduced = usePrefersReducedMotion();
-  const [pose, setPose] = useState<FigurePoseName>(mode === 'sit' ? 'stand' : 'sit');
+  // The forward clip starts in the walker's arrival gait when given (see the
+  // arrivePose doc) — reduced motion keeps the plain 'stand' start, since it
+  // never animates and 'run'+reduced would bake a neutral stand anyway.
+  const startsGaited = mode === 'sit' && !reduced && (arrivePose === 'walk' || arrivePose === 'run');
+  const [pose, setPose] = useState<FigurePoseName>(
+    mode === 'sit' ? (startsGaited ? arrivePose! : 'stand') : 'sit',
+  );
+  // One-rendered-frame hold on the arrival gait: the fresh FigureFrameDriver's
+  // FIRST frame snapshots the frozen mid-stride sample as its blend source
+  // (cur = from = target); flipping to 'stand' any earlier would hand it the
+  // stand target instead and re-introduce the one-frame snap this exists to
+  // kill. Decremented in the frame loop below.
+  const arriveHold = useRef(startsGaited ? 1 : 0);
 
   // Clip state lives in refs — the frame loop is the only writer and React
   // re-renders only on the two pose flips.
@@ -284,6 +320,16 @@ export function useSitController({
     if (!fig || !chair || !r) return;
     const T = SIT_TIMING;
     tMs.current += delta * 1000;
+
+    // Arrival-gait ease-out (see arriveHold above): after the driver's first
+    // frame captured the frozen stride, flip to 'stand' — the kit's ⅓ s blend
+    // rides the chair's 350 ms pull. Runs BEFORE the phase machine so a
+    // starved first frame that resolves the whole pull can still setPose('sit')
+    // afterwards and win (run → sit blends directly; no snap either way).
+    if (arriveHold.current > 0) {
+      arriveHold.current -= 1;
+      if (arriveHold.current === 0) setPose('stand');
+    }
 
     // Once the figure owns the chair (STEP end onward, and throughout the
     // reverse clip's seated stretch) its root rides the chair: nudge table-ward
@@ -414,9 +460,11 @@ export type SitControllerProps = Omit<SitControllerOptions, 'figureRef' | 'chair
   chairColor: string;
   chairRoughness?: number;
   chairCastShadow?: boolean;
-  /** Render-prop for the figure: gets the live pose to feed `<Figure pose>`.
-   *  It renders inside the controller-owned group — position nothing yourself. */
-  children: (pose: FigurePoseName) => ReactNode;
+  /** Render-prop for the figure: gets the live pose to feed `<Figure pose>`,
+   *  plus the frozen arrival gait phase for `<Figure phase>` (0 when no
+   *  arrivePose was given — stand/sit ignore it). Renders inside the
+   *  controller-owned group — position nothing yourself. */
+  children: (pose: FigurePoseName, phase: number) => ReactNode;
 };
 
 /**
@@ -444,7 +492,7 @@ export function SitController({
       {!reduced ? (
         <ActiveChair ref={chairRef} color={chairColor} roughness={chairRoughness} castShadow={chairCastShadow} />
       ) : null}
-      <group ref={figureRef}>{children(pose)}</group>
+      <group ref={figureRef}>{children(pose, opts.arrivePhase ?? 0)}</group>
     </>
   );
 }

@@ -221,12 +221,13 @@ export default async function DashboardIndexPage() {
 
   // YOUR SPACES — cross-cutting doorways, gated by role. Folds in the old
   // RoleSwitchRows (Shop console / Setnayan HQ).
-  // NOTE: Life Story has no dedicated route yet, so its card points at the
-  // Memories Hub (the real cross-event collection) — repoint to /dashboard/
-  // life-story once that route ships.
+  // Life Story → the Life-Flash experience (/dashboard/life-flash) when its
+  // rollout flag is on. That route `notFound()`s while the flag is off, so in
+  // prod (flag off) the card falls back to the Memories Hub — the real
+  // cross-event collection — until Life-Flash launches.
   const spaces: SpaceCardProps[] = [
     {
-      href: '/dashboard/library',
+      href: lifeStoryEnabled() ? '/dashboard/life-flash' : '/dashboard/library',
       icon: Sparkles,
       title: 'Life Story',
       subtitle: 'Your whole life, from every celebration.',

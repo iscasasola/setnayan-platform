@@ -114,6 +114,23 @@ export type ShortlistVendor = {
   isVerified: boolean;
   isSetnayan: boolean;
   href: string;
+  /** Fit-badge · service-radius reach (2026-07-09). TRUE = the vendor's tier
+   *  radius reaches this event's venue ("✓ Reaches your venue"); FALSE = out of
+   *  range ("travel fee likely"); NULL = unknown (no coords / unscoped tier /
+   *  manual vendor) → the badge is hidden. Fail-open: unknown never reads FALSE. */
+  reachesVenue: boolean | null;
+  /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
+   *  else null (Free/unscoped or Enterprise/nationwide) — drives the reach label. */
+  serviceRadiusKm: number | null;
+  /** Fit-badge · budget fit (2026-07-09). 'fits' = the vendor's price basis is
+   *  within the event's remaining budget (total − locked commitments); 'over' =
+   *  it exceeds it; NULL = no budget set or no price basis → hidden. Locked picks
+   *  never carry a budget badge (they're already committed + already counted). */
+  budgetFit: 'fits' | 'over' | null;
+  /** TRUE when `budgetFit` was computed from the service's "starts at"
+   *  (starting_price_php) rather than a real quote (total_cost_php) — the badge
+   *  renders an "est." qualifier so an estimate never reads as a firm number. */
+  budgetEstimated: boolean;
 };
 
 /** One taxonomy tile (a category) inside a folder. */
@@ -177,9 +194,42 @@ export function buildShortlistFolders(args: {
   /** Category ids from the couple's onboarding plan (style_preferences.
    *  interested_categories) — the tiles to mark as "in your plan". */
   plannedTiles?: ReadonlySet<string>;
+  /** The event's total budget in PHP whole pesos (estimated_budget_centavos /
+   *  100), or null when unset. Drives the per-vendor budget-fit badge: remaining
+   *  = total − Σ locked commitments; a considered vendor "fits" when its price
+   *  basis ≤ remaining. Null → no budget badge anywhere (calm by default). */
+  totalBudgetPhp?: number | null;
 }): ShortlistFolder[] {
-  const { vendorRows, enrichmentByVendorId, eventType, faithSet, taxonomy, eventId, plannedTiles } =
-    args;
+  const {
+    vendorRows,
+    enrichmentByVendorId,
+    eventType,
+    faithSet,
+    taxonomy,
+    eventId,
+    plannedTiles,
+    totalBudgetPhp,
+  } = args;
+
+  // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
+  // picks (contracted/deposit_paid/delivered/complete) count as spent — a
+  // considered vendor isn't committed, so it's measured AGAINST the remaining,
+  // not subtracted from it. Null total → remaining null → no budget badges.
+  const remainingBudgetPhp = (() => {
+    if (totalBudgetPhp == null) return null;
+    let lockedSpent = 0;
+    for (const v of vendorRows) {
+      if (!(v.status && LOCKED_STATUSES.has(v.status))) continue;
+      const cost =
+        typeof v.total_cost_php === 'number'
+          ? v.total_cost_php
+          : v.total_cost_php != null
+            ? Number(v.total_cost_php)
+            : 0;
+      if (Number.isFinite(cost)) lockedSpent += cost;
+    }
+    return totalBudgetPhp - lockedSpent;
+  })();
 
   const folderOrder = taxonomy?.folderOrder ?? WEDDING_FOLDER_ORDER;
   const folderLabelMap = taxonomy?.folderLabel ?? WEDDING_FOLDER_LABEL;
@@ -197,17 +247,32 @@ export function buildShortlistFolders(args: {
     const tile = tileForCategory(v.category);
     if (!tile) continue;
     const ext = enrichmentByVendorId?.get(v.vendor_id);
+    const isLocked = !!(v.status && LOCKED_STATUSES.has(v.status));
+    const totalCostPhp =
+      typeof v.total_cost_php === 'number'
+        ? v.total_cost_php
+        : v.total_cost_php != null
+          ? Number(v.total_cost_php)
+          : null;
+
+    // Fit-badge · budget (2026-07-09). Basis = a real quote first, else the
+    // service's "starts at" anchor (owner: "service cards has a starts at
+    // range"). Locked picks skip the badge — they're committed + already netted
+    // out of `remainingBudgetPhp`, so measuring them against it would double-count.
+    const budgetBasis = totalCostPhp ?? ext?.starting_price_php ?? null;
+    const budgetFit: 'fits' | 'over' | null =
+      isLocked || remainingBudgetPhp == null || budgetBasis == null
+        ? null
+        : budgetBasis <= remainingBudgetPhp
+          ? 'fits'
+          : 'over';
+    const budgetEstimated = budgetFit != null && totalCostPhp == null;
+
     const vendor: ShortlistVendor = {
       vendorId: v.vendor_id,
       name: v.vendor_name,
-      status:
-        v.status && LOCKED_STATUSES.has(v.status) ? 'locked' : 'considering',
-      totalCostPhp:
-        typeof v.total_cost_php === 'number'
-          ? v.total_cost_php
-          : v.total_cost_php != null
-            ? Number(v.total_cost_php)
-            : null,
+      status: isLocked ? 'locked' : 'considering',
+      totalCostPhp,
       photoUrl:
         v.manual_vendor_photo_url ??
         v.service_primary_photo_url ??
@@ -219,6 +284,13 @@ export function buildShortlistFolders(args: {
       isVerified: ext?.is_verified ?? false,
       isSetnayan: ext?.is_setnayan_service ?? false,
       href: `/dashboard/${eventId}/vendors/${v.vendor_id}`,
+      // Fit-badge · reach. `within_radius` is undefined for manual vendors / when
+      // coords or tier are unknown → NULL (badge hidden, never a false "out of
+      // range"). serviceRadiusKm feeds the "within N km" label.
+      reachesVenue: ext?.within_radius ?? null,
+      serviceRadiusKm: ext?.service_radius_km ?? null,
+      budgetFit,
+      budgetEstimated,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);

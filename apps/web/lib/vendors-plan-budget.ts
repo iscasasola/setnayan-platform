@@ -235,6 +235,17 @@ export type VendorEnrichment = {
   is_verified?: boolean;
   is_setnayan_service?: boolean;
   distance_km?: number | null;
+  /** Fit-badge · service-radius reach (2026-07-09). TRUE = the vendor's tier
+   *  radius reaches the event venue; FALSE = out of range; undefined/null =
+   *  unknown (no coords / unscoped tier) → the bench hides the reach badge. */
+  within_radius?: boolean | null;
+  /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
+   *  else null — feeds the reach badge's "within N km" label. */
+  service_radius_km?: number | null;
+  /** The picked service's "starts at" anchor (vendor_services.starting_price_php)
+   *  — the budget-fit fallback basis when the vendor hasn't sent a quote yet
+   *  (total_cost_php is null). PHP whole pesos. */
+  starting_price_php?: number | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
   /** Linked-services-on-card labels for this vendor's picked service.

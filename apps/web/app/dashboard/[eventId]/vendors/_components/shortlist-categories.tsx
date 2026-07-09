@@ -30,6 +30,8 @@ import {
   ChevronDown,
   Star,
   MapPin,
+  MapPinOff,
+  Wallet,
   BadgeCheck,
   Sparkles,
   Pencil,
@@ -110,6 +112,13 @@ const SLCAT_CSS = `
 .slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
+/* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
+.slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
+.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
+.slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
+.slcat .vc .fit.warn{color:#9a6a12;background:rgba(197,160,89,.16)}
+html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
+html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(197,160,89,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the vendors) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
@@ -197,11 +206,61 @@ function VendorCard({ v }: { v: ShortlistVendor }) {
             ) : null}
           </span>
         ) : null}
+        <FitBadges v={v} />
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
         ) : null}
       </span>
     </Link>
+  );
+}
+
+/**
+ * Live fit-badges on a bench card (2026-07-09). Reach + budget only render when
+ * there's a real signal — reach hides when coords/tier are unknown (never a
+ * false "out of range"), budget hides when there's no budget set or no price
+ * basis. Warn-only by design (owner 2026-07-09): a red badge informs, it never
+ * blocks. Date-availability is a fast-follow (needs per-vendor calendar batch).
+ */
+function FitBadges({ v }: { v: ShortlistVendor }) {
+  const reach =
+    v.reachesVenue === true
+      ? { cls: 'ok', icon: <MapPin size={9} strokeWidth={2.25} aria-hidden />, text: 'Reaches you' }
+      : v.reachesVenue === false
+        ? {
+            cls: 'warn',
+            icon: <MapPinOff size={9} strokeWidth={2.25} aria-hidden />,
+            text: v.serviceRadiusKm ? `Beyond ${v.serviceRadiusKm}km` : 'Travel fee likely',
+          }
+        : null;
+  const budget =
+    v.budgetFit === 'fits'
+      ? {
+          cls: 'ok',
+          icon: <Wallet size={9} strokeWidth={2.25} aria-hidden />,
+          text: v.budgetEstimated ? 'Fits budget · est.' : 'Fits budget',
+        }
+      : v.budgetFit === 'over'
+        ? {
+            cls: 'warn',
+            icon: <Wallet size={9} strokeWidth={2.25} aria-hidden />,
+            text: v.budgetEstimated ? 'Over budget · est.' : 'Over budget',
+          }
+        : null;
+  if (!reach && !budget) return null;
+  return (
+    <span className="fits">
+      {reach ? (
+        <span className={`fit ${reach.cls}`}>
+          {reach.icon} {reach.text}
+        </span>
+      ) : null}
+      {budget ? (
+        <span className={`fit ${budget.cls}`}>
+          {budget.icon} {budget.text}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

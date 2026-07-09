@@ -25,7 +25,7 @@ import {
   resolveVendorDisplayName,
   isVendorNameRevealed,
 } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -338,12 +338,27 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ? haversineKm(venueLat, venueLng, s.hq_latitude, s.hq_longitude)
           : null;
 
+      // Fit-badge · service-radius reach (2026-07-09). Same tier-cap + fail-open
+      // rule the category-search overlay uses (vendor-tier-caps · serviceRadiusKm):
+      // Verified 20km · Pro 50km reach iff distance ≤ radius; Free (0 = unscoped)
+      // + Enterprise (∞) + unknown distance are admitted (within). Null distance /
+      // no finite radius → within=null (badge hidden, never a false "out of range").
+      const radiusKm = tierCaps(asVendorTier(a?.tier_state ?? null)).serviceRadiusKm;
+      const hasFiniteRadius = Number.isFinite(radiusKm) && radiusKm > 0;
+      const withinRadius =
+        distanceKm == null || !hasFiniteRadius
+          ? null
+          : distanceKm <= radiusKm;
+
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
         is_verified: s.public_visibility === 'verified',
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
+        within_radius: withinRadius,
+        service_radius_km: hasFiniteRadius ? radiusKm : null,
+        starting_price_php: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
@@ -756,6 +771,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     taxonomy,
     eventId,
     plannedTiles,
+    totalBudgetPhp:
+      ev?.estimated_budget_centavos != null
+        ? Math.round(ev.estimated_budget_centavos / 100)
+        : null,
   });
 
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
@@ -1126,10 +1145,14 @@ async function fetchVendorPhotoMaps(
   manualPhotoByVendor: Map<string, string>;
   /** vendor_id → linked-services-on-card labels for its picked service. */
   linkedByVendorId: Map<string, { label: string; groupId: string | null }[]>;
+  /** vendor_id → the picked service's "starts at" price (starting_price_php),
+   *  the budget-fit fallback basis when a vendor hasn't quoted yet. */
+  startingPriceByVendor: Map<string, number>;
 }> {
   const servicePhotoByVendor = new Map<string, string>();
   const manualPhotoByVendor = new Map<string, string>();
   const linkedByVendorId = new Map<string, { label: string; groupId: string | null }[]>();
+  const startingPriceByVendor = new Map<string, number>();
 
   // 1. vendor_id → service_id / manual_vendor_id. Falls back to a service_id-
   //    only select when manual_vendor_id isn't migrated yet.
@@ -1153,7 +1176,7 @@ async function fetchVendorPhotoMaps(
     idRows = (reduced.data ?? []) as IdRow[];
   } else {
     // Any other error → no photos; the plan still renders.
-    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
+    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId, startingPriceByVendor };
   }
 
   const serviceIdByVendor = new Map<string, string>();
@@ -1165,11 +1188,15 @@ async function fetchVendorPhotoMaps(
   const serviceIds = Array.from(new Set(serviceIdByVendor.values()));
   const manualIds = Array.from(new Set(manualIdByVendor.values()));
   if (serviceIds.length === 0 && manualIds.length === 0) {
-    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
+    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId, startingPriceByVendor };
   }
 
   // 2. Batch-fetch the r2 keys (one round trip per table, only when needed).
-  type SvcRow = { vendor_service_id: string; primary_photo_r2_key: string | null };
+  type SvcRow = {
+    vendor_service_id: string;
+    primary_photo_r2_key: string | null;
+    starting_price_php: number | null;
+  };
   type ManRow = { manual_vendor_id: string; photo_r2_key: string | null };
   type LinkRow = { vendor_service_id: string; linked_label: string | null; linked_canonical_service: string; display_order: number };
   const admin = createAdminClient();
@@ -1177,7 +1204,7 @@ async function fetchVendorPhotoMaps(
     serviceIds.length > 0
       ? admin
           .from('vendor_services')
-          .select('vendor_service_id, primary_photo_r2_key')
+          .select('vendor_service_id, primary_photo_r2_key, starting_price_php')
           .in('vendor_service_id', serviceIds)
       : Promise.resolve({ data: [] as SvcRow[] }),
     manualIds.length > 0
@@ -1215,12 +1242,18 @@ async function fetchVendorPhotoMaps(
   // 3. r2 key → public URL, keyed first by the source id, then resolved to
   //    vendor_id (what the row map consumes). NULL keys skip (no photo yet).
   const svcUrlByServiceId = new Map<string, string>();
+  // service_id → "starts at" price (budget-fit fallback basis). Resolved to
+  // vendor_id in the same pass that maps service photos below.
+  const startingPriceByServiceId = new Map<string, number>();
   for (const row of (svcRes.data ?? []) as SvcRow[]) {
     if (row.primary_photo_r2_key) {
       svcUrlByServiceId.set(
         row.vendor_service_id,
         r2PublicUrl(R2_BUCKETS.media, row.primary_photo_r2_key),
       );
+    }
+    if (typeof row.starting_price_php === 'number' && row.starting_price_php > 0) {
+      startingPriceByServiceId.set(row.vendor_service_id, row.starting_price_php);
     }
   }
   const manualUrlByManualId = new Map<string, string>();
@@ -1235,13 +1268,15 @@ async function fetchVendorPhotoMaps(
   for (const [vendorId, serviceId] of serviceIdByVendor) {
     const url = svcUrlByServiceId.get(serviceId);
     if (url) servicePhotoByVendor.set(vendorId, url);
+    const price = startingPriceByServiceId.get(serviceId);
+    if (price != null) startingPriceByVendor.set(vendorId, price);
   }
   for (const [vendorId, manualId] of manualIdByVendor) {
     const url = manualUrlByManualId.get(manualId);
     if (url) manualPhotoByVendor.set(vendorId, url);
   }
 
-  return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
+  return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId, startingPriceByVendor };
 }
 
 /**

@@ -241,18 +241,23 @@ export default async function LauncherPage({
 
   // YOUR SPACES — doorways into surfaces with their own dashboards. Marketplace
   // is intentionally excluded (it's an in-event vendor-discovery surface).
-  // Life Story → the Life-Flash experience (/dashboard/life-flash) when its
-  // rollout flag is on; that route `notFound()`s while the flag is off, so in
-  // prod (flag off) the card falls back to the Memories Hub until launch.
-  const spaces: SpaceCardProps[] = [
-    {
-      href: lifeStoryEnabled() ? '/dashboard/life-flash' : '/dashboard/library',
+  //
+  // Life Story dedup (owner default, reversible via `lifeStoryEnabled`): when the
+  // flag is ON, the richer <LifeFlashHomeCard/> below is the SOLE Life-Story
+  // doorway, so we DROP this flat hero SpaceCard to avoid rendering the surface
+  // twice. When the flag is OFF (prod today), the flat hero card stays as the
+  // fallback into the Memories Hub (/dashboard/library) — prod is unchanged.
+  const lifeOn = lifeStoryEnabled();
+  const spaces: SpaceCardProps[] = [];
+  if (!lifeOn) {
+    spaces.push({
+      href: '/dashboard/library',
       icon: Sparkles,
       title: 'Life Story',
       subtitle: 'Your whole life, from every celebration.',
       tone: 'hero',
-    },
-  ];
+    });
+  }
   if (roles.hasVendorAccess) {
     spaces.push({
       href: '/vendor-dashboard',
@@ -359,8 +364,10 @@ export default async function LauncherPage({
         </div>
       </section>
 
-      {/* Flag-gated (default OFF in prod). LIFE-FLASH home card. */}
-      {lifeStoryEnabled() ? (
+      {/* Flag-gated (default OFF in prod). LIFE-FLASH home card — the SOLE
+          Life-Story doorway when the flag is on (the flat hero SpaceCard above
+          is dropped in that case; see the `spaces` construction). */}
+      {lifeOn ? (
         <div className="mt-10">
           <Suspense fallback={<LifeFlashHomeCardSkeleton />}>
             <LifeFlashHomeCard userId={user.id} />

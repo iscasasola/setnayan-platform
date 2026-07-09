@@ -24,6 +24,7 @@ import {
   generateCameraClaimToken,
   missingCameraIndexes,
   panoodCameraAnonEnabled,
+  panoodCameraCapForSku,
   panoodCameraClaimUrl,
 } from './panood-camera-seats';
 
@@ -232,4 +233,23 @@ test('fetchClaimedCameraForUser returns null on a missing row / error / blank in
   // Blank token / user short-circuit before any read.
   assert.equal(await fetchClaimedCameraForUser(fakeAdmin({ data: null, error: null }), '', 'user-1'), null);
   assert.equal(await fetchClaimedCameraForUser(fakeAdmin({ data: null, error: null }), 'tok', ''), null);
+});
+
+// ── 5. Camera-tier caps ──────────────────────────────────────────────────────
+test('panoodCameraCapForSku returns the per-tier hard cap', () => {
+  // Desktop = 8, Mobile = 3 (owner-locked 2026-07-08). These provisioned seat
+  // counts ARE the enforced ceiling — the claim RPC only binds an operator to an
+  // EXISTING camera, so provisioning exactly `cap` seats caps the tier.
+  assert.equal(panoodCameraCapForSku('PANOOD_SYSTEM'), 8);
+  assert.equal(panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE'), 3);
+});
+
+test('panoodCameraCapForSku is 0 for the free tier / unknown SKUs (no operator seats)', () => {
+  // The FREE single-cam livestream provisions no operator seats — 0 means the
+  // activation hook provisions nothing (provisionPanoodCamerasAdmin no-ops on
+  // count <= 0), so no camera rows are created for a free event.
+  assert.equal(panoodCameraCapForSku('PAPIC_SEATS'), 0);
+  assert.equal(panoodCameraCapForSku('SETNAYAN_AI'), 0);
+  assert.equal(panoodCameraCapForSku(''), 0);
+  assert.equal(panoodCameraCapForSku('panood_daily_broadcast'), 0);
 });

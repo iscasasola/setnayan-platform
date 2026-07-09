@@ -66,6 +66,29 @@ export function panoodStreamingEnabled(): boolean {
 }
 
 /**
+ * How many camera-operator seats a paid Live Studio order provisions, by tier
+ * (owner-locked 2026-07-08 · Live_Studio_Repackaging_2026-07-08.md):
+ *   PANOOD_SYSTEM        (Desktop · ₱2,499/day) → 8 cameras
+ *   PANOOD_SYSTEM_MOBILE (Mobile  · ₱1,299/day) → 3 cameras
+ * Any other code → 0: the FREE single-cam livestream broadcasts the couple's OWN
+ * device → YouTube and provisions no operator seats.
+ *
+ * This count IS the hard camera cap — the panood_claim_camera() RPC only binds an
+ * operator to an EXISTING camera, so provisioning exactly `cap` seats is what
+ * enforces the per-tier ceiling (there's no per-camera fee; the cap is purely the
+ * tier limit + anti-abuse). Enforced at order-approval provisioning in
+ * lib/sku-activation.ts.
+ */
+export const PANOOD_TIER_CAMERA_CAP: Readonly<Record<string, number>> = Object.freeze({
+  PANOOD_SYSTEM: 8,
+  PANOOD_SYSTEM_MOBILE: 3,
+});
+
+export function panoodCameraCapForSku(serviceCode: string): number {
+  return PANOOD_TIER_CAMERA_CAP[serviceCode] ?? 0;
+}
+
+/**
  * Camera-operator seat statuses (mirror the table CHECK constraint):
  *   open     — provisioned, not yet claimed
  *   live     — claimed operator is streaming (recent heartbeat)

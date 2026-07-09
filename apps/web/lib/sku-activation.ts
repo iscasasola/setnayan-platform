@@ -10,6 +10,10 @@ import { vendorProfileIdFromCustomPlanServiceKey } from '@/lib/vendor-custom-cat
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import {
+  provisionPanoodCamerasAdmin,
+  panoodCameraCapForSku,
+} from '@/lib/panood-camera-seats';
+import {
   AI_SUB_SKU,
   cyclesFromAmount,
   extendUserAiSubscription,
@@ -243,6 +247,44 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
       await provisionPapicSeatsAdmin(ctx.admin, eventId);
     } catch (e) {
       console.error('[sku-activation] PAPIC_SEATS seat provisioning threw (non-fatal):', e);
+    }
+  },
+
+  // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
+  // controller. On approval, PROVISION the tier's camera-operator seats so the
+  // couple's control room is READY with no manual step (mirrors PAPIC_SEATS · the
+  // approval IS the activation). The provisioned count is the HARD camera cap:
+  // Desktop = 8, Mobile = 3 (panoodCameraCapForSku · owner-locked 2026-07-08), and
+  // the panood_claim_camera() RPC only binds operators to EXISTING cameras, so no
+  // more than `cap` can go live. provisionPanoodCamerasAdmin is a top-up
+  // (idempotent) + best-effort (never throws). The FREE single-cam livestream
+  // provisions nothing (couple's own device → YouTube).
+  PANOOD_SYSTEM: async (ctx) => {
+    if (!ctx.eventId) return;
+    try {
+      await provisionPanoodCamerasAdmin(
+        ctx.admin,
+        ctx.eventId,
+        panoodCameraCapForSku('PANOOD_SYSTEM'),
+      );
+    } catch (e) {
+      console.error('[sku-activation] PANOOD_SYSTEM camera provisioning threw (non-fatal):', e);
+    }
+  },
+
+  PANOOD_SYSTEM_MOBILE: async (ctx) => {
+    if (!ctx.eventId) return;
+    try {
+      await provisionPanoodCamerasAdmin(
+        ctx.admin,
+        ctx.eventId,
+        panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE'),
+      );
+    } catch (e) {
+      console.error(
+        '[sku-activation] PANOOD_SYSTEM_MOBILE camera provisioning threw (non-fatal):',
+        e,
+      );
     }
   },
 

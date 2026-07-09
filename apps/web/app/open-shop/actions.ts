@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { canOpenAnotherShop } from '@/lib/shop-limits';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
@@ -89,14 +90,26 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const admin = createAdminClient();
 
   // Find-or-create the OWNED shop (mirrors the signup trigger; idempotent).
-  const { data: existing } = await admin
+  // Read the full owned set (not `.maybeSingle()`) so the multi-business dial
+  // can be enforced by count: re-open the existing shop, or mint the first —
+  // but never exceed MAX_SHOPS_PER_USER. Today the cap is 1 (also held by
+  // `vendor_profiles.user_id UNIQUE`), so this only ever reuses or creates the
+  // one shop; the guard becomes live enforcement when the cap is raised and
+  // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
+  const { data: ownedRows } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, services')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  let vendorProfileId =
-    (existing as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    .eq('user_id', user.id);
+  const owned = (ownedRows ?? []) as Array<{ vendor_profile_id: string; services?: string[] }>;
+  const existing = owned[0] ?? null;
+  let vendorProfileId = existing?.vendor_profile_id ?? null;
   if (!vendorProfileId) {
+    if (!canOpenAnotherShop(owned.length)) {
+      redirect(
+        '/open-shop?error=' +
+          encodeURIComponent("You've reached the maximum number of shops for your account."),
+      );
+    }
     const { data: inserted, error } = await admin
       .from('vendor_profiles')
       .insert({ user_id: user.id })

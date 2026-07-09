@@ -1,3 +1,32 @@
+## 2026-07-09 · fix(plan3d): tap-to-dance picks the nearest FREE spot, never a survivor's
+
+Review fix for an overlap bug in `sendDancer` (`…/seating-lab-3d.tsx`): the new
+dancer's spot was chosen by array index — `spots[dancers.length]` — with no
+tracking of which spots are actually free. `dancers` shrinks the instant a
+**non-last** dancer is sent home (`returnDancer` removes it immediately and hands
+off to a `Mover`), so `dancers.length` then indexes a spot a **surviving** dancer
+still stands on. Repro: fill spots[0..2], tap the guest on spots[1] to sit down
+(dancers → length 2), tap the floor again → old code took `spots[2]`, still held
+→ two articulated figures stacked on one world point, defeating the non-overlap
+guarantee `danceSpots()` is unit-tested to provide.
+
+- Now builds a set of the current dancers' held spots (matched by coordinate —
+  both come from the same deterministic `danceSpots(rect)`) and takes the first
+  FREE spot in the existing centre-first order (`spots.find(!occupied)`). No free
+  spot ⇒ floor full (the old length cap, now overlap-safe). `pickDanceGuest` still
+  chooses the seated guest nearest that free spot, so behaviour is identical while
+  the floor fills top-to-capacity and only diverges (correctly) after an interior
+  dancer leaves.
+
+Reviewed-and-skipped: `<DancerToken>`/`<MoverToken>` always render `<Figure>` at
+quality `'high'` and ignore the `fxDegraded` latch — left as-is. It's bounded
+(dancers ≤ `spots.length`), matches `MoverToken`, and reduced-motion already
+bakes the static pose; `fxDegraded` is the one-way cinematic-postprocessing latch,
+so wiring it into the *focal* dance figures would permanently freeze the headline
+animation for the session — not a win.
+
+Validated: `pnpm typecheck` clean · `pnpm test:unit` 1259/1259 green.
+
 ## 2026-07-09 · feat(seating-lab): tap the dance floor to start a dance party
 
 In the couple seating lab's **Play** mode, tapping the dedicated dance floor
@@ -16,7 +45,8 @@ floor's capacity — a growing dance party.
   point is `pointInZone(danceFloorRect(floor, room))` calls `sendDancer()` —
   purely additive after the existing `placeZone`-drop branch; Build-mode
   deselect and the floor-edit "move" drop are untouched.
-- **`sendDancer`**: picks the next free spot (`spots[dancers.length]`), gathers
+- **`sendDancer`**: picks the next free dance spot (first centre-first spot not
+  held by a current dancer — see the 2026-07-09 fix above), gathers
   seated candidates EXCLUDING anyone already dancing / mid-swap / walking in and
   +1 ghosts (no figure), picks the nearest, and walks them there with the
   dance-floor avoidance disc DROPPED (`floorObstacles(…, {skipDanceFloor:true})`)
@@ -47,4 +77,4 @@ Validated: `pnpm typecheck` clean · `pnpm test:unit` 1259/1259 green (5 new
 dance-helper cases) · `pnpm lint` clean for the touched files. Live 3D
 verification is the operator's (visible-interaction sign-off before ship).
 
-SPEC IMPACT: None (lab demo interaction; no product-surface, schema, or pricing change).
+SPEC IMPACT: 0008_seating_chart_editor/0008_3DPlan_Fable_Design_2026-07-08.md - couple lab: tap the dance floor in Play mode to send a seated guest out to dance on it (tap again for a party); reuses the mover walk + dancePose + skip-dance obstacle.

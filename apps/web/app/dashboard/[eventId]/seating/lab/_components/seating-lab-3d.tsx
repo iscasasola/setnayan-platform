@@ -990,8 +990,16 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     const rect = danceFloorRect(floor, room);
     if (!rect) return;
     const spots = danceSpots(rect);
-    if (dancers.length >= spots.length) return; // floor full → no-op
-    const spot = spots[dancers.length]!;
+    // Take the next FREE spot in centre-first order, not spots[dancers.length]:
+    // `dancers` shrinks the instant a non-last dancer is sent home (returnDancer
+    // removes it immediately, handing off to a Mover), so indexing by length
+    // would reuse a spot a surviving dancer still stands on → two figures on one
+    // point. Exclude every current dancer's held spot (matched by coordinate —
+    // both come from the same deterministic danceSpots(rect)); no free spot left
+    // means the floor is full (the old length-cap, now overlap-safe).
+    const occupied = new Set(dancers.map((d) => `${d.spot.x},${d.spot.z}`));
+    const spot = spots.find((s) => !occupied.has(`${s.x},${s.z}`));
+    if (!spot) return; // floor full → no-op
     const taken = new Set<string>([...dancingGuests, ...movingGuests]);
     if (crowd) for (const a of crowd) taken.add(a.id);
     if (walker) taken.add(walker.gid);

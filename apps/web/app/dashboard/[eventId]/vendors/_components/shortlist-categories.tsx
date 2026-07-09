@@ -38,6 +38,12 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
+import {
+  BENCH_SORTS,
+  sortWithReasons,
+  type BenchSort,
+  type SortReason,
+} from '@/lib/bench-sort';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import {
@@ -104,6 +110,20 @@ const SLCAT_CSS = `
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
 .slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+/* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
+.slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
+.slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
+.slcat .vc .rpill.soft{color:var(--ink);background:rgba(255,255,255,.82);backdrop-filter:blur(2px)}
+html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,34,41,.7)}
+/* sort toggle — pill segmented control (databerry "Brand addition / Upcoming" feel) */
+.slcat .sortbar{display:flex;align-items:center;gap:9px;margin:0 0 13px;flex-wrap:wrap}
+.slcat .sortbar-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,34,41,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
+.slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .sortseg button:active{transform:scale(.96)}
+.slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
+html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
+html.dark .slcat .sortseg button.on{color:#1E2229;background:#C99DB0}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
@@ -167,7 +187,13 @@ function initials(name: string): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
-function VendorCard({ v }: { v: ShortlistVendor }) {
+function VendorCard({
+  v,
+  reason,
+}: {
+  v: ShortlistVendor;
+  reason?: SortReason | null;
+}) {
   return (
     <Link href={v.href} className="vc" prefetch={false}>
       <span className="img">
@@ -178,6 +204,9 @@ function VendorCard({ v }: { v: ShortlistVendor }) {
           <span className="ini">{initials(v.name)}</span>
         )}
         {v.status === 'locked' ? <span className="pcorner">★ Chosen</span> : null}
+        {reason && v.status !== 'locked' ? (
+          <span className={`rpill ${reason.tone}`}>{reason.label}</span>
+        ) : null}
       </span>
       <span className="meta">
         <span className="vn">{v.name}</span>
@@ -308,6 +337,9 @@ export function ShortlistCategories({
   );
   // The category whose "Add manually" modal is open (every category has Find + Add).
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
+  // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
+  // — the bench leads with what best matches the couple's date/venue/budget.
+  const [sort, setSort] = useState<BenchSort>('fit');
 
   // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
   // The leaf whose saved-request modal is open: its canonical_service (the key
@@ -474,6 +506,22 @@ export function ShortlistCategories({
           </div>
         </div>
       ) : null}
+      <div className="sortbar">
+        <span className="sortbar-lbl">Sort by</span>
+        <div className="sortseg" role="group" aria-label="Sort vendors">
+          {BENCH_SORTS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={sort === s.key ? 'on' : undefined}
+              aria-pressed={sort === s.key}
+              onClick={() => setSort(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {folders.map((folder) => {
         const folderOpen = openFolder === folder.folder;
         return (
@@ -552,8 +600,8 @@ export function ShortlistCategories({
                         <div className="cat-body">
                           {t.vendors.length > 0 ? (
                             <div className="rail">
-                              {t.vendors.map((v) => (
-                                <VendorCard key={v.vendorId} v={v} />
+                              {sortWithReasons(t.vendors, sort).map(({ v, reason }) => (
+                                <VendorCard key={v.vendorId} v={v} reason={reason} />
                               ))}
                               <span className="act find">
                                 <Link href={t.exploreHref} prefetch={false}>

@@ -161,6 +161,10 @@ import {
   seatWorld,
   approachPoint,
   floorObstacles,
+  danceFloorRect,
+  pointInZone,
+  danceSpots,
+  pickDanceGuest,
   chairObstacles,
   chairObstaclesForWalk,
   dropDiscsContaining,
@@ -388,6 +392,12 @@ function SeatedAvatar({ tok, bodyMat, quality }: { tok: SeatToken; bodyMat: THRE
 // person who sat.
 type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target: SeatRef };
 
+// A guest sent out to the DANCE FLOOR (tap-to-dance): walks its path like a
+// Mover, then holds its `spot` and loops the dance clip. Unlike a Mover it never
+// re-seats — the seat stays theirs, so removing the dancer restores the seated
+// figure for free. `faceY` is the heading it settles into while dancing.
+type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
+
 export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
@@ -526,6 +536,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // and (table-swap) the first picked table.
   const [movers, setMovers] = useState<Mover[]>([]);
   const movingGuests = useMemo(() => new Set(movers.map((m) => m.gid)), [movers]);
+  // Tap-to-dance: guests currently out on the dance floor. Excluded from the
+  // seated crowd (their chair shows empty) exactly like movers/walk-ins.
+  const [dancers, setDancers] = useState<Dancer[]>([]);
+  const dancingGuests = useMemo(() => new Set(dancers.map((d) => d.gid)), [dancers]);
   const [swapSelId, setSwapSelId] = useState<string | null>(null);
   const [tableSwapArmed, setTableSwapArmed] = useState(false);
   const [tableSwapFirst, setTableSwapFirst] = useState<string | null>(null);
@@ -708,6 +722,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!g) continue;
       if (g.plusOneOfGuestId) plusOneSeated.add(g.plusOneOfGuestId);
       if (movingGuests.has(gid)) continue; // mid-swap → drawn by its mover instead
+      if (dancingGuests.has(gid)) continue; // out dancing → drawn by its Dancer, chair empty
       if (walkingIn.has(gid)) continue; // walking in → drawn by its walker/crowd agent
       const style = tokenByGuest.get(gid);
       if (!style) continue; // declined → freed seat
@@ -717,7 +732,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const g = guestById.get(gid);
       // A walking-in primary also suppresses their hovering +1 ghost — they
       // arrive together, so neither is drawn at rest until the walk settles.
-      if (!g || !g.plusOneAllowed || plusOneSeated.has(gid) || walkingIn.has(gid) || seatStatusOf(g.rsvp) === 'hidden') continue;
+      if (!g || !g.plusOneAllowed || plusOneSeated.has(gid) || walkingIn.has(gid) || dancingGuests.has(gid) || seatStatusOf(g.rsvp) === 'hidden') continue;
       const t = tablesById.get(s.tableId);
       if (!t) continue;
       const occ = slot(s.tableId);
@@ -734,7 +749,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (chosen >= 0) occ.set(chosen, { color: PLUS_ONE_COLOR, opacity: 0.4, name: '', spec: null });
     }
     return out;
-  }, [seats, guestById, tablesById, movingGuests, crowd, walker, tokenByGuest]);
+  }, [seats, guestById, tablesById, movingGuests, dancingGuests, crowd, walker, tokenByGuest]);
 
   // Emote-bubble emitters (Fable §3.6) — REAL data, Play mode only (Build stays
   // clean for editing; the memo is empty there so the pool renders nothing).
@@ -752,7 +767,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     if (walker) walkingIn.add(walker.gid);
     const out: EmoteEmitter[] = [];
     for (const [gid, s] of seats) {
-      if (movingGuests.has(gid) || walkingIn.has(gid)) continue;
+      if (movingGuests.has(gid) || dancingGuests.has(gid) || walkingIn.has(gid)) continue;
       const g = guestById.get(gid);
       if (!g || seatStatusOf(g.rsvp) === 'hidden') continue; // declined → freed seat
       const t = tablesById.get(s.tableId);
@@ -763,7 +778,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       out.push({ id: gid, x: p.x, y: EMOTE_SEATED_Y, z: p.z, glyphs });
     }
     return out;
-  }, [mode, seats, guestById, tablesById, room, movingGuests, crowd, walker]);
+  }, [mode, seats, guestById, tablesById, room, movingGuests, dancingGuests, crowd, walker]);
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
@@ -965,6 +980,83 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     [room],
   );
 
+  // Tap-the-dance-floor (Play): send the nearest seated guest out to dance. They
+  // stand up, walk to the next free dance spot (the dance-floor avoidance disc is
+  // DROPPED via skipDanceFloor so the walk can reach it), and loop the dance clip.
+  // Tapping again sends another → a dance party, up to the floor's spot capacity;
+  // at the cap it's a no-op. Candidates exclude anyone already dancing / mid-swap
+  // / walking in, and +1 ghosts (no figure) — mirrors the seated-crowd exclusion.
+  const sendDancer = useCallback(() => {
+    const rect = danceFloorRect(floor, room);
+    if (!rect) return;
+    const spots = danceSpots(rect);
+    if (dancers.length >= spots.length) return; // floor full → no-op
+    const spot = spots[dancers.length]!;
+    const taken = new Set<string>([...dancingGuests, ...movingGuests]);
+    if (crowd) for (const a of crowd) taken.add(a.id);
+    if (walker) taken.add(walker.gid);
+    const candidates: { gid: string; world: Vec2 }[] = [];
+    for (const [gid, s] of seats) {
+      if (taken.has(gid)) continue;
+      if (!tokenByGuest.get(gid)?.spec) continue; // declined / no figure → skip
+      const t = tablesById.get(s.tableId);
+      if (!t) continue;
+      const w = seatWorld(t, s.seatNumber, room);
+      candidates.push({ gid, world: { x: w.x, z: w.z } });
+    }
+    const gid = pickDanceGuest(candidates, spot);
+    if (!gid) return; // no one left to send
+    const s = seats.get(gid)!;
+    const t = tablesById.get(s.tableId)!;
+    const from = seatWorld(t, s.seatNumber, room);
+    const g = guestById.get(gid);
+    const spec = tokenByGuest.get(gid)?.spec ?? (g ? figureSpecFor(g, SIDE_COLOR[g.side]) : null);
+    if (!spec) return;
+    const obstacles = [
+      ...floorObstacles(floor, tables, room, [s.tableId], { skipDanceFloor: true }),
+      ...fixtureObstacles,
+    ];
+    const path = steerPath({ x: from.x, z: from.z }, spot, obstacles, 0.2);
+    // Settle facing the floor centre (rig forward is local +Z → atan2(dx,dz));
+    // the exact-centre dancer gets atan2(0,0)=0 and simply faces +Z.
+    const faceY = Math.atan2(rect.cx - spot.x, rect.cz - spot.z);
+    setDancers((prev) => [...prev, { gid, name: g?.name ?? '', spec, path, spot, faceY }]);
+  }, [floor, room, dancers, dancingGuests, movingGuests, crowd, walker, seats, tokenByGuest, tablesById, guestById, tables, fixtureObstacles]);
+
+  // End a dancer: it walks home from the floor to its (never-mutated) seat as a
+  // plain Mover — the dance disc is dropped so the walk can leave the floor, and
+  // onMoverDone re-commits the same seat (a no-op) + retires the mover, at which
+  // point the static SeatedAvatar takes back over. Seats were never touched for a
+  // dancer, so if the seat/table vanished we just drop it and the chair is freed.
+  const returnDancer = useCallback(
+    (gid: string) => {
+      const d = dancers.find((x) => x.gid === gid);
+      const s = seats.get(gid);
+      const t = s ? tablesById.get(s.tableId) : undefined;
+      if (!d || !s || !t) {
+        setDancers((prev) => prev.filter((x) => x.gid !== gid));
+        return;
+      }
+      const end = seatWorld(t, s.seatNumber, room);
+      const obstacles = [
+        ...floorObstacles(floor, tables, room, [s.tableId], { skipDanceFloor: true }),
+        ...fixtureObstacles,
+      ];
+      const path = steerPath(d.spot, { x: end.x, z: end.z }, obstacles, 0.2);
+      setDancers((prev) => prev.filter((x) => x.gid !== gid));
+      setMovers((prev) => [
+        ...prev,
+        { gid, name: d.name, spec: d.spec, path, target: { tableId: s.tableId, seatNumber: s.seatNumber } },
+      ]);
+    },
+    [dancers, seats, tablesById, room, floor, tables, fixtureObstacles],
+  );
+
+  // Sit everyone down — walk every dancer home at once.
+  const clearFloor = useCallback(() => {
+    for (const d of dancers) returnDancer(d.gid);
+  }, [dancers, returnDancer]);
+
   const onFloorClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
       // R3F fires this native `click` even after a drag (orbit OR table move).
@@ -978,9 +1070,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         setPlaceZone(null);
         return;
       }
+      // Play mode: a tap inside the dance floor sends a guest out to dance.
+      if (mode === 'play') {
+        const rect = danceFloorRect(floor, room);
+        if (rect && pointInZone({ x: e.point.x, z: e.point.z }, rect)) {
+          sendDancer();
+          return;
+        }
+      }
       if (mode === 'build') setSelectedId(null);
     },
-    [mode, placeZone, room, moveZone],
+    [mode, placeZone, room, moveZone, floor, sendDancer],
   );
 
   // Add a table → createTable (lock-gated), then refresh so the new row (with
@@ -1967,6 +2067,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           <MoverToken key={m.gid} mover={m} onDone={onMoverDone} reduced={reduced} />
         ))}
 
+        {/* Tap-to-dance: guests out on the dance floor. Each walks to its spot
+            then loops the dance clip; tap one to send it home. Ungated by mode
+            (like movers) so a dancer left when toggling to Build stays drawn —
+            its chair is excluded from the seated crowd either way. */}
+        {dancers.map((d) => (
+          <DancerToken key={d.gid} dancer={d} reduced={reduced} onReturn={returnDancer} />
+        ))}
+
         {walking ? (
           <WalkController
             active={walking}
@@ -2055,6 +2163,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         crowdActive={!!crowd}
         onWalkEveryone={walkEveryone}
         onClearCrowd={() => setCrowd(null)}
+        dancingCount={dancers.length}
+        onClearFloor={clearFloor}
         placingGuestName={placingGuestId ? guestById.get(placingGuestId)?.name ?? null : null}
         placingGuestId={placingGuestId}
         onSeatAnywhere={() => {
@@ -3498,6 +3608,100 @@ function MoverToken({ mover, onDone, reduced }: { mover: Mover; onDone: (gid: st
   );
 }
 
+// A guest out on the dance floor. Walks its path exactly like a MoverToken, then
+// on arrival SWITCHES to the looping dance clip and holds `spot` + `faceY`
+// forever (unlike a Mover it never re-seats — its seat is untouched, so removing
+// it from `dancers` restores the static SeatedAvatar for free). Tap it to send
+// it home (onReturn). The walk→dance pose switch eases through <Figure>'s generic
+// preset blend; the dance clip is wall-clock driven inside <Figure>. Reduced
+// motion: snap to the spot, then hold the STATIC dance pose (<Figure> bakes
+// dancePose t=0) — the figure still walked onto the floor, so the flow completes.
+function DancerToken({ dancer, reduced, onReturn }: { dancer: Dancer; reduced: boolean; onReturn: (gid: string) => void }) {
+  const ref = useRef<THREE.Group | null>(null);
+  const inited = useRef(false);
+  const idx = useRef(0);
+  const t = useRef(0);
+  const phase = useRef(0);
+  const [dancing, setDancing] = useState(false);
+  const dancingRef = useRef(false);
+  const start = dancer.path[0] ?? dancer.spot;
+  const reducedRef = useRef(reduced);
+  useEffect(() => {
+    reducedRef.current = reduced;
+  }, [reduced]);
+  // Position is driven IMPERATIVELY (mount-init here, then useFrame / arrive) —
+  // NOT via a declarative `position` prop. This component re-renders every time
+  // a sibling dancer is added (the panel isn't memoised), and a per-render
+  // position array would re-apply and teleport a mid-walk dancer back to its
+  // path start. A stable ref callback (start is per-dancer constant) sets the
+  // spawn point exactly once. Mirrors MoverToken's imperative motion.
+  const attach = useCallback(
+    (g: THREE.Group | null) => {
+      ref.current = g;
+      if (g && !inited.current) {
+        inited.current = true;
+        g.position.set(start.x, 0, start.z);
+      }
+    },
+    [start.x, start.z],
+  );
+  // Reach the floor: snap to the spot, face the floor centre, flip to the dance
+  // clip. Latched so it fires once even as re-renders remount the frame loop.
+  const arrive = useCallback(() => {
+    if (dancingRef.current) return;
+    dancingRef.current = true;
+    const g = ref.current;
+    if (g) {
+      g.position.set(dancer.spot.x, 0, dancer.spot.z);
+      g.rotation.y = dancer.faceY;
+    }
+    setDancing(true);
+  }, [dancer.spot.x, dancer.spot.z, dancer.faceY]);
+  useFrame((_, delta) => {
+    const g = ref.current;
+    if (!g || dancingRef.current) return; // arrived → <Figure> owns the dance motion
+    t.current += delta;
+    const path = dancer.path;
+    // Reduced motion: jump straight to the spot and start dancing (the static
+    // dance pose bakes inside <Figure>) — the flow completes without the glide.
+    if (reducedRef.current) {
+      arrive();
+      return;
+    }
+    if (idx.current >= path.length - 1) {
+      arrive();
+      return;
+    }
+    const next = path[idx.current + 1]!;
+    const dx = next.x - g.position.x;
+    const dz = next.z - g.position.z;
+    const dist = Math.hypot(dx, dz);
+    const step = 2.6 * delta;
+    if (dist <= step) {
+      g.position.x = next.x;
+      g.position.z = next.z;
+      idx.current += 1;
+    } else {
+      g.position.x += (dx / dist) * step;
+      g.position.z += (dz / dist) * step;
+      g.rotation.y = Math.atan2(dx, dz);
+    }
+    phase.current = t.current * 9;
+  });
+  return (
+    <group
+      ref={attach}
+      onClick={(e) => {
+        if (e.delta > 4) return; // drag, not a tap
+        e.stopPropagation(); // don't let the floor catcher also send a NEW dancer
+        onReturn(dancer.gid);
+      }}
+    >
+      <Figure spec={dancer.spec} pose={dancing ? 'dance' : 'walk'} phase={phase} name={dancer.name} />
+    </group>
+  );
+}
+
 /* ---------------------- Game-pad walk controls (Play) -------------------- */
 
 type WalkInput = { moveX: number; moveZ: number; lookDX: number; lookDY: number; pinch: number };
@@ -3926,6 +4130,8 @@ function Hud({
   crowdActive,
   onWalkEveryone,
   onClearCrowd,
+  dancingCount,
+  onClearFloor,
   placingGuestName,
   placingGuestId,
   onSeatAnywhere,
@@ -3995,6 +4201,8 @@ function Hud({
   crowdActive: boolean;
   onWalkEveryone: () => void;
   onClearCrowd: () => void;
+  dancingCount: number;
+  onClearFloor: () => void;
   placingGuestName: string | null;
   placingGuestId: string | null;
   onSeatAnywhere: () => void;
@@ -4354,6 +4562,17 @@ function Hud({
             >
               {crowdActive ? 'Clear the room' : 'Walk everyone in'}
             </button>
+            {dancingCount > 0 ? (
+              <button
+                type="button"
+                onClick={onClearFloor}
+                className="mb-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/85 transition hover:bg-white/20"
+              >
+                Sit everyone down · {dancingCount} dancing
+              </button>
+            ) : danceEnabled ? (
+              <p className="mb-2 text-[11px] text-white/50">Tap the dance floor to send a guest out to dance.</p>
+            ) : null}
             <div className="-mr-1 flex-1 space-y-1 overflow-y-auto pr-1">
               {guests.length === 0 ? (
                 <p className="text-xs text-white/55">No guests yet.</p>

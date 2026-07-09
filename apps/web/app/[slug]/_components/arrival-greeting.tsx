@@ -50,7 +50,7 @@ export function ArrivalGreeting({ firstName, tableLabel }: Props) {
       <p className="relative mt-3 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
         You&rsquo;ve arrived
       </p>
-      <h2 className="relative mt-1.5 text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+      <h2 className="relative mt-1.5 font-serif text-2xl italic leading-tight tracking-tight text-ink sm:text-3xl">
         {name ? `Welcome, ${name}.` : 'Welcome — so glad you made it.'}
       </h2>
       <p className="relative mt-1.5 text-sm text-ink/70">

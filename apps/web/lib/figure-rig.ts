@@ -190,13 +190,23 @@ export function overlayPose(base: Pose, overlay: Partial<Pose>, out?: Pose): Pos
   return o;
 }
 
-// Walk-cycle tuning. Amplitudes picked for a relaxed indoor stroll — big
-// enough to read at seat-plan camera distances, small enough not to cartoon.
-const HIP_SWING = 0.55; // rad — thigh forward/back
-const KNEE_FLEX = 0.55; // rad — max swing-through knee bend
-const ARM_SWING = 0.35; // rad — arms counter-swing the legs
+// Walk-cycle tuning — the "Meccha-style" cute/adorable gait (owner direction
+// 2026-07-09: the white-mannequin game character's springy toy walk, NOT the
+// old realistic stroll). The cuteness comes from FIVE levers, all named here so
+// a live-tuning note ("more bounce / less waddle") maps to one number:
+//   1. a real whole-body BOUNCE (WALK_BOB_M) — the biggest lever,
+//   2. a side-to-side WADDLE rock toward the stance foot (WALK_WADDLE),
+//   3. a high, peppy KNEE lift (KNEE_FLEX),
+//   4. loose, happy ARM_SWING with a livelier elbow pump,
+//   5. squash-&-stretch on the body (in kit/figure.tsx — synced to this bounce).
+// Amplitudes stay big enough to read as toy-cute yet inside the unit-suite caps
+// (|pelvisY| ≤ 0.06, knees ≤ 0, antiphase legs, arms counter-swing).
+const HIP_SWING = 0.62; // rad — thigh forward/back (a touch bigger, eager stride)
+const KNEE_FLEX = 0.72; // rad — high cute knee lift on the swing-through
+const ARM_SWING = 0.52; // rad — big loose happy arm swing
 const ELBOW_REST = 0.22; // rad — arms never hang piston-straight
-const WALK_BOB_M = 0.035; // m — two bobs per stride (each footfall)
+const WALK_BOB_M = 0.06; // m — springy double-bounce (one per footfall); base −0.012 → apex +0.048, under the 0.06 cap
+const WALK_WADDLE = 0.06; // rad (~3.4°) — side-to-side rock toward the planted foot
 
 /** Relaxed standing: arms hang with a natural elbow soft-bend, the barest
  *  forward settle in the torso. The base under idleSway. */
@@ -225,20 +235,27 @@ export function walkCyclePose(phase: number, out?: Pose): Pose {
   // a fresh 15-key record per figure per frame (kit/figure.tsx's useFrame).
   const o = out ?? ({ ...ZERO_POSE } as Pose);
   o.pelvisZ = 0;
-  o.torsoSway = 0;
   o.headYaw = 0;
-  o.headPitch = 0;
-  o.pelvisY = -0.01 + Math.abs(Math.sin(phase)) * WALK_BOB_M;
-  o.torsoLean = 0.06 + Math.sin(phase * 2) * 0.015;
+  // Springy double-bounce: one dip per footfall (|sin| → two lifts per stride),
+  // the toy-walk's signature. Apex +0.048 m sits just under the 0.06 cap.
+  o.pelvisY = -0.012 + Math.abs(Math.sin(phase)) * WALK_BOB_M;
+  // Waddle: rock toward the PLANTED foot. When the left thigh swings forward
+  // (swing > 0) the RIGHT foot is planted → the body leans right (torsoSway < 0,
+  // since + leans toward the figure's left). One rock per step.
+  o.torsoSway = -WALK_WADDLE * swing;
+  // A happy little head bob rides the bounce (nose dips a hair at each apex).
+  o.headPitch = 0.04 * Math.abs(Math.sin(phase));
+  o.torsoLean = 0.05 + Math.sin(phase * 2) * 0.015;
   o.leftHip = HIP_SWING * swing;
   o.rightHip = HIP_SWING * counter;
   o.leftKnee = -KNEE_FLEX * Math.max(0, Math.cos(phase));
   o.rightKnee = -KNEE_FLEX * Math.max(0, Math.cos(phase + Math.PI));
-  // Arms oppose their legs (left arm forward with the RIGHT leg).
+  // Arms oppose their legs (left arm forward with the RIGHT leg) — bigger, looser
+  // swing with a livelier elbow pump so they read as gleeful, not marching.
   o.leftShoulder = ARM_SWING * counter;
   o.rightShoulder = ARM_SWING * swing;
-  o.leftElbow = ELBOW_REST + 0.16 * Math.max(0, counter);
-  o.rightElbow = ELBOW_REST + 0.16 * Math.max(0, swing);
+  o.leftElbow = ELBOW_REST + 0.22 * Math.max(0, counter);
+  o.rightElbow = ELBOW_REST + 0.22 * Math.max(0, swing);
   return o;
 }
 

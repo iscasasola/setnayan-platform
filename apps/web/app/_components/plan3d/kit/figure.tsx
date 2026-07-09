@@ -159,6 +159,14 @@ function statusRingMaterial(color: string): THREE.MeshBasicMaterial {
 const STAND_BASE = standPose();
 const SIT_BASE = sitPose();
 
+// Meccha-style walk squash-&-stretch (owner direction 2026-07-09): the body
+// stretches tall at the bounce apex and squashes wide at each footfall, giving
+// the springy toy-walk its bounce. Applied to the TORSO group only (legs keep
+// their plant) and synced to the SAME |sin(phase)| bounce as walkCyclePose's
+// pelvisY. `applyPose` never writes torso.scale, so this survives the frame.
+// One number to tune "more/less spring".
+const WALK_SQUASH = 0.06; // ±6% body scale over the bounce
+
 export type FigurePoseName = 'stand' | 'walk' | 'sit' | 'dance';
 export type FigureQuality = 'high' | 'low';
 
@@ -294,6 +302,18 @@ function FigureFrameDriver({
     const f = from.current;
     for (const j of JOINTS) c[j] = f[j] + (target[j] - f[j]) * b;
     applyPose(groups.current, c);
+    // Squash-&-stretch: only while walking, and eased in/out by the same blend
+    // `b` as the joints so it fades up when the walk starts and back to neutral
+    // when the figure sits/stands/dances (no stuck-tall body on the seated pose).
+    const torso = groups.current.torso;
+    if (torso) {
+      const walking = pose === 'walk';
+      const bounce = walking ? Math.abs(Math.sin(ph)) : 0; // 0 footfall → 1 apex
+      // (2·bounce − 1) ∈ [−1, 1]; the `walking ? b : 0` factor collapses the
+      // scale back to neutral (s = 0 → 1,1,1) the moment the figure isn't walking.
+      const s = (bounce * 2 - 1) * WALK_SQUASH * (walking ? b : 0);
+      torso.scale.set(1 - s * 0.6, 1 + s, 1 - s * 0.6);
+    }
   });
 
   return null;

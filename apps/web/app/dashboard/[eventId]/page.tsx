@@ -89,12 +89,21 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   summarize as summarizePaperwork,
+  completeByDate as paperworkCompleteByDate,
+  DOCUMENT_META as PAPERWORK_DOCUMENT_META,
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { EventCountdownHeader } from './_components/event-countdown-header';
 import { OverviewAtAGlance } from './_components/overview-at-a-glance';
+// Setnayan-AI Decision Cockpit (item R4, owner taxonomy 2026-07-09). DORMANT:
+// renders only behind cockpitEnabled(); flag OFF ⇒ Overview is byte-identical
+// to R3's status board. buildCockpitModel is a pure derivation over data the
+// page already loaded — no new queries.
+import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
+import { buildCockpitModel } from '@/lib/setnayan-ai-cockpit';
+import { SuriCockpit } from './_components/suri-cockpit';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import { TodaysOneThing } from './_components/todays-one-thing';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
@@ -1620,6 +1629,35 @@ export default async function EventHomePage({
     }
   }
 
+  // Setnayan-AI Decision Cockpit (item R4). Assembled ONLY when the dormant
+  // flag is on — computed here from data the page already loaded (the vendor
+  // pick model, the lock counts, the sponsor rows, the top-priority task, and
+  // the paperwork pipeline). No new queries. With the flag off this is null and
+  // the Overview render below is byte-identical to R3's status board.
+  const cockpitModel = cockpitEnabled()
+    ? buildCockpitModel(
+        {
+          eventId,
+          daysOut,
+          lockedVendorCount,
+          totalLockableCategories,
+          vendors: eventVendors,
+          sponsors: sponsorRowsForCount,
+          topPriorityTask,
+          paperwork: paperworkRows
+            .filter((r) => r.status !== 'received' && r.status !== 'expired')
+            .map((r) => ({
+              id: r.id,
+              label: PAPERWORK_DOCUMENT_META[r.document_type]?.label ?? 'Paperwork',
+              dueIso:
+                r.expected_completion_date ??
+                paperworkCompleteByDate(r.document_type, event.event_date),
+            })),
+        },
+        now,
+      )
+    : null;
+
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
     // renders as a single column on every breakpoint. Prior shape was a
@@ -1708,6 +1746,13 @@ export default async function EventHomePage({
         scheduleBlocks={scheduleBlockCount}
         tasksRemaining={remainingTaskCount}
       />
+
+      {/* Setnayan-AI Decision Cockpit (item R4 · DORMANT flag). Suri briefing +
+       *  Decisions rail + What's-next rail — the "what now?" surface assembled
+       *  from data the Overview already loaded. Renders only when cockpitModel
+       *  is non-null (cockpitEnabled() === true); with the flag off nothing
+       *  renders here and the Overview matches R3 exactly. */}
+      {cockpitModel ? <SuriCockpit model={cockpitModel} /> : null}
 
       {/* The five essentials of your Nikah — the signature card for the Muslim
        *  wedding track. Shows ONLY for muslim weddings (primary ceremony OR a

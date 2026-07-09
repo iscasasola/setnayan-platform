@@ -34,12 +34,12 @@ const R_PELVIS_Y = 0.8;
 const R_HIP_X = 0.062;
 const R_THIGH_LEN = 0.34;
 const R_SHIN_LEN = 0.44;
-const R_SHOULDER_X = 0.165;
+const R_SHOULDER_X = 0.175;
 const R_SHOULDER_Y = 0.46;
 const R_UPPER_ARM_LEN = 0.22;
 const R_FOREARM_LEN = 0.2;
 const R_NECK_Y = 0.52;
-const R_HEAD_LIFT = 0.12;
+const R_HEAD_LIFT = 0.095;
 const R_LEG_GEO_LEN = 0.36;
 const R_ARM_GEO_LEN = 0.224;
 
@@ -106,13 +106,13 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
 
     const thigh = m4();
     thigh.position.set(0, -R_THIGH_LEN / 2, 0);
-    thigh.scale.set(1.28, R_THIGH_LEN / R_LEG_GEO_LEN, 1.28);
+    thigh.scale.set(1.14, R_THIGH_LEN / R_LEG_GEO_LEN, 1.14);
     hipJ.add(thigh);
     parts[side < 0 ? 'thighL' : 'thighR'] = thigh;
 
     // Joint-blend balls (independent literals, cross-checking the exported R's).
     const hipBall = m4();
-    hipBall.scale.set(0.0705, 0.0705, 0.0705);
+    hipBall.scale.set(0.086, 0.086, 0.086);
     hipJ.add(hipBall);
     parts[side < 0 ? 'hipBallL' : 'hipBallR'] = hipBall;
 
@@ -123,18 +123,18 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
 
     const shin = m4();
     shin.position.set(0, -R_SHIN_LEN / 2, 0);
-    shin.scale.set(1.08, R_SHIN_LEN / R_LEG_GEO_LEN, 1.08);
+    shin.scale.set(1.06, R_SHIN_LEN / R_LEG_GEO_LEN, 1.06);
     kneeJ.add(shin);
     parts[side < 0 ? 'shinL' : 'shinR'] = shin;
 
     const kneeBall = m4();
-    kneeBall.scale.set(0.0705, 0.0705, 0.0705);
+    kneeBall.scale.set(0.086, 0.086, 0.086);
     kneeJ.add(kneeBall);
     parts[side < 0 ? 'kneeBallL' : 'kneeBallR'] = kneeBall;
 
     const shoe = m4();
-    shoe.position.set(0, -R_SHIN_LEN + 0.03, 0.04);
-    shoe.scale.set(1.4, 0.75, 1.4);
+    shoe.position.set(0, -R_SHIN_LEN + 0.055, 0.015);
+    shoe.scale.set(1.05, 0.85, 1.1);
     kneeJ.add(shoe);
     parts[side < 0 ? 'shoeL' : 'shoeR'] = shoe;
   }
@@ -147,11 +147,6 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
   const torsoMesh = m4();
   torso.add(torsoMesh);
   parts.torso = torsoMesh;
-
-  const neck = m4();
-  neck.position.set(0, 0.545, 0);
-  torso.add(neck);
-  parts.neck = neck;
 
   for (const side of [-1, 1] as const) {
     const shoulderJ = new THREE.Group();
@@ -166,7 +161,7 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
     parts[side < 0 ? 'upperArmL' : 'upperArmR'] = upper;
 
     const shoulderBall = m4();
-    shoulderBall.scale.set(0.052, 0.052, 0.052);
+    shoulderBall.scale.set(0.068, 0.068, 0.068);
     shoulderJ.add(shoulderBall);
     parts[side < 0 ? 'shoulderBallL' : 'shoulderBallR'] = shoulderBall;
 
@@ -177,12 +172,12 @@ function buildReferenceRig(root: THREE.Object3D): Record<SitPartKey, THREE.Objec
 
     const fore = m4();
     fore.position.set(0, -R_FOREARM_LEN / 2, 0);
-    fore.scale.set(0.88, R_FOREARM_LEN / R_ARM_GEO_LEN, 0.88);
+    fore.scale.set(0.94, R_FOREARM_LEN / R_ARM_GEO_LEN, 0.94);
     elbowJ.add(fore);
     parts[side < 0 ? 'forearmL' : 'forearmR'] = fore;
 
     const elbowBall = m4();
-    elbowBall.scale.set(0.0425, 0.0425, 0.0425);
+    elbowBall.scale.set(0.059, 0.059, 0.059);
     elbowJ.add(elbowBall);
     parts[side < 0 ? 'elbowBallL' : 'elbowBallR'] = elbowBall;
   }
@@ -210,9 +205,9 @@ function matricesClose(a: THREE.Matrix4, b: THREE.Matrix4, eps = EPS): boolean {
   return true;
 }
 
-test('SIT_PART_KEYS covers exactly the 22 seated body meshes', () => {
-  assert.equal(SIT_PART_KEYS.length, 22);
-  assert.equal(new Set(SIT_PART_KEYS).size, 22); // no dupes
+test('SIT_PART_KEYS covers exactly the 21 seated body meshes', () => {
+  assert.equal(SIT_PART_KEYS.length, 21);
+  assert.equal(new Set(SIT_PART_KEYS).size, 21); // no dupes
 });
 
 test('buildSitBakedLocals is deterministic (same matrices every call)', () => {

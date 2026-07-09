@@ -3,12 +3,12 @@
 /**
  * InstancedSeatedCrowd — the seated-crowd draw-call collapse (2026-07-08),
  * modelled on `instanced-chairs.tsx`. The articulated `<Figure pose="sit">`
- * draws ~22 non-instanced meshes PER occupant; three surfaces mount one per
+ * draws ~21 non-instanced meshes PER occupant; three surfaces mount one per
  * occupied seat with no cap/LOD/instancing, so the phone-first public walk hit
  * ~3.2k color-pass draws + ~250 no-op `useFrame` subscribers at 250 pax. Since
  * the sit pose is a CONSTANT (`sitPose()`), every seated figure shares the
  * IDENTICAL baked joint transform — so the whole seated crowd collapses to ONE
- * InstancedMesh per body part (≈22 draws total, +1 for the optional status
+ * InstancedMesh per body part (≈21 draws total, +1 for the optional status
  * ring) and ZERO per-figure `useFrame`.
  *
  * PIXEL-IDENTITY (proven in `lib/figure-sit-bake.test.ts`): each instance's
@@ -53,7 +53,6 @@ import {
   ARM_GEO,
   LEG_GEO,
   HEAD_GEO,
-  NECK_GEO,
   HIP_GEO,
   SHOE_GEO,
   JOINT_GEO,
@@ -96,7 +95,6 @@ const PART_GEO: Record<SitPartKey, THREE.BufferGeometry> = {
   shoeL: SHOE_GEO,
   shoeR: SHOE_GEO,
   torso: MANNEQUIN_TORSO_GEO,
-  neck: NECK_GEO,
   upperArmL: ARM_GEO,
   upperArmR: ARM_GEO,
   forearmL: ARM_GEO,
@@ -133,7 +131,7 @@ function seatInstanceMatrix(rootMatrix: THREE.Matrix4, sc: number, partLocal: TH
 }
 
 /**
- * <InstancedSeatedCrowd> — draws every seat in `seats[]` as ~22 InstancedMesh
+ * <InstancedSeatedCrowd> — draws every seat in `seats[]` as ~21 InstancedMesh
  * body parts (+ an optional ring). Mount it ONCE at the scene root (not per
  * table) with world-space seat matrices, so the entire room's seated crowd is
  * one batch.
@@ -225,7 +223,7 @@ export function InstancedSeatedCrowd({
           castShadow={castShadow}
           frustumCulled={false}
         >
-          <meshStandardMaterial color="#ffffff" roughness={0.18} metalness={0.02} />
+          <meshStandardMaterial color="#ffffff" roughness={0.5} metalness={0.02} />
         </instancedMesh>
       ))}
       {hasRing ? (

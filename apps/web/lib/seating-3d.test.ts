@@ -54,6 +54,8 @@ import {
   danceFloorRect,
   pointInZone,
   clampPointToZone,
+  danceSpots,
+  pickDanceGuest,
   type ObstacleDisc,
   type Lab3DFloor,
   type Lab3DTable,
@@ -152,6 +154,57 @@ test('danceFloorRect + pointInZone + clampPointToZone: hit test matches the mura
   const clamped = clampPointToZone({ x: 9, z: 1 }, rect!, 0.3);
   assert.ok(pointInZone(clamped, rect!), 'clamped point lands on the floor');
   assert.ok(clamped.x <= 2 - 0.3 + 1e-9, 'clamped inside the inset edge');
+});
+
+test('danceSpots: every spot sits inside the inset floor, none overlap, centre-first order', () => {
+  const rect = danceFloorRect(floor(true), ROOM)!; // 4×4 m, centred (0, +1)
+  const inset = 0.35;
+  const spacing = 0.9;
+  const spots = danceSpots(rect, { spacing, inset });
+  assert.ok(spots.length >= 4, 'a 4×4 floor holds several dancers');
+  // Every spot is on the floor, inset from the lip.
+  for (const s of spots) assert.ok(pointInZone(s, rect, inset), 'spot inside the inset floor');
+  // No two dancers stand closer than `spacing` (personal space guaranteed).
+  for (let i = 0; i < spots.length; i++) {
+    for (let j = i + 1; j < spots.length; j++) {
+      const d = Math.hypot(spots[i]!.x - spots[j]!.x, spots[i]!.z - spots[j]!.z);
+      assert.ok(d >= spacing - 1e-9, `spots ${i},${j} respect personal space`);
+    }
+  }
+  // Centre-first: distance-to-centre is non-decreasing down the array.
+  const dc = (p: { x: number; z: number }) => (p.x - rect.cx) ** 2 + (p.z - rect.cz) ** 2;
+  for (let i = 1; i < spots.length; i++) {
+    assert.ok(dc(spots[i]!) >= dc(spots[i - 1]!) - 1e-9, 'party grows from the middle out');
+  }
+  // The first dancer takes the spot closest to the middle (an even grid has no
+  // exact-centre cell, so it's the innermost ring, not (0,0) — the single-spot
+  // centre case is covered by the tiny-floor test below).
+  assert.ok(spots.every((s) => dc(spots[0]!) <= dc(s) + 1e-9), 'first spot is the innermost');
+  // Deterministic in its inputs.
+  assert.deepEqual(danceSpots(rect, { spacing, inset }), spots, 'pure — same inputs, same layout');
+});
+
+test('danceSpots: a tiny floor still yields one central spot (never empty)', () => {
+  const spots = danceSpots({ cx: 3, cz: -2, hw: 0.2, hd: 0.2 }, { inset: 0.35 });
+  assert.equal(spots.length, 1, 'inset larger than the floor collapses to a single centre spot');
+  assert.deepEqual(spots[0], { x: 3, z: -2 }, 'that spot is the floor centre');
+});
+
+test('pickDanceGuest: returns the seated guest nearest the target spot, null when empty', () => {
+  const target = { x: 0, z: 0 };
+  const candidates = [
+    { gid: 'far', world: { x: 5, z: 5 } },
+    { gid: 'near', world: { x: 0.5, z: 0.5 } },
+    { gid: 'mid', world: { x: 2, z: 0 } },
+  ];
+  assert.equal(pickDanceGuest(candidates, target), 'near', 'nearest to the spot dances');
+  assert.equal(pickDanceGuest([], target), null, 'no candidates → nobody to send');
+  // Ties break by input order (stable — first candidate wins).
+  assert.equal(
+    pickDanceGuest([{ gid: 'a', world: { x: 1, z: 0 } }, { gid: 'b', world: { x: 0, z: 1 } }], target),
+    'a',
+    'equal distance → first candidate',
+  );
 });
 
 test('floorObstacles: entrance posts become discs only when the entrance is enabled', () => {

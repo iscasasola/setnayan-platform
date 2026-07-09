@@ -72,6 +72,7 @@ import {
   EMOTE_DANCE_Y,
   InstancedSeatedCrowd,
   seatedFigureMatrix,
+  RUN_CLOCK_RAD_S,
   type EmoteEmitter,
   type FigureSpec,
   type SeatedInstance,
@@ -305,13 +306,14 @@ function GuestAvatar({
   const idx = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
-  // Gait phase clock for the kit figure — advances ~11 rad/s (the shared
-  // figure-kit gait rate; the Meccha-cute quick-steps cadence, 2026-07-09) while
-  // translating and FREEZES on arrival, so the limbs stop swinging exactly when
-  // the figure stops. The rig carries its own pelvis bob (walkCyclePose), so the
+  // Gait phase clock for the kit figure — advances at the RUN cadence (this
+  // avatar translates at 2.2 m/s, a jog; the run cycle's quicker steps are
+  // what keep the feet from sliding — ChameleonMovement port 2026-07-09)
+  // while translating and FREEZES on arrival, so the limbs stop swinging
+  // exactly when the figure stops. The rig carries its own pelvis bob, so the
   // GROUP no longer hops.
   const phaseRef = useRef(0);
-  // Walk → stand blend on arrival (the kit eases presets over ~⅓ s); a frozen
+  // Run → stand blend on arrival (the kit eases presets over ~⅓ s); a frozen
   // mid-stride reads as a glitch otherwise. Reset when a new destination starts.
   const [atRest, setAtRest] = useState(false);
   const restedRef = useRef(false);
@@ -365,9 +367,9 @@ function GuestAvatar({
       }
       // Advance the gait while translating; the rig's own pelvis bob keeps the
       // group grounded (no whole-body hop).
-      phaseRef.current += delta * 11;
+      phaseRef.current += delta * RUN_CLOCK_RAD_S;
     } else {
-      // Reached the path end — freeze the gait, ease walk → stand, and (seat
+      // Reached the path end — freeze the gait, ease run → stand, and (seat
       // walks only) retire the destination beacon.
       if (!restedRef.current) {
         restedRef.current = true;
@@ -386,11 +388,13 @@ function GuestAvatar({
       {/* The shared articulated kit figure — the ONE human implementation, now
           on the public walk too. `phase` takes the gait CLOCK ref (read inside
           the figure's own useFrame, no per-frame React re-render); the pose
-          eases walk → stand on arrival. Always quality 'high': this is the
-          single viewer figure that owns the camera, not the 'low'-tier crowd. */}
+          eases run → stand on arrival ('run', not 'walk' — this avatar jogs at
+          2.2 m/s and the scurry cycle matches; ChameleonMovement port
+          2026-07-09). Always quality 'high': this is the single viewer figure
+          that owns the camera, not the 'low'-tier crowd. */}
       <Figure
         spec={selfSpec}
-        pose={atRest ? (dance ? 'dance' : 'stand') : 'walk'}
+        pose={atRest ? (dance ? 'dance' : 'stand') : 'run'}
         phase={phaseRef}
         quality="high"
       />

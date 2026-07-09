@@ -17,8 +17,12 @@
  * Joint sign convention (load-bearing — the renderer depends on it):
  *   · Every rotation channel is RADIANS. Positive = the limb swings FORWARD
  *     (toward the figure's facing, local +Z — the same "forward" the demo
- *     Walker faces via `rotation.y = heading`). The renderer negates onto
- *     `rotation.x` because three's +X rotation swings a hanging limb backward.
+ *     Walker faces via `rotation.y = heading`). The renderer negates HANGING
+ *     limbs onto `rotation.x` (three's +X rotation swings them backward);
+ *     UP-pointing children — the torso and the head — apply UN-negated, or
+ *     the same rotation would tip them the mirrored way (2026-07-09 fix:
+ *     torsoLean used to be negated too, so every authored forward lean
+ *     silently rendered backward — see figure-sit-bake's applyPose doc).
  *   · `torsoSway` is roll (lean left/right), `headYaw` turns the head.
  *   · `pelvisY` / `pelvisZ` are the ONLY translation channels (METRES, not
  *     radians) — sit needs "hips back + down" and walk needs a bob, and
@@ -208,6 +212,27 @@ const ELBOW_REST = 0.22; // rad — arms never hang piston-straight
 const WALK_BOB_M = 0.06; // m — springy double-bounce (one per footfall); base −0.012 → apex +0.048, under the 0.06 cap
 const WALK_WADDLE = 0.06; // rad (~3.4°) — side-to-side rock toward the planted foot
 
+// Run-cycle tuning — the sprint flavour of the same toy gait (the
+// ChameleonMovement prototype port, 2026-07-09). Everything the walk does,
+// amplified — EXCEPT the waddle, which TIGHTENS as the body pitches forward
+// and leans into the sprint (the prototype's runWaddleMult 0.6 < 1). Used by
+// the fast movers (roam taps, the guest seat beeline, lab swap/dancer glides)
+// whose 1.7–2.6 m/s translation foot-slides under the walk cycle.
+const RUN_HIP_SWING = 0.85; // rad — frantic stride (the prototype's legSwing, verbatim)
+const RUN_KNEE_FLEX = 0.95; // rad — knees pump high
+const RUN_ARM_SWING = 0.8; // rad — arms driving
+const RUN_ELBOW_REST = 0.5; // rad — arms carried bent while running, never hanging
+const RUN_BOB_M = 0.095; // m — base −0.015 → apex +0.08, under the run suite's 0.1 cap
+const RUN_WADDLE = 0.04; // rad — tighter than the walk's 0.06 (leans in, doesn't rock)
+const RUN_LEAN = 0.22; // rad (~13°) — body pitches forward for momentum
+
+// Gait clocks (rad/s of wall-clock) — single-sourced here so every surface
+// steps at the same cadence and a stride length stays speed ÷ (clock/2π).
+// Callers advance their phase ref by `delta * <clock>` while translating and
+// freeze it on arrival (the shared freeze-on-arrival convention).
+export const WALK_CLOCK_RAD_S = 11; // the Meccha-cute quick steps (2026-07-09)
+export const RUN_CLOCK_RAD_S = 16; // scurry — 2.2 m/s ÷ (16/2π) ≈ 0.86 m strides
+
 /** Relaxed standing: arms hang with a natural elbow soft-bend, the barest
  *  forward settle in the torso. The base under idleSway. */
 export function standPose(): Pose {
@@ -220,8 +245,8 @@ export function standPose(): Pose {
 }
 
 /**
- * One walk-cycle sample at `phase` (radians — the demo Walker's existing
- * ~9 rad/s bob clock plugs straight in; one full stride per 2π). Left and
+ * One walk-cycle sample at `phase` (radians — advance the caller's clock by
+ * `WALK_CLOCK_RAD_S` while translating; one full stride per 2π). Left and
  * right limbs run in antiphase (sin(phase) vs sin(phase + π)) and arms
  * counter-swing their legs — the two symmetries the unit suite locks down.
  * Knees flex on the swing-through (a cos lobe leading the hip by 90°), and
@@ -256,6 +281,69 @@ export function walkCyclePose(phase: number, out?: Pose): Pose {
   o.rightShoulder = ARM_SWING * swing;
   o.leftElbow = ELBOW_REST + 0.22 * Math.max(0, counter);
   o.rightElbow = ELBOW_REST + 0.22 * Math.max(0, swing);
+  return o;
+}
+
+/**
+ * One run-cycle sample at `phase` — same skeleton math as walkCyclePose (the
+ * two symmetries hold: antiphase legs, arms counter-swing), amplified into the
+ * frantic sprint of the ChameleonMovement prototype: higher bounce, forward
+ * torso pitch (RUN_LEAN) for momentum, knees pumping, arms carried bent and
+ * driving, waddle TIGHTER than the walk. Callers advance phase by
+ * `RUN_CLOCK_RAD_S` (not the walk clock) so the quicker cadence matches the
+ * faster translation — that pairing is what kills the foot-slide on the
+ * 1.7–2.6 m/s movers.
+ */
+export function runCyclePose(phase: number, out?: Pose): Pose {
+  const swing = Math.sin(phase);
+  const counter = Math.sin(phase + Math.PI); // ≡ -swing; spelled out for intent
+  const o = out ?? ({ ...ZERO_POSE } as Pose);
+  o.pelvisZ = 0;
+  o.headYaw = 0;
+  // Bigger springy double-bounce than the walk: apex +0.08 m.
+  o.pelvisY = -0.015 + Math.abs(Math.sin(phase)) * RUN_BOB_M;
+  // The sprint rocks LESS than the walk — the body is busy leaning forward.
+  o.torsoSway = -RUN_WADDLE * swing;
+  // Chin rides the bounce a touch harder than the walk (effort reads cute).
+  o.headPitch = 0.05 * Math.abs(Math.sin(phase));
+  // Forward pitch for momentum + the double-frequency jelly wobble on top.
+  o.torsoLean = RUN_LEAN + Math.sin(phase * 2) * 0.025;
+  o.leftHip = RUN_HIP_SWING * swing;
+  o.rightHip = RUN_HIP_SWING * counter;
+  o.leftKnee = -RUN_KNEE_FLEX * Math.max(0, Math.cos(phase));
+  o.rightKnee = -RUN_KNEE_FLEX * Math.max(0, Math.cos(phase + Math.PI));
+  // Arms oppose their legs, carried bent and pumping (never hanging).
+  o.leftShoulder = RUN_ARM_SWING * counter;
+  o.rightShoulder = RUN_ARM_SWING * swing;
+  o.leftElbow = RUN_ELBOW_REST + 0.28 * Math.max(0, counter);
+  o.rightElbow = RUN_ELBOW_REST + 0.28 * Math.max(0, swing);
+  return o;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Jelly squash-&-stretch
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type JellyScale = { y: number; xz: number };
+
+/**
+ * Impact-weighted squash-&-stretch for the gait bounce (the ChameleonMovement
+ * prototype's jelly feel): the body squashes WIDE + SHORT at each footfall
+ * (`impact = 1 − |sin|`, strongest exactly when pelvisY dips) and stretches
+ * tall toward the bounce apex. Asymmetric on purpose — `squash` > `stretch`
+ * reads as weight landing, where the old symmetric ±k read as breathing.
+ * X/Z counter-scale at 0.6 of the Y deviation keeps the volume roughly
+ * conserved (the toy is jelly, not a balloon).
+ *
+ * PURE — the renderer (kit/figure.tsx) applies the result to the torso group
+ * scale, eased by its own pose-blend gate; `out` avoids per-frame allocation.
+ */
+export function jellySquash(phase: number, squash: number, stretch: number, out?: JellyScale): JellyScale {
+  const up = Math.abs(Math.sin(phase)); // 0 at footfall → 1 at the bounce apex
+  const impact = 1 - up;
+  const o = out ?? { y: 1, xz: 1 };
+  o.y = 1 + up * stretch - impact * squash;
+  o.xz = 1 - up * stretch * 0.6 + impact * squash * 0.6;
   return o;
 }
 

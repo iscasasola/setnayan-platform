@@ -20,6 +20,8 @@ import {
   resolveFigureLook,
   standPose,
   walkCyclePose,
+  runCyclePose,
+  jellySquash,
   sitPose,
   idleSway,
   staffIdle,
@@ -120,6 +122,163 @@ test('walk cycle: knees only ever flex (≤ 0) and the bob stays subtle', () => 
     const p = walkCyclePose((i / 48) * Math.PI * 2);
     assert.ok(p.leftKnee <= 0 && p.rightKnee <= 0, 'knees never hyper-extend');
     assert.ok(Math.abs(p.pelvisY) <= 0.06, 'bob stays a subtle few cm');
+  }
+});
+
+// ── run cycle ────────────────────────────────────────────────────────────────
+// The sprint keeps the walk's two locked symmetries and its own envelopes:
+// a bigger (but still capped) bounce, a FORWARD torso pitch for momentum, and
+// a waddle TIGHTER than the walk's (the body leans in instead of rocking).
+
+test('run cycle: legs antiphase, arms counter-swing (the walk symmetries hold)', () => {
+  for (let i = 0; i < 24; i++) {
+    const phase = (i / 24) * Math.PI * 2;
+    const now = runCyclePose(phase);
+    const half = runCyclePose(phase + Math.PI);
+    close(now.leftHip, half.rightHip, 1e-9, `hips antiphase at φ=${phase.toFixed(2)}`);
+    close(now.leftKnee, half.rightKnee, 1e-9, `knees antiphase at φ=${phase.toFixed(2)}`);
+    close(now.leftShoulder, half.rightShoulder, 1e-9, `arms antiphase at φ=${phase.toFixed(2)}`);
+    if (Math.abs(Math.sin(phase)) > 0.05) {
+      assert.ok(
+        Math.sign(now.leftShoulder) === -Math.sign(now.leftHip),
+        `left arm opposes left leg at φ=${phase.toFixed(2)}`,
+      );
+    }
+  }
+});
+
+test('run cycle: knees only flex, bounce capped, forward lean, tighter waddle', () => {
+  for (let i = 0; i < 48; i++) {
+    const phase = (i / 48) * Math.PI * 2;
+    const run = runCyclePose(phase);
+    const walk = walkCyclePose(phase);
+    assert.ok(run.leftKnee <= 0 && run.rightKnee <= 0, 'knees never hyper-extend');
+    assert.ok(Math.abs(run.pelvisY) <= 0.1, 'run bounce stays under the 0.1 m cap');
+    assert.ok(run.torsoLean > walk.torsoLean, `run pitches further forward at φ=${phase.toFixed(2)}`);
+    assert.ok(
+      Math.abs(run.torsoSway) <= Math.abs(walk.torsoSway) + 1e-9,
+      `run waddle never exceeds the walk's at φ=${phase.toFixed(2)}`,
+    );
+  }
+});
+
+test('run cycle: amplified off the walk (bigger stride, bounce, arm drive)', () => {
+  // Peak arm/hip swing at φ = π/2; knees compare at φ = 0 (cos lobe peak —
+  // at π/2 BOTH gaits have zero knee flex, which would vacuously pass).
+  const run = runCyclePose(Math.PI / 2);
+  const walk = walkCyclePose(Math.PI / 2);
+  assert.ok(Math.abs(run.leftHip) > Math.abs(walk.leftHip), 'stride swings wider');
+  assert.ok(run.pelvisY > walk.pelvisY, 'bounce apex is higher');
+  assert.ok(Math.abs(run.leftShoulder) > Math.abs(walk.leftShoulder), 'arms drive harder');
+  assert.ok(run.leftElbow > walk.leftElbow && run.rightElbow > walk.rightElbow, 'arms carried bent');
+  const runFoot = runCyclePose(0);
+  const walkFoot = walkCyclePose(0);
+  assert.ok(runFoot.leftKnee < walkFoot.leftKnee, 'knees pump higher (deeper flex at the cos peak)');
+});
+
+test('run cycle: absolute envelope floors — the sprint signature cannot silently deaden', () => {
+  // Relative-to-walk checks alone let the amplitudes decay toward a fast walk
+  // (mutation-tested in review); pin the advertised envelope with floors.
+  let maxBob = -Infinity;
+  let minBob = Infinity;
+  let maxLean = -Infinity;
+  let maxKnee = 0;
+  let maxSway = 0;
+  let maxWalkSway = 0;
+  for (let i = 0; i < 96; i++) {
+    const phase = (i / 96) * Math.PI * 2;
+    const p = runCyclePose(phase);
+    maxBob = Math.max(maxBob, p.pelvisY);
+    minBob = Math.min(minBob, p.pelvisY);
+    maxLean = Math.max(maxLean, p.torsoLean);
+    maxKnee = Math.max(maxKnee, -p.leftKnee);
+    maxSway = Math.max(maxSway, Math.abs(p.torsoSway));
+    maxWalkSway = Math.max(maxWalkSway, Math.abs(walkCyclePose(phase).torsoSway));
+  }
+  assert.ok(maxBob >= 0.07, `bounce apex ≥ 0.07 m (got ${maxBob.toFixed(3)})`);
+  assert.ok(minBob < 0, `footfall dip below the baseline (got ${minBob.toFixed(3)}) — syncs with the jelly impact`);
+  assert.ok(maxLean >= 0.15, `momentum lean ≥ 0.15 rad (got ${maxLean.toFixed(3)})`);
+  assert.ok(maxKnee >= 0.8, `knee pump ≥ 0.8 rad (got ${maxKnee.toFixed(3)})`);
+  assert.ok(maxSway > 0, 'the run still waddles (not zeroed)');
+  assert.ok(maxSway < maxWalkSway, 'run waddle strictly tighter than the walk');
+});
+
+test('both gaits: waddle rocks toward the PLANTED foot (sign-locked to the hips)', () => {
+  // |sway| alone passes a sign flip — the off-balance rock toward the
+  // SWINGING foot the tuning comments forbid. Lock the relationship: left
+  // thigh forward (leftHip > 0) ⇒ right foot planted ⇒ lean right (sway < 0).
+  for (const pose of [walkCyclePose, runCyclePose]) {
+    for (const phase of [0.4, 1.2, 2.0, 3.6, 4.4, 5.2]) {
+      const p = pose(phase);
+      if (Math.abs(Math.sin(phase)) > 0.05) {
+        assert.ok(
+          Math.sign(p.torsoSway) === -Math.sign(p.leftHip),
+          `sway opposes the swinging thigh at φ=${phase} (${pose.name})`,
+        );
+      }
+    }
+  }
+});
+
+test('walk/run cycles are pure on buffer reuse — every channel overwritten', () => {
+  // The renderer reuses ONE target buffer across pose switches (kit/figure's
+  // targetBuf); a cycle that skips resetting a channel it doesn't animate
+  // (pelvisZ, headYaw) would drag the previous pose's values along — e.g. a
+  // sit→run handoff sprinting with hips slid 6 cm back. Same pattern as the
+  // staffIdle buffer test.
+  for (const pose of [walkCyclePose, runCyclePose]) {
+    for (const phase of [0, 0.9, 2.7, 4.8]) {
+      const dirty = { ...sitPose() } as ReturnType<typeof sitPose>;
+      dirty.pelvisZ = -0.06;
+      dirty.headYaw = 0.4;
+      const buffered = pose(phase, dirty);
+      const fresh = pose(phase);
+      for (const j of JOINTS) {
+        close(buffered[j], fresh[j], 1e-12, `${pose.name}.${j} identical from a dirty buffer at φ=${phase}`);
+      }
+    }
+  }
+});
+
+test('jellySquash is pure on buffer reuse — no accumulation across frames', () => {
+  // kit/figure reuses one JellyScale buffer per frame; an accumulating `+=`
+  // would collapse the torso through zero scale within a second (mutation-
+  // tested in review). Reusing a dirty buffer must equal a fresh call.
+  const buf = jellySquash(0, 0.14, 0.08); // dirty it at the deepest squash
+  for (const phase of [0, 0.7, Math.PI / 2, 2.4, 4.1]) {
+    const reused = jellySquash(phase, 0.14, 0.08, buf);
+    const fresh = jellySquash(phase, 0.14, 0.08);
+    close(reused.y, fresh.y, 1e-12, `y identical on reuse at φ=${phase}`);
+    close(reused.xz, fresh.xz, 1e-12, `xz identical on reuse at φ=${phase}`);
+  }
+});
+
+// ── jellySquash ──────────────────────────────────────────────────────────────
+
+test('jellySquash: squashes at footfall, stretches at the apex, neutral at zero', () => {
+  // Footfall (φ = 0): impact = 1 → short + wide.
+  const foot = jellySquash(0, 0.14, 0.08);
+  assert.ok(foot.y < 1, 'body shortens on impact');
+  assert.ok(foot.xz > 1, 'body widens on impact');
+  // Apex (φ = π/2): up = 1 → tall + narrow.
+  const apex = jellySquash(Math.PI / 2, 0.14, 0.08);
+  assert.ok(apex.y > 1, 'body stretches at the apex');
+  assert.ok(apex.xz < 1, 'body narrows at the apex');
+  // Asymmetry: the impact deviation outweighs the apex deviation (weight lands).
+  assert.ok(Math.abs(foot.y - 1) > Math.abs(apex.y - 1), 'squash > stretch');
+  // Zero amplitudes → exactly neutral at every phase (the resting figure).
+  for (const ph of [0, 0.7, Math.PI / 2, 2.4]) {
+    const n = jellySquash(ph, 0, 0);
+    close(n.y, 1, 1e-12, `neutral y at φ=${ph}`);
+    close(n.xz, 1, 1e-12, `neutral xz at φ=${ph}`);
+  }
+});
+
+test('jellySquash: volume roughly conserved across the cycle', () => {
+  for (let i = 0; i < 32; i++) {
+    const s = jellySquash((i / 32) * Math.PI * 2, 0.14, 0.08);
+    const volume = s.y * s.xz * s.xz;
+    close(volume, 1, 0.05, `y·xz² ≈ 1 at sample ${i}`);
   }
 });
 

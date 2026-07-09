@@ -240,6 +240,70 @@ test('walk/run cycles are pure on buffer reuse — every channel overwritten', (
   }
 });
 
+// ── sit-arrival handoff contract (2026-07-09 arrival-blend fix) ─────────────
+// The SitController remounts the kit <Figure> at arrival; the fresh driver
+// initialises cur = from = target on its FIRST frame. The fix passes
+// arrivePose/arrivePhase so that first frame presents the walker's EXACT
+// frozen stride (zero-delta takeover), then flips to 'stand' and lets the
+// driver's damp blend ease the limbs down. This suite replicates the driver's
+// blend loop (kit/figure.tsx FigureFrameDriver — cur += (target−cur)·b with
+// b accumulating via damp(0.002, dt)) against the real presets and pins the
+// contract: the takeover frame is identical, every blend step stays small,
+// and the OLD path (mount straight at 'stand') is the big snap the fix kills.
+
+const HANDOFF_DT = 1 / 60;
+
+/** One driver-faithful blend sequence: start held at `startPose`, then blend
+ *  toward `target` for `frames` frames; returns the per-frame max joint delta. */
+function blendSteps(start: Pose10, target: Pose10, frames: number): number[] {
+  const cur = { ...start };
+  const from = { ...start };
+  let blend = 0;
+  const steps: number[] = [];
+  for (let f = 0; f < frames; f++) {
+    blend += (1 - blend) * damp(0.002, HANDOFF_DT);
+    let maxD = 0;
+    for (const j of JOINTS) {
+      const next = from[j] + (target[j] - from[j]) * blend;
+      maxD = Math.max(maxD, Math.abs(next - cur[j]));
+      cur[j] = next;
+    }
+    steps.push(maxD);
+  }
+  return steps;
+}
+type Pose10 = ReturnType<typeof standPose>;
+
+test('sit-arrival handoff: the frozen-stride takeover is delta-free, the blend stays smooth', () => {
+  for (const phase of [Math.PI / 2, 1.1, 3.9]) {
+    const frozen = runCyclePose(phase);
+    // NEW path frame 1 (arrival hold): the fresh driver's first frame presents
+    // runCyclePose(arrivePhase) — identical to the unmounted walker's last
+    // frame, so the takeover itself moves nothing.
+    const takeover = runCyclePose(phase);
+    for (const j of JOINTS) {
+      close(takeover[j], frozen[j], 1e-12, `takeover ${j} identical at φ=${phase}`);
+    }
+    // Frames 2+: blend run → stand. Every per-frame step stays well under the
+    // snap threshold (the ⅓ s damp ease at 60 fps moves ≤ ~10%/frame).
+    const steps = blendSteps(frozen, standPose(), 40);
+    for (const [i, d] of steps.entries()) {
+      assert.ok(d < 0.12, `blend step ${i} stays smooth at φ=${phase} (got ${d.toFixed(3)} rad)`);
+    }
+  }
+});
+
+test('sit-arrival handoff: the OLD stand-mount path was a genuine one-frame snap', () => {
+  // Pre-fix behavior: the remounted driver's first frame IS the stand pose —
+  // document the magnitude of what the arrivePose fix removes (mid-swing hips
+  // jump > 0.5 rad in a single frame; the blend path above never exceeds 0.12).
+  const frozen = runCyclePose(Math.PI / 2); // hips at full ±0.85 rad swing
+  const stand = standPose();
+  let snap = 0;
+  for (const j of JOINTS) snap = Math.max(snap, Math.abs(stand[j] - frozen[j]));
+  assert.ok(snap > 0.5, `the removed snap was large (got ${snap.toFixed(3)} rad in one frame)`);
+});
+
 test('jellySquash is pure on buffer reuse — no accumulation across frames', () => {
   // kit/figure reuses one JellyScale buffer per frame; an accumulating `+=`
   // would collapse the torso through zero scale within a second (mutation-

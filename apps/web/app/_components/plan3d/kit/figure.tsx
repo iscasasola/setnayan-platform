@@ -283,7 +283,13 @@ function FigureFrameDriver({
   const jellyBuf = useRef<JellyScale>({ y: 1, xz: 1 });
   // Live squash/stretch amplitudes — damped toward the pose's GAIT_SQUASH
   // targets (or 0) each frame; see the jelly block at the bottom of the loop.
-  const jellyAmp = useRef({ squash: 0, stretch: 0 });
+  // A driver that MOUNTS mid-gait (the SitController arrival handoff, where a
+  // fresh Figure takes over a walker frozen mid-run) starts at the gait's
+  // settled amplitudes — starting from 0 would un-squash the torso in one
+  // frame, the scale half of the very snap the handoff fix removes.
+  const jellyAmp = useRef(
+    pose === 'walk' || pose === 'run' ? { ...GAIT_SQUASH[pose] } : { squash: 0, stretch: 0 },
+  );
 
   useFrame(({ clock }, delta) => {
     const ph = typeof phase === 'number' ? phase : phase.current;

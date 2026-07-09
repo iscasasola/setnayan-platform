@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode, type ComponentType } from 'react';
 import Link from 'next/link';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import { redirect } from 'next/navigation';
 import {
   Sparkles,
@@ -486,16 +487,17 @@ function EventCard({ event, pct }: { event: EventWithRole; pct: number | null })
           <span className="truncate">{event.display_name}</span>
         </p>
         <p className="truncate text-sm text-ink/55">{meta}</p>
-        <div className="mt-auto space-y-1.5 pt-3">
+        <div className="mt-auto flex items-center gap-2.5 pt-3">
           {pct != null ? (
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-              <div
-                className="h-full rounded-full bg-[#5C2542] transition-all"
-                style={{ width: `${Math.max(3, Math.min(100, pct))}%` }}
-              />
-            </div>
+            <ProgressRing pct={pct} size={42} stroke={4}>
+              <span className="text-[9px] font-semibold text-ink">{pct}%</span>
+            </ProgressRing>
           ) : null}
-          <p className="text-xs text-ink/50">{caption}</p>
+          <p className="text-xs text-ink/55">
+            {pct != null
+              ? `Planned${countdown ? ` · ${countdown}` : ''}`
+              : caption}
+          </p>
         </div>
       </div>
     </Link>

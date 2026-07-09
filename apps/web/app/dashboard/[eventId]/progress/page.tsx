@@ -559,6 +559,8 @@ export default async function EventProgressPage({
 
   // ---- Journey stages (pure lib — see lib/progress-stages.ts). ------------
   const stageModel = buildProgressStages({
+    eventType,
+    ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
     eventDate: event.event_date,
     datePrecision: eventDatePrecision,
     daysOut,

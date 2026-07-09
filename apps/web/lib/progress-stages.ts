@@ -44,6 +44,10 @@ export type ProgressStage = {
 };
 
 export type ProgressStagesInput = {
+  /** events.event_type — labels the endowed "set up" item ('wedding' etc.). */
+  eventType: string | null;
+  /** events.ceremony_type — onboarding sets it at creation; null tolerated. */
+  ceremonyType: string | null;
   /** events.event_date (ISO date) — null when unset. */
   eventDate: string | null;
   /** events.event_date_precision — countdown math only applies at 'day'. */
@@ -118,6 +122,8 @@ export function buildProgressStages(
   input: ProgressStagesInput,
 ): ProgressStagesResult {
   const {
+    eventType,
+    ceremonyType,
     eventDate,
     datePrecision,
     daysOut,
@@ -143,6 +149,20 @@ export function buildProgressStages(
   // ---- Dreaming — the three foundation choices ---------------------------
   const dreamingDone: ProgressStageItem[] = [];
   const dreamingTodo: ProgressStageItem[] = [];
+  // Endowed progress (owner 2026-07-09): a brand-new event must never render
+  // an all-empty journey. These 1–2 done items are real facts event creation
+  // itself establishes — the event row exists, and onboarding records the
+  // ceremony type — never anything the couple didn't effectively do. Dreaming
+  // pct is therefore > 0 for every event.
+  const eventWord =
+    eventType === null || eventType === 'wedding' ? 'wedding' : 'event';
+  dreamingDone.push({ label: `Your ${eventWord} is set up` });
+  if (ceremonyType !== null && ceremonyType.length > 0) {
+    dreamingDone.push({
+      label: 'Ceremony chosen',
+      detail: ceremonyType.replace(/_/g, ' '),
+    });
+  }
   if (dateFirm) {
     dreamingDone.push({ label: 'Wedding date chosen' });
   } else if (eventDate !== null) {

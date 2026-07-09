@@ -15,7 +15,11 @@
   `summarize` (paperwork), `fetchUpcomingItems`, `countUnread`, plus ONE new
   lean query for `pending_payment` orders (the cockpit intentionally omits
   that kind). New pure lib `lib/progress-stages.ts` (+ unit tests) builds the
-  journey stages deterministically.
+  journey stages deterministically. **Endowed progress** (owner 2026-07-09):
+  the Dreaming stage always includes 1–2 honest creation-time facts as done
+  items ("Your wedding is set up" — the event row exists; "Ceremony chosen"
+  when `ceremony_type` is recorded), so a brand-new event never renders an
+  all-empty 0% journey — covered by dedicated unit tests.
 - **AI dual state**: extras (Suri briefing strip · Today's one thing ·
   priority-ranked decisions · What's-next deadline rail · render-only "Suri on
   watch" via the pure `setnayan-ai-triggers` engine · wine/champagne premium

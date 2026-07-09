@@ -16,6 +16,8 @@ import {
 /** A blank, brand-new event — nothing decided yet. */
 function emptyInput(overrides: Partial<ProgressStagesInput> = {}): ProgressStagesInput {
   return {
+    eventType: null,
+    ceremonyType: null,
     eventDate: null,
     datePrecision: 'year',
     daysOut: null,
@@ -57,19 +59,44 @@ test('current-stage resolution mirrors the Overview ladder', () => {
   assert.equal(resolveCurrentStage(400, 0), 'dreaming');
 });
 
-test('empty event: dreaming with all three foundations still to do', () => {
+test('empty event: dreaming keeps the endowed item + three foundations to do', () => {
   const r = buildProgressStages(emptyInput());
   assert.equal(r.currentKey, 'dreaming');
   const dreaming = stageOf(r, 'dreaming');
   assert.equal(dreaming.key, 'dreaming');
-  assert.equal(dreaming.pct, 0);
-  assert.equal(dreaming.done.length, 0);
+  // Endowed progress: the "set up" fact is done the moment the event exists.
+  assert.equal(dreaming.done.length, 1);
+  assert.equal(dreaming.pct, 25);
   assert.equal(dreaming.todo.length, 3);
   // Six stages, always, in canonical order.
   assert.deepEqual(
     r.stages.map((s) => s.key),
     ['dreaming', 'booking', 'inviting', 'finalizing', 'wedding', 'after'],
   );
+});
+
+test('endowed progress: a fresh event never renders an all-empty journey', () => {
+  // Minimal creation-time facts only — no date, guests, vendors, or orders.
+  const fresh = buildProgressStages(emptyInput({ eventType: 'wedding' }));
+  const dreaming = stageOf(fresh, 'dreaming');
+  assert.ok(dreaming.done.length >= 1 && dreaming.done.length <= 2);
+  assert.ok(dreaming.pct > 0, `dreaming pct must be > 0, got ${dreaming.pct}`);
+  assert.ok(dreaming.done.some((i) => i.label === 'Your wedding is set up'));
+
+  // Ceremony recorded at onboarding → the second endowed item appears.
+  const withCeremony = buildProgressStages(
+    emptyInput({ eventType: 'wedding', ceremonyType: 'catholic' }),
+  );
+  const dreaming2 = stageOf(withCeremony, 'dreaming');
+  assert.equal(dreaming2.done.length, 2);
+  assert.ok(
+    dreaming2.done.some((i) => i.label === 'Ceremony chosen' && i.detail === 'catholic'),
+  );
+
+  // The rest of the journey is intact and honest (no other stage endowed).
+  assert.equal(stageOf(fresh, 'booking').done.length, 0);
+  assert.equal(stageOf(fresh, 'inviting').done.length, 0);
+  assert.equal(stageOf(fresh, 'finalizing').done.length, 0);
 });
 
 test('all foundations set: dreaming hits 100%', () => {
@@ -85,7 +112,8 @@ test('all foundations set: dreaming hits 100%', () => {
   const dreaming = stageOf(r, 'dreaming');
   assert.equal(dreaming.pct, 100);
   assert.equal(dreaming.todo.length, 0);
-  assert.equal(dreaming.done.length, 3);
+  // 3 foundations + the endowed "set up" item.
+  assert.equal(dreaming.done.length, 4);
 });
 
 test('month-precision date counts as narrowed, not chosen', () => {

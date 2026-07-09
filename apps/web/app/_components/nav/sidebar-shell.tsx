@@ -163,7 +163,7 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
             className="inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]"
             style={{
               color: 'var(--m-slate)',
-              outlineColor: 'var(--m-orange)',
+              outlineColor: 'var(--m-nav-active)',
             }}
           >
             <ToggleIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />

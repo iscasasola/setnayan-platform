@@ -14,10 +14,13 @@
  * arbitrary-variant selectors on the parent `[data-sidebar-collapsed="1"]`
  * — no prop drilling.
  *
- * ACTIVE TREATMENT: 3px left accent bar in --m-orange + tint background
- * (--m-orange-4) + ink text color + orange icon. Inactive: slate text +
- * slate icon + transparent bg. Hover: paper-3 tint. Matches the v2.1
- * editorial restraint of the template — no heavy fills, no shadows on
+ * ACTIVE TREATMENT: 3px left accent bar in --m-nav-active (Rich Mulberry
+ * WINE) + tint background (--m-nav-active-soft) + ink text color + wine icon.
+ * Inactive: slate text + slate icon + transparent bg. Hover: paper-3 tint.
+ * The chrome active-state reads in wine (not the champagne-gold accent) per
+ * the "Energy, not skin" reskin so the rail matches the wine content behind
+ * it; gold stays the secondary accent (eyebrows · chips · "new" badges).
+ * Matches the v2.1 editorial restraint — no heavy fills, no shadows on
  * active state.
  *
  * BADGE TONES (NavBadgeTone union from types.ts):
@@ -201,23 +204,23 @@ function SidebarRow({
         }${active ? ' sn-bounce' : ''}`}
         style={{
           color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          background: active ? 'var(--m-orange-4)' : 'transparent',
+          background: active ? 'var(--m-nav-active-soft)' : 'transparent',
           opacity: dim ? 0.5 : 1,
-          outlineColor: 'var(--m-orange)',
+          outlineColor: 'var(--m-nav-active)',
         }}
       >
         {active ? (
           <span
             aria-hidden
             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
-            style={{ background: 'var(--m-orange)' }}
+            style={{ background: 'var(--m-nav-active)' }}
           />
         ) : null}
         <Icon
           aria-hidden
           className={`${nested ? 'h-5 w-5' : 'h-6 w-6'} shrink-0`}
           strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-orange)' : 'var(--m-slate)' }}
+          style={{ color: active ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
         />
         {/* Label hides when sidebar collapsed via parent shell's data attr.
             Arbitrary-variant selector keeps this a server component. */}
@@ -253,14 +256,14 @@ function ParentRow({ item, inSection }: { item: NavItem; inSection: boolean }) {
       style={{
         color: inSection ? 'var(--m-ink)' : 'var(--m-slate)',
         background: 'transparent',
-        outlineColor: 'var(--m-orange)',
+        outlineColor: 'var(--m-nav-active)',
       }}
     >
       <Icon
         aria-hidden
         className="h-6 w-6 shrink-0"
         strokeWidth={1.75}
-        style={{ color: inSection ? 'var(--m-orange)' : 'var(--m-slate)' }}
+        style={{ color: inSection ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
       />
       <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">
         {item.label}
@@ -302,22 +305,22 @@ function TabChildRow({
         className={`relative flex w-full min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]${active ? ' sn-bounce' : ''}`}
         style={{
           color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          background: active ? 'var(--m-orange-4)' : 'transparent',
-          outlineColor: 'var(--m-orange)',
+          background: active ? 'var(--m-nav-active-soft)' : 'transparent',
+          outlineColor: 'var(--m-nav-active)',
         }}
       >
         {active ? (
           <span
             aria-hidden
             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
-            style={{ background: 'var(--m-orange)' }}
+            style={{ background: 'var(--m-nav-active)' }}
           />
         ) : null}
         <Icon
           aria-hidden
           className="h-5 w-5 shrink-0"
           strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-orange)' : 'var(--m-slate)' }}
+          style={{ color: active ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
         />
         <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
       </button>

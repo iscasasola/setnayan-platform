@@ -470,7 +470,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             )}
             {arrived && tableLabel ? 'You’ve arrived' : 'Your seat'}
           </p>
-          <h3 className="text-2xl font-semibold tracking-tight text-ink">
+          <h3 className="font-serif text-3xl italic leading-tight tracking-tight text-ink">
             {tableLabel ?? 'Not yet assigned'}
           </h3>
           {arrived && tableLabel ? (
@@ -529,7 +529,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           Getting there
         </p>
-        <h3 className="text-xl font-semibold tracking-tight text-ink">
+        <h3 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
           {event.venue_name ?? 'Venue'}
         </h3>
         {event.venue_address ? (
@@ -583,7 +583,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-6 text-center">
         <CameraIcon aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-ink">
+          <h3 className="font-serif text-xl italic leading-tight tracking-tight text-ink">
             Capture the day
           </h3>
           <p className="mx-auto mt-1 max-w-prose text-sm text-ink/65">
@@ -692,7 +692,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Your QR
         </p>
-        <h3 className="mt-1 text-lg font-semibold tracking-tight text-ink">
+        <h3 className="mt-1 font-serif text-xl italic leading-tight tracking-tight text-ink">
           Let others scan you
         </h3>
         <p className="mx-auto mt-1 max-w-prose text-xs text-ink/60">

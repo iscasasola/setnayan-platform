@@ -259,14 +259,16 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
               <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
                 {showArrival ? 'You’ve arrived' : 'Your seat'}
               </span>
-              <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+              <span className="flex items-center gap-1.5 text-ink">
                 {showArrival ? (
                   <PartyPopper aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
                 ) : (
                   <MapPin aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.5} />
                 )}
-                {tableLabel ?? (
-                  <span className="text-ink/50">Not yet assigned</span>
+                {tableLabel ? (
+                  <span className="font-serif text-lg italic leading-tight">{tableLabel}</span>
+                ) : (
+                  <span className="text-sm font-medium text-ink/50">Not yet assigned</span>
                 )}
               </span>
               {showArrival ? (
@@ -317,7 +319,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
                   Coming up
                 </p>
-                <p className="mt-0.5 text-sm font-medium text-ink">
+                <p className="mt-0.5 font-serif text-base italic leading-snug text-ink">
                   {nextScheduleBlock.label}
                 </p>
                 <p className="mt-0.5 text-xs text-ink/60">

@@ -61,7 +61,7 @@ export function YourSeatBlock({
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
             Your seat
           </p>
-          <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+          <h2 className="font-serif text-2xl italic leading-tight tracking-tight text-ink sm:text-3xl">
             You&rsquo;re at <span className="text-emerald-700">{tableLabel}</span>
           </h2>
           {venueName ? (

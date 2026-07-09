@@ -7,7 +7,12 @@ import type { ReactNode } from 'react';
  * vendor completeness, budget) — pass `pct` and optional center content.
  *
  * Colours come from CSS vars so it flips with the theme and tracks the wine
- * `--color-mulberry` token. Renderable in a server component (no client JS).
+ * `--color-mulberry` token by default. Renderable in a server component (no
+ * client JS).
+ *
+ * `color` overrides the progress stroke — pass a palette-driven value (e.g.
+ * `rgb(var(--color-terracotta))`) on the couple's mood-board-themed guest
+ * pages, so the ring recolours per event instead of hardcoding dashboard wine.
  */
 export function ProgressRing({
   pct,
@@ -15,6 +20,7 @@ export function ProgressRing({
   stroke = 8,
   children,
   className,
+  color = 'rgb(var(--color-mulberry))',
 }: {
   /** 0–100; clamped. Non-finite → 0. */
   pct: number;
@@ -25,6 +31,9 @@ export function ProgressRing({
   /** Centered content (e.g. the "62%" label). */
   children?: ReactNode;
   className?: string;
+  /** Progress-stroke colour. Defaults to the wine CTA token; override with a
+   *  palette variable on guest surfaces. */
+  color?: string;
 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -60,7 +69,7 @@ export function ProgressRing({
           strokeDasharray={circ}
           strokeDashoffset={offset}
           style={{
-            stroke: 'rgb(var(--color-mulberry))',
+            stroke: color,
             transition: 'stroke-dashoffset 0.6s ease',
           }}
         />

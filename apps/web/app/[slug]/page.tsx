@@ -2709,7 +2709,7 @@ function InvitationSite({
             personalized welcome. */}
         {greetingShouldRender ? (
           <section className="space-y-4 text-center">
-            <p className="text-2xl italic text-ink">Hi, {guest.first_name}.</p>
+            <p className="font-serif text-3xl italic leading-tight text-ink">Hi, {guest.first_name}.</p>
             <p className="mx-auto max-w-prose text-base text-ink/70">
               We&rsquo;d love to celebrate with you on{' '}
               <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>

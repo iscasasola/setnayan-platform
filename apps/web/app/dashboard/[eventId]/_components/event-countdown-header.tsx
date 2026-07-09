@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { LiveCountdown } from './live-countdown';
+import { ProgressRing } from '@/app/_components/progress-ring';
 
 /**
  * EventCountdownHeader — the emotional anchor at the top of the couple Home.
@@ -9,7 +10,8 @@ import { LiveCountdown } from './live-countdown';
  * hero ported from the couple-app-flow prototype 2026-06-05). Home is a
  * cockpit, not a catalog: this centered header answers "how close are we?" at a
  * glance — the couple's names, a big dominant days-to-go count to their event
- * date, the date + venue beneath it, and a thin "X of N vendors locked" bar.
+ * date, the date + venue beneath it, and an "X of N vendors locked" progress
+ * ring (the "Energy, not skin" density primitive · reskin 2026-07-09).
  *
  * Counts down to the EARLIEST chosen date until the couple settles on one
  * (owner 2026-06-04): targets the committed `event_date`, else the earliest
@@ -138,18 +140,19 @@ export function EventCountdownHeader({
       ) : null}
 
       {totalLockable > 0 ? (
-        <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between text-xs text-ink/55">
-            <span>Vendors locked</span>
-            <span className="font-medium text-ink">
-              {lockedCount} / {totalLockable}
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-            <span
-              className="block h-full rounded-full bg-terracotta transition-all"
-              style={{ width: `${pct}%` }}
-            />
+        <div className="mt-5 flex items-center justify-center gap-4">
+          <ProgressRing pct={pct} size={76} stroke={7}>
+            <span className="text-lg font-semibold text-ink">{pct}%</span>
+          </ProgressRing>
+          <div className="text-left">
+            <p className="text-sm font-medium text-ink">
+              {lockedCount} of {totalLockable} vendors locked
+            </p>
+            <p className="text-xs text-ink/55">
+              {lockedCount >= totalLockable
+                ? 'Every supplier locked in'
+                : `${totalLockable - lockedCount} more to lock in`}
+            </p>
           </div>
         </div>
       ) : null}

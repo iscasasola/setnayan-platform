@@ -181,6 +181,8 @@ export default async function LauncherPage({
         hasVendorAccess: false,
         hasAdminAccess: false,
         vendorProfiles: [],
+        ownedShopCount: 0,
+        canOpenShop: false,
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
     }),
   ]);

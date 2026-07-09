@@ -120,7 +120,8 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Go live & interactive',
     items: [
-      { code: 'PANOOD_SYSTEM' }, // Live Studio
+      { code: 'PANOOD_SYSTEM_MOBILE' }, // Live Studio — Mobile Controller ₱1,299/day
+      { code: 'PANOOD_SYSTEM' }, // Live Studio — Desktop Controller ₱2,499/day
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
       { code: 'LIVE_BACKGROUND' },

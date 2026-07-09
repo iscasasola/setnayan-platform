@@ -49,6 +49,14 @@ type Props = {
   groups?: LandingGroup[];
   /** Show a client filter input that searches cards by label (the /more layout). */
   searchable?: boolean;
+  /**
+   * Render on desktop too (drops the lg:hidden + widens to a 3-column grid).
+   * The 6-menu respine (2026-07-09) promotes the hub landings (/admin/ugat ·
+   * /admin/money) to real desktop surfaces — each sidebar menu lands on one
+   * integrated page. Mobile-only overflow landings (/admin/more ·
+   * /admin/directory) leave this unset.
+   */
+  desktopVisible?: boolean;
 };
 
 function LandingCard({ item }: { item: LandingItem }) {
@@ -58,7 +66,7 @@ function LandingCard({ item }: { item: LandingItem }) {
     <li data-more-card data-more-label={item.label}>
       <Link
         href={item.href}
-        className="m-card relative flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)]"
+        className="m-card relative flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-nav-active)]"
         style={{ color: 'var(--m-ink)' }}
       >
         <span
@@ -69,7 +77,7 @@ function LandingCard({ item }: { item: LandingItem }) {
             aria-hidden
             className="h-5 w-5"
             strokeWidth={1.75}
-            style={{ color: 'var(--m-orange-2)' }}
+            style={{ color: 'var(--m-nav-active)' }}
           />
         </span>
         <span className="flex flex-col gap-1">
@@ -84,9 +92,9 @@ function LandingCard({ item }: { item: LandingItem }) {
           <span
             className="absolute right-3 top-3 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 font-mono text-[11px] font-semibold"
             style={{ background: 'var(--m-mulberry)', color: '#fff' }}
-            aria-label={`${count} new`}
           >
-            {count > 99 ? '99+' : count}
+            <span aria-hidden>{count > 99 ? '99+' : count}</span>
+            <span className="sr-only">{`${count} new`}</span>
           </span>
         ) : null}
       </Link>
@@ -94,14 +102,26 @@ function LandingCard({ item }: { item: LandingItem }) {
   );
 }
 
-export function MobileLandingGrid({ title, subtitle, items, groups, searchable }: Props) {
+export function MobileLandingGrid({
+  title,
+  subtitle,
+  items,
+  groups,
+  searchable,
+  desktopVisible,
+}: Props) {
   // Normalize to sections: explicit `groups` win; else a single unlabeled
   // section from the flat `items` (backward-compatible with directory/money).
   const sections: LandingGroup[] = groups ?? (items ? [{ label: '', items }] : []);
   const isEmpty = sections.every((s) => s.items.length === 0);
 
   return (
-    <div data-more-root className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:hidden">
+    <div
+      data-more-root
+      className={`mx-auto w-full px-4 py-6 sm:px-6 ${
+        desktopVisible ? 'max-w-5xl lg:px-8 lg:py-10' : 'max-w-3xl lg:hidden'
+      }`}
+    >
       <header className="mb-6 space-y-2">
         <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
           Admin
@@ -131,7 +151,11 @@ export function MobileLandingGrid({ title, subtitle, items, groups, searchable }
                     {section.label}
                   </h2>
                 ) : null}
-                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ul
+                  className={`grid grid-cols-1 gap-3 sm:grid-cols-2${
+                    desktopVisible ? ' lg:grid-cols-3' : ''
+                  }`}
+                >
                   {section.items.map((item) => (
                     <LandingCard key={item.key} item={item} />
                   ))}

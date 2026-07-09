@@ -27,31 +27,21 @@ export type AdminQueueLane = 'money' | 'trust' | 'growth' | 'support';
  * deadlines (e.g. a dispute filed today vs one filed last week) rather than a
  * single oldest-item proxy.
  */
-export const ADMIN_QUEUE_META: Record<
-  string,
-  { lane: AdminQueueLane; slaHours: number }
-> = {
-  approvals: { lane: 'trust', slaHours: 12 }, // a colleague is BLOCKED on you
-  disputes: { lane: 'trust', slaHours: 24 }, // recourse clock
-  'force-majeure': { lane: 'trust', slaHours: 24 }, // event-impacting
-  'account-deletions': { lane: 'trust', slaHours: 24 }, // RA 10173 / store rule
-  payments: { lane: 'money', slaHours: 24 },
-  'token-purchases': { lane: 'money', slaHours: 24 },
-  subscriptions: { lane: 'money', slaHours: 24 },
-  payouts: { lane: 'money', slaHours: 48 }, // a vendor is waiting for money
-  'payment-options': { lane: 'trust', slaHours: 48 }, // fraud screen
-  'concierge-abuse': { lane: 'trust', slaHours: 48 },
-  help: { lane: 'support', slaHours: 24 },
-  reviews: { lane: 'support', slaHours: 72 },
-  verify: { lane: 'growth', slaHours: 48 }, // a vendor is waiting for the badge
-  'vendor-partnerships': { lane: 'growth', slaHours: 72 },
-  'user-reports': { lane: 'trust', slaHours: 24 }, // UGC moderation (Apple 1.2)
-  'integrity-watch': { lane: 'trust', slaHours: 72 }, // review-fraud + ghost listings
-};
-
 type QueueDef = {
   key: string;
   table: string;
+  /**
+   * The consequence bucket the worklist groups by (what breaks if you don't
+   * act): money = cash/reconciliation, trust = legal / recourse / compliance
+   * clock, growth = a vendor/revenue is waiting, support = couples + vendors
+   * waiting on help.
+   */
+  lane: AdminQueueLane;
+  /**
+   * How long the OLDEST open item may sit before the queue is "overdue" (the
+   * clock that turns it red). OWNER-TUNABLE first-pass defaults.
+   */
+  slaHours: number;
   /** Applies the queue's "open work" filter to a select()-ed builder. */
   filter: (q: any, ctx: { nowIso: string }) => any;
   /**
@@ -71,36 +61,65 @@ const QUEUE_DEFS: QueueDef[] = [
   // Verify — applications awaiting review (vendor_verification_applications ·
   // pending_review), NOT the secondary visibility surface (vendor_profiles
   // coming_soon). This is the filter the earlier drift got wrong.
+  // lane growth — a vendor is waiting for the badge.
   {
     key: 'verify',
     table: 'vendor_verification_applications',
+    lane: 'growth',
+    slaHours: 48,
     filter: (q) => q.eq('status', 'pending_review'),
   },
-  { key: 'payments', table: 'payments', filter: (q) => q.eq('status', 'pending') },
+  {
+    key: 'payments',
+    table: 'payments',
+    lane: 'money',
+    slaHours: 24,
+    filter: (q) => q.eq('status', 'pending'),
+  },
+  // lane money — a vendor is waiting for money.
   {
     key: 'payouts',
     table: 'vendor_payouts',
+    lane: 'money',
+    slaHours: 48,
     filter: (q) => q.is('paid_at', null).eq('on_hold', false),
   },
   {
     key: 'token-purchases',
     table: 'vendor_token_purchases',
+    lane: 'money',
+    slaHours: 24,
     filter: (q) => q.eq('status', 'pending_payment'),
   },
   {
     key: 'subscriptions',
     table: 'vendor_subscriptions',
+    lane: 'money',
+    slaHours: 24,
     filter: (q) => q.eq('status', 'pending_payment'),
   },
+  // lane trust — fraud screen.
   {
     key: 'payment-options',
     table: 'vendor_payment_methods',
+    lane: 'trust',
+    slaHours: 48,
     filter: (q) => q.in('moderation_status', ['pending_review', 'held']),
   },
-  { key: 'disputes', table: 'vendor_disputes', filter: (q) => q.eq('status', 'open') },
+  // lane trust — recourse clock.
+  {
+    key: 'disputes',
+    table: 'vendor_disputes',
+    lane: 'trust',
+    slaHours: 24,
+    filter: (q) => q.eq('status', 'open'),
+  },
+  // lane trust — event-impacting.
   {
     key: 'force-majeure',
     table: 'force_majeure_flags',
+    lane: 'trust',
+    slaHours: 24,
     filter: (q) => q.in('status', ['open', 'under_review']),
   },
   {
@@ -108,27 +127,39 @@ const QUEUE_DEFS: QueueDef[] = [
     // submitted_at, when the vendor filed the appeal.
     key: 'reviews',
     table: 'vendor_review_appeals',
+    lane: 'support',
+    slaHours: 72,
     filter: (q) => q.is('decided_at', null),
     tsCol: 'submitted_at',
   },
   {
     key: 'concierge-abuse',
     table: 'concierge_abuse_flags',
+    lane: 'trust',
+    slaHours: 48,
     filter: (q) => q.eq('status', 'pending_review'),
   },
+  // lane trust — RA 10173 / store rule.
   {
     key: 'account-deletions',
     table: 'account_deletion_requests',
+    lane: 'trust',
+    slaHours: 24,
     filter: (q) => q.eq('status', 'pending'),
   },
+  // lane trust · 12h — a colleague is BLOCKED on you.
   {
     key: 'approvals',
     table: 'admin_approval_requests',
+    lane: 'trust',
+    slaHours: 12,
     filter: (q, { nowIso }) => q.eq('status', 'pending').gt('expires_at', nowIso),
   },
   {
     key: 'help',
     table: 'help_messages',
+    lane: 'support',
+    slaHours: 24,
     filter: (q) => q.in('status', ['new', 'in_progress']),
   },
   // Vendor partnerships — under mutual-accept, visibility is gated on
@@ -139,6 +170,8 @@ const QUEUE_DEFS: QueueDef[] = [
   {
     key: 'vendor-partnerships',
     table: 'vendor_partnerships',
+    lane: 'growth',
+    slaHours: 72,
     filter: (q) => q.eq('status', 'proposed').eq('is_active', true),
   },
   // User reports — UGC moderation queue (Apple 1.2 / Play UGC). status='open'
@@ -146,6 +179,8 @@ const QUEUE_DEFS: QueueDef[] = [
   {
     key: 'user-reports',
     table: 'user_reports',
+    lane: 'trust',
+    slaHours: 24,
     filter: (q) => q.eq('status', 'open'),
   },
   // Integrity watch — review-fraud + ghost-listing flags awaiting a verdict
@@ -154,9 +189,27 @@ const QUEUE_DEFS: QueueDef[] = [
   {
     key: 'integrity-watch',
     table: 'integrity_flags',
+    lane: 'trust',
+    slaHours: 72,
     filter: (q) => q.eq('status', 'open'),
   },
 ];
+
+/**
+ * Per-queue metadata the command center ranks by — DERIVED from QUEUE_DEFS
+ * (council fix #13, 2026-07-09). These were two hand-maintained lists with no
+ * enforced link: a QUEUE_DEF without a META row got a sidebar badge but was
+ * dropped from totalOpen/overdue; a META row without a DEF permanently
+ * inflated unknownCount. Deriving makes key-set drift structurally impossible
+ * (which is also why this carries no drift tripwire test — there is no second
+ * list left to drift). Same keys, same values as the old hand-written map.
+ */
+export const ADMIN_QUEUE_META: Record<
+  string,
+  { lane: AdminQueueLane; slaHours: number }
+> = Object.fromEntries(
+  QUEUE_DEFS.map((d) => [d.key, { lane: d.lane, slaHours: d.slaHours }]),
+);
 
 // DELIBERATELY NOT in QUEUE_DEFS (so they carry NO badge/urgency) — their
 // "pending count" and/or actionable age is COMPUTED, not a single-table head-
@@ -214,6 +267,21 @@ export const getAdminQueueDigest = cache(async (): Promise<AdminQueueDigest> => 
   });
   return out;
 });
+
+/**
+ * Compact age label for an oldest-open timestamp ("38m" · "5h" · "3d").
+ * Lifted from the /admin/work command center (council fix #11) so the
+ * Overview's queue tiles can render the same oldest-item age. Floors at each
+ * unit boundary — never overstates an age. Null in, null out.
+ */
+export function ageShort(iso: string | null, nowMs: number): string | null {
+  if (!iso) return null;
+  const mins = Math.max(0, Math.floor((nowMs - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 48) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
 
 export type AdminQueueDueState =
   | 'overdue'

@@ -22,15 +22,30 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
 export function DoorwaySidebarHeader({
   label,
   switcherData,
+  accentColor,
 }: {
   label: string;
   switcherData: SwitcherData;
+  /**
+   * Optional doorway accent — a small leading dot before the eyebrow label
+   * ("Energy, not skin" 2026-07-09: couple = wine, vendor = wine+blue, admin =
+   * wine+violet). Pass a CSS color (e.g. `var(--a-violet)`); omitted = no dot,
+   * zero visual change for doorways that haven't adopted an accent yet.
+   */
+  accentColor?: string;
 }) {
   return (
     <>
       <header className="px-4 py-3">
         <Wordmark />
         <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>
+          {accentColor ? (
+            <span
+              aria-hidden
+              className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+              style={{ background: accentColor }}
+            />
+          ) : null}
           {label}
         </p>
       </header>

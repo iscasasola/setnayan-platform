@@ -94,7 +94,7 @@ export function Tile({
     >
       <span
         className="inline-flex h-10 w-10 items-center justify-center rounded-lg"
-        style={{ background: 'var(--m-blush)', color: 'var(--m-orange-2)' }}
+        style={{ background: 'var(--m-nav-active-soft)', color: 'var(--m-nav-active)' }}
       >
         <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </span>
@@ -109,11 +109,20 @@ export function Tile({
       </p>
       <span
         className="mt-auto inline-flex items-center gap-1 text-sm"
-        style={{ color: 'var(--m-orange-2)' }}
+        style={{ color: 'var(--m-nav-active)' }}
       >
         Open <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </span>
     </div>
   );
-  return disabled ? Inner : <Link href={href}>{Inner}</Link>;
+  return disabled ? (
+    Inner
+  ) : (
+    <Link
+      href={href}
+      className="block h-full rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-nav-active)]"
+    >
+      {Inner}
+    </Link>
+  );
 }

@@ -2,10 +2,15 @@ import Link from 'next/link';
 import { ArrowRight, AlertTriangle, ListChecks } from 'lucide-react';
 import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/admin/require-admin';
 import {
   getAdminQueueDigest,
   deriveQueueUrgency,
+  ageShort,
+  ADMIN_QUEUE_META,
+  type AdminQueueDigest,
   type AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
 
@@ -15,7 +20,22 @@ function take(c: number | null | undefined): number | null {
   return typeof c === 'number' ? c : null;
 }
 
+/** One Action-queue tile — count + urgency + SLA-age fields for the card. */
+type LaneTile = {
+  label: string;
+  value: number | null;
+  state?: AdminQueueDueState;
+  sub: string;
+  href: string;
+  oldestAt?: string | null;
+  slaHours?: number;
+};
+
 export default async function AdminOverview() {
+  // Page-level gate (council fix #1 2026-07-09) — the layout alone is not a
+  // safe auth boundary in front of the RLS-bypassing service-role client below
+  // (layouts don't re-run on soft navigation / crafted RSC requests).
+  await requireAdmin();
   const admin = createAdminClient();
 
   const head = { count: 'exact', head: true } as const;
@@ -54,9 +74,13 @@ export default async function AdminOverview() {
         .select('*', head)
         .eq('status', 'pending'),
     ]),
-    getAdminQueueDigest(),
+    // Degrades to an empty digest on failure (council fix #3) — cache()
+    // memoizes a REJECTED promise, so without this catch one bad fetch would
+    // hard-crash the overview while the layout (which catches) still renders.
+    getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest),
   ]);
-  const urgency = deriveQueueUrgency(digest, Date.now());
+  const nowMs = Date.now();
+  const urgency = deriveQueueUrgency(digest, nowMs);
 
   const users = take(usersRes.count);
   const couples = take(couplesRes.count);
@@ -67,197 +91,114 @@ export default async function AdminOverview() {
   const internal = take(internalRes.count);
   const teamPool = take(teamPoolRes.count);
 
-  // Per-queue open counts + urgency, keyed to the overview's camelCase tiles.
-  // dc/ds pull from the shared digest (kebab keys); taxonomy stays standalone.
-  const dc = (k: string) => digest[k]?.count ?? null;
-  const ds = (k: string): AdminQueueDueState | undefined => urgency.states[k];
-  const q = {
-    verify: dc('verify'),
-    taxonomy: take(taxonomyReqRes.count),
-    paymentOptions: dc('payment-options'),
-    payments: dc('payments'),
-    payouts: dc('payouts'),
-    tokenSales: dc('token-purchases'),
-    disputes: dc('disputes'),
-    forceMajeure: dc('force-majeure'),
-    appeals: dc('reviews'),
-    abuse: dc('concierge-abuse'),
-    approvals: dc('approvals'),
-    help: dc('help'),
-    subscriptions: dc('subscriptions'),
-    accountDeletions: dc('account-deletions'),
-    userReports: dc('user-reports'),
-    vendorPartnerships: dc('vendor-partnerships'),
-  };
-  const qState: Record<string, AdminQueueDueState | undefined> = {
-    verify: ds('verify'),
-    taxonomy: undefined, // not in the digest — no SLA clock
-    paymentOptions: ds('payment-options'),
-    payments: ds('payments'),
-    payouts: ds('payouts'),
-    tokenSales: ds('token-purchases'),
-    disputes: ds('disputes'),
-    forceMajeure: ds('force-majeure'),
-    appeals: ds('reviews'),
-    abuse: ds('concierge-abuse'),
-    approvals: ds('approvals'),
-    help: ds('help'),
-    subscriptions: ds('subscriptions'),
-    accountDeletions: ds('account-deletions'),
-    userReports: ds('user-reports'),
-    vendorPartnerships: ds('vendor-partnerships'),
-  };
+  // Per-queue tile builder — count + urgency + the oldest-open timestamp and
+  // SLA window from the shared digest (council fix #11: a tile can now say HOW
+  // late a queue is, not just that it has work). Taxonomy stays standalone —
+  // it's a Data-Structure governance queue with no digest row / SLA clock.
+  const taxonomy = take(taxonomyReqRes.count);
+  const queueTile = (
+    k: string,
+    label: string,
+    sub: string,
+    href: string,
+  ): LaneTile => ({
+    label,
+    sub,
+    href,
+    value: digest[k]?.count ?? null,
+    state: urgency.states[k],
+    oldestAt: digest[k]?.oldestAt ?? null,
+    slaHours: ADMIN_QUEUE_META[k]?.slaHours,
+  });
 
   // Lanes — the overview's OWN curated consequence grouping (Trust & supply /
   // Money / Recourse / Approvals & support). Deliberately more granular than,
   // and NOT identical to, the canonical ADMIN_QUEUE_META lanes (money / trust /
   // growth / support) the command center + digest tag by — the per-queue COUNTS
   // agree across surfaces; this presentational lane split is overview-only.
-  const lanes: {
-    key: string;
-    label: string;
-    tiles: {
-      label: string;
-      value: number | null;
-      state?: AdminQueueDueState;
-      sub: string;
-      href: string;
-    }[];
-  }[] = [
+  const lanes: { key: string; label: string; tiles: LaneTile[] }[] = [
     {
       key: 'trust',
       label: 'Trust & supply',
       tiles: [
-        {
-          label: 'Vendors to verify',
-          value: q.verify,
-          state: qState.verify,
-          sub: 'Applications awaiting review',
-          href: '/admin/verify',
-        },
-        {
-          label: 'Partnerships',
-          value: q.vendorPartnerships,
-          state: qState.vendorPartnerships,
-          sub: 'Vendor-to-vendor claims to verify',
-          href: '/admin/vendor-partnerships',
-        },
+        queueTile('verify', 'Vendors to verify', 'Applications awaiting review', '/admin/verify'),
+        queueTile(
+          'vendor-partnerships',
+          'Partnerships',
+          'Vendor-to-vendor claims to verify',
+          '/admin/vendor-partnerships',
+        ),
         {
           label: 'Taxonomy requests',
-          value: q.taxonomy,
-          state: qState.taxonomy,
+          value: taxonomy,
           sub: 'New category / refinement proposals',
           href: '/admin/taxonomy',
         },
-        {
-          label: 'Payment options',
-          value: q.paymentOptions,
-          state: qState.paymentOptions,
-          sub: 'Vendor bank/QR links to screen',
-          href: '/admin/payment-options',
-        },
+        queueTile(
+          'payment-options',
+          'Payment options',
+          'Vendor bank/QR links to screen',
+          '/admin/payment-options',
+        ),
       ],
     },
     {
       key: 'money',
       label: 'Money to reconcile',
       tiles: [
-        {
-          label: 'Payments to confirm',
-          value: q.payments,
-          state: qState.payments,
-          sub: 'Awaiting reconciliation',
-          href: '/admin/payments?filter=pending',
-        },
-        {
-          label: 'Payouts to release',
-          value: q.payouts,
-          state: qState.payouts,
-          sub: 'Verified T+1 schedule',
-          href: '/admin/payouts',
-        },
-        {
-          label: 'Token sales',
-          value: q.tokenSales,
-          state: qState.tokenSales,
-          sub: 'Vendor packs to confirm',
-          href: '/admin/token-purchases',
-        },
-        {
-          label: 'Subscriptions',
-          value: q.subscriptions,
-          state: qState.subscriptions,
-          sub: 'Vendor Pro / Enterprise to confirm',
-          href: '/admin/subscriptions',
-        },
+        queueTile('payments', 'Payments to confirm', 'Awaiting reconciliation', '/admin/payments?filter=pending'),
+        queueTile('payouts', 'Payouts to release', 'Verified T+1 schedule', '/admin/payouts'),
+        queueTile('token-purchases', 'Token sales', 'Vendor packs to confirm', '/admin/token-purchases'),
+        queueTile(
+          'subscriptions',
+          'Subscriptions',
+          'Vendor Pro / Enterprise to confirm',
+          '/admin/subscriptions',
+        ),
       ],
     },
     {
       key: 'recourse',
       label: 'Recourse',
       tiles: [
-        {
-          label: 'Open disputes',
-          value: q.disputes,
-          state: qState.disputes,
-          sub: 'Couple ↔ vendor conflicts',
-          href: '/admin/disputes?status=open',
-        },
-        {
-          label: 'Force majeure',
-          value: q.forceMajeure,
-          state: qState.forceMajeure,
-          sub: 'Event-impacting flags',
-          href: '/admin/force-majeure',
-        },
-        {
-          label: 'Review appeals',
-          value: q.appeals,
-          state: qState.appeals,
-          sub: 'Self-review claims pending',
-          href: '/admin/reviews?filter=pending',
-        },
-        {
-          label: 'Setnayan AI abuse',
-          value: q.abuse,
-          state: qState.abuse,
-          sub: 'Trial-cycling flags',
-          href: '/admin/concierge-abuse',
-        },
-        {
-          label: 'User reports',
-          value: q.userReports,
-          state: qState.userReports,
-          sub: 'Reported gallery content to moderate',
-          href: '/admin/user-reports',
-        },
-        {
-          label: 'Account deletions',
-          value: q.accountDeletions,
-          state: qState.accountDeletions,
-          sub: 'Self-serve deletion requests (RA 10173)',
-          href: '/admin/account-deletions',
-        },
+        queueTile('disputes', 'Open disputes', 'Couple ↔ vendor conflicts', '/admin/disputes?status=open'),
+        queueTile('force-majeure', 'Force majeure', 'Event-impacting flags', '/admin/force-majeure'),
+        queueTile('reviews', 'Review appeals', 'Self-review claims pending', '/admin/reviews?filter=pending'),
+        queueTile('concierge-abuse', 'Setnayan AI abuse', 'Trial-cycling flags', '/admin/concierge-abuse'),
+        queueTile(
+          'user-reports',
+          'User reports',
+          'Reported gallery content to moderate',
+          '/admin/user-reports',
+        ),
+        queueTile(
+          'account-deletions',
+          'Account deletions',
+          'Self-serve deletion requests (RA 10173)',
+          '/admin/account-deletions',
+        ),
+        // Council fix #2: integrity-watch is in the digest (feeds totalOpen +
+        // the overdue tally) but had NO tile — an open flag could render
+        // "1 open · 1 past SLA" while every visible tile showed 0.
+        queueTile(
+          'integrity-watch',
+          'Integrity watch',
+          'Review-fraud + ghost-listing flags',
+          '/admin/integrity-watch',
+        ),
       ],
     },
     {
       key: 'support',
       label: 'Approvals & support',
       tiles: [
-        {
-          label: 'Two-admin approvals',
-          value: q.approvals,
-          state: qState.approvals,
-          sub: 'A colleague needs your second sign-off',
-          href: '/admin/approvals',
-        },
-        {
-          label: 'Help tickets',
-          value: q.help,
-          state: qState.help,
-          sub: 'Open · 24-hr SLA',
-          href: '/admin/help',
-        },
+        queueTile(
+          'approvals',
+          'Two-admin approvals',
+          'A colleague needs your second sign-off',
+          '/admin/approvals',
+        ),
+        queueTile('help', 'Help tickets', 'Open · 24-hr SLA', '/admin/help'),
       ],
     },
   ];
@@ -265,11 +206,16 @@ export default async function AdminOverview() {
   // Total covers EVERY digest queue (urgency.totalOpen) + taxonomy (the one
   // standalone queue). Derived from the digest, NOT the tile roster, so a tile
   // dropped from a lane can't make the "all clear" banner read false.
-  const totalOpen = urgency.totalOpen + Math.max(0, q.taxonomy ?? 0);
+  const totalOpen = urgency.totalOpen + Math.max(0, taxonomy ?? 0);
   // Tell "genuinely empty" from "read failed": a null count (degraded query)
   // must NOT render a reassuring all-clear. taxonomy is the standalone queue, so
   // a null there counts as unavailable too.
-  const anyUnavailable = urgency.unknownCount > 0 || q.taxonomy === null;
+  const anyUnavailable = urgency.unknownCount > 0 || taxonomy === null;
+  // Cleared-queues share for the KPI ring (council fix #10) — queues whose
+  // dueState is 'clear' over every canonical queue (taxonomy excluded: no SLA).
+  const queueTotal = Object.keys(ADMIN_QUEUE_META).length;
+  const clearedQueues = Object.values(urgency.states).filter((st) => st === 'clear').length;
+  const clearedPct = queueTotal > 0 ? (clearedQueues / queueTotal) * 100 : 0;
 
   // Recent admin activity — the last few admin_audit_log entries (real data,
   // not a fake feed) so an admin lands and sees what teammates just did, which
@@ -339,24 +285,49 @@ export default async function AdminOverview() {
        *  nav badges + /admin/work + the digest email by construction. */}
       <section
         aria-label="Action queues"
-        className="mb-8 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6"
+        className="mb-8 rounded-2xl border border-mulberry/20 bg-gradient-to-br from-cream to-mulberry/5 p-5 sm:p-6"
       >
-        <div className="mb-4 flex flex-wrap items-baseline justify-end gap-2">
-          <div className="flex items-center gap-3">
-            <p className="text-xs text-ink/55">
-              {totalOpen > 0
-                ? urgency.overdue > 0
-                  ? `${totalOpen} open · ${urgency.overdue} past SLA`
-                  : `${totalOpen} open across all queues`
-                : anyUnavailable
-                  ? 'Some queue counts are unavailable — refresh'
-                  : 'All queues clear · nothing pending.'}
-            </p>
+        {/* KPI cluster (council fix #10) — the ring is the cleared-queues
+            share; the flanking stats surface all three urgency tiers,
+            including due-soon, which was computed but never rendered here.
+            Degraded counts are called out even when work is open (fix #3). */}
+        <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <ProgressRing pct={clearedPct} size={64} stroke={6}>
+            <span
+              className="text-lg font-semibold tracking-tight tabular-nums"
+              style={{ fontFamily: 'var(--m-display)', color: 'var(--m-ink)' }}
+            >
+              {totalOpen}
+            </span>
+          </ProgressRing>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+            <span className="font-semibold tabular-nums text-ink">
+              {totalOpen} open
+            </span>
+            <span
+              className={`tabular-nums ${
+                urgency.overdue > 0 ? 'font-semibold text-red-700' : 'text-ink/70'
+              }`}
+            >
+              {urgency.overdue} past SLA
+            </span>
+            <span
+              className={`tabular-nums ${
+                urgency.dueSoon > 0 ? 'font-semibold text-warn-700' : 'text-ink/70'
+              }`}
+            >
+              {urgency.dueSoon} due soon
+            </span>
+            {anyUnavailable ? (
+              <span className="text-ink/70">some counts unavailable</span>
+            ) : null}
+          </div>
+          <div className="ml-auto flex items-center gap-3">
             {/* The ranked, busiest-first worklist — same data, single-screen
                 triage view (overdue → due-soon → busiest). */}
             <Link
               href="/admin/work"
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-terracotta-700 hover:text-terracotta-800"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-mulberry hover:text-mulberry-600"
             >
               <ListChecks aria-hidden className="h-3.5 w-3.5" />
               Open the work list
@@ -367,7 +338,7 @@ export default async function AdminOverview() {
                 the cockpit stays the one source for those items. */}
             <Link
               href="/admin/app-performance"
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-terracotta-700 hover:text-terracotta-800"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-mulberry hover:text-mulberry-600"
             >
               <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
               Platform upgrades
@@ -378,7 +349,7 @@ export default async function AdminOverview() {
         <div className="space-y-5">
           {lanes.map((lane) => (
             <div key={lane.key}>
-              <p className="mb-2 m-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+              <p className="mb-2 m-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--m-slate-2)]">
                 {lane.label}
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -390,6 +361,9 @@ export default async function AdminOverview() {
                     dueState={t.state}
                     sub={t.sub}
                     href={t.href}
+                    oldestAt={t.oldestAt}
+                    slaHours={t.slaHours}
+                    nowMs={nowMs}
                   />
                 ))}
               </div>
@@ -405,8 +379,8 @@ export default async function AdminOverview() {
         <Stat label="Events" value={events} />
         <Stat label="Vendor profiles" value={vendorProfiles} />
         <Stat label="Chat threads" value={threads} />
-        <Stat label="🟣 Internal" value={internal} />
-        <Stat label="🟢 Team Pool" value={teamPool} />
+        <Stat label="Internal accounts" value={internal} />
+        <Stat label="Team Pool" value={teamPool} />
       </section>
 
       {/* Recent admin activity — real admin_audit_log entries (§3.4 of the
@@ -416,14 +390,14 @@ export default async function AdminOverview() {
           Recent admin activity
         </h2>
         {activity.length === 0 ? (
-          <p className="text-sm text-ink/55">No admin actions logged yet.</p>
+          <p className="text-sm text-ink/70">No admin actions logged yet.</p>
         ) : (
           <ul className="divide-y divide-ink/5">
             {activity.map((a) => (
               <li key={a.audit_log_id} className="flex items-start gap-3 py-2.5">
                 <span
                   aria-hidden
-                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta/60"
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-mulberry/60"
                 />
                 <span className="min-w-0 flex-1 text-sm text-ink/80">
                   <strong className="font-semibold text-ink">
@@ -434,7 +408,7 @@ export default async function AdminOverview() {
                     <span className="text-ink/50"> — “{a.reason.slice(0, 80)}”</span>
                   ) : null}
                 </span>
-                <span className="shrink-0 text-xs text-ink/45">{timeAgo(a.created_at)}</span>
+                <span className="shrink-0 text-xs text-ink/70">{timeAgo(a.created_at)}</span>
               </li>
             ))}
           </ul>
@@ -477,12 +451,15 @@ export default async function AdminOverview() {
 }
 
 function timeAgo(iso: string): string {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  // Floors at each unit boundary — Math.round overstated ages by up to 50%
+  // (a 90-minute entry read "2h ago"), which matters in a feed whose purpose
+  // is collision avoidance between admins. Council fix #15.
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
+  const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.round(hrs / 24)}d ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 // Friendly past-tense phrasing for an admin_audit_log action code. Known codes
@@ -532,9 +509,12 @@ function Stat({ label, value }: { label: string; value: number | null }) {
  *
  *   1. Wraps in <Link> for one-click routing into the queue page with the
  *      matching default filter applied.
- *   2. Tone-graded · amber accent + AlertTriangle icon when value > 0, muted
- *      ink when value === 0. Admin's eye goes straight to tiles with work.
- *   3. Right-arrow affordance so the tile reads as a destination.
+ *   2. Tone-graded on REAL urgency: red past SLA · ringed amber approaching
+ *      SLA (due-soon) · amber open-but-fine · muted ink when clear. Admin's
+ *      eye goes straight to the latest tile.
+ *   3. SLA readout (council fix #11): oldest-open age in the sub-line + a
+ *      3px pressure bar (age over the SLA window) under the count.
+ *   4. Right-arrow affordance so the tile reads as a destination.
  *
  * Brand voice · concrete sub-line copy (no engineering jargon) per
  * [[feedback_setnayan_no_dev_text_post_launch]].
@@ -545,17 +525,27 @@ function ActionQueueTile({
   dueState,
   sub,
   href,
+  oldestAt,
+  slaHours,
+  nowMs,
 }: {
   label: string;
   value: number | null;
   dueState?: AdminQueueDueState;
   sub: string;
   href: string;
+  oldestAt?: string | null;
+  slaHours?: number;
+  nowMs: number;
 }) {
   const hasWork = (value ?? 0) > 0;
-  // Overdue (past SLA) escalates the tile to RED — matching the nav badges +
-  // the command center; everything-else-with-work stays amber, clear is muted.
+  // Three-step tone ladder (council fix #11 added the middle rung): overdue
+  // (past SLA) escalates to RED — matching the nav badges + the command
+  // center; due-soon (last quarter of the SLA window) gets its own ringed
+  // amber so the early-warning tier no longer collapses into generic
+  // has-work amber; everything-else-with-work stays amber; clear is muted.
   const overdue = dueState === 'overdue';
+  const dueSoon = dueState === 'due-soon';
   const tone = overdue
     ? {
         border: 'border-red-300/70 bg-red-50/70 hover:bg-red-50',
@@ -563,29 +553,52 @@ function ActionQueueTile({
         label: 'text-red-800',
         arrow: 'text-red-700',
         value: 'text-red-900',
-        sub: 'text-red-800/80',
+        sub: 'text-red-800',
       }
-    : hasWork
+    : dueSoon
       ? {
-          border: 'border-warn-300/60 bg-warn-50/60 hover:bg-warn-50',
+          border: 'border-warn-400/70 bg-warn-50 ring-1 ring-warn-300/60 hover:bg-warn-100/60',
           icon: 'text-warn-700',
           label: 'text-warn-800',
           arrow: 'text-warn-700',
           value: 'text-warn-900',
-          sub: 'text-warn-800/80',
+          sub: 'text-warn-800',
         }
-      : {
-          border: 'border-ink/10 bg-cream/80 hover:bg-ink/[0.03]',
-          icon: '',
-          label: 'text-ink/55',
-          arrow: 'text-ink/35',
-          value: 'text-ink',
-          sub: 'text-ink/55',
-        };
+      : hasWork
+        ? {
+            border: 'border-warn-300/60 bg-warn-50/60 hover:bg-warn-50',
+            icon: 'text-warn-700',
+            label: 'text-warn-800',
+            arrow: 'text-warn-700',
+            value: 'text-warn-900',
+            sub: 'text-warn-800',
+          }
+        : {
+            border: 'border-ink/10 bg-cream/80 hover:bg-ink/[0.03]',
+            icon: '',
+            label: 'text-ink/55',
+            arrow: 'text-ink/35',
+            value: 'text-ink',
+            sub: 'text-ink/70',
+          };
+
+  // SLA-pressure readout (council fix #11) — the digest already carried the
+  // oldest-open timestamp and the queue's SLA window; the tile now shows HOW
+  // late, not just that work exists: an oldest-item age in the sub-line and a
+  // 3px pressure bar (age as a share of the SLA window, capped at 100%).
+  const age = hasWork && oldestAt ? ageShort(oldestAt, nowMs) : null;
+  const pressurePct =
+    hasWork && oldestAt && slaHours
+      ? Math.min(
+          100,
+          ((nowMs - new Date(oldestAt).getTime()) / 3_600_000 / slaHours) * 100,
+        )
+      : null;
+
   return (
     <Link
       href={href}
-      className={`block rounded-xl border p-4 transition-colors ${tone.border}`}
+      className={`block rounded-xl border p-4 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-nav-active)] ${tone.border}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
@@ -610,8 +623,18 @@ function ActionQueueTile({
       >
         {value === null ? '—' : value}
       </p>
+      {pressurePct !== null ? (
+        <div aria-hidden className="mt-2 h-[3px] overflow-hidden rounded-full bg-ink/10">
+          <div
+            className={`h-full rounded-full ${overdue ? 'bg-red-500' : 'bg-warn-500'}`}
+            style={{ width: `${pressurePct}%` }}
+          />
+        </div>
+      ) : null}
       <p className={`mt-1 text-xs ${tone.sub}`}>
-        {overdue ? `${sub} · past SLA` : sub}
+        {sub}
+        {age ? ` · oldest ${age}` : ''}
+        {overdue ? ' · past SLA' : dueSoon ? ' · due soon' : ''}
       </p>
     </Link>
   );

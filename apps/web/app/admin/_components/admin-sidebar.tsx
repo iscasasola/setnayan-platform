@@ -69,6 +69,25 @@
  * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse keeps its route
  * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
  * but the sidebar entry reads "Setnayan AI abuse" to match the V2 brand.
+ *
+ * ── 6-MENU RESPINE 2026-07-09 (owner: "integrate different pages, make it
+ * up to 6 menus only") ──────────────────────────────────────────────────
+ * The sidebar now renders exactly SIX menu rows — one expandable parent per
+ * group — instead of six always-open sections (~69 visible links). Each
+ * parent links to that menu's INTEGRATED hub surface and auto-expands its
+ * children only while the active route is inside the section (the shipped
+ * owner-approved "subnav expands from the side nav" SidebarItem pattern):
+ *   Overview        → /admin            (queue tiles + work list live there)
+ *   Accounts        → /admin/accounts   (tabbed Accounts Studio, shipped)
+ *   Studio          → /admin/studio     (tabbed Studio Studio, shipped)
+ *   Ugat Console    → /admin/ugat       (hub landing, NEW this respine)
+ *   App Performance → /admin/app-performance (the cockpit)
+ *   Money           → /admin/money      (hub landing, promoted to desktop)
+ * ADMIN_NAV_GROUPS below is UNCHANGED and stays the single source of truth —
+ * the parents are DERIVED from it (deriveSixMenus), so /admin/more, the hub
+ * landings, and the registry overlay all keep reading the same structure.
+ * Live queue counts aggregate onto the Overview parent (worst-urgency tone)
+ * so collapsing the queue links never hides SLA pressure.
  */
 
 import {
@@ -133,12 +152,19 @@ import {
   Lightbulb,
   Film,
   Gift,
+  Clapperboard,
+  Network,
+  type LucideIcon,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import type { NavGroup } from '@/app/_components/nav/types';
+import type {
+  NavGroup,
+  NavItem,
+  NavBadge,
+  NavBadgeTone,
+} from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type {
   AdminQueueCounts,
@@ -903,6 +929,101 @@ function applyQueueBadges(
   }));
 }
 
+/**
+ * Per-menu hub metadata for the 6-menu respine (2026-07-09). `href` is the
+ * INTEGRATED surface the parent row lands on; `matchPrefix` (Overview only)
+ * narrows the parent's own prefix match so `/admin` doesn't startsWith-claim
+ * every `/admin/*` route — queue routes light the parent through its CHILDREN
+ * instead (SidebarItem's in-section rule), and `/admin/work/*` stays claimed
+ * here because the work list has no child row of its own after derivation.
+ */
+const MENU_HUBS: Record<
+  string,
+  { href: string; icon: LucideIcon; matchPrefix?: string; description: string }
+> = {
+  queues: {
+    href: '/admin',
+    icon: Home,
+    matchPrefix: '/admin/work',
+    description: 'The admin pulse — every act-now queue at a glance.',
+  },
+  directory: {
+    href: '/admin/accounts',
+    icon: Users,
+    description: 'Users, vendors, events, and venues — pure record look-up.',
+  },
+  media: {
+    href: '/admin/studio',
+    icon: Clapperboard,
+    description: 'Everything you curate or publish — content and marketing.',
+  },
+  ugat: {
+    href: '/admin/ugat',
+    icon: Network,
+    description: 'The data-structure wing — taxonomy, menus, onboarding, AI brain.',
+  },
+  funnels: {
+    href: '/admin/app-performance',
+    icon: Activity,
+    description: 'Growth, health, and where to focus next.',
+  },
+  'settings-group': {
+    href: '/admin/money',
+    icon: Banknote,
+    description: 'Pricing and money config, plus the settings tail.',
+  },
+};
+
+/**
+ * Derive the 6 expandable parent rows from the canonical groups. A group item
+ * whose href IS the hub itself (Overview's "Overview" row · App Performance's
+ * cockpit row) is dropped from the children — the parent row already links
+ * there, so keeping it would render a duplicate label directly under itself.
+ */
+function deriveSixMenus(groups: NavGroup[]): NavItem[] {
+  return groups.map((group) => {
+    const hub = MENU_HUBS[group.key];
+    const href = hub?.href ?? group.items[0]?.href ?? '/admin';
+    return {
+      key: group.key,
+      label: group.label,
+      href,
+      icon: hub?.icon ?? Home,
+      matchPrefix: hub?.matchPrefix,
+      description: hub?.description,
+      children: group.items.filter((item) => item.href !== href),
+    };
+  });
+}
+
+/**
+ * Roll the children's queue badges up onto the parent menu row: total open
+ * count, toned by the WORST child urgency (red beats amber beats neutral).
+ * This is what keeps SLA pressure visible while the queue links are folded
+ * behind the Overview menu.
+ */
+function aggregateParentBadge(children: NavItem[]): NavBadge | undefined {
+  let count = 0;
+  let tone: NavBadgeTone = 'neutral';
+  let overdue = false;
+  for (const child of children) {
+    if (!child.badge) continue;
+    count += child.badge.count;
+    if (child.badge.tone === 'red') {
+      tone = 'red';
+      overdue = true;
+    } else if (child.badge.tone === 'amber' && tone !== 'red') {
+      tone = 'amber';
+    }
+  }
+  if (count <= 0) return undefined;
+  return {
+    count,
+    tone,
+    label: overdue ? `${count} open, some overdue` : `${count} open`,
+  };
+}
+
 export function AdminSidebar({
   navSlots,
   queueCounts,
@@ -918,16 +1039,18 @@ export function AdminSidebar({
     queueCounts,
     queueStates,
   );
+  const menus = deriveSixMenus(groups).map((menu) => ({
+    ...menu,
+    badge: aggregateParentBadge(menu.children ?? []),
+  }));
 
   return (
-    <>
-      {groups.map((group) => (
-        <SidebarSection key={group.key} group={group} pathname={pathname}>
-          {group.items.map((item) => (
-            <SidebarItem key={item.key} item={item} pathname={pathname} />
-          ))}
-        </SidebarSection>
-      ))}
-    </>
+    <section className="px-2 pb-2" aria-label="Admin menu">
+      <ul className="flex flex-col gap-0.5">
+        {menus.map((item) => (
+          <SidebarItem key={item.key} item={item} pathname={pathname} />
+        ))}
+      </ul>
+    </section>
   );
 }

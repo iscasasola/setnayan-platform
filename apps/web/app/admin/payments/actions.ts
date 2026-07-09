@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+// Shared admin gate (council fix #1 2026-07-09) — same Forbidden contract the
+// local requireAdmin had before it was promoted to lib/admin/require-admin.ts.
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // Couple referral rewards (2026-07-01). QUALIFYING EVENT = the referred
 // couple's FIRST PAID ORDER. Fired best-effort off an after() hook the moment
 // an order flips to 'paid' — never blocks or fails the reconciliation flow.
@@ -44,24 +46,6 @@ import { appendLedger } from '@/lib/ledger';
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;

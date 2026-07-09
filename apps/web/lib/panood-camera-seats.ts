@@ -51,6 +51,21 @@ export function panoodCameraAnonEnabled(): boolean {
 }
 
 /**
+ * Real-media streaming flag (owner-gated · default OFF), independent of the
+ * login-free claim flag above. When ON, the camera-operator publish view opens a
+ * WebRTC peer connection to the controller (lib/panood-webrtc.ts) and the control
+ * room's PROGRAM monitor renders the on-air camera's live feed. When OFF (the prod
+ * default until a real-event test passes — the couple's-unrepeatable-day gate),
+ * the publish view stays local-preview-only and the control room shows the
+ * placeholder; nothing peer-to-peer happens. NEXT_PUBLIC_ so the publish page and
+ * the control room read ONE source of truth. Media is P2P + STUN-only (no TURN,
+ * owner-locked); nothing is recorded or stored.
+ */
+export function panoodStreamingEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_PANOOD_STREAMING_ENABLED === 'true';
+}
+
+/**
  * Camera-operator seat statuses (mirror the table CHECK constraint):
  *   open     — provisioned, not yet claimed
  *   live     — claimed operator is streaming (recent heartbeat)

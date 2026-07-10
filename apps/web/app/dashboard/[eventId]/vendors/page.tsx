@@ -64,6 +64,8 @@ import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
+import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
+import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
 import {
   Build3StateControl,
   type AnchorData,
@@ -1072,8 +1074,56 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // (`BuildLocked` — "Ready to lock" finalize CTAs + the read-only "Locked in"
     // list) now stack in the SAME Build tab, so the couple assembles and locks in
     // one place. `BuildLocked` self-handles its empty state.
+    // ── S4 watch guard (2026-07-10) — Setnayan AI watches the picked TEAM for
+    // feasibility conflicts (budget · shared date · reach) + demand contention,
+    // reusing data already resolved for the fit-badges. Warn-only; AI-active only.
+    const pickedVendorIds = [...new Set([...buildPicksByGroup.values()].flat())];
+    const showGuard = aiActive && pickedVendorIds.length > 0;
+    let buildGuard = { ok: true, issues: [] } as ReturnType<typeof computeBuildGuard>;
+    let guardDemand: { name: string; count: number }[] = [];
+    if (showGuard) {
+      const infoById = new Map<string, { name: string; price: number | null }>();
+      for (const r of vendorRows) {
+        infoById.set(r.vendor_id, {
+          name: r.vendor_name,
+          price:
+            typeof r.total_cost_php === 'number'
+              ? r.total_cost_php
+              : r.total_cost_php != null
+                ? Number(r.total_cost_php)
+                : null,
+        });
+      }
+      const guardPicks: GuardPick[] = pickedVendorIds
+        .filter((vid) => infoById.has(vid))
+        .map((vid) => {
+          const info = infoById.get(vid)!;
+          const df = dateFitByVendorId.get(vid);
+          return {
+            vendorId: vid,
+            label: info.name,
+            pricePhp: info.price,
+            withinReach: enrichmentByVendorId.get(vid)?.within_radius ?? null,
+            // Committed-date availability → a single synthetic candidate key.
+            freeCandidateDayKeys: df === 'free' ? ['d'] : df === 'booked' ? [] : null,
+          };
+        });
+      buildGuard = computeBuildGuard({
+        picks: guardPicks,
+        candidateDayKeys: ['d'],
+        totalBudgetPhp:
+          ev?.estimated_budget_centavos != null
+            ? Math.round(ev.estimated_budget_centavos / 100)
+            : null,
+      });
+      guardDemand = pickedVendorIds
+        .map((vid) => ({ name: infoById.get(vid)?.name ?? '', count: eyeingByVendorId.get(vid) ?? 0 }))
+        .filter((d) => d.count > 0 && d.name);
+    }
+
     const buildSlot = (
       <div className="space-y-6">
+        {showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
         <Build3StateControl
           eventId={eventId}
           anchors={buildAnchors}

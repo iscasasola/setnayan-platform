@@ -16,10 +16,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
 import { fetchChecklistItems, daysUntilEvent } from '@/lib/checklist';
-import { deriveMonogram } from '@/lib/monogram';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { EventMonogram } from '@/app/_components/event-monogram';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
@@ -88,17 +88,6 @@ function eventTypeBadge(type: string): string {
       .join(' ')
       .toUpperCase()
   );
-}
-
-/** Big faint monogram letter for the card header — the event's set monogram,
- *  else the derived initials, else the first letter of the name. */
-function monogramLetter(event: EventWithRole): string {
-  const src =
-    event.monogram_text?.trim() ||
-    deriveMonogram(event.display_name ?? '') ||
-    event.display_name ||
-    '';
-  return (src.charAt(0) || '·').toUpperCase();
 }
 
 /** Short "Mon D" date matching the mockup (tz-safe, date-only). */
@@ -260,14 +249,22 @@ export default async function LauncherPage({
       tone: 'hero',
     });
   }
+  // YOUR SPACES → the vendor's actual shop(s), by name. One card per shop the
+  // user owns or is on the team of (owner: "show what shop we have"), so a
+  // multi-shop vendor sees each business by name instead of a single generic
+  // "Your shop" tile. Logo when set; the store glyph otherwise.
   if (roles.hasVendorAccess) {
-    spaces.push({
-      href: '/vendor-dashboard',
-      icon: Store,
-      title: 'Your shop',
-      subtitle: `${roles.vendorProfiles[0]?.business_name ?? 'Your business'} · Vendor`,
-      tone: 'default',
-    });
+    for (const vp of roles.vendorProfiles) {
+      spaces.push({
+        id: vp.vendor_profile_id,
+        href: '/vendor-dashboard',
+        icon: Store,
+        logoUrl: vp.logo_url,
+        title: vp.business_name,
+        subtitle: 'Vendor shop',
+        tone: 'default',
+      });
+    }
   }
   if (roles.hasAdminAccess) {
     spaces.push({
@@ -337,7 +334,7 @@ export default async function LauncherPage({
         <SectionLabel>Your spaces</SectionLabel>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {spaces.map((space) => (
-            <SpaceCard key={space.href + space.title} {...space} />
+            <SpaceCard key={space.id ?? space.href + space.title} {...space} />
           ))}
         </div>
       </section>
@@ -503,30 +500,30 @@ function EventCard({
   finished?: boolean;
 }) {
   const badge = eventTypeBadge(event.event_type);
-  const letter = monogramLetter(event);
   const days = daysUntilEvent(event.event_date);
   const place = placeLabel(event);
   const dateLabel = shortDate(event.event_date);
-  const meta = [place, dateLabel].filter(Boolean).join(' · ') || 'In planning';
+  // WHEN + WHERE on one line — the date leads, place trails. Never blank: an
+  // event with neither reads "Date to be set" so the card is self-explanatory.
+  const dateMeta =
+    [dateLabel, place].filter(Boolean).join(' · ') || 'Date to be set';
+  // WHAT'S NEXT — a plain-language countdown, not the ambiguous "Planned" of the
+  // old caption. Past dates fall through to the finished / status branches.
   const countdown =
     days == null
       ? null
       : days > 1
-        ? `${days} days`
+        ? `${days} days to go`
         : days === 1
-          ? '1 day'
+          ? 'Tomorrow'
           : days === 0
-            ? 'today'
+            ? 'Happening today'
             : null;
-  const caption = finished
-    ? pct != null
-      ? `${pct}% planned · done`
-      : 'Wrapped'
-    : pct != null
-      ? `Planned${countdown ? ` · ${countdown}` : ''}`
-      : countdown
-        ? `${countdown} to go`
-        : 'In planning';
+  const status = finished
+    ? 'Celebrated'
+    : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
+  // The ring already draws the number; this line just tells you what it means.
+  const plannedLabel = pct != null ? `${pct}% planned` : null;
 
   return (
     <Link
@@ -539,12 +536,19 @@ function EventCard({
         <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry shadow-sm">
           {badge}
         </span>
-        <span
-          aria-hidden
-          className="m-serif pointer-events-none absolute -bottom-3 right-3 select-none text-6xl leading-none text-mulberry/20"
-        >
-          {letter}
-        </span>
+        {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
+            lettered), not a faint decorative initial. Uploaded outranks custom
+            per the app-wide precedence; EventMonogram only reads
+            monogram_custom_svg, so resolve it here. */}
+        <EventMonogram
+          event={{
+            ...event,
+            monogram_custom_svg:
+              event.monogram_uploaded_svg ?? event.monogram_custom_svg,
+          }}
+          size="lg"
+          className="absolute bottom-3 right-3 shadow-md ring-1 ring-black/5"
+        />
       </div>
       <div className="flex flex-1 flex-col gap-1 p-4">
         <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
@@ -555,14 +559,19 @@ function EventCard({
           ) : null}
           <span className="truncate">{event.display_name}</span>
         </p>
-        <p className="truncate text-sm text-ink/55">{meta}</p>
+        <p className="truncate text-sm text-ink/55">{dateMeta}</p>
         <div className="mt-auto flex items-center gap-2.5 pt-3">
           {pct != null ? (
             <ProgressRing pct={pct} size={42} stroke={4}>
               <span className="text-[9px] font-semibold text-ink">{pct}%</span>
             </ProgressRing>
           ) : null}
-          <p className="text-xs text-ink/55">{caption}</p>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-ink">{status}</p>
+            {plannedLabel ? (
+              <p className="truncate text-[11px] text-ink/45">{plannedLabel}</p>
+            ) : null}
+          </div>
         </div>
       </div>
     </Link>
@@ -590,8 +599,12 @@ function NewEventCard() {
 }
 
 type SpaceCardProps = {
+  /** Stable key when several cards share an href (e.g. one per vendor shop). */
+  id?: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
+  /** Shop logo — shown in the icon chip in place of the glyph when set. */
+  logoUrl?: string | null;
   title: string;
   subtitle: string;
   /** hero = obsidian Life-Story card · admin = violet accent · default = wine. */
@@ -599,7 +612,14 @@ type SpaceCardProps = {
 };
 
 /** One "YOUR SPACES" doorway card. */
-function SpaceCard({ href, icon: Icon, title, subtitle, tone }: SpaceCardProps) {
+function SpaceCard({
+  href,
+  icon: Icon,
+  logoUrl,
+  title,
+  subtitle,
+  tone,
+}: SpaceCardProps) {
   const hero = tone === 'hero';
   const admin = tone === 'admin';
   return (
@@ -613,7 +633,7 @@ function SpaceCard({ href, icon: Icon, title, subtitle, tone }: SpaceCardProps) 
     >
       <div className="flex items-start justify-between">
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+          className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ${
             hero
               ? 'bg-white/10 text-white'
               : admin
@@ -621,7 +641,16 @@ function SpaceCard({ href, icon: Icon, title, subtitle, tone }: SpaceCardProps) 
                 : 'bg-mulberry/10 text-mulberry'
           }`}
         >
-          <Icon className="h-[18px] w-[18px]" />
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <Icon className="h-[18px] w-[18px]" />
+          )}
         </span>
         <ArrowUpRight
           aria-hidden

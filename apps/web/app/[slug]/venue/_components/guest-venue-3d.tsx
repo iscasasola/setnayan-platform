@@ -27,6 +27,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
+import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
 import {
   roomSize,
   pctToWorld,
@@ -280,6 +282,8 @@ function GuestAvatar({
   roamObstacles,
   onArrive,
   palette,
+  posRef,
+  waveUntil = 0,
 }: {
   entrance: Vec2;
   target: Vec2;
@@ -300,6 +304,12 @@ function GuestAvatar({
   /** Fired once when a walk-to-seat reaches the chair — hides the beacon. */
   onArrive?: () => void;
   palette: Lab3DPalette;
+  /** Shared-room (slice 8): the scene writes this each frame so a broadcaster can
+   *  read the viewer's live floor position without touching this walk loop. */
+  posRef?: React.MutableRefObject<Vec2 | null>;
+  /** Local-clock ms until the viewer's OWN figure should wave (optimistic "say
+   *  hi"). 0 = not waving. */
+  waveUntil?: number;
 }) {
   const ref = useRef<THREE.Group>(null);
   const path = useRef<Vec2[]>([]);
@@ -317,6 +327,10 @@ function GuestAvatar({
   // mid-stride reads as a glitch otherwise. Reset when a new destination starts.
   const [atRest, setAtRest] = useState(false);
   const restedRef = useRef(false);
+  // Shared-room "say hi": the viewer's own figure pauses to wave while waveUntil
+  // is in the future (optimistic — the wave is broadcast to peers separately).
+  const [waving, setWaving] = useState(false);
+  const wavingRef = useRef(false);
 
   // The viewer's own figure — accent-tinted mannequin (self semantics; the
   // pre-kit avatar was the accent capsule), never a photo. Neutral stays
@@ -381,6 +395,14 @@ function GuestAvatar({
       }
     }
     pos.current = { x: g.position.x, z: g.position.z };
+    // Share the live position for the shared-room broadcaster (no-op when absent).
+    if (posRef) posRef.current = pos.current;
+    // Track the optimistic self-wave as React state (changes rarely, not per frame).
+    const w = waveUntil > Date.now();
+    if (w !== wavingRef.current) {
+      wavingRef.current = w;
+      setWaving(w);
+    }
   });
 
   return (
@@ -394,7 +416,8 @@ function GuestAvatar({
           that owns the camera, not the 'low'-tier crowd. */}
       <Figure
         spec={selfSpec}
-        pose={atRest ? (dance ? 'dance' : 'stand') : 'run'}
+        pose={waving ? 'stand' : atRest ? (dance ? 'dance' : 'stand') : 'run'}
+        idleClip={waving ? 'wave' : undefined}
         phase={phaseRef}
         quality="high"
       />
@@ -425,7 +448,48 @@ function SeatDestinationMarker({ position, color }: { position: Vec2; color: str
   );
 }
 
-export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
+/** A stable per-session player id (no PII). crypto.randomUUID in browsers; a
+ *  cheap fallback otherwise. */
+function makeSelfId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `g-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Distinct floor-ring colour per player so online people are tell-apart-able —
+ *  a small fixed set of pleasant hues, indexed by a hash of the id. */
+const ROOM_PLAYER_COLORS = ['#e0a63c', '#4f9d8f', '#c56a86', '#5b7fb4', '#c98b4b', '#7d6bb0', '#4aa06a', '#c05b52'] as const;
+function colorFromId(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ROOM_PLAYER_COLORS[h % ROOM_PLAYER_COLORS.length]!;
+}
+
+export default function GuestVenue3D({
+  scene,
+  eventId,
+  selfName,
+}: {
+  scene: VenueScene;
+  /** Event UUID → the shared-room channel scope (slice 8). Absent → single-player. */
+  eventId?: string | null;
+  /** The viewer's display name for the presence roster (falls back to "Guest"). */
+  selfName?: string | null;
+}) {
+  // Shared room (slice 8): a stable per-session identity + the realtime hook. The
+  // hook is inert unless NEXT_PUBLIC_PLAN3D_SHARED_ROOM is on AND there's an
+  // eventId, so the single-player walk is byte-identical by default.
+  const selfIdRef = useRef<string>('');
+  if (!selfIdRef.current) selfIdRef.current = makeSelfId();
+  const me = useMemo<LocalPlayer | null>(
+    () =>
+      PLAN3D_SHARED_ROOM_ENABLED && eventId
+        ? { id: selfIdRef.current, name: selfName?.trim() || 'Guest', color: colorFromId(selfIdRef.current) }
+        : null,
+    [eventId, selfName],
+  );
+  const sharedRoom = usePlan3dRoom(eventId ?? null, me);
+  const walkerPosRef = useRef<Vec2 | null>(null);
+
   const floor: Lab3DFloor = useMemo(
     () => ({
       venueWidthM: scene.floor.venueWidthM,
@@ -926,7 +990,19 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             roamObstacles={danceTarget ? danceObstacles : roamObstacles}
             onArrive={() => setSeatReached(true)}
             palette={palette}
+            posRef={walkerPosRef}
+            waveUntil={sharedRoom.selfGreetUntil}
           />
+        ) : null}
+
+        {/* Shared room (slice 8): broadcast my walk + render other online guests'
+            characters. Both no-op / render nothing when the flag is off or I'm
+            alone, so the single-player walk is unchanged. */}
+        {sharedRoom.enabled ? (
+          <>
+            <LocalMoveBroadcaster posRef={walkerPosRef} sendMove={sharedRoom.sendMove} />
+            <RemotePlayers remotes={sharedRoom.remotes} selfPos={walkerPosRef.current ?? undefined} quality="low" />
+          </>
         ) : null}
 
         <OrbitControls
@@ -939,6 +1015,23 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           target={[0, 0.5, 0]}
         />
       </Canvas>
+
+      {/* Shared-room presence + "say hi" (slice 8) — only while others are online.
+          Greeting waves at the whole room; the wave plays on the sender's figure. */}
+      {sharedRoom.enabled && sharedRoom.onlineCount > 1 ? (
+        <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
+            {sharedRoom.onlineCount} here now
+          </span>
+          <button
+            type="button"
+            onClick={() => sharedRoom.greet(null)}
+            className="pointer-events-auto rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/25 active:scale-95"
+          >
+            👋 Say hi
+          </button>
+        </div>
+      ) : null}
 
       {/* HUD */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">

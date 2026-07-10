@@ -36,6 +36,12 @@ DECLARE
   v_count   INT;
   v_oldest  TIMESTAMPTZ;
 BEGIN
+  -- Serialize concurrent calls for the SAME (bucket, ident) so the count→insert
+  -- window can't over-admit at the boundary (i.e. genuinely atomic per key, not
+  -- just claimed). The lock is per-key AND transaction-scoped, so different
+  -- buckets/idents never contend and it auto-releases at statement end.
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_bucket || ':' || p_ident, 0));
+
   -- Purge expired hits for this (bucket, ident) only — keeps the table small.
   DELETE FROM public.rate_limit_hits WHERE bucket = p_bucket AND ident = p_ident AND ts < v_cutoff;
 

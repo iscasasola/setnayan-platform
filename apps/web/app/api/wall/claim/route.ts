@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setWallDisplayCookie } from '@/lib/live-wall';
+import { clientIp } from '@/lib/client-ip';
+import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
 
 // POST /api/wall/claim — a venue screen claims its display session.
 //
@@ -27,6 +29,14 @@ export async function POST(req: Request) {
   if (!eventId || !code || code.length > 12) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 });
   }
+
+  // Rate-limit the anon 6-char code-guessing oracle: per-IP AND per-event (lock
+  // the code space so an attacker can't brute-force a given wedding from many IPs).
+  const ip = clientIp(req.headers) ?? 'noip';
+  const ipRl = await enforceRateLimit('wall_claim_ip', ip, { limit: 10, windowSecs: 60 });
+  if (!ipRl.ok) return rateLimited429(ipRl.retryAfterSecs);
+  const evtRl = await enforceRateLimit('wall_claim_evt', eventId, { limit: 30, windowSecs: 3600 });
+  if (!evtRl.ok) return rateLimited429(evtRl.retryAfterSecs);
 
   const admin = createAdminClient();
   const { data, error } = await admin.rpc('wall_claim_display', {

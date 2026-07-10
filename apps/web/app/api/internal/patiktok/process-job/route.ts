@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { secureCompare } from '@/lib/secure-compare';
 
 // Iteration 0017 Phase 2 — Patiktok render-job worker.
 //
@@ -38,7 +39,7 @@ function unauthorized() {
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization') ?? '';
   const expected = `Bearer ${process.env.INTERNAL_WORKER_SECRET ?? ''}`;
-  if (!process.env.INTERNAL_WORKER_SECRET || auth !== expected) {
+  if (!process.env.INTERNAL_WORKER_SECRET || !secureCompare(auth, expected)) {
     return unauthorized();
   }
 

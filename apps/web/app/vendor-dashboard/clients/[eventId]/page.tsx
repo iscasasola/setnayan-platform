@@ -63,6 +63,14 @@ import {
   vendorRespondChangeOrder,
   vendorWithdrawChangeOrder,
 } from './actions';
+import { AppointmentsSection } from '@/app/_components/appointments-section';
+import {
+  appointmentCategoriesFor,
+  resolveAppointmentLabel,
+  type AppointmentKind,
+  type AppointmentTypePreset,
+  type AppointmentView,
+} from '@/lib/appointments';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -692,6 +700,53 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     });
   }
 
+  // Appointments (Relationship Workspace + Appointments, PR 12). Booked-only —
+  // the vendor-insert RLS requires a booked (vendor, event) relationship, so the
+  // scheduler is meaningless at the inquiry stage. One cheap reference read of
+  // the category → meeting-type catalog + this org's appointment rows on the
+  // event, both under the vendor's own RLS.
+  let appointmentPresets: AppointmentTypePreset[] = [];
+  let appointmentViews: AppointmentView[] = [];
+  if (isBooked) {
+    const apptCats = appointmentCategoriesFor(brief.booked_categories);
+    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+      supabase
+        .from('appointment_type_catalog')
+        .select('category, type, label, default_mode, default_duration_min, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('event_appointments')
+        .select(
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note',
+        )
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .order('created_at', { ascending: false }),
+    ]);
+    const catalog = (catalogRows ?? []) as Array<{
+      category: string;
+      type: string;
+      label: string;
+      default_mode: AppointmentKind;
+      default_duration_min: number;
+    }>;
+    const typeLabels: Record<string, string> = {};
+    for (const r of catalog) typeLabels[r.type] = r.label;
+    appointmentPresets = catalog
+      .filter((r) => apptCats.includes(r.category))
+      .map((r) => ({
+        type: r.type,
+        label: r.label,
+        default_mode: r.default_mode,
+        default_duration_min: r.default_duration_min,
+      }));
+    appointmentViews = ((apptRows ?? []) as Array<Omit<AppointmentView, 'label'>>).map((a) => ({
+      ...a,
+      label: resolveAppointmentLabel(a, typeLabels),
+    }));
+  }
+
   clientTimer.flush();
 
   const bodyPad = 'px-4 py-6 sm:px-6';
@@ -855,25 +910,42 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : null}
 
           {tab === 'schedule' ? (
-            <ScheduleTab
-              eventId={eventId}
-              isInquiry={isInquiry}
-              brief={brief}
-              allBlocks={allBlocks}
-              blocks={blocks}
-              relevance={relevance}
-              mineOnly={mineOnly}
-              mineCount={mineCount}
-              runOfShowBlocks={runOfShowBlocks}
-              callTime={callTime}
-              callTimeAlreadyRequested={callTimeAlreadyRequested}
-              suggestions={suggestions}
-              blockLabel={blockLabel}
-              handovers={handovers}
-              eventVendorId={eventVendorId}
-              changeOrders={changeOrders}
-              search={search}
-            />
+            <>
+              <ScheduleTab
+                eventId={eventId}
+                isInquiry={isInquiry}
+                brief={brief}
+                allBlocks={allBlocks}
+                blocks={blocks}
+                relevance={relevance}
+                mineOnly={mineOnly}
+                mineCount={mineCount}
+                runOfShowBlocks={runOfShowBlocks}
+                callTime={callTime}
+                callTimeAlreadyRequested={callTimeAlreadyRequested}
+                suggestions={suggestions}
+                blockLabel={blockLabel}
+                handovers={handovers}
+                eventVendorId={eventVendorId}
+                changeOrders={changeOrders}
+                search={search}
+              />
+              {isBooked ? (
+                <div className="mt-4">
+                  <AppointmentsSection
+                    role="vendor"
+                    eventId={eventId}
+                    vendorProfileId={profile.vendor_profile_id}
+                    returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+                    threadId={threadId}
+                    threadHref={threadId ? `/vendor-dashboard/messages/${threadId}` : null}
+                    counterpartyName={eventName}
+                    presets={appointmentPresets}
+                    appointments={appointmentViews}
+                  />
+                </div>
+              ) : null}
+            </>
           ) : null}
 
           {tab === 'activity' ? (

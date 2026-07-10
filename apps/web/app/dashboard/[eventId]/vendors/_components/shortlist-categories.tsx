@@ -137,6 +137,16 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,34,41,.7)}
 .slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
 html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
 html.dark .slcat .sortseg button.on{color:#1E2229;background:#C99DB0}
+/* bench search — client-side filter over categories + considered vendors */
+.slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.slcat .bench-search:focus-within{border-color:rgba(30,34,41,.28);box-shadow:0 0 0 3px rgba(30,34,41,.06)}
+.slcat .bench-search svg{color:var(--ink-faint);flex:0 0 auto}
+.slcat .bench-search input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-family:var(--sans);font-size:14px;color:var(--ink)}
+.slcat .bench-search input::placeholder{color:var(--ink-faint)}
+.slcat .bench-search .bs-x{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:2px;display:inline-flex}
+.slcat .bench-search .bs-x:hover{color:var(--mulberry)}
+.slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
+html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
@@ -379,6 +389,10 @@ export function ShortlistCategories({
   // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
   // — the bench leads with what best matches the couple's date/venue/budget.
   const [sort, setSort] = useState<BenchSort>('fit');
+  // Bench search (2026-07-10, PR-4 · S3) — a client-side filter over the ~53
+  // categories (and their considered vendors). Empty = the normal single-open
+  // accordion; a query filters to matching tiles and auto-expands them.
+  const [query, setQuery] = useState('');
 
   // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
   // The leaf whose saved-request modal is open: its canonical_service (the key
@@ -522,6 +536,23 @@ export function ShortlistCategories({
     }, 60);
   }
 
+  // Bench search — filter folders to tiles (or their considered vendors) matching
+  // the query; while searching, every matching folder + tile shows expanded.
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const visibleFolders = searching
+    ? folders
+        .map((f) => ({
+          ...f,
+          tiles: f.tiles.filter(
+            (t) =>
+              t.label.toLowerCase().includes(q) ||
+              t.vendors.some((v) => v.name.toLowerCase().includes(q)),
+          ),
+        }))
+        .filter((f) => f.tiles.length > 0)
+    : folders;
+
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
@@ -561,8 +592,26 @@ export function ShortlistCategories({
           ))}
         </div>
       </div>
-      {folders.map((folder) => {
-        const folderOpen = openFolder === folder.folder;
+      <div className="bench-search">
+        <Search size={16} strokeWidth={1.75} aria-hidden />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search categories or shortlisted vendors…"
+          aria-label="Search the bench"
+        />
+        {query ? (
+          <button type="button" className="bs-x" aria-label="Clear search" onClick={() => setQuery('')}>
+            ×
+          </button>
+        ) : null}
+      </div>
+      {searching && visibleFolders.length === 0 ? (
+        <div className="bench-empty">No categories or shortlisted vendors match “{query.trim()}”.</div>
+      ) : null}
+      {visibleFolders.map((folder) => {
+        const folderOpen = searching || openFolder === folder.folder;
         return (
           <section
             key={folder.folder}
@@ -591,7 +640,7 @@ export function ShortlistCategories({
             <div className="fold-collapse">
               <div className="fold-body">
                 {folder.tiles.map((t) => {
-                  const tileOpen = openTile === t.tile;
+                  const tileOpen = searching || openTile === t.tile;
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
                   const savedCanonical = savedRequirementCanonicalByTile[t.tile] ?? null;

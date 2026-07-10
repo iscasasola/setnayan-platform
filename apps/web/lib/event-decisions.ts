@@ -8,27 +8,25 @@
  * top-bar bell is a flat per-user unread count with no event scoping and no
  * "actionable" flag, so each signal is its own query.
  *
- * Phase 1 (this file) counts three signals, all cheap + batchable across a
- * user's events, no schema change:
+ * The four signals, all batchable across a user's events:
  *   • pay      ← orders in `awaiting_payment` (couple owes money on an order)
  *   • approve  ← vendor_proposals in `sent`/`viewed` (a vendor is waiting on the
  *                couple's yes/no)
+ *   • message  ← unread chat threads per event (a reply is waiting), via the
+ *                grouped `unread_message_threads_by_event()` RPC
  *   • overdue  ← checklist items past their derived due date (computed by the
  *                caller, which already loads the checklist for the progress ring)
- *
- * Phase 2 (follow-up PR) adds `message` (unread threads per event) — that one
- * needs a new grouped read-only RPC, since the shipped counter flattens to a
- * single number across the whole account.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type DecisionKind = 'pay' | 'approve' | 'overdue';
+export type DecisionKind = 'pay' | 'approve' | 'message' | 'overdue';
 
 /** The raw per-event counts this module resolves (overdue is merged in by the
  *  caller from the checklist it already holds). */
 export type EventDecisionCounts = {
   pay: number;
   approve: number;
+  message: number;
   overdue: number;
 };
 
@@ -39,6 +37,35 @@ export type EventDecisionSummary = {
    *  nothing needs the couple. */
   top: { kind: DecisionKind; count: number; label: string } | null;
 };
+
+/**
+ * Per-event unread message-thread counts for the current couple user, via the
+ * grouped `unread_message_threads_by_event()` RPC. The RPC returns only events
+ * that HAVE unread threads. Graceful-degrades to an empty map on any error —
+ * including the "function does not exist" case before the migration is applied
+ * (the line simply doesn't show until the owner pushes it), mirroring
+ * countUnreadMessages.
+ */
+export async function fetchEventUnreadCounts(
+  supabase: SupabaseClient,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const { data, error } = await supabase.rpc(
+      'unread_message_threads_by_event',
+    );
+    if (error) return out;
+    for (const row of (data ?? []) as Array<{
+      event_id: string | null;
+      unread_count: number | null;
+    }>) {
+      if (row.event_id) out.set(row.event_id, Number(row.unread_count ?? 0));
+    }
+  } catch {
+    // graceful-degrade: no message line rather than a broken launcher.
+  }
+  return out;
+}
 
 /**
  * Batched per-event counts for the two DB-backed signals (pay + approve), across
@@ -98,13 +125,13 @@ function plural(n: number, one: string, many: string): string {
 /**
  * Fold raw counts into the card summary. Priority order for the single surfaced
  * line: settle payments first (an unpaid order blocks the service), then approve
- * proposals (a vendor is actively waiting), then clear overdue tasks. Pure —
- * unit-testable, no I/O.
+ * proposals (a vendor is actively waiting), then reply to unread messages, then
+ * clear overdue tasks. Pure — unit-testable, no I/O.
  */
 export function summarizeEventDecisions(
   counts: EventDecisionCounts,
 ): EventDecisionSummary {
-  const total = counts.pay + counts.approve + counts.overdue;
+  const total = counts.pay + counts.approve + counts.message + counts.overdue;
   if (total === 0) return { total: 0, top: null };
 
   let top: EventDecisionSummary['top'];
@@ -119,6 +146,12 @@ export function summarizeEventDecisions(
       kind: 'approve',
       count: counts.approve,
       label: plural(counts.approve, 'quote to approve', 'quotes to approve'),
+    };
+  } else if (counts.message > 0) {
+    top = {
+      kind: 'message',
+      count: counts.message,
+      label: plural(counts.message, 'unread message', 'unread messages'),
     };
   } else {
     top = {

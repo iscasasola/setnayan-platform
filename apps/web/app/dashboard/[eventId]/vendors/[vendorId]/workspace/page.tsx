@@ -51,6 +51,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
+import { AppointmentsSection } from '@/app/_components/appointments-section';
+import {
+  appointmentCategoriesFor,
+  resolveAppointmentLabel,
+  type AppointmentKind,
+  type AppointmentTypePreset,
+  type AppointmentView,
+} from '@/lib/appointments';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
@@ -845,6 +853,53 @@ export default async function VendorWorkspacePage({ params }: Props) {
     }
   }
 
+  // Appointments (Relationship Workspace + Appointments, PR 12) — the two-sided
+  // scheduler for THIS booked vendor. Only a connected (marketplace) vendor has
+  // an "other side" to confirm, so the section is skipped for manual/off-platform
+  // vendors (coordinated externally). One cheap reference read of the category →
+  // meeting-type catalog + this (event, vendor) row set, both under couple RLS.
+  let appointmentPresets: AppointmentTypePreset[] = [];
+  let appointmentViews: AppointmentView[] = [];
+  if (ev.marketplace_vendor_id) {
+    const apptCats = appointmentCategoriesFor([ev.category]);
+    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+      supabase
+        .from('appointment_type_catalog')
+        .select('category, type, label, default_mode, default_duration_min, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('event_appointments')
+        .select(
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note',
+        )
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .order('created_at', { ascending: false }),
+    ]);
+    const catalog = (catalogRows ?? []) as Array<{
+      category: string;
+      type: string;
+      label: string;
+      default_mode: AppointmentKind;
+      default_duration_min: number;
+    }>;
+    const typeLabels: Record<string, string> = {};
+    for (const r of catalog) typeLabels[r.type] = r.label;
+    appointmentPresets = catalog
+      .filter((r) => apptCats.includes(r.category))
+      .map((r) => ({
+        type: r.type,
+        label: r.label,
+        default_mode: r.default_mode,
+        default_duration_min: r.default_duration_min,
+      }));
+    appointmentViews = ((apptRows ?? []) as Array<Omit<AppointmentView, 'label'>>).map((a) => ({
+      ...a,
+      label: resolveAppointmentLabel(a, typeLabels),
+    }));
+  }
+
   return (
     <div className="space-y-6">
       {/* ============================================================== */}
@@ -1437,6 +1492,24 @@ export default async function VendorWorkspacePage({ params }: Props) {
           )}
         </section>
       </div>
+
+      {/* ============================================================== */}
+      {/* Appointments (two-sided scheduler · PR 12)                      */}
+      {/* Connected vendors only — an "other side" confirms.              */}
+      {/* ============================================================== */}
+      {ev.marketplace_vendor_id ? (
+        <AppointmentsSection
+          role="couple"
+          eventId={eventId}
+          vendorProfileId={ev.marketplace_vendor_id}
+          returnPath={`/dashboard/${eventId}/vendors/${ev.vendor_id}/workspace`}
+          threadId={chatThread?.thread_id ?? null}
+          threadHref={chatThread ? conversationHref : null}
+          counterpartyName={displayName}
+          presets={appointmentPresets}
+          appointments={appointmentViews}
+        />
+      ) : null}
 
       {/* ============================================================== */}
       {/* Marketplace info (marketplace-linked vendors only)              */}

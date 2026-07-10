@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Loader2, QrCode } from 'lucide-react';
+import { ArrowUpRight, Loader2, QrCode } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
 import { useIsMobile } from '@/lib/use-responsive';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
@@ -263,6 +263,28 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
                   <div style={{ fontSize: 11.5, color: '#a8a4a0', marginTop: 2 }}>
                     Fresh code. Expires in 20 minutes.
                   </div>
+                  {/* No phone handy? Open the exact same guest view right here —
+                      the QR just encodes this URL, so a desktop visitor is no
+                      longer stuck at a scan-only dead-end. */}
+                  <a
+                    href={qr.joinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      marginTop: 9,
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      color: '#8a5a3c',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    No phone? Open the demo here
+                    <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  </a>
                 </div>
               </div>
             ) : qrFailed ? (

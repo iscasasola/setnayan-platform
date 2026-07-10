@@ -95,6 +95,46 @@ function RemotePlayerFigure({ player, quality }: { player: RemotePlayer; quality
 }
 
 /**
+ * Broadcasts the LOCAL player's motion from a shared position ref — WITHOUT
+ * touching the host surface's walker loop. Every surface already writes its
+ * walker's live floor position to a ref (`walkerPosRef` / the self-avatar group);
+ * this reads it each frame, derives velocity + heading + moving from the frame-
+ * to-frame delta (the same realised-motion the walker itself predicts from), and
+ * calls the hook's throttled `sendMove`. A no-op `sendMove` (flag off / offline)
+ * makes this render-invisible and side-effect-free. Mount ONLY when the room is
+ * enabled so the single-player path is byte-identical.
+ */
+export function LocalMoveBroadcaster({
+  posRef,
+  sendMove,
+}: {
+  posRef: React.MutableRefObject<Vec2 | null>;
+  sendMove: (x: number, z: number, vx: number, vz: number, heading: number, moving: boolean) => void;
+}) {
+  const prev = useRef<Vec2 | null>(null);
+  const headingRef = useRef(0);
+  useFrame((_, delta) => {
+    const p = posRef.current;
+    if (!p) return;
+    const dt = Math.max(delta, 1e-4);
+    let vx = 0;
+    let vz = 0;
+    let moving = false;
+    if (prev.current) {
+      const dx = p.x - prev.current.x;
+      const dz = p.z - prev.current.z;
+      vx = dx / dt;
+      vz = dz / dt;
+      moving = Math.hypot(dx, dz) > 1e-4;
+    }
+    prev.current = { x: p.x, z: p.z };
+    if (moving) headingRef.current = Math.atan2(vx, vz);
+    sendMove(p.x, p.z, vx, vz, headingRef.current, moving);
+  });
+  return null;
+}
+
+/**
  * Renders every active remote (present-first, nearest-first, capped at
  * MAX_REMOTES for phones). Keyed by peer id so a figure keeps its phase/heading
  * refs across map updates. Draws nothing when `remotes` is empty.

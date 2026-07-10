@@ -32,6 +32,9 @@ export default async function VenuePage({
   ]);
   const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
   let scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
+  // Event UUID (top-scope) — the shared-room channel scope for the 3D walk, and
+  // the booth-slug join below.
+  const eventId = (paletteRow.data as { event_id?: string } | null)?.event_id ?? null;
 
   // The RPC returns guest photos as RAW stored refs (r2:// or bare URL) — the
   // client can't resolve an r2:// ref, so we do it HERE. Mirrors the 3D-demo
@@ -83,7 +86,6 @@ export default async function VenuePage({
     // `bookable` (verified-only) so the card only says "Book" when the
     // profile can actually take bookings. Public business info only;
     // fail-soft (a missing event row just means no CTA).
-    const eventId = (paletteRow.data as { event_id?: string } | null)?.event_id;
     if (eventId) {
       const boothRows = await fetchBooths(admin, eventId);
       const profileById = new Map(
@@ -135,7 +137,7 @@ export default async function VenuePage({
             ← Back
           </Link>
         </div>
-        <GuestVenueLoader scene={scene} />
+        <GuestVenueLoader scene={scene} eventId={eventId} />
       </div>
     </main>
   );

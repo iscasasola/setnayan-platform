@@ -22,6 +22,13 @@ const GuestVenue3D = dynamic(() => import('./guest-venue-3d'), {
   ),
 });
 
-export function GuestVenueLoader({ scene }: { scene: VenueScene }) {
-  return <GuestVenue3D scene={scene} />;
+export function GuestVenueLoader({
+  scene,
+  eventId,
+}: {
+  scene: VenueScene;
+  /** Event UUID → the shared-room channel scope (slice 8); absent → single-player. */
+  eventId?: string | null;
+}) {
+  return <GuestVenue3D scene={scene} eventId={eventId} />;
 }

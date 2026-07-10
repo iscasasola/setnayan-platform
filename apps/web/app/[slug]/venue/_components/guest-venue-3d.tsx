@@ -103,7 +103,10 @@ export type VenueScene = {
     venueWidthM: number | null;
     venueLengthM: number | null;
     stage: { xPct: number; yPct: number; wPct: number; hPct: number };
-    entrance: { enabled: boolean; xPct: number; yPct: number };
+    // kind/depthM are OPTIONAL: the public_venue_scene payload doesn't carry
+    // the entrance kind yet, so the guest walk defaults to a 'door' (see the
+    // construction below). Present here so a future payload can thread them.
+    entrance: { enabled: boolean; xPct: number; yPct: number; kind?: 'door' | 'tunnel'; depthM?: number };
     dance: { enabled: boolean; xPct: number; yPct: number; wPct: number; hPct: number };
   };
   tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[] }[];
@@ -431,7 +434,13 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
       venueWidthM: scene.floor.venueWidthM,
       venueLengthM: scene.floor.venueLengthM,
       stage: scene.floor.stage,
-      entrance: scene.floor.entrance,
+      entrance: {
+        ...scene.floor.entrance,
+        // The public payload doesn't carry the entrance kind/depth yet — default
+        // to a 'door' so the guest walk renders the existing doorway marker.
+        kind: scene.floor.entrance.kind ?? 'door',
+        depthM: scene.floor.entrance.depthM ?? 3,
+      },
       dance: scene.floor.dance,
       published: true,
     }),

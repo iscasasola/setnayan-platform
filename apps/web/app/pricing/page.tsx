@@ -159,31 +159,15 @@ export default async function PricingPage() {
     fetchV2VendorCatalog(),
   ]);
 
-  // Setnayan AI renewal price (owner-locked: ₱499 first 28 days per event, then
-  // ₱799 / 28 days). SETNAYAN_AI_RENEW is a DORMANT catalog row (is_active=false)
-  // so it isn't in the active customer catalog above — read it directly so the
-  // ₱799 stays admin-managed; the ₱799 fallback only renders if the row is
-  // missing.
-  let aiRenewalPhp = 799; // owner-locked fallback; the catalog wins when readable
-  try {
-    const { data: aiRenewRow } = await createAdminClient()
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php')
-      .eq('service_code', 'SETNAYAN_AI_RENEW')
-      .maybeSingle();
-    const p = Number((aiRenewRow as { retail_price_php?: number | null } | null)?.retail_price_php);
-    if (Number.isFinite(p) && p > 0) aiRenewalPhp = p;
-  } catch {
-    // Admin client unavailable (e.g. missing env at build) → keep the ₱799
-    // fallback, mirroring lib/v2-catalog's resilient createAdminClient handling.
-  }
-  const aiRenewalLabel = `₱${formatPeso(aiRenewalPhp)}`;
-
-  // Setnayan AI (the one paid planner tier above Free) reads live from the
-  // active catalog — the ACTIVE SETNAYAN_AI row is the ₱499 intro.
+  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
+  // single ₱499 charge, access until the event date. The prior ₱499→₱799/28-day
+  // subscription (and its SETNAYAN_AI_RENEW row) is retired — no renewal price.
+  // Reads live from the active catalog; the ₱499 fallback only renders if the
+  // row is unreadable. The period suffix comes from the row's billing_period
+  // (now `one_time` → empty).
   const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
   const aiIntroLabel = setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : '₱499';
-  const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : ' / 28 days';
+  const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
 
   // Collapse the two per-camera Papic rate SKUs into ONE synthetic "from ₱30/
   // camera" catalog row for the grouped list + JSON-LD keeps the raw rows.
@@ -474,12 +458,12 @@ export default async function PricingPage() {
               </p>
               <p className="flex items-baseline gap-2">
                 <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
-                  {aiRenewalLabel}
+                  {aiIntroLabel}
                 </span>
                 <span className="text-sm text-ink/55">{aiPeriod}</span>
               </p>
               <p className="text-sm font-medium text-ink/70">
-                {aiIntroLabel} for your first cycle.
+                One-time · access until your wedding.
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
                 The planner that matches, sorts and cross-references every

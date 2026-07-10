@@ -288,9 +288,9 @@ export const getVendorPrices = cache(async () => {
     proMonthly: fmt(proMo, '₱2,499'),
     proAnnual: fmt(proYr, '₱24,999'),
     proAnnualSave: save(proMo, proYr, '₱7,488'),
-    enterpriseMonthly: fmt(entMo, '₱4,999'),
-    enterpriseAnnual: fmt(entYr, '₱49,999'),
-    enterpriseAnnualSave: save(entMo, entYr, '₱14,988'),
+    enterpriseMonthly: fmt(entMo, '₱7,999'),
+    enterpriseAnnual: fmt(entYr, '₱79,999'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱23,988'),
     branch: fmt(branch, '₱999'),
     tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
@@ -299,8 +299,8 @@ export const getVendorPrices = cache(async () => {
       soloAnnual: soloYr ?? 9999,
       proMonthly: proMo ?? 2499,
       proAnnual: proYr ?? 24999,
-      enterpriseMonthly: entMo ?? 4999,
-      enterpriseAnnual: entYr ?? 49999,
+      enterpriseMonthly: entMo ?? 7999,
+      enterpriseAnnual: entYr ?? 79999,
     },
   };
 });

@@ -1322,8 +1322,8 @@ test('separateAgents: predictive push is a per-second rate under deltaS (halves 
 // render-convention rotation as the lab, so "tips coincide" is provable here.
 
 test('serpentineChainSnapWorld: a near-tip drop glues the tips together exactly', () => {
-  const B = { x: 5, z: 5, rotDeg: 0 };
-  const tipGap = (a: typeof B) => {
+  const B = { x: 5, z: 5, rotDeg: 0, id: 'B' };
+  const tipGap = (a: { x: number; z: number; rotDeg: number }) => {
     const ta = serpentineTipsWorld(a);
     const tb = serpentineTipsWorld(B);
     let min = Infinity;
@@ -1340,17 +1340,18 @@ test('serpentineChainSnapWorld: a near-tip drop glues the tips together exactly'
     assert.ok(Math.hypot(snap.x - B.x, snap.z - B.z) > 0.6, 'beside the anchor, not stacked on it');
     const r = ((snap.rotDeg % 360) + 360) % 360;
     assert.ok([104, 256, 180].some((v) => Math.abs(r - v) < 1e-6), `legal junction angle, got ${r}`);
+    assert.equal(snap.neighbourId, 'B', 'reports which table it chained to (for auto-link)');
   }
   assert.ok(fired > 0, 'at least one probe snaps');
 });
 
 test('serpentineChainSnapWorld: far away → no snap (free drag)', () => {
-  assert.equal(serpentineChainSnapWorld({ x: 50, z: 50 }, [{ x: 5, z: 5, rotDeg: 0 }], 1), null);
+  assert.equal(serpentineChainSnapWorld({ x: 50, z: 50 }, [{ x: 5, z: 5, rotDeg: 0, id: 'B' }], 1), null);
   assert.equal(serpentineChainSnapWorld({ x: 0, z: 0 }, [], 1), null);
 });
 
 test('serpentineChainSnapWorld: honours a rotated anchor + is deterministic', () => {
-  const B = { x: 3, z: -2, rotDeg: 37 };
+  const B = { x: 3, z: -2, rotDeg: 37, id: 'B' };
   const tb = serpentineTipsWorld(B);
   // Probe right at a real S-bend candidate (180° about a tip) → must snap onto it.
   const snap = serpentineChainSnapWorld({ x: tb[0].x, z: tb[0].z }, [B], 2);

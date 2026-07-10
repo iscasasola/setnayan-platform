@@ -472,19 +472,19 @@ export function serpentineTipsWorld(p: SerpPlacement): [Vec2, Vec2] {
  */
 export function serpentineChainSnapWorld(
   drag: Vec2,
-  neighbours: ReadonlyArray<SerpPlacement>,
+  neighbours: ReadonlyArray<SerpPlacement & { id: string }>,
   tolM: number,
-): SerpPlacement | null {
+): (SerpPlacement & { neighbourId: string }) | null {
   const band = serpentineBand();
   const norm = (d: number) => ((d % 360) + 360) % 360;
   const sweep = (SERP_SWEEP * 180) / Math.PI; // SERP_SWEEP is radians → degrees
-  let best: SerpPlacement | null = null;
+  let best: (SerpPlacement & { neighbourId: string }) | null = null;
   let bestD = tolM * tolM;
-  const consider = (c: SerpPlacement) => {
+  const consider = (c: SerpPlacement, neighbourId: string) => {
     const d = (c.x - drag.x) ** 2 + (c.z - drag.z) ** 2;
     if (d < bestD) {
       bestD = d;
-      best = c;
+      best = { ...c, neighbourId };
     }
   };
   for (const b of neighbours) {
@@ -494,13 +494,13 @@ export function serpentineChainSnapWorld(
     // Continue the circle: neighbour rotated ±sweep about its arc centre.
     for (const sgn of [1, -1] as const) {
       const v = serpRotVec({ x: b.x - cw.x, z: b.z - cw.z }, sgn * sweep);
-      consider({ x: cw.x + v.x, z: cw.z + v.z, rotDeg: norm(b.rotDeg + sgn * sweep) });
+      consider({ x: cw.x + v.x, z: cw.z + v.z, rotDeg: norm(b.rotDeg + sgn * sweep) }, b.id);
     }
     // S-bend: neighbour rotated 180° about a tip midpoint (point reflection).
     for (const e of [band.endPlus, band.endMinus]) {
       const el = serpRotVec(e, b.rotDeg);
       const m = { x: b.x + el.x, z: b.z + el.z };
-      consider({ x: 2 * m.x - b.x, z: 2 * m.z - b.z, rotDeg: norm(b.rotDeg + 180) });
+      consider({ x: 2 * m.x - b.x, z: 2 * m.z - b.z, rotDeg: norm(b.rotDeg + 180) }, b.id);
     }
   }
   return best;

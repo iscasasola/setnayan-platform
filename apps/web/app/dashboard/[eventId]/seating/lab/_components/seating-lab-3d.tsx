@@ -610,6 +610,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   // Live world-space drag target (avoids a React re-render every pointer move).
   const dragRef = useRef<{ id: string; x: number; z: number } | null>(null);
+  // `commitDrag` (defined below) auto-links a serpentine into its chain on snap,
+  // but `doLink` is defined further down — a ref bridges the forward reference.
+  const doLinkRef = useRef<((aId: string, bId: string) => void) | null>(null);
 
   const entranceWorld = useMemo<Vec2>(() => {
     const e = floor.entrance.enabled ? floor.entrance : { xPct: 50, yPct: 96 };
@@ -807,12 +810,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     let dropX = d.x;
     let dropZ = d.z;
     let snappedRotDeg: number | null = null;
+    let snapNeighbourId: string | null = null;
     if (dragged && dragged.shape === 'serpentine' && !dragged.linkGroupId) {
       const neighbours = tables
         .filter((t) => t.id !== d.id && t.shape === 'serpentine')
         .map((t) => {
           const p = pctToWorld(t.xPct, t.yPct, room);
-          return { x: p.x, z: p.z, rotDeg: t.rotationDeg };
+          return { x: p.x, z: p.z, rotDeg: t.rotationDeg, id: t.id };
         });
       const serpW = tableDims('serpentine', dragged.capacity).w;
       const snap = serpentineChainSnapWorld({ x: d.x, z: d.z }, neighbours, Math.max(0.6, serpW * 0.4));
@@ -820,6 +824,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         dropX = snap.x;
         dropZ = snap.z;
         snappedRotDeg = snap.rotDeg;
+        snapNeighbourId = snap.neighbourId;
       }
     }
 
@@ -909,6 +914,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         void persist(() => updateTableRotation(rd));
       }
     }
+    // Snap AND link (owner 2026-07-10, ref photo): a snapped serpentine JOINS
+    // its neighbour's chain as ONE unit — moves together + one printed QR, and
+    // more segments extend the same group. doLink merges into an existing group
+    // if the neighbour is already chained.
+    if (snapNeighbourId) doLinkRef.current?.(d.id, snapNeighbourId);
   }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById]);
 
   useEffect(() => {
@@ -1516,6 +1526,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     },
     [canEdit, tablesById, tables, eventId, lock.lockId, persist, router],
   );
+  // Bridge for commitDrag's snap-then-link (doLink is defined after it).
+  useEffect(() => {
+    doLinkRef.current = doLink;
+  }, [doLink]);
   // 2D-parity: remove/restore an individual chair (tap a chair on the selected
   // table). Server rejects removing an OCCUPIED seat, so guard it client-side.
   const toggleSeat = useCallback(

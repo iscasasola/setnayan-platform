@@ -14,6 +14,10 @@
  * /admin/directory). MobileLandingGrid hides itself at lg+ via lg:hidden —
  * desktop reaches these surfaces through the sidebar Insights group.
  *
+ * 2026-07-10: card hrefs repointed to /admin/app-performance?tab=<key> (the
+ * Insights Studio) so mobile matches the desktop sidebar; the legacy routes
+ * redirect there anyway.
+ *
  * Telemetry + Offline daemon remain FORWARD-REFERENCE entries until their
  * sprints land.
  */
@@ -22,6 +26,7 @@ import {
   Activity,
   LineChart,
   Radar,
+  Globe,
   BarChart3,
   TrendingUp,
   Bug,
@@ -49,7 +54,7 @@ const INSIGHTS_ITEMS: LandingItem[] = [
   {
     key: 'growth',
     label: 'Growth',
-    href: '/admin/growth',
+    href: '/admin/app-performance?tab=growth',
     icon: LineChart,
     description:
       'Population now + growth over time for vendors, services, events, customers, and guests — plus guest→account conversion.',
@@ -57,15 +62,23 @@ const INSIGHTS_ITEMS: LandingItem[] = [
   {
     key: 'intelligence',
     label: 'Intelligence',
-    href: '/admin/intelligence',
+    href: '/admin/app-performance?tab=intelligence',
     icon: Radar,
     description:
       'Churn radar (quiet couples with upcoming events), market pulse (budgets · regions · event types), and engagement-ranked lead scores.',
   },
   {
+    key: 'seo',
+    label: 'SEO & GEO',
+    href: '/admin/app-performance?tab=seo',
+    icon: Globe,
+    description:
+      'Nightly llms.txt-vs-catalog drift audit, route/token coverage, and Search Console trend.',
+  },
+  {
     key: 'funnels',
     label: 'Funnels',
-    href: '/admin/funnels',
+    href: '/admin/app-performance?tab=funnels',
     icon: BarChart3,
     description:
       'PostHog-resident product funnels. Open in PostHog for cohort and step-level analysis.',
@@ -73,7 +86,7 @@ const INSIGHTS_ITEMS: LandingItem[] = [
   {
     key: 'operations-hiring',
     label: 'Operations & Hiring',
-    href: '/admin/operations-hiring',
+    href: '/admin/app-performance?tab=operations',
     icon: TrendingUp,
     description:
       'Growth cockpit. Vendor count, weekly visits, hiring milestones, and bottleneck signals.',
@@ -81,7 +94,7 @@ const INSIGHTS_ITEMS: LandingItem[] = [
   {
     key: 'connection-logs',
     label: 'Connection logs',
-    href: '/admin/connection-logs',
+    href: '/admin/app-performance?tab=connection-logs',
     icon: Bug,
     description:
       'Real-time client-side faults — broken buttons, failed saves, blank fallbacks — with a resolve lifecycle.',
@@ -89,7 +102,7 @@ const INSIGHTS_ITEMS: LandingItem[] = [
   {
     key: 'offline',
     label: 'Offline daemon',
-    href: '/admin/offline',
+    href: '/admin/app-performance?tab=offline',
     icon: WifiOff,
     description:
       'Offline sync queue and conflict resolution. Forward-reference — ships with the next refresh.',

@@ -65,7 +65,7 @@ import {
   type StaffIdleKind,
 } from '@/lib/figure-rig';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
-import { plainMaterial, mannequinMaterial } from './outfits';
+import { mannequinMaterial } from './outfits';
 // Rig proportions + leaf placements + the pose applier now live in the PURE,
 // unit-tested `lib/figure-sit-bake` so the SINGLE source drives BOTH this
 // rendered figure AND the instanced seated crowd's baked-pose extraction — the

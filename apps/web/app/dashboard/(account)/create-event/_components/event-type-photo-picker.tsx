@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   eventTypePhotoSrc,
   EVENT_TYPE_PHOTO_FALLBACK,
@@ -9,19 +8,17 @@ import {
 } from './event-types';
 
 /**
- * Event-type "feel photo" picker — owner directive 2026-06-04: "we do not want
- * the lines. we want photos without the carousel indicators. just photos of how
- * the event would feel like" + "the [photo] needs to be clickable on the center
- * when the photo is fully visible. it needs to snap also."
+ * Event-type picker — a responsive GRID of full-bleed "feel photos", one per
+ * event type (from /public/event-types/{key}.webp). Owner directive 2026-07-10:
+ * "just show a grid of the different events — maximize screen space for both
+ * mobile and desktop."
  *
- * A horizontal, scroll-snapping deck of full-bleed event-feel photos (one per
- * event type, from /public/event-types/{key}.webp). NO dots, NO arrows, NO bars
- * — neighbours peek dimmed + scaled-down so the centred photo is the implicit
- * focus. The deck snaps card-to-card (snap-mandatory + snap-stop). Tapping the
- * CENTRED (fully-visible) photo begins it; tapping a side photo snaps it to
- * centre instead. Replaces the bar picker (and the earlier hero carousel) on
- * the full-page create-event surface; the in-chrome add-event sheet still uses
- * event-type-carousel.tsx.
+ * Replaces the earlier swipe carousel (a horizontal snap deck where only the
+ * centred photo was tappable). Every tile is now directly clickable — 2-up on
+ * phones, 3-up on tablets, 4-up on desktop — so the whole roster is visible at
+ * a glance with no swiping and no dead centre-only tap target. NO dots, NO
+ * arrows: the photos ARE the affordance. The in-chrome add-event sheet still
+ * uses event-type-carousel.tsx; only this full-page surface became a grid.
  */
 
 // Fallback taglines for the original 9 types — the DB roster carries its own
@@ -41,174 +38,76 @@ const TAGLINES: Record<string, string> = {
 
 type Props = {
   types: readonly EventTypeRow[];
-  /** Fired only when the CENTERED + enabled photo is tapped. */
+  /** Fired when an enabled tile is tapped. */
   onSelect: (type: EventTypeRow) => void;
-  /** Index centered on mount (default 0 — Wedding). */
-  initialIndex?: number;
   className?: string;
 };
 
-// Card width drives both the card sizing and the deck's centering padding so
-// the first/last photo can sit dead-center with its neighbours peeking.
-const DECK_STYLE = {
-  paddingInline: 'max(0px, calc((100% - var(--cw)) / 2))',
-  '--cw': 'clamp(244px, 74vw, 320px)',
-} as CSSProperties;
-
-export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, className }: Props) {
-  const deckRef = useRef<HTMLDivElement | null>(null);
-  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const rafRef = useRef<number | null>(null);
-  const [active, setActive] = useState(initialIndex);
-
-  // The most-centered card is "active" — the only one that begins on tap.
-  //
-  // Geometry is measured in VIEWPORT coordinates via getBoundingClientRect, NOT
-  // offsetLeft. offsetLeft is relative to the nearest *positioned* ancestor, and
-  // this scrolling deck is not positioned — so on the centered desktop layout
-  // (max-w-2xl) the card's offsetLeft is measured from <body>, hundreds of px
-  // off from deck.scrollLeft's coordinate space. That made computeActive pick
-  // the wrong card: the visually-centered photo never became `active`, so the
-  // "Begin →" affordance was missing and tapping it only re-centered an
-  // already-centered card — it looked permanently unclickable on desktop.
-  // (owner bug 2026-06-28: "why are the events still unclickable?")
-  const computeActive = useCallback(() => {
-    const deck = deckRef.current;
-    if (!deck) return;
-    const center = deck.getBoundingClientRect().left + deck.clientWidth / 2;
-    let best = 0;
-    let bestDist = Infinity;
-    cardRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const box = el.getBoundingClientRect();
-      const c = box.left + box.width / 2;
-      const d = Math.abs(c - center);
-      if (d < bestDist) {
-        bestDist = d;
-        best = i;
-      }
-    });
-    setActive(best);
-  }, []);
-
-  const onScroll = useCallback(() => {
-    if (rafRef.current != null) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      computeActive();
-    });
-  }, [computeActive]);
-
-  const centerTo = useCallback((i: number, smooth = true) => {
-    const deck = deckRef.current;
-    const el = cardRefs.current[i];
-    if (!deck || !el) return;
-    // Same viewport-coordinate basis as computeActive — scroll by the delta
-    // between the card's center and the deck's visible center, so this works
-    // regardless of where the deck sits on the page (see computeActive note).
-    const deckBox = deck.getBoundingClientRect();
-    const elBox = el.getBoundingClientRect();
-    const delta = elBox.left + elBox.width / 2 - (deckBox.left + deck.clientWidth / 2);
-    deck.scrollTo({
-      left: deck.scrollLeft + delta,
-      behavior: smooth ? 'smooth' : 'auto',
-    });
-  }, []);
-
-  // Center the initial card (Wedding) on mount — instant, no animation.
-  useEffect(() => {
-    centerTo(initialIndex, false);
-    computeActive();
-    return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [initialIndex, centerTo, computeActive]);
-
-  const onTap = useCallback(
-    (i: number) => {
-      if (i === active) {
-        const t = types[i];
-        if (t?.enabled) onSelect(t);
-      } else {
-        centerTo(i);
-      }
-    },
-    [active, types, onSelect, centerTo],
-  );
-
+export function EventTypePhotoPicker({ types, onSelect, className }: Props) {
   return (
-    <div className={className}>
-      <div
-        ref={deckRef}
-        onScroll={onScroll}
-        role="listbox"
-        aria-label="Event type"
-        style={DECK_STYLE}
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {types.map((t, i) => {
-          const isActive = i === active;
-          return (
-            <button
-              key={t.key}
-              ref={(el) => {
-                cardRefs.current[i] = el;
-              }}
-              type="button"
-              role="option"
-              aria-selected={isActive}
-              aria-label={t.label}
-              onClick={() => onTap(i)}
-              style={{ width: 'var(--cw)' }}
-              className={`group relative aspect-[4/5] shrink-0 snap-center snap-always overflow-hidden rounded-2xl text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
-                isActive
-                  ? 'scale-100 opacity-100 shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
-                  : 'scale-[0.9] opacity-50 shadow-[0_10px_30px_rgba(30,34,41,0.16)]'
+    <div
+      role="listbox"
+      aria-label="Event type"
+      className={`grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 ${className ?? ''}`}
+    >
+      {types.map((t, i) => {
+        const enabled = t.enabled;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            role="option"
+            aria-selected={false}
+            aria-label={t.label}
+            disabled={!enabled}
+            onClick={() => enabled && onSelect(t)}
+            className={`group relative aspect-[4/5] overflow-hidden rounded-2xl text-left shadow-[0_10px_30px_rgba(30,34,41,0.16)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
+              enabled
+                ? 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
+                : 'cursor-not-allowed opacity-60'
+            }`}
+          >
+            <Image
+              src={eventTypePhotoSrc(t)}
+              alt=""
+              fill
+              draggable={false}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              priority={i < 4}
+              className={`object-cover transition-transform duration-500 ${
+                enabled ? 'group-hover:scale-105' : ''
               }`}
-            >
-              <Image
-                src={eventTypePhotoSrc(t)}
-                alt=""
-                fill
-                draggable={false}
-                sizes="(max-width: 640px) 74vw, 320px"
-                priority={i < 2}
-                className="object-cover"
-                onError={(e) => {
-                  // Brand-new admin-created types have no repo asset yet —
-                  // swap in the generic fallback instead of a broken image.
-                  const img = e.currentTarget;
-                  if (!img.src.endsWith(EVENT_TYPE_PHOTO_FALLBACK)) {
-                    img.src = EVENT_TYPE_PHOTO_FALLBACK;
-                  }
-                }}
-              />
-              {/* legibility scrim */}
-              <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-5">
-                <p className="font-serif text-3xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)]">
-                  {t.label}
-                </p>
-                <p className="mt-1.5 text-sm text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-                  {t.description ?? TAGLINES[t.key] ?? ''}
-                </p>
-                {/* "Begin →" appears only on the centered photo — the tap target */}
-                <span
-                  className={`mt-4 inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/15 px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-sm transition-opacity duration-300 ${
-                    isActive ? 'opacity-100' : 'pointer-events-none opacity-0'
-                  }`}
-                >
+              onError={(e) => {
+                // Brand-new admin-created types have no repo asset yet —
+                // swap in the generic fallback instead of a broken image.
+                const img = e.currentTarget;
+                if (!img.src.endsWith(EVENT_TYPE_PHOTO_FALLBACK)) {
+                  img.src = EVENT_TYPE_PHOTO_FALLBACK;
+                }
+              }}
+            />
+            {/* legibility scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/25 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-4">
+              <p className="font-serif text-2xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-3xl">
+                {t.label}
+              </p>
+              <p className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">
+                {t.description ?? TAGLINES[t.key] ?? ''}
+              </p>
+              {enabled ? (
+                <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/15 px-3.5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[11px]">
                   Begin &rarr;
                 </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <p className="mt-5 text-center text-xs text-ink/40">
-        Swipe to explore · tap the centered photo to begin
-      </p>
+              ) : (
+                <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/10 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-sm">
+                  Coming soon
+                </span>
+              )}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -64,3 +64,45 @@ test('unliFree does NOT free Roll: a Roll-over-cap order still bills the Ltd cap
   assert.equal(q.totalPhp, 6000);
   assert.equal(q.capped, true); // Roll tripped its cap
 });
+
+// ── PAPIC_UNLOCK_LTD "free + uncapped Ltd" allowance (owner 2026-07-11) ───────
+// Ltd-tier mirror of the unliFree branch: ltdFree → Roll charge ₱0, Unli untouched.
+
+test('ltdFree: Roll charge collapses to ₱0, Unli still bills', () => {
+  const q = computeCameraQuote({ roll: 8, unlimited: 3 }, 1, RATES, CAPS, {
+    ltdFree: true,
+  });
+  assert.equal(q.rollChargePhp, 0); // freed by the Ltd umbrella
+  assert.equal(q.unlimitedChargePhp, 300); // 3 × ₱100 — charged
+  assert.equal(q.totalPhp, 300);
+  assert.equal(q.rollSubtotalPhp, 240); // "would be" figure preserved for display
+});
+
+test('ltdFree + only Roll → whole order is free (₱0)', () => {
+  const q = computeCameraQuote({ roll: 250, unlimited: 0 }, 1, RATES, CAPS, {
+    ltdFree: true,
+  });
+  assert.equal(q.totalPhp, 0);
+  assert.equal(q.paidCount, 250);
+  assert.equal(q.capped, false); // free, not clamped
+});
+
+test('ltdFree does NOT free Unli: an Unli-over-cap order still bills the Unli cap', () => {
+  // 200 Unli × ₱100 = ₱20,000 → clamps to the ₱10,000 Unli cap even when ltdFree.
+  const q = computeCameraQuote({ roll: 5, unlimited: 200 }, 1, RATES, CAPS, {
+    ltdFree: true,
+  });
+  assert.equal(q.rollChargePhp, 0); // Ltd free
+  assert.equal(q.unlimitedChargePhp, 10000); // Unli cap honored
+  assert.equal(q.totalPhp, 10000);
+  assert.equal(q.capped, true); // Unli tripped its cap
+});
+
+test('both unlocks: ltdFree + unliFree → whole order is ₱0', () => {
+  const q = computeCameraQuote({ roll: 120, unlimited: 90 }, 2, RATES, CAPS, {
+    ltdFree: true,
+    unliFree: true,
+  });
+  assert.equal(q.totalPhp, 0);
+  assert.equal(q.capped, false);
+});

@@ -304,6 +304,11 @@ export const BUNDLE_CHILD_SKUS = Object.freeze({
     'CAMERA_BRIDGE',
     'PAPIC_GUEST',
   ]),
+  // PAPIC_UNLOCK_LTD (owner 2026-07-11) — the Ltd-tier twin at ₱9,000. Grants the
+  // two still-paid Papic add-ons (Kwento/Pabati/Stories are free, Thank-You/Guest
+  // retired). The Ltd capture-free itself is a separate gate (eventLtdFreeViaUnlock
+  // in papic-cameras.ts), not a child SKU. DB source: bundle_components table.
+  PAPIC_UNLOCK_LTD: Object.freeze(['LIVE_WALL', 'CAMERA_BRIDGE']),
 });
 
 // ===========================================================================

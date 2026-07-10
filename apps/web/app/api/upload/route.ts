@@ -16,6 +16,7 @@ import {
   papicCameraOrderPaid,
   papicTierDailyLimit,
   eventUnliFreeViaUnlock,
+  eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 
@@ -341,12 +342,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             admin,
             (seat as { paid_order_id?: string | null }).paid_order_id ?? null,
           );
-          // PAPIC_UNLOCK umbrella (owner 2026-06-26): owning it makes Unli
-          // cameras free + uncapped, so an unpaid Unli seat's presign is granted.
-          // Roll (Ltd) is NOT freed (Unli only). Money-gated: TRUE only on an
-          // ACTIVE PAPIC_UNLOCK order, so a non-owner's paid camera is never freed.
+          // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
+          // non-owner's presign is never freed): PAPIC_UNLOCK (₱15,000) frees Unli;
+          // PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees Ltd (Roll). Each
+          // pass covers only its own tier.
           if (!paid && cameraTier === 'unlimited') {
             paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
+          }
+          if (!paid && cameraTier === 'roll') {
+            paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
           }
         } catch {
           paid = false;

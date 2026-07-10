@@ -61,6 +61,7 @@ const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
   shortlist: 'Browse the bench',
   build: 'Build your team',
+  budget: 'Your budget',
   compare: 'Compare saved builds',
 };
 
@@ -70,12 +71,14 @@ export function ServicesTakeover({
   // 2026-06-15. Not destructured → no unused-var lint, caller API unchanged.
   shortlistSlot,
   buildSlot,
+  budgetSlot,
   compareSlot,
   initialTab = 'shortlist',
 }: {
   eventId: string;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
+  budgetSlot?: ReactNode;
   compareSlot?: ReactNode;
   initialTab?: BudgetBuildTab;
 }) {
@@ -85,6 +88,8 @@ export function ServicesTakeover({
   // Compare is the least-used + longest section → collapsed by default,
   // expandable in place. Selecting/scrolling to Compare auto-expands it.
   const [compareOpen, setCompareOpen] = useState(false);
+  // Budget is a collapsible lens too (calm rail by default; opens on select).
+  const [budgetOpen, setBudgetOpen] = useState(false);
   // Guards the scroll-spy from fighting a programmatic smooth-scroll: while a
   // click/bus jump is animating we pin `active` to the target and ignore spy
   // updates until the scroll settles.
@@ -95,6 +100,7 @@ export function ServicesTakeover({
   const goToSection = useCallback((next: BudgetBuildTab, smooth = true) => {
     setActive(next);
     if (next === 'compare') setCompareOpen(true);
+    if (next === 'budget') setBudgetOpen(true);
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', next);
@@ -122,6 +128,7 @@ export function ServicesTakeover({
     if (t && (BUDGET_BUILD_TABS as readonly string[]).includes(t)) {
       const next = t as BudgetBuildTab;
       if (next === 'compare') setCompareOpen(true);
+      if (next === 'budget') setBudgetOpen(true);
       // Only jump for a non-shortlist target — shortlist is the top of the page
       // and scrolling to it on every load would be pointless jank.
       if (next !== 'shortlist') {
@@ -239,6 +246,18 @@ export function ServicesTakeover({
         <div className="min-w-0 space-y-8 lg:sticky lg:top-4 lg:self-start">
           <ServiceSection tab="build" heading={SECTION_HEADING.build}>
             {buildSlot ?? <SectionStub tab="build" />}
+          </ServiceSection>
+
+          {/* Budget — a compact lens of the full budget surface, right where the
+              spend decisions happen. Collapsible (like Compare) to keep the rail calm. */}
+          <ServiceSection
+            tab="budget"
+            heading={SECTION_HEADING.budget}
+            collapsible
+            open={budgetOpen}
+            onToggle={() => setBudgetOpen((v) => !v)}
+          >
+            {budgetSlot ?? <SectionStub tab="budget" />}
           </ServiceSection>
 
           {/* Compare — collapsed by default (least-used + longest). Expands in

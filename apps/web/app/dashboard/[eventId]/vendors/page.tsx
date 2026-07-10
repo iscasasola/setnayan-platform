@@ -63,6 +63,7 @@ import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import {
   Build3StateControl,
   type AnchorData,
@@ -1048,6 +1049,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         initialTab={initialTab}
         shortlistSlot={shortlistContent}
         buildSlot={buildSlot}
+        budgetSlot={<MerkadoBudgetLens eventId={eventId} />}
         compareSlot={
           <BuildCompare
             eventId={eventId}

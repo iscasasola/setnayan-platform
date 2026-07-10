@@ -23,7 +23,7 @@
  * lock), Compare, and Summary.
  */
 
-import { Bookmark, Hammer, Scale, type LucideIcon } from 'lucide-react';
+import { Bookmark, Hammer, Wallet, Scale, type LucideIcon } from 'lucide-react';
 
 /**
  * The four section tabs of the Services takeover, in order.
@@ -34,7 +34,7 @@ import { Bookmark, Hammer, Scale, type LucideIcon } from 'lucide-react';
  * whole assemble→lock loop happens in one place. `BuildLocked` renders below
  * `Build3StateControl` in the Build slot.
  */
-export const BUDGET_BUILD_TABS = ['shortlist', 'build', 'compare'] as const;
+export const BUDGET_BUILD_TABS = ['shortlist', 'build', 'budget', 'compare'] as const;
 export type BudgetBuildTab = (typeof BUDGET_BUILD_TABS)[number];
 
 /**
@@ -60,6 +60,11 @@ export const TAB_META: Record<
     label: 'Build',
     icon: Hammer,
     blurb: 'Assemble a plan that fits your budget, date and guest count.',
+  },
+  budget: {
+    label: 'Budget',
+    icon: Wallet,
+    blurb: 'Your budget, allotments and every vendor payment — in one place.',
   },
   compare: {
     label: 'Compare',

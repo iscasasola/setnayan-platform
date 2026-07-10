@@ -9,7 +9,9 @@ import { OpenShopWizard } from './_components/open-shop-wizard';
  * /open-shop — the ONE smart entry point behind every "Register your business"
  * CTA + the vendor signup landing (owner 2026-07-03). Routes by state:
  *
- *   • logged OUT                     → /signup?as=vendor (account + shop)
+ *   • logged OUT                     → /login?next=/open-shop&as=vendor
+ *     (login-first so we can check the account; the rail's "New? Create your
+ *     vendor account" path preserves as=vendor → /signup?as=vendor)
  *   • logged in, shop with a NAME    → /vendor-dashboard/shop
  *   • logged in, no shop             → the onboarding wizard (mode 'create')
  *   • logged in, never-named shop    → the wizard (mode 'complete' — a fresh
@@ -33,11 +35,12 @@ export default async function OpenShopPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  // Logged out → create a vendor account, then return here to finish the
-  // basics. `as=vendor` preselects the vendor radio; `next` closes the loop
-  // back to /open-shop (signup already defaults fresh vendors here, but the
-  // explicit next also covers the already-logged-in ?as=vendor path).
-  if (!user) redirect('/signup?as=vendor&next=' + encodeURIComponent('/open-shop'));
+  // Logged out → login FIRST so we can check the account before doing anything
+  // (owner 2026-07-10). `next` closes the loop back to /open-shop; `as=vendor`
+  // rides through to the rail's signup link so a brand-new vendor who taps
+  // "Create your vendor account" still lands on /signup?as=vendor (radio
+  // preselected). Existing vendors just sign in and return here.
+  if (!user) redirect('/login?next=' + encodeURIComponent('/open-shop') + '&as=vendor');
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
   const { data: owned } = await supabase

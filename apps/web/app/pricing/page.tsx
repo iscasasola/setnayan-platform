@@ -135,9 +135,11 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Your website',
     items: [
-      { code: 'COUPLE_WEBSITE_PRO' },
+      // COUPLE_WEBSITE_PRO umbrella deactivated/unbundled 2026-07-10 — Editorial +
+      // Reveal now sell standalone (row auto-drops via resolvedGroups when inactive).
       { code: 'EDITORIAL_PRO' },
       { code: 'STD_PREMIUM_OPENINGS' }, // Cinematic Reveal
+      { code: 'EVENT_SUBDOMAIN' }, // Custom subdomain yourname.setnayan.com ₱999/year (owner 2026-07-10)
       { code: 'WEBSITE_UPGRADE', gate: true }, // only if active in the catalog
     ],
   },

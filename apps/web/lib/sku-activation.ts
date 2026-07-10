@@ -52,6 +52,32 @@ export type ActivationContext = {
 
 type ActivationHook = (ctx: ActivationContext) => Promise<void>;
 
+/**
+ * Stamp a 365-day access window on the order (owner 2026-07-10 · the ₱999/yr
+ * Custom Subdomain SKUs). Mirrors the vendor-branch add-on hook: `orders.expires_at`
+ * is the billing window read by the resolver RPC (resolve_event_subdomain) and the
+ * renewal-reminder cron. Billed as a manual prepaid annual block — no auto-charge;
+ * the gateway webhook will later call this same seam on `payment.succeeded`.
+ * Idempotent: a re-approval re-stamps the same now+365d window; a genuine renewal
+ * extends access from the new approval. (Function declaration → hoisted, so the
+ * frozen EXACT_HOOKS map below can reference it.)
+ */
+async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<void> {
+  const now = Date.now();
+  const expiresAt = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: expiresAt, updated_at: new Date(now).toISOString() })
+    .eq('order_id', ctx.orderId);
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: { service_key: ctx.serviceKey, expires_at: expiresAt },
+  });
+}
+
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // 'concierge_complete' (TODAYS_FOCUS) → wedding-anchored concierge state machine.
@@ -79,6 +105,18 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
         event_id: ctx.eventId,
       });
     }
+  },
+
+  // 'EVENT_SUBDOMAIN' / 'vendor_subdomain' → the ₱999/yr Custom Subdomain (owner
+  // 2026-07-10). Stamp a 365-day window on the order; the resolver RPC + renewal
+  // cron read `orders.expires_at`. Ownership itself gates the feature (an active
+  // paid order) — no separate flag. Provisioning (wildcard DNS + routing) ships
+  // with the middleware branch; the subdomain label is the event's existing slug.
+  EVENT_SUBDOMAIN: async (ctx) => {
+    await stampAnnualSubscriptionWindow(ctx);
+  },
+  vendor_subdomain: async (ctx) => {
+    await stampAnnualSubscriptionWindow(ctx);
   },
 
   // 'SETNAYAN_AI' → flat per-event boolean, idempotent.

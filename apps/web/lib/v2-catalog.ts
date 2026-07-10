@@ -31,7 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * days", matching the vendor 28-day billing cadence. Both the number AND the
  * unit come from the catalog row — never hardcoded.
  */
-export type BillingPeriod = 'one_time' | 'per_28d' | 'per_day';
+export type BillingPeriod = 'one_time' | 'per_28d' | 'per_day' | 'per_year';
 
 export type V2CustomerSku = {
   service_code: string;
@@ -141,6 +141,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   CAMERA_BRIDGE:         'partial',  // ₱499 (reprice 2026-07-08 · migration 20270711042075) · HELD "In build" — needs native iOS/Android + DSLR SDK
   LIVE_WALL:             'partial',  // ₱2,499 · HELD "In build" — WebSocket display surface not built
   CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
+  EVENT_SUBDOMAIN:       'partial',  // ₱999/year · yourname.setnayan.com (owner 2026-07-10) · HELD "In build" — needs subdomain provisioning (wildcard DNS + subdomain-aware routing); ~₱0 COGS
 };
 
 /**
@@ -377,6 +378,9 @@ const BILLING_PERIOD_SUFFIX: Record<BillingPeriod, string> = {
   // Per event-day charge (Patiktok ₱1,499/day) — same event-day model as Panood;
   // the amount is flat per purchase, the couple activates it per day.
   per_day: ' / day',
+  // Annual prepaid block (Custom Subdomain ₱999/year · owner 2026-07-10) — manual
+  // renewal reminder before expiry, no auto-charge (mirrors the vendor prepaid blocks).
+  per_year: ' / year',
 };
 
 /**

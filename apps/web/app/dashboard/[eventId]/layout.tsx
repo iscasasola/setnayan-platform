@@ -10,6 +10,7 @@ import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
+import { countGuestsByEvent } from '@/lib/guests';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
@@ -158,6 +159,7 @@ export default async function EventLayout({ children, params }: Props) {
     unreadMessages,
     locale,
     switcherData,
+    guestCount,
   ] = await Promise.all([
     getDashboardShell(user.id),
     (async () => {
@@ -215,6 +217,10 @@ export default async function EventLayout({ children, params }: Props) {
       console.error('[AccountSwitcher] data fetch failed:', err);
       return minimalSwitcherFallback;
     }),
+    // Guest head-count → the sidebar Guests badge. Lean HEAD count, fully
+    // fail-soft (returns null on any error → the badge is simply omitted, never
+    // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
+    countGuestsByEvent(supabase, eventId).catch(() => null),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -346,6 +352,8 @@ export default async function EventLayout({ children, params }: Props) {
             websiteEnabled={websiteEnabled}
             monogramEnabled={monogramEnabled}
             slug={(event.slug as string | null) ?? null}
+            guestCount={guestCount}
+            unreadMessages={unreadMessages}
           />
         }
         topBar={topBar}

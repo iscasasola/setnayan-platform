@@ -307,7 +307,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]",
-    label: "Home",
+    // Renamed Home → Overview (owner-approved product naming; design prototype).
+    label: "Overview",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -319,7 +320,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]",
-    label: "Home",
+    // Renamed Home → Overview (owner-approved product naming; design prototype).
+    label: "Overview",
     labelKind: "literal",
     iconKind: "custom",
     lucideName: null,
@@ -343,7 +345,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    label: "Explore",
+    // Renamed Explore → Merkado (owner-approved product naming; design
+    // prototype). Slot key + route unchanged.
+    label: "Merkado",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -379,7 +383,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    label: "Explore",
+    // Renamed Explore → Merkado (owner-approved product naming; design
+    // prototype). Slot key + route unchanged.
+    label: "Merkado",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",

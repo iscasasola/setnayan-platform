@@ -30,12 +30,12 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱30', // Papic Ltd per camera per day (floor of the retail range)
   '₱100', // Papic Unli per camera per day · flat per-token price
   '₱299', // Kwento
-  '₱1,299', // Camera Bridge · Pabati (per day)
+  '₱1,299', // Camera Bridge · Pabati (per day) · Live Studio Mobile (per day)
   '₱1,499', // Cinematic Reveal · Patiktok
   '₱1,999', // Animated Monogram
   '₱2,000', // Stories (per-day cap)
-  '₱2,499', // Pakanta · 3D Plan · Thank You Video · Live Photo Wall (per day) · Pro vendor 28-day
-  '₱3,499', // Live Studio multicam (one-time) · Editorial PRO
+  '₱2,499', // Pakanta · 3D Plan · Thank You Video · Live Photo Wall (per day) · Live Studio Desktop (per day) · Pro vendor 28-day
+  '₱3,499', // Editorial PRO (Live Studio multicam one-time retired 2026-07-08 → per-day device tiers)
   '₱4,999', // Couple Website PRO (upper à-la-carte bound)
   '₱15,000', // Papic Ltd per-day cap
 

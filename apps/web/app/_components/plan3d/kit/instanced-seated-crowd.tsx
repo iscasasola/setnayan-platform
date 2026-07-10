@@ -62,6 +62,7 @@ import {
   STATUS_RING_ROT_X,
   type FigureQuality,
 } from './figure';
+import { MANNEQUIN_SURFACE } from './outfits';
 
 /** One seated occupant to draw via the instanced crowd. */
 export type SeatedInstance = {
@@ -223,7 +224,10 @@ export function InstancedSeatedCrowd({
           castShadow={castShadow}
           frustumCulled={false}
         >
-          <meshStandardMaterial color="#ffffff" roughness={0.5} metalness={0.02} />
+          {/* Satin params from the SINGLE SOURCE (MANNEQUIN_SURFACE) — MUST
+              match mannequinMaterial or a neutral crowd figure diverges from an
+              individual neutral figure (pixel-identity break). */}
+          <meshStandardMaterial color="#ffffff" {...MANNEQUIN_SURFACE} />
         </instancedMesh>
       ))}
       {hasRing ? (

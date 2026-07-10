@@ -1,10 +1,12 @@
 'use client';
 
 /**
- * kit/figure — the articulated "Sims-like" figure every 3D seat-plan surface
- * shares (owner-locked direction; replaced the cylinder+sphere GuestToken /
- * Walker tokens on all three surfaces — homepage demo, couple lab, and the
- * public guest venue walk as of Fable slice 7). One rig, five poses
+ * kit/figure — the articulated one-piece "blob" figure every 3D seat-plan
+ * surface shares (owner-locked 2026-07-09, ref: the Meccha one-piece white
+ * character — a faceless, palette-tinted, soft mannequin: no neck, no feet,
+ * chunky fused limbs, one continuous form). Replaced the cylinder+sphere
+ * GuestToken / Walker tokens on all three surfaces — homepage demo, couple
+ * lab, and the public guest venue walk (Fable slice 7). One rig, five poses
  * (stand · walk · run · sit · dance):
  *
  *   group hierarchy: pelvis → torso → head, with two 2-segment arms
@@ -32,12 +34,12 @@
  *
  * SELFIE PATH: a `photoUrl` mounts the EXISTING `GuestPhotoAvatar` billboard
  * disc (shared refcounted texture cache — NOT re-implemented here) INSTEAD OF
- * the skull/face/hair — the same "photo disc replaces the head" treatment the
+ * the blank ball head — the same "photo disc replaces the head" treatment the
  * pre-kit tokens used. It must replace, not overlay: the disc is a transparent
- * billboard, so an opaque skull behind it wins the depth test and blanks the
- * photo across the whole silhouette. Without a photo, the drawn face decal
- * (kit/face.ts) curves over the head and the status colour renders as a small
- * floor ring instead.
+ * billboard, so an opaque sphere behind it wins the depth test and blanks the
+ * photo across the whole silhouette. Without a photo the head is a single
+ * featureless sphere (no face, no hair — the blob) and the status colour
+ * renders as a small floor ring instead.
  */
 
 import { memo, useEffect, useMemo, useRef } from 'react';
@@ -595,12 +597,12 @@ export const Figure = memo(function Figure({
             </group>
           ))}
 
-          {/* ── Head: selfie disc OR skull + drawn face + hair. The photo path
-              REPLACES the head meshes (the pre-kit token treatment): the disc
-              is a transparent billboard, so an opaque skull sphere behind it
-              would win the depth test and blank the photo across its whole
-              silhouette — the sphere, face decal and hair only exist on the
-              drawn-face branch. ── */}
+          {/* ── Head: selfie disc OR the blank ball head. The photo path
+              REPLACES the head sphere (the pre-kit token treatment): the disc
+              is a transparent billboard, so an opaque sphere behind it would
+              win the depth test and blank the photo across its whole
+              silhouette. The no-photo branch is a single featureless sphere —
+              no face, no hair (the one-piece blob, owner-locked). ── */}
           <group ref={(el) => void (groups.current.head = el)} position={[0, NECK_Y, 0]}>
             <group position={[0, HEAD_LIFT, 0]}>
               {spec.photoUrl ? (

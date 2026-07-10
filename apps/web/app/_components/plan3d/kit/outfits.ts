@@ -82,10 +82,6 @@ export const NEUTRAL_GEO = latheProfile([
   [0.135, -0.02],
 ]);
 
-/** Butterfly sleeve: a small sphere the renderer flattens via mesh scale
- *  (one shared buffer; the terno's signature peaks come from placement). */
-export const SLEEVE_GEO = new THREE.SphereGeometry(0.085, 10, 8);
-
 /** The shell geometry for an outfit. Barong wears the suit silhouette (it IS
  *  a suit-shaped garment — only cloth + texture differ); filipiniana wears
  *  the gown shell (sleeves are added by the renderer as separate meshes).
@@ -426,19 +422,28 @@ export function skinMaterial(color: string): THREE.MeshStandardMaterial {
 
 const mannequinMats = new Map<string, THREE.MeshStandardMaterial>();
 
-/** 2026-07-08 AVATAR PIVOT (owner blueprint): the figure is a blank glossy
- *  mannequin — pure white #FFFFFF default at LOW roughness (the "glossy 3D
- *  canvas" of the spec), tintable via a flat colour so surfaces can re-skin
- *  it dynamically (mood-board tints, future camo/theme maps). One cached
- *  material per tint. */
+/**
+ * The one-piece blob's SATIN surface params — SINGLE SOURCE (2026-07-10
+ * completeness audit). The individual figure (`mannequinMaterial` below) and
+ * the instanced seated crowd (`instanced-seated-crowd.tsx`, an inline
+ * `meshStandardMaterial`) MUST share these numbers or a neutral crowd figure
+ * renders differently from an individual neutral figure — the pixel-identity
+ * guarantee breaks. Both now read this constant, so they can't drift.
+ * One-piece pass (2026-07-09): satin, not gloss — the old 0.18 gloss threw a
+ * hard specular on every mesh-intersection crease and made the blob read as
+ * plates; the reference model is a soft satin one-piece.
+ */
+export const MANNEQUIN_SURFACE = { roughness: 0.5, metalness: 0.02 } as const;
+
+/** 2026-07-08 AVATAR PIVOT (owner blueprint): the figure is a blank
+ *  mannequin — pure white #FFFFFF default, tintable via a flat colour so
+ *  surfaces can re-skin it dynamically (mood-board tints, future theme maps).
+ *  One cached material per tint. Satin surface from `MANNEQUIN_SURFACE`. */
 export function mannequinMaterial(tint?: string | null): THREE.MeshStandardMaterial {
   const color = tint && /^#[0-9a-fA-F]{6}$/.test(tint) ? tint : '#ffffff';
   let m = mannequinMats.get(color);
   if (!m) {
-    // One-piece pass (2026-07-09): satin, not gloss — the hard specular of the
-    // old 0.18 highlighted every mesh-intersection crease and made the blob
-    // read as plates; the reference model is a soft satin one-piece.
-    m = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.02 });
+    m = new THREE.MeshStandardMaterial({ color, ...MANNEQUIN_SURFACE });
     mannequinMats.set(color, m);
   }
   return m;

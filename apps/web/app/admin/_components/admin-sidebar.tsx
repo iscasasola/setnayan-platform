@@ -781,14 +781,20 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       {
-        // Catalog Studio shell + first tab (Money split 2026-07-10). NO
-        // matchPrefix:'/admin/pricing' — the shell path equals this tab's own
-        // legacy route, so an exact-equal matchPrefix would light this row on
-        // every ?tab sibling and (longest-match wins) steal their lit-state.
+        // Catalog Studio shell + first tab (Money split 2026-07-10). The shell
+        // path /admin/pricing equals this tab's own legacy route, so the
+        // active-state needs care: matchesPath defaults an ABSENT matchPrefix
+        // to the href's PATHNAME (/admin/pricing), which then prefix-matches
+        // every ?tab sibling and steals their highlight. Setting matchPrefix to
+        // the full QUERY href defeats that — a matchPrefix with '?' can never
+        // prefix-match a query-less pathname, so only the query-aware hrefMatch
+        // (tab===pricing) lights this row. (Verified by the Money-split
+        // adversarial review; the earlier "drop the matchPrefix" note was wrong.)
         key: 'pricing',
         label: 'Pricing',
         href: '/admin/pricing?tab=pricing',
         icon: DollarSign,
+        matchPrefix: '/admin/pricing?tab=pricing',
       },
       {
         // Custom-tier composer (VENDOR_TIERS §11) — dial a negotiated Custom
@@ -853,14 +859,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
       // ── SETTINGS TAIL — system + personal config, bottom of the collapsible.
       {
-        // Settings Studio shell + first tab (Money split 2026-07-10). DROP the
-        // '/admin/settings' matchPrefix — it would exact-match the shell and
-        // steal every ?tab sibling, and its startsWith arm would over-claim the
-        // standalone /admin/settings/payment-methods + demo-mode routes.
+        // Settings Studio shell + first tab (Money split 2026-07-10). Same
+        // active-state subtlety as the Pricing row: an ABSENT matchPrefix would
+        // default to the pathname /admin/settings and steal every ?tab sibling
+        // (and over-claim the standalone /admin/settings/payment-methods +
+        // demo-mode routes via the startsWith arm). The full QUERY matchPrefix
+        // can't prefix-match a query-less pathname, so only the query-aware
+        // hrefMatch (tab===settings) lights this row. (Money-split review.)
         key: 'settings',
         label: 'Settings',
         href: '/admin/settings?tab=settings',
         icon: Settings,
+        matchPrefix: '/admin/settings?tab=settings',
       },
       {
         // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO

@@ -511,6 +511,19 @@ test.describe('serpentine chain snap', () => {
     expect(serpentineChainSnap({ x: 0, y: 0 }, [], 36)).toBeNull();
   });
 
+  test('a hand-loose drag needs the generous editor tolerance, not the 36px default', () => {
+    // Root cause of "serpentines don't link on the end like the long tables":
+    // a wedge's chain candidates sit a whole footprint from the drag centre, so
+    // the bare 36px default is unhittable by hand. The editor now passes a
+    // footprint-scaled catch (like rectChainSnap). Prove a realistic ~44px-off
+    // drag MISSES at 36 but CATCHES at the generous tolerance.
+    const candidate = serpentineChainSnap({ x: B.x + 150, y: B.y + 40 }, [B], 200);
+    expect(candidate).not.toBeNull();
+    const looseDrag = { x: candidate!.x + 44, y: candidate!.y }; // 44px off the exact join
+    expect(serpentineChainSnap(looseDrag, [B], 36)).toBeNull(); // old behaviour: no link
+    expect(serpentineChainSnap(looseDrag, [B], 64)).not.toBeNull(); // fixed: snaps
+  });
+
   test('chairs clear each other across every junction type', () => {
     // World chair centres of a wedge = geometry seats, scaled + rotated + offset.
     const chairsWorld = (w: { x: number; y: number; rot: number }) => {

@@ -14,14 +14,15 @@
  * arbitrary-variant selectors on the parent `[data-sidebar-collapsed="1"]`
  * — no prop drilling.
  *
- * ACTIVE TREATMENT: 3px left accent bar in --m-nav-active (Rich Mulberry
- * WINE) + tint background (--m-nav-active-soft) + ink text color + wine icon.
- * Inactive: slate text + slate icon + transparent bg. Hover: paper-3 tint.
- * The chrome active-state reads in wine (not the champagne-gold accent) per
- * the "Energy, not skin" reskin so the rail matches the wine content behind
- * it; gold stays the secondary accent (eyebrows · chips · "new" badges).
- * Matches the v2.1 editorial restraint — no heavy fills, no shadows on
- * active state.
+ * ACTIVE TREATMENT (dark-panel chrome · "Energy, not skin" 2026-07-09): the
+ * sidebar is a permanently-dark obsidian island, so every row reads on the
+ * `--m-sidebar-*` token set (globals.css). Active = 3px left accent bar +
+ * accent wash (`--m-sidebar-accent` / `-soft`) + near-white label
+ * (`--m-sidebar-fg`) + lighter accent icon (`--m-sidebar-accent-fg`). Inactive:
+ * soft-light label + icon (`--m-sidebar-fg-soft`), transparent bg. Hover:
+ * `--m-sidebar-hover` wash. The accent is WINE for couple + vendor and VIOLET
+ * for admin — driven by `.sn-sidebar--violet` on the <aside>, which flips
+ * `--m-sidebar-accent`; gold stays the secondary accent (eyebrows · chips).
  *
  * BADGE TONES (NavBadgeTone union from types.ts):
  *   - 'neutral' — stone tint (generic count)
@@ -197,30 +198,30 @@ function SidebarRow({
         href={item.href}
         aria-current={active ? 'page' : undefined}
         title={item.description ?? item.label}
-        className={`relative flex items-center gap-3 rounded-md font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)] ${
+        className={`relative flex items-center gap-3 rounded-md font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)] ${
           nested
             ? 'min-h-[40px] py-2 pl-9 pr-3 text-[13px]'
             : 'min-h-[44px] px-3 py-2.5 text-sm'
         }${active ? ' sn-bounce' : ''}`}
         style={{
-          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          background: active ? 'var(--m-nav-active-soft)' : 'transparent',
+          color: active ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
+          background: active ? 'var(--m-sidebar-accent-soft)' : 'transparent',
           opacity: dim ? 0.5 : 1,
-          outlineColor: 'var(--m-nav-active)',
+          outlineColor: 'var(--m-sidebar-accent)',
         }}
       >
         {active ? (
           <span
             aria-hidden
             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
-            style={{ background: 'var(--m-nav-active)' }}
+            style={{ background: 'var(--m-sidebar-accent)' }}
           />
         ) : null}
         <Icon
           aria-hidden
           className={`${nested ? 'h-5 w-5' : 'h-6 w-6'} shrink-0`}
           strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
+          style={{ color: active ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
         />
         {/* Label hides when sidebar collapsed via parent shell's data attr.
             Arbitrary-variant selector keeps this a server component. */}
@@ -252,18 +253,18 @@ function ParentRow({ item, inSection }: { item: NavItem; inSection: boolean }) {
     <Link
       href={item.href}
       title={item.description ?? item.label}
-      className="relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]"
+      className="relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)]"
       style={{
-        color: inSection ? 'var(--m-ink)' : 'var(--m-slate)',
+        color: inSection ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
         background: 'transparent',
-        outlineColor: 'var(--m-nav-active)',
+        outlineColor: 'var(--m-sidebar-accent)',
       }}
     >
       <Icon
         aria-hidden
         className="h-6 w-6 shrink-0"
         strokeWidth={1.75}
-        style={{ color: inSection ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
+        style={{ color: inSection ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
       />
       <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">
         {item.label}
@@ -275,7 +276,7 @@ function ParentRow({ item, inSection }: { item: NavItem; inSection: boolean }) {
         aria-hidden
         className="ml-auto h-3.5 w-3.5 shrink-0 [[data-sidebar-collapsed='1']_&]:hidden"
         strokeWidth={2}
-        style={{ color: 'var(--m-slate-2)' }}
+        style={{ color: 'var(--m-sidebar-fg-muted)' }}
       />
     </Link>
   );
@@ -302,25 +303,25 @@ function TabChildRow({
         type="button"
         onClick={onSelect}
         title={item.description ?? item.label}
-        className={`relative flex w-full min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]${active ? ' sn-bounce' : ''}`}
+        className={`relative flex w-full min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)]${active ? ' sn-bounce' : ''}`}
         style={{
-          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          background: active ? 'var(--m-nav-active-soft)' : 'transparent',
-          outlineColor: 'var(--m-nav-active)',
+          color: active ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
+          background: active ? 'var(--m-sidebar-accent-soft)' : 'transparent',
+          outlineColor: 'var(--m-sidebar-accent)',
         }}
       >
         {active ? (
           <span
             aria-hidden
             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
-            style={{ background: 'var(--m-nav-active)' }}
+            style={{ background: 'var(--m-sidebar-accent)' }}
           />
         ) : null}
         <Icon
           aria-hidden
           className="h-5 w-5 shrink-0"
           strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
+          style={{ color: active ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
         />
         <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
       </button>
@@ -358,8 +359,10 @@ function Badge({
         aria-label={label ?? `${count} new`}
         className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none [[data-sidebar-collapsed='1']_&]:hidden"
         style={{
-          background: 'rgba(201, 107, 58, 0.15)',
-          color: 'var(--m-orange-2)',
+          // Composites over the DARK panel now — lift to a lighter gold text on
+          // a slightly stronger gold wash so the count stays legible on obsidian.
+          background: 'color-mix(in srgb, var(--m-orange) 22%, transparent)',
+          color: 'var(--m-orange-3)',
         }}
       >
         {display}

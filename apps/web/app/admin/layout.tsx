@@ -208,10 +208,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="app-surface">
       <SidebarShell
+        accent="violet"
         sidebarHeader={
           <DoorwaySidebarHeader
             label="Setnayan HQ"
-            accentColor="var(--a-violet)"
+            accentColor="var(--m-sidebar-accent)"
             switcherData={switcherData}
           />
         }

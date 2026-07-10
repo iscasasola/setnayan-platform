@@ -719,6 +719,67 @@ html.subnav-docked [data-shell-main] {
    * value explicit + themeable (same 16rem, so zero visual change).
    */
   --sidebar-width: 16rem;
+
+  /*
+   * ── Dark sidebar chrome ──────────────────────────────────────────────────
+   * "Energy, not skin" reskin (2026-07-09 prototypes · setnayan-{overview,
+   * vendor,admin}-energy.html): the DESKTOP sidebar is a permanently-dark
+   * obsidian island — dark in BOTH app themes (the app is light-locked today,
+   * but these live at :root so the panel stays dark regardless of any future
+   * theme flip; the content area still follows the app theme). Values reuse the
+   * prototype's obsidian panel scale; the accent reuses the wine/violet doorway
+   * family (brightened for legibility ON dark — the light --m-nav-active #5C2542
+   * / --a-violet #6D28D9 are too dark against the panel).
+   *
+   * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
+   * sidebar-section · admin-sidebar-menu) + the sidebar-owned chrome
+   * (doorway-sidebar-header · vendor identity card + footer · sidebar-shell).
+   * The `.sn-sidebar` scope below ALSO remaps the base --m-* tokens that the
+   * shared AccountSwitcher TRIGGER consumes (it renders here but its panel is
+   * portaled to <body>, outside this scope, so the panel stays light).
+   */
+  --m-sidebar-bg:        #1A1E25;  /* obsidian panel */
+  --m-sidebar-bg-2:      #22262E;  /* elevated tiles — switcher · identity · footer chips */
+  --m-sidebar-fg:        #F1EFEA;  /* near-white — active label · wordmark · primary text */
+  --m-sidebar-fg-soft:   #C8C6C1;  /* inactive nav labels · icons */
+  --m-sidebar-fg-muted:  #9AA0A8;  /* section labels · chevrons · sub-text (contrast-checked ≥5:1) */
+  --m-sidebar-line:      #2B2F38;  /* borders / dividers */
+  --m-sidebar-hover:     #262B34;  /* hover-row wash */
+
+  /* Per-doorway ACTIVE accent — default WINE (couple + vendor); admin flips to
+   * violet via `.sn-sidebar--violet`. `-fg` is the lighter tint used for the
+   * active icon + the wordmark "YAN" span; `-soft` is the active-row wash. */
+  --m-sidebar-accent:      #B23E67;  /* wine-bright on dark */
+  --m-sidebar-accent-fg:   #F2B9CC;  /* active icon · wordmark accent */
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 28%, transparent);
+  --m-sidebar-accent-violet:    #A78BFA;  /* admin active bar/ring — violet-bright on dark */
+  --m-sidebar-accent-violet-fg: #CBB1EC;  /* admin active icon · wordmark accent */
+}
+
+/*
+ * `.sn-sidebar` — applied to the desktop sidebar <aside> (sidebar-shell.tsx).
+ * Paints the obsidian panel and remaps the base --m-* tokens that the ONE
+ * shared descendant we don't restyle by hand — the AccountSwitcher trigger row
+ * — reads from, so the whole panel goes dark from a single place. The portaled
+ * switcher PANEL renders in <body> (outside this subtree) and inherits :root, so
+ * it stays light. `--violet` swaps the doorway accent for the admin doorway.
+ */
+.sn-sidebar {
+  background: var(--m-sidebar-bg);
+  color: var(--m-sidebar-fg);
+  --m-paper:   var(--m-sidebar-hover);
+  --m-paper-2: var(--m-sidebar-bg-2);
+  --m-line:    var(--m-sidebar-line);
+  --m-ink:     var(--m-sidebar-fg);
+  --m-slate:   var(--m-sidebar-fg-soft);
+  --m-slate-2: var(--m-sidebar-fg-muted);
+  --m-slate-3: var(--m-sidebar-fg-muted);
+  --m-nav-active:      var(--m-sidebar-accent);
+  --m-nav-active-soft: var(--m-sidebar-accent-soft);
+}
+.sn-sidebar--violet {
+  --m-sidebar-accent:    var(--m-sidebar-accent-violet);
+  --m-sidebar-accent-fg: var(--m-sidebar-accent-violet-fg);
 }
 
 /*

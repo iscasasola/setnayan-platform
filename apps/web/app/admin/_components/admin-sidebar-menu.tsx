@@ -127,22 +127,22 @@ export function AdminSidebarMenu({ menu, pathname, collapsedWhenActive = false }
       {/* Parent row — the Link owns the whole row (navigates to the menu hub);
           the chevron TOGGLE is an absolutely-positioned sibling button over the
           right edge (valid HTML — never a <button> nested inside the <a>). */}
-      <div className="relative flex items-center rounded-md transition-colors hover:bg-[var(--m-paper)]">
+      <div className="relative flex items-center rounded-md transition-colors hover:bg-[var(--m-sidebar-hover)]">
         <Link
           href={menu.href}
           aria-current={inSection ? 'page' : undefined}
           title={menu.description ?? menu.label}
           className="flex min-h-[44px] flex-1 items-center gap-3 rounded-md py-2.5 pl-3 pr-9 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 [[data-sidebar-collapsed='1']_&]:pr-3"
           style={{
-            color: inSection ? 'var(--m-ink)' : 'var(--m-slate)',
-            outlineColor: 'var(--m-nav-active)',
+            color: inSection ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
+            outlineColor: 'var(--m-sidebar-accent)',
           }}
         >
           <Icon
             aria-hidden
             className="h-6 w-6 shrink-0"
             strokeWidth={1.75}
-            style={{ color: inSection ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
+            style={{ color: inSection ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
           />
           <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">
             {menu.label}
@@ -157,14 +157,14 @@ export function AdminSidebarMenu({ menu, pathname, collapsedWhenActive = false }
           aria-expanded={open}
           aria-controls={panelId}
           aria-label={`${open ? 'Collapse' : 'Expand'} ${menu.label}`}
-          className="absolute inset-y-0 right-0 flex items-center rounded-md px-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper-2)] [[data-sidebar-collapsed='1']_&]:hidden"
-          style={{ outlineColor: 'var(--m-nav-active)' }}
+          className="absolute inset-y-0 right-0 flex items-center rounded-md px-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-bg-2)] [[data-sidebar-collapsed='1']_&]:hidden"
+          style={{ outlineColor: 'var(--m-sidebar-accent)' }}
         >
           <Chevron
             aria-hidden
             className="h-3.5 w-3.5 shrink-0"
             strokeWidth={2}
-            style={{ color: 'var(--m-slate-2)' }}
+            style={{ color: 'var(--m-sidebar-fg-muted)' }}
           />
         </button>
       </div>
@@ -203,26 +203,26 @@ function NestedRow({ item, active }: { item: NavItem; active: boolean }) {
         href={item.href}
         aria-current={active ? 'page' : undefined}
         title={item.description ?? item.label}
-        className={`relative flex min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]${active ? ' sn-bounce' : ''}`}
+        className={`relative flex min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)]${active ? ' sn-bounce' : ''}`}
         style={{
-          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          background: active ? 'var(--m-nav-active-soft)' : 'transparent',
+          color: active ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
+          background: active ? 'var(--m-sidebar-accent-soft)' : 'transparent',
           opacity: dim ? 0.5 : 1,
-          outlineColor: 'var(--m-nav-active)',
+          outlineColor: 'var(--m-sidebar-accent)',
         }}
       >
         {active ? (
           <span
             aria-hidden
             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
-            style={{ background: 'var(--m-nav-active)' }}
+            style={{ background: 'var(--m-sidebar-accent)' }}
           />
         ) : null}
         <Icon
           aria-hidden
           className="h-5 w-5 shrink-0"
           strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
+          style={{ color: active ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
         />
         <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">
           {item.label}
@@ -262,7 +262,7 @@ function Badge({
       <span
         aria-label={label ?? `${count} new`}
         className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none [[data-sidebar-collapsed='1']_&]:hidden"
-        style={{ background: 'rgba(201, 107, 58, 0.15)', color: 'var(--m-orange-2)' }}
+        style={{ background: 'color-mix(in srgb, var(--m-orange) 22%, transparent)', color: 'var(--m-orange-3)' }}
       >
         {display}
       </span>

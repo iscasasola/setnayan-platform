@@ -468,8 +468,8 @@ function VendorIdentityCard({
     <div
       className="mx-2 mb-2 flex items-center gap-3 overflow-hidden rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
       style={{
-        background: 'var(--m-paper)',
-        borderColor: 'var(--m-line)',
+        background: 'var(--m-sidebar-bg-2)',
+        borderColor: 'var(--m-sidebar-line)',
         // Photography-blue secondary accent (vendor doorway) — a thin left rail
         // so the identity tile reads as the prototype's blue business switcher.
         boxShadow: 'inset 3px 0 0 var(--v-blue)',
@@ -486,19 +486,19 @@ function VendorIdentityCard({
         />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+        <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-sidebar-fg)' }}>
           {displayName}
         </p>
         {isVerified ? (
           <p
             className="mt-0.5 flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--m-sage-deep)' }}
+            style={{ color: 'var(--m-sage)' }}
           >
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
             Verified
           </p>
         ) : (
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-sidebar-fg-muted)' }}>
             Unverified
           </p>
         )}
@@ -614,8 +614,8 @@ export function VendorSidebarFooter({
       {/* Plan chip — whole row links to the Plan & tokens hub */}
       <Link
         href="/vendor-dashboard/subscription"
-        className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-paper)]"
-        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+        className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-sidebar-hover)]"
+        style={{ background: 'var(--m-sidebar-bg-2)', borderColor: 'var(--m-sidebar-line)' }}
       >
         <span
           className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
@@ -628,26 +628,26 @@ export function VendorSidebarFooter({
           <Zap aria-hidden className="h-3 w-3" strokeWidth={2} />
           {tierLabel}
         </span>
-        <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+        <span className="text-xs" style={{ color: 'var(--m-sidebar-fg-soft)' }}>
           Plan &amp; tokens
         </span>
         <ChevronRight
           aria-hidden
           className="ml-auto h-3.5 w-3.5 shrink-0"
           strokeWidth={2}
-          style={{ color: 'var(--m-ink)' }}
+          style={{ color: 'var(--m-sidebar-fg)' }}
         />
       </Link>
 
       {/* Token balance row — also lands on the unified Plan & tokens hub */}
       <Link
         href="/vendor-dashboard/subscription"
-        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-paper)]"
-        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-sidebar-hover)]"
+        style={{ background: 'var(--m-sidebar-bg-2)', borderColor: 'var(--m-sidebar-line)', color: 'var(--m-sidebar-fg-soft)' }}
       >
         <Coins aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
         <span>Your tokens</span>
-        <span className="ml-auto font-semibold" style={{ color: 'var(--m-ink)' }}>
+        <span className="ml-auto font-semibold" style={{ color: 'var(--m-sidebar-fg)' }}>
           {numberFormat.format(tokenBalance)}
         </span>
       </Link>

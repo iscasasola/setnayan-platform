@@ -60,11 +60,18 @@ type Props = {
   sidebarFooter?: ReactNode;
   /** Optional sticky top bar slot rendered above main content. */
   topBar?: ReactNode;
+  /**
+   * Per-doorway ACTIVE accent for the dark sidebar panel ("Energy, not skin"):
+   * couple + vendor = 'wine' (default), admin = 'violet'. Flips
+   * `--m-sidebar-accent` on the <aside> via `.sn-sidebar--violet`; the rest of
+   * the dark-panel treatment is shared. The content area is unaffected.
+   */
+  accent?: 'wine' | 'violet';
   /** Main content area — scrollable. */
   children: ReactNode;
 };
 
-export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, children }: Props) {
+export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, accent = 'wine', children }: Props) {
   // Default expanded. Hydrate from localStorage on mount so SSR + initial
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
@@ -111,10 +118,13 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
       {/* Desktop sidebar — hidden < lg so mobile chrome (caller-injected) owns nav. */}
       <aside
         aria-label="Primary navigation"
-        className="hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r"
+        // `sn-sidebar` paints the permanently-dark obsidian panel + remaps the
+        // base --m-* tokens the shared AccountSwitcher trigger reads (its panel
+        // portals to <body> and stays light). `--violet` flips the active accent
+        // for the admin doorway.
+        className={`sn-sidebar${accent === 'violet' ? ' sn-sidebar--violet' : ''} hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r`}
         style={{
-          background: 'var(--m-paper-2)',
-          borderColor: 'var(--m-line)',
+          borderColor: 'var(--m-sidebar-line)',
           width: collapsed ? '4rem' : 'var(--sidebar-width, 16rem)',
           transition: 'width 180ms cubic-bezier(.2,.7,.2,1)',
         }}

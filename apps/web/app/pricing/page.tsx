@@ -114,7 +114,6 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'CAMERA_BRIDGE', withPapic: true },
       { code: 'PABATI', withPapic: true },
       { code: 'KWENTO', withPapic: true },
-      { code: 'PAKANTA', withPapic: true },
     ],
   },
   {
@@ -138,7 +137,10 @@ const ADDON_GROUPS: CatalogGroup[] = [
   },
   {
     title: 'Personal touches',
-    items: [{ code: 'ANIMATED_MONOGRAM' }],
+    // Pakanta = a custom wedding song (iteration 0036), NOT a Papic add-on —
+    // it lives here alongside the monogram (owner 2026-07-10 "pakanta is not
+    // part of papic").
+    items: [{ code: 'ANIMATED_MONOGRAM' }, { code: 'PAKANTA' }],
   },
 ];
 
@@ -231,7 +233,8 @@ export default async function PricingPage() {
     // null-priced row from showing a stale paid figure.
     { key: 'pabati', code: 'PABATI', label: 'Pabati', fb: 0 },
     { key: 'kwento', code: 'KWENTO', label: 'Kwento', fb: 0 },
-    { key: 'pakanta', code: 'PAKANTA', label: 'Pakanta', fb: 2499 },
+    // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
+    // excluded from the per-camera Papic estimator (owner 2026-07-10).
   ];
   const estimatorRates: EstimatorRates = {
     ltd: rateOf('PAPIC_CAMERA_ROLL_DAY', 30),

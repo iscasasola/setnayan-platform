@@ -114,6 +114,11 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'CAMERA_BRIDGE', withPapic: true },
       { code: 'PABATI', withPapic: true },
       { code: 'KWENTO', withPapic: true },
+      // Pakanta moved to "Personal touches" on origin/main (owner 2026-07-10
+      // "pakanta is not part of papic"); Stories + Thank You are the genuine
+      // Papic add-ons activated 2026-07-10.
+      { code: 'PAPIC_ADDON_STORIES', withPapic: true }, // Stories — 30s guest story maker
+      { code: 'PAPIC_ADDON_THANK_YOU', withPapic: true }, // Thank You Video
     ],
   },
   {
@@ -124,6 +129,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
       { code: 'LIVE_BACKGROUND' },
+      { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
     ],
   },
   {

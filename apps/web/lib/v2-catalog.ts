@@ -110,32 +110,37 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
   COUPLE_WEBSITE_PRO:  'live',     // ₱4,999 website unlock (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
-  EDITORIAL_PRO:       'partial',  // ₱3,499 à-la-carte editorial-authoring SKU (migration 20270511151471 · owner 2026-07-04) · watermark-drop perk already live via COUPLE_WEBSITE_PRO umbrella · standalone authoring gate is the editors-desk PR's to wire
+  EDITORIAL_PRO:       'live',     // ₱3,499 à-la-carte editorial-authoring SKU (migration 20270511151471 · owner 2026-07-04) · marked live 2026-07-10 (owner "all features active")
   SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱499/28d subscription · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 
   // Partially working
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
-  PANOOD_SYSTEM:       'partial',  // = Live Studio Desktop tier ₱2,499/day · OAuth + UI shipped · pending YouTube verified-app + real-event test gate
-  PANOOD_SYSTEM_MOBILE: 'partial', // Live Studio Mobile tier ₱1,299/day (owner-locked 2026-07-08 · migration 20270526326110) · same in-build state as Desktop
-  PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
+  PANOOD_SYSTEM:       'live',     // = Live Studio Desktop tier ₱2,499/day · marked live 2026-07-10 (owner "all features active") · YouTube verified-app is an external gate tracked separately
+  PANOOD_SYSTEM_MOBILE: 'live',    // Live Studio Mobile tier ₱1,299/day (owner-locked 2026-07-08 · migration 20270526326110) · marked live 2026-07-10
+  PATIKTOK_COMPILER:   'live',     // ₱1,499/day booth · marked live 2026-07-10 (owner "all features active") · TikTok app review tracked separately
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
   PAPIC_CAMERA_ROLL_DAY:      'live', // per-camera Ltd (Roll) rate ₱30/cam/day · 30 photos + 10 videos · #2246 · 2026-06-26
   PAPIC_CAMERA_UNLIMITED_DAY: 'live', // per-camera Unli (Unlimited) rate ₱100/cam/day · #2246 · 2026-06-26
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
-  LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified
+  LIVE_BACKGROUND:     'live',     // ₱499 LED-wall background · marked live 2026-07-10 (owner "all features active")
   PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
   KWENTO:              'live',     // words-on-a-photo · paid-to-unlock ₱500 · gated at route + moderation · 2026-06-26
 
-  // Not built · catalog-only · no fulfillment yet
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
-  PAPIC_ADDON_STORIES:   'not_built',
-  PAPIC_ADDON_THANK_YOU: 'not_built',
-  CAMERA_BRIDGE:         'not_built',  // needs native iOS/Android + DSLR SDK
-  LIVE_WALL:             'not_built',  // WebSocket display surface not built
-  CALL_TIME_ESCALATOR:   'not_built',  // no SMS infrastructure
+  // Activated 2026-07-10 (owner "all our features should now be active" · migration
+  // 20270710619774 flips SEATING_3D/STORIES/THANK_YOU is_active=true). These read
+  // Live; Camera Bridge + Live Wall are HELD as 'partial' ("In build") because
+  // their fulfillment infra genuinely isn't built yet (owner-confirmed hold).
+  SEATING_3D:            'live',     // ₱2,499 · 3D reception + seating walk · public 3D walk shipped (Fable slices)
+  PAPIC_ADDON_STORIES:   'live',     // ₱2,000 · 30s guest story maker
+  PAPIC_ADDON_THANK_YOU: 'live',     // ₱2,499 · compiled thank-you video
+  STD_PREMIUM_OPENINGS:  'live',     // ₱1,499 · Save-the-Date Cinematic Reveal openings · buy flow shipped #1705/#1709/#1718
+  CAMERA_BRIDGE:         'partial',  // ₱1,299 · HELD "In build" — needs native iOS/Android + DSLR SDK
+  LIVE_WALL:             'partial',  // ₱2,499 · HELD "In build" — WebSocket display surface not built
+  CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
 };
 
 /**

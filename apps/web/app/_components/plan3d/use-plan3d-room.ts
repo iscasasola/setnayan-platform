@@ -126,8 +126,10 @@ export function usePlan3dRoom(eventId: string | null | undefined, me: LocalPlaye
       });
 
     channelRef.current = channel;
-    // Drop peers that left presence long enough ago to have walked home.
-    const prune = setInterval(() => setRemotes((prev) => pruneRemotes(prev, Date.now(), 8000)), 2000);
+    // Drop peers a short beat after they leave presence, so a departed character
+    // reverts/despawns promptly (never left standing abandoned mid-floor) — the
+    // seated crowd underneath is the resting state.
+    const prune = setInterval(() => setRemotes((prev) => pruneRemotes(prev, Date.now(), 2500)), 1000);
 
     return () => {
       channelRef.current = null;

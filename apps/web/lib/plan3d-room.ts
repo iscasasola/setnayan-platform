@@ -274,6 +274,22 @@ export function isGreetable(p: RemotePlayer | undefined): boolean {
   return !!p && p.present;
 }
 
+/** The avoidance-field entries the LOCAL walker weaves around: a dead-reckoned
+ *  position (+ velocity for a live mover) per PRESENT remote, capped at
+ *  MAX_REMOTES nearest. Feeds plan3d-scene's REMOTE_MOVERS / separateAgents. A
+ *  stopped/stale peer contributes position-only (reactive avoidance, no
+ *  predictive projection). Empty → the local walker skips the separation pass. */
+export function remoteMovers(map: RemoteMap, self: Vec2, nowMs: number, cap: number = MAX_REMOTES): (Vec2 & { vel?: Vec2 })[] {
+  const out: (Vec2 & { vel?: Vec2 })[] = [];
+  for (const p of activeRemotes(map, self, nowMs, cap)) {
+    if (!p.present) continue;
+    const pos = deadReckon(p, nowMs);
+    if (p.moving && !isMoveStale(p, nowMs)) out.push({ x: pos.x, z: pos.z, vel: { x: p.vx, z: p.vz } });
+    else out.push({ x: pos.x, z: pos.z });
+  }
+  return out;
+}
+
 /** The rendered/avoided subset: present peers, nearest-first to the local
  *  player, capped at MAX_REMOTES (phones). Absent peers still render while they
  *  walk home but never crowd out a live peer from the cap. */

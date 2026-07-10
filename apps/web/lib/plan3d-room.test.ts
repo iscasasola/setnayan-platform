@@ -20,6 +20,7 @@ import {
   pruneRemotes,
   isGreetable,
   activeRemotes,
+  remoteMovers,
   BROADCAST_INTERVAL_MS,
   RUN_AT_MPS,
   STAND_BELOW_MPS,
@@ -219,6 +220,23 @@ test('activeRemotes: present-first then nearest, capped', () => {
   assert.deepEqual(order, ['near', 'mid', 'far']);
   // cap
   assert.equal(activeRemotes(map, { x: 0, z: 0 }, 100, 2).length, 2);
+});
+
+test('remoteMovers: present movers carry velocity; stopped/absent contribute position-only or nothing', () => {
+  let map: RemoteMap = new Map();
+  map = reconcilePresence(map, [peer('walker'), peer('stopped'), peer('leaving')], 'me', 0);
+  map = applyMove(map, { id: 'walker', x: 2, z: 0, vx: 1, vz: 0, h: 0, m: true, t: 1 }, 'me', 1000);
+  map = applyMove(map, { id: 'stopped', x: 5, z: 5, vx: 0, vz: 0, h: 0, m: false, t: 1 }, 'me', 1000);
+  map = applyMove(map, { id: 'leaving', x: 9, z: 9, vx: 1, vz: 0, h: 0, m: true, t: 1 }, 'me', 1000);
+  map = reconcilePresence(map, [peer('walker'), peer('stopped')], 'me', 1100); // 'leaving' goes absent
+
+  const movers = remoteMovers(map, { x: 0, z: 0 }, 1000);
+  // absent peer excluded entirely
+  assert.equal(movers.length, 2);
+  const walker = movers.find((m) => Math.abs(m.x - 2) < 1e-9);
+  const stopped = movers.find((m) => Math.abs(m.x - 5) < 1e-9);
+  assert.ok(walker?.vel, 'a live mover carries velocity for predictive avoidance');
+  assert.equal(stopped?.vel, undefined, 'a stopped peer is position-only (reactive)');
 });
 
 test('activeRemotes: a present peer always outranks an absent one, even if closer', () => {

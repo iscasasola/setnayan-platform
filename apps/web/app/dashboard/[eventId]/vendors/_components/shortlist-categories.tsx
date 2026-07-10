@@ -87,10 +87,17 @@ const SLCAT_CSS = `
 .slcat .fold.open .fold-chev{transform:rotate(180deg);color:var(--mulberry)}
 
 /* ── Level 2 · category rows inside an open folder (connecting rail) ── */
-.slcat .fold-body{position:relative;padding:0 0 8px;animation:slcat-rise .26s var(--ease) both}
+.slcat .fold-body{position:relative;padding:0 0 8px}
 .slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(30, 34, 41,.16);border-radius: var(--m-r-xs);pointer-events:none}
-@keyframes slcat-rise{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.slcat .fold-body{animation:none}}
+/* smooth expand/collapse (2026-07-10): the body is ALWAYS mounted inside a
+   grid-rows wrapper, so toggling the parent's .open class animates height 0fr↔1fr
+   BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
+   pulls collapsed content out of the tab order without cutting the animation. */
+.slcat .fold-collapse,.slcat .cat-collapse{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease)}
+.slcat .fold.open .fold-collapse,.slcat .cat.open .cat-collapse{grid-template-rows:1fr}
+.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{overflow:hidden;min-height:0;opacity:.4;visibility:hidden;transition:opacity .26s var(--ease),visibility 0s .3s}
+.slcat .fold.open .fold-body,.slcat .cat.open .cat-body{opacity:1;visibility:visible;transition:opacity .26s var(--ease),visibility 0s 0s}
+@media (prefers-reduced-motion:reduce){.slcat .fold-collapse,.slcat .cat-collapse,.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{transition:none}}
 .slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
 .slcat .fold-body .cat:first-child{border-top:0}
 .slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:10px 4px;font:inherit;text-align:left;min-height:42px}
@@ -104,7 +111,7 @@ const SLCAT_CSS = `
 .slcat .cat-req:active{transform:scale(.94)}
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
-.slcat .cat-body{padding:2px 0 12px;animation:slcat-rise .22s var(--ease) both}
+.slcat .cat-body{padding:2px 0 12px}
 
 /* ── Level 3 · vendor carousel + find / add-manually ── */
 .slcat .rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 4px 0;scrollbar-width:none}
@@ -581,7 +588,7 @@ export function ShortlistCategories({
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>
-            {folderOpen ? (
+            <div className="fold-collapse">
               <div className="fold-body">
                 {folder.tiles.map((t) => {
                   const tileOpen = openTile === t.tile;
@@ -636,7 +643,7 @@ export function ShortlistCategories({
                           </button>
                         ) : null}
                       </div>
-                      {tileOpen ? (
+                      <div className="cat-collapse">
                         <div className="cat-body">
                           {t.vendors.length > 0 ? (
                             <div className="rail">
@@ -680,12 +687,12 @@ export function ShortlistCategories({
                             </div>
                           )}
                         </div>
-                      ) : null}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            ) : null}
+            </div>
           </section>
         );
       })}

@@ -38,18 +38,24 @@ export type SeoHealthResult = {
   counts: { ok: number; warn: number; fail: number };
 };
 
+/**
+ * One live, active, priced SKU. Prices are in PHP pesos (the live catalogs store
+ * `retail_price_php` / `price_php`, NOT centavos). `source` decides how strict we
+ * are: `retail` = a customer à-la-carte service, which llms.txt is expected to
+ * quote (absence ⇒ `missing` fail); `vendor` = a vendor-billing SKU, many of them
+ * micro-SKUs (extra seat, custom-plan components) that llms.txt intentionally
+ * omits — these only ever SUPPRESS false orphans, never raise a `missing` fail.
+ */
 export type CatalogRow = {
   sku_code: string;
-  display_name: string;
-  price_centavos: number;
-  is_active: boolean;
-  purchaser_role: string | null;
+  price_php: number;
+  source: 'retail' | 'vendor';
 };
 
 export type HealthCheckInput = {
   /** The body of the served llms.txt (footer changelog excluded is fine either way). */
   llmsText: string;
-  /** Live rows from public.service_catalog. */
+  /** Live active priced SKUs — platform_retail_catalog_v2 (retail) + vendor_billing_catalog (vendor). */
   catalog: CatalogRow[];
   /** Env presence flags — the owner-action nags. */
   env: {
@@ -119,9 +125,9 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/tl/how-it-works',
 ]);
 
-/** Peso string from integer centavos, e.g. 129900 → "₱1,299". */
-export function formatPeso(centavos: number): string {
-  return `₱${Math.round(centavos / 100).toLocaleString('en-US')}`;
+/** Peso figure from a PHP amount, e.g. 1299 → "₱1,299" (matches the copy's format). */
+export function pesoFigure(php: number): string {
+  return `₱${Math.round(php).toLocaleString('en-US')}`;
 }
 
 /** Everything above the changelog footer. */
@@ -149,36 +155,41 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
   // --- Check 1: price drift (catalog ⟷ llms.txt figure sets) -----------------
   const llmsFigures = new Set(body.match(PESO) ?? []);
 
-  // Couple-facing active SKUs are the ones the AI-crawler surface quotes. Vendor
-  // packs/tiers are also quoted but their figures are covered by the same set.
-  const activeCatalogFigures = new Map<string, string>(); // figure -> sample sku
+  // `retail` SKUs (platform_retail_catalog_v2) are the customer à-la-carte
+  // services llms.txt is expected to quote — a retail figure absent from the copy
+  // is real drift. `vendor` figures (vendor_billing_catalog) include the headline
+  // tier ladder (which IS quoted) alongside micro-SKUs the copy intentionally
+  // omits (extra seat, custom-plan components) — so ALL catalog figures suppress
+  // orphans, but only `retail` figures can raise a `missing`.
+  const retailFigures = new Map<string, string>(); // figure -> sample sku (must appear)
+  const allCatalogFigures = new Set<string>(); // any active figure (orphan suppression)
   for (const row of input.catalog) {
-    if (!row.is_active) continue;
-    if (row.price_centavos <= 0) continue; // free SKUs render as prose, not ₱-figures
-    const fig = formatPeso(row.price_centavos);
-    if (!activeCatalogFigures.has(fig)) activeCatalogFigures.set(fig, row.sku_code);
+    if (row.price_php <= 0) continue; // free SKUs render as prose, not ₱-figures
+    const fig = pesoFigure(row.price_php);
+    allCatalogFigures.add(fig);
+    if (row.source === 'retail' && !retailFigures.has(fig)) retailFigures.set(fig, row.sku_code);
   }
 
   const priceDrift: PriceDriftEntry[] = [];
-  for (const [fig, sku] of activeCatalogFigures) {
+  for (const [fig, sku] of retailFigures) {
     if (!llmsFigures.has(fig)) {
       priceDrift.push({
         figure: fig,
         kind: 'missing',
-        note: `active catalog SKU ${sku} priced ${fig} — figure absent from llms.txt`,
+        note: `active retail SKU ${sku} priced ${fig} — figure absent from llms.txt`,
       });
     }
   }
-  // Orphan figures: a price in the copy that no active SKU backs. Downgraded to a
-  // warn because example figures (voucher "up to ₱500") and banded token prices
-  // legitimately appear without a 1:1 SKU row.
-  const catalogFigureSet = new Set(activeCatalogFigures.keys());
+  // Orphan figures: a price in the copy that no active SKU (retail OR vendor)
+  // backs. Downgraded to a warn because example figures (voucher "up to ₱500"),
+  // banded token prices (₱300), and daily caps (₱15,000) legitimately appear
+  // without a 1:1 SKU row.
   for (const fig of llmsFigures) {
-    if (!catalogFigureSet.has(fig)) {
+    if (!allCatalogFigures.has(fig)) {
       priceDrift.push({
         figure: fig,
         kind: 'orphan',
-        note: `figure in llms.txt not matched to any active SKU price (may be an example / token band)`,
+        note: `figure in llms.txt not matched to any active SKU price (may be an example / band / cap)`,
       });
     }
   }
@@ -189,7 +200,7 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
     findings.push({
       check: 'llms.txt price coverage',
       status: 'fail',
-      detail: `${missingCount} active catalog price(s) missing from llms.txt: ${priceDrift
+      detail: `${missingCount} active retail price(s) missing from llms.txt: ${priceDrift
         .filter((d) => d.kind === 'missing')
         .map((d) => d.figure)
         .join(', ')}`,
@@ -198,7 +209,7 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
     findings.push({
       check: 'llms.txt price coverage',
       status: 'ok',
-      detail: 'every active catalog price appears in llms.txt',
+      detail: 'every active retail catalog price appears in llms.txt',
     });
   }
   if (orphanCount > 0) {

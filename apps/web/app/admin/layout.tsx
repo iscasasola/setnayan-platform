@@ -178,7 +178,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <UnreadBellBadge
         userId={user.id}
         initialUnread={unreadCount}
-        href="/admin/notifications"
+        href="/admin/settings?tab=notifications"
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
       />

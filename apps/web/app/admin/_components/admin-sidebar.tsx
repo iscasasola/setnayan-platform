@@ -781,9 +781,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       {
+        // Catalog Studio shell + first tab (Money split 2026-07-10). NO
+        // matchPrefix:'/admin/pricing' — the shell path equals this tab's own
+        // legacy route, so an exact-equal matchPrefix would light this row on
+        // every ?tab sibling and (longest-match wins) steal their lit-state.
         key: 'pricing',
         label: 'Pricing',
-        href: '/admin/pricing',
+        href: '/admin/pricing?tab=pricing',
         icon: DollarSign,
       },
       {
@@ -793,15 +797,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // ARE the /admin/pricing catalog).
         key: 'custom-plans',
         label: 'Custom plans',
-        href: '/admin/custom-plans',
+        href: '/admin/pricing?tab=custom-plans',
         icon: BadgeCheck,
         matchPrefix: '/admin/custom-plans',
       },
       {
         key: 'addons',
         label: 'Add-ons',
-        href: '/admin/addons',
+        href: '/admin/pricing?tab=addons',
         icon: Sparkles,
+        matchPrefix: '/admin/addons',
       },
       {
         // Vendor "recommend to your couples" map — the admin-editable vendor-leaf
@@ -815,14 +820,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         key: 'token-bands',
         label: 'Token bands',
-        href: '/admin/token-bands',
+        href: '/admin/pricing?tab=token-bands',
         icon: Coins,
+        matchPrefix: '/admin/token-bands',
       },
       {
         key: 'price-bands',
         label: 'Price bands',
-        href: '/admin/price-bands',
+        href: '/admin/pricing?tab=price-bands',
         icon: Gauge,
+        matchPrefix: '/admin/price-bands',
       },
       {
         key: 'budget-planner',
@@ -846,11 +853,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
       // ── SETTINGS TAIL — system + personal config, bottom of the collapsible.
       {
+        // Settings Studio shell + first tab (Money split 2026-07-10). DROP the
+        // '/admin/settings' matchPrefix — it would exact-match the shell and
+        // steal every ?tab sibling, and its startsWith arm would over-claim the
+        // standalone /admin/settings/payment-methods + demo-mode routes.
         key: 'settings',
         label: 'Settings',
-        href: '/admin/settings',
+        href: '/admin/settings?tab=settings',
         icon: Settings,
-        matchPrefix: '/admin/settings',
       },
       {
         // Compliance — the RA 10173 / NPC registration facts (PIC identity, DPO
@@ -860,21 +870,23 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // phone) live only in the DB behind admin-only RLS, never in the repo.
         key: 'compliance',
         label: 'Compliance',
-        href: '/admin/compliance',
+        href: '/admin/settings?tab=compliance',
         icon: ShieldCheck,
         matchPrefix: '/admin/compliance',
       },
       {
         key: 'notifications',
         label: 'Notifications',
-        href: '/admin/notifications',
+        href: '/admin/settings?tab=notifications',
         icon: Bell,
+        matchPrefix: '/admin/notifications',
       },
       {
         key: 'demo-mode',
         label: 'Demo mode',
-        href: '/admin/settings/demo-mode',
+        href: '/admin/settings?tab=demo-mode',
         icon: Settings,
+        matchPrefix: '/admin/settings/demo-mode',
       },
       {
         // Personal account security — admins use the shared /dashboard/profile

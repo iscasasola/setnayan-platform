@@ -149,7 +149,7 @@ export function CustomComposer({
             value={selectedVendorId ?? ''}
             onChange={(e) => {
               const v = e.target.value;
-              router.push(v ? `/admin/custom-plans?vendor=${v}` : '/admin/custom-plans');
+              router.push(v ? `/admin/pricing?tab=custom-plans&vendor=${v}` : '/admin/pricing?tab=custom-plans');
             }}
           >
             <option value="">Select a vendor org…</option>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Coins, Star } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Coins, Star, Inbox, ListTodo, CalendarClock } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import type {
   OngoingTask,
   UpcomingEventRow,
@@ -48,6 +49,193 @@ function shortDate(iso: string | null): string | null {
 /** Meta line joined with " · ", dropping empties. */
 function metaLine(parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => Boolean(p && p.trim())).join(' · ');
+}
+
+// ---------------------------------------------------------------------------
+// 0 · ENERGY STATS — the databerry-inside-editorial stat bento ("Energy, not
+//     skin" 2026-07-09). PRESENTATION ONLY: every number here is derived from
+//     the SAME feed data the Overview already loaded (whatsNew · ongoing ·
+//     upcoming) — no new queries, no fabricated metrics. Prototype widgets with
+//     no real source on this surface (booked-revenue hero, response-rate ring,
+//     profile-views sparkline, aggregate rating, token balance) are deliberately
+//     omitted rather than faked.
+// ---------------------------------------------------------------------------
+
+/** Days-to-nearest-event → a 0–100 "how close" ratio for the countdown ring
+ *  (a 90-day window; today = full). Real ratio off a real date. */
+function countdownPct(inDays: number): number {
+  return Math.max(0, Math.min(100, ((90 - inDays) / 90) * 100));
+}
+
+function inDaysShort(n: number): string {
+  if (n <= 0) return 'Today';
+  if (n === 1) return '1 day';
+  return `${n} days`;
+}
+
+export function VendorEnergyStats({
+  whatsNew,
+  ongoing,
+  upcoming,
+}: {
+  whatsNew: WhatsNewCard[];
+  ongoing: OngoingTask[];
+  upcoming: UpcomingEventRow[];
+}) {
+  const needsYou = whatsNew.length;
+  const inquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
+  const reviews = whatsNew.filter((c) => c.kind === 'review').length;
+  const locks = whatsNew.filter((c) => c.kind === 'lock').length;
+  const disputes = whatsNew.filter((c) => c.kind === 'dispute').length;
+  const nearest = upcoming[0] ?? null;
+
+  const legend: Array<{ label: string; n: number; color: string }> = [
+    { label: 'inquiries', n: inquiries, color: 'var(--m-orange)' },
+    { label: 'locks', n: locks, color: 'var(--m-sage-deep)' },
+    { label: 'reviews', n: reviews, color: 'var(--v-blue)' },
+    { label: 'delays', n: disputes, color: 'var(--m-blush-deep)' },
+  ].filter((l) => l.n > 0);
+
+  return (
+    <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Hero — "what needs you today", wine-accented. */}
+      <div
+        className="m-card relative overflow-hidden p-5 sm:col-span-2"
+        style={{ boxShadow: 'inset 3px 0 0 var(--m-nav-active), var(--m-shadow-sm)' }}
+      >
+        <p className="m-label-mono" style={{ color: 'var(--m-nav-active)' }}>
+          What needs you today
+        </p>
+        <div className="mt-1 flex items-end gap-3">
+          <span className="m-serif text-5xl leading-none" style={{ color: 'var(--m-ink)' }}>
+            {needsYou}
+          </span>
+          <span className="pb-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+            {needsYou === 0
+              ? "you're all caught up"
+              : needsYou === 1
+                ? 'item to act on'
+                : 'items to act on'}
+          </span>
+        </div>
+        {legend.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+            {legend.map((l) => (
+              <span
+                key={l.label}
+                className="inline-flex items-center gap-1.5 text-xs"
+                style={{ color: 'var(--m-slate)' }}
+              >
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ background: l.color }}
+                />
+                <span className="font-semibold" style={{ color: 'var(--m-ink)' }}>
+                  {l.n}
+                </span>
+                {l.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Countdown ring — nearest upcoming shoot, photography-blue accent. */}
+      <div className="m-card flex items-center gap-4 p-5">
+        {nearest ? (
+          <>
+            <ProgressRing
+              pct={countdownPct(nearest.inDays)}
+              size={72}
+              stroke={7}
+              color="var(--v-blue)"
+            >
+              <span className="m-serif text-lg leading-none" style={{ color: 'var(--m-ink)' }}>
+                {nearest.inDays <= 0 ? '0' : nearest.inDays}
+              </span>
+              <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--m-slate-3)' }}>
+                days
+              </span>
+            </ProgressRing>
+            <div className="min-w-0">
+              <p className="m-label-mono" style={{ color: 'var(--v-blue)' }}>
+                Next shoot
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+                {nearest.eventName}
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                {inDaysShort(nearest.inDays)}
+                {nearest.place ? ` · ${nearest.place}` : ''}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div>
+            <p className="m-label-mono" style={{ color: 'var(--v-blue)' }}>
+              Next shoot
+            </p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+              No booked events yet.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* KPI row — real counts, serif numerals. */}
+      <EnergyKpi
+        icon={<Inbox className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
+        value={inquiries}
+        label="New inquiries"
+        accent="var(--v-blue)"
+      />
+      <EnergyKpi
+        icon={<ListTodo className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
+        value={ongoing.length}
+        label="Open tasks"
+        accent="var(--m-nav-active)"
+      />
+      <EnergyKpi
+        icon={<CalendarClock className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
+        value={upcoming.length}
+        label="Upcoming (next 5)"
+        accent="var(--m-orange-2)"
+      />
+    </section>
+  );
+}
+
+function EnergyKpi({
+  icon,
+  value,
+  label,
+  accent,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  accent: string;
+}) {
+  return (
+    <div className="m-card flex items-center gap-3 p-5">
+      <span
+        aria-hidden
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+        style={{ background: 'var(--m-paper-2)', color: accent }}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <span className="m-serif text-2xl leading-none" style={{ color: 'var(--m-ink)' }}>
+          {value}
+        </span>
+        <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+          {label}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -462,7 +650,7 @@ function SectionHeader({
   return (
     <div className="mb-3 flex items-baseline justify-between gap-3">
       <h2 className="flex items-baseline gap-2">
-        <span className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+        <span className="m-serif text-xl" style={{ color: 'var(--m-ink)' }}>
           {title}
         </span>
         {typeof count === 'number' && count > 0 ? (

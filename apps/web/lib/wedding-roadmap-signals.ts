@@ -1,15 +1,17 @@
 /**
- * wedding-roadmap-signals.ts — the ONE place the couple's roadmap "signals"
- * (hard, structural completion facts) are derived, so every surface that asks
- * "where is this couple in their planning?" reads the SAME answer.
+ * wedding-roadmap-signals.ts — derives the couple's planning "signals" (hard,
+ * structural completion facts) that feed the Studio "Recommended for you now"
+ * strip (lib/studio-recommendations.ts, via studio/page.tsx).
  *
- * Extracted 2026-07-10 from wedding-roadmap-async.tsx (the free Home "Things to
- * complete" list), which now imports `fetchRoadmapState` instead of building
- * signals inline. The Studio "Recommended for you now" strip
- * (lib/studio-recommendations.ts, via studio/page.tsx) consumes the same state —
- * previously it guessed from the raw date alone, so Studio could push day-of
- * capture while the couple was still behind on foundations. Sharing this helper
- * is what keeps Studio and the Home roadmap from disagreeing.
+ * History (kept honest): this was extracted 2026-07-10 from the Home "Things to
+ * complete" list (`WeddingRoadmapAsync`) to be a shared source of truth. That
+ * component was RETIRED 2026-07-11 — the 2026-07-10 refactor made
+ * `<EventDashboard>` the event Home and dropped the roadmap surface, which used
+ * a different "where are you" model (progress-stages + today's-one-thing). So
+ * Studio is now the SOLE consumer, and this powers Studio's own phase-aware
+ * recommendation heuristic — NOT a cross-surface contract. `roadmap_completed`
+ * has no writer anymore (its check-off UI went with the component), so the
+ * `completed` dimension is inert for new couples; existing values still read.
  *
  * Deterministic structural facts only — never AI or inference (same contract as
  * lib/wedding-roadmap.ts). The pure derivations (`resolveEarliestDate`,

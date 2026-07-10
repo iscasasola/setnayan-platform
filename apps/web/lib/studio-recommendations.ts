@@ -7,23 +7,29 @@
  * handful of add-ons that fit WHERE THE COUPLE ACTUALLY IS — so Studio can LEAD
  * with 2–3 relevant tiles and keep the full catalog below.
  *
- * "Where they are" is the SAME roadmap state the free Home "Things to complete"
- * list reads (lib/wedding-roadmap-signals.ts → lib/wedding-roadmap.ts): months
- * to the earliest date PLUS the hard structural signals (date locked, venue
- * booked, guests added, capture owned…). Two rules follow from that, and they
- * are what stop Studio from contradicting the Home roadmap:
+ * "Where they are" comes from the couple's planning state (lib/wedding-roadmap-
+ * signals.ts → lib/wedding-roadmap.ts): months to the earliest date PLUS the hard
+ * structural signals (date locked, venue booked, guests added, capture owned…).
+ * This is Studio's OWN phase-aware heuristic — not a contract shared with any
+ * other surface. (It began as a shared source of truth with the Home "Things to
+ * complete" list, but that surface was retired 2026-07-11; the live Home ranks by
+ * a different, coarser model — progress-stages + today's-one-thing — which does
+ * not recommend add-ons at all, so there's nothing here to stay "in sync" with.
+ * The wedding month-band model is deliberately kept because it phases add-ons far
+ * better than the 6-stage journey model would.) Two rules:
  *
- *   1. FOLLOW THE ROADMAP. An add-on that advances an OPEN roadmap item is
- *      surfaced in the roadmap's own overdue-first order — so if the couple is
- *      behind on save-the-dates, Save the Date leads, exactly as Home says.
+ *   1. FOLLOW THE PHASES. An add-on that advances an OPEN planning item is
+ *      surfaced in overdue-first order — so a couple behind on save-the-dates
+ *      sees Save the Date first. (Wedding events only — see `followRoadmap`.)
  *   2. RESPECT READINESS. An add-on with an unmet prerequisite (day-of capture
  *      before the date is even locked; a seat plan before there are guests) is
  *      held OUT of the lead until the couple is ready for it. It still lives in
  *      the full catalog below — it just isn't pushed early.
  *
- * The non-roadmap "delight" add-ons (monogram, Pakanta, LED, music, custom QR)
- * have no roadmap item to anchor to; they fill any remaining slots by proximity
- * of the couple's months-out to the add-on's peak month.
+ * The non-anchored "delight" add-ons (monogram, Pakanta, LED, music, custom QR)
+ * fill any remaining slots by proximity of the couple's months-out to the add-on's
+ * peak month — this is also the ONLY ranking used for non-wedding event types,
+ * whose timelines don't fit the wedding bands.
  *
  * Pure + deterministic. No AI, no per-couple learning. Free add-ons are
  * recommendable on purpose (Mood Board, Save the Date, Seat Plan) — this answers
@@ -87,13 +93,13 @@ export const STUDIO_RECOMMEND_EXCLUDED: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Which roadmap item each add-on advances, in priority order per item. When
- * that roadmap item is OPEN (due + not done), its first recommendable add-on is
- * surfaced in the roadmap's overdue-first order — this is what keeps the Studio
- * lead in lockstep with the Home "Things to complete" list. Add-ons with no
- * entry here are pure date-peak fill.
+ * Which planning item each add-on advances, in priority order per item. When
+ * that item is OPEN (due + not done), its first recommendable add-on is surfaced
+ * in overdue-first order. Add-ons with no entry here are pure date-peak fill.
+ * Exported so the drift guard can assert every value is a real, peaked catalog
+ * key (a typo here would silently drop an item with no failing test).
  */
-const STUDIO_ROADMAP_ANCHORS: Partial<Record<RoadmapItemKey, readonly string[]>> = {
+export const STUDIO_ROADMAP_ANCHORS: Partial<Record<RoadmapItemKey, readonly string[]>> = {
   reception_look: ['mood-board'],
   save_the_dates: ['save-the-date'],
   invitations: ['rsvp'],
@@ -106,9 +112,9 @@ const STUDIO_ROADMAP_ANCHORS: Partial<Record<RoadmapItemKey, readonly string[]>>
  * is true. Don't push day-of capture before the date is even locked; don't push
  * a seat plan before there are guests to seat. Absent → no prerequisite. When
  * signals are unavailable (a failed fetch) the gate is skipped (fail-open) so a
- * hiccup never blanks the strip.
+ * hiccup never blanks the strip. Exported for the same drift guard as the anchors.
  */
-const STUDIO_PREREQUISITE: Readonly<Record<string, keyof RoadmapSignals>> = {
+export const STUDIO_PREREQUISITE: Readonly<Record<string, keyof RoadmapSignals>> = {
   'save-the-date': 'dateLocked',
   papic: 'dateLocked',
   panood: 'dateLocked',
@@ -135,7 +141,11 @@ export type StudioRecommendInput = {
    * manual completions drive the roadmap ordering.
    */
   signals: RoadmapSignals | null;
-  /** Manually checked-off roadmap item keys (`events.roadmap_completed`). */
+  /**
+   * Manually checked-off item keys (`events.roadmap_completed`). Inert for new
+   * couples since the check-off UI was retired (2026-07-11) — existing values
+   * still read; drops any completed item from the phase-follow pass.
+   */
   completed: readonly string[];
   /**
    * True when the add-on is a real, still-offerable tile for THIS event — not
@@ -144,6 +154,13 @@ export type StudioRecommendInput = {
   isEligible: (key: string) => boolean;
   /** True when the couple already owns/activated the add-on — never re-recommend. */
   isOwned: (key: string) => boolean;
+  /**
+   * Run the wedding phase-follow pass (Phase 1). The planning bands + anchors
+   * are wedding canon, so the caller passes `false` for non-wedding event types —
+   * those rank by date-peak proximity alone, which doesn't assume a 12-month
+   * wedding runway. Default true.
+   */
+  followRoadmap?: boolean;
   /** How many to surface. Default 3. */
   limit?: number;
 };
@@ -160,6 +177,7 @@ export function recommendStudioAddOns({
   completed,
   isEligible,
   isOwned,
+  followRoadmap = true,
   limit = 3,
 }: StudioRecommendInput): string[] {
   const prerequisiteMet = (key: string): boolean => {
@@ -185,12 +203,16 @@ export function recommendStudioAddOns({
     return picked.length >= limit;
   };
 
-  // ── Phase 1: follow the roadmap (overdue-first, same list Home shows). ─────
-  const openItems = resolveRoadmap(monthsToDate, completed, signals);
-  for (const item of openItems) {
-    const anchored = STUDIO_ROADMAP_ANCHORS[item.key] ?? [];
-    for (const key of anchored) {
-      if (take(key)) return picked;
+  // ── Phase 1: follow the planning phases (overdue-first). Wedding-only —
+  // the bands + anchors are wedding canon; non-wedding events skip straight to
+  // date-peak proximity so they don't inherit a 12-month wedding runway. ──────
+  if (followRoadmap) {
+    const openItems = resolveRoadmap(monthsToDate, completed, signals);
+    for (const item of openItems) {
+      const anchored = STUDIO_ROADMAP_ANCHORS[item.key] ?? [];
+      for (const key of anchored) {
+        if (take(key)) return picked;
+      }
     }
   }
 

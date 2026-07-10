@@ -95,11 +95,11 @@ export default async function StudioPage({ params }: Props) {
         .from('platform_retail_catalog_v2')
         .select('service_code, retail_price_php')
         .in('service_code', serviceKeys),
-      // The couple's roadmap state (months-to-date + hard structural signals) —
-      // the SAME source of truth the free Home "Things to complete" list reads,
-      // so the "Recommended for you now" strip can never contradict it. Best-
-      // effort: a null state degrades the strip to date-peak only.
-      fetchRoadmapState(supabase, eventId, new Date()),
+      // The couple's planning state (months-to-date + hard structural signals)
+      // that powers the "Recommended for you now" strip. `.catch(() => null)` so
+      // a hiccup in these five reads degrades the strip (to date-peak only, or
+      // hidden) — it must never 500 the whole Studio hub for a nice-to-have.
+      fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
     ]);
 
   const priceMap = new Map<string, string>();
@@ -298,18 +298,20 @@ export default async function StudioPage({ params }: Props) {
 
   // ── "Recommended for you now" (owner 2026-07-10 · simpler Studio) ─────────
   // Lead the hub with the 2–3 add-ons that fit WHERE THE COUPLE ACTUALLY IS, so
-  // Studio opens as "here's your next step" instead of a 24-tile catalog. The
-  // ranking follows the SAME roadmap state the Home "Things to complete" list
-  // reads (overdue-first) and gates day-of add-ons behind readiness signals, so
-  // the two surfaces can never disagree — see lib/studio-recommendations.ts.
-  // Eligible = surface-enabled for this event type AND not coming-soon; owned
-  // items are never re-recommended. Free picks are allowed on purpose — this
-  // answers "what to set up next", not "what to buy".
+  // Studio opens as "here's your next step" instead of a 24-tile catalog. It's
+  // Studio's own phase-aware heuristic (see lib/studio-recommendations.ts) — it
+  // follows the couple's open planning items overdue-first and gates day-of
+  // add-ons behind readiness signals. Eligible = surface-enabled for this event
+  // type AND not coming-soon; owned items are never re-recommended. Free picks
+  // are allowed on purpose — this answers "what to set up next", not "what to
+  // buy". `followRoadmap` is wedding-only: the planning bands are wedding canon,
+  // so other event types rank by date-peak proximity alone.
   const monthsToDate = roadmapState?.months ?? null;
   const recommendedEntries = recommendStudioAddOns({
     monthsToDate,
     signals: roadmapState?.signals ?? null,
     completed: roadmapState?.completed ?? [],
+    followRoadmap: profile.eventType === 'wedding',
     isEligible: (key) => {
       const e = entryByKey.get(key);
       if (!e) return false;

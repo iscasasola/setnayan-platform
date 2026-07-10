@@ -139,7 +139,6 @@ export async function getHomePricingData(): Promise<PricingData> {
 
   // ── Couple Website group ──
   const reveal = priceOf(catalog, 'STD_PREMIUM_OPENINGS', 999);
-  const stdVideo = priceOf(catalog, 'STD_VIDEO_UPLOAD', 100);
   const galleryUpload = priceOf(catalog, 'WEBSITE_GALLERY_UPLOAD', 100);
   const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 100);
   const themes = priceOf(catalog, 'WEBSITE_THEMES', 1000);
@@ -199,8 +198,7 @@ export async function getHomePricingData(): Promise<PricingData> {
       tinted: true,
       rows: [
         { n: 'The whole 4-in-1 site + unlimited RSVP', v: 'Free', free: true },
-        { n: 'Reveal · cinematic STD openings', v: reveal.v },
-        { n: 'STD video upload', v: stdVideo.v },
+        { n: 'Reveal · cinematic openings + your music, video & photos', v: reveal.v },
         { n: 'Photo gallery upload', v: galleryUpload.v },
         { n: 'Waze / Google Map link', v: mapLink.v },
         { n: 'Themes · RSVP + Event + Editorial', v: themes.v },

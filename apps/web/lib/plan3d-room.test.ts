@@ -21,6 +21,8 @@ import {
   isGreetable,
   activeRemotes,
   remoteMovers,
+  colorFromId,
+  ROOM_PLAYER_COLORS,
   BROADCAST_INTERVAL_MS,
   RUN_AT_MPS,
   STAND_BELOW_MPS,
@@ -220,6 +222,16 @@ test('activeRemotes: present-first then nearest, capped', () => {
   assert.deepEqual(order, ['near', 'mid', 'far']);
   // cap
   assert.equal(activeRemotes(map, { x: 0, z: 0 }, 100, 2).length, 2);
+});
+
+test('colorFromId: deterministic, in-palette, and spreads ids across hues', () => {
+  assert.equal(colorFromId('abc'), colorFromId('abc'), 'stable per id');
+  for (const id of ['a', 'guest-1', 'x9y8z7', '']) {
+    assert.ok((ROOM_PLAYER_COLORS as readonly string[]).includes(colorFromId(id)), 'always a palette colour');
+  }
+  // many ids touch more than one hue (not collapsed to a single colour)
+  const seen = new Set(Array.from({ length: 50 }, (_, i) => colorFromId(`peer-${i}`)));
+  assert.ok(seen.size > 1, 'ids spread across the palette');
 });
 
 test('remoteMovers: present movers carry velocity; stopped/absent contribute position-only or nothing', () => {

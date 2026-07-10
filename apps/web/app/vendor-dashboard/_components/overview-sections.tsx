@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Coins, Star, Inbox, ListTodo, CalendarClock } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Coins, Star, Inbox, ListTodo, CalendarClock, Wallet } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { formatPhp } from '@/lib/vendors';
 import type {
   OngoingTask,
   UpcomingEventRow,
+  VendorEarningsSummary,
   WhatsNewCard,
 } from '@/lib/vendor-overview';
 
@@ -53,12 +55,14 @@ function metaLine(parts: Array<string | null | undefined>): string {
 
 // ---------------------------------------------------------------------------
 // 0 · ENERGY STATS — the databerry-inside-editorial stat bento ("Energy, not
-//     skin" 2026-07-09). PRESENTATION ONLY: every number here is derived from
-//     the SAME feed data the Overview already loaded (whatsNew · ongoing ·
-//     upcoming) — no new queries, no fabricated metrics. Prototype widgets with
-//     no real source on this surface (booked-revenue hero, response-rate ring,
-//     profile-views sparkline, aggregate rating, token balance) are deliberately
-//     omitted rather than faked.
+//     skin" 2026-07-09). Feed-derived counts (whatsNew · ongoing · upcoming)
+//     use the SAME data the Overview already loaded — no new queries there.
+//     The two money tiles carry REAL earnings loaded by fetchVendorEarningsSummary
+//     (year-to-date paid revenue + payday confirmed-vs-expected cash-flow); when
+//     that read fails, `earnings` is null and the tiles are omitted rather than
+//     faked. Remaining prototype widgets with no real source on this surface
+//     (response-rate ring, profile-views sparkline, aggregate rating, token
+//     balance) stay deliberately omitted rather than faked.
 // ---------------------------------------------------------------------------
 
 /** Days-to-nearest-event → a 0–100 "how close" ratio for the countdown ring
@@ -77,10 +81,13 @@ export function VendorEnergyStats({
   whatsNew,
   ongoing,
   upcoming,
+  earnings,
 }: {
   whatsNew: WhatsNewCard[];
   ongoing: OngoingTask[];
   upcoming: UpcomingEventRow[];
+  /** Real earnings summary; null when the read failed → money tiles omitted. */
+  earnings: VendorEarningsSummary | null;
 }) {
   const needsYou = whatsNew.length;
   const inquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
@@ -183,6 +190,22 @@ export function VendorEnergyStats({
         )}
       </div>
 
+      {/* Earnings — REAL booked revenue (fetchVendorEarningsSummary). Omitted
+          when the read failed (earnings === null); ₱0 is a genuine zero-state,
+          never faked. */}
+      {earnings ? (
+        <>
+          <EarnedTile
+            earnedThisYearPhp={earnings.earnedThisYearPhp}
+            bookingCount={earnings.bookingCount}
+          />
+          <CashFlowTile
+            confirmedPhp={earnings.confirmedPhp}
+            expectedPhp={earnings.expectedPhp}
+          />
+        </>
+      ) : null}
+
       {/* KPI row — real counts, serif numerals. */}
       <EnergyKpi
         icon={<Inbox className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
@@ -234,6 +257,111 @@ function EnergyKpi({
           {label}
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Earned tile — the wine-accented money hero the reskin skipped. The exact
+ * year-to-date figure the /vendor-dashboard/earnings page shows (matched
+ * payments on this vendor's own service categories). Whole card links to the
+ * full ledger. ₱0 with `bookingCount === 0` is a genuine empty state.
+ */
+function EarnedTile({
+  earnedThisYearPhp,
+  bookingCount,
+}: {
+  earnedThisYearPhp: number;
+  bookingCount: number;
+}) {
+  return (
+    <Link
+      href="/vendor-dashboard/earnings"
+      className="m-card group relative overflow-hidden p-5 transition-colors hover:bg-[var(--m-paper-2)] lg:col-span-2"
+      style={{ boxShadow: 'inset 3px 0 0 var(--m-nav-active), var(--m-shadow-sm)' }}
+    >
+      <span className="flex items-center justify-between">
+        <span className="m-label-mono" style={{ color: 'var(--m-nav-active)' }}>
+          Earned · this year
+        </span>
+        <Wallet
+          className="h-4 w-4"
+          strokeWidth={1.75}
+          aria-hidden
+          style={{ color: 'var(--m-nav-active)' }}
+        />
+      </span>
+      <span
+        className="m-serif mt-1 block text-4xl leading-none sm:text-5xl"
+        style={{ color: 'var(--m-ink)' }}
+      >
+        {formatPhp(earnedThisYearPhp)}
+      </span>
+      <span className="mt-2 flex items-center gap-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+        {bookingCount === 0
+          ? 'No earnings yet — paid bookings on your services roll up here.'
+          : `${bookingCount} booking${bookingCount === 1 ? '' : 's'} logged`}
+        <ArrowRight
+          className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * Confirmed cash-flow tile — the vendor's payday timeline collapsed to a real
+ * ratio: confirmed (received) vs expected (total booked) installment value
+ * across all booked events. The ring encodes that genuine ratio; ₱0 / no
+ * booked installments is a genuine empty state.
+ */
+function CashFlowTile({
+  confirmedPhp,
+  expectedPhp,
+}: {
+  confirmedPhp: number;
+  expectedPhp: number;
+}) {
+  const pct = expectedPhp > 0 ? (confirmedPhp / expectedPhp) * 100 : 0;
+  return (
+    <div className="m-card flex items-center gap-4 p-5">
+      {expectedPhp > 0 ? (
+        <>
+          <ProgressRing pct={pct} size={72} stroke={7} color="var(--v-blue)">
+            <span className="m-serif text-lg leading-none" style={{ color: 'var(--m-ink)' }}>
+              {Math.round(pct)}
+            </span>
+            <span
+              className="text-[9px] uppercase tracking-wide"
+              style={{ color: 'var(--m-slate-3)' }}
+            >
+              %
+            </span>
+          </ProgressRing>
+          <div className="min-w-0">
+            <p className="m-label-mono" style={{ color: 'var(--v-blue)' }}>
+              Confirmed cash-flow
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+              {formatPhp(confirmedPhp)}
+            </p>
+            <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--m-slate)' }}>
+              of {formatPhp(expectedPhp)} booked
+            </p>
+          </div>
+        </>
+      ) : (
+        <div>
+          <p className="m-label-mono" style={{ color: 'var(--v-blue)' }}>
+            Confirmed cash-flow
+          </p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+            No booked installments yet.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

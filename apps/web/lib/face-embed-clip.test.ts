@@ -31,7 +31,8 @@ test('zero / invalid duration → a single [0] (never empty)', () => {
 test('very short clip → one middle-frame sample', () => {
   const t = pickClipSampleTimes(0.2);
   assert.equal(t.length, 1);
-  assert.ok(t[0] > 0 && t[0] < 0.2);
+  const [only] = t;
+  assert.ok(only !== undefined && only > 0 && only < 0.2);
 });
 
 // ── unionClipFaceVectors ─────────────────────────────────────────────────────

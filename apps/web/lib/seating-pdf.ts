@@ -355,7 +355,11 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
   // outline) so rotated/connected tables print as laid out. Box stays unrotated
   // (it only feeds the spacing scale below).
   const geos = tables.map((t) => {
-    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    // Linked serpentine → even chair spacing, matching the on-screen editor
+    // (seating-editor.tsx passes the same flag) so the printed pack looks like
+    // the plan. Box is even-invariant, so the spacing/scale math below is
+    // unaffected.
+    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity, t.link_group_id != null);
     const rot = t.rotation_deg || 0;
     if (!rot) return g;
     return {

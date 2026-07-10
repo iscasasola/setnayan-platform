@@ -52,6 +52,10 @@ import {
   isSuriAssistFreeForCategory,
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
+import {
+  searchMarketplaceForBench,
+  type BenchMarketResult,
+} from '../_actions/bench-marketplace-search';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import {
   RequirementsModal,
@@ -156,6 +160,19 @@ html.dark .slcat .sortseg button.on{color:#1E2229;background:#C99DB0}
 .slcat .bench-mkt .bench-mkt-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .18s var(--ease)}
 .slcat .bench-mkt:hover .bench-mkt-arr{transform:translateX(2px);color:var(--mulberry)}
 html.dark .slcat .bench-mkt{background:#2A2E36}
+/* inline whole-marketplace results — top matches below the shortlist filter */
+.slcat .bench-mkt-results{margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);overflow:hidden}
+.slcat .bmr-head{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px 6px}
+.slcat .bmr-loading{padding:6px 14px 14px;font-size:12.5px;color:var(--ink-soft)}
+.slcat .bmr-row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-top:1px solid var(--line-soft);text-decoration:none;color:inherit;transition:background .15s var(--ease)}
+.slcat .bmr-row:hover{background:rgba(30,34,41,.03)}
+.slcat .bmr-av{width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
+.slcat .bmr-m{flex:1;min-width:0}
+.slcat .bmr-m b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slcat .bmr-m span{font-size:11px;color:var(--ink-soft)}
+.slcat .bmr-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .15s var(--ease)}
+.slcat .bmr-row:hover .bmr-arr{transform:translateX(2px);color:var(--mulberry)}
+html.dark .slcat .bench-mkt-results{background:#2A2E36}
 html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
@@ -403,6 +420,11 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
+  // Inline whole-marketplace results (2026-07-10) — debounced server search that
+  // shows top matching vendors from the WHOLE marketplace below the shortlist
+  // filter, so a couple can discover a vendor they haven't shortlisted.
+  const [mktResults, setMktResults] = useState<BenchMarketResult[]>([]);
+  const [mktLoading, setMktLoading] = useState(false);
 
   // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
   // The leaf whose saved-request modal is open: its canonical_service (the key
@@ -563,6 +585,37 @@ export function ShortlistCategories({
         .filter((f) => f.tiles.length > 0)
     : folders;
 
+  // Debounced whole-marketplace search — fires ~280ms after typing settles; a
+  // cancel flag drops stale responses so results can't arrive out of order.
+  useEffect(() => {
+    if (q.length < 2) {
+      setMktResults([]);
+      setMktLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMktLoading(true);
+    const handle = window.setTimeout(() => {
+      searchMarketplaceForBench(q)
+        .then((res) => {
+          if (!cancelled) {
+            setMktResults(res);
+            setMktLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMktResults([]);
+            setMktLoading(false);
+          }
+        });
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [q]);
+
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
@@ -617,6 +670,34 @@ export function ShortlistCategories({
           </button>
         ) : null}
       </div>
+      {searching && (mktLoading || mktResults.length > 0) ? (
+        <div className="bench-mkt-results">
+          <div className="bmr-head">From the whole marketplace</div>
+          {mktLoading && mktResults.length === 0 ? (
+            <div className="bmr-loading">Searching the marketplace…</div>
+          ) : (
+            mktResults.map((r) => (
+              <Link
+                key={r.vendorProfileId}
+                href={r.slug ? `/v/${r.slug}` : '#'}
+                prefetch={false}
+                className="bmr-row"
+              >
+                <span className="bmr-av">{initials(r.name)}</span>
+                <span className="bmr-m">
+                  <b>{r.name}</b>
+                  <span>
+                    {[r.city, r.rating != null ? `★ ${r.rating.toFixed(1)}` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </span>
+                <ArrowRight className="bmr-arr" size={15} strokeWidth={2} aria-hidden />
+              </Link>
+            ))
+          )}
+        </div>
+      ) : null}
       {searching ? (
         <Link
           href={`/explore?q=${encodeURIComponent(query.trim())}`}
@@ -625,7 +706,7 @@ export function ShortlistCategories({
         >
           <Search size={15} strokeWidth={1.9} aria-hidden />
           <span>
-            Search the whole marketplace for <b>“{query.trim()}”</b>
+            See all results in the marketplace for <b>“{query.trim()}”</b>
           </span>
           <ArrowRight className="bench-mkt-arr" size={16} strokeWidth={2} aria-hidden />
         </Link>

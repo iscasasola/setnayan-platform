@@ -120,6 +120,7 @@ import {
 } from '../actions';
 import { useSeatingPresence } from './use-seating-presence';
 import { useSeatingLock } from './use-seating-lock';
+import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
@@ -496,6 +497,9 @@ export function SeatingEditor({
   const [liveHolderHeartbeatAt, setLiveHolderHeartbeatAt] = useState<string | null>(null);
   const lock = useSeatingLock(eventId, me.name, liveHolderHeartbeatAt);
   const canEdit = lock.status === 'editing';
+  // View-only surface follows the editor live (the 3D lab, or another viewer) —
+  // the EDITING surface never auto-refreshes (would clobber unsaved drafts).
+  useSeatingLiveRefresh(eventId, !canEdit);
   useEffect(() => {
     // Try to take the lock as soon as the editor opens (the surface itself is
     // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.

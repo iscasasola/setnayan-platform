@@ -82,6 +82,7 @@ import { sel, type ReceptionDesign } from '@/lib/reception-scene';
 import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
+import { useSeatingLiveRefresh } from '@/app/dashboard/[eventId]/seating/_components/use-seating-live-refresh';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
   assignGuest,
@@ -471,6 +472,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
   const lock = useSeatingLock(eventId, me.name, null);
   const canEdit = lock.status === 'editing';
+  // View-only surface follows the editor live (2D or another 3D viewer) — the
+  // EDITING surface never auto-refreshes (it can't clobber its own drag).
+  useSeatingLiveRefresh(eventId, !canEdit);
   const acquireLock = lock.acquire;
   const notifyLost = lock.notifyLost;
   useEffect(() => {

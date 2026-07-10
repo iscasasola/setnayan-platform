@@ -39,7 +39,6 @@
 import {
   Home,
   ListChecks,
-  Route,
   Users,
   CalendarClock,
   MessageSquare,
@@ -119,15 +118,6 @@ export function buildCustomerNavGroups(
               href: `${base}/checklist`,
               icon: ListChecks,
               matchPrefix: `${base}/checklist`,
-            },
-            {
-              // Decisions & Progress — journey rail + decisions board
-              // (production port of the 2026-07-09 session prototype).
-              key: 'progress',
-              label: 'Progress',
-              href: `${base}/progress`,
-              icon: Route,
-              matchPrefix: `${base}/progress`,
             },
             {
               key: 'schedule',

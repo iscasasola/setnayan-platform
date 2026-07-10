@@ -70,7 +70,9 @@ function guardUrl(iv: Intervention, eventId: string): string {
     case 'GRD-02':
       return `/dashboard/${eventId}/paperwork`;
     default:
-      return `/dashboard/${eventId}/progress`;
+      // The event Home now hosts the decisions/progress surface (the former
+      // /progress route redirects here); land the couple there directly.
+      return `/dashboard/${eventId}`;
   }
 }
 

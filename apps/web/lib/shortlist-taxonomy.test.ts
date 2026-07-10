@@ -141,3 +141,27 @@ test('reach: mirrors enrichment within_radius; unknown → null (never a false o
   assert.equal(findVendor(folders, 'far')!.serviceRadiusKm, 20);
   assert.equal(findVendor(folders, 'unknown')!.reachesVenue, null, 'no signal → hidden, not false');
 });
+
+test('date: mirrors the batched map; no entry → null; locked picks never carry it', () => {
+  const rows = [
+    { vendor_id: 'free', vendor_name: 'Open Studio', category: 'photographer', status: 'considering' },
+    { vendor_id: 'busy', vendor_name: 'Full Studio', category: 'photographer', status: 'considering' },
+    { vendor_id: 'manual', vendor_name: 'Off-Platform', category: 'photographer', status: 'considering' },
+    { vendor_id: 'chosen', vendor_name: 'Booked Venue', category: 'venue', status: 'deposit_paid' },
+  ] as never;
+  const dateFitByVendorId = new Map<string, 'free' | 'booked'>([
+    ['free', 'free'],
+    ['busy', 'booked'],
+    // 'manual' absent → no signal; 'chosen' present but locked → still skipped.
+    ['chosen', 'booked'],
+  ]);
+  const folders = buildShortlistFolders({ ...BASE, vendorRows: rows, dateFitByVendorId });
+  assert.equal(findVendor(folders, 'free')!.dateFit, 'free');
+  assert.equal(findVendor(folders, 'busy')!.dateFit, 'booked');
+  assert.equal(findVendor(folders, 'manual')!.dateFit, null, 'no map entry → hidden');
+  assert.equal(findVendor(folders, 'chosen')!.dateFit, null, 'a locked pick never shows a date badge');
+
+  // No map supplied at all → every vendor null (calm default / bench off).
+  const none = buildShortlistFolders({ ...BASE, vendorRows: rows });
+  assert.equal(findVendor(none, 'free')!.dateFit, null, 'no map → no date badges anywhere');
+});

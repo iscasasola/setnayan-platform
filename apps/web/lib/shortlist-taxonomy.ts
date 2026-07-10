@@ -131,6 +131,14 @@ export type ShortlistVendor = {
    *  (starting_price_php) rather than a real quote (total_cost_php) — the badge
    *  renders an "est." qualifier so an estimate never reads as a firm number. */
   budgetEstimated: boolean;
+  /** Fit-badge · date availability (2026-07-09 · fast-follow to reach+budget).
+   *  'free' = the vendor's calendar has no block on the event's COMMITTED
+   *  (day-precision) date; 'booked' = a block covers that day; NULL = no signal
+   *  (no committed date, vendor isn't marketplace-connected, or the check didn't
+   *  run — bench off) → the badge is hidden. Locked picks never carry it (they're
+   *  already committed for this event). Fail-open: a calendar flake reads 'free',
+   *  never a false 'booked' (mirrors reach's no-false-out-of-range rule). */
+  dateFit: 'free' | 'booked' | null;
 };
 
 /** One taxonomy tile (a category) inside a folder. */
@@ -199,6 +207,12 @@ export function buildShortlistFolders(args: {
    *  = total − Σ locked commitments; a considered vendor "fits" when its price
    *  basis ≤ remaining. Null → no budget badge anywhere (calm by default). */
   totalBudgetPhp?: number | null;
+  /** Per-vendor date-availability fit for the event's COMMITTED (day-precision)
+   *  date (2026-07-09 · fast-follow to reach+budget). vendor_id → 'free' | 'booked'.
+   *  Computed once, batched, upstream (page.tsx) via the same calendar path the
+   *  Compare tab uses. Absent / no committed date → no date badges. Locked picks
+   *  are skipped here (they're already committed for this event). */
+  dateFitByVendorId?: ReadonlyMap<string, 'free' | 'booked'>;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -209,6 +223,7 @@ export function buildShortlistFolders(args: {
     eventId,
     plannedTiles,
     totalBudgetPhp,
+    dateFitByVendorId,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -291,6 +306,11 @@ export function buildShortlistFolders(args: {
       serviceRadiusKm: ext?.service_radius_km ?? null,
       budgetFit,
       budgetEstimated,
+      // Fit-badge · date. Skipped for locked picks (already committed for this
+      // event — their own booking would block that day, so a "Booked that day"
+      // read on your OWN chosen vendor would be misleading) — same "locked skips"
+      // discipline as budget above. Absent map / no committed date → null.
+      dateFit: isLocked ? null : dateFitByVendorId?.get(v.vendor_id) ?? null,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);

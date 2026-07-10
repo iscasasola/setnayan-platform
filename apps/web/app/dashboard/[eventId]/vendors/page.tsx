@@ -82,6 +82,9 @@ import { BuildCompare, type CompareDatesInfo } from './_components/build-compare
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import {
   getAvailableDaysForVendorSet,
+  getBatchVendorAvailableDays,
+  computeCandidateWindow,
+  formatDayKey,
   rangeFromPrecision,
 } from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -760,9 +763,58 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return picks.length > 0 ? new Set(picks) : undefined;
   })();
 
+  // ── Bench date-availability fit (2026-07-09) ────────────────────────────────
+  // The fast-follow the shipped reach + budget fit-badges left open. A third live
+  // badge — "Free on your date" / "Booked that day" — on the Shortlist bench.
+  // GATED: only runs behind BUDGET_BUILD_ENABLED (the sole path that renders the
+  // bench) AND when the event has a COMMITTED (day-precision) date. Reuses the
+  // batched per-vendor calendar primitive `getBatchVendorAvailableDays` — the
+  // same vendor-availability path that backs the Compare tab — so it costs ONE
+  // extra query for the whole bench (no N+1). ADMIN client because 'considering'
+  // bench vendors are pre-booking and the 0022 § 2.3 calendar RLS only opens
+  // after a booking (same client choice compareAvailability makes below).
+  // Fail-open: the helper returns a full window on a read error, so a calendar
+  // flake reads 'free', never a false 'booked' (mirrors reach's no-false-out-of-
+  // range rule); any thrown error → empty map → no date badges at all.
+  const dateFitByVendorId = new Map<string, 'free' | 'booked'>();
+  if (isBudgetBuildEnabled() && eventDate && matchPrecision === 'day') {
+    try {
+      const committed = computeCandidateWindow(eventDate, 'day');
+      if (committed) {
+        const committedKey = formatDayKey(committed.start);
+        // vendor_id → marketplace vendor_profile_id, for connected picks only.
+        // Off-platform / manual vendors have no calendar → never a date badge.
+        const profileByVendorId = new Map<string, string>();
+        for (const v of vendors) {
+          if (v.marketplace_vendor_id) {
+            profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
+          }
+        }
+        const profileIds = [...new Set(profileByVendorId.values())];
+        if (profileIds.length > 0) {
+          const availByProfile = await getBatchVendorAvailableDays(
+            createAdminClient(),
+            profileIds,
+            committed.start,
+            committed.end,
+          );
+          for (const [vendorId, profileId] of profileByVendorId) {
+            const days = availByProfile.get(profileId);
+            if (!days) continue; // no signal for this profile → no badge
+            dateFitByVendorId.set(vendorId, days.has(committedKey) ? 'free' : 'booked');
+          }
+        }
+      }
+    } catch {
+      // Fail-soft — no date badges rather than a broken bench.
+      dateFitByVendorId.clear();
+    }
+  }
+
   const shortlistFolders = buildShortlistFolders({
     vendorRows,
     enrichmentByVendorId,
+    dateFitByVendorId,
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,

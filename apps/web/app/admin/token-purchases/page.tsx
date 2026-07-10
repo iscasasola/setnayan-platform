@@ -288,7 +288,7 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
       </section>
 
       <p className="mt-8 text-center text-xs text-ink/40">
-        <Link href="/admin/token-bands" className="underline hover:text-ink/60">
+        <Link href="/admin/pricing?tab=token-bands" className="underline hover:text-ink/60">
           Token burn bands
         </Link>{' '}
         ·{' '}

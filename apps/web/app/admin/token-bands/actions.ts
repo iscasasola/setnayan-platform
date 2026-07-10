@@ -60,5 +60,5 @@ export async function updateBand(formData: FormData) {
     .eq('slug', regionSlug);
   if (error) throw new Error(error.message);
 
-  revalidatePath('/admin/token-bands');
+  revalidatePath('/admin/pricing');
 }

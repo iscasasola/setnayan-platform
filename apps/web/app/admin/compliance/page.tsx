@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ComplianceForm, type ComplianceFormState } from './_components/compliance-form';
 import type { SubProcessor } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 // Admin Compliance — the RA 10173 / NPC compliance facts surface.
 //
 // The admin layout already gates on is_admin; this page re-checks (defense in
@@ -94,6 +95,7 @@ function CountCard({
 }
 
 export default async function AdminCompliancePage() {
+  await requireAdmin();
   // Defense-in-depth admin gate (team-member-aware), mirroring the layout.
   const supabase = await createClient();
   const {

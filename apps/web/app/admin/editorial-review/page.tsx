@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ScanFlag } from '@/lib/editorial-scan';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Editorial review · Admin' };
 
 export default async function EditorialReviewPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   const { data: rows } = await admin

@@ -6,6 +6,7 @@ import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { recomputePriceBands } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Price bands · Admin' };
 
 /**
@@ -45,6 +46,7 @@ export default async function AdminPriceBandsPage({
 }: {
   searchParams: Promise<{ recomputed?: string }>;
 }) {
+  await requireAdmin();
   const { recomputed } = await searchParams;
 
   const admin = createAdminClient();

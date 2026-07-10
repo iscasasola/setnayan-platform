@@ -10,6 +10,7 @@ import {
   rejectRequest,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Account deletions · Admin' };
 
 /**
@@ -47,6 +48,7 @@ type Props = {
 };
 
 export default async function AdminAccountDeletionsPage({ searchParams }: Props) {
+  await requireAdmin();
   const { actioned } = await searchParams;
   const admin = createAdminClient();
 

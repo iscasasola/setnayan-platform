@@ -6,6 +6,7 @@ import {
   buildFunnelSteps,
 } from '@/lib/vendor-funnel';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Funnels · Admin' };
 
 type RangeKey = 'week' | 'month' | 'quarter';
@@ -48,6 +49,7 @@ function buildPostHogDashboardUrl(): string {
 }
 
 export default async function AdminFunnelsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const range: RangeKey =
     search.range === 'month' || search.range === 'quarter' || search.range === 'week'

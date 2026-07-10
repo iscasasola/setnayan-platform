@@ -15,11 +15,13 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { updateOnboardingMusic } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Onboarding · Admin' };
 
 type Props = { searchParams: Promise<{ saved?: string; error?: string }> };
 
 export default async function AdminOnboardingPage({ searchParams }: Props) {
+  await requireAdmin();
   const sp = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);

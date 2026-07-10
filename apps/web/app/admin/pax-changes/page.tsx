@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Pax changes · Admin' };
 
 /**
@@ -38,6 +39,7 @@ const peso = (n: number | null) =>
   n == null ? '—' : `₱${Math.round(n).toLocaleString('en-PH')}`;
 
 export default async function AdminPaxChangesPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   const { data, error } = await admin

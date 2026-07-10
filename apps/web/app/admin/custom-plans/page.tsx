@@ -13,6 +13,7 @@ import {
   type LoadedPlan,
 } from './_components/custom-composer';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Custom plans · Admin' };
 
 type Props = { searchParams: Promise<{ vendor?: string }> };
@@ -80,6 +81,7 @@ type CustomRequest = {
  * them in-memory for the preview + the (server-recomputed) quote.
  */
 export default async function AdminCustomPlansPage({ searchParams }: Props) {
+  await requireAdmin();
   const { vendor: selectedVendorId = null } = await searchParams;
   const admin = createAdminClient();
 

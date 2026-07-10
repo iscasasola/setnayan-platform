@@ -36,6 +36,7 @@ import {
   adminLiftConciergeEnforcement,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
 type FlagRow = {
@@ -73,6 +74,7 @@ type Props = {
 };
 
 export default async function ConciergeAbusePage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const tab: 'queue' | 'enforcement' =
     search.tab === 'enforcement' ? 'enforcement' : 'queue';

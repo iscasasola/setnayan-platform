@@ -4,6 +4,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import type { ScanFlag } from '@/lib/editorial-scan';
 import { resolveFlag, unlockForCouple, triggerRescan } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Editorial review · Admin' };
 
 export default async function EditorialReviewDetailPage({
@@ -11,6 +12,7 @@ export default async function EditorialReviewDetailPage({
 }: {
   params: Promise<{ editorialId: string }>;
 }) {
+  await requireAdmin();
   const { editorialId } = await params;
   const admin = createAdminClient();
 

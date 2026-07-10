@@ -15,6 +15,7 @@ import {
 } from '@/lib/force-majeure';
 import { resolveFlag, takeOwnership } from '../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Flag · Admin · Force Majeure' };
 
 type FlagRow = {
@@ -73,6 +74,7 @@ type Props = {
 };
 
 export default async function AdminForceMajeureDetailPage({ params }: Props) {
+  await requireAdmin();
   const { flagId } = await params;
   const admin = createAdminClient();
 

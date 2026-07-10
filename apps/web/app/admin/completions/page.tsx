@@ -5,6 +5,7 @@ import { relativeTime } from '@/lib/activity';
 import { forceCompleteVendor, upholdNonDelivery } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Completions · Admin' };
 
 /**
@@ -69,6 +70,7 @@ function olderThan(iso: string | null, days: number, now: number): boolean {
 }
 
 export default async function AdminCompletionsPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   const now = Date.now();
 

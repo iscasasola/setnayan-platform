@@ -13,6 +13,7 @@ import {
 } from './_components/catalog-editor';
 import { RETAIL_GRID, TWOCOL_GRID } from './_components/grids';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Pricing · Admin' };
 
 /**
@@ -117,6 +118,7 @@ function timeAgo(iso: string): string {
 }
 
 export default async function AdminPricingPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const savedCount = search.saved != null ? Number(search.saved) : null;
   const skippedCount = search.skipped != null ? Number(search.skipped) : 0;

@@ -15,12 +15,14 @@ import { fetchThreadById, fetchMessages, formatChatTimestamp } from '@/lib/chat'
 import { adminAcceptInquiry, adminDeclineInquiry, adminReplyAsVendor } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Demo inquiry · Admin' };
 export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ threadId: string }> };
 
 export default async function DemoInquiryThreadPage({ params }: Props) {
+  await requireAdmin();
   const { threadId } = await params;
   const admin = createAdminClient();
 

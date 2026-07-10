@@ -25,6 +25,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 import { ConnectionLogsClient, type FaultLogRow } from './connection-logs-client';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Connection Logs · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,7 @@ const SELECT_COLS =
   'id,created_at,event_type,element_name,file_path,error_message,payload_snapshot,status,resolved_at';
 
 export default async function AdminConnectionLogsPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   const [{ data: activeData }, { data: resolvedData }] = await Promise.all([

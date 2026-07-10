@@ -5,6 +5,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 import { setHelpMessageStatus } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Help inbox · Admin' };
 
 type HelpMessageRow = {
@@ -50,6 +51,7 @@ const STATUS_LABEL: Record<HelpMessageRow['status'], string> = {
 type Props = { searchParams: Promise<{ status?: string }> };
 
 export default async function AdminHelpPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = (search.status ?? 'open') as 'open' | 'all' | 'new' | 'in_progress' | 'closed';
 

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { SubProcessor } from '../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 // Admin Compliance — NPC data-sheet export view.
 //
 // A read-only, print-friendly rendering of the stored compliance facts laid out
@@ -60,6 +61,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 }
 
 export default async function ComplianceDataSheetPage() {
+  await requireAdmin();
   const supabase = await createClient();
   const {
     data: { user },

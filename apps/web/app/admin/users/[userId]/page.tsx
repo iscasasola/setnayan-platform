@@ -33,6 +33,7 @@ import {
   type LifecycleStep,
 } from './_components/account-card-nav';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Account · Admin' };
 
 /**
@@ -98,6 +99,7 @@ type Props = {
 };
 
 export default async function AdminAccountCardPage({ params, searchParams }: Props) {
+  await requireAdmin();
   const { userId } = await params;
   const { tab: rawTab } = await searchParams;
   const tab = normalizeAccountTab(rawTab);

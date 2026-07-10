@@ -15,6 +15,7 @@ import {
   dismissReviewFlag,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Reviews · Admin' };
 
 type AppealRow = {
@@ -101,6 +102,7 @@ type Props = {
 };
 
 export default async function AdminReviewsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as 'pending' | 'decided' | 'all';
 

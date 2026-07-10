@@ -8,6 +8,7 @@ import {
 import { requestPrivilegedGrant, approveRequest, rejectRequest } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Approvals · Admin' };
 
 type RequestRow = {
@@ -37,6 +38,7 @@ function timeAgo(iso: string): string {
 }
 
 export default async function AdminApprovalsPage() {
+  await requireAdmin();
   const supabase = await createClient();
   const {
     data: { user },

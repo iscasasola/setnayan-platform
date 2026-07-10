@@ -11,6 +11,7 @@ import {
   type SkuOption,
 } from './_editor';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Vendor recommendations · Admin' };
 
 /**
@@ -98,6 +99,7 @@ function Banner({ search }: { search: Awaited<Props['searchParams']> }) {
 }
 
 export default async function AdminVendorRecommendationsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
 

@@ -20,6 +20,7 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Disputes · Admin' };
 
 /**
@@ -140,6 +141,7 @@ type Props = {
 };
 
 export default async function AdminDisputesPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   // Default landing view = open queue. That's the surface the owner reaches
   // for first (what needs attention); resolved + withdrawn are historical.

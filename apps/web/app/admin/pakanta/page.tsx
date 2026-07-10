@@ -13,6 +13,7 @@ import {
 } from '@/lib/pakanta-brief';
 import { PakantaDeliver } from './pakanta-deliver';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Pakanta queue · Admin' };
 
 /**
@@ -78,6 +79,7 @@ const BUNDLES_GRANTING_PAKANTA = (
 const ORDER_KEYS_FOR_PAKANTA = ['PAKANTA', ...BUNDLES_GRANTING_PAKANTA];
 
 export default async function AdminPakantaPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   let queryError: string | null = null;
 

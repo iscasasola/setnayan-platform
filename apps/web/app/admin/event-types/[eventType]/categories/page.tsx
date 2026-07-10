@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { setTileEventTypeOffered, setFolderEventTypeOffered } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Scope categories · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,7 @@ export default async function ScopeCategoriesPage({
   params: Params;
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
   const { eventType } = await params;
   const sp = await searchParams;
   const ok = sp.ok ? decodeURIComponent(sp.ok) : null;

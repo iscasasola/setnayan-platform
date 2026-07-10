@@ -20,6 +20,7 @@ import {
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Repost watch · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -134,6 +135,7 @@ export default async function AdminRepostWatchPage({
     qr_videos?: string;
   }>;
 }) {
+  await requireAdmin();
   const search = await searchParams;
   const status = normalizeStatus(search.status ?? 'open');
 

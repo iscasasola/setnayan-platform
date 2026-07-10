@@ -28,6 +28,7 @@ import { DiscountCodesSurface } from './_surfaces/discount-codes-surface';
 import { ReferralsSurface } from './_surfaces/referrals-surface';
 import { SocialQueueSurface } from './_surfaces/social-queue-surface';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 /**
  * Studio Studio (slice 1) — the tabbed /admin/studio shell that consolidates
  * the Studio menu (the `media` group in ADMIN_NAV_GROUPS) into one surface.
@@ -123,6 +124,7 @@ type Props = {
 };
 
 export default async function AdminStudioPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
 

@@ -12,6 +12,7 @@ import {
   resetTraditionsToDefaults,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Wedding traditions · Admin' };
 
 const RELIGIONS: TraditionGuideKey[] = [
@@ -28,6 +29,7 @@ const DIMENSIONS = ['officiant', 'ceremonial', 'food', 'custom', 'paperwork'] as
  * clergy before relying on it).
  */
 export default async function WeddingTraditionsPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   const { data } = await admin
     .from('wedding_tradition_items')

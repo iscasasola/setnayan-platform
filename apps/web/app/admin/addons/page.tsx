@@ -23,6 +23,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCentavosPhp } from '@/lib/sku-catalog';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Add-ons · Admin' };
 
 // ---------------------------------------------------------------------------
@@ -153,6 +154,7 @@ type Props = {
 };
 
 export default async function AdminAddonsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const selectedSku = (search.sku ?? '').trim() || null;
   const tab: 'customer' | 'vendor' = search.tab === 'vendor' ? 'vendor' : 'customer';

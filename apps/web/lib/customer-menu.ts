@@ -37,8 +37,6 @@
 
 import {
   Home, Users, Compass, Sparkles, Palette,
-  // Home children:
-  LayoutDashboard, ClipboardList,
   // Studio children:
   Gem, Globe, Camera, Eye,
   // Day-of phase icons:
@@ -180,31 +178,12 @@ export function buildCustomerMenuTree(
       label: 'Overview',
       icon: Home,
       href: base,
+      // Overview is a plain menu — no docked sub-nav (owner 2026-07-10: the menu
+      // doesn't need checklist/schedule/messages/contracts). /checklist stays in
+      // activeMatch so arriving there (from the dashboard task cards) still lights
+      // Overview; the surface itself is reachable from the dashboard body.
       activeMatch: [base, `${base}/checklist`],
       activeMatchExact: true,
-      sectionMatch: [base, `${base}/checklist`],
-      sectionMatchExact: true,
-      subnavLabel: 'Overview',
-      children: [
-        {
-          key: 'overview',
-          label: 'Overview',
-          icon: LayoutDashboard,
-          kind: 'route' as const,
-          href: base,
-          match: base,
-          slotKey: 'customer.home-subnav.overview',
-        },
-        {
-          key: 'checklist',
-          label: 'Checklist',
-          icon: ClipboardList,
-          kind: 'route' as const,
-          href: `${base}/checklist`,
-          match: `${base}/checklist`,
-          slotKey: 'customer.home-subnav.checklist',
-        },
-      ],
     },
     {
       key: 'guests',

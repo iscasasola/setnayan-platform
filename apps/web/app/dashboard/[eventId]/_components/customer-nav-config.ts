@@ -44,11 +44,7 @@
 
 import {
   Home,
-  ListChecks,
   Users,
-  CalendarClock,
-  MessageSquare,
-  FileText,
   Compass,
   Sparkles,
   Globe,
@@ -61,7 +57,6 @@ import {
   Shield,
   Eye,
   Rocket,
-  Gift,
 } from 'lucide-react';
 import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
@@ -141,50 +136,14 @@ export function buildCustomerNavGroups(
           href: base,
           icon: SetnayanMark as unknown as LucideIcon,
           matchPrefix: '__home__',
-          children: [
-            {
-              key: 'checklist',
-              label: 'Checklist',
-              href: `${base}/checklist`,
-              icon: ListChecks,
-              matchPrefix: `${base}/checklist`,
-            },
-            {
-              key: 'schedule',
-              label: 'Schedule',
-              href: `${base}/schedule`,
-              icon: CalendarClock,
-              matchPrefix: `${base}/schedule`,
-            },
-            {
-              key: 'messages',
-              label: 'Messages',
-              href: `${base}/messages`,
-              icon: MessageSquare,
-              matchPrefix: `${base}/messages`,
-              // Unread-thread badge — real count already loaded by the layout
-              // (topbar bell). 0/absent → no badge (never fabricated).
-              ...(opts?.unreadMessages && opts.unreadMessages > 0
-                ? { badge: { count: opts.unreadMessages, tone: 'orange' as const } }
-                : {}),
-            },
-            {
-              key: 'contracts',
-              label: 'Contracts',
-              href: `${base}/contracts`,
-              icon: FileText,
-              matchPrefix: `${base}/contracts`,
-            },
-            {
-              // Couple referral rewards — share your link; both sides get a
-              // perk when a referred couple books their first service.
-              key: 'refer',
-              label: 'Refer a couple',
-              href: `${base}/refer`,
-              icon: Gift,
-              matchPrefix: `${base}/refer`,
-            },
-          ],
+          // Overview is a plain leaf — no sub-items (owner 2026-07-10: "the menu
+          // does not need checklist, schedule, messages and contracts"). Those
+          // surfaces stay reachable from the dashboard body + topbar: Schedule
+          // from the dashboard's Schedule section, Checklist from its task cards,
+          // Messages from the Conversations card + vendor cards + the topbar bell,
+          // Contracts from the vendor itemization cards. "Refer a couple" (the
+          // lone remaining child) came out too so the item reads as a clean leaf;
+          // its /refer route is unchanged (reachable via direct link / account).
         },
         {
           // 2 · Guests — full guest hub. Expands to the five journey stages +

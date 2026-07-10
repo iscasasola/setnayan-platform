@@ -585,6 +585,47 @@ export function buildScheduleSeed(
   return { topLevel, buildChildren };
 }
 
+// ── Overview schedule preview selection ──────────────────────────────────────
+// Pure block-selection for the Overview's Schedule section (owner directive
+// 2026-07-09: "add schedule there"). Lives here — not in the component — so the
+// `tsx --test "lib/**/*.test.ts"` runner covers it. See schedule.test.ts.
+
+const SCHEDULE_PREVIEW_LIMIT = 4;
+
+export type SchedulePreviewSelection = {
+  /** Up to SCHEDULE_PREVIEW_LIMIT top-level blocks to render. */
+  display: ScheduleBlockRow[];
+  /** Top-level blocks not shown in `display` (drives the "N more" footer). */
+  moreCount: number;
+  /** True when the event has no top-level schedule blocks at all. */
+  isEmpty: boolean;
+};
+
+/**
+ * Top-level blocks only (nested children would clutter a short preview);
+ * prefer blocks still ahead of `now`, but fall back to the earliest blocks when
+ * the whole program is already past so the card never reads empty while data
+ * exists. Preserves the caller's ordering (fetchScheduleBlocks orders by
+ * start_at then sort_order).
+ */
+export function selectSchedulePreviewBlocks(
+  blocks: ScheduleBlockRow[],
+  now: Date,
+): SchedulePreviewSelection {
+  const topLevel = blocks.filter((b) => b.parent_block_id === null);
+  const nowMs = now.getTime();
+  const upcoming = topLevel.filter(
+    (b) => new Date(b.start_at).getTime() >= nowMs,
+  );
+  const source = upcoming.length > 0 ? upcoming : topLevel;
+  const display = source.slice(0, SCHEDULE_PREVIEW_LIMIT);
+  return {
+    display,
+    moreCount: Math.max(0, topLevel.length - display.length),
+    isEmpty: topLevel.length === 0,
+  };
+}
+
 export function formatBlockTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString(undefined, {

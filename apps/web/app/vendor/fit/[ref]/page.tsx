@@ -278,7 +278,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
                 <div
                   className={`rounded-xl px-4 py-3 text-sm font-medium ${
                     verdictFits
-                      ? 'bg-sage/10 text-sage-800'
+                      ? 'bg-success-50 text-success-800'
                       : 'bg-warn-100 text-warn-900'
                   }`}
                 >
@@ -290,13 +290,13 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
                   {verdictChecks.map((c) => {
                     const Icon = checkIcon(c.key);
                     const tone =
-                      c.ok === true ? 'text-sage-700' : c.ok === false ? 'text-warn-800' : 'text-ink/45';
+                      c.ok === true ? 'text-success-700' : c.ok === false ? 'text-warn-800' : 'text-ink/45';
                     return (
                       <li key={c.key} className="flex items-center gap-2 text-sm">
                         <Icon className={`h-4 w-4 ${tone}`} strokeWidth={1.75} />
                         <span className="flex-1 text-ink/75">{c.label}</span>
                         {c.ok === true ? (
-                          <Check className="h-4 w-4 text-sage-600" strokeWidth={2.25} />
+                          <Check className="h-4 w-4 text-success-600" strokeWidth={2.25} />
                         ) : c.ok === false ? (
                           <X className="h-4 w-4 text-warn-600" strokeWidth={2.25} />
                         ) : null}

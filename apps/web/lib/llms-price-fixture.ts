@@ -33,9 +33,10 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
   '₱1,499', // Patiktok
   '₱2,000', // Stories (per-day cap)
-  '₱2,499', // Pakanta · Thank You Video · Live Photo Wall (per day) · Live Studio Desktop (per day) · Pro vendor 28-day
+  '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day) · Pro vendor 28-day
   '₱2,999', // 3D Plan · Editorial PRO
-  '₱15,000', // Papic Ltd per-day cap
+  '₱5,999', // Papic Ltd per-day cap (owner 2026-07-11, was ₱15,000)
+  '₱11,999', // Papic Unli per-day cap (owner 2026-07-11)
 
   // Vendor token banding + packs (flat ₱100/token)
   '₱300', // top of the 1–3 token unlock band (₱100–₱300)

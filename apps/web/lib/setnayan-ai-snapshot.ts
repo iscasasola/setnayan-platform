@@ -276,7 +276,11 @@ export async function buildPlanningSnapshot(
       .from('orders')
       .select('requested_total_php')
       .eq('event_id', eventId)
-      .eq('status', 'pending_payment'),
+      // `awaiting_payment`, not the non-existent 'pending_payment' enum value —
+      // the old filter threw 22P02, so the AI snapshot's "pending" budget bucket
+      // (money already at checkout) was silently always ₱0. See order_status
+      // enum in 20260513150000_iteration_0034_payments.sql.
+      .eq('status', 'awaiting_payment'),
     admin
       .from('event_vendors')
       .select('status, total_cost_php, category, vendor_name')

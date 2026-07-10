@@ -130,7 +130,7 @@ export async function fetchPlanProgressForCouple(opts: {
 
   const { data: planRow } = await authedClient
     .from('event_vendor_payment_plan')
-    .select('instances_json, cleared_at')
+    .select('instances_json, cleared_at, is_default_seeded')
     .eq('event_id', eventId)
     .eq('event_vendor_id', eventVendorId)
     .maybeSingle();
@@ -139,6 +139,8 @@ export async function fetchPlanProgressForCouple(opts: {
   const raw = (planRow as { instances_json: unknown }).instances_json;
   const instances: PlanInstance[] = Array.isArray(raw) ? (raw as PlanInstance[]) : [];
   const clearedAt = (planRow as { cleared_at: string | null }).cleared_at ?? null;
+  const isDefaultSeeded =
+    (planRow as { is_default_seeded: boolean | null }).is_default_seeded ?? false;
 
   // The couple's logged payments on this booking (couple-RLS) — only the seq +
   // confirmation flag matter for the stepper.
@@ -155,7 +157,7 @@ export async function fetchPlanProgressForCouple(opts: {
     vendor_confirmed: p.vendor_confirmed_at != null,
   }));
 
-  return { steps: computeStepper(instances, payments), clearedAt };
+  return { steps: computeStepper(instances, payments), clearedAt, isDefaultSeeded };
 }
 
 /**

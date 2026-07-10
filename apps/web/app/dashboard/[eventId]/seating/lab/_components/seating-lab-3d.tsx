@@ -491,13 +491,19 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const forceResyncRef = useRef(false);
   // Reconcile with the server snapshot. NORMALLY merge new rows in (not a blind
   // replace) — so a router.refresh (from add, or a lost-lock recovery) can't
-  // clobber an in-flight optimistic move/rotation. But when a save just failed
-  // (forceResyncRef armed) do a FULL replace: overwrite every row's
-  // position/rotation and drop rows the server no longer has, so the failed
-  // optimistic change is reverted to server truth. While the lab holds the lock
-  // it's the only writer, so add-the-new-row is otherwise sufficient.
+  // clobber an in-flight optimistic move/rotation. But do a FULL replace —
+  // overwrite every row's position/rotation and drop rows the server no longer
+  // has — in the two cases where local state must mirror server truth exactly:
+  //   • forceResyncRef: a save just failed, so the optimistic `tables` diverged.
+  //   • !canEdit: this is a VIEW-ONLY live-sync surface (a peer holds the lock).
+  //     It holds no optimistic drag to protect, and the merge-only path below
+  //     would silently DROP a peer's move / rotate / delete (it only patches
+  //     link-grouping + appends new rows) — so a live viewer would freeze at the
+  //     positions it mounted with. The "lab is the only writer" assumption that
+  //     justified merge-only no longer holds once the viewer subscribes to live
+  //     updates (useSeatingLiveRefresh above).
   useEffect(() => {
-    if (forceResyncRef.current) {
+    if (forceResyncRef.current || !canEdit) {
       forceResyncRef.current = false;
       setTables(initialTables);
       return;
@@ -511,7 +517,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const added = initialTables.filter((t) => !known.has(t.id));
       return added.length ? [...reconciled, ...added] : reconciled;
     });
-  }, [initialTables]);
+  }, [initialTables, canEdit]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -581,16 +587,20 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // Local seat map (starts from the real assignments). The walk demo assigns
   // unseated guests into the first free chair — locally, never persisted.
   const [seats, setSeats] = useState<Map<string, SeatRef>>(() => deriveSeatsFromGuests(guests));
-  // One-shot: after a server bulk op (auto-seat) + router.refresh, re-derive the
-  // local seat map from the refreshed guest rows (server truth) — WITHOUT
-  // clobbering ordinary optimistic edits, which never arm this ref.
+  // Re-derive the local seat map from the refreshed guest rows (server truth) in
+  // two cases — otherwise the map stays frozen at the value it mounted with:
+  //   • seatResyncRef: one-shot after a self-initiated server bulk op (auto-seat).
+  //   • !canEdit: a VIEW-ONLY live-sync surface must reflect a peer's seat/unseat.
+  //     A viewer holds no optimistic seat map to protect, so mirror server truth
+  //     on every guests refresh. (An editor keeps the merge-guarded one-shot so
+  //     its optimistic seat edits aren't clobbered.)
   const seatResyncRef = useRef(false);
   useEffect(() => {
-    if (seatResyncRef.current) {
+    if (seatResyncRef.current || !canEdit) {
       seatResyncRef.current = false;
       setSeats(deriveSeatsFromGuests(guests));
     }
-  }, [guests]);
+  }, [guests, canEdit]);
 
   // Smart seat-plan rules (the "custom auto-seat rules" — keep-apart pairs + the
   // couple's tier priority order). Both feed the SERVER solver; the lab just

@@ -133,6 +133,10 @@ import {
   ChecklistSkeleton,
 } from './_components/checklist/checklist-async';
 import {
+  SchedulePreviewAsync,
+  SchedulePreviewSkeleton,
+} from './_components/schedule-preview-async';
+import {
   ActivityFeedAsync,
   ActivityFeedSkeleton,
 } from './_components/activity-feed-async';
@@ -1886,6 +1890,20 @@ export default async function EventHomePage({
             eventDate={event.event_date}
             now={now}
           />
+        </Suspense>
+      ) : null}
+
+      {/* Schedule — the couple's day-of timeline (event_schedule_blocks),
+       *  surfaced on the Overview (owner directive 2026-07-09: "add schedule
+       *  there"). Distinct from "Needs you" above (deadline/reminder items
+       *  from fetchUpcomingItems): this is their OWN program — the same blocks
+       *  /schedule edits and the day-of grid goes live with. Hidden during the
+       *  day-of window, where DayOfModeGrid's live-schedule card already shows
+       *  it. Always-on (their own data, not an assist nudge, so it stays in
+       *  Manual mode too). Streams in its own Suspense — never blocks the shell. */}
+      {!dayOfActive ? (
+        <Suspense fallback={<SchedulePreviewSkeleton />}>
+          <SchedulePreviewAsync eventId={eventId} now={now} />
         </Suspense>
       ) : null}
 

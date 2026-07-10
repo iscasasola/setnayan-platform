@@ -53,7 +53,7 @@ Couples can purchase the following in-app services individually. Pricing in PHP.
 - **Pakanta** — ₱2,499. Custom Filipino-style song written for the couple.
 - **3D Plan** — ₱2,999. Three-dimensional venue and seating plan view for the event.
 - **Thank You Video** — ₱2,499. Compiled thank-you video for all attendees.
-- **Live Photo Wall** — ₱2,499 per day. Live photo collage of event photos with live attendance count, displayed at the venue.
+- **Live Photo Wall** — ₱2,500 per day. Live photo collage of event photos with live attendance count, displayed at the venue.
 - **Animated Monogram** — ₱999. Bespoke monogram with animation, generated from the couple's inputs.
 - **Wedding Website** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP is free; premium touches are purchased à la carte (Editorial PRO and Cinematic Reveal below).
 - **Editorial PRO** — ₱2,999. Author your editorial front page: name the moments, tell each story, and arrange the layout.
@@ -61,12 +61,12 @@ Couples can purchase the following in-app services individually. Pricing in PHP.
 - **Stories** — ₱2,000 per day (cap). 30-second story maker for guests.
 - **Cinematic Reveal** — ₱999. Premium save-the-date cinematic opening animations, and it unlocks the couple's own background music, video, and photo gallery on the Save-the-Date film (the free Save-the-Date is the text-only content film).
 - **Patiktok** — ₱1,499. TikTok-style mimic-station booth; unlimited 9:16 vertical recordings of guests, compiled into post-ready reels.
-- **Camera Bridge** — ₱499 per day (flat, event-wide). Connects external DSLR cameras to Papic and Live Studio.
+- **Camera Bridge** — ₱500 per day (flat, event-wide). Connects external DSLR cameras to Papic and Live Studio.
 - **Pabati** — ₱1,299 per day. Guest-recorded 5-second greeting videos.
 - **Live Background** — ₱499. LED wall design background with monogram and theme matched to the wedding palette.
 - **Kwento** — ₱299 (whole event). Guest-contributed story and message collection for the couple.
-- **Papic Unli** — ₱100 per camera per day. Unlimited photos and 5-second videos per paparazzi camera.
-- **Papic Ltd** — ₱30 per camera per day (capped at ₱15,000 per day). Limited-shot disposable-camera mode per camera.
+- **Papic Unli** — ₱100 per camera per day (capped at ₱11,999 per day). Unlimited photos and 5-second videos per paparazzi camera.
+- **Papic Ltd** — ₱30 per camera per day (capped at ₱5,999 per day). Limited-shot disposable-camera mode per camera.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
 ## The mood board is free
@@ -141,7 +141,7 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 - **Can a vendor with multiple branches list each location?** Yes — Pro and Enterprise vendors can add additional branches at ₱999 per 28-day prepaid block per branch. Each branch operates as a sub-account with its own service city and coverage radius but shares the parent vendor's tier perks, portfolio, reviews, and token wallet.
 - **Why is some vendor's name hidden in the marketplace?** Verified vendor business names are screened from marketplace cards and microsite browse until the vendor sends their first chat reply to a couple. The reveal then applies globally — every couple browsing Setnayan sees the real business name from then on, on every page and in every thread. This light hybrid-anonymity protects new vendors from cold-spam outreach while still letting couples discover them by category and city. Pro and Enterprise vendors retain full name visibility from day 1 unchanged.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ₱2,499.
-- **What is Papic?** Guests' phones become a coordinated photo-and-video capture crew, priced per camera per day — Papic Unli (₱100 per camera per day, unlimited photos and 5-second videos) and Papic Ltd (₱30 per camera per day, capped at ₱15,000 per day, limited-shot disposable-camera mode). Photos auto-tag to guests and feed per-guest personal highlight reels.
+- **What is Papic?** Guests' phones become a coordinated photo-and-video capture crew, priced per camera per day — Papic Unli (₱100 per camera per day, unlimited photos and 5-second videos, capped at ₱11,999 per day) and Papic Ltd (₱30 per camera per day, capped at ₱5,999 per day, limited-shot disposable-camera mode). Photos auto-tag to guests and feed per-guest personal highlight reels.
 - **What is Live Studio?** Live streaming embedded on the event page, sent out through the couple's own YouTube. A single-camera stream is free; the multi-camera control room is per-day by device — Live Studio Mobile ₱1,299 / day (up to 3 cameras) or Live Studio Desktop ₱2,499 / day (offline-capable, up to 8 cameras). (Formerly branded "Panood.")
 - **What about my privacy?** RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without explicit couple opt-in. Real-wedding editorials publish 30 days post-event with explicit couple consent. National Privacy Commission registration in progress.
 - **What languages does Setnayan support?** English (primary) and Tagalog (TL) on the dashboard. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.

@@ -74,9 +74,13 @@ export const PAPIC_CAMERA_INDEX_BASE = 200;
 export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
-/** Per-tier price caps (owner 2026-06-26) — each tier's subtotal locks here. */
-export const PAPIC_LTD_CAP_FALLBACK_PHP = 6000; // Ltd (Roll) ≈ 200 cameras × ₱30
-export const PAPIC_UNLI_CAP_FALLBACK_PHP = 10000; // Unli ≈ 100 cameras × ₱100
+/**
+ * Per-tier price caps — each tier's subtotal locks here. Live values come from
+ * events.papic_ltd_cap_php / papic_unli_cap_php; these are last-resort fallbacks.
+ * Owner-set 2026-07-11: Ltd ₱5,999 · Unli ₱11,999 (was 6000 / 10000).
+ */
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 5999; // Ltd (Roll) ≈ 200 cameras × ₱30
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 11999; // Unli ≈ 120 cameras × ₱100
 
 export type CameraTier = 'free' | 'roll' | 'unlimited';
 
@@ -85,7 +89,7 @@ export const PAPIC_TIER_QUOTA: Record<
   CameraTier,
   { photos: number | null; videos: number | null }
 > = {
-  free: { photos: 5, videos: 1 },
+  free: { photos: 10, videos: 3 }, // owner 2026-07-11 (was 5 + 1) — fatter free taste
   roll: { photos: 30, videos: 10 },
   unlimited: { photos: null, videos: null },
 };

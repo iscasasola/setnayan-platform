@@ -160,7 +160,7 @@ export async function getHomePricingData(): Promise<PricingData> {
       tinted: true,
       rows: [
         { n: 'Gallery view · camera filters', v: 'Free', free: true },
-        { n: 'First 5 cameras · 5 photos + 1 video each', v: 'Free', free: true },
+        { n: 'First 5 cameras · 10 photos + 3 videos each', v: 'Free', free: true },
         {
           n: 'Papic Ltd · 30 photos + 10×5s',
           v: `${peso(papicRoll.rate)}/guest·day`,

@@ -201,9 +201,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
   const papicLtdCapPhp =
-    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 6000;
+    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 5999;
   const papicUnliCapPhp =
-    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
+    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 11999;
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;

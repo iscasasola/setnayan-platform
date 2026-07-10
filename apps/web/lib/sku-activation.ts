@@ -107,15 +107,12 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     }
   },
 
-  // 'EVENT_SUBDOMAIN' / 'vendor_subdomain' → the ₱999/yr Custom Subdomain (owner
-  // 2026-07-10). Stamp a 365-day window on the order; the resolver RPC + renewal
-  // cron read `orders.expires_at`. Ownership itself gates the feature (an active
-  // paid order) — no separate flag. Provisioning (wildcard DNS + routing) ships
-  // with the middleware branch; the subdomain label is the event's existing slug.
+  // 'EVENT_SUBDOMAIN' → the ₱999/yr Custom Subdomain (owner 2026-07-10 · EVENT-only;
+  // vendors get no *.setnayan.com host). Stamp a 365-day window on the order; the
+  // resolver RPC + renewal cron read `orders.expires_at`. Ownership itself gates the
+  // feature (an active paid order) — no separate flag. The subdomain label is the
+  // event's existing slug; provisioning ships with the middleware branch.
   EVENT_SUBDOMAIN: async (ctx) => {
-    await stampAnnualSubscriptionWindow(ctx);
-  },
-  vendor_subdomain: async (ctx) => {
     await stampAnnualSubscriptionWindow(ctx);
   },
 

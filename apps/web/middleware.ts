@@ -113,21 +113,21 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hostname = (request.headers.get('host') ?? '').toLowerCase();
 
-  // Subdomain rewrite · `slug.setnayan.com/<rest>`. Fires BEFORE any other
-  // middleware logic because the rewrite changes the pathname downstream
-  // consumers see. Two owners can hold a `*.setnayan.com` label:
-  //   1. A COUPLE who bought EVENT_SUBDOMAIN (₱999/yr) → their event page at bare
-  //      `/{slug}` — PAID + gated (resolve_event_subdomain checks an active order).
-  //   2. A VENDOR → `/v/{slug}` — free (existing behavior, unchanged).
-  // The paid event is checked first so a couple's vanity host wins; a null result
-  // (no owned event) falls through to the free vendor rewrite. The event lookup is
-  // one edge RPC per subdomain request (fail-open — a miss/error → vendor rewrite),
-  // mirroring the custom-domain path below; the primary www host pays nothing.
+  // Subdomain rewrite · `slug.setnayan.com/<rest>` → the couple's event page.
+  // Fires BEFORE any other middleware logic because the rewrite changes the
+  // pathname downstream consumers see. Subdomains are an EVENT-ONLY feature
+  // (owner 2026-07-10: "no x.setnayan.com for vendors. only for events."). A label
+  // resolves ONLY when a COUPLE owns an active paid EVENT_SUBDOMAIN order (₱999/yr)
+  // → their event page at bare `/{slug}`. Any other label (a vendor's, an unowned
+  // one) is NOT rewritten and falls through to normal routing. One edge RPC per
+  // subdomain request, fail-open (miss/error → no rewrite → normal routing);
+  // the primary www host pays nothing. (Vendors keep BYO custom domains — the
+  // separate resolve_custom_domain path below — but no *.setnayan.com subdomain.)
   const subLabel = detectVendorSubdomain(hostname);
   if (subLabel) {
     const eventPath = await resolveEventSubdomainPath(subLabel); // '/{slug}' | null
-    const rewrite = request.nextUrl.clone();
     if (eventPath) {
+      const rewrite = request.nextUrl.clone();
       rewrite.pathname = pathname === '/' ? eventPath : `${eventPath}${pathname}`;
       // Mirror the `/u/` nesting loop-break so the (flag-gated) `/u/` cutover
       // redirect in app/[slug]/page.tsx never bounces a paid vanity host into
@@ -136,9 +136,7 @@ export async function middleware(request: NextRequest) {
       headers.set('x-sn-u-nesting', '1');
       return NextResponse.rewrite(rewrite, { request: { headers } });
     }
-    // Free vendor subdomain (existing behavior, unchanged).
-    rewrite.pathname = pathname === '/' ? `/v/${subLabel}` : `/v/${subLabel}${pathname}`;
-    return NextResponse.rewrite(rewrite);
+    // Not a paid event subdomain → no rewrite (vendors get no *.setnayan.com host).
   }
 
   // Custom BYO domain · e.g. `sny.theirshop.com/<rest>` → internal rewrite to the

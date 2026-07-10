@@ -1,4 +1,4 @@
-import { Wordmark } from '@/app/_components/brand-marks';
+import { LogoMark } from '@/app/_components/brand-marks';
 import { AccountSwitcherStandalone } from '@/app/_components/account-switcher/account-switcher';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -37,8 +37,28 @@ export function DoorwaySidebarHeader({
   return (
     <>
       <header className="px-4 py-3">
-        <Wordmark />
-        <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>
+        {/* Dark-panel wordmark — the gold mark glyph (reads on obsidian) + the
+            white "SETNA" with the doorway-accent "YAN" span (wine for couple +
+            vendor, violet for admin — driven by `--m-sidebar-accent-fg`, which
+            `.sn-sidebar--violet` flips). Full "SETNAYAN" spelling preserved
+            (brand lock); only the last three letters carry the accent. */}
+        <span className="inline-flex items-center" style={{ gap: '9px', lineHeight: 1 }}>
+          <LogoMark size={28} />
+          <span
+            style={{
+              fontFamily: 'var(--font-condensed), "Saira Condensed", sans-serif',
+              fontSize: '22px',
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              lineHeight: 1,
+              textTransform: 'uppercase',
+              color: 'var(--m-sidebar-fg)',
+            }}
+          >
+            SETNA<span style={{ color: 'var(--m-sidebar-accent-fg)' }}>YAN</span>
+          </span>
+        </span>
+        <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-sidebar-fg-muted)' }}>
           {accentColor ? (
             <span
               aria-hidden

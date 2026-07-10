@@ -102,8 +102,8 @@ export function SidebarSection({ group, pathname: _pathname, children }: Props) 
         onClick={toggle}
         aria-expanded={open}
         aria-controls={`nav-section-${group.key}-items`}
-        className="m-label-mono flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--m-paper)] [[data-sidebar-collapsed='1']_&]:hidden"
-        style={{ color: 'var(--m-slate-2)' }}
+        className="m-label-mono flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--m-sidebar-hover)] [[data-sidebar-collapsed='1']_&]:hidden"
+        style={{ color: 'var(--m-sidebar-fg-muted)' }}
       >
         <span>{group.label}</span>
         <ChevronIcon aria-hidden className="h-3 w-3" strokeWidth={2} />

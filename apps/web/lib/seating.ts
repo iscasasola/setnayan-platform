@@ -535,7 +535,15 @@ export function groupTablesIntoUnits<T extends LinkableTable>(tables: T[]): Tabl
   return [...byKey.values()];
 }
 
-export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeometry {
+export function tableGeometry(
+  shape: TableShapeHint,
+  capacity: number,
+  // `even` = this table is part of a LINKED serpentine chain → space its chairs
+  // at uniform density across the sweep so they flow continuously across a
+  // junction (mirrors the 3D lab's serpentineChairs even mode). Standalone
+  // tables keep the endpoint+inset spread. No effect on non-serpentine shapes.
+  even = false,
+): TableGeometry {
   const n = Math.max(1, capacity);
 
   // Round → chairs evenly around a circle.
@@ -601,11 +609,19 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
     // φ = 0 points straight up (−y); +φ sweeps to the right. Center of curvature
     // is below the wedge so it bulges upward (convex on top).
     const at = (r: number, phi: number): SeatSlot => ({ x: r * Math.sin(phi), y: -r * Math.cos(phi) });
-    const along = (count: number, r: number, inset: number): SeatSlot[] => {
+    const along = (count: number, r: number, inset: number, evenFlag: boolean): SeatSlot[] => {
       const half = sweep / 2 - inset;
       const out: SeatSlot[] = [];
       for (let i = 0; i < count; i++) {
-        const phi = count === 1 ? 0 : -half + (2 * half * i) / (count - 1);
+        // `even` (LINKED chain): slot-centre → uniform density across the sweep
+        // so chairs flow one-spacing across a junction (no seam pile-up) and the
+        // whole chain reads as one evenly-spaced banquet. Standalone: endpoint+
+        // inset spread (end chairs hug the tips, seam stays chair-free).
+        const phi = evenFlag
+          ? -sweep / 2 + (sweep / count) * (i + 0.5)
+          : count === 1
+            ? 0
+            : -half + (2 * half * i) / (count - 1);
         out.push(at(r, phi));
       }
       return out;
@@ -616,9 +632,16 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
     // joint the neighbouring wedges' chairs must clear each other (inner radius
     // is tight — 0.36 rad ≈ a chair-width gap across the seam; 0.32 crowded).
     const seats: SeatSlot[] = [
-      ...along(outerN, Rco, 0.18),
-      ...along(innerN, Rci, 0.36),
+      ...along(outerN, Rco, 0.18, even),
+      ...along(innerN, Rci, 0.36, even),
     ];
+    // The footprint (box) is computed from the STANDALONE (widest) chair spread
+    // so it stays even-invariant — the even chairs sit inside it. Keeps
+    // footprintPx / snap tolerances / overlap checks consistent with the render,
+    // regardless of link state.
+    const boxSeats: SeatSlot[] = even
+      ? [...along(outerN, Rco, 0.18, false), ...along(innerN, Rci, 0.36, false)]
+      : seats;
 
     // Ribbon body: outer arc left→right, then inner arc right→left, closed.
     const STEP = sweep / 16;
@@ -640,7 +663,7 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
 
     const pad = CHAIR_PX / 2 + 6;
     let halfW = 0, halfH = 0;
-    for (const p of [...seatsC, ...outlineC]) {
+    for (const p of [...boxSeats.map(shift), ...outlineC]) {
       halfW = Math.max(halfW, Math.abs(p.x));
       halfH = Math.max(halfH, Math.abs(p.y));
     }

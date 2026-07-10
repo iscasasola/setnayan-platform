@@ -4090,7 +4090,10 @@ export function SeatingEditor({
           {tables.map((t, i) => {
             const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
             const shape = shapeHintFor(t.table_type);
-            const geo = tableGeometry(shape, t.capacity);
+            // Linked serpentine → even chair spacing (chairs flow continuously
+            // across a junction), matching the 3D lab. Non-serpentine shapes
+            // ignore the flag.
+            const geo = tableGeometry(shape, t.capacity, t.link_group_id != null);
             const rectish = shape === 'long_banquet' || shape === 'family_head';
             const occ = occupantsFor(t);
             const filled = occ.filter(Boolean).length;

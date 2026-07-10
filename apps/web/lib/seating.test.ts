@@ -22,6 +22,7 @@ import {
   type EventTableRow,
   type AutoSeatGuest,
   type PriorityOrder,
+  tableGeometry,
   type KeepApartRule,
   type RecommendGuest,
   type SeatAssignmentRow,
@@ -603,4 +604,45 @@ test('Phase 6 (G8 toggle): groupAdjacency=false reverts a grouped overflow to th
   const rows = computeAutoSeat(ADJ_TABLES, [g1, g2], [], { x: 50, y: 8 }, null, undefined, false);
   assert.equal(seatTableOf(rows, 'g1'), 'anc');
   assert.equal(seatTableOf(rows, 'g2'), 'far');
+});
+
+// ── Serpentine even-chair spacing (2026-07-10 · 2D↔3D parity) ────────────────
+// A LINKED serpentine chain passes even=true so chairs sit at slot centres →
+// uniform density across the sweep, matching the 3D lab. Standalone tables keep
+// the endpoint+inset spread. Chord distance is used because it survives the
+// geometry's recentre-on-bbox translation (a rigid shift preserves distances).
+const chord = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+
+test('serpentine even mode pulls the two outer chairs to slot centres (closer than the endpoint spread)', () => {
+  // cap 2 → outerN 2, innerN 0. Even = ±sweep/4; standalone = ±(sweep/2 − inset),
+  // so the standalone pair sits WIDER (hugs the tips) than the even pair.
+  const even = tableGeometry('serpentine', 2, true).seats;
+  const standalone = tableGeometry('serpentine', 2, false).seats;
+  assert.equal(even.length, 2);
+  assert.equal(standalone.length, 2);
+  const evenGap = chord(at(even, 0), at(even, 1));
+  const standaloneGap = chord(at(standalone, 0), at(standalone, 1));
+  assert.ok(
+    evenGap < standaloneGap - 1e-6,
+    `even outer pair should be tighter (slot-centred) than the endpoint spread: ${evenGap} vs ${standaloneGap}`,
+  );
+});
+
+test('serpentine even mode never changes the table footprint (box), only chair angles', () => {
+  // Sites that only measure size (footprintPx, layout bounds) pass even=false and
+  // MUST stay identical — the band outline, not the chairs, defines the box.
+  const evenBox = tableGeometry('serpentine', 5, true).box;
+  const plainBox = tableGeometry('serpentine', 5, false).box;
+  assert.deepEqual(evenBox, plainBox);
+});
+
+test('even flag is a no-op for non-serpentine shapes', () => {
+  for (const shape of ['round', 'long_banquet', 'family_head'] as const) {
+    assert.deepEqual(
+      tableGeometry(shape, 6, true),
+      tableGeometry(shape, 6, false),
+      `${shape} must ignore the even flag`,
+    );
+  }
 });

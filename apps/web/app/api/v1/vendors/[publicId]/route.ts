@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-auth';
 import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
@@ -6,7 +7,6 @@ import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 type Params = { params: Promise<{ publicId: string }> };
 
 const PUBLIC_CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
@@ -25,6 +25,8 @@ const PUBLIC_CORS_HEADERS = {
  * are both surfaced — coming_soon vendors expose `is_bookable: false`.
  */
 export async function GET(req: Request, { params }: Params) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   const { publicId } = await params;
 
   if (!publicId) {

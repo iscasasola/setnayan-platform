@@ -369,10 +369,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // public page emits the basic Organization entity so brand-name queries
 // like "Setnayan" surface a Knowledge Panel as the platform matures.
 //
-// sameAs[] is intentionally empty — owner-side action pending (Facebook Page
-// + LinkedIn Company Page creation per SEO_GEO_SPRINT_2026-05-29.md owner
-// actions list). When those URLs arrive, append to this array via a small
-// follow-up PR. AI engines tolerate empty sameAs[] gracefully.
+// sameAs[] carries the Facebook Page (owner-confirmed live 2026-07-10). A
+// LinkedIn Company Page does not exist yet — append its URL below when created.
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -415,12 +413,11 @@ const organizationJsonLd = {
       availableLanguage: ['en', 'tl'],
     },
   ],
-  // sameAs[] pending — owner-side Facebook Page + LinkedIn Company Page
-  // creation per SEO_GEO_SPRINT_2026-05-29.md. Add URLs here when they exist:
-  //   sameAs: [
-  //     'https://www.facebook.com/setnayan',
-  //     'https://www.linkedin.com/company/setnayan',
-  //   ],
+  // sameAs[] — verified brand profiles that ground the Setnayan entity in the
+  // knowledge graph (Google/Bing + AI answer engines cross-reference these).
+  // Facebook Page live + owner-confirmed 2026-07-10. No LinkedIn Company Page
+  // yet — append its URL here when it exists.
+  sameAs: ['https://www.facebook.com/setnayan'],
 };
 
 // Light-locked 2026-06-04 (owner: "just always keep it light theme"). One

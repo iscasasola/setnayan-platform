@@ -21,6 +21,7 @@ import {
   fetchTables,
   groupColorFor,
 } from '@/lib/seating';
+import { fetchBookedVendorsForBooths } from '@/lib/vendors';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -38,7 +39,7 @@ export default async function SeatingPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -56,6 +57,8 @@ export default async function SeatingPage({ params }: Props) {
       fetchSeatingConstraints(supabase, eventId),
       // Iteration 0053 P4 Unit 6: per-event-type role set for seating tiers/labels.
       resolveRoleSetForEvent(eventId),
+      // Booth picker (decision #9): only BOOKED vendors are offered as booths.
+      fetchBookedVendorsForBooths(supabase, eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
   // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). Advisory only:
@@ -255,6 +258,7 @@ export default async function SeatingPage({ params }: Props) {
         floorPlan={floorPlan}
         booths={booths}
         signs={signs}
+        bookedVendors={bookedVendors}
         constraints={constraints}
         me={{
           id: user.id,

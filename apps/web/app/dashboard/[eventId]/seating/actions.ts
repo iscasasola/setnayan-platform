@@ -7,6 +7,7 @@ import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
 import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
@@ -520,6 +521,17 @@ export async function saveFloorPlan(formData: FormData) {
   const entranceX = clampPct(formData.get('entrance_x'));
   const entranceY = clampPct(formData.get('entrance_y'));
   const entranceEnabled = formData.get('entrance_enabled') === 'true';
+  // Main-entrance geometry (migration 20270717284319): door vs walk-through.
+  // The schema value stays 'tunnel'; the UI labels it "Walk-through". Depth is
+  // METRES (not a percent — never route it through clampPct), clamped 1.5–8.
+  const entranceKind = formData.get('entrance_kind') === 'tunnel' ? 'tunnel' : 'door';
+  const entranceDepth = ((): number => {
+    const raw = formData.get('entrance_depth_m');
+    if (typeof raw !== 'string' || raw.length === 0) return 3;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 3;
+    return Math.max(1.5, Math.min(8, n));
+  })();
   // Floor-plan kit: stage size + dance-floor zone + optional service door.
   // Sizes clamp to 2–100% so a degenerate drag can't zero an element out.
   const clampSize = (v: unknown): number | null => {
@@ -591,6 +603,8 @@ export async function saveFloorPlan(formData: FormData) {
       entrance_enabled: entranceEnabled,
       entrance_x: entranceX ?? 50,
       entrance_y: entranceY ?? 94,
+      entrance_kind: entranceKind,
+      entrance_depth_m: entranceDepth,
       dance_enabled: danceEnabled,
       dance_x: danceX ?? 50,
       dance_y: danceY ?? 55,
@@ -1510,6 +1524,36 @@ async function persistBooths(
   }
 }
 
+// SECURITY — a booth's event_vendor_id FK permits ANY event_vendors row and RLS
+// only scopes booth.event_id, so nothing at the DB layer stops a tampered
+// payload from attaching another event's vendor (and leaking its name / logo)
+// onto this floor plan. Mutates the parsed booths in place: any event_vendor_id
+// that isn't a BOOKED vendor of THIS event is nulled out (the booth still saves,
+// just unlinked). One round-trip, only when at least one booth carries a link.
+async function nullOutForeignBoothVendors(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  booths: BoothPayload[],
+): Promise<void> {
+  const linkedIds = [
+    ...new Set(booths.map((b) => b.event_vendor_id).filter((id): id is string => id !== null)),
+  ];
+  if (linkedIds.length === 0) return;
+  const { data, error } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .in('status', BOOKED_VENDOR_STATUSES as unknown as string[])
+    .in('vendor_id', linkedIds);
+  if (error) throw new Error(error.message);
+  const valid = new Set((data ?? []).map((r) => r.vendor_id as string));
+  for (const b of booths) {
+    if (b.event_vendor_id !== null && !valid.has(b.event_vendor_id)) {
+      b.event_vendor_id = null;
+    }
+  }
+}
+
 export async function saveBooths(formData: FormData) {
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
@@ -1522,6 +1566,7 @@ export async function saveBooths(formData: FormData) {
   if (!user) redirect('/login');
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+  await nullOutForeignBoothVendors(supabase, eventId, booths);
   await persistBooths(supabase, eventId, booths);
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);

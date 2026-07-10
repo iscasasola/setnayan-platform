@@ -51,7 +51,7 @@ export type Lab3DFloor = {
   venueWidthM: number | null;
   venueLengthM: number | null;
   stage: { xPct: number; yPct: number; wPct: number; hPct: number };
-  entrance: { enabled: boolean; xPct: number; yPct: number };
+  entrance: { enabled: boolean; xPct: number; yPct: number; kind: 'door' | 'tunnel'; depthM: number };
   dance: { enabled: boolean; xPct: number; yPct: number; wPct: number; hPct: number };
   published: boolean;
 };

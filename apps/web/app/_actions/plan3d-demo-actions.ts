@@ -192,7 +192,13 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     venueWidthM: floorPlan.venue_width_m ?? null,
     venueLengthM: floorPlan.venue_length_m ?? null,
     stage: { xPct: floorPlan.stage_x, yPct: floorPlan.stage_y, wPct: floorPlan.stage_w, hPct: floorPlan.stage_h },
-    entrance: { enabled: floorPlan.entrance_enabled, xPct: floorPlan.entrance_x, yPct: floorPlan.entrance_y },
+    entrance: {
+      enabled: floorPlan.entrance_enabled,
+      xPct: floorPlan.entrance_x,
+      yPct: floorPlan.entrance_y,
+      kind: floorPlan.entrance_kind,
+      depthM: floorPlan.entrance_depth_m,
+    },
     dance: {
       enabled: floorPlan.dance_enabled,
       xPct: floorPlan.dance_x,

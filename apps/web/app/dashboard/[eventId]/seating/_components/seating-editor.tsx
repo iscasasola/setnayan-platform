@@ -56,6 +56,7 @@ import {
   CHAIR_PX,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
+  boothTypeForVendorCategory,
   boothPerimeterSlots,
   clampBoothToPerimeter,
   computeAutoLayout,
@@ -90,6 +91,7 @@ import {
   type TableType,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
+import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 // Feature C (2D booth footprint + facing): reuse the 3D booth dims + facing
 // derivation so the 2D editor and the 3D venue walk agree (no magic numbers,
 // one source for "which wall a booth backs onto").
@@ -200,6 +202,9 @@ type Props = {
   floorPlan: FloorPlanRow;
   booths: FloorBoothRow[];
   signs: FloorSignRow[];
+  // Booth picker (decision #9): the event's BOOKED vendors — the only vendors
+  // the couple may drop as a booth. Empty when nothing's booked yet.
+  bookedVendors: BoothVendorOption[];
   // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs.
   constraints: KeepApartRule[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
@@ -207,6 +212,14 @@ type Props = {
 };
 
 const NEUTRAL = '#B7B1A6';
+
+// The booth picker's "Stations" section — the NON-vendor fixtures the couple
+// places directly (Front Desk + a generic custom booth). Every OTHER booth type
+// is now driven by a booked vendor's category (chosen from "Your booked
+// vendors"), so it is deliberately omitted from the manual station list.
+const STATION_BOOTHS = BOOTH_CATALOG.filter(
+  (c) => c.type === 'registration_desk' || c.type === 'custom',
+);
 
 // Chinese (Tsinoy) tradition avoids the number 4 (四 sounds like 死, "death").
 // ADVISORY copy only — surfaced via setNotice when a Chinese-wedding couple names
@@ -240,6 +253,7 @@ export function SeatingEditor({
   floorPlan,
   booths: boothsProp,
   signs: signsProp,
+  bookedVendors,
   constraints: constraintsProp,
   me,
 }: Props) {
@@ -306,6 +320,10 @@ export function SeatingEditor({
     enabled: floorPlan.entrance_enabled,
     x: floorPlan.entrance_x,
     y: floorPlan.entrance_y,
+    // Door (shallow) vs walk-through (deeper, back flush to the nearest wall).
+    // Schema value stays 'tunnel'; the UI labels it "Walk-through".
+    kind: floorPlan.entrance_kind,
+    depthM: floorPlan.entrance_depth_m,
   });
   const [serviceDoor, setServiceDoor] = useState({
     enabled: floorPlan.service_entrance_enabled,
@@ -2182,7 +2200,7 @@ export function SeatingEditor({
   };
 
   const addEntrance = () => {
-    setEntrance({ enabled: true, x: 50, y: 94 });
+    setEntrance({ enabled: true, x: 50, y: 94, kind: 'door', depthM: 3 });
     // A linked cocktail room docks to the new entrance immediately.
     setCocktail((c) => (c.linked && c.enabled ? { ...c, ...dockCocktail(c, { x: 50, y: 94 }) } : c));
     setFloorDirty(true);
@@ -2315,8 +2333,11 @@ export function SeatingEditor({
     setBoothsDirty(true);
     setBoothPickerFor(id);
   };
-  // Assign / change a booth's type from the picker. The label follows the type
-  // unless the couple has renamed it to something off-catalog.
+  // Assign / change a booth's type from the picker's "Stations" section (a
+  // NON-vendor fixture like Front Desk / Custom). Picking a fixture UN-LINKS any
+  // booked vendor the booth carried (event_vendor_id → null), so a station is
+  // never mistaken for a vendor booth. The label follows the type unless the
+  // couple has renamed it to something off-catalog.
   const setBoothType = (boothId: string, type: Exclude<BoothType, 'unassigned'>) => {
     const catalogLabels = new Set<string>([
       'New booth',
@@ -2326,13 +2347,39 @@ export function SeatingEditor({
     setBooths((bs) =>
       bs.map((b) =>
         b.booth_id === boothId
-          ? { ...b, booth_type: type, label: catalogLabels.has(b.label) ? newLabel : b.label }
+          ? {
+              ...b,
+              booth_type: type,
+              label: catalogLabels.has(b.label) ? newLabel : b.label,
+              // Fixture path un-links any previously-linked vendor.
+              event_vendor_id: null,
+            }
           : b,
       ),
     );
     setBoothsDirty(true);
     // Keep the popover open after picking a type so the couple can (optionally)
     // type the offerings copy in the same sheet — the field lives below the list.
+  };
+  // Link a booth to a BOOKED vendor from the picker's "Your booked vendors"
+  // section: the booth type + label follow the vendor (category → 2D icon +
+  // footprint via boothTypeForVendorCategory; name → label), and
+  // event_vendor_id carries the link that fetchBooths joins for the 3D card.
+  const setBoothVendor = (boothId: string, vendor: BoothVendorOption) => {
+    const type = boothTypeForVendorCategory(vendor.category);
+    setBooths((bs) =>
+      bs.map((b) =>
+        b.booth_id === boothId
+          ? {
+              ...b,
+              booth_type: type,
+              label: vendor.vendor_name,
+              event_vendor_id: vendor.vendor_id,
+            }
+          : b,
+      ),
+    );
+    setBoothsDirty(true);
   };
   // Edit a booth's guest-facing "offerings" copy (what it serves) — surfaced on
   // the 3D venue-walk booth card. Trimmed/capped on save (server + DB CHECK);
@@ -2648,6 +2695,8 @@ export function SeatingEditor({
           fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
           fd.set('entrance_x', String(entrance.x));
           fd.set('entrance_y', String(entrance.y));
+          fd.set('entrance_kind', entrance.kind);
+          fd.set('entrance_depth_m', String(entrance.depthM));
           fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
           fd.set('dance_x', String(dance.x));
           fd.set('dance_y', String(dance.y));
@@ -3931,6 +3980,59 @@ export function SeatingEditor({
             </button>
           </div>
 
+          {/* Walk-through entrance footprint — a deeper rectangle whose back edge
+              is flush to the nearest wall, extending inward by the couple's
+              chosen depth. Only when kind==='tunnel'; the DoorOpen pill below
+              stays the mouth label. Sits under the pill (z-0). */}
+          {entrance.enabled && entrance.kind === 'tunnel'
+            ? (() => {
+                // Nearest wall (argmin distance) — same pattern as stageWallOf.
+                const dTop = entrance.y;
+                const dBottom = 100 - entrance.y;
+                const dLeft = entrance.x;
+                const dRight = 100 - entrance.x;
+                const min = Math.min(dTop, dBottom, dLeft, dRight);
+                // Depth as a % of the room dimension along the inward axis; a
+                // free board (no metre size) uses a fixed ~12% fallback.
+                const vertical = min === dTop || min === dBottom;
+                const roomDim = venueScaled ? (vertical ? venue.length : venue.width) : 0;
+                const depthPct = roomDim > 0 ? Math.min(60, (entrance.depthM / roomDim) * 100) : 12;
+                const MOUTH = 13; // clear width of the walk-through, % of canvas
+                let left: number;
+                let top: number;
+                let width: number;
+                let height: number;
+                if (min === dTop) {
+                  width = MOUTH;
+                  height = depthPct;
+                  left = entrance.x - MOUTH / 2;
+                  top = 0;
+                } else if (min === dBottom) {
+                  width = MOUTH;
+                  height = depthPct;
+                  left = entrance.x - MOUTH / 2;
+                  top = 100 - depthPct;
+                } else if (min === dLeft) {
+                  width = depthPct;
+                  height = MOUTH;
+                  left = 0;
+                  top = entrance.y - MOUTH / 2;
+                } else {
+                  width = depthPct;
+                  height = MOUTH;
+                  left = 100 - depthPct;
+                  top = entrance.y - MOUTH / 2;
+                }
+                return (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute z-0 rounded-sm border border-terracotta/40 bg-terracotta/[0.06]"
+                    style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
+                  />
+                );
+              })()
+            : null}
+
           {/* draggable entrance door marker */}
           {entrance.enabled ? (
             <div
@@ -3945,7 +4047,8 @@ export function SeatingEditor({
                   dragId === '__entrance__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
                 }`}
               >
-                <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" /> Entrance
+                <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" />{' '}
+                {entrance.kind === 'tunnel' ? 'Walk-through' : 'Entrance'}
               </button>
               <button
                 type="button"
@@ -3956,6 +4059,72 @@ export function SeatingEditor({
               >
                 <X className="h-3 w-3" />
               </button>
+              {/* Door | Walk-through toggle + (walk-through only) a depth stepper.
+                  stopPropagation so a control tap can't start a marker drag. */}
+              {canEdit ? (
+                <div className="absolute left-1/2 top-full mt-1 flex -translate-x-1/2 flex-col items-center gap-1">
+                  <div
+                    role="group"
+                    aria-label="Entrance style"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="flex overflow-hidden rounded-md border border-ink/15 bg-cream text-[9px] font-semibold uppercase tracking-[0.1em] shadow-sm"
+                  >
+                    {(['door', 'tunnel'] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => {
+                          setEntrance((en) => ({ ...en, kind: k }));
+                          setFloorDirty(true);
+                        }}
+                        className={`px-2 py-1 ${
+                          entrance.kind === k
+                            ? 'bg-terracotta text-cream'
+                            : 'text-ink/60 hover:bg-ink/[0.04]'
+                        }`}
+                      >
+                        {k === 'door' ? 'Door' : 'Walk-through'}
+                      </button>
+                    ))}
+                  </div>
+                  {entrance.kind === 'tunnel' ? (
+                    <div
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-1.5 py-0.5 text-[10px] text-ink/70 shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        aria-label="Decrease walk-through depth"
+                        onClick={() => {
+                          setEntrance((en) => ({
+                            ...en,
+                            depthM: Math.max(1.5, Math.round((en.depthM - 0.5) * 2) / 2),
+                          }));
+                          setFloorDirty(true);
+                        }}
+                        className="px-1 hover:text-terracotta-700"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="tabular-nums">{entrance.depthM.toFixed(1)} m deep</span>
+                      <button
+                        type="button"
+                        aria-label="Increase walk-through depth"
+                        onClick={() => {
+                          setEntrance((en) => ({
+                            ...en,
+                            depthM: Math.min(8, Math.round((en.depthM + 0.5) * 2) / 2),
+                          }));
+                          setFloorDirty(true);
+                        }}
+                        className="px-1 hover:text-terracotta-700"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -4090,23 +4259,89 @@ export function SeatingEditor({
                       onPointerDown={(e) => e.stopPropagation()}
                       className="absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
                     >
+                      {/* Section 1 — Your booked vendors. Only BOOKED vendors are
+                          placeable; a vendor already on another booth is hidden
+                          (unless it's THIS booth's current link). */}
                       <p className="px-3 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
-                        What is this booth?
+                        Your booked vendors
                       </p>
-                      {BOOTH_CATALOG.map((c) => (
-                        <button
-                          key={c.type}
-                          role="menuitem"
-                          type="button"
-                          onClick={() => setBoothType(b.booth_id, c.type)}
-                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
-                            b.booth_type === c.type ? 'text-terracotta-700' : 'text-ink'
-                          }`}
-                        >
-                          <BoothIcon type={c.type} className="h-4 w-4 text-terracotta-700" />
-                          {c.label}
-                        </button>
-                      ))}
+                      {(() => {
+                        const placedVendorIds = new Set(
+                          booths
+                            .map((x) => x.event_vendor_id)
+                            .filter((id): id is string => !!id),
+                        );
+                        const availableVendors = bookedVendors.filter(
+                          (v) =>
+                            !placedVendorIds.has(v.vendor_id) ||
+                            v.vendor_id === b.event_vendor_id,
+                        );
+                        if (availableVendors.length === 0) {
+                          return (
+                            <div className="px-3 pb-2 pt-0.5 text-[11px] leading-snug text-ink/50">
+                              {bookedVendors.length === 0 ? (
+                                <>
+                                  No booked vendors yet —{' '}
+                                  <a
+                                    href={`/dashboard/${eventId}/vendors`}
+                                    className="font-medium text-terracotta-700 underline hover:text-terracotta"
+                                  >
+                                    book vendors
+                                  </a>{' '}
+                                  to place their booths.
+                                </>
+                              ) : (
+                                'All your booked vendors are already placed.'
+                              )}
+                            </div>
+                          );
+                        }
+                        return availableVendors.map((v) => {
+                          const t = boothTypeForVendorCategory(v.category);
+                          const active = b.event_vendor_id === v.vendor_id;
+                          return (
+                            <button
+                              key={v.vendor_id}
+                              role="menuitem"
+                              type="button"
+                              onClick={() => setBoothVendor(b.booth_id, v)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+                                active ? 'text-terracotta-700' : 'text-ink'
+                              }`}
+                            >
+                              <BoothIcon type={t} className="h-4 w-4 shrink-0 text-terracotta-700" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{v.vendor_name}</span>
+                                <span className="block truncate text-[10px] text-ink/45">
+                                  {VENDOR_CATEGORY_LABEL[v.category]}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        });
+                      })()}
+                      {/* Section 2 — Stations (non-vendor fixtures). */}
+                      <div className="mt-1 border-t border-ink/10 pt-1">
+                        <p className="px-3 pb-1 pt-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+                          Stations
+                        </p>
+                        {STATION_BOOTHS.map((c) => (
+                          <button
+                            key={c.type}
+                            role="menuitem"
+                            type="button"
+                            onClick={() => setBoothType(b.booth_id, c.type)}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+                              b.booth_type === c.type && !b.event_vendor_id
+                                ? 'text-terracotta-700'
+                                : 'text-ink'
+                            }`}
+                          >
+                            <BoothIcon type={c.type} className="h-4 w-4 text-terracotta-700" />
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
                       {/* Offerings — guest-facing "what this booth serves" copy
                           shown on the 3D venue-walk booth card. */}
                       <div className="mt-1 border-t border-ink/10 px-2 pb-1.5 pt-2">

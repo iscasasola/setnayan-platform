@@ -36,7 +36,7 @@ function clampLastmod(iso: string, today: string): string {
 
 export async function GET(): Promise<Response> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 

@@ -279,13 +279,14 @@ export const routes = {
     activity: (eventId: string) => `/dashboard/${eventId}/activity`,
     addOns: {
       index: (eventId: string) => `/dashboard/${eventId}/studio`,
-      animatedMonogram: (eventId: string) => `/dashboard/${eventId}/studio/animated-monogram`,
+      // `animatedMonogram` + `detail` helpers removed 2026-07-11 (dead — zero
+      // callers; the Studio hub routes add-ons via add-ons-catalog.ts's
+      // addOnHref/appStoreDetailHref, not these). See changelog studio-hygiene.
       bundle: (eventId: string) => `/dashboard/${eventId}/studio/bundle`,
       customQrGuest: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest`,
         print: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest/print`,
       },
-      detail: (eventId: string, addon: string) => `/dashboard/${eventId}/studio/${addon}`,
       indoorBlueprint: (eventId: string) => `/dashboard/${eventId}/studio/indoor-blueprint`,
       led: (eventId: string) => `/dashboard/${eventId}/studio/led`,
       moodBoard: {

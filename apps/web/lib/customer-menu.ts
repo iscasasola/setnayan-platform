@@ -46,7 +46,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { LifecyclePhase } from '@/lib/day-of-mode';
-import { buildGuestJourney } from './guest-journey';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
 
 export type CustomerMenuKey =
@@ -166,7 +165,6 @@ export function buildCustomerMenuTree(
   }
 
   const base = `/dashboard/${eventId}`;
-  const guestStages = buildGuestJourney(eventId, { dayOfOpen: ctx.dayOfOpen });
 
   const planningMenus: CustomerMenu[] = [
     {
@@ -190,20 +188,13 @@ export function buildCustomerMenuTree(
       label: 'Guests',
       icon: Users,
       href: `${base}/guests`,
+      // Guests is a plain menu — no docked sub-nav / no sidebar submenu (owner
+      // 2026-07-10: the guest-journey stages Build·Invite·Confirm·Seat·Day-of·
+      // Event-QR are now integrated into the single Guests page; Seat still opens
+      // from within Guests and stays in activeMatch). Mirrors the Overview menu
+      // above (plain, childless). The FULL activeMatch is kept so /seating,
+      // /event-qr, and /hosts still light the Guests item.
       activeMatch: [`${base}/guests`, `${base}/seating`, `${base}/event-qr`, `${base}/hosts`],
-      // The dock shows across the journey proper only (matches isGuestJourneyPath):
-      sectionMatch: [`${base}/guests`, `${base}/seating`],
-      subnavLabel: 'Guest journey',
-      children: guestStages.map((s) => ({
-        key: s.key,
-        label: s.label,
-        icon: s.icon,
-        kind: 'route' as const,
-        href: s.href,
-        match: s.match,
-        muted: s.muted,
-        slotKey: `customer.guest-journey.${s.key}`,
-      })),
     },
     {
       key: 'explore',

@@ -32,6 +32,8 @@ import {
   MapPin,
   MapPinOff,
   Wallet,
+  CalendarCheck,
+  CalendarX2,
   BadgeCheck,
   Sparkles,
   Pencil,
@@ -253,11 +255,14 @@ function VendorCard({
 }
 
 /**
- * Live fit-badges on a bench card (2026-07-09). Reach + budget only render when
- * there's a real signal — reach hides when coords/tier are unknown (never a
- * false "out of range"), budget hides when there's no budget set or no price
- * basis. Warn-only by design (owner 2026-07-09): a red badge informs, it never
- * blocks. Date-availability is a fast-follow (needs per-vendor calendar batch).
+ * Live fit-badges on a bench card (2026-07-09). Reach + budget + date only
+ * render when there's a real signal — reach hides when coords/tier are unknown
+ * (never a false "out of range"), budget hides when there's no budget set or no
+ * price basis, date hides unless the event has a COMMITTED date and the vendor
+ * is marketplace-connected with a calendar (never a false "Booked"). Warn-only
+ * by design (owner 2026-07-09): a red badge informs, it never blocks. Date-
+ * availability landed 2026-07-09 as the fast-follow to reach+budget — the fit is
+ * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
   const reach =
@@ -284,7 +289,21 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
             text: v.budgetEstimated ? 'Over budget · est.' : 'Over budget',
           }
         : null;
-  if (!reach && !budget) return null;
+  const date =
+    v.dateFit === 'free'
+      ? {
+          cls: 'ok',
+          icon: <CalendarCheck size={9} strokeWidth={2.25} aria-hidden />,
+          text: 'Free on your date',
+        }
+      : v.dateFit === 'booked'
+        ? {
+            cls: 'warn',
+            icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
+            text: 'Booked that day',
+          }
+        : null;
+  if (!reach && !budget && !date) return null;
   return (
     <span className="fits">
       {reach ? (
@@ -295,6 +314,11 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
       {budget ? (
         <span className={`fit ${budget.cls}`}>
           {budget.icon} {budget.text}
+        </span>
+      ) : null}
+      {date ? (
+        <span className={`fit ${date.cls}`}>
+          {date.icon} {date.text}
         </span>
       ) : null}
     </span>

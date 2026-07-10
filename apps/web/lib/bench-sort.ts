@@ -6,7 +6,7 @@
  * explains itself (owner (d): "follow and filter and sort"). Pure + framework-
  * free (no React) so it's unit-testable and reusable by the two-column workspace
  * (PR-4). Reuses the fit fields the bench already computes (reachesVenue /
- * budgetFit — see `shortlist-taxonomy.ts`).
+ * budgetFit / dateFit — see `shortlist-taxonomy.ts`).
  */
 
 import type { ShortlistVendor } from '@/lib/shortlist-taxonomy';
@@ -23,11 +23,16 @@ export const BENCH_SORTS: { key: BenchSort; label: string }[] = [
  *  neutral qualifier (e.g. a rating readout). */
 export type SortReason = { label: string; tone: 'ok' | 'soft' };
 
-/** How many of the two live fit-checks (reach + budget) this vendor passes. A
- *  warn (out-of-range / over-budget) or an unknown both count as "not passed",
- *  so the strongest fits float up. */
+/** How many of the three live fit-checks (reach + budget + date) this vendor
+ *  passes. A warn (out-of-range / over-budget / booked) or an unknown all count
+ *  as "not passed", so the strongest fits float up. Date-free vendors rank up
+ *  (fast-follow 2026-07-09). Max score is now 3. */
 export function fitScore(v: ShortlistVendor): number {
-  return (v.reachesVenue === true ? 1 : 0) + (v.budgetFit === 'fits' ? 1 : 0);
+  return (
+    (v.reachesVenue === true ? 1 : 0) +
+    (v.budgetFit === 'fits' ? 1 : 0) +
+    (v.dateFit === 'free' ? 1 : 0)
+  );
 }
 
 /**
@@ -69,7 +74,7 @@ export function sortWithReasons(
       reason =
         i === 0
           ? { label: 'Best fit', tone: 'ok' }
-          : s === 2
+          : s >= 2
             ? { label: 'Strong fit', tone: 'ok' }
             : s === 1
               ? { label: 'Fair fit', tone: 'soft' }

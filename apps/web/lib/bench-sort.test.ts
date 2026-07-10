@@ -22,6 +22,7 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     serviceRadiusKm: null,
     budgetFit: null,
     budgetEstimated: false,
+    dateFit: null,
     ...p,
   };
 }
@@ -30,10 +31,32 @@ test('three sort lenses are exposed', () => {
   assert.deepEqual(BENCH_SORTS.map((s) => s.key), ['fit', 'price', 'rating']);
 });
 
-test('fitScore counts reach + budget passes only (warn/unknown = 0)', () => {
-  assert.equal(fitScore(vendor({ vendorId: 'a', reachesVenue: true, budgetFit: 'fits' })), 2);
+test('fitScore counts reach + budget + date passes only (warn/unknown = 0)', () => {
+  assert.equal(
+    fitScore(vendor({ vendorId: 'a', reachesVenue: true, budgetFit: 'fits', dateFit: 'free' })),
+    3,
+  );
+  assert.equal(fitScore(vendor({ vendorId: 'a2', reachesVenue: true, budgetFit: 'fits' })), 2);
   assert.equal(fitScore(vendor({ vendorId: 'b', reachesVenue: true, budgetFit: 'over' })), 1);
-  assert.equal(fitScore(vendor({ vendorId: 'c', reachesVenue: false, budgetFit: null })), 0);
+  assert.equal(
+    fitScore(vendor({ vendorId: 'c', reachesVenue: false, budgetFit: null, dateFit: 'booked' })),
+    0,
+  );
+  // Date alone is a passing check → floats above a zero-pass vendor.
+  assert.equal(fitScore(vendor({ vendorId: 'd', dateFit: 'free' })), 1);
+});
+
+test('fit lens: a date-free vendor ranks up (fast-follow 2026-07-09)', () => {
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'booked', reachesVenue: true, budgetFit: 'fits', dateFit: 'booked' }),
+      vendor({ vendorId: 'free', reachesVenue: true, budgetFit: 'fits', dateFit: 'free' }),
+    ],
+    'fit',
+  );
+  assert.deepEqual(out.map((r) => r.v.vendorId), ['free', 'booked']);
+  assert.deepEqual(out[0]!.reason, { label: 'Best fit', tone: 'ok' });
+  assert.equal(out[1]!.reason?.label, 'Strong fit', 'two-of-three passes → Strong fit');
 });
 
 test('fit lens: strongest fit leads and is labeled "Best fit"', () => {

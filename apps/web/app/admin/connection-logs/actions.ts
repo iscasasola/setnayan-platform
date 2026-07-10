@@ -48,7 +48,7 @@ export async function setLogStatus(
     .select('id');
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath('/admin/connection-logs');
+  revalidatePath('/admin/app-performance');
   return { ok: true, count: data?.length ?? 0 };
 }
 
@@ -71,6 +71,6 @@ export async function resolveAllActive(eventType?: string): Promise<ActionResult
 
   const { data, error } = await query.select('id');
   if (error) return { ok: false, error: error.message };
-  revalidatePath('/admin/connection-logs');
+  revalidatePath('/admin/app-performance');
   return { ok: true, count: data?.length ?? 0 };
 }

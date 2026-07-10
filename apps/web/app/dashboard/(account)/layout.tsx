@@ -101,7 +101,13 @@ export default async function AccountDashboardLayout({
   return (
     <div className="app-surface">
       <SidebarShell
-        sidebarHeader={<DoorwaySidebarHeader label="Account" switcherData={switcherData} />}
+        sidebarHeader={
+          <DoorwaySidebarHeader
+            label="Account"
+            accentColor="var(--m-sidebar-accent)"
+            switcherData={switcherData}
+          />
+        }
         sidebar={<AccountSidebar navSlots={navSlots} />}
         topBar={topBar}
       >

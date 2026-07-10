@@ -287,7 +287,13 @@ export default async function VendorDashboardLayout({
   return (
     <div className="app-surface">
       <SidebarShell
-        sidebarHeader={<DoorwaySidebarHeader label="Vendor" switcherData={switcherData} />}
+        sidebarHeader={
+          <DoorwaySidebarHeader
+            label="Vendor"
+            accentColor="var(--m-sidebar-accent)"
+            switcherData={switcherData}
+          />
+        }
         sidebar={
           <VendorSidebar
             role={vendorRole}

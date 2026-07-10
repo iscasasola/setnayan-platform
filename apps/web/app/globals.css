@@ -776,10 +776,22 @@ html.subnav-docked [data-shell-main] {
   --m-slate-3: var(--m-sidebar-fg-muted);
   --m-nav-active:      var(--m-sidebar-accent);
   --m-nav-active-soft: var(--m-sidebar-accent-soft);
+  /* Lift the gold text token used by the AccountSwitcher avatar-initials span to
+   * the lighter champagne. The base #A88340 lands ~3.98:1 on the obsidian panel
+   * (below WCAG 4.5:1); #E0CCA0 clears ~8.9:1 on the same terracotta-tinted
+   * backdrop. Scoped to .sn-sidebar so only the dark panel is affected. */
+  --m-orange-2: var(--m-orange-3);
 }
 .sn-sidebar--violet {
   --m-sidebar-accent:    var(--m-sidebar-accent-violet);
   --m-sidebar-accent-fg: var(--m-sidebar-accent-violet-fg);
+  /* Re-derive the active-row wash from violet. The :root `-soft` bakes its
+   * var(--m-sidebar-accent) at :root computed-value time (= wine), and that
+   * resolved value inherits down unchanged — overriding --m-sidebar-accent here
+   * does NOT retroactively recolour it. Redeclaring `-soft` in this scope (off
+   * the raw violet token, same 28% as :root) is what makes the admin active-row
+   * wash actually read violet instead of wine. */
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent-violet) 28%, transparent);
 }
 
 /*

@@ -144,6 +144,7 @@ export async function getHomePricingData(): Promise<PricingData> {
   const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 100);
   const themes = priceOf(catalog, 'WEBSITE_THEMES', 1000);
   const editorialPro = priceOf(catalog, 'EDITORIAL_PRO', 2999);
+  const subdomain = priceOf(catalog, 'EVENT_SUBDOMAIN', 999); // yourname.setnayan.com (owner 2026-07-10)
   // COUPLE_WEBSITE_PRO umbrella retired/unbundled 2026-07-10 — Editorial + Reveal
   // now sell standalone; no umbrella row is shown.
 
@@ -204,6 +205,7 @@ export async function getHomePricingData(): Promise<PricingData> {
         { n: 'Waze / Google Map link', v: mapLink.v },
         { n: 'Themes · RSVP + Event + Editorial', v: themes.v },
         { n: 'Editorial PRO · author your front page', v: editorialPro.v },
+        { n: 'Custom subdomain · yourname.setnayan.com', note: '· coming soon', v: `${subdomain.v}/year` },
       ],
     },
     {

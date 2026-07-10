@@ -24,6 +24,7 @@ import {
 import { fetchUserRoleSummary } from '@/lib/roles';
 import {
   fetchEventDecisionCounts,
+  fetchEventUnreadCounts,
   summarizeEventDecisions,
   type EventDecisionSummary,
 } from '@/lib/event-decisions';
@@ -255,17 +256,26 @@ export default async function LauncherPage({
   // two queries) merged with the overdue-task count from the checklist pass. A
   // named action line, not a bare badge (owner 2026-07-10). Graceful-degrades to
   // an empty summary; a card with nothing pending shows no attention line.
-  const decisionCounts = await fetchEventDecisionCounts(
-    supabase,
-    active.map((e) => e.event_id),
-  ).catch(() => new Map<string, { pay: number; approve: number }>());
+  const [decisionCounts, unreadByEvent] = await Promise.all([
+    fetchEventDecisionCounts(
+      supabase,
+      active.map((e) => e.event_id),
+    ).catch(() => new Map<string, { pay: number; approve: number }>()),
+    fetchEventUnreadCounts(supabase).catch(() => new Map<string, number>()),
+  ]);
   const decisionByEvent = new Map<string, EventDecisionSummary>();
   for (const e of active) {
     const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
     const overdue = checklistByEvent.get(e.event_id)?.overdue ?? 0;
+    const message = unreadByEvent.get(e.event_id) ?? 0;
     decisionByEvent.set(
       e.event_id,
-      summarizeEventDecisions({ pay: c.pay, approve: c.approve, overdue }),
+      summarizeEventDecisions({
+        pay: c.pay,
+        approve: c.approve,
+        message,
+        overdue,
+      }),
     );
   }
 
@@ -341,8 +351,22 @@ export default async function LauncherPage({
   // user owns or is on the team of (owner: "show what shop we have"), so a
   // multi-shop vendor sees each business by name instead of a single generic
   // "Your shop" tile. Logo when set; the store glyph otherwise.
+  const inquiryLabel = (n: number) =>
+    `${n} new ${n === 1 ? 'inquiry' : 'inquiries'}`;
   if (roles.hasVendorAccess) {
-    for (const vp of roles.vendorProfiles) {
+    // Cap the number of shop tiles so a many-shop vendor's section stays short;
+    // the rest collapse into a single "N more shops" tile. Rank shops that need
+    // a reply first so a pending inquiry is never hidden behind the cap, and the
+    // "more" tile still surfaces any inquiries among the shops it hides.
+    const MAX_SHOP_CARDS = 3;
+    const ranked = [...roles.vendorProfiles].sort(
+      (a, b) =>
+        (inquiryByShop.get(b.vendor_profile_id) ?? 0) -
+        (inquiryByShop.get(a.vendor_profile_id) ?? 0),
+    );
+    const shown = ranked.slice(0, MAX_SHOP_CARDS);
+    const hidden = ranked.slice(MAX_SHOP_CARDS);
+    for (const vp of shown) {
       const inquiries = inquiryByShop.get(vp.vendor_profile_id) ?? 0;
       spaces.push({
         id: vp.vendor_profile_id,
@@ -352,10 +376,22 @@ export default async function LauncherPage({
         title: vp.business_name,
         subtitle: 'Vendor shop',
         tone: 'default',
-        attention:
-          inquiries > 0
-            ? `${inquiries} new ${inquiries === 1 ? 'inquiry' : 'inquiries'}`
-            : undefined,
+        attention: inquiries > 0 ? inquiryLabel(inquiries) : undefined,
+      });
+    }
+    if (hidden.length > 0) {
+      const hiddenInquiries = hidden.reduce(
+        (sum, vp) => sum + (inquiryByShop.get(vp.vendor_profile_id) ?? 0),
+        0,
+      );
+      spaces.push({
+        id: 'more-shops',
+        href: '/vendor-dashboard',
+        icon: Store,
+        title: `${hidden.length} more ${hidden.length === 1 ? 'shop' : 'shops'}`,
+        subtitle: 'See all your shops',
+        tone: 'default',
+        attention: hiddenInquiries > 0 ? inquiryLabel(hiddenInquiries) : undefined,
       });
     }
   }

@@ -779,18 +779,46 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             component so tap-to-roam passes through to the floor beneath. */}
         <DanceFloorMural floor={floor} room={room} rolePalette={scene.rolePalette ?? null} />
 
-        {tables.map((t) => (
-          <GuestTable
-            key={t.id}
-            table={t}
-            room={room}
-            palette={palette}
-            occupied={occByTable.get(t.id)}
-            yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
-            photoBySeat={photoByTable.get(t.id)}
-            nameBySeat={nameByTable.get(t.id)}
-          />
-        ))}
+        {tables.map((t) => {
+          const table = (
+            <GuestTable
+              table={t}
+              room={room}
+              palette={palette}
+              occupied={occByTable.get(t.id)}
+              yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
+              photoBySeat={photoByTable.get(t.id)}
+              nameBySeat={nameByTable.get(t.id)}
+            />
+          );
+          // The viewer's OWN table is a big tap target to walk back to their
+          // seat (owner: "return by clicking their table") — same intent as the
+          // pulsing seat halo below, but the whole table is easier to hit.
+          const isOwnTable = Boolean(seatTarget && scene.you?.table === t.id);
+          return isOwnTable ? (
+            <group
+              key={t.id}
+              onClick={(e: ThreeEvent<MouseEvent>) => {
+                if (e.delta > TAP_MAX_PX) return;
+                e.stopPropagation();
+                setDanceTarget(false); // sitting down ends any dancing
+                setTarget(seatTarget);
+                setSeatReached(false);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = '';
+              }}
+            >
+              {table}
+            </group>
+          ) : (
+            <group key={t.id}>{table}</group>
+          );
+        })}
 
         {/* The anonymous seated crowd, one instanced batch for the whole room
             (in the same world space as the tables above). Photo seats + the

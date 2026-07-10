@@ -796,6 +796,7 @@ export function Plan3DScene({
   walkTarget,
   onWalkComplete,
   roam,
+  returnToSeatSignal,
   interactive = true,
   quality = 'high',
   cinematic = false,
@@ -824,6 +825,10 @@ export function Plan3DScene({
   /** Free-roam mode: the guest stands in the room and every floor tap steers
    *  them there. Mutually exclusive with `walkTarget` (callers pass one). */
   roam?: Plan3DRoamRequest;
+  /** Bump to a NEW number to walk the roaming guest back to their seat from the
+   *  outer UI's "Back to my seat" button (the ring + own-table tap do the same
+   *  in-scene). Only the change matters, not the value. */
+  returnToSeatSignal?: number;
   interactive?: boolean;
   /** Lighting/shadow budget — 'high' for the desktop overlay, 'low' for the
    *  phone walk (1024 shadow map + 128 env map). Defaults to 'high'. */
@@ -1311,10 +1316,12 @@ export function Plan3DScene({
 
   // Tap the guest's own gold-ringed seat → walk there via the same "Where am I
   // seated?" approach (route around the table, step in from outside).
-  const handleSeatTap = (e: ThreeEvent<MouseEvent>) => {
+  // Walk the roaming guest back to their OWN seat. Shared by three affordances:
+  // the pulsing gold ring, tapping their own TABLE, and the "Back to my seat"
+  // button (via `returnToSeatSignal`). No event arg — the tap wrappers below do
+  // the gesture guards; the button path has no gesture to guard.
+  const walkBackToSeat = () => {
     if (!roam || !roamGuest) return;
-    if (look.current.suppressTap || e.delta > TAP_MAX_PX) return;
-    e.stopPropagation();
     const t = tablesById.get(roamGuest.tableId);
     if (!t) return;
     look.current.yawOffset = 0; // committing to the seat walk releases the look
@@ -1370,6 +1377,26 @@ export function Plan3DScene({
     const durationMs = Math.min(6500, Math.max(WALK_MIN_MS, (pathLength(path) / WALK_SPEED_MPS) * 1000));
     setWalk({ path, obstacles: clampObstacles, startedAt: performance.now(), durationMs });
   };
+
+  // The gold ring OR the own-table tap: gesture-guard, then walk home. (Both
+  // fire this — the table is just a bigger target for the same intent.)
+  const handleSeatTap = (e: ThreeEvent<MouseEvent>) => {
+    if (!roam || !roamGuest) return;
+    if (look.current.suppressTap || e.delta > TAP_MAX_PX) return;
+    e.stopPropagation();
+    walkBackToSeat();
+  };
+
+  // "Back to my seat" button (outer UI) → walk home. The caller bumps
+  // `returnToSeatSignal` to a new number; we fire once per change while roaming.
+  const lastReturnSignal = useRef(returnToSeatSignal);
+  useEffect(() => {
+    if (returnToSeatSignal === undefined || returnToSeatSignal === lastReturnSignal.current) return;
+    lastReturnSignal.current = returnToSeatSignal;
+    walkBackToSeat();
+    // walkBackToSeat closes over the latest scene state; only the signal drives this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnToSeatSignal]);
 
   // Tap a booth → open its vendor card. (Not gated on `roam`: the desktop
   // whole-room overlay can inspect booths too.)
@@ -1460,9 +1487,24 @@ export function Plan3DScene({
 
       <EntranceMark position={entranceWorld} palette={palette} />
 
-      {tables.map((t) => (
-        <TableMesh key={t.id} table={t} room={room} palette={palette} occupiedSeats={occupiedByTable.get(t.id)} />
-      ))}
+      {tables.map((t) => {
+        // While roaming, the guest's OWN table is a big tap target to walk back
+        // to their seat (owner: "return by clicking their table") — a group
+        // onClick wraps the mesh so a tap anywhere on the table fires it; the
+        // gesture-guarded handler stops propagation so the floor tap behind it
+        // doesn't also steer a stray roam walk.
+        const isOwnTable = Boolean(roam && roamGuest && t.id === roamGuest.tableId);
+        const mesh = (
+          <TableMesh table={t} room={room} palette={palette} occupiedSeats={occupiedByTable.get(t.id)} />
+        );
+        return isOwnTable ? (
+          <group key={t.id} onClick={handleSeatTap}>
+            {mesh}
+          </group>
+        ) : (
+          <group key={t.id}>{mesh}</group>
+        );
+      })}
 
       {/* Placed venue fixtures — objects · booths · signs · cocktail room.
           Scene quality flows to the booth templates' staff mascots ('low'

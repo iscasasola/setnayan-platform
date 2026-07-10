@@ -147,8 +147,10 @@ export async function buildFirstVenueShortlist(
     if (added === 0) return { status: 'error', message: FRIENDLY_ERROR };
 
     // The attach path already revalidates the dashboard + vendors layouts;
-    // add the progress page so its decisions board reflects the new picks.
-    revalidatePath(`/dashboard/${eventId}/progress`, 'layout');
+    // add the event Home (which now hosts the decisions board via
+    // <EventDashboard>, formerly the /progress route) so its decisions board
+    // reflects the new picks.
+    revalidatePath(`/dashboard/${eventId}`, 'layout');
     return { status: 'ok', added };
   } catch (caught) {
     logQueryError(

@@ -15,6 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { buildEventLandingUrl } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { RevealList } from '@/app/_components/reveal-list';
 
@@ -100,6 +101,14 @@ export default async function WebsiteHubPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  // Custom Subdomain (EVENT_SUBDOMAIN ₱999/yr) — when owned, the couple's site is
+  // ALSO reachable at {slug}.setnayan.com (routed by the paid-gated subdomain
+  // middleware). Shown as a secondary vanity address under the canonical link.
+  const ownsSubdomain = event.slug
+    ? await eventOwnsSku(supabase, eventId, 'EVENT_SUBDOMAIN')
+    : false;
+  const subdomainHost = ownsSubdomain && event.slug ? `${event.slug}.setnayan.com` : null;
+
   return (
     <section className="space-y-8">
       {/* Header strip — eyebrow + title + lede */}
@@ -140,6 +149,22 @@ export default async function WebsiteHubPage({
                     strokeWidth={1.75}
                   />
                 </a>
+                {subdomainHost ? (
+                  <p className="flex items-center gap-1.5 pt-1 text-sm text-ink/70">
+                    <Globe aria-hidden className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={1.75} />
+                    <span>
+                      Your custom subdomain:{' '}
+                      <a
+                        href={`https://${subdomainHost}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-terracotta hover:underline"
+                      >
+                        {subdomainHost}
+                      </a>
+                    </span>
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">

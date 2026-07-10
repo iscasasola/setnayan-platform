@@ -12,6 +12,7 @@ import {
   isSetnayanHost,
   isLocalOrPreviewHost,
   resolveCustomDomainPath,
+  resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
@@ -112,15 +113,31 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hostname = (request.headers.get('host') ?? '').toLowerCase();
 
-  // Vendor subdomain rewrite · `slug.setnayan.com/<rest>` → `/v/{slug}/<rest>`.
-  // Fires BEFORE any other middleware logic because the rewrite changes
-  // pathname downstream consumers see.
-  const vendorSlug = detectVendorSubdomain(hostname);
-  if (vendorSlug) {
+  // Subdomain rewrite · `slug.setnayan.com/<rest>`. Fires BEFORE any other
+  // middleware logic because the rewrite changes the pathname downstream
+  // consumers see. Two owners can hold a `*.setnayan.com` label:
+  //   1. A COUPLE who bought EVENT_SUBDOMAIN (₱999/yr) → their event page at bare
+  //      `/{slug}` — PAID + gated (resolve_event_subdomain checks an active order).
+  //   2. A VENDOR → `/v/{slug}` — free (existing behavior, unchanged).
+  // The paid event is checked first so a couple's vanity host wins; a null result
+  // (no owned event) falls through to the free vendor rewrite. The event lookup is
+  // one edge RPC per subdomain request (fail-open — a miss/error → vendor rewrite),
+  // mirroring the custom-domain path below; the primary www host pays nothing.
+  const subLabel = detectVendorSubdomain(hostname);
+  if (subLabel) {
+    const eventPath = await resolveEventSubdomainPath(subLabel); // '/{slug}' | null
     const rewrite = request.nextUrl.clone();
-    rewrite.pathname = pathname === '/'
-      ? `/v/${vendorSlug}`
-      : `/v/${vendorSlug}${pathname}`;
+    if (eventPath) {
+      rewrite.pathname = pathname === '/' ? eventPath : `${eventPath}${pathname}`;
+      // Mirror the `/u/` nesting loop-break so the (flag-gated) `/u/` cutover
+      // redirect in app/[slug]/page.tsx never bounces a paid vanity host into
+      // `/u/{owner}/{slug}` and strands the couple's URL.
+      const headers = new Headers(request.headers);
+      headers.set('x-sn-u-nesting', '1');
+      return NextResponse.rewrite(rewrite, { request: { headers } });
+    }
+    // Free vendor subdomain (existing behavior, unchanged).
+    rewrite.pathname = pathname === '/' ? `/v/${subLabel}` : `/v/${subLabel}${pathname}`;
     return NextResponse.rewrite(rewrite);
   }
 

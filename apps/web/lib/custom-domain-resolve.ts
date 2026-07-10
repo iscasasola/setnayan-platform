@@ -26,18 +26,34 @@ export function isLocalOrPreviewHost(host: string): boolean {
 
 /** Resolve a verified custom domain host → '/v/{slug}' or '/u/{slug}', else null. */
 export async function resolveCustomDomainPath(host: string): Promise<string | null> {
+  return callResolverRpc('resolve_custom_domain', { p_host: host });
+}
+
+/**
+ * Resolve a PAID event subdomain label ('juanandmaria' from
+ * juanandmaria.setnayan.com) → the couple's event page at bare '/{slug}', but
+ * ONLY when the event owns an active, non-expired EVENT_SUBDOMAIN order (the
+ * resolve_event_subdomain SECURITY DEFINER RPC enforces that gate). Returns null
+ * for a free/unowned label so the caller falls through to the free vendor rewrite.
+ */
+export async function resolveEventSubdomainPath(label: string): Promise<string | null> {
+  return callResolverRpc('resolve_event_subdomain', { p_label: label });
+}
+
+/** Shared edge-safe scalar-text RPC caller (direct REST + anon key, fail-open). */
+async function callResolverRpc(fn: string, body: Record<string, string>): Promise<string | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) return null;
   try {
-    const res = await fetch(`${url}/rest/v1/rpc/resolve_custom_domain`, {
+    const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
       method: 'POST',
       headers: {
         apikey: anon,
         Authorization: `Bearer ${anon}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ p_host: host }),
+      body: JSON.stringify(body),
       cache: 'no-store',
     });
     if (!res.ok) return null;

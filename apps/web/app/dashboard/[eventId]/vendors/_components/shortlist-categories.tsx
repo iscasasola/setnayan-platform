@@ -166,7 +166,7 @@ html.dark .slcat .bench-mkt{background:#2A2E36}
 .slcat .bmr-loading{padding:6px 14px 14px;font-size:12.5px;color:var(--ink-soft)}
 .slcat .bmr-row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-top:1px solid var(--line-soft);text-decoration:none;color:inherit;transition:background .15s var(--ease)}
 .slcat .bmr-row:hover{background:rgba(30,34,41,.03)}
-.slcat .bmr-av{width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
+.slcat .bmr-av{width:32px;height:32px;border-radius:var(--m-r-sm);flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
 .slcat .bmr-m{flex:1;min-width:0}
 .slcat .bmr-m b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .slcat .bmr-m span{font-size:11px;color:var(--ink-soft)}

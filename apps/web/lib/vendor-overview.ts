@@ -9,6 +9,13 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { regionBurnTokens } from '@/lib/v2/region-token-burn';
 import { resolveRegion } from '@/lib/region-source';
 import { displayServiceLabel } from '@/lib/vendors';
+import { fetchVendorServices } from '@/lib/vendor-services';
+import { computeMonthlySubtotals, fetchVendorEarnings } from '@/lib/vendor-earnings';
+import {
+  buildPaydayTimeline,
+  manilaTodayIso,
+  type PaydayInstallmentRow,
+} from '@/lib/vendor-cashflow';
 
 /**
  * vendor-overview.ts — the server-side data assembly for the vendor dashboard
@@ -307,6 +314,75 @@ export async function fetchVendorOverviewData(
     });
 
   return { whatsNew, ongoing, upcoming };
+}
+
+// ---------------------------------------------------------------------------
+// EARNINGS SUMMARY — the real booked-revenue figures the Overview reskin
+// skipped (PR #2980 noted "no real source on this surface"; there is one, it
+// just wasn't loaded here). Two independent, real sources — both fail-soft:
+//
+//   · earnedThisYearPhp / bookingCount — the SAME year-to-date figure the
+//     /vendor-dashboard/earnings page shows: matched payments on orders whose
+//     service_key is in this vendor's own service categories (admin client,
+//     scoped by the vendor's OWN vendor_services rows — never a raw user_id).
+//   · confirmedPhp / expectedPhp — the vendor's payday cash-flow: the
+//     ownership-gated `vendor_payday_installments()` RPC (auth.uid()-scoped
+//     internally), summed via buildPaydayTimeline. confirmed = installments the
+//     vendor has confirmed receiving; expected = total booked installment value.
+//
+// Never invents a number: any sub-fetch that throws degrades to empty → ₱0.
+// ---------------------------------------------------------------------------
+
+export type VendorEarningsSummary = {
+  /** Year-to-date paid revenue on the vendor's service categories (pesos). */
+  earnedThisYearPhp: number;
+  /** Count of matched paid bookings behind the earnings figure. */
+  bookingCount: number;
+  /** Confirmed (received) installment value across booked events (pesos). */
+  confirmedPhp: number;
+  /** Total booked installment value across booked events (pesos). */
+  expectedPhp: number;
+};
+
+/**
+ * Load the vendor's real earnings summary for the Overview bento. Cheap enough
+ * to sit on the Overview's parallel batch: two round trips run concurrently and
+ * each degrades to empty on failure, so a bad read shows an honest ₱0 rather
+ * than crashing the page. `supabase` is the vendor's own session (RLS-scoped);
+ * the earnings read uses the admin client filtered by the vendor's OWN
+ * categories, mirroring the earnings page exactly.
+ */
+export async function fetchVendorEarningsSummary(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorEarningsSummary> {
+  const admin = createAdminClient();
+
+  const [earnings, paydayTotals] = await Promise.all([
+    // Earnings: vendor's categories → matched payments (same path as the
+    // Earnings page). Fail-soft to [] so a bad read shows ₱0, not a crash.
+    (async () => {
+      const services = await fetchVendorServices(supabase, vendorProfileId);
+      const categories = Array.from(new Set(services.map((s) => s.category)));
+      if (categories.length === 0) return [];
+      return fetchVendorEarnings(admin, categories);
+    })().catch(() => []),
+    // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
+    (async () => {
+      const { data, error } = await supabase.rpc('vendor_payday_installments');
+      const rows = (error ? [] : ((data ?? []) as unknown as PaydayInstallmentRow[]));
+      return buildPaydayTimeline(rows, manilaTodayIso()).totals;
+    })().catch(() => null),
+  ]);
+
+  const { ytdTotal } = computeMonthlySubtotals(earnings);
+
+  return {
+    earnedThisYearPhp: ytdTotal,
+    bookingCount: earnings.length,
+    confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
+    expectedPhp: paydayTotals?.expectedPhp ?? 0,
+  };
 }
 
 /** The sort key for a feed card — its creation/recorded timestamp. */

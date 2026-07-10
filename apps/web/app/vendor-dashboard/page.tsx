@@ -4,7 +4,11 @@ import { AlertTriangle, Info } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
-import { fetchVendorOverviewData } from '@/lib/vendor-overview';
+import {
+  fetchVendorOverviewData,
+  fetchVendorEarningsSummary,
+  type VendorEarningsSummary,
+} from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
@@ -142,18 +146,21 @@ export default async function VendorOverviewPage() {
   const timer = new ServerTimer('vendor-dashboard/overview');
   let data;
   let spotlightAwards;
+  let earnings: VendorEarningsSummary | null;
   try {
-    // The decision feed and the Spotlight Award banner both key off the same
-    // vendor_profile_id and have no dependency on each other — fetch them in
-    // parallel (2026-07-01 perf). Awards fail soft to [] so a failed award read
-    // only hides the banner instead of tripping the overview-unavailable page.
-    [data, spotlightAwards] = await timer.track('overview-data', () => Promise.all([
+    // The decision feed, Spotlight Award banner, and earnings summary all key
+    // off the same vendor_profile_id and have no dependency on each other —
+    // fetch them in parallel (2026-07-01 perf). Awards + earnings fail soft
+    // (→ [] / null) so a failed read only hides that widget instead of tripping
+    // the overview-unavailable page.
+    [data, spotlightAwards, earnings] = await timer.track('overview-data', () => Promise.all([
       fetchVendorOverviewData(
         supabase,
         profile.vendor_profile_id,
         profile.services ?? [],
       ),
       fetchVendorCurrentAwards(supabase, profile.vendor_profile_id).catch(() => []),
+      fetchVendorEarningsSummary(supabase, profile.vendor_profile_id).catch(() => null),
     ]));
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -199,8 +206,14 @@ export default async function VendorOverviewPage() {
         </p>
       </header>
 
-      {/* 0 · Energy stats — the databerry stat bento (real feed-derived counts) */}
-      <VendorEnergyStats whatsNew={whatsNew} ongoing={ongoing} upcoming={upcoming} />
+      {/* 0 · Energy stats — the databerry stat bento (real feed-derived counts
+          + real booked-revenue tiles; earnings null → tiles omitted) */}
+      <VendorEnergyStats
+        whatsNew={whatsNew}
+        ongoing={ongoing}
+        upcoming={upcoming}
+        earnings={earnings}
+      />
 
       {/* Spotlight Award — celebratory banner, shown only when this vendor holds
           at least one current-period award (empty list renders nothing). */}

@@ -134,6 +134,43 @@ export function LocalMoveBroadcaster({
   return null;
 }
 
+const CAM_FWD = new THREE.Vector3();
+
+/**
+ * FIRST-PERSON variant of the broadcaster (the couple lab "Play" walk): the
+ * local player IS the camera, so broadcast the camera's floor position, and take
+ * heading from where the camera LOOKS (its floor-projected forward) rather than
+ * the movement vector — so a peer's figure faces the way that player is looking,
+ * even while strafing or turning in place. Mount ONLY while first-person-walking.
+ */
+export function CameraMoveBroadcaster({
+  sendMove,
+}: {
+  sendMove: (x: number, z: number, vx: number, vz: number, heading: number, moving: boolean) => void;
+}) {
+  const prev = useRef<Vec2 | null>(null);
+  useFrame(({ camera }, delta) => {
+    const x = camera.position.x;
+    const z = camera.position.z;
+    const dt = Math.max(delta, 1e-4);
+    let vx = 0;
+    let vz = 0;
+    let moving = false;
+    if (prev.current) {
+      const dx = x - prev.current.x;
+      const dz = z - prev.current.z;
+      vx = dx / dt;
+      vz = dz / dt;
+      moving = Math.hypot(dx, dz) > 1e-4;
+    }
+    prev.current = { x, z };
+    camera.getWorldDirection(CAM_FWD);
+    const heading = Math.atan2(CAM_FWD.x, CAM_FWD.z);
+    sendMove(x, z, vx, vz, heading, moving);
+  });
+  return null;
+}
+
 /**
  * Renders every active remote (present-first, nearest-first, capped at
  * MAX_REMOTES for phones). Keyed by peer id so a figure keeps its phase/heading

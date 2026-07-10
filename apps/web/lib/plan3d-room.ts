@@ -25,6 +25,26 @@
 
 export type Vec2 = { x: number; z: number };
 
+/** Distinct floor-ring colours so online people are tell-apart-able (the locked
+ *  look is matte-white bodies + a presence-colour ring). A small fixed palette,
+ *  indexed by a stable hash of the player id — deterministic, no per-session RNG. */
+export const ROOM_PLAYER_COLORS = [
+  '#e0a63c',
+  '#4f9d8f',
+  '#c56a86',
+  '#5b7fb4',
+  '#c98b4b',
+  '#7d6bb0',
+  '#4aa06a',
+  '#c05b52',
+] as const;
+
+export function colorFromId(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ROOM_PLAYER_COLORS[h % ROOM_PLAYER_COLORS.length]!;
+}
+
 // ── Tunables ────────────────────────────────────────────────────────────────
 
 /** Broadcast cadence ceiling — ~8 Hz (locked). One message per 120 ms while

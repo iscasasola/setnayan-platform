@@ -83,6 +83,9 @@ import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { useSeatingLiveRefresh } from '@/app/dashboard/[eventId]/seating/_components/use-seating-live-refresh';
+import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
+import { RemotePlayers, CameraMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
+import { colorFromId } from '@/lib/plan3d-room';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
   assignGuest,
@@ -472,6 +475,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
   const lock = useSeatingLock(eventId, me.name, null);
   const canEdit = lock.status === 'editing';
+  // Shared room (slice 8): the authed user is the player identity. Inert unless
+  // NEXT_PUBLIC_PLAN3D_SHARED_ROOM is on → byte-identical single-player otherwise.
+  // Two partners in Play mode see each other's characters walk the room live.
+  const roomSelf = useMemo<LocalPlayer | null>(
+    () => (PLAN3D_SHARED_ROOM_ENABLED ? { id: me.id, name: me.name, color: colorFromId(me.id) } : null),
+    [me.id, me.name],
+  );
+  const sharedRoom = usePlan3dRoom(eventId, roomSelf);
   // View-only surface follows the editor live (2D or another 3D viewer) — the
   // EDITING surface never auto-refreshes (it can't clobber its own drag).
   useSeatingLiveRefresh(eventId, !canEdit);
@@ -2181,6 +2192,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           <DancerToken key={d.gid} dancer={d} reduced={reduced} onReturn={returnDancer} />
         ))}
 
+        {/* Shared room (slice 8): draw the OTHER online people's characters (Play
+            mode), and broadcast MY camera position while I first-person-walk.
+            Both render nothing / no-op when the flag is off or I'm alone. */}
+        {sharedRoom.enabled && mode === 'play' ? <RemotePlayers remotes={sharedRoom.remotes} quality="low" /> : null}
+        {sharedRoom.enabled && walking ? <CameraMoveBroadcaster sendMove={sharedRoom.sendMove} /> : null}
+
         {walking ? (
           <WalkController
             active={walking}
@@ -2332,6 +2349,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           >
             {walking ? 'Exit walk' : '🚶 Walk around'}
           </button>
+          {/* Shared room "say hi" (slice 8) — only while another partner is here.
+              Waves at the room; the wave plays on MY figure on their screen. */}
+          {sharedRoom.enabled && sharedRoom.onlineCount > 1 ? (
+            <button
+              type="button"
+              onClick={() => sharedRoom.greet(null)}
+              className="absolute right-4 top-16 z-30 rounded-xl border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/25"
+            >
+              👋 Say hi · {sharedRoom.onlineCount} here
+            </button>
+          ) : null}
           {walking ? (
             <>
               <LookPad input={walkInput} />

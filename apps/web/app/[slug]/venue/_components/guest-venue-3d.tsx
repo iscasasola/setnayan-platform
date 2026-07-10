@@ -29,6 +29,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
+import { colorFromId } from '@/lib/plan3d-room';
 import {
   roomSize,
   pctToWorld,
@@ -453,15 +454,6 @@ function SeatDestinationMarker({ position, color }: { position: Vec2; color: str
 function makeSelfId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   return `g-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
-}
-
-/** Distinct floor-ring colour per player so online people are tell-apart-able —
- *  a small fixed set of pleasant hues, indexed by a hash of the id. */
-const ROOM_PLAYER_COLORS = ['#e0a63c', '#4f9d8f', '#c56a86', '#5b7fb4', '#c98b4b', '#7d6bb0', '#4aa06a', '#c05b52'] as const;
-function colorFromId(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return ROOM_PLAYER_COLORS[h % ROOM_PLAYER_COLORS.length]!;
 }
 
 export default function GuestVenue3D({

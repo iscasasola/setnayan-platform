@@ -55,6 +55,7 @@ import {
 } from '@/lib/schedule-pools';
 import {
   computePlanInstances,
+  defaultPaymentScheduleRows,
   downpaymentPolicyFromRows,
   isProtectedPolicy,
   type PaymentScheduleItemRow,
@@ -1401,6 +1402,16 @@ export async function finalizeVendor(
       scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
     }
 
+    // Default-seed: a marketplace vendor with a known total but NO configured
+    // schedule would otherwise hand the couple an empty plan / silent "pay
+    // directly". Seed a 50/50 ESTIMATED plan instead (flagged below) so the
+    // couple always sees a downpayment + balance they can confirm. Skipped when
+    // there's no total to estimate against — an empty plan is the honest state.
+    const seededDefault = scheduleRows.length === 0 && totalCostPhp != null;
+    if (seededDefault) {
+      scheduleRows = defaultPaymentScheduleRows();
+    }
+
     const instances = computePlanInstances({
       scheduleRows,
       totalCostPhp,
@@ -1416,6 +1427,10 @@ export async function finalizeVendor(
           event_id: eventId,
           event_vendor_id: vendorId,
           instances_json: instances,
+          // Flag an estimated 50/50 fallback so the couple's workspace can label
+          // it "estimated — confirm with your vendor". Always written, so a
+          // re-lock after the vendor sets a real schedule flips this back false.
+          is_default_seeded: seededDefault,
           // #15 (money bug-hunt): a re-lock re-snapshots the instances, so the
           // plan must start UNCLEARED — otherwise a previously-cleared plan keeps
           // cleared_at and a freshly-recomputed (possibly larger) balance shows
@@ -1439,8 +1454,9 @@ export async function finalizeVendor(
         userId: user.id,
         type: 'payment_info_sent',
         title: 'Your payment info is ready',
-        body:
-          instances.length > 0
+        body: seededDefault
+          ? `Your booking with ${targetVendor.vendor_name as string} is locked. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your vendor.`
+          : instances.length > 0
             ? `Your booking is locked. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
             : `Your booking with ${targetVendor.vendor_name as string} is locked. Open the workspace to see how to pay them directly.`,
         relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,

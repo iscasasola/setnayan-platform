@@ -1105,12 +1105,23 @@ export default async function VendorWorkspacePage({ params }: Props) {
           {planProgress.steps !== null &&
           (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
             <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
-              <p className="text-xs font-semibold text-ink">Payment plan</p>
+              <p className="text-xs font-semibold text-ink">
+                Payment plan{planProgress.isDefaultSeeded ? ' (estimated)' : ''}
+              </p>
               {planProgress.steps.length > 0 ? (
-                <p className="text-[11px] text-ink/55">
-                  {displayName} set up this plan. Pay each installment using the
-                  methods below; {displayName} confirms each as received.
-                </p>
+                planProgress.isDefaultSeeded ? (
+                  <p className="text-[11px] text-ink/55">
+                    {displayName} hasn&apos;t set payment terms yet, so this is a
+                    typical 50/50 estimate. Confirm the amounts and dates with
+                    {' '}
+                    {displayName} before paying.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-ink/55">
+                    {displayName} set up this plan. Pay each installment using the
+                    methods below; {displayName} confirms each as received.
+                  </p>
+                )
               ) : null}
               <PaymentPlanStepper
                 steps={planProgress.steps}

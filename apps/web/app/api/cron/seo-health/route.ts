@@ -60,13 +60,34 @@ async function run(req: NextRequest): Promise<NextResponse> {
   }
 
   const admin = createAdminClient();
-  const { data: catalog } = await admin
-    .from('service_catalog')
-    .select('sku_code, display_name, price_centavos, is_active, purchaser_role');
+  // Live pricing lives in the v2 catalogs (pesos), NOT the legacy service_catalog.
+  // Customer à-la-carte = platform_retail_catalog_v2; vendor billing = vendor_billing_catalog.
+  const [retailRes, vendorRes] = await Promise.all([
+    admin
+      .from('platform_retail_catalog_v2')
+      .select('service_code, retail_price_php')
+      .eq('is_active', true),
+    admin
+      .from('vendor_billing_catalog')
+      .select('sku_code, price_php')
+      .eq('is_active', true),
+  ]);
+  const catalog: CatalogRow[] = [
+    ...((retailRes.data ?? []) as { service_code: string; retail_price_php: number }[]).map((r) => ({
+      sku_code: r.service_code,
+      price_php: Number(r.retail_price_php),
+      source: 'retail' as const,
+    })),
+    ...((vendorRes.data ?? []) as { sku_code: string; price_php: number }[]).map((r) => ({
+      sku_code: r.sku_code,
+      price_php: Number(r.price_php),
+      source: 'vendor' as const,
+    })),
+  ];
 
   const result = runSeoHealthChecks({
     llmsText,
-    catalog: (catalog ?? []) as CatalogRow[],
+    catalog,
     env: {
       googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION,
       bingSiteVerification: process.env.BING_SITE_VERIFICATION,

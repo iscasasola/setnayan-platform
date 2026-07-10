@@ -66,6 +66,11 @@ export function VendorGrowHero() {
             letterSpacing: '-0.025em',
             margin: '0 0 18px',
             maxWidth: '16ch',
+            /* .m-display hard-sets color:var(--m-ink) (dark navy) — override to
+               white so the headline reads over the photo, matching the header's
+               inherited #fff. Without this the h1 rendered navy-on-photo and was
+               unreadable (owner 2026-07-10). */
+            color: '#fff',
             textShadow: '0 2px 40px rgba(0,0,0,.35)',
           }}
         >

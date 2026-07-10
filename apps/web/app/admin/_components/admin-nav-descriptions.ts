@@ -106,6 +106,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Your platform at a glance — growth, health, and where to focus next.',
   growth: 'The growth dashboard — sign-ups, activation, and retention.',
   intelligence: 'Market intelligence — demand signals and category trends.',
+  seo: 'SEO & GEO — nightly llms.txt-vs-catalog drift audit, route/token coverage, and Search Console trend.',
   funnels: 'Conversion funnels — where couples and vendors drop off.',
   'operations-hiring': 'Operations and hiring metrics — throughput and capacity.',
   'connection-logs': 'Integration and connection logs for debugging.',

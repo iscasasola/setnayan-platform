@@ -726,6 +726,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/intelligence',
       },
       {
+        // SEO & GEO — the daily search + AI-answer-engine audit (owner Q
+        // 2026-07-10). Diffs the served llms.txt against the live catalog +
+        // checks route/token coverage nightly; pulls Search Console.
+        key: 'seo',
+        label: 'SEO & GEO',
+        href: '/admin/seo',
+        icon: Globe,
+        matchPrefix: '/admin/seo',
+      },
+      {
         key: 'funnels',
         label: 'Funnels',
         href: '/admin/funnels',

@@ -51,7 +51,6 @@ import {
   Palette,
   Type,
   MonitorPlay,
-  QrCode,
   Wallet,
   Activity,
   Shield,
@@ -62,7 +61,6 @@ import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
-import { buildGuestJourney } from '@/lib/guest-journey';
 
 /**
  * Builds the canonical customer NavGroup[] for the given eventId — one
@@ -91,19 +89,6 @@ export function buildCustomerNavGroups(
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
-
-  // Guest-journey children — mapped from the lib/guest-journey SSOT so the
-  // sidebar journey and the mobile <SubNav> can never drift.
-  const guestJourneyChildren: NavItem[] = buildGuestJourney(eventId, {
-    dayOfOpen: opts?.dayOfOpen ?? false,
-  }).map((stage) => ({
-    key: stage.key,
-    label: stage.label,
-    href: stage.href,
-    icon: stage.icon,
-    matchPrefix: stage.match,
-    muted: stage.muted,
-  }));
 
   // Launch = the couple's live personal website. It lives in its OWN "Go live"
   // section (design: setnayan-overview-energy.html), not among the Plan items.
@@ -146,9 +131,13 @@ export function buildCustomerNavGroups(
           // its /refer route is unchanged (reachable via direct link / account).
         },
         {
-          // 2 · Guests — full guest hub. Expands to the five journey stages +
-          // Event QR. matchPrefix on /guests so /seating (the Seat stage) also
-          // keeps the parent lit via its own matchPrefix in the child.
+          // 2 · Guests — full guest hub, now a PLAIN LEAF (owner 2026-07-10:
+          // the guest-journey stages Build·Invite·Confirm·Seat·Day-of·Event-QR
+          // are integrated into the single Guests page — no sidebar submenu).
+          // Mirrors the Overview leaf above. Seat (/seating) still opens from
+          // within the Guests page; it stays in the mobile SSOT's activeMatch
+          // (lib/customer-menu.ts) though the sidebar's single matchPrefix lights
+          // only on /guests.
           key: 'guests',
           label: 'Guests',
           href: `${base}/guests`,
@@ -159,16 +148,6 @@ export function buildCustomerNavGroups(
           ...(opts?.guestCount && opts.guestCount > 0
             ? { badge: { count: opts.guestCount, tone: 'neutral' as const } }
             : {}),
-          children: [
-            ...guestJourneyChildren,
-            {
-              key: 'event-qr',
-              label: 'Event QR',
-              href: `${base}/event-qr`,
-              icon: QrCode,
-              matchPrefix: `${base}/event-qr`,
-            },
-          ],
         },
         {
           // 3 · Explore — vendor marketplace. Sub-items are the 5 Build tabs

@@ -25,13 +25,15 @@ import { fetchUserRoleSummary } from '@/lib/roles';
 import {
   fetchEventDecisionCounts,
   fetchEventUnreadCounts,
+  fetchVendorUnreadCounts,
   summarizeEventDecisions,
   type EventDecisionSummary,
 } from '@/lib/event-decisions';
-import { getAdminQueueDigest, deriveQueueUrgency } from '@/lib/admin/queue-counts';
+import { getAdminQueueDigest, ADMIN_QUEUE_META } from '@/lib/admin/queue-counts';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
@@ -266,7 +268,12 @@ export default async function LauncherPage({
   const decisionByEvent = new Map<string, EventDecisionSummary>();
   for (const e of active) {
     const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
-    const overdue = checklistByEvent.get(e.event_id)?.overdue ?? 0;
+    // Overdue tasks are meaningless once the date has passed, so a finished
+    // event still surfaces pay / approve / message decisions but not a
+    // "50 tasks overdue" line for a wedding that already happened.
+    const overdue = isPast(e)
+      ? 0
+      : (checklistByEvent.get(e.event_id)?.overdue ?? 0);
     const message = unreadByEvent.get(e.event_id) ?? 0;
     decisionByEvent.set(
       e.event_id,
@@ -299,6 +306,11 @@ export default async function LauncherPage({
   // hasn't accepted yet). One batched query across all the user's shops.
   const shopIds = roles.vendorProfiles.map((v) => v.vendor_profile_id);
   const inquiryByShop = new Map<string, number>();
+  // Unread REPLIES per shop (accepted conversations with a waiting reply) — the
+  // vendor-side twin of the couple event-card message signal.
+  const unreadByShop = shopIds.length > 0
+    ? await fetchVendorUnreadCounts(supabase).catch(() => new Map<string, number>())
+    : new Map<string, number>();
   if (shopIds.length > 0) {
     try {
       const { data } = await supabase
@@ -321,16 +333,19 @@ export default async function LauncherPage({
     }
   }
 
-  // Admin HQ "awaiting review" signal — total open items across every work queue
-  // (reconciliation · verification · disputes · approvals · …). Gated to admins,
-  // so the per-queue count fan-out never runs for a plain couple.
+  // Admin HQ "awaiting review" signal — open items across the ACTIONABLE work
+  // queues. Deliberately excludes the `support` lane (help desk, review appeals)
+  // so ongoing support volume doesn't inflate the count next to real gating
+  // decisions (payments, verification, disputes, approvals). Gated to admins, so
+  // the per-queue count fan-out never runs for a plain couple.
   let adminOpenTotal = 0;
   if (roles.hasAdminAccess) {
     try {
-      adminOpenTotal = deriveQueueUrgency(
-        await getAdminQueueDigest(),
-        Date.now(),
-      ).totalOpen;
+      const digest = await getAdminQueueDigest();
+      for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
+        if (meta.lane === 'support') continue;
+        adminOpenTotal += Math.max(0, digest[key]?.count ?? 0);
+      }
     } catch {
       adminOpenTotal = 0;
     }
@@ -353,21 +368,32 @@ export default async function LauncherPage({
   // "Your shop" tile. Logo when set; the store glyph otherwise.
   const inquiryLabel = (n: number) =>
     `${n} new ${n === 1 ? 'inquiry' : 'inquiries'}`;
+  const unreadChatLabel = (n: number) =>
+    `${n} unread ${n === 1 ? 'chat' : 'chats'}`;
+  // A shop needs a reply for either a brand-new inquiry OR an unread message in
+  // an accepted chat. New inquiries lead the line (they gate the conversation);
+  // unread chats fall through.
+  const shopAttention = (inquiries: number, unread: number) =>
+    inquiries > 0
+      ? inquiryLabel(inquiries)
+      : unread > 0
+        ? unreadChatLabel(unread)
+        : undefined;
+  const shopNeedCount = (vpId: string) =>
+    (inquiryByShop.get(vpId) ?? 0) + (unreadByShop.get(vpId) ?? 0);
   if (roles.hasVendorAccess) {
     // Cap the number of shop tiles so a many-shop vendor's section stays short;
     // the rest collapse into a single "N more shops" tile. Rank shops that need
-    // a reply first so a pending inquiry is never hidden behind the cap, and the
-    // "more" tile still surfaces any inquiries among the shops it hides.
+    // a reply first so a waiting shop is never hidden behind the cap, and the
+    // "more" tile still surfaces what's waiting among the shops it hides.
     const MAX_SHOP_CARDS = 3;
     const ranked = [...roles.vendorProfiles].sort(
       (a, b) =>
-        (inquiryByShop.get(b.vendor_profile_id) ?? 0) -
-        (inquiryByShop.get(a.vendor_profile_id) ?? 0),
+        shopNeedCount(b.vendor_profile_id) - shopNeedCount(a.vendor_profile_id),
     );
     const shown = ranked.slice(0, MAX_SHOP_CARDS);
     const hidden = ranked.slice(MAX_SHOP_CARDS);
     for (const vp of shown) {
-      const inquiries = inquiryByShop.get(vp.vendor_profile_id) ?? 0;
       spaces.push({
         id: vp.vendor_profile_id,
         href: '/vendor-dashboard',
@@ -376,12 +402,19 @@ export default async function LauncherPage({
         title: vp.business_name,
         subtitle: 'Vendor shop',
         tone: 'default',
-        attention: inquiries > 0 ? inquiryLabel(inquiries) : undefined,
+        attention: shopAttention(
+          inquiryByShop.get(vp.vendor_profile_id) ?? 0,
+          unreadByShop.get(vp.vendor_profile_id) ?? 0,
+        ),
       });
     }
     if (hidden.length > 0) {
       const hiddenInquiries = hidden.reduce(
         (sum, vp) => sum + (inquiryByShop.get(vp.vendor_profile_id) ?? 0),
+        0,
+      );
+      const hiddenUnread = hidden.reduce(
+        (sum, vp) => sum + (unreadByShop.get(vp.vendor_profile_id) ?? 0),
         0,
       );
       spaces.push({
@@ -391,7 +424,7 @@ export default async function LauncherPage({
         title: `${hidden.length} more ${hidden.length === 1 ? 'shop' : 'shops'}`,
         subtitle: 'See all your shops',
         tone: 'default',
-        attention: hiddenInquiries > 0 ? inquiryLabel(hiddenInquiries) : undefined,
+        attention: shopAttention(hiddenInquiries, hiddenUnread),
       });
     }
   }
@@ -449,7 +482,7 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
-                  decision={null}
+                  decision={decisionByEvent.get(event.event_id) ?? null}
                   finished
                 />
               ))
@@ -811,12 +844,7 @@ function SpaceCard({
           }`}
         >
           {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <ShopLogo src={logoUrl} fallbackIcon={Icon} />
           ) : (
             <Icon className="h-[18px] w-[18px]" />
           )}

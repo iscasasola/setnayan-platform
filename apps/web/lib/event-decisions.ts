@@ -117,6 +117,36 @@ export async function fetchEventDecisionCounts(
   return out;
 }
 
+/**
+ * Per-shop unread message-thread counts for the current vendor user, via the
+ * grouped `unread_message_threads_by_vendor()` RPC. Same graceful-degrade as the
+ * couple-side variant (empty map if the function isn't there yet). Lets the shop
+ * cards surface an unread REPLY in an accepted conversation, not just brand-new
+ * inquiries.
+ */
+export async function fetchVendorUnreadCounts(
+  supabase: SupabaseClient,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const { data, error } = await supabase.rpc(
+      'unread_message_threads_by_vendor',
+    );
+    if (error) return out;
+    for (const row of (data ?? []) as Array<{
+      vendor_profile_id: string | null;
+      unread_count: number | null;
+    }>) {
+      if (row.vendor_profile_id) {
+        out.set(row.vendor_profile_id, Number(row.unread_count ?? 0));
+      }
+    }
+  } catch {
+    // graceful-degrade: no unread line rather than a broken launcher.
+  }
+  return out;
+}
+
 /** Pluralize "N thing" / "N things" — the labels are all count-led. */
 function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
@@ -150,8 +180,10 @@ export function summarizeEventDecisions(
   } else if (counts.message > 0) {
     top = {
       kind: 'message',
+      // The RPC counts unread *threads/conversations*, not individual messages,
+      // so "chat(s)" is the accurate noun (a thread with 5 unread replies is 1).
       count: counts.message,
-      label: plural(counts.message, 'unread message', 'unread messages'),
+      label: plural(counts.message, 'unread chat', 'unread chats'),
     };
   } else {
     top = {

@@ -466,18 +466,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 35,
   },
-  {
-    key: "customer.sidebar.schedule",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/schedule",
-    label: "Schedule",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "CalendarClock",
-    customRef: null,
-    sortOrder: 5,
-  },
+  // customer.sidebar.schedule REMOVED 2026-07-10: Overview's Schedule child was
+  // flattened (#3004) — the slot had zero consumers. /schedule stays reachable
+  // from the dashboard body; the Day-of bottom-nav 'schedule' slot is separate.
   // Budget nav item REMOVED 2026-07-10 (owner): budget now lives inside the
   // Merkado (Vendors → Build · Budget · Compare), so the standalone item was
   // redundant. The full budget surface (/dashboard/[eventId]/budget) stays
@@ -588,30 +579,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 17,
   },
-  {
-    key: "customer.sidebar.messages",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/messages",
-    label: "Messages",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "MessageSquare",
-    customRef: null,
-    sortOrder: 7,
-  },
-  {
-    key: "customer.sidebar.contracts",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/contracts",
-    label: "Contracts",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "FileText",
-    customRef: null,
-    sortOrder: 8,
-  },
+  // customer.sidebar.messages + customer.sidebar.contracts REMOVED 2026-07-10:
+  // Overview's Messages/Contracts children were flattened (#3004) — the slots
+  // had zero consumers. Messages stays reachable from the Conversations card +
+  // topbar bell; Contracts from the vendor itemization cards.
   {
     // "Event page" — the host's doorway to the live /[slug] page (owner
     // 2026-06-26). Sits at the top of the Studio group; admin-editable here.
@@ -724,30 +695,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 15,
   },
-  {
-    key: "customer.home-subnav.overview",
-    scope: "customer",
-    area: "home-section-subnav",
-    route: "/dashboard/[eventId]",
-    label: "Overview",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "LayoutDashboard",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
-    key: "customer.home-subnav.checklist",
-    scope: "customer",
-    area: "home-section-subnav",
-    route: "/dashboard/[eventId]/checklist",
-    label: "Checklist",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "ClipboardList",
-    customRef: null,
-    sortOrder: 1,
-  },
+  // customer.home-subnav.overview + customer.home-subnav.checklist REMOVED
+  // 2026-07-10: the Overview section sub-nav (home-section-subnav) was never
+  // wired — Overview is a plain leaf (#3004), so these two slots had zero
+  // consumers.
   {
     key: "customer.guest-journey.build",
     scope: "customer",

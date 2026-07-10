@@ -1,15 +1,19 @@
 /**
- * kit/outfits — shared outfit-shell geometries + material caches for the 3D
- * figure kit. Module-scope THREE geometry/material instances are the lab's
- * own precedent (GOWN_GEO / SUIT_GEO in seating-lab-3d.tsx): R3F never
- * disposes module constants, so every figure on every surface shares ONE GPU
+ * kit/outfits — shared outfit-shell geometries + material caches. Module-scope
+ * THREE geometry/material instances are the lab's own precedent (GOWN_GEO /
+ * SUIT_GEO): R3F never disposes module constants, so every mesh shares ONE GPU
  * buffer per shell instead of allocating per mount.
  *
- * SILHOUETTE CONTRACT: gown + suit reuse the lab's exact proportions so a
- * guest reads the same from the 2D-adjacent lab and the new articulated kit
- * — the kit upgrades the rig, it must not re-proportion the wardrobe.
+ * ⚠ SCOPE (2026-07-09 one-piece rebuild): the per-guest FIGURE no longer wears
+ * these shells — it renders as a single matte-white mannequin (one shared
+ * `mannequinMaterial`, no wardrobe). The geometries (GOWN_GEO/SUIT_GEO/…) +
+ * `outfitMaterial` + the barong/garment CanvasTextures below now serve ONLY
+ * static BOOTH DECOR (dress-form busts, garment rails in booth-props.tsx). The
+ * `mannequinMaterial` at the bottom is what the live figure + instanced crowd
+ * actually use. (`outfitGeometry`/`outfitIsSkirted`/`skinMaterial` were removed
+ * with the rebuild — see the in-file notes.)
  *
- * The two Filipino-formalwear shells:
+ * The two Filipino-formalwear shells (booth decor):
  *   · barong — suit-proportioned, near-white jusi cloth with a subtle
  *     VERTICAL-embroidery bump texture (the classic pechera stitching) and a
  *     slight sheen. Procedural CanvasTexture only (CSP: no fetched assets),
@@ -82,36 +86,10 @@ export const NEUTRAL_GEO = latheProfile([
   [0.135, -0.02],
 ]);
 
-/** The shell geometry for an outfit. Barong wears the suit silhouette (it IS
- *  a suit-shaped garment — only cloth + texture differ); filipiniana wears
- *  the gown shell (sleeves are added by the renderer as separate meshes).
- *  The booth-staff variants (2026-07-08) reuse the existing profiles: chef
- *  whites + vest are jacket-shaped (SUIT), apron + uniform are soft columns
- *  (NEUTRAL) — recolour + a CanvasTexture detail do the storytelling. */
-export function outfitGeometry(outfit: OutfitKind): THREE.BufferGeometry {
-  switch (outfit) {
-    case 'gown':
-    case 'filipiniana':
-    case 'robe': // the choir robe flows floor-length — the gown shell IS the silhouette
-      return GOWN_GEO;
-    case 'suit':
-    case 'barong':
-    case 'chef_whites':
-    case 'vest':
-      return SUIT_GEO;
-    case 'neutral':
-    case 'apron':
-    case 'uniform':
-      return NEUTRAL_GEO;
-  }
-}
-
-/** True when the outfit is skirted — the renderer hides the THIGH meshes
- *  under the flared shell (the lab's gown figures never drew legs at all;
- *  the kit keeps shins so a walking gown still shows footfall). */
-export function outfitIsSkirted(outfit: OutfitKind): boolean {
-  return outfit === 'gown' || outfit === 'filipiniana' || outfit === 'robe';
-}
+// (Removed 2026-07-10: `outfitGeometry` + `outfitIsSkirted` — dead since the
+// one-piece figure rebuild. The per-guest figure no longer places wardrobe
+// shells; the GOWN_GEO/SUIT_GEO/NEUTRAL_GEO buffers + outfitMaterial are now
+// consumed ONLY by static booth decor in booth-props.tsx.)
 
 // ── Barong embroidery (lazy CanvasTexture — browser only) ───────────────────
 
@@ -405,20 +383,8 @@ function darken(hex: string, k: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
-const skinMats = new Map<string, THREE.MeshStandardMaterial>();
-
-/** Mascot-smooth skin (owner-locked 2026-07-08): lower roughness than the
- *  generic plain material so heads/limbs pick up a soft polished sheen from
- *  the Lightformer env — the "vinyl-figure" appeal of mascot design — without
- *  going plasticky (0.45, not mirror). Cached per skin tone. */
-export function skinMaterial(color: string): THREE.MeshStandardMaterial {
-  let m = skinMats.get(color);
-  if (!m) {
-    m = new THREE.MeshStandardMaterial({ color, roughness: 0.45 });
-    skinMats.set(color, m);
-  }
-  return m;
-}
+// (Removed 2026-07-10: `skinMaterial` + its cache — dead since the one-piece
+// rebuild replaced skin/hair accents with a single shared body material.)
 
 const mannequinMats = new Map<string, THREE.MeshStandardMaterial>();
 

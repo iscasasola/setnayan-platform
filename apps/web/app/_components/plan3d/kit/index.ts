@@ -75,7 +75,7 @@ export {
   type Pose,
 } from '@/lib/figure-rig';
 
-export { outfitGeometry, outfitIsSkirted, outfitMaterial, type OutfitKind } from './outfits';
+export { outfitMaterial, type OutfitKind } from './outfits';
 
 export {
   BoothChassis,

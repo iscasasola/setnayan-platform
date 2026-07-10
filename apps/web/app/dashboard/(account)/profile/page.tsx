@@ -516,7 +516,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             Planner mode
           </h2>
           <p className="text-sm text-ink/60">
-            Guided shows the 9-step checklist on your Home tab. DIY hides it so you can plan
+            Guided shows the 9-step checklist on your Overview tab. DIY hides it so you can plan
             in any order without the prompts.
           </p>
         </div>
@@ -570,7 +570,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             Planning reminders
           </h2>
           <p className="text-sm text-ink/60">
-            Friendly nudges on your Home tab for when to book each vendor and
+            Friendly nudges on your Overview tab for when to book each vendor and
             handle key documents. On by default — turn off to plan on your own
             clock.
           </p>
@@ -581,7 +581,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               {
                 key: 'true' as const,
                 label: 'On',
-                tagline: 'Show recommended deadlines on your Home tab',
+                tagline: 'Show recommended deadlines on your Overview tab',
               },
               {
                 key: 'false' as const,

@@ -157,7 +157,10 @@ export function buildCustomerMenuTree(
   if (ctx.phase === 'after') {
     const base = `/dashboard/${eventId}`;
     return [
-      { key: 'home',      label: 'Home',      icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
+      // Overview (was mislabelled 'Home' — the Home→Overview rename missed this
+      // after-phase branch; the plan-phase menu + the registry default are
+      // 'Overview'). Key + route + exact-match unchanged.
+      { key: 'home',      label: 'Overview', icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
       { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors`,                 activeMatch: `${base}/vendors`                                         },
       { key: 'editorial', label: 'Editorial', icon: Newspaper, href: `${base}/website/editorial`,       activeMatch: `${base}/website/editorial`                               },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },

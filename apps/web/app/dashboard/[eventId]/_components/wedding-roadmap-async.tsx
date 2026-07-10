@@ -1,33 +1,13 @@
 import { AlertTriangle, Check, ListChecks } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
-import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
-import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   resolveRoadmap,
   countRoadmapDone,
-  monthsUntil,
   ROADMAP_TOTAL,
-  type RoadmapSignals,
 } from '@/lib/wedding-roadmap';
+import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { toggleRoadmapItem } from '../actions';
-
-// Canonical reception/ceremony venue categories — reused from PLAN_GROUPS so the
-// auto-signal can never drift from the plan-card bucketing. Reception = ['venue'];
-// ceremony = ['religious_venue','church_fees'] (kept disjoint by design).
-const RECEPTION_VENUE_CATEGORIES = new Set<string>(
-  PLAN_GROUPS.find((g) => g.id === 'reception_venue')?.categories ?? [],
-);
-const CEREMONY_VENUE_CATEGORIES = new Set<string>(
-  PLAN_GROUPS.find((g) => g.id === 'ceremony_venue')?.categories ?? [],
-);
-const VENUE_CATEGORIES = new Set<string>([
-  ...RECEPTION_VENUE_CATEGORIES,
-  ...CEREMONY_VENUE_CATEGORIES,
-]);
-// Setnayan capture SKU families (Papic / Panood / Patiktok). Prefix-matched so
-// new variants (papic_guest_captures, panood_daily_broadcast, …) still count.
-const CAPTURE_SKU_RE = /^(papic|panood|patiktok)/i;
 
 /**
  * WeddingRoadmapAsync — the free "things to complete" list on the couple Home
@@ -57,81 +37,15 @@ export async function WeddingRoadmapAsync({
 }) {
   const supabase = await createClient();
 
-  // One events read + four lightweight signal reads, in parallel. Each signal
-  // degrades to "not satisfied" on error (the item then stays a manual Done), so
-  // a flaky query never hides work or fakes completion.
-  const [evRes, vendorsRes, guestCountRes, tableCountRes, captureRes] = await Promise.all([
-    supabase
-      .from('events')
-      .select(
-        'event_date, date_candidates, date_window_start, roadmap_completed, estimated_budget_centavos',
-      )
-      .eq('event_id', eventId)
-      .maybeSingle(),
-    supabase.from('event_vendors').select('category, status').eq('event_id', eventId),
-    supabase
-      .from('guests')
-      .select('event_id', { count: 'exact', head: true })
-      .eq('event_id', eventId),
-    supabase
-      .from('event_tables')
-      .select('event_id', { count: 'exact', head: true })
-      .eq('event_id', eventId),
-    supabase
-      .from('orders')
-      .select('service_key')
-      .eq('event_id', eventId)
-      .in('status', ['paid', 'fulfilled']),
-  ]);
+  // Single source of truth for "where is this couple?" — one events read + four
+  // lightweight signal reads (shared with the Studio recommendation strip so the
+  // two can never disagree). Null when the event row is missing. Each signal
+  // degrades to "not satisfied" on error, so a flaky query never hides work or
+  // fakes completion.
+  const state = await fetchRoadmapState(supabase, eventId, now);
+  if (!state) return null;
+  const { months, completed, signals } = state;
 
-  const ev = evRes.data;
-  if (!ev) return null;
-
-  // Earliest chosen date — committed date → earliest candidate → window start
-  // (same anchor the countdown uses). ISO yyyy-mm-dd sorts chronologically.
-  const candidates = (
-    ((ev as { date_candidates?: string[] | null }).date_candidates ?? []) as string[]
-  )
-    .filter(Boolean)
-    .slice()
-    .sort();
-  const earliest =
-    (ev as { event_date?: string | null }).event_date ??
-    candidates[0] ??
-    (ev as { date_window_start?: string | null }).date_window_start ??
-    null;
-  const completed = ((ev as { roadmap_completed?: string[] | null }).roadmap_completed ??
-    []) as string[];
-
-  // ── Hybrid auto-signals (owner 2026-06-05) ────────────────────────────────
-  // Deterministic structural facts only — never inference. A vendor counts as
-  // "booked" once its status reaches contracted+ (CONFIRMED_VENDOR_STATUSES).
-  const vendors = (vendorsRes.data ?? []) as { category: string; status: string | null }[];
-  const isConfirmed = (status: string | null) =>
-    status !== null && (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(status);
-  const captures = (captureRes.data ?? []) as { service_key: string | null }[];
-
-  const signals: RoadmapSignals = {
-    dateLocked: (ev as { event_date?: string | null }).event_date != null,
-    receptionVenueBooked: vendors.some(
-      (v) => isConfirmed(v.status) && RECEPTION_VENUE_CATEGORIES.has(v.category),
-    ),
-    ceremonyVenueBooked: vendors.some(
-      (v) => isConfirmed(v.status) && CEREMONY_VENUE_CATEGORIES.has(v.category),
-    ),
-    budgetSet:
-      Number(
-        (ev as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? 0,
-      ) > 0,
-    hasGuests: (guestCountRes.count ?? 0) > 0,
-    coreVendorBooked: vendors.some(
-      (v) => isConfirmed(v.status) && !VENUE_CATEGORIES.has(v.category),
-    ),
-    seatingStarted: (tableCountRes.count ?? 0) > 0,
-    setnayanCaptureSet: captures.some((o) => CAPTURE_SKU_RE.test(o.service_key ?? '')),
-  };
-
-  const months = monthsUntil(earliest, now.getTime());
   // Show 3 at a time (owner 2026-06-05), overdue-first. The list refills as
   // items complete — this server component re-runs on every revalidate, so the
   // next-most-urgent open item slides into the freed slot. The done count below

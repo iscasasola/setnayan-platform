@@ -6,7 +6,7 @@ import {
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
-import { monthsUntil } from '@/lib/wedding-roadmap';
+import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { addOnDetail } from '@/lib/add-ons-detail';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
@@ -88,22 +88,19 @@ export default async function StudioPage({ params }: Props) {
   const serviceKeys = Array.from(
     new Set(ADD_ONS.map((a) => a.serviceKey).filter((k): k is string => Boolean(k))),
   );
-  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }, eventDateRes] =
+  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }, roadmapState] =
     await Promise.all([
       eventActiveSkus(createAdminClient(), eventId),
       supabase
         .from('platform_retail_catalog_v2')
         .select('service_code, retail_price_php')
         .in('service_code', serviceKeys),
-      // Event date — the ONE input the "Recommended for you now" strip needs to
-      // place the couple on their timeline (same months-to-date question the
-      // free Home roadmap uses). Best-effort: a null date just anchors the
-      // recommendations to early-planning (see NO_DATE_ANCHOR_MONTHS).
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      // The couple's roadmap state (months-to-date + hard structural signals) —
+      // the SAME source of truth the free Home "Things to complete" list reads,
+      // so the "Recommended for you now" strip can never contradict it. Best-
+      // effort: a null state degrades the strip to date-peak only.
+      fetchRoadmapState(supabase, eventId, new Date()),
     ]);
-  const eventDate =
-    (eventDateRes.data as { event_date?: string | null } | null)?.event_date ?? null;
-  const monthsToDate = monthsUntil(eventDate, Date.now());
 
   const priceMap = new Map<string, string>();
   for (const r of priceRows ?? []) {
@@ -300,15 +297,19 @@ export default async function StudioPage({ params }: Props) {
     );
 
   // ── "Recommended for you now" (owner 2026-07-10 · simpler Studio) ─────────
-  // Lead the hub with the 2–3 add-ons that fit WHERE THE COUPLE IS on their
-  // timeline, so Studio opens as "here's your next step" instead of a 24-tile
-  // catalog. Eligible = surface-enabled for this event type AND not coming-soon;
-  // owned items are never re-recommended. Pure ranking lives in
-  // lib/studio-recommendations.ts (the months-to-date question the free Home
-  // roadmap already uses). Free picks are allowed on purpose — this answers
-  // "what to set up next", not "what to buy".
+  // Lead the hub with the 2–3 add-ons that fit WHERE THE COUPLE ACTUALLY IS, so
+  // Studio opens as "here's your next step" instead of a 24-tile catalog. The
+  // ranking follows the SAME roadmap state the Home "Things to complete" list
+  // reads (overdue-first) and gates day-of add-ons behind readiness signals, so
+  // the two surfaces can never disagree — see lib/studio-recommendations.ts.
+  // Eligible = surface-enabled for this event type AND not coming-soon; owned
+  // items are never re-recommended. Free picks are allowed on purpose — this
+  // answers "what to set up next", not "what to buy".
+  const monthsToDate = roadmapState?.months ?? null;
   const recommendedEntries = recommendStudioAddOns({
     monthsToDate,
+    signals: roadmapState?.signals ?? null,
+    completed: roadmapState?.completed ?? [],
     isEligible: (key) => {
       const e = entryByKey.get(key);
       if (!e) return false;
@@ -345,33 +346,6 @@ export default async function StudioPage({ params }: Props) {
           where you are — or browse it all below.
         </p>
       </header>
-
-      {recommendedEntries.length > 0 ? (
-        <section aria-label="Recommended for you now" className="space-y-3">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-              Recommended for you now
-            </p>
-            <p className="mt-1 text-sm text-ink/60">{recommendLede}</p>
-          </div>
-          <RevealList
-            as="ul"
-            className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-terracotta/25 bg-cream shadow-[0_1px_3px_rgba(92,37,66,0.06)]"
-          >
-            {recommendedEntries.map((addon) => (
-              <StudioAppRow
-                key={addon.key}
-                href={cardHref(addon)}
-                label={addon.label}
-                blurb={addon.blurb}
-                Icon={addon.Icon}
-                gradient={addon.poster.baseBackground}
-                pill={pillFor(addon)}
-              />
-            ))}
-          </RevealList>
-        </section>
-      ) : null}
 
       {coupleSuggestions.length > 0 ? (
         <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
@@ -471,6 +445,36 @@ export default async function StudioPage({ params }: Props) {
             })}
           </ul>
         </div>
+      ) : null}
+
+      {/* Recommended for you now — the algorithmic "next step" lead, placed
+          AFTER the human coordinator/vendor suggestions above (a person's
+          targeted pick outranks a timeline guess) and before the full catalog. */}
+      {recommendedEntries.length > 0 ? (
+        <section aria-label="Recommended for you now" className="space-y-3">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
+              Recommended for you now
+            </p>
+            <p className="mt-1 text-sm text-ink/60">{recommendLede}</p>
+          </div>
+          <RevealList
+            as="ul"
+            className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-terracotta/25 bg-cream shadow-[0_1px_3px_rgba(92,37,66,0.06)]"
+          >
+            {recommendedEntries.map((addon) => (
+              <StudioAppRow
+                key={addon.key}
+                href={cardHref(addon)}
+                label={addon.label}
+                blurb={addon.blurb}
+                Icon={addon.Icon}
+                gradient={addon.poster.baseBackground}
+                pill={pillFor(addon)}
+              />
+            ))}
+          </RevealList>
+        </section>
       ) : null}
 
       {/* Alaala — the pillar framing. The memory features (capture · website &

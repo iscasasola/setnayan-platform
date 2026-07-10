@@ -11,12 +11,23 @@ import {
   LayoutGrid,
   Wand2,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
-import { fetchChecklistItems, daysUntilEvent } from '@/lib/checklist';
+import {
+  fetchChecklistItems,
+  daysUntilEvent,
+  dueDateForItem,
+} from '@/lib/checklist';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import {
+  fetchEventDecisionCounts,
+  summarizeEventDecisions,
+  type EventDecisionSummary,
+} from '@/lib/event-decisions';
+import { getAdminQueueDigest, deriveQueueUrgency } from '@/lib/admin/queue-counts';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { EventMonogram } from '@/app/_components/event-monogram';
@@ -209,19 +220,54 @@ export default async function LauncherPage({
   // parallel (event count is small). Null when an event has no checklist rows yet
   // → the card shows the countdown without a fabricated percentage. Only the
   // non-archived set is scored; archived cards read null (caption only).
-  const progressEntries = await Promise.all(
-    active.map(async (e): Promise<[string, number | null]> => {
-      try {
-        const items = await fetchChecklistItems(supabase, e.event_id);
-        if (items.length === 0) return [e.event_id, null];
-        const done = items.filter((i) => i.status === 'done').length;
-        return [e.event_id, Math.round((done / items.length) * 100)];
-      } catch {
-        return [e.event_id, null];
-      }
-    }),
+  // Per-event checklist pass — one fetch each (event count is small), reused for
+  // BOTH the "% planned" ring AND the overdue-task decision signal below.
+  const checklistEntries = await Promise.all(
+    active.map(
+      async (
+        e,
+      ): Promise<[string, { pct: number | null; overdue: number }]> => {
+        try {
+          const items = await fetchChecklistItems(supabase, e.event_id);
+          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0 }];
+          const done = items.filter((i) => i.status === 'done').length;
+          const overdue = items.filter((i) => {
+            if (i.status !== 'pending') return false;
+            const due = dueDateForItem(e.event_date, i.due_offset_days);
+            return !!due && due < todayISO;
+          }).length;
+          return [
+            e.event_id,
+            { pct: Math.round((done / items.length) * 100), overdue },
+          ];
+        } catch {
+          return [e.event_id, { pct: null, overdue: 0 }];
+        }
+      },
+    ),
   );
-  const progressByEvent = new Map<string, number | null>(progressEntries);
+  const checklistByEvent = new Map(checklistEntries);
+  const progressByEvent = new Map<string, number | null>(
+    checklistEntries.map(([id, v]) => [id, v.pct]),
+  );
+
+  // "Needs a decision now" per event — the pay + approve signals (batched into
+  // two queries) merged with the overdue-task count from the checklist pass. A
+  // named action line, not a bare badge (owner 2026-07-10). Graceful-degrades to
+  // an empty summary; a card with nothing pending shows no attention line.
+  const decisionCounts = await fetchEventDecisionCounts(
+    supabase,
+    active.map((e) => e.event_id),
+  ).catch(() => new Map<string, { pay: number; approve: number }>());
+  const decisionByEvent = new Map<string, EventDecisionSummary>();
+  for (const e of active) {
+    const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
+    const overdue = checklistByEvent.get(e.event_id)?.overdue ?? 0;
+    decisionByEvent.set(
+      e.event_id,
+      summarizeEventDecisions({ pay: c.pay, approve: c.approve, overdue }),
+    );
+  }
 
   // Person-spine · Phase 2 · Life Stories (STAGED / flag-off / counsel-gated).
   // Runs ONLY when the flag is on; otherwise `lifeStoryGroups` stays null and the
@@ -238,6 +284,48 @@ export default async function LauncherPage({
   // doorway, so we DROP this flat hero SpaceCard to avoid rendering the surface
   // twice. When the flag is OFF (prod today), the flat hero card stays as the
   // fallback into the Memories Hub (/dashboard/library) — prod is unchanged.
+  // Vendor shop "needs a reply" signal — pending client inquiries per shop
+  // (chat_threads.inquiry_status = 'pending' = a couple messaged and the vendor
+  // hasn't accepted yet). One batched query across all the user's shops.
+  const shopIds = roles.vendorProfiles.map((v) => v.vendor_profile_id);
+  const inquiryByShop = new Map<string, number>();
+  if (shopIds.length > 0) {
+    try {
+      const { data } = await supabase
+        .from('chat_threads')
+        .select('vendor_profile_id')
+        .in('vendor_profile_id', shopIds)
+        .eq('inquiry_status', 'pending');
+      for (const row of (data ?? []) as Array<{
+        vendor_profile_id: string | null;
+      }>) {
+        if (row.vendor_profile_id) {
+          inquiryByShop.set(
+            row.vendor_profile_id,
+            (inquiryByShop.get(row.vendor_profile_id) ?? 0) + 1,
+          );
+        }
+      }
+    } catch {
+      // graceful-degrade: no attention line rather than a broken launcher.
+    }
+  }
+
+  // Admin HQ "awaiting review" signal — total open items across every work queue
+  // (reconciliation · verification · disputes · approvals · …). Gated to admins,
+  // so the per-queue count fan-out never runs for a plain couple.
+  let adminOpenTotal = 0;
+  if (roles.hasAdminAccess) {
+    try {
+      adminOpenTotal = deriveQueueUrgency(
+        await getAdminQueueDigest(),
+        Date.now(),
+      ).totalOpen;
+    } catch {
+      adminOpenTotal = 0;
+    }
+  }
+
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   if (!lifeOn) {
@@ -255,6 +343,7 @@ export default async function LauncherPage({
   // "Your shop" tile. Logo when set; the store glyph otherwise.
   if (roles.hasVendorAccess) {
     for (const vp of roles.vendorProfiles) {
+      const inquiries = inquiryByShop.get(vp.vendor_profile_id) ?? 0;
       spaces.push({
         id: vp.vendor_profile_id,
         href: '/vendor-dashboard',
@@ -263,6 +352,10 @@ export default async function LauncherPage({
         title: vp.business_name,
         subtitle: 'Vendor shop',
         tone: 'default',
+        attention:
+          inquiries > 0
+            ? `${inquiries} new ${inquiries === 1 ? 'inquiry' : 'inquiries'}`
+            : undefined,
       });
     }
   }
@@ -273,6 +366,8 @@ export default async function LauncherPage({
       title: 'HQ',
       subtitle: 'Admin console',
       tone: 'admin',
+      attention:
+        adminOpenTotal > 0 ? `${adminOpenTotal} awaiting review` : undefined,
     });
   }
 
@@ -309,6 +404,7 @@ export default async function LauncherPage({
               key={event.event_id}
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
+              decision={decisionByEvent.get(event.event_id) ?? null}
             />
           ))}
           {showAll
@@ -317,6 +413,7 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
+                  decision={null}
                   finished
                 />
               ))
@@ -489,14 +586,17 @@ function ShowAllToggle({ showAll }: { showAll: boolean }) {
   );
 }
 
-/** A rich event card — badge · monogram · title · place/date · progress ring. */
+/** A rich event card — badge · monogram · title · place/date · progress ring ·
+ *  a "needs a decision" line when something is waiting on the couple. */
 function EventCard({
   event,
   pct,
+  decision,
   finished,
 }: {
   event: EventWithRole;
   pct: number | null;
+  decision: EventDecisionSummary | null;
   finished?: boolean;
 }) {
   const badge = eventTypeBadge(event.event_type);
@@ -560,21 +660,51 @@ function EventCard({
           <span className="truncate">{event.display_name}</span>
         </p>
         <p className="truncate text-sm text-ink/55">{dateMeta}</p>
-        <div className="mt-auto flex items-center gap-2.5 pt-3">
-          {pct != null ? (
-            <ProgressRing pct={pct} size={42} stroke={4}>
-              <span className="text-[9px] font-semibold text-ink">{pct}%</span>
-            </ProgressRing>
-          ) : null}
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-ink">{status}</p>
-            {plannedLabel ? (
-              <p className="truncate text-[11px] text-ink/45">{plannedLabel}</p>
+        <div className="mt-auto space-y-2 pt-3">
+          <div className="flex items-center gap-2.5">
+            {pct != null ? (
+              <ProgressRing pct={pct} size={42} stroke={4}>
+                <span className="text-[9px] font-semibold text-ink">{pct}%</span>
+              </ProgressRing>
             ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-ink">{status}</p>
+              {plannedLabel ? (
+                <p className="truncate text-[11px] text-ink/45">
+                  {plannedLabel}
+                </p>
+              ) : null}
+            </div>
           </div>
+          {decision?.top ? (
+            <AttentionPill
+              label={decision.top.label}
+              more={decision.total - decision.top.count}
+            />
+          ) : null}
         </div>
       </div>
     </Link>
+  );
+}
+
+/**
+ * The "needs a decision now" line — a champagne-gold pill naming the top pending
+ * action (+ "· N more" when other kinds are also waiting). Named, not a bare
+ * count badge, so the couple knows WHAT before they click (owner 2026-07-10).
+ * Reused on the vendor shop + admin HQ cards.
+ */
+function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
+  return (
+    <span className="flex items-center gap-1.5 rounded-lg bg-warn-100 px-2 py-1 text-warn-900">
+      <AlertCircle aria-hidden className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate text-[11px] font-medium">
+        {label}
+        {more > 0 ? (
+          <span className="font-normal text-warn-900/70"> · {more} more</span>
+        ) : null}
+      </span>
+    </span>
   );
 }
 
@@ -609,6 +739,8 @@ type SpaceCardProps = {
   subtitle: string;
   /** hero = obsidian Life-Story card · admin = violet accent · default = wine. */
   tone: 'hero' | 'admin' | 'default';
+  /** "Needs a decision" line (e.g. "3 new inquiries" · "5 awaiting review"). */
+  attention?: string;
 };
 
 /** One "YOUR SPACES" doorway card. */
@@ -619,6 +751,7 @@ function SpaceCard({
   title,
   subtitle,
   tone,
+  attention,
 }: SpaceCardProps) {
   const hero = tone === 'hero';
   const admin = tone === 'admin';
@@ -659,13 +792,16 @@ function SpaceCard({
           }`}
         />
       </div>
-      <div className="space-y-0.5">
-        <p className={`m-serif text-lg ${hero ? 'text-white' : 'text-ink'}`}>
-          {title}
-        </p>
-        <p className={`text-xs ${hero ? 'text-white/60' : 'text-ink/55'}`}>
-          {subtitle}
-        </p>
+      <div className="space-y-1.5">
+        <div className="space-y-0.5">
+          <p className={`m-serif text-lg ${hero ? 'text-white' : 'text-ink'}`}>
+            {title}
+          </p>
+          <p className={`text-xs ${hero ? 'text-white/60' : 'text-ink/55'}`}>
+            {subtitle}
+          </p>
+        </div>
+        {attention ? <AttentionPill label={attention} /> : null}
       </div>
     </Link>
   );

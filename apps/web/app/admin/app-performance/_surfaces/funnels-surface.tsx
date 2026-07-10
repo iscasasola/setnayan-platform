@@ -215,6 +215,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
       </header>
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value="funnels" />
         {/* Preserve the selected vendor drill-down when changing the range. */}
         {typeof search.vendor === 'string' && search.vendor.length > 0 ? (
           <input type="hidden" name="vendor" value={search.vendor} />
@@ -272,6 +273,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
           </div>
         </header>
         <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value="funnels" />
           {/* Preserve the current range when changing vendor. */}
           <input type="hidden" name="range" value={range} />
           <label

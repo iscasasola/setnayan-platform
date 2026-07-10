@@ -232,6 +232,7 @@ export async function CockpitSurface({ searchParams }: Props) {
 
       {/* Range picker — GET form, no client JS (mirrors /admin/growth). */}
       <form method="get" className="mb-8 flex flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value="overview" />
         <label
           htmlFor="range"
           className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"

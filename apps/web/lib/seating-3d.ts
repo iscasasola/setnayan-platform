@@ -1252,6 +1252,24 @@ export function boothApproach(
 }
 
 /**
+ * The inward bearing of a perimeter booth as a raw (un-normalised) vector: the
+ * direction (world x/z) from the booth toward the room centre. This is the
+ * SINGLE source both the 3D facing yaw (`boothFacingY`) and the 2D editor's
+ * facing arrow (`boothFacingDeg2D`) derive from, so they can never disagree
+ * about which wall a booth turns its back to. A dead-centre booth (no bearing
+ * to the origin) defaults to +z — "front of house" — matching
+ * `boothApproach`'s centre fallback. Pure.
+ */
+export function boothInward(
+  booth: { xPct: number; yPct: number },
+  room: { w: number; d: number },
+): Vec2 {
+  const c = pctToWorld(booth.xPct, booth.yPct, room);
+  if (Math.hypot(c.x, c.z) < 1e-3) return { x: 0, z: 1 }; // dead-centre → +z front-of-house
+  return { x: -c.x, z: -c.z };
+}
+
+/**
  * The yaw (radians, three.js `group.rotation.y`) that turns a booth's FRONT
  * (default +z) to point at the room centre — the SAME bearing `boothApproach`
  * walks in from, so a booth faces the room and is approached from the room
@@ -1266,9 +1284,24 @@ export function boothFacingY(
   booth: { xPct: number; yPct: number },
   room: { w: number; d: number },
 ): number {
-  const c = pctToWorld(booth.xPct, booth.yPct, room);
-  if (Math.hypot(c.x, c.z) < 1e-3) return 0; // dead-centre → +z front-of-house
-  return Math.atan2(-c.x, -c.z);
+  const v = boothInward(booth, room);
+  return Math.atan2(v.x, v.z); // byte-identical to atan2(−c.x, −c.z); 0 at dead-centre
+}
+
+/**
+ * The CSS rotation (degrees) that turns an UP-pointing arrow/icon to face the
+ * room centre in the 2D seat-plan editor — derived from the SAME inward bearing
+ * (`boothInward`) as the 3D facing yaw, so the 2D arrow and the 3D booth agree
+ * on which wall a booth backs onto. The editor maps world x→screen-x (right) and
+ * world z→screen-y (down); an up-pointing icon rotated clockwise by
+ * atan2(dx, −dy) then points along the screen vector (dx, dy). Pure.
+ */
+export function boothFacingDeg2D(
+  booth: { xPct: number; yPct: number },
+  room: { w: number; d: number },
+): number {
+  const v = boothInward(booth, room);
+  return (Math.atan2(v.x, -v.z) * 180) / Math.PI;
 }
 // A sign is a slim post — a small clearance disc so walkers don't stand on it.
 const SIGN_AVOID_R = 0.35;

@@ -1,10 +1,43 @@
 import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { uploadPublicAsset } from '@/lib/storage';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { fetchThreadById } from './chat';
 import { notifyOtherParty } from './chat-actions';
+
+/**
+ * Small allowlist for chat attachments — images the renderer can thumbnail
+ * plus PDFs / common office docs. Kept narrow on purpose (no archives, no
+ * executables). Shared with the composer's `accept` attribute so the client
+ * and server agree on what's postable.
+ */
+export const CHAT_ATTACHMENT_MIME = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+] as const;
+
+/** 25 MB hard cap on a single chat attachment. */
+export const CHAT_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+
+const CHAT_ATTACHMENT_MIME_SET = new Set<string>(CHAT_ATTACHMENT_MIME);
+
+/** Resolved attachment metadata written onto the inserted chat_messages row. */
+type ResolvedAttachment = {
+  attachment_url: string;
+  attachment_name: string;
+  attachment_mime: string;
+  attachment_size_bytes: number;
+};
 
 /**
  * Plain (non-'use server') module holding the shared gating CORE for sending a
@@ -29,6 +62,8 @@ export type SendMessageError =
   | 'followup_used'
   | 'not_accepted'
   | 'tier_free'
+  | 'attachment_invalid'
+  | 'attachment_failed'
   | 'insert_failed';
 
 export type SendMessageResult =
@@ -50,14 +85,39 @@ export type SendMessageResult =
  */
 export async function sendChatMessageCore(
   supabase: SupabaseClient,
-  input: { threadId: string; body: string },
+  input: { threadId: string; body: string; attachment?: File | null },
 ): Promise<SendMessageResult> {
   const trimmed = input.body.trim();
-  if (trimmed.length === 0) {
+  // An OPTIONAL attachment rides alongside — or instead of — the text body. A
+  // message is valid with body OR attachment OR both. Native callers pass no
+  // attachment, so this stays a pure text send for them.
+  const hasAttachment = input.attachment instanceof File && input.attachment.size > 0;
+  if (trimmed.length === 0 && !hasAttachment) {
     return { ok: false, code: 'empty', message: 'Message can’t be empty.' };
   }
   if (trimmed.length > 4000) {
     return { ok: false, code: 'too_long', message: 'Message too long — max 4,000 characters' };
+  }
+  // Validate the file envelope up front (cheap, fail-fast) — the actual R2
+  // upload waits until AFTER every membership/accept-gate check passes so we
+  // never upload bytes for a message that would be rejected anyway.
+  if (hasAttachment) {
+    const file = input.attachment as File;
+    const mime = file.type || '';
+    if (!CHAT_ATTACHMENT_MIME_SET.has(mime)) {
+      return {
+        ok: false,
+        code: 'attachment_invalid',
+        message: 'That file type isn’t supported — attach an image, PDF, or a common document.',
+      };
+    }
+    if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
+      return {
+        ok: false,
+        code: 'attachment_invalid',
+        message: 'That file is too large — attachments are capped at 25 MB.',
+      };
+    }
   }
 
   const {
@@ -179,6 +239,35 @@ export async function sendChatMessageCore(
     }
   }
 
+  // All gates passed — NOW upload the attachment (if any) to R2. Public URL is
+  // acceptable for v1 (matches the vendor-handover proof-image precedent);
+  // signed-URL access control is a tracked follow-up. On any upload failure we
+  // return a graceful result (never throw) so the caller can surface it.
+  let attachment: ResolvedAttachment | null = null;
+  if (hasAttachment) {
+    const file = input.attachment as File;
+    const up = await uploadPublicAsset({
+      pathPrefix: `chat/${thread.thread_id}`,
+      file,
+      allowedMime: CHAT_ATTACHMENT_MIME,
+      maxBytes: CHAT_ATTACHMENT_MAX_BYTES,
+    });
+    if (!up.ok) {
+      console.error('[sendChatMessageCore] attachment upload failed:', up.error);
+      return {
+        ok: false,
+        code: 'attachment_failed',
+        message: 'Couldn’t upload your file. Please try again.',
+      };
+    }
+    attachment = {
+      attachment_url: up.publicUrl,
+      attachment_name: file.name.slice(0, 255),
+      attachment_mime: file.type,
+      attachment_size_bytes: file.size,
+    };
+  }
+
   const { error } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
@@ -186,6 +275,7 @@ export async function sendChatMessageCore(
     sender_user_id: user.id,
     sender_role: senderRole,
     body: trimmed,
+    ...(attachment ?? {}),
   });
   if (error) {
     // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
@@ -230,7 +320,9 @@ export async function sendChatMessageCore(
     vendorProfileId: thread.vendor_profile_id,
     senderRole,
     senderUserId: user.id,
-    body: trimmed,
+    // Attachment-only messages have no text — give the notification a sensible
+    // preview instead of an empty string.
+    body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
     isFirstMessage,
   });
 

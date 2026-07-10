@@ -75,9 +75,14 @@ export async function sendChatMessage(formData: FormData) {
   if (typeof threadId !== 'string' || typeof body !== 'string') {
     throw new Error('Invalid input');
   }
+  // OPTIONAL file attachment. Absent on the text-only path → the core behaves
+  // exactly as before. A zero-byte / non-File entry is treated as "no file".
+  const rawAttachment = formData.get('attachment');
+  const attachment =
+    rawAttachment instanceof File && rawAttachment.size > 0 ? rawAttachment : null;
 
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body });
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
@@ -85,6 +90,18 @@ export async function sendChatMessage(formData: FormData) {
       return;
     }
     if (result.code === 'unauthenticated') redirect('/login');
+    // Attachment problems fail GRACEFULLY (never hit the error boundary): on the
+    // no-JS form path we redirect back with an error flag; on the JS path
+    // return_to is stripped, so this returns and the composer keeps the user's
+    // text + file for a retry.
+    if (result.code === 'attachment_invalid' || result.code === 'attachment_failed') {
+      if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+        redirect(
+          `${returnTo}${returnTo.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(result.message)}`,
+        );
+      }
+      return;
+    }
     throw new Error(result.message);
   }
 

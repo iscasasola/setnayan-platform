@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation';
 import {
   Search,
   ChevronDown,
+  ArrowRight,
   Star,
   MapPin,
   MapPinOff,
@@ -146,6 +147,15 @@ html.dark .slcat .sortseg button.on{color:#1E2229;background:#C99DB0}
 .slcat .bench-search .bs-x{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:2px;display:inline-flex}
 .slcat .bench-search .bs-x:hover{color:var(--mulberry)}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
+/* search the WHOLE marketplace — a one-tap jump to /explore?q= (beyond the shortlist) */
+.slcat .bench-mkt{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);text-decoration:none;color:var(--ink);font-size:13px;transition:border-color .18s var(--ease),background .18s var(--ease)}
+.slcat .bench-mkt:hover{border-color:rgba(30,34,41,.28);background:rgba(30,34,41,.02)}
+.slcat .bench-mkt>svg{color:var(--mulberry);flex:0 0 auto}
+.slcat .bench-mkt>span{flex:1;min-width:0}
+.slcat .bench-mkt b{font-weight:600;color:var(--mulberry)}
+.slcat .bench-mkt .bench-mkt-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .18s var(--ease)}
+.slcat .bench-mkt:hover .bench-mkt-arr{transform:translateX(2px);color:var(--mulberry)}
+html.dark .slcat .bench-mkt{background:#2A2E36}
 html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
@@ -598,8 +608,8 @@ export function ShortlistCategories({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search categories or shortlisted vendors…"
-          aria-label="Search the bench"
+          placeholder="Search your shortlist or the whole marketplace…"
+          aria-label="Search your shortlist or the marketplace"
         />
         {query ? (
           <button type="button" className="bs-x" aria-label="Clear search" onClick={() => setQuery('')}>
@@ -607,8 +617,23 @@ export function ShortlistCategories({
           </button>
         ) : null}
       </div>
+      {searching ? (
+        <Link
+          href={`/explore?q=${encodeURIComponent(query.trim())}`}
+          prefetch={false}
+          className="bench-mkt"
+        >
+          <Search size={15} strokeWidth={1.9} aria-hidden />
+          <span>
+            Search the whole marketplace for <b>“{query.trim()}”</b>
+          </span>
+          <ArrowRight className="bench-mkt-arr" size={16} strokeWidth={2} aria-hidden />
+        </Link>
+      ) : null}
       {searching && visibleFolders.length === 0 ? (
-        <div className="bench-empty">No categories or shortlisted vendors match “{query.trim()}”.</div>
+        <div className="bench-empty">
+          Nothing in your shortlist matches “{query.trim()}” — try the whole marketplace above.
+        </div>
       ) : null}
       {visibleFolders.map((folder) => {
         const folderOpen = searching || openFolder === folder.folder;

@@ -480,12 +480,27 @@ export function serpentineChainSnapWorld(
   const sweep = (SERP_SWEEP * 180) / Math.PI; // SERP_SWEEP is radians → degrees
   let best: (SerpPlacement & { neighbourId: string }) | null = null;
   let bestD = tolM * tolM;
+  // Occupancy radius for rejecting a candidate that lands ON an existing wedge.
+  // A legit tip-to-tip placement sits ~1.68 m (continue-circle) or ~2.06 m
+  // (S-bend) from every existing wedge's CENTRE, whereas an occupied-tip
+  // candidate coincides with one (~0). 0.6 m separates the two with wide margin
+  // (and matches the "not stacked on the anchor" invariant). It must NOT be the
+  // caller's `tolM` (the snap CATCH radius), which is far larger and would reject
+  // legitimate adjacency.
+  const OCC_TOL2 = 0.6 * 0.6;
   const consider = (c: SerpPlacement, neighbourId: string) => {
     const d = (c.x - drag.x) ** 2 + (c.z - drag.z) ** 2;
-    if (d < bestD) {
-      bestD = d;
-      best = { ...c, neighbourId };
+    if (d >= bestD) return;
+    // Reject a candidate that lands on an ALREADY-OCCUPIED tip. Extending a chain,
+    // some candidate tips coincide with an existing member (e.g. B's tip that
+    // faces its already-joined neighbour A) — snapping there would overlap that
+    // member. (Also rejects snapping onto a nearby unrelated serpentine, which
+    // would likewise overlap.)
+    for (const n of neighbours) {
+      if ((c.x - n.x) ** 2 + (c.z - n.z) ** 2 < OCC_TOL2) return;
     }
+    bestD = d;
+    best = { ...c, neighbourId };
   };
   for (const b of neighbours) {
     // Neighbour's arc centre in world.

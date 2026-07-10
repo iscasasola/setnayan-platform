@@ -65,7 +65,7 @@ import {
   type StaffIdleKind,
 } from '@/lib/figure-rig';
 import { GuestPhotoAvatar } from '@/app/_components/plan3d/guest-avatar';
-import { mannequinMaterial } from './outfits';
+import { mannequinMaterial, isStaffOutfit, outfitMaterial, trouserMaterial } from './outfits';
 // Rig proportions + leaf placements + the pose applier now live in the PURE,
 // unit-tested `lib/figure-sit-bake` so the SINGLE source drives BOTH this
 // rendered figure AND the instanced seated crowd's baked-pose extraction — the
@@ -454,6 +454,17 @@ export const Figure = memo(function Figure({
   // white by default, tintable via the spec's outfitColor (flat colour slate).
   const bodyMat = mannequinMaterial(spec.outfitColor);
 
+  // Booth STAFF get dressed (2026-07-10, owner: differentiate staff by garment);
+  // GUESTS stay the matte-white mannequin. isStaffOutfit only matches the staff
+  // kinds (chef_whites/apron/vest/uniform/robe), so a guest's gown/suit/neutral
+  // outfit still falls through to bodyMat. Torso + arms wear the garment cloth
+  // (its CanvasTexture carries the chef buttons / apron bib / vest panels); legs
+  // wear the darker trouser cloth; the head + joint stumps stay body so the
+  // one-piece silhouette is unchanged — only the colour/texture reads as a role.
+  const staff = isStaffOutfit(spec.outfit);
+  const garmentMat = staff ? outfitMaterial(spec.outfit, spec.outfitColor) : bodyMat;
+  const legMat = staff ? trouserMaterial(spec.outfit, spec.outfitColor) : bodyMat;
+
   // Shell placement: the re-proportioned lathe shells (2026-07-08 silhouette
   // pass) are authored directly in torso space — collar at ≈0.50, waist,
   // hips, hem — so they mount at the origin, unscaled. The old cone-era
@@ -494,7 +505,7 @@ export const Figure = memo(function Figure({
             HIP BLOCK joins the leg tops so trousers read as one garment, the
             stance narrows, and every visible leg ends in a SHOE — the two
             floating capsules become a person standing in shoes. */}
-        <mesh geometry={HIP_GEO} material={bodyMat} position={[0, HIP_BLOCK_Y, 0]} castShadow={castShadow} />
+        <mesh geometry={HIP_GEO} material={legMat} position={[0, HIP_BLOCK_Y, 0]} castShadow={castShadow} />
         {[-1, 1].map((side) => (
           <group
             key={side}
@@ -503,7 +514,7 @@ export const Figure = memo(function Figure({
           >
             <mesh
               geometry={LEG_GEO}
-              material={bodyMat}
+              material={legMat}
               position={[0, -THIGH_LEN / 2, 0]}
               scale={[THIGH_SCALE_XZ, THIGH_SCALE_Y, THIGH_SCALE_XZ]}
               castShadow={castShadow}
@@ -512,7 +523,7 @@ export const Figure = memo(function Figure({
                 (seated); hides inside the hip block + thigh when standing. */}
             <mesh
               geometry={JOINT_GEO}
-              material={bodyMat}
+              material={legMat}
               scale={[HIP_BALL_R, HIP_BALL_R, HIP_BALL_R]}
               castShadow={castShadow}
             />
@@ -522,7 +533,7 @@ export const Figure = memo(function Figure({
             >
               <mesh
                 geometry={LEG_GEO}
-                material={bodyMat}
+                material={legMat}
                 position={[0, -SHIN_LEN / 2, 0]}
                 scale={[SHIN_SCALE_XZ, SHIN_SCALE_Y, SHIN_SCALE_XZ]}
                 castShadow={castShadow}
@@ -531,7 +542,7 @@ export const Figure = memo(function Figure({
                   tube instead of two capsules pinching (balloon twist). */}
               <mesh
                 geometry={JOINT_GEO}
-                material={bodyMat}
+                material={legMat}
                 scale={[KNEE_BALL_R, KNEE_BALL_R, KNEE_BALL_R]}
                 castShadow={castShadow}
               />
@@ -539,7 +550,7 @@ export const Figure = memo(function Figure({
                   swings with the knee group so the gait reads. */}
               <mesh
                 geometry={SHOE_GEO}
-                material={bodyMat}
+                material={legMat}
                 position={[0, SHOE_POS_Y, SHOE_POS_Z]}
                 scale={[SHOE_SCALE_X, SHOE_SCALE_Y, SHOE_SCALE_Z]}
                 castShadow={castShadow}
@@ -551,7 +562,7 @@ export const Figure = memo(function Figure({
         {/* ── Torso: the blank plump mannequin body (2026-07-08 avatar pivot —
             no wardrobe, no shells) + arms + head ride the lean/sway together. ── */}
         <group ref={(el) => void (groups.current.torso = el)}>
-          <mesh geometry={MANNEQUIN_TORSO_GEO} material={bodyMat} castShadow={castShadow} />
+          <mesh geometry={MANNEQUIN_TORSO_GEO} material={garmentMat} castShadow={castShadow} />
 
           {/* ── Arms: shoulder → elbow. ── */}
           {[-1, 1].map((side) => (
@@ -562,7 +573,7 @@ export const Figure = memo(function Figure({
             >
               <mesh
                 geometry={ARM_GEO}
-                material={bodyMat}
+                material={garmentMat}
                 position={[0, -UPPER_ARM_LEN / 2, 0]}
                 scale={[UPPER_ARM_SCALE_XZ, UPPER_ARM_SCALE_Y, UPPER_ARM_SCALE_XZ]}
                 castShadow={castShadow}
@@ -571,7 +582,7 @@ export const Figure = memo(function Figure({
                   swinging arm attached to the torso (no armpit gap). */}
               <mesh
                 geometry={JOINT_GEO}
-                material={bodyMat}
+                material={garmentMat}
                 scale={[SHOULDER_BALL_R, SHOULDER_BALL_R, SHOULDER_BALL_R]}
                 castShadow={castShadow}
               />
@@ -581,7 +592,7 @@ export const Figure = memo(function Figure({
               >
                 <mesh
                   geometry={ARM_GEO}
-                  material={bodyMat}
+                  material={garmentMat}
                   position={[0, -FOREARM_LEN / 2, 0]}
                   scale={[FOREARM_SCALE_XZ, FOREARM_SCALE_Y, FOREARM_SCALE_XZ]}
                   castShadow={castShadow}
@@ -589,7 +600,7 @@ export const Figure = memo(function Figure({
                 {/* Elbow joint-blend ball — smooth bent-elbow bend. */}
                 <mesh
                   geometry={JOINT_GEO}
-                  material={bodyMat}
+                  material={garmentMat}
                   scale={[ELBOW_BALL_R, ELBOW_BALL_R, ELBOW_BALL_R]}
                   castShadow={castShadow}
                 />

@@ -4,14 +4,18 @@
  * SUIT_GEO): R3F never disposes module constants, so every mesh shares ONE GPU
  * buffer per shell instead of allocating per mount.
  *
- * ⚠ SCOPE (2026-07-09 one-piece rebuild): the per-guest FIGURE no longer wears
- * these shells — it renders as a single matte-white mannequin (one shared
- * `mannequinMaterial`, no wardrobe). The geometries (GOWN_GEO/SUIT_GEO/…) +
- * `outfitMaterial` + the barong/garment CanvasTextures below now serve ONLY
- * static BOOTH DECOR (dress-form busts, garment rails in booth-props.tsx). The
- * `mannequinMaterial` at the bottom is what the live figure + instanced crowd
- * actually use. (`outfitGeometry`/`outfitIsSkirted`/`skinMaterial` were removed
- * with the rebuild — see the in-file notes.)
+ * ⚠ SCOPE (2026-07-09 one-piece rebuild → 2026-07-10 staff dressing):
+ *   · GUEST figures render as a single matte-white mannequin (one shared
+ *     `mannequinMaterial`, no wardrobe) — their outfit value is ignored.
+ *   · BOOTH STAFF (isStaffOutfit: chef_whites/apron/vest/uniform/robe) DO get
+ *     dressed: the figure renderer tints their torso + arms with
+ *     `outfitMaterial` (garment cloth + CanvasTexture detail) and legs with
+ *     `trouserMaterial`, so a chef/barista/florist read distinct at a booth.
+ *   · The gown/suit SHELL GEOMETRIES (GOWN_GEO/SUIT_GEO) + the barong material
+ *     serve ONLY static BOOTH DECOR (dress-form busts, garment rails in
+ *     booth-props.tsx) — no per-figure shell is placed on anyone.
+ * (`outfitGeometry`/`outfitIsSkirted`/`skinMaterial` were removed with the
+ * rebuild — see the in-file notes.)
  *
  * The two Filipino-formalwear shells (booth decor):
  *   · barong — suit-proportioned, near-white jusi cloth with a subtle
@@ -154,7 +158,11 @@ export function barongEmbroideryBump(): THREE.CanvasTexture {
 
 type StaffOutfit = 'chef_whites' | 'apron' | 'vest' | 'uniform' | 'robe';
 
-function isStaffOutfit(outfit: OutfitKind): outfit is StaffOutfit {
+// Exported so the figure renderer dresses ONLY booth STAFF (chef/barista/etc.)
+// in a garment — guest outfits (gown/suit/barong/filipiniana/neutral) stay the
+// matte-white mannequin (owner-locked 2026-07-09; staff differentiation added
+// 2026-07-10).
+export function isStaffOutfit(outfit: OutfitKind): outfit is StaffOutfit {
   return (
     outfit === 'chef_whites' ||
     outfit === 'apron' ||

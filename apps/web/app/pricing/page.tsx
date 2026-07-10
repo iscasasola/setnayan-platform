@@ -115,6 +115,8 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'PABATI', withPapic: true },
       { code: 'KWENTO', withPapic: true },
       { code: 'PAKANTA', withPapic: true },
+      { code: 'PAPIC_ADDON_STORIES', withPapic: true }, // Stories — 30s guest story maker (activated 2026-07-10)
+      { code: 'PAPIC_ADDON_THANK_YOU', withPapic: true }, // Thank You Video (activated 2026-07-10)
     ],
   },
   {
@@ -125,6 +127,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
       { code: 'LIVE_BACKGROUND' },
+      { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
     ],
   },
   {

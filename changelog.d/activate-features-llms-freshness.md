@@ -17,6 +17,14 @@ live prod catalog.
   are left off (owner-confirmed 2026-07-10) — reactivating them would resurrect
   retired products.
 
+**Pricing page curated list (`app/pricing/page.tsx`):** the public `/pricing`
+add-on grid renders from a hand-curated `ADDON_GROUPS` array, not from "every
+active SKU" — a THIRD gate beyond `is_active` + `BUILD_STATUS`. The 3 activated
+features weren't in it, so flipping `is_active` alone left them invisible on
+`/pricing` (they did become available in the in-dashboard picker). Added
+`PAPIC_ADDON_STORIES` + `PAPIC_ADDON_THANK_YOU` to "Papic & its add-ons" and
+`SEATING_3D` to "Go live & interactive".
+
 **Build-status chips refreshed (`lib/v2-catalog.ts`):**
 - → `live`: `PANOOD_SYSTEM` + `PANOOD_SYSTEM_MOBILE` (Live Studio Desktop/Mobile),
   `PATIKTOK_COMPILER`, `EDITORIAL_PRO`, `LIVE_BACKGROUND`, and the three newly

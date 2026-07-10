@@ -334,8 +334,13 @@ const VENDOR_SIDEBAR_TREE: NavGroup[] = [
       },
       {
         key: 'services',
+        // Land on the first in-section child (Attributes), NOT the bare
+        // /vendor-dashboard/services route — that route redirects to /shop, so
+        // clicking the parent would strand the vendor OUT of section and the
+        // sub-tools (incl. Manpower) would never auto-expand. Pointing at a real
+        // child keeps the click in-section so <SidebarItem> expands the tools.
         label: 'Services',
-        href: '/vendor-dashboard/services',
+        href: '/vendor-dashboard/attributes',
         icon: ListChecks,
         // The offerings couples book + the specialist tools that configure them.
         children: [
@@ -518,7 +523,7 @@ function VendorIdentityCard({
  */
 export function VendorSidebar({
   role,
-  showRepertoire: _showRepertoire = true,
+  showRepertoire = true,
   navSlots,
   displayName,
   initials,
@@ -528,8 +533,10 @@ export function VendorSidebar({
   threadsBadge = 0,
 }: {
   role: VendorTeamRole | null;
-  /** Retained for API compatibility; the Service tools nest under the Services
-   *  primary, so this remains a no-op here (Repertoire stays reachable). */
+  /** Music-only gate (owner directive 2026-06-13): when false, the nested
+   *  'repertoire' tool is filtered out of the Services primary so non-music
+   *  vendors don't dead-end on the "for music acts" explainer. Mirrors the
+   *  top-level filter in vendor-dashboard/more/page.tsx. */
   showRepertoire?: boolean;
   navSlots?: Record<string, NavSlotLite>;
   displayName: string;
@@ -554,10 +561,26 @@ export function VendorSidebar({
   const scoped = filterVendorNavGroups(VENDOR_SIDEBAR_TREE, role);
   const roleGated = isManager ? scoped : flattenChildren(scoped);
 
+  // Repertoire is a music-only tool (owner directive 2026-06-13): drop the
+  // nested 'repertoire' child from the Services primary for non-music vendors so
+  // they don't dead-end on the "for music acts" explainer. Mirrors the top-level
+  // filter in vendor-dashboard/more/page.tsx. (Staff already had their children
+  // stripped by flattenChildren above, so this is a no-op for them.)
+  const repertoireGated = showRepertoire
+    ? roleGated
+    : roleGated.map((group) => ({
+        ...group,
+        items: group.items.map((item) =>
+          item.children
+            ? { ...item, children: item.children.filter((c) => c.key !== 'repertoire') }
+            : item,
+        ),
+      }));
+
   // Registry label/icon overrides → live badges (real counts only) onto the
   // primaries. Badge tone 'orange' = the shared brand-accent pill.
   const groups = applyPrimaryBadges(
-    applyVendorRegistryGroups(roleGated, navSlots),
+    applyVendorRegistryGroups(repertoireGated, navSlots),
     {
       bookings: bookingsBadge > 0
         ? { count: bookingsBadge, tone: 'orange', label: `${bookingsBadge} new inquiries` }

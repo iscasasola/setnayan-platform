@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, AlertTriangle, ListChecks } from 'lucide-react';
 import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
+import { KpiStatCard } from './_components/kpi-stat-card';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -347,11 +348,30 @@ export default async function AdminOverview() {
         </div>
 
         <div className="space-y-5">
-          {lanes.map((lane) => (
+          {lanes.map((lane) => {
+            const roll = laneRollup(lane.tiles);
+            return (
             <div key={lane.key}>
-              <p className="mb-2 m-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--m-slate-2)]">
-                {lane.label}
-              </p>
+              {/* Lane rollup (2026-07-10) — per-lane aggregate open-count +
+                  worst-urgency tone, derived from the same digest-backed tile
+                  values (no new query). Lets an admin size a lane before
+                  scanning its four tiles. */}
+              <div className="mb-2 flex items-center gap-2">
+                <p className="m-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--m-slate-2)]">
+                  {lane.label}
+                </p>
+                {roll.open > 0 ? (
+                  <span
+                    className={`m-mono inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${roll.chip}`}
+                  >
+                    {roll.open} open
+                  </span>
+                ) : roll.unavailable ? (
+                  <span className="m-mono text-[10px] text-ink/45">counts unavailable</span>
+                ) : (
+                  <span className="m-mono text-[10px] text-ink/40">clear</span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {lane.tiles.map((t) => (
                   <ActionQueueTile
@@ -368,24 +388,27 @@ export default async function AdminOverview() {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="All users" value={users} />
-        <Stat label="Couples" value={couples} />
-        <Stat label="Vendor users" value={vendors} />
-        <Stat label="Events" value={events} />
-        <Stat label="Vendor profiles" value={vendorProfiles} />
-        <Stat label="Chat threads" value={threads} />
-        <Stat label="Internal accounts" value={internal} />
-        <Stat label="Team Pool" value={teamPool} />
+        <KpiStatCard label="All users" value={users} />
+        <KpiStatCard label="Couples" value={couples} />
+        <KpiStatCard label="Vendor users" value={vendors} />
+        <KpiStatCard label="Events" value={events} />
+        <KpiStatCard label="Vendor profiles" value={vendorProfiles} />
+        <KpiStatCard label="Chat threads" value={threads} />
+        <KpiStatCard label="Internal accounts" value={internal} />
+        <KpiStatCard label="Team Pool" value={teamPool} />
       </section>
 
       {/* Recent admin activity — real admin_audit_log entries (§3.4 of the
-          redesign). Shows who-did-what so admins don't collide on the same row. */}
-      <section className="mb-8 rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6">
+          redesign). Shows who-did-what so admins don't collide on the same row.
+          Migrated onto the canonical `.m-card` chrome (was an ad-hoc
+          rounded-2xl/bg-cream box) in the #2965 .m-card unification pass. */}
+      <section className="m-card mb-8 p-5 sm:p-6">
         <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Recent admin activity
         </h2>
@@ -393,24 +416,36 @@ export default async function AdminOverview() {
           <p className="text-sm text-ink/70">No admin actions logged yet.</p>
         ) : (
           <ul className="divide-y divide-ink/5">
-            {activity.map((a) => (
-              <li key={a.audit_log_id} className="flex items-start gap-3 py-2.5">
-                <span
-                  aria-hidden
-                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-mulberry/60"
-                />
-                <span className="min-w-0 flex-1 text-sm text-ink/80">
-                  <strong className="font-semibold text-ink">
-                    {a.actor_user_id ? actorName.get(a.actor_user_id) ?? 'An admin' : 'System'}
-                  </strong>{' '}
-                  {friendlyAction(a.action)}
-                  {a.reason ? (
-                    <span className="text-ink/50"> — “{a.reason.slice(0, 80)}”</span>
-                  ) : null}
-                </span>
-                <span className="shrink-0 text-xs text-ink/70">{timeAgo(a.created_at)}</span>
-              </li>
-            ))}
+            {activity.map((a) => {
+              // Status chip (2026-07-10) — the audit action's OUTCOME tone,
+              // derived from its real action code (no new data): a done/approved
+              // action reads positive, a reject/fail/delete reads negative,
+              // everything else neutral. The leading dot inherits the same tone.
+              const chip = activityChip(a.action);
+              return (
+                <li key={a.audit_log_id} className="flex items-start gap-3 py-2.5">
+                  <span
+                    aria-hidden
+                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${chip.dot}`}
+                  />
+                  <span className="min-w-0 flex-1 text-sm text-ink/80">
+                    <strong className="font-semibold text-ink">
+                      {a.actor_user_id ? actorName.get(a.actor_user_id) ?? 'An admin' : 'System'}
+                    </strong>{' '}
+                    {friendlyAction(a.action)}
+                    {a.reason ? (
+                      <span className="text-ink/50"> — “{a.reason.slice(0, 80)}”</span>
+                    ) : null}
+                  </span>
+                  <span
+                    className={`m-mono hidden shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] sm:inline-flex ${chip.pill}`}
+                  >
+                    {chip.label}
+                  </span>
+                  <span className="shrink-0 text-xs text-ink/70">{timeAgo(a.created_at)}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -487,21 +522,56 @@ function friendlyAction(action: string): string {
   return base.replace(/_/g, ' ').toLowerCase();
 }
 
-function Stat({ label, value }: { label: string; value: number | null }) {
-  // v2.1 KPI card — .m-card chrome + .m-mono label + tabular display number.
-  return (
-    <div className="m-card p-4">
-      <p className="m-mono text-[10px] uppercase tracking-[0.15em] text-[color:var(--m-slate-3)]">
-        {label}
-      </p>
-      <p
-        className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--m-ink)]"
-        style={{ fontFamily: 'var(--m-display)', fontVariantNumeric: 'tabular-nums' }}
-      >
-        {value === null ? '—' : value}
-      </p>
-    </div>
-  );
+/**
+ * Per-lane rollup — aggregate open count + worst-urgency chip class, derived
+ * from the lane's own tile values (already fetched; no new query). `open` sums
+ * the non-null tile counts; `unavailable` flags a degraded (null) count so a
+ * lane with a read failure never reads as a clean "clear".
+ */
+function laneRollup(tiles: LaneTile[]): {
+  open: number;
+  unavailable: boolean;
+  chip: string;
+} {
+  let open = 0;
+  let unavailable = false;
+  let overdue = false;
+  let dueSoon = false;
+  for (const t of tiles) {
+    if (t.value === null || t.value === undefined) {
+      unavailable = true;
+      continue;
+    }
+    open += Math.max(0, t.value);
+    if (t.state === 'overdue') overdue = true;
+    else if (t.state === 'due-soon') dueSoon = true;
+  }
+  const chip = overdue
+    ? 'bg-red-100 text-red-800'
+    : dueSoon
+      ? 'bg-warn-100 text-warn-900'
+      : open > 0
+        ? 'bg-warn-50 text-warn-800'
+        : 'bg-ink/5 text-ink/60';
+  return { open, unavailable, chip };
+}
+
+/**
+ * Status chip for an admin_audit_log row — an OUTCOME tone read straight off
+ * the action code (no extra data). Done/approved reads positive, reject / fail
+ * / delete / ban reads negative, everything else neutral. Drives both the small
+ * pill label and the leading dot colour in the activity feed.
+ */
+function activityChip(action: string): { label: string; pill: string; dot: string } {
+  const a = (action.split(':')[0] ?? action).toLowerCase();
+  const has = (...needles: string[]) => needles.some((n) => a.includes(n));
+  if (has('reject', 'fail', 'delete', 'ban', 'decline', 'remove', 'disable', 'suspend')) {
+    return { label: 'action', pill: 'bg-red-100 text-red-800', dot: 'bg-red-500/70' };
+  }
+  if (has('approve', 'confirm', 'promote', 'verify', 'release', 'enable', 'map', 'resolve', 'create', 'add')) {
+    return { label: 'done', pill: 'bg-success-100 text-success-700', dot: 'bg-success-500/70' };
+  }
+  return { label: 'update', pill: 'bg-stone-100 text-stone-700', dot: 'bg-mulberry/60' };
 }
 
 /**

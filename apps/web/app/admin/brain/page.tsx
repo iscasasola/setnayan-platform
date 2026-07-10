@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { KpiStatCard } from '../_components/kpi-stat-card';
 // V1 MVP catalog over `public.concierge_brain_chunks` (locked 2026-05-18 via
 // migration 20260518500000_iteration_0016_wizard_architecture_schema.sql).
 //
@@ -220,10 +221,10 @@ export default async function AdminBrainPage() {
         className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
         aria-label="Brain inventory at a glance"
       >
-        <Stat label="Total chunks" value={total} />
-        <Stat label="Paid-tier only" value={paidOnly} />
-        <Stat label="Stale · needs re-embed" value={stale} />
-        <Stat label="Active" value={active} />
+        <KpiStatCard label="Total chunks" value={total} />
+        <KpiStatCard label="Paid-tier only" value={paidOnly} />
+        <KpiStatCard label="Stale · needs re-embed" value={stale} />
+        <KpiStatCard label="Active" value={active} />
       </section>
 
       {/*
@@ -328,18 +329,6 @@ export default async function AdminBrainPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">
-        {value}
-      </p>
-    </div>
-  );
-}
 
 function ComingSoonTab({ label }: { label: string }) {
   return (

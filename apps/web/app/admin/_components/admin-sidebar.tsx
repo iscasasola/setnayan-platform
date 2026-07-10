@@ -88,6 +88,22 @@
  * landings, and the registry overlay all keep reading the same structure.
  * Live queue counts aggregate onto the Overview parent (worst-urgency tone)
  * so collapsing the queue links never hides SLA pressure.
+ *
+ * ── DECLUTTER 2026-07-10 (owner: "this is the admin?") ────────────────────
+ * The 6-menu respine rendered each parent via the SHARED <SidebarItem>, whose
+ * sub-list auto-expands whenever the active route is inside the section. But
+ * the admin LANDS on /admin — the Overview ('queues') menu's own hub — so
+ * Overview matched on arrival and auto-exploded its ~18 queue children, and the
+ * clean six-menu rail read as a long cluttered list duplicating the /admin
+ * queue TILES. Fix: render the six via the admin-local <AdminSidebarMenu>
+ * (below), which keeps the SidebarItem look + the aggregated parent badge but
+ * (a) makes the chevron a real toggle persisted under the same
+ * setnayan.nav.section.<key>.open key, and (b) DEFAULTS the Overview menu
+ * COLLAPSED even when active (collapsedWhenActive). The other five keep the
+ * auto-expand-on-active default. No route/tile/ADMIN_NAV_GROUPS entry removed —
+ * purely a default-expand-state change. (The mobile admin-bottom-nav is a flat
+ * ≤5-tab strip with no expand logic, and admin-nav-fab is a single action —
+ * neither replicates the expand behavior, so neither needed a mirror change.)
  */
 
 import {
@@ -157,8 +173,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import { AdminSidebarMenu } from './admin-sidebar-menu';
 import type {
   NavGroup,
   NavItem,
@@ -1048,7 +1064,18 @@ export function AdminSidebar({
     <section className="px-2 pb-2" aria-label="Admin menu">
       <ul className="flex flex-col gap-0.5">
         {menus.map((item) => (
-          <SidebarItem key={item.key} item={item} pathname={pathname} />
+          <AdminSidebarMenu
+            key={item.key}
+            menu={item}
+            pathname={pathname}
+            // DECLUTTER (owner 2026-07-10): the Overview ('queues') menu is the
+            // /admin landing's own hub, so the shipped auto-expand-on-active rule
+            // exploded its ~18 queue children on arrival. Default it collapsed
+            // even when active — the queues stay reachable via the page tiles +
+            // the work list, and the toggle (persisted) reopens the section. The
+            // other five keep the auto-expand-on-active default.
+            collapsedWhenActive={item.key === 'queues'}
+          />
         ))}
       </ul>
     </section>

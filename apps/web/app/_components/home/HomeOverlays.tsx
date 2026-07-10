@@ -182,7 +182,7 @@ const TOTAL_VENDOR_BENEFIT_LABEL = TOTAL_VENDOR_BENEFIT_COUNT >= 100 ? '100+' : 
  * glass card (`hr-ov-card-glass`) that matches the nav's blur(16px) exactly.
  *
  * `pricing` is OPTIONAL — the free summary + link render instantly with no
- * pricing; the AI price line (₱799/28d · ₱499 first cycle, both catalog-resolved
+ * pricing; the AI price line (₱499 one-time, wedding-anchored, catalog-resolved
  * via PricingData) fills in the moment the lazy pricing fetch lands, matching
  * the marketing-chrome pattern. Never hardcodes a price.
  */
@@ -224,8 +224,7 @@ function PricesOverlay({
         <div className="hr-gintro">
           <span className="hr-gintro-h">Setnayan AI</span>
           <span className="hr-gintro-b">
-            the planning brain that filters your vendors — {pricing.aiPrice}
-            {pricing.aiPeriod}, {pricing.aiIntroPrice} your first cycle.
+            the planning brain that filters your vendors — {pricing.aiPrice}, one-time · access until your wedding.
           </span>
         </div>
       ) : null}
@@ -456,7 +455,7 @@ function SignInOverlay({
  * (Setnayan_AI_GTM_Content_2026-07-02.md §4): does-the-legwork / stands-guard /
  * reassures — no personalization ("learns your taste") or cohort ("couples like
  * you") teasers (those are dormant pending privacy sign-off). Price reads live
- * from the catalog via `pricing` (₱799/28d, ₱499 first). Cadence stated so
+ * from the catalog via `pricing` (₱499 one-time, wedding-anchored). Cadence stated so
  * turning it on never reads as inviting spam.
  */
 /**
@@ -511,9 +510,10 @@ function SetnayanAiOverlay({
   const [rate, setRate] = useState(AI_COMPARE_RATE_DEFAULT_PHP);
 
   const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-  // Setnayan AI over the window: the ₱499 intro cycle + ₱799 × the rest —
-  // raw numbers straight from the catalog resolve (pricing-data.ts).
-  const mine = pricing.aiIntroPhp + pricing.aiRegularPhp * Math.max(0, months - 1);
+  // Setnayan AI is a ONE-TIME charge (owner 2026-07-10): a flat ₱499 that covers
+  // the whole window no matter how many months — raw number from the catalog
+  // resolve (pricing-data.ts). The comparison modes below still scale with the window.
+  const mine = pricing.aiIntroPhp;
   // Every mode scales linearly toward its owner-set ceiling at 26 months.
   const frac = months / AI_COMPARE_MAX_MONTHS;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
@@ -677,11 +677,10 @@ function SetnayanAiOverlay({
           the /28-day price to the ₱ figure in the Setnayan AI bar just above. */}
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(42,43,46,.1)', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
-        <span style={{ fontSize: 14, color: '#6c675e' }}>{pricing.aiPeriod}</span>
         <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
-          {pricing.aiIntroPrice} your first 28 days
+          one-time · access until your wedding
         </span>
-        <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} across your {months} {months === 1 ? 'month' : 'months'}</span>
+        <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} total across your {months} {months === 1 ? 'month' : 'months'}</span>
       </div>
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>

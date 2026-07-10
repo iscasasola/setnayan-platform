@@ -16,27 +16,25 @@
  * The changelog footer is intentionally NOT guarded: it narrates prior states
  * and therefore legitimately contains historical (now-retired) figures.
  *
- * Sourced from the live prod retail + vendor-billing catalog (2026-07-05).
+ * Sourced from the live prod retail + vendor-billing catalog (2026-07-10 pricing finalization).
  */
 export const APPROVED_LLMS_PRICES: readonly string[] = [
   // Free / zero
   '₱0',
 
-  // Planning tier — Setnayan AI subscription (28-day cycle)
-  '₱799', // recurring per 28-day cycle
-  '₱499', // first cycle (also: Live Background · Camera Bridge per day)
+  // Planning tier — Setnayan AI (one-time, wedding-anchored, owner 2026-07-10)
+  '₱499', // Setnayan AI one-time (also: Live Background · Camera Bridge per day)
 
   // À-la-carte customer software services
   '₱30', // Papic Ltd per camera per day (floor of the retail range)
   '₱100', // Papic Unli per camera per day · flat per-token price
   '₱299', // Kwento
+  '₱999', // Animated Monogram · Cinematic Reveal · Solo 28-day · additional-branch 28-day
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
-  '₱1,499', // Cinematic Reveal · Patiktok
-  '₱1,999', // Animated Monogram
+  '₱1,499', // Patiktok
   '₱2,000', // Stories (per-day cap)
-  '₱2,499', // Pakanta · 3D Plan · Thank You Video · Live Photo Wall (per day) · Live Studio Desktop (per day) · Pro vendor 28-day
-  '₱3,499', // Editorial PRO (Live Studio multicam one-time retired 2026-07-08 → per-day device tiers)
-  '₱4,999', // Couple Website PRO (upper à-la-carte bound)
+  '₱2,499', // Pakanta · Thank You Video · Live Photo Wall (per day) · Live Studio Desktop (per day) · Pro vendor 28-day
+  '₱2,999', // 3D Plan · Editorial PRO
   '₱15,000', // Papic Ltd per-day cap
 
   // Vendor token banding + packs (flat ₱100/token)
@@ -48,11 +46,10 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱10,000', // 100-token pack
 
   // Vendor tier subscriptions (28-day / annual)
-  '₱999', // Solo 28-day · additional-branch 28-day
   '₱9,999', // Solo annual
   '₱24,999', // Pro annual (Pro 28-day ₱2,499 shares the customer figure above)
-  '₱7,499', // Enterprise 28-day
-  '₱74,999', // Enterprise annual
+  '₱7,999', // Enterprise 28-day (repriced 2026-07-10, was ₱7,499)
+  '₱79,999', // Enterprise annual (repriced 2026-07-10, was ₱74,999)
 
   // Voucher example ceiling used in the FAQ copy
   '₱500', // "20% off up to ₱500 max discount" example

@@ -1890,11 +1890,19 @@ export function SeatingEditor({
           let snap: { x: number; y: number; rot?: number } | null = null;
           if (movingShape === 'serpentine') {
             const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
+            // Same "flush join sits far from the neighbour's centre" problem the
+            // rect path fixed below: a serpentine's chain candidates (continue-
+            // the-circle / S-bend) land ~a footprint away from the drag centre,
+            // so the default 36 px catch is almost impossible to hit by hand and
+            // serpentines "don't link on the end" like the long tables do. Scale
+            // the catch to the wedge's footprint — drag it ROUGHLY end-to-end and
+            // it snaps, matching rectChainSnap's generosity (owner 2026-07-10).
             snap = serpentineChainSnap(
               dragPx,
               tables
                 .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
                 .map((o) => ({ ...pxOf(o), rot: rotationOf(o), scale: footprintPx(o).w / serpBoxW })),
+              Math.max(48, footprintPx(movingEarly).w * 0.5),
             );
           } else if (isRect(movingShape)) {
             // A banquet/family-head flush join sits a whole tabletop-length

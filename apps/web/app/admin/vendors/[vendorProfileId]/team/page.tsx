@@ -11,6 +11,7 @@ import {
   VENDOR_TEAM_ROLE_LABEL,
 } from '@/lib/vendor-team';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Vendor team · Admin',
   robots: { index: false, follow: false },
@@ -29,6 +30,7 @@ type Props = {
  * sibling tokens page.
  */
 export default async function AdminVendorTeamPage({ params }: Props) {
+  await requireAdmin();
   const { vendorProfileId } = await params;
 
   const supabase = await createClient();

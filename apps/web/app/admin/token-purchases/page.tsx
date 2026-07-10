@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { approveTokenPurchase, rejectTokenPurchase } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Token sales · Admin',
   robots: { index: false, follow: false },
@@ -48,6 +49,7 @@ function fmtDate(s: string) {
  * Same path a future Maya / PayMongo webhook will call.
  */
 export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
 
   // Admin gate — bounce non-admins before any read.

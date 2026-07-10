@@ -6,6 +6,7 @@ import { EventsSurface } from './_surfaces/events-surface';
 import { VenuesSurface } from './_surfaces/venues-surface';
 import { DemoVendorsSurface } from './_surfaces/demo-vendors-surface';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 /**
  * Accounts Studio (slice 4, final) — the tabbed /admin/accounts shell that
  * consolidates the Accounts menu (the `directory` group in ADMIN_NAV_GROUPS)
@@ -61,6 +62,7 @@ type Props = {
 };
 
 export default async function AdminAccountsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
 

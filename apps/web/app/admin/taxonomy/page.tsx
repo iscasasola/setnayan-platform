@@ -27,6 +27,7 @@ import {
   type StudioTileOption,
 } from './_components/taxonomy-studio';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
 // future root app/loading.tsx can't pull it into build-time static generation.
@@ -117,6 +118,7 @@ export default async function AdminTaxonomyPage({
     Record<'ok' | 'error' | 'q' | 'view' | 'open' | 'opentab', string | string[] | undefined>
   >;
 }) {
+  await requireAdmin();
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const q = (first(sp.q) ?? '').trim().slice(0, 80);

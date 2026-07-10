@@ -63,6 +63,7 @@ import {
 } from '@/lib/vendor-deep-search';
 import { DeepSearchChat } from './_components/deep-search-chat';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Verification queue · Admin' };
 
 // Deep search runs a live web research pass inside a server action — give the
@@ -146,6 +147,7 @@ type ApplicationRow = {
  * Per 0023 § 3.2 + 0006 § Vendor Verification flow + decision log 2026-05-16.
  */
 export default async function AdminVerifyPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const surface = search.surface === 'visibility' ? 'visibility' : 'applications';
 

@@ -8,6 +8,7 @@ import {
 import { updateLeafBenchmark, updateAllocationConfig, updateBudgetBand } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Budget Planner' };
 
 /**
@@ -59,6 +60,7 @@ const CONFIG_FALLBACK = {
 };
 
 export default async function AdminBudgetPlannerPage() {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Benchmarks + config read via the authed admin client (both tables carry an

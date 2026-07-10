@@ -2,6 +2,7 @@ import { AlertCircle, BookOpen, Sparkles } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 // V1 MVP catalog over `public.concierge_brain_chunks` (locked 2026-05-18 via
 // migration 20260518500000_iteration_0016_wizard_architecture_schema.sql).
 //
@@ -128,6 +129,7 @@ function previewBody(body: string): string {
 }
 
 export default async function AdminBrainPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   // Pull every chunk in one query, regardless of `is_active` — the catalog

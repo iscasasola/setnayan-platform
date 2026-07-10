@@ -23,6 +23,7 @@ import {
   requestPaymentResubmit,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -81,6 +82,7 @@ type OrderJoined = {
 };
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as Filter;
   // Optional platform filter (web | ios | android) — orthogonal to the status

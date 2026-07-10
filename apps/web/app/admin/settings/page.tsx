@@ -24,6 +24,7 @@ import { BrandIconUploadForm } from './_components/brand-icon-form';
 import { LoaderAppearanceCard } from './_components/loader-appearance-card';
 import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Settings · Admin' };
 
 type Props = {
@@ -55,6 +56,7 @@ type Props = {
  * canonical home for those fields.
  */
 export default async function AdminSettingsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);

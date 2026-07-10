@@ -38,6 +38,7 @@ import {
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Demo mode · Admin · Setnayan' };
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,7 @@ type Props = {
 };
 
 export default async function DemoModeAdminPage({ searchParams }: Props) {
+  await requireAdmin();
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/admin/settings/demo-mode'));
 

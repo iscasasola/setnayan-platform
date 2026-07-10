@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { MessageSquare, ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Demo inquiries · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ function fmt(iso: string | null): string {
 }
 
 export default async function DemoInquiriesPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   // Threads whose vendor is a demo vendor. `!inner` + the embedded filter keep

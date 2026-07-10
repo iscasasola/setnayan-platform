@@ -25,6 +25,7 @@ import {
 } from '@/lib/integrations/registry';
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 // Integration Activation Console.
 //
 // Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
@@ -40,6 +41,7 @@ export default async function AdminIntegrationsPage({
 }: {
   searchParams: Promise<{ saved?: string; cleared?: string; error?: string }>;
 }) {
+  await requireAdmin();
   const { saved, cleared, error } = await searchParams;
 
   // Defense-in-depth admin gate (team-member-aware).

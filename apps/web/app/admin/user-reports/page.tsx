@@ -7,6 +7,7 @@ import { resolveReport } from './actions';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'User reports · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,7 @@ export default async function AdminUserReportsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  await requireAdmin();
   const search = await searchParams;
   const status = normalizeStatus(search.status ?? 'open');
 

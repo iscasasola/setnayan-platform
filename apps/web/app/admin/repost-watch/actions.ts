@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rescanAllVendorImages } from '@/lib/vendor-image-repost-watch';
 import { scanAllVendorMediaForQr } from '@/lib/vendor-qr-media-guard';
 
+// Shared admin gate (require-admin.ts) — identical contract to the local
+// requireAdmin this file used to duplicate (login redirect · Forbidden throw).
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // /admin/repost-watch actions — moderator resolution path for the cross-vendor
 // reverse-image repost-detection queue. A flag can be:
 //   · dismiss         — no theft (stock/shared imagery, or the same vendor
@@ -20,24 +22,6 @@ import { scanAllVendorMediaForQr } from '@/lib/vendor-qr-media-guard';
 // app/admin/user-reports/actions.ts. Writes go via the service-role admin client
 // (RLS grants admin UPDATE, but using the admin client keeps the write path
 // uniform with the rest of the queue).
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 const ACTIONS = ['dismiss', 'confirm_theft', 'escalate'] as const;
 type Action = (typeof ACTIONS)[number];

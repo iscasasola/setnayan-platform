@@ -9,6 +9,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payment methods · Admin' };
 
 type PaymentMethodRow = {
@@ -60,6 +61,7 @@ type Props = {
  * CLAUDE.md V1→V2 cutover decision-log rows).
  */
 export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);

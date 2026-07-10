@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { approveSubscription, rejectSubscription } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Subscriptions · Admin',
   robots: { index: false, follow: false },
@@ -55,6 +56,7 @@ function fmtDate(s: string) {
  * webhook will hit via confirm_vendor_subscription_by_reference.
  */
 export default async function AdminSubscriptionsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
 
   // Admin gate — bounce non-admins before any read.

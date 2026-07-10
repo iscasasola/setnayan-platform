@@ -17,6 +17,7 @@ import { VoucherForm, type VoucherFormInitial } from '../../_components/voucher-
 import { EligibilitySection, type EligibleRow } from '../../_components/eligibility-section';
 import { updateDiscountCode } from '../../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Edit discount code · Admin' };
 
 type DiscountCodeRow = {
@@ -49,6 +50,7 @@ type Props = {
 };
 
 export default async function EditDiscountCodePage({ params }: Props) {
+  await requireAdmin();
   const { id } = await params;
 
   const admin = createAdminClient();

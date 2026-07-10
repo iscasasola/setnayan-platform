@@ -13,6 +13,7 @@ import {
 } from '@/lib/vendor-corrections';
 import { applyCorrectionRequest, declineCorrectionRequest } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Profile corrections · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,7 @@ export default async function AdminCorrectionsPage({
     error?: string;
   }>;
 }) {
+  await requireAdmin();
   const search = await searchParams;
   const status = normalizeStatus(search.status ?? 'open');
 

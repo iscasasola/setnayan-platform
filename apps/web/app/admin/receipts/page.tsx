@@ -3,6 +3,7 @@ import { ExternalLink, Receipt as ReceiptIcon } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Receipts · Admin' };
 
 type ReceiptListRow = {
@@ -38,6 +39,7 @@ function monthLabel(bucket: string): string {
 }
 
 export default async function AdminReceiptsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filterMonth = search.month ?? null;
 

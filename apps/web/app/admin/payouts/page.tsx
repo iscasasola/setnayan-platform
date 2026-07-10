@@ -13,6 +13,7 @@ import {
 } from '@/lib/payouts';
 import { markPayoutPaidAction, holdPayoutAction } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Vendor payouts · Admin' };
 
 type FilterKey = 'pending' | 'paid' | 'on_hold' | 'all';
@@ -83,6 +84,7 @@ const STAGE_TABS: Array<{ key: StageFilter; label: string }> = [
 ];
 
 export default async function AdminPayoutsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = parseFilter(search.filter);
   const stage = parseStage(search.stage);

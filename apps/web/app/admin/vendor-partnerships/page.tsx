@@ -3,6 +3,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Vendor Partnerships · Admin' };
 
 type SearchParams = {
@@ -74,6 +75,7 @@ type Props = {
 };
 
 export default async function AdminVendorPartnershipsPage({ searchParams }: Props) {
+  await requireAdmin();
   const sp = await searchParams;
 
   const admin = createAdminClient();

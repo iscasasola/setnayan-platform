@@ -16,6 +16,7 @@ import {
 import { dismissVendorSignals, unsuspendVendor } from './actions';
 import { WipeBanDialog } from './_components/wipe-ban-dialog';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Fraud queue · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -101,6 +102,7 @@ function StateBadge({ state }: { state: VendorFraudState }) {
 }
 
 export default async function AdminFraudQueuePage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   // 1. The queue: vendors with open fraud signals, worst first.

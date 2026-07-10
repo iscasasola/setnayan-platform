@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { updateBand } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Token bands · Admin' };
 
 /**
@@ -40,6 +41,7 @@ type RegionBandRow = {
 };
 
 export default async function AdminTokenBandsPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('regions')

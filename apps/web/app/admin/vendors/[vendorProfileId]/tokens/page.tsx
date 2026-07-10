@@ -8,6 +8,7 @@ import { grantTokensToVendor, setVendorTier } from '../../actions';
 import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import { enrichTeamWithUsers, fetchVendorTeam } from '@/lib/vendor-team';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Grant tokens · Admin',
   robots: { index: false, follow: false },
@@ -54,6 +55,7 @@ export default async function AdminVendorTokensPage({
   params,
   searchParams,
 }: Props) {
+  await requireAdmin();
   const { vendorProfileId } = await params;
   const search = await searchParams;
 

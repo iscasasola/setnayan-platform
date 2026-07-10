@@ -686,3 +686,64 @@ export async function unblockUser(formData: FormData) {
     redirect(dest);
   }
 }
+
+/**
+ * Archive / un-archive a thread for the CURRENT user (Viber-style · Data
+ * Retention Schedule 2026-07-11). Archiving is pure per-user UI state — it
+ * DELETES NOTHING. It stamps chat_thread_reads.archived_at (migration
+ * 20270714177342) for (thread_id, auth.uid()); the inbox then filters the row
+ * out of the active list until a newer message bumps updated_at past
+ * archived_at (auto-un-archive). Un-archive simply nulls the marker.
+ *
+ * Membership is checked via fetchThreadById (RLS-scoped → null if not a member)
+ * so a stray thread_id can't stamp a marker on a thread you're not in. The
+ * upsert omits last_read_at, so the read-state is preserved on conflict-update.
+ *
+ * GRACEFUL DEGRADE: the archived_at column is owner-pushed and may not be live
+ * yet — on ANY write error we log + still redirect back (archiving must never
+ * 500 the inbox before the migration lands; the thread just stays active).
+ */
+async function setThreadArchived(formData: FormData, archived: boolean): Promise<void> {
+  const threadId = formData.get('thread_id');
+  if (typeof threadId !== 'string' || threadId.length === 0) throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread) throw new Error('Thread not found');
+  const role = await resolveThreadRole(supabase, thread, user.id);
+  if (!role) throw new Error('Not a member of this thread');
+
+  const { error } = await supabase.from('chat_thread_reads').upsert(
+    {
+      thread_id: threadId,
+      user_id: user.id,
+      archived_at: archived ? new Date().toISOString() : null,
+    },
+    { onConflict: 'thread_id,user_id' },
+  );
+  if (error) {
+    logQueryError(
+      archived ? 'archiveThread' : 'unarchiveThread',
+      error,
+      { thread_id: threadId, missing_relation: isMissingRelationError(error) },
+      'graceful_degrade',
+    );
+  }
+
+  const dest = safeReturn(formData.get('return_to'), archived ? 'archived=1' : 'unarchived=1');
+  if (dest) {
+    revalidatePath(dest);
+    redirect(dest);
+  }
+}
+
+export async function archiveThread(formData: FormData) {
+  await setThreadArchived(formData, true);
+}
+
+export async function unarchiveThread(formData: FormData) {
+  await setThreadArchived(formData, false);
+}

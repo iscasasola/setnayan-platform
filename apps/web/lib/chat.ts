@@ -47,6 +47,14 @@ export type ChatThreadRow = {
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
+  /**
+   * Per-user Viber-style archive state for the CURRENT viewer, computed from the
+   * embedded chat_thread_reads.archived_at (migration 20270714177342). True when
+   * the viewer archived the thread AND no newer message has arrived since (a new
+   * message bumps updated_at past archived_at → auto-un-archives). Always false
+   * pre-migration — the archive embed graceful-degrades (see fetchCoupleThreads).
+   */
+  archived: boolean;
   vendor: {
     business_name: string;
     logo_url: string | null;
@@ -80,6 +88,8 @@ export type CoupleThreadWithVendor = ChatThreadRow & {
 };
 
 export type VendorThreadWithEvent = ChatThreadRow & {
+  /** See CoupleThreadWithVendor.archived — same per-viewer archive state, vendor side. */
+  archived: boolean;
   event: {
     display_name: string;
     event_date: string | null;
@@ -152,32 +162,95 @@ export async function countUnreadMessages(
   }
 }
 
+/**
+ * Compute the current viewer's Viber-style archive state for a thread row that
+ * embedded `reads:chat_thread_reads(archived_at)`. RLS scopes the embed to the
+ * caller (chat_thread_reads_self_all → user_id = auth.uid()), so `reads` is a
+ * 0-or-1-element array of THIS user's marker. Archived ⇔ archived_at set AND no
+ * newer message since (updated_at ≤ archived_at); a later message auto-unarchives.
+ */
+function computeArchived(row: {
+  updated_at: string;
+  reads?: { archived_at: string | null }[] | null;
+}): boolean {
+  const reads = row.reads;
+  if (!Array.isArray(reads) || reads.length === 0) return false;
+  const archivedAt = reads[0]?.archived_at;
+  if (!archivedAt) return false;
+  return new Date(archivedAt).getTime() >= new Date(row.updated_at).getTime();
+}
+
+const COUPLE_VENDOR_EMBED =
+  'vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state)';
+
 export async function fetchCoupleThreads(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<CoupleThreadWithVendor[]> {
+  // Try the archive-aware query first (embeds the per-user archived_at marker).
+  // GRACEFUL DEGRADE: migration 20270714177342 (chat_thread_reads.archived_at)
+  // is owner-pushed and may not be live yet — the embed then errors. On ANY
+  // error we retry WITHOUT the archive embed and treat every thread as active,
+  // so the Messages page never crashes ahead of the migration.
+  const withArchive = await supabase
+    .from('chat_threads')
+    .select(`${THREAD_SELECT}, ${COUPLE_VENDOR_EMBED}, reads:chat_thread_reads(archived_at)`)
+    .eq('event_id', eventId)
+    .order('updated_at', { ascending: false });
+  if (!withArchive.error) {
+    return (withArchive.data ?? []).map((row) => {
+      const { reads: _reads, ...rest } = row as Record<string, unknown> & {
+        reads?: { archived_at: string | null }[] | null;
+      };
+      return { ...rest, archived: computeArchived(row as never) } as unknown as CoupleThreadWithVendor;
+    });
+  }
+  logQueryError(
+    'fetchCoupleThreads (archive embed)',
+    withArchive.error,
+    { event_id: eventId, missing_relation: isMissingRelationError(withArchive.error) },
+    'graceful_degrade',
+  );
   const { data, error } = await supabase
     .from('chat_threads')
-    .select(
-      `${THREAD_SELECT}, vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state)`,
-    )
+    .select(`${THREAD_SELECT}, ${COUPLE_VENDOR_EMBED}`)
     .eq('event_id', eventId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchCoupleThreads failed: ${error.message}`);
-  return (data ?? []) as unknown as CoupleThreadWithVendor[];
+  return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as CoupleThreadWithVendor[];
 }
 
 export async function fetchVendorThreads(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorThreadWithEvent[]> {
+  // Same archive-aware-with-graceful-degrade shape as fetchCoupleThreads.
+  const withArchive = await supabase
+    .from('chat_threads')
+    .select(`${THREAD_SELECT}, event:events(display_name, event_date, public_id), reads:chat_thread_reads(archived_at)`)
+    .eq('vendor_profile_id', vendorProfileId)
+    .order('updated_at', { ascending: false });
+  if (!withArchive.error) {
+    return (withArchive.data ?? []).map((row) => {
+      const { reads: _reads, ...rest } = row as Record<string, unknown> & {
+        reads?: { archived_at: string | null }[] | null;
+      };
+      return { ...rest, archived: computeArchived(row as never) } as unknown as VendorThreadWithEvent;
+    });
+  }
+  logQueryError(
+    'fetchVendorThreads (archive embed)',
+    withArchive.error,
+    { vendor_profile_id: vendorProfileId, missing_relation: isMissingRelationError(withArchive.error) },
+    'graceful_degrade',
+  );
   const { data, error } = await supabase
     .from('chat_threads')
     .select(`${THREAD_SELECT}, event:events(display_name, event_date, public_id)`)
     .eq('vendor_profile_id', vendorProfileId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchVendorThreads failed: ${error.message}`);
-  return (data ?? []) as unknown as VendorThreadWithEvent[];
+  return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as VendorThreadWithEvent[];
 }
 
 /**

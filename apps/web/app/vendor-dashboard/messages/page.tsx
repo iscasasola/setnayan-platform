@@ -8,6 +8,7 @@ import {
   formatChatTimestamp,
 } from '@/lib/chat';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { RevealList } from '@/app/_components/reveal-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
@@ -45,6 +46,67 @@ export default async function VendorMessagesPage() {
     profile.vendor_profile_id,
   );
 
+  // Viber-style archive split (Data Retention Schedule 2026-07-11) — archiving
+  // deletes nothing; it moves a thread into the collapsible Archived section
+  // until a new message auto-un-archives it.
+  const returnTo = '/vendor-dashboard/messages';
+  const activeThreads = threads.filter((t) => !t.archived);
+  const archivedThreads = threads.filter((t) => t.archived);
+
+  const renderRow = (t: (typeof threads)[number]) => {
+    const returning =
+      t.inquiry_status === 'pending' ? returningFlags.get(t.event_id) : undefined;
+    return (
+      <li key={t.thread_id} data-reveal-item className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1">
+          <ThreadListCard
+            href={`/vendor-dashboard/messages/${t.thread_id}`}
+            title={t.event?.display_name ?? 'Event'}
+            badge={
+              t.inquiry_status === 'pending' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
+                  New inquiry · accept to reply
+                </span>
+              ) : t.inquiry_status === 'declined' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  Declined
+                </span>
+              ) : null
+            }
+            extra={
+              returning ? (
+                <>
+                  <span
+                    className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
+                    title={
+                      returning.resync_flat
+                        ? 'A client you previously locked — accepting costs just 1 token'
+                        : 'A client you previously locked'
+                    }
+                  >
+                    Returning client
+                  </span>
+                  <p className="mt-0.5 truncate text-xs text-ink/65">
+                    Booked you for{' '}
+                    {returning.prior_event_display_name ?? 'a previous event'}
+                    {returning.resync_flat ? ' · accepting costs just 1 token' : ''}
+                  </p>
+                </>
+              ) : null
+            }
+            timestampLine={
+              <>
+                {t.event?.event_date ? `${t.event.event_date} · ` : ''}
+                Last activity {formatChatTimestamp(t.updated_at)}
+              </>
+            }
+          />
+        </div>
+        <ThreadArchiveToggle threadId={t.thread_id} returnTo={returnTo} archived={t.archived} />
+      </li>
+    );
+  };
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
@@ -76,62 +138,26 @@ export default async function VendorMessagesPage() {
           </p>
         </div>
       ) : (
-        <RevealList as="ul" className="space-y-2">
-          {threads.map((t) => {
-            const returning =
-              t.inquiry_status === 'pending' ? returningFlags.get(t.event_id) : undefined;
-            return (
-            <li key={t.thread_id} data-reveal-item>
-              <ThreadListCard
-                href={`/vendor-dashboard/messages/${t.thread_id}`}
-                title={t.event?.display_name ?? 'Event'}
-                badge={
-                  t.inquiry_status === 'pending' ? (
-                    <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
-                      New inquiry · accept to reply
-                    </span>
-                  ) : t.inquiry_status === 'declined' ? (
-                    <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                      Declined
-                    </span>
-                  ) : null
-                }
-                extra={
-                  returning ? (
-                    <>
-                      <span
-                        className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
-                        title={
-                          returning.resync_flat
-                            ? 'A client you previously locked — accepting costs just 1 token'
-                            : 'A client you previously locked'
-                        }
-                      >
-                        Returning client
-                      </span>
-                      <p className="mt-0.5 truncate text-xs text-ink/65">
-                        Booked you for{' '}
-                        {returning.prior_event_display_name ?? 'a previous event'}
-                        {returning.resync_flat
-                          ? ' · accepting costs just 1 token'
-                          : ''}
-                      </p>
-                    </>
-                  ) : null
-                }
-                timestampLine={
-                  <>
-                    {t.event?.event_date
-                      ? `${t.event.event_date} · `
-                      : ''}
-                    Last activity {formatChatTimestamp(t.updated_at)}
-                  </>
-                }
-              />
-            </li>
-            );
-          })}
-        </RevealList>
+        <>
+          {activeThreads.length > 0 ? (
+            <RevealList as="ul" className="space-y-2">
+              {activeThreads.map(renderRow)}
+            </RevealList>
+          ) : (
+            <p className="rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+              No active conversations — everything&rsquo;s tucked into Archived below.
+            </p>
+          )}
+
+          {archivedThreads.length > 0 ? (
+            <details className="mt-4 rounded-xl border border-ink/10 bg-cream/60">
+              <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
+                Archived · {archivedThreads.length}
+              </summary>
+              <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
+            </details>
+          ) : null}
+        </>
       )}
     </section>
   );

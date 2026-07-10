@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/renewal-reminders",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/retention-sweep",
+      "schedule": "0 3 * * 1"
     }
   ]
 }

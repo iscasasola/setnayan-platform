@@ -86,6 +86,7 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
@@ -586,6 +587,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
 
+  // The Save-the-Date's OWN media beats — background music, the closing video, and
+  // the photo gallery — unlock with the Cinematic Reveal (STD_PREMIUM_OPENINGS ₱999 ·
+  // owner 2026-07-10 "these 3 will unlock when they purchase the save the date
+  // reveal"). Free STD = the text-only content film (monogram · names · date · venues
+  // · sentiment · calendar); owning the Reveal lights up the couple's own music,
+  // video, and photos. This gate is SCOPED TO THE STD FILM ONLY — the couple's full
+  // website (later lifecycle phases) still shows their photos/music free.
+  const ownsStdReveal = await eventStdOpeningsActive(admin, event.event_id);
+
   // Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
   // Drives which widgets render on this page and in what order. Every event
   // has 12 rows after the backfill; pre-backfill events fall back to "render
@@ -923,6 +933,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -959,6 +970,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -1002,6 +1014,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -1347,6 +1360,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         backdrop={backdrop}
@@ -1747,6 +1761,7 @@ function PublicLanding({
   heroVideoUrl,
   bgMusicUrl,
   ourPhotoUrls,
+  ownsStdReveal,
   widgets,
   scheduleBlocks,
   backdrop,
@@ -1800,6 +1815,9 @@ function PublicLanding({
   // null). Video replaces the still hero; music mounts the tap-to-play player.
   heroVideoUrl?: string | null;
   bgMusicUrl?: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS) — gates
+   *  the Save-the-Date film's own media beats (music, video, photos). */
+  ownsStdReveal: boolean;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the
   // OurPhotosWidget hides itself. Couple-curated, no PII → safe for anonymous.
@@ -1979,14 +1997,20 @@ function PublicLanding({
           monogramText={event.monogram_text}
           monogramSvg={bespokeSvg}
           lockup={stdLockupFor(event)}
-          musicUrl={bgMusicUrl}
-          videoUrl={stdVideoUrl}
-          videoPosterUrl={stdVideoPosterUrl}
+          musicUrl={ownsStdReveal ? bgMusicUrl : null}
+          videoUrl={ownsStdReveal ? stdVideoUrl : null}
+          videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
           ceremonyVenue={stdVenues?.ceremony ?? null}
           receptionVenue={stdVenues?.reception ?? null}
           receptionCity={stdVenues?.receptionCity ?? null}
           galleryUrls={
-            ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+            ownsStdReveal
+              ? ourPhotoUrls.length
+                ? ourPhotoUrls
+                : heroPhotoUrl
+                  ? [heroPhotoUrl]
+                  : []
+              : []
           }
           launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
           themeId={event.std_theme}
@@ -2315,6 +2339,7 @@ function InvitationSite({
   heroVideoUrl,
   bgMusicUrl,
   ourPhotoUrls,
+  ownsStdReveal,
   widgets,
   backdrop,
   liveWall,
@@ -2376,6 +2401,9 @@ function InvitationSite({
   // null). Video replaces the still hero; music mounts the tap-to-play player.
   heroVideoUrl?: string | null;
   bgMusicUrl?: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS) — gates
+   *  the Save-the-Date film's own media beats (music, video, photos). */
+  ownsStdReveal: boolean;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the widget
   // hides itself.
@@ -2689,14 +2717,20 @@ function InvitationSite({
             monogramText={event.monogram_text}
             monogramSvg={bespokeSvg}
             lockup={stdLockupFor(event)}
-            musicUrl={bgMusicUrl}
-            videoUrl={stdVideoUrl}
-            videoPosterUrl={stdVideoPosterUrl}
+            musicUrl={ownsStdReveal ? bgMusicUrl : null}
+            videoUrl={ownsStdReveal ? stdVideoUrl : null}
+            videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
             ceremonyVenue={stdVenues?.ceremony ?? null}
             receptionVenue={stdVenues?.reception ?? null}
             receptionCity={stdVenues?.receptionCity ?? null}
             galleryUrls={
-              ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+              ownsStdReveal
+                ? ourPhotoUrls.length
+                  ? ourPhotoUrls
+                  : heroPhotoUrl
+                    ? [heroPhotoUrl]
+                    : []
+                : []
             }
             launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
             themeId={event.std_theme}

@@ -363,6 +363,7 @@ export default async function SaveTheDatePage({ params }: Props) {
       <StdBuilderClient
         eventId={eventId}
         slug={event?.slug ?? null}
+        ownsReveal={ownsOpenings}
         initialContent={content}
         initialThemeId={themeId}
         initialLaunchDate={launchDate}

@@ -1149,6 +1149,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <ServicesTakeover
         eventId={eventId}
         initialTab={initialTab}
+        premium={aiActive}
         shortlistSlot={shortlistContent}
         buildSlot={buildSlot}
         budgetSlot={<MerkadoBudgetLens eventId={eventId} />}

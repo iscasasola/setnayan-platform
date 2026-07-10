@@ -34,7 +34,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -74,6 +74,7 @@ export function ServicesTakeover({
   budgetSlot,
   compareSlot,
   initialTab = 'shortlist',
+  premium = false,
 }: {
   eventId: string;
   shortlistSlot?: ReactNode;
@@ -81,6 +82,10 @@ export function ServicesTakeover({
   budgetSlot?: ReactNode;
   compareSlot?: ReactNode;
   initialTab?: BudgetBuildTab;
+  /** Setnayan AI active for this event → the Merkado wears its premium tier: a
+   *  gold-accented crest strip signalling smart matching / watch guard are on
+   *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
+  premium?: boolean;
 }) {
   // `active` is now the HIGHLIGHTED section (scroll target / scroll-spy state),
   // not a mount switch — all three sections are always mounted below.
@@ -190,6 +195,22 @@ export function ServicesTakeover({
           notifications bell (no sidebar fallback), so keep it; the desktop tab
           strip lives in the content area and won't collide. (Review 2026-06-09.) */}
       <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
+
+      {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
+          the Merkado as the couple's premium planning surface. Gold-accented,
+          presentational; the AI features it names (smart matching, watch guard)
+          are already live behind the same gate. */}
+      {premium ? (
+        <div className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-warn-300/50 bg-warn-50 px-4 py-2.5">
+          <Sparkles className="h-4 w-4 shrink-0 text-warn-600" strokeWidth={2} aria-hidden />
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-warn-800">
+            Setnayan&nbsp;AI
+          </span>
+          <span className="text-xs text-ink/60">
+            Your Merkado is on the premium tier — smart matching, fit scoring, and the watch guard are on.
+          </span>
+        </div>
+      ) : null}
 
       {/* Desktop section nav — pill segmented control (sn-seg). Now an IN-PAGE
           anchor nav: each item smooth-scrolls to its section and lights the

@@ -21,6 +21,8 @@ const STATUS_BY_CODE: Record<SendMessageError, number> = {
   followup_used: 403,
   not_accepted: 403,
   tier_free: 403,
+  attachment_invalid: 422,
+  attachment_failed: 500,
   insert_failed: 500,
 };
 

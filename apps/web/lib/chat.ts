@@ -98,6 +98,15 @@ export type ChatMessageRow = {
   created_at: string;
   /** Set when this message announces a vendor proposal (renders as a card). */
   proposal_id?: string | null;
+  /**
+   * Optional file attachment (chat file sharing, PR 2). All four are NULL on
+   * text-only messages. `attachment_url` is the public R2 URL; the renderer
+   * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
+   */
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size_bytes?: number | null;
 };
 
 const THREAD_SELECT =
@@ -266,7 +275,7 @@ export async function fetchMessages(
   const { data, error } = await supabase
     .from('chat_messages')
     .select(
-      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id',
+      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_name,attachment_mime,attachment_size_bytes',
     )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });

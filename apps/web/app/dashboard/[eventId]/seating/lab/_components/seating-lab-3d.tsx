@@ -2729,7 +2729,12 @@ function TableMesh({
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   // Chair centres + facing — the shared `chairPlacements` (serpentine carries
   // its own per-chair facing; every other shape faces the table-local origin).
-  const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
+  // Linked serpentines get uniform (even) chair spacing so a chain reads as one
+  // banquet with no seam pile-up (2026-07-10). Every other shape ignores it.
+  const chairs = useMemo(
+    () => chairPlacements(table.shape, table.capacity, table.linkGroupId != null),
+    [table.shape, table.capacity, table.linkGroupId],
+  );
   // Occupied seat indices — drives the instanced chairs' per-instance tint.
   const occupiedSeats = useMemo(() => new Set(seated?.keys() ?? []), [seated]);
 

@@ -1359,3 +1359,44 @@ test('serpentineChainSnapWorld: honours a rotated anchor + is deterministic', ()
   const again = serpentineChainSnapWorld({ x: tb[0].x, z: tb[0].z }, [B], 2);
   assert.deepEqual(snap, again, 'deterministic');
 });
+
+// ── linked serpentine: even (uniform) chair spacing across the whole chain ────
+test('serpentineChairs even mode: uniform spacing within AND across a junction', () => {
+  // Render-convention rotation (matches the lab).
+  const rot = (v: { x: number; z: number }, rotDeg: number) => {
+    const t = (-rotDeg * Math.PI) / 180;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    return { x: v.x * c + v.z * s, z: -v.x * s + v.z * c };
+  };
+  const world = (p: { x: number; z: number; rotDeg: number }, even: boolean) =>
+    serpentineChairs(5, even).map((cs) => {
+      const r = rot(cs, p.rotDeg);
+      return { x: p.x + r.x, z: p.z + r.z };
+    });
+  const minGap = (a: { x: number; z: number }[], b: { x: number; z: number }[]) => {
+    let m = Infinity;
+    for (const p of a) for (const q of b) if (p !== q) m = Math.min(m, Math.hypot(p.x - q.x, p.z - q.z));
+    return m;
+  };
+  const B = { x: 0, z: 0, rotDeg: 0, id: 'B' };
+  const A = serpentineChainSnapWorld({ ...serpentineTipsWorld(B)[0] }, [B], 3)!;
+  assert.ok(A, 'chained placement exists');
+
+  // Standalone (even=false): the two segments' chairs collide at the seam
+  // (smaller cross-seam gap than the within-segment gap → a pile-up).
+  const cbOld = world(B, false);
+  const caOld = world(A, false);
+  const crossOld = minGap(caOld, cbOld);
+  const withinOld = minGap(cbOld, cbOld);
+  assert.ok(crossOld < withinOld, 'standalone: seam chairs sit closer than within-segment (the bug)');
+
+  // Even (linked): every gap — within a segment and across the seam — is the
+  // SAME uniform spacing (no pile-up, reads as one evenly-spaced banquet).
+  const cbEven = world(B, true);
+  const caEven = world(A, true);
+  const crossEven = minGap(caEven, cbEven);
+  const withinEven = minGap(cbEven, cbEven);
+  assert.ok(Math.abs(crossEven - withinEven) < 0.02, `uniform: seam gap (${crossEven.toFixed(3)}) ≈ within gap (${withinEven.toFixed(3)})`);
+  assert.ok(crossEven > crossOld, 'even mode opens the seam vs standalone');
+});

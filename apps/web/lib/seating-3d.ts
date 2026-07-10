@@ -515,7 +515,7 @@ const SERP_FILL: Record<number, [number, number]> = { 1: [1, 0], 2: [2, 0], 3: [
  * away from it (outward onto the band). Seat order = outer L→R, then inner L→R,
  * matching the 2D seat_number map. Replaces the old round-ring approximation.
  */
-export function serpentineChairs(capacity: number): SerpSeat[] {
+export function serpentineChairs(capacity: number, even = false): SerpSeat[] {
   const cap = Math.max(1, Math.min(5, Math.round(capacity)));
   const [outerN, innerN] = SERP_FILL[cap]!;
   const { centre } = serpentineBand();
@@ -523,7 +523,16 @@ export function serpentineChairs(capacity: number): SerpSeat[] {
     const half = SERP_SWEEP / 2 - inset;
     const seats: SerpSeat[] = [];
     for (let i = 0; i < count; i++) {
-      const phi = count === 1 ? 0 : -half + (2 * half * i) / (count - 1);
+      // `even` (LINKED serpentine chains, 2026-07-10): slot-centre distribution
+      // → a UNIFORM chair density across the sweep, so chairs flow continuously
+      // across a junction (one-spacing gap, no seam pile-up) and the whole chain
+      // reads as one evenly-spaced banquet. Standalone tables keep the endpoint+
+      // inset spread (the end chairs hug the tips).
+      const phi = even
+        ? -SERP_SWEEP / 2 + (SERP_SWEEP / count) * (i + 0.5)
+        : count === 1
+          ? 0
+          : -half + (2 * half * i) / (count - 1);
       const p = serpAt(r, phi); // relative to the curvature centre (origin)
       // Backrest points away from the band. Outer chair: away from centre = +p;
       // inner chair: toward centre = −p (so the guest faces outward onto the band).
@@ -580,14 +589,15 @@ export function tableDims(shape: ShapeHint, capacity: number): { w: number; d: n
  * The return is a structural SUPERSET of the old Vec2[] — position consumers
  * keep destructuring `{ x, z }` untouched.
  */
-export function chairLocalPositions(shape: ShapeHint, capacity: number): SeatPose[] {
+export function chairLocalPositions(shape: ShapeHint, capacity: number, even = false): SeatPose[] {
   const out: SeatPose[] = [];
   // Serpentine rides its own curved arcs (outer + inner), not a full ring.
   // SerpSeat.faceY is the CHAIR yaw (backrest heading) InstancedChairs composes
   // directly; the sitter's gaze is its π flip — promote the gaze (SeatPose
   // contract) so approachPoint lands behind the chair, never on the band.
+  // `even` → the linked-chain uniform spacing (see serpentineChairs).
   if (shape === 'serpentine') {
-    return serpentineChairs(capacity).map((c) => ({
+    return serpentineChairs(capacity, even).map((c) => ({
       x: c.x,
       z: c.z,
       faceY: wrapAngle(c.faceY + Math.PI),
@@ -668,7 +678,9 @@ export function worldSeatPose(
   room: { w: number; d: number },
 ): SeatPose {
   const base = pctToWorld(table.xPct, table.yPct, room);
-  const locals = chairLocalPositions(table.shape, table.capacity);
+  // Linked serpentine → even chair spacing (so a walked-in guest sits exactly
+  // where the evenly-spaced chair renders — the two must agree).
+  const locals = chairLocalPositions(table.shape, table.capacity, table.linkGroupId != null);
   const local = locals[Math.max(0, Math.min(locals.length - 1, seatNumber))] ?? { x: 0, z: 0, faceY: 0 };
   const rot = rotateLocal(local, table.rotationDeg);
   return {

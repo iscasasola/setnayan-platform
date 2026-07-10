@@ -271,12 +271,15 @@ const GHOST_SEAT_GEO = new THREE.BoxGeometry(0.42, 0.07, 0.42);
 const GHOST_BACK_GEO = new THREE.BoxGeometry(0.42, 0.44, 0.06);
 // Real-furniture parts (shared buffers). The old cylinder+sphere guest tokens
 // (and their GOWN_GEO/SUIT_GEO attire silhouettes) are retired — guests now
-// render as articulated kit `<Figure>`s (the shared plan3d/kit rig, which
-// carries the gown/suit buffers itself). The plain token body/head survive
-// ONLY for the "+1 reserved" ghost, which needs per-mesh transparency the
-// kit's shared material caches deliberately don't offer.
-const TOKEN_BODY_GEO = new THREE.CylinderGeometry(0.13, 0.15, 0.4, 10);
-const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.12, 12, 12);
+// render as articulated kit `<Figure>`s (the shared plan3d/kit rig). The token
+// body/head survive ONLY for the "+1 reserved" ghost, which needs per-mesh
+// transparency the kit's shared material caches deliberately don't offer.
+// One-piece pass (2026-07-10): reshaped to a CHUNKY blob so the faint
+// placeholder reads as a translucent version of the one-piece figures around
+// it, not a thin cylinder from the retired token era. A vertical capsule ≈ a
+// seated figure's mass, capped by a ball head at the kit's HEAD_R (0.16).
+const TOKEN_BODY_GEO = new THREE.CapsuleGeometry(0.17, 0.3, 8, 16);
+const TOKEN_HEAD_GEO = new THREE.SphereGeometry(0.16, 20, 14);
 const VASE_GEO = new THREE.CylinderGeometry(0.085, 0.12, 0.24, 10);
 const BLOOM_GEO = new THREE.IcosahedronGeometry(0.2, 0);
 
@@ -382,8 +385,8 @@ function SeatedAvatar({ tok, bodyMat, quality }: { tok: SeatToken; bodyMat: THRE
   }
   return (
     <group position={[0, 0, -0.04]}>
-      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.7, 0]} material={bodyMat} castShadow />
-      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.0, 0]} material={bodyMat} castShadow />
+      <mesh geometry={TOKEN_BODY_GEO} position={[0, 0.62, 0]} material={bodyMat} castShadow />
+      <mesh geometry={TOKEN_HEAD_GEO} position={[0, 1.02, 0]} material={bodyMat} castShadow />
     </group>
   );
 }

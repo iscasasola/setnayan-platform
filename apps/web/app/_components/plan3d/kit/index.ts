@@ -1,16 +1,15 @@
 /**
- * kit — the public surface of the shared 3D figure kit (owner-locked
- * "Sims-like" direction). Import FROM HERE, not from the internal modules.
+ * kit — the public surface of the shared 3D figure kit (owner-locked one-piece
+ * "blob" direction). Import FROM HERE, not from the internal modules.
  * All THREE seat-plan surfaces now render through `<Figure>`/`<SeatedFigure>`/
  * `<WalkingFigure>` — the homepage demo (plan3d-scene's tokens + Walker), the
  * couple lab (SeatedAvatar/Mover/SitController), and the public guest venue
  * walk (guest-venue-3d, Fable slice 7) — so this barrel is the codebase's ONE
  * human-figure implementation.
  *
- *   · lib/figure-rig.ts       — PURE pose math + deterministic looks (unit-tested)
- *   · kit/outfits.ts          — shared outfit shells (gown/suit/barong/filipiniana/neutral)
- *   · kit/hair.ts             — 6 procedural hairstyles from shared primitives
- *   · kit/face.ts             — drawn face decals (selfies go through GuestPhotoAvatar)
+ *   · lib/figure-rig.ts       — PURE pose math (unit-tested); look-resolution is dormant
+ *   · kit/outfits.ts          — mannequin body material + booth-STAFF outfit shells
+ *                               (gown/suit/barong/… — staff only; guests are faceless blobs)
  *   · kit/figure.tsx          — the articulated rig itself
  *   · kit/active-chair.tsx    — the single real chair that replaces a detached
  *                               InstancedChairs instance during a sit clip
@@ -77,7 +76,6 @@ export {
 } from '@/lib/figure-rig';
 
 export { outfitGeometry, outfitIsSkirted, outfitMaterial, type OutfitKind } from './outfits';
-export { hairPartsFor, type HairPart } from './hair';
 
 export {
   BoothChassis,

@@ -1,8 +1,11 @@
 /**
- * figure-rig — PURE pose math + deterministic look resolution for the shared
- * 3D figure kit (`app/_components/plan3d/kit/`), the owner-locked "Sims-like"
- * direction for every seat-plan surface (proportioned stylized characters,
- * hair, simple faces, varied outfits — reference: Sims 4).
+ * figure-rig — PURE pose math for the shared 3D figure kit
+ * (`app/_components/plan3d/kit/`), the owner-locked one-piece "blob" direction
+ * for every seat-plan surface (a faceless, palette-tinted soft mannequin — no
+ * neck, no feet, chunky fused limbs; reference: the Meccha one-piece white
+ * character, 2026-07-09). `resolveFigureLook` + the SKIN/HAIR tables below are
+ * DORMANT — the faceless blob consumes none of them; kept as pure, tested
+ * look-resolution math for a possible future re-skin.
  *
  * NO three.js / React imports at runtime (type-only imports would be fine) —
  * same discipline as `lib/seating-3d.ts`, so every joint angle and every

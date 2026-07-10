@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Guest-facing 3D venue explorer (Sims-style; owner 2026-06-26). READ-ONLY — a
+ * Guest-facing 3D venue explorer (owner 2026-06-26). READ-ONLY — a
  * separate, self-contained scene (no editor coupling) fed by the privacy-scoped
  * `public_venue_scene` RPC: room geometry + ANONYMISED occupancy, plus the
  * guest's own seat/tablemates when they opened their personal link. The guest's
@@ -12,8 +12,8 @@
  * to confirm on a preview.
  *
  * Kit consolidation (Fable slice 7): this walk renders through the SHARED
- * figure kit (`plan3d/kit` <Figure>/<SeatedFigure>) — the same articulated
- * "Sims-like" human the couple lab and homepage demo use — instead of its old
+ * figure kit (`plan3d/kit` <Figure>/<SeatedFigure>) — the same one-piece blob
+ * figure the couple lab and homepage demo use — instead of its old
  * self-contained cylinder+sphere tokens + capsule avatar. Seated occupants are
  * NEUTRAL untinted mannequins (anonymised strangers; privacy lock 2026-06-26 —
  * no per-guest attire/hair, no names beyond the RPC contract); the viewer's own

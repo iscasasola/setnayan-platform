@@ -28,10 +28,7 @@ import {
   QrCode,
   MapPin,
   Palette,
-  Users,
   LayoutGrid,
-  Wallet,
-  CalendarClock,
   MailCheck,
   PartyPopper,
   Newspaper,
@@ -763,65 +760,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
 ];
 
-/**
- * A free core planning tool surfaced in the Studio hub's "Plan & organize"
- * group. These deep-link to existing couple-sidebar routes (Guests / Seating /
- * Budget / Schedule) rather than to an /studio/[feature] detail page.
- *
- * Kept SEPARATE from ADD_ONS on purpose — these are first-class sidebar
- * surfaces, not in-app *services*, so they must NOT appear in the
- * Services/vendors tab (which iterates ADD_ONS). The Studio hub merges
- * STUDIO_FREE_TOOLS into its "Plan & organize" section at render time.
- */
-export type StudioFreeTool = {
-  key: string;
-  label: string;
-  Icon: LucideIcon;
-  /** One-line benefit, JTBD-framed. */
-  blurb: string;
-  /** Absolute href into the existing couple sidebar route. */
-  href: string;
-  /** Always free — drives the "Free" chip on the Studio card. */
-  tier: 'free';
-};
-
-/**
- * Build the free-tool list for a given event. href is event-scoped, so this is
- * a factory rather than a static const.
- */
-export function studioFreeTools(eventId: string): ReadonlyArray<StudioFreeTool> {
-  return [
-    {
-      key: 'guests',
-      label: 'Guest list',
-      Icon: Users,
-      blurb: 'Build your list, track RSVPs, and assign roles in one place',
-      href: `/dashboard/${eventId}/guests`,
-      tier: 'free',
-    },
-    {
-      key: 'seating',
-      label: 'Seating',
-      Icon: LayoutGrid,
-      blurb: 'Lay out your tables and seat every guest with drag-and-drop',
-      href: `/dashboard/${eventId}/seating`,
-      tier: 'free',
-    },
-    {
-      key: 'budget',
-      label: 'Budget',
-      Icon: Wallet,
-      blurb: 'Track every cost and payment so nothing slips through',
-      href: `/dashboard/${eventId}/budget`,
-      tier: 'free',
-    },
-    {
-      key: 'schedule',
-      label: 'Schedule',
-      Icon: CalendarClock,
-      blurb: 'Map your day-of timeline and keep every vendor in sync',
-      href: `/dashboard/${eventId}/schedule`,
-      tier: 'free',
-    },
-  ];
-}
+// `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported
+// nowhere (the Studio hub renders the four free planning tools via the couple
+// sidebar / free-tools strip, not this factory). The free core tools (Guests /
+// Seating / Budget / Schedule) remain first-class sidebar surfaces.

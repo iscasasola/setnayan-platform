@@ -507,36 +507,47 @@ export default async function StudioPage({ params }: Props) {
 
       <StudioSectionTabs tabs={tabs} />
 
-      {SECTIONS.map(({ group, label, anchor, flagship }) => {
+      {SECTIONS.map(({ group, label, anchor, flagship }, sectionIndex) => {
         const addOns = ADD_ONS.filter((a) => a.studioGroup === group && surfaceOk(a))
           .slice()
           .sort(comingSoonLast);
         if (addOns.length === 0) return null;
 
-        // Featured hero = the preferred flagship if it's available, else the
-        // first available item. Coming-soon never gets featured.
+        // Flagship = the preferred hero item if available, else the first
+        // available one. Coming-soon never gets featured.
         const available = addOns.filter((a) => a.status !== 'coming_soon');
         const featured =
           available.find((a) => a.key === flagship) ?? available[0] ?? null;
-        const rows = addOns.filter((a) => a.key !== featured?.key);
+
+        // Hero trim (owner 2026-07-11 · simpler Studio): only the FIRST section
+        // gets the tall gradient hero card — the 4 stacked heroes inflated scroll
+        // (worst on mobile, where the in-page tab strip is hidden) for no
+        // navigational payoff. The other sections demote their flagship to a
+        // normal row at the top of the list, so NOTHING is hidden.
+        const heroEntry = sectionIndex === 0 ? featured : null;
+        const rows = heroEntry
+          ? addOns.filter((a) => a.key !== heroEntry.key)
+          : featured
+            ? [featured, ...addOns.filter((a) => a.key !== featured.key)]
+            : addOns;
 
         return (
           <div key={group} id={anchor} className="scroll-mt-24 space-y-4">
             <h2 className="text-2xl font-semibold tracking-tight text-ink">{label}</h2>
 
-            {featured ? (
+            {heroEntry ? (
               <div className="space-y-2">
                 <StudioFeaturedCard
-                  href={cardHref(featured)}
+                  href={cardHref(heroEntry)}
                   eyebrow={label}
-                  label={featured.label}
-                  tagline={addOnDetail(featured.key)?.tagline ?? featured.blurb}
-                  Icon={featured.Icon}
-                  gradient={featured.poster.baseBackground}
-                  pillText={pillFor(featured)?.text ?? 'Open'}
+                  label={heroEntry.label}
+                  tagline={addOnDetail(heroEntry.key)?.tagline ?? heroEntry.blurb}
+                  Icon={heroEntry.Icon}
+                  gradient={heroEntry.poster.baseBackground}
+                  pillText={pillFor(heroEntry)?.text ?? 'Open'}
                 />
-                {coordinatorControl(featured) ? (
-                  <div className="flex justify-end">{coordinatorControl(featured)}</div>
+                {coordinatorControl(heroEntry) ? (
+                  <div className="flex justify-end">{coordinatorControl(heroEntry)}</div>
                 ) : null}
               </div>
             ) : null}

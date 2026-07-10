@@ -391,12 +391,21 @@ function serpAt(r: number, phi: number): Vec2 {
 
 export type SerpSeat = { x: number; z: number; faceY: number };
 
-type SerpBand = { outline: Vec2[]; centre: Vec2; bboxW: number; bboxD: number };
+type SerpBand = {
+  outline: Vec2[];
+  centre: Vec2;
+  bboxW: number;
+  bboxD: number;
+  /** Recentred local mid-band end points (the two tips the chain joins at). */
+  endPlus: Vec2;
+  endMinus: Vec2;
+};
 let _serpBand: SerpBand | null = null;
 
 /**
- * The serpentine band as a recentred outline + its curvature centre + bbox.
- * Capacity-independent (only the chairs scale), so it's computed once + cached.
+ * The serpentine band as a recentred outline + its curvature centre + bbox +
+ * the two end-edge midpoints. Capacity-independent (only the chairs scale), so
+ * it's computed once + cached.
  */
 export function serpentineBand(): SerpBand {
   if (_serpBand) return _serpBand;
@@ -411,13 +420,90 @@ export function serpentineBand(): SerpBand {
   }
   const ox = (minX + maxX) / 2;
   const oz = (minZ + maxZ) / 2;
+  // The tips sit at the mid-band radius, at ±half-sweep — the join points a
+  // chained neighbour's tip must land on (mirrors the 2D serpentineFrame).
+  const rm = (SERP_RI + SERP_RO) / 2;
+  const tip = (sign: 1 | -1): Vec2 => ({ x: serpAt(rm, (sign * SERP_SWEEP) / 2).x - ox, z: serpAt(rm, (sign * SERP_SWEEP) / 2).z - oz });
   _serpBand = {
     outline: raw.map((p) => ({ x: p.x - ox, z: p.z - oz })),
     centre: { x: -ox, z: -oz }, // curvature centre, in recentred local coords
     bboxW: maxX - minX,
     bboxD: maxZ - minZ,
+    endPlus: tip(1),
+    endMinus: tip(-1),
   };
   return _serpBand;
+}
+
+/**
+ * Rotate a local band point into world space using the 3D lab's render
+ * convention: a table drawn at world (X,Z) with `rotationDeg` renders each
+ * local (x,z) via `g.rotation.y = -rotationDeg·π/180`. This is the SINGLE
+ * source of the rotation math shared by the snap below AND its test, so "the
+ * tips coincide" is provable without a GPU.
+ */
+function serpRotVec(v: Vec2, rotDeg: number): Vec2 {
+  const t = (-rotDeg * Math.PI) / 180;
+  const c = Math.cos(t);
+  const s = Math.sin(t);
+  return { x: v.x * c + v.z * s, z: -v.x * s + v.z * c };
+}
+
+/** A serpentine placed in the lab: world centre (m) + rotationDeg. */
+export type SerpPlacement = { x: number; z: number; rotDeg: number };
+
+/** World-space position of a serpentine's two tips, given its placement. */
+export function serpentineTipsWorld(p: SerpPlacement): [Vec2, Vec2] {
+  const b = serpentineBand();
+  return [b.endPlus, b.endMinus].map((e) => {
+    const r = serpRotVec(e, p.rotDeg);
+    return { x: p.x + r.x, z: p.z + r.z };
+  }) as [Vec2, Vec2];
+}
+
+/**
+ * Magnetic end-to-end snap for serpentine tables IN THE 3D LAB (world metres) —
+ * the 3D twin of lib/seating.ts's pixel-space `serpentineChainSnap`, using the
+ * lab's own band geometry + rotation convention. Given the dragged wedge's
+ * candidate centre and every OTHER serpentine on the floor, returns the closest
+ * legal chained placement (position + rotationDeg) within `tolM`, or null.
+ * 4 candidates per neighbour: continue-the-circle past either tip, or S-bend.
+ * Deterministic: nearest candidate wins; ties keep the first.
+ */
+export function serpentineChainSnapWorld(
+  drag: Vec2,
+  neighbours: ReadonlyArray<SerpPlacement>,
+  tolM: number,
+): SerpPlacement | null {
+  const band = serpentineBand();
+  const norm = (d: number) => ((d % 360) + 360) % 360;
+  const sweep = (SERP_SWEEP * 180) / Math.PI; // SERP_SWEEP is radians → degrees
+  let best: SerpPlacement | null = null;
+  let bestD = tolM * tolM;
+  const consider = (c: SerpPlacement) => {
+    const d = (c.x - drag.x) ** 2 + (c.z - drag.z) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  };
+  for (const b of neighbours) {
+    // Neighbour's arc centre in world.
+    const cLocal = serpRotVec(band.centre, b.rotDeg);
+    const cw = { x: b.x + cLocal.x, z: b.z + cLocal.z };
+    // Continue the circle: neighbour rotated ±sweep about its arc centre.
+    for (const sgn of [1, -1] as const) {
+      const v = serpRotVec({ x: b.x - cw.x, z: b.z - cw.z }, sgn * sweep);
+      consider({ x: cw.x + v.x, z: cw.z + v.z, rotDeg: norm(b.rotDeg + sgn * sweep) });
+    }
+    // S-bend: neighbour rotated 180° about a tip midpoint (point reflection).
+    for (const e of [band.endPlus, band.endMinus]) {
+      const el = serpRotVec(e, b.rotDeg);
+      const m = { x: b.x + el.x, z: b.z + el.z };
+      consider({ x: 2 * m.x - b.x, z: 2 * m.z - b.z, rotDeg: norm(b.rotDeg + 180) });
+    }
+  }
+  return best;
 }
 
 // Outer-first fill (mirrors the 2D lock): 1→1+0 · 2→2+0 · 3→2+1 · 4→3+1 · 5→3+2.

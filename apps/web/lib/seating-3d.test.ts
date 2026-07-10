@@ -1350,6 +1350,32 @@ test('serpentineChainSnapWorld: far away → no snap (free drag)', () => {
   assert.equal(serpentineChainSnapWorld({ x: 0, z: 0 }, [], 1), null);
 });
 
+test('serpentineChainSnapWorld: refuses to snap onto an ALREADY-OCCUPIED tip (no overlap when extending a chain)', () => {
+  const B = { x: 0, z: 0, rotDeg: 0, id: 'B' };
+  // A valid adjacent placement A, chained to B's tip.
+  const a = serpentineChainSnapWorld({ x: B.x + 1.9, z: B.z }, [B], 1.4);
+  assert.ok(a, 'A snaps beside B');
+  const A = { x: a.x, z: a.z, rotDeg: a.rotDeg, id: 'A' };
+
+  // Sanity: with A NOT yet on the floor, a drop at A's spot DOES snap there —
+  // so it is a real candidate the occupancy filter must now suppress.
+  const wouldStack = serpentineChainSnapWorld({ x: A.x, z: A.z }, [B], 1.4);
+  assert.ok(
+    wouldStack && Math.hypot(wouldStack.x - A.x, wouldStack.z - A.z) < 1e-6,
+    'absent the occupant, the drop snaps exactly to that spot',
+  );
+
+  // Now A+B are a chain. A fresh wedge dropped onto A's occupied spot must NOT
+  // re-occupy it: the exact-A candidate (dist 0) is rejected, so any returned
+  // snap stays clear of BOTH existing members by the occupancy radius (0.6 m) —
+  // here it falls back to B's FREE tip instead of stacking on A.
+  const onA = serpentineChainSnapWorld({ x: A.x, z: A.z }, [A, B], 1.4);
+  if (onA) {
+    assert.ok(Math.hypot(onA.x - A.x, onA.z - A.z) >= 0.6 - 1e-9, 'does not re-occupy A');
+    assert.ok(Math.hypot(onA.x - B.x, onA.z - B.z) >= 0.6 - 1e-9, 'does not re-occupy B');
+  }
+});
+
 test('serpentineChainSnapWorld: honours a rotated anchor + is deterministic', () => {
   const B = { x: 3, z: -2, rotDeg: 37, id: 'B' };
   const tb = serpentineTipsWorld(B);

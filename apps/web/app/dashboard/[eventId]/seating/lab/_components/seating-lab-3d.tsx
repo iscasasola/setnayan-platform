@@ -847,15 +847,29 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
     // Placement rules (owner 2026-06-26): no overlap · no tables on the dance
     // floor · stage = sweetheart only. If the drop breaks one, revert (skip the
-    // commit) — the mesh eases back to its stored spot — and say why. A snapped
-    // serpentine chain is exempt (intentional touch; still wall-clamped above).
-    if (dragged && snappedRotDeg === null) {
+    // commit) — the mesh eases back to its stored spot — and say why.
+    if (dragged) {
+      const draggedGroupId = dragged.linkGroupId ?? null;
+      const isSnapped = snappedRotDeg !== null;
       const radiusOf = (t: LiveTable) => {
         const dim = tableDims(t.shape, t.capacity);
         return Math.max(dim.w, dim.round ? dim.w : dim.d) / 2;
       };
+      // Exclude from the OVERLAP test (zones are always enforced): (a) the dragged
+      // table; (b) its own linked siblings — a rigid unit is SUPPOSED to touch, so
+      // testing a member against its siblings would always reject and make the
+      // chain unmovable; (c) when this drop snapped to a serpentine tip, other
+      // serpentines — a tip-to-tip snap is an intentional touch the coarse
+      // bounding circles would otherwise reject. Non-serpentine overlap and the
+      // stage/dance zones stay enforced even for a snapped chain, so it can't land
+      // on the dance floor, on the stage, or over a round table.
       const others = tables
-        .filter((t) => t.id !== d.id)
+        .filter(
+          (t) =>
+            t.id !== d.id &&
+            !(draggedGroupId && t.linkGroupId === draggedGroupId) &&
+            !(isSnapped && t.shape === 'serpentine'),
+        )
         .map((t) => {
           const p = pctToWorld(t.xPct, t.yPct, room);
           return { x: p.x, z: p.z, r: radiusOf(t) };
@@ -869,7 +883,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         ? zone(floor.dance.xPct, floor.dance.yPct, floor.dance.wPct, floor.dance.hPct, 1.5, 1.5)
         : null;
       const verdict = checkPlacement(
-        { x: d.x, z: d.z, r: radiusOf(dragged), isTable: true, isSweetheart: dragged.shape === 'sweetheart' },
+        // Test the SNAPPED position (dropX/dropZ) — identical to the raw drop when
+        // not snapped, but the real resting spot when it is.
+        { x: dropX, z: dropZ, r: radiusOf(dragged), isTable: true, isSweetheart: dragged.shape === 'sweetheart' },
         others,
         stageZone,
         danceZone,
@@ -883,9 +899,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     // Linked unit → translate every member by the same delta (move as one).
     const groupId = dragged?.linkGroupId ?? null;
     if (groupId && dragged) {
-      const ddx = xPct - dragged.xPct;
-      const ddy = yPct - dragged.yPct;
       const members = tables.filter((t) => t.linkGroupId === groupId);
+      // Keep the whole unit ON-BOARD without distorting it: clamp the SHARED
+      // delta by the group's bounding extent. Clamping each member's position
+      // independently (as the single-table path does) would pull the chain apart
+      // at a wall — the dragged member stops while a sibling keeps going.
+      const xs = members.map((m) => m.xPct);
+      const ys = members.map((m) => m.yPct);
+      const ddx = Math.max(lo - Math.min(...xs), Math.min(hi - Math.max(...xs), xPct - dragged.xPct));
+      const ddy = Math.max(lo - Math.min(...ys), Math.min(hi - Math.max(...ys), yPct - dragged.yPct));
       setTables((prev) =>
         prev.map((t) => (t.linkGroupId === groupId ? { ...t, xPct: t.xPct + ddx, yPct: t.yPct + ddy } : t)),
       );

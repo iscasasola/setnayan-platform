@@ -9,14 +9,10 @@ import {
   LogOut,
   Store,
   ShieldCheck,
-  User,
-  Plus,
-  LayoutGrid,
+  Home,
   ChevronDown,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
-import { formatEventDate } from '@/lib/events';
-import { EventMonogram } from '@/app/_components/event-monogram';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
@@ -46,6 +42,119 @@ type Props = {
  *   – Desktop: drawer slides in from left (translateX -100% → 0) + backdrop fades in
  *   Both: CSS transitions 0.3s ease
  */
+/**
+ * SwitcherPanelBody — the shared interior of both the mobile bottom-sheet and
+ * the desktop drawer. Kept in ONE place so the two triggers can never drift.
+ *
+ * Slimmed to a home-hub jump (owner 2026-07-10): the panel used to re-list every
+ * event, add-event, and Collection — all of which the home hub already shows.
+ * The switcher now just gets you back home (or to another console) and out.
+ *
+ *   1. Home — jumps to /dashboard (the home hub: events, add-event, Collection).
+ *   2. Console rail (conditional) — vendor / Setnayan-team only. Home already
+ *      covers the User console, so the rail only offers Shop / HQ.
+ *   3. Footer — Hosts (co-hosting) · Secure-your-plan (anonymous) · Sign out.
+ */
+function SwitcherPanelBody({
+  data,
+  close,
+  navigate,
+  hostsHref,
+}: {
+  data: SwitcherData;
+  close: () => void;
+  navigate: (href: string) => void;
+  hostsHref: string | null;
+}) {
+  const showShop = data.context.hasVendor;
+  const showHQ = data.context.isAdmin;
+  const showContextRail = showShop || showHQ;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      {/* ── Home — the switcher just jumps back to the home hub ── */}
+      <div className="px-4 pt-4 pb-2">
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700"
+        >
+          <Home aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+          Home
+        </button>
+      </div>
+
+      {/* ── Console rail — vendor / Setnayan-team only ── */}
+      {showContextRail ? (
+        <div className="border-t border-ink/10 px-4 pt-3 pb-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+            Switch to
+          </span>
+          <div className="mt-2 flex gap-1.5">
+            {showShop ? (
+              <button
+                type="button"
+                onClick={() => navigate('/vendor-dashboard')}
+                className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-terracotta/10"
+              >
+                <Store aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
+                <span>Shop</span>
+                {data.context.vendorName ? (
+                  <span className="max-w-full truncate text-[10px] font-normal text-ink/50">
+                    {data.context.vendorName}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
+
+            {showHQ ? (
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-purple-50"
+              >
+                <ShieldCheck aria-hidden className="h-5 w-5 text-purple-700" strokeWidth={1.75} />
+                <span>HQ</span>
+                <span className="text-[10px] font-normal text-ink/50">Setnayan</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Footer — Hosts · Secure-your-plan (anon) · Sign out (set apart) ── */}
+      <div className="border-t border-ink/10 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {hostsHref ? (
+            <button
+              type="button"
+              onClick={() => navigate(hostsHref)}
+              className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700"
+            >
+              <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
+            </button>
+          ) : null}
+          {data.isAnonymous ? (
+            <Link
+              href="/signup"
+              className="ml-auto inline-flex items-center gap-1 font-medium text-mulberry hover:text-mulberry-600"
+              onClick={close}
+            >
+              <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Secure your plan
+            </Link>
+          ) : (
+            <form action="/auth/sign-out" method="post" className="ml-auto">
+              <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
+                <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AccountSwitcher({ data, currentEventName }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -76,13 +185,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
   const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
   const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
 
-  // Context rail: which console tabs to show
-  const showShop = data.context.hasVendor;
-  const showHQ = data.context.isAdmin;
-  const showContextRail = showShop || showHQ;
-
   // ─── Inner panel content ────────────────────────────────────────────────
-
 
   function renderPanel() {
     return (
@@ -118,167 +221,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
         {/* Drag handle (mobile only) */}
         <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
 
-        {/* Scrollable interior */}
-        <div className="flex-1 overflow-y-auto">
-          {/* ── Events — the only content (couples). Prominent "Add event" leads the
-                 section so the core action is the first, biggest target (owner 2026-06-22:
-                 events on top, no user header, add-event more accessible). ── */}
-          <div className="px-4 pt-4 pb-2">
-            <Link
-              href="/dashboard/create-event"
-              onClick={close}
-              className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700"
-            >
-              <Plus aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-              Add event
-            </Link>
-
-            {data.events.length === 0 ? (
-              <p className="py-2 text-center text-xs text-ink/40">
-                No events yet —{' '}
-                <Link
-                  href="/dashboard/create-event"
-                  onClick={close}
-                  className="text-terracotta-700 underline underline-offset-2"
-                >
-                  create one
-                </Link>
-              </p>
-            ) : (
-              <ul className="space-y-0.5">
-                {data.events.map((ev) => (
-                  <li key={ev.event_id}>
-                    <Link
-                      href={`/dashboard/${ev.event_id}`}
-                      onClick={close}
-                      className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
-                    >
-                      {/* The couple's REAL mark (EventMonogram cascade), not a
-                          generic first-initial — matches the chrome chip + hero. */}
-                      <EventMonogram event={ev} size="md" />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1">
-                          {ev.is_primary ? (
-                            <span aria-label="Primary event" className="text-terracotta">★</span>
-                          ) : null}
-                          <span className="truncate font-medium">{ev.display_name}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 text-[11px] text-ink/50">
-                          <span className="capitalize">{ev.event_type}</span>
-                          {ev.event_date ? (
-                            <>
-                              <span aria-hidden>·</span>
-                              <span>{formatEventDate(ev.event_date)}</span>
-                            </>
-                          ) : null}
-                        </span>
-                      </span>
-                      {/* Role badge */}
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                          ev.role === 'couple'
-                            ? 'bg-warn-100 text-warn-700'
-                            : 'bg-ink/10 text-ink/55'
-                        }`}
-                      >
-                        {ev.role === 'couple' ? 'Organizing' : 'Attending'}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Library — the cross-event hub (Photos & Videos · Saved Vendors ·
-              Editorials). Surfaced here so it's reachable on MOBILE, where the
-              switcher IS the account nav (the sidebar is desktop-only). */}
-          <div className="border-t border-ink/10 px-4 py-2">
-            <Link
-              href="/dashboard/library"
-              onClick={close}
-              className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
-            >
-              <LayoutGrid aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-              Collection
-            </Link>
-          </div>
-
-          {/* ── Console rail (account-style) — vendor / Setnayan-team only ── */}
-          {showContextRail ? (
-            <div className="border-t border-ink/10 px-4 pt-3 pb-2">
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-                Switch to
-              </span>
-              <div className="mt-2 flex gap-1.5">
-                {/* User (always shown in context rail) */}
-                <button
-                  type="button"
-                  onClick={() => navigate('/dashboard')}
-                  className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 bg-terracotta/5 px-3 py-2.5 text-center text-xs font-medium text-ink hover:bg-terracotta/10"
-                >
-                  <User aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
-                  <span>User</span>
-                </button>
-
-                {showShop ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/vendor-dashboard')}
-                    className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-terracotta/10"
-                  >
-                    <Store aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
-                    <span>Shop</span>
-                    {data.context.vendorName ? (
-                      <span className="max-w-full truncate text-[10px] font-normal text-ink/50">
-                        {data.context.vendorName}
-                      </span>
-                    ) : null}
-                  </button>
-                ) : null}
-
-                {showHQ ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/admin')}
-                    className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-purple-50"
-                  >
-                    <ShieldCheck aria-hidden className="h-5 w-5 text-purple-700" strokeWidth={1.75} />
-                    <span>HQ</span>
-                    <span className="text-[10px] font-normal text-ink/50">Setnayan</span>
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Slim account footer — Sign out only. The switcher is for switching;
-              Profile & Settings now live in the Collection hub. Hosts shows only
-              when there's a co-host context. */}
-          <div className="border-t border-ink/10 px-4 py-2.5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              {hostsHref ? (
-                <button type="button" onClick={() => navigate(hostsHref)} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
-                  <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
-                </button>
-              ) : null}
-              {data.isAnonymous ? (
-                <Link
-                  href="/signup"
-                  className="ml-auto inline-flex items-center gap-1 font-medium text-mulberry hover:text-mulberry-600"
-                >
-                  <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Secure your plan
-                </Link>
-              ) : (
-                <form action="/auth/sign-out" method="post" className="ml-auto">
-                  <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                    <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
+        <SwitcherPanelBody data={data} close={close} navigate={navigate} hostsHref={hostsHref} />
       </div>
     );
   }
@@ -408,9 +351,6 @@ export function AccountSwitcherStandalone({ data }: Props) {
   const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
 
   const initial = data.email?.charAt(0).toUpperCase() ?? '?';
-  const showShop = data.context.hasVendor;
-  const showHQ = data.context.isAdmin;
-  const showContextRail = showShop || showHQ;
 
   return (
     <>
@@ -478,113 +418,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                 className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-80 flex-col overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
                 style={{ animation: 'sn-switcher-drawer-in 0.3s ease' }}
               >
-                <div className="flex-1 overflow-y-auto">
-
-                  {/* Events — the only content (couples). Prominent "Add event" leads. */}
-                  <div className="px-4 pt-5 pb-2">
-                    <Link href="/dashboard/create-event" onClick={close} className="mb-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700">
-                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                      Add event
-                    </Link>
-                    {data.events.length === 0 ? (
-                      <p className="py-2 text-center text-xs text-ink/40">
-                        No events yet —{' '}
-                        <Link href="/dashboard/create-event" onClick={close} className="text-terracotta-700 underline underline-offset-2">create one</Link>
-                      </p>
-                    ) : (
-                      <ul className="space-y-0.5">
-                        {data.events.map((ev) => (
-                          <li key={ev.event_id}>
-                            <Link href={`/dashboard/${ev.event_id}`} onClick={close} className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm text-ink/85 hover:bg-terracotta/10">
-                              {/* The couple's REAL mark (EventMonogram cascade),
-                                  not a generic first-initial. */}
-                              <EventMonogram event={ev} size="md" />
-                              <span className="min-w-0 flex-1">
-                                <span className="flex items-center gap-1">
-                                  {ev.is_primary ? <span aria-label="Primary" className="text-terracotta">★</span> : null}
-                                  <span className="truncate font-medium">{ev.display_name}</span>
-                                </span>
-                                <span className="flex items-center gap-1.5 text-[11px] text-ink/50">
-                                  <span className="capitalize">{ev.event_type}</span>
-                                  {ev.event_date ? (<><span aria-hidden>·</span><span>{formatEventDate(ev.event_date)}</span></>) : null}
-                                </span>
-                              </span>
-                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${ev.role === 'couple' ? 'bg-warn-100 text-warn-700' : 'bg-ink/10 text-ink/55'}`}>
-                                {ev.role === 'couple' ? 'Organizing' : 'Attending'}
-                              </span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  {/* Library — cross-event hub; reachable on mobile via the switcher. */}
-                  <div className="border-t border-ink/10 px-4 py-2">
-                    <Link
-                      href="/dashboard/library"
-                      onClick={close}
-                      className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-ink/85 hover:bg-terracotta/10"
-                    >
-                      <LayoutGrid aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-                      Collection
-                    </Link>
-                  </div>
-
-                  {/* Console rail (account-style) — vendor / Setnayan-team only */}
-                  {showContextRail ? (
-                    <div className="border-t border-ink/10 px-4 pt-3 pb-4">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Switch to</span>
-                      <div className="mt-2 flex gap-1.5">
-                        <button type="button" onClick={() => navigate('/dashboard')} className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 bg-terracotta/5 px-3 py-2.5 text-center text-xs font-medium text-ink hover:bg-terracotta/10">
-                          <User aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
-                          <span>User</span>
-                        </button>
-                        {showShop ? (
-                          <button type="button" onClick={() => navigate('/vendor-dashboard')} className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-terracotta/10">
-                            <Store aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
-                            <span>Shop</span>
-                            {data.context.vendorName ? (
-                              <span className="max-w-full truncate text-[10px] font-normal text-ink/50">{data.context.vendorName}</span>
-                            ) : null}
-                          </button>
-                        ) : null}
-                        {showHQ ? (
-                          <button type="button" onClick={() => navigate('/admin')} className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-purple-50">
-                            <ShieldCheck aria-hidden className="h-5 w-5 text-purple-700" strokeWidth={1.75} />
-                            <span>HQ</span>
-                            <span className="text-[10px] font-normal text-ink/50">Setnayan</span>
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Slim account footer — Sign out only (Profile & Settings live in the Collection hub). */}
-                  <div className="border-t border-ink/10 px-4 py-2.5">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                      {hostsHref ? (
-                        <button type="button" onClick={() => navigate(hostsHref)} className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700">
-                          <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
-                        </button>
-                      ) : null}
-                      {data.isAnonymous ? (
-                        <Link
-                          href="/signup"
-                          className="ml-auto inline-flex items-center gap-1 font-medium text-mulberry hover:text-mulberry-600"
-                        >
-                          <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Secure your plan
-                        </Link>
-                      ) : (
-                        <form action="/auth/sign-out" method="post" className="ml-auto">
-                          <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                            <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <SwitcherPanelBody data={data} close={close} navigate={navigate} hostsHref={hostsHref} />
               </div>
             </>,
             document.body,

@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Loader2, QrCode } from 'lucide-react';
+import { ArrowUpRight, Loader2, MapPin, QrCode } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
 import { useIsMobile } from '@/lib/use-responsive';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
@@ -40,6 +40,10 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
   // guest; tap the floor to walk, tap the DANCE FLOOR to dance. Lets a desktop
   // visitor try tap-to-dance without scanning the QR to their phone first.
   const [roaming, setRoaming] = useState(false);
+  // Bumped by the "Back to seat" button while roaming — the scene walks the
+  // guest home on each change (matching the phone guest-view + the in-scene
+  // ring/own-table taps).
+  const [returnSignal, setReturnSignal] = useState(0);
   // The homepage CTA has no device gate, so this overlay opens on phones too —
   // pass the scene's 'low' budget there (SYS-1 lg switch) or the cold-spark
   // tunnel (and shadow/env budget) renders its full desktop tier in a 360px
@@ -183,9 +187,31 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               {roaming ? '● Walking the room' : 'Walk around'}
             </button>
             {roaming ? (
-              <span style={{ fontSize: 12, color: '#6c675e' }}>
-                Tap the floor to walk · tap the dance floor to dance
-              </span>
+              <>
+                <span style={{ fontSize: 12, color: '#6c675e' }}>
+                  Tap the floor to walk · tap the dance floor to dance
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReturnSignal((n) => n + 1)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    border: '1px solid rgba(42,43,46,.2)',
+                    borderRadius: 'var(--m-r-full)',
+                    padding: '6px 14px',
+                    background: 'transparent',
+                    color: '#2a2925',
+                    cursor: 'pointer',
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                  }}
+                >
+                  <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Back to seat
+                </button>
+              </>
             ) : null}
           </div>
           <div
@@ -215,6 +241,7 @@ export function Plan3DDemoOverlay({ current, onClose }: { current: OverlayId; on
               // walks them and a dance-floor tap makes them dance. Guest-click
               // (find-my-seat QR) still works inside roam. Off → whole-room orbit.
               roam={roaming && scene.guests[0] ? { guestId: scene.guests[0].id } : null}
+              returnToSeatSignal={returnSignal}
               quality={isMobile ? 'low' : 'high'}
               // Golden-hour grade + string lights (Tier A — dep-free, no
               // postprocessing). Phone-safe: rides the same quality knob (halved

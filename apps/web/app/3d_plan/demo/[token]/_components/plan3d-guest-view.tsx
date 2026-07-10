@@ -42,6 +42,10 @@ const PILL_GHOST: React.CSSProperties = {
 
 export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: Plan3DGuest }) {
   const [phase, setPhase] = useState<Phase>('idle');
+  // Bumped by the "Back to my seat" button — the scene walks the roaming guest
+  // home on each change (the gold ring + tapping their own table do the same
+  // in-scene). A counter, not a boolean, so repeat taps re-fire.
+  const [returnSignal, setReturnSignal] = useState(0);
   const table = scene.tables.find((t) => t.id === guest.tableId);
 
   return (
@@ -74,6 +78,7 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
           walkTarget={phase === 'walking' || phase === 'arrived' ? { guestId: guest.id } : null}
           onWalkComplete={() => setPhase('arrived')}
           roam={phase === 'roam' ? { guestId: guest.id } : null}
+          returnToSeatSignal={returnSignal}
           interactive={false}
           // Phone surface — halve the shadow/env budget (Wave 2a quality knob).
           quality="low"
@@ -151,8 +156,21 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
               Tap the floor to walk · swipe to look around
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 12, color: '#a8a4a0' }}>
-              Tap the gold ring to take your seat{table?.label ? ` at ${table.label}` : ''} · tap a booth to meet the vendor.
+              Tap a booth to meet the vendor.
             </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => setReturnSignal((n) => n + 1)}
+                className="rounded-full"
+                style={PILL}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <MapPin aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  Back to my seat{table?.label ? ` · ${table.label}` : ''}
+                </span>
+              </button>
+            </div>
             <Link
               href="/"
               style={{

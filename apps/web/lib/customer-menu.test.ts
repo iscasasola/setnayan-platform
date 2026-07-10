@@ -5,13 +5,14 @@ import { buildCustomerMenuTree } from './customer-menu';
 
 const EVENT_ID = 'evt-test';
 
-// --- default (no gating): byte-identical 5-tab planning tree ---------------
-test('planning tree has the 5 canonical menus when hideKeys is empty/absent', () => {
+// --- default (no gating): the planning tree (Budget removed 2026-07-10 — it
+//     now lives inside the Explore/Merkado takeover) ------------------------
+test('planning tree has the canonical menus when hideKeys is empty/absent', () => {
   const keys = buildCustomerMenuTree(EVENT_ID).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'guests', 'explore', 'studio', 'budget']);
+  assert.deepEqual(keys, ['home', 'guests', 'explore', 'studio']);
   // Empty array is also a no-op.
   const keys2 = buildCustomerMenuTree(EVENT_ID, { hideKeys: [] }).map((m) => m.key);
-  assert.deepEqual(keys2, ['home', 'guests', 'explore', 'studio', 'budget']);
+  assert.deepEqual(keys2, ['home', 'guests', 'explore', 'studio']);
 });
 
 // --- Simple Event gating: drop Explore (vendors) + Budget ------------------
@@ -22,9 +23,9 @@ test('hideKeys drops the named top menus (Simple Event = no explore/budget)', ()
   assert.deepEqual(keys, ['home', 'guests', 'studio']);
 });
 
-test('hideKeys with just explore keeps budget', () => {
+test('hideKeys with just explore drops only explore', () => {
   const keys = buildCustomerMenuTree(EVENT_ID, { hideKeys: ['explore'] }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'guests', 'studio', 'budget']);
+  assert.deepEqual(keys, ['home', 'guests', 'studio']);
 });
 
 // --- phase takeovers are unaffected (they carry no explore/budget) ---------

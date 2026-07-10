@@ -36,13 +36,11 @@
  */
 
 import {
-  Home, Users, Compass, Sparkles, Palette, Wallet,
+  Home, Users, Compass, Sparkles, Palette,
   // Home children:
   LayoutDashboard, ClipboardList, Route,
   // Studio children:
   Gem, Globe, Camera, Eye,
-  // Budget children:
-  Gauge, PieChart, Receipt,
   // Day-of phase icons:
   QrCode, LayoutGrid, Rocket, CalendarClock,
   // After phase icons:
@@ -315,25 +313,11 @@ export function buildCustomerMenuTree(
           : []),
       ],
     },
-    {
-      key: 'budget',
-      label: 'Budget',
-      icon: Wallet,
-      href: `${base}/budget`,
-      activeMatch: [`${base}/budget`, `${base}/disputes`],
-      // Single scrolling page — children are on-page sections the dock scrolls to
-      // (scroll-spy lights the one in view). Exact /budget only (the takeover-style
-      // exact match): /disputes is its own post-event surface, not a budget section,
-      // so it's intentionally NOT a child here.
-      sectionMatch: `${base}/budget`,
-      sectionMatchExact: true,
-      subnavLabel: 'Budget',
-      children: [
-        { key: 'overview', label: 'Overview', icon: Gauge, kind: 'anchor' as const, hash: 'budget-overview', slotKey: 'customer.budget-anchors.overview' },
-        { key: 'allocate', label: 'Allocate', icon: PieChart, kind: 'anchor' as const, hash: 'budget-allocate', slotKey: 'customer.budget-anchors.allocate' },
-        { key: 'payments', label: 'Payments', icon: Receipt, kind: 'anchor' as const, hash: 'budget-payments', slotKey: 'customer.budget-anchors.payments' },
-      ],
-    },
+    // Budget top-menu REMOVED 2026-07-10 (owner): the budget now lives inside the
+    // Merkado (Explore → Vendors takeover, Build · Budget · Compare), so a
+    // standalone menu item was redundant. The full budget surface
+    // (`${base}/budget`) stays reachable from the Merkado's Budget tab
+    // ("Open budget & payments") + direct links — only the nav entry is gone.
   ];
 
   return ctx.hideKeys?.length

@@ -363,18 +363,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 3,
   },
   {
-    key: "customer.bottom-nav.budget",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 5,
-  },
-  {
     key: "customer.sidebar.studio",
     scope: "customer",
     area: "customer-sidebar",
@@ -484,18 +472,11 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 5,
   },
-  {
-    key: "customer.sidebar.budget",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 6,
-  },
+  // Budget nav item REMOVED 2026-07-10 (owner): budget now lives inside the
+  // Merkado (Vendors → Build · Budget · Compare), so the standalone item was
+  // redundant. The full budget surface (/dashboard/[eventId]/budget) stays
+  // reachable from the Merkado's Budget tab ("Open budget & payments") + direct
+  // links; only the top-level nav entry is gone.
   // Day-of phase bottom-nav tabs (lifecycle phase 'dayof' in
   // lib/customer-menu.ts buildCustomerMenuTree). Same `customer.bottom-nav.*`
   // area + lookup the customer-bottom-nav chokepoint uses for the plan tabs, so
@@ -1114,6 +1095,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 1,
   },
   {
+    key: "customer.budget-subnav.budget",
+    scope: "customer",
+    area: "budget-build-subnav",
+    route: "/dashboard/[eventId]/vendors?tab=budget",
+    label: "Budget",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Wallet",
+    customRef: null,
+    sortOrder: 2,
+  },
+  {
     key: "customer.budget-subnav.compare",
     scope: "customer",
     area: "budget-build-subnav",
@@ -1123,7 +1116,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Scale",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 3,
   },
   // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
   // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now

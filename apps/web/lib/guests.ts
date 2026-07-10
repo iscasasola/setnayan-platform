@@ -406,6 +406,39 @@ export async function fetchGuestsByEvent(
   return ((data ?? []) as unknown as GuestRow[]).map(coupleAttending);
 }
 
+/**
+ * Lean guest head-count for the event — powers the sidebar Guests badge. Uses a
+ * HEAD count (no rows transferred) and excludes soft-deleted guests, mirroring
+ * `fetchGuestsByEvent`'s `deleted_at IS NULL` filter. Fully fail-soft: any error
+ * (RLS denial, schema drift, network) returns `null` so the chrome simply omits
+ * the badge rather than crashing the layout — same graceful-degrade contract as
+ * every other layout chrome fetcher.
+ */
+export async function countGuestsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<number | null> {
+  try {
+    const { count, error } = await supabase
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('deleted_at', null);
+    if (error) {
+      logQueryError(
+        'countGuestsByEvent',
+        error,
+        { event_id: eventId, missing_relation_match: isMissingRelationError(error) },
+        'graceful_degrade',
+      );
+      return null;
+    }
+    return count ?? 0;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchGuestById(
   supabase: SupabaseClient,
   eventId: string,

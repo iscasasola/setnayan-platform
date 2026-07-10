@@ -173,14 +173,18 @@ export function buildCustomerMenuTree(
   const planningMenus: CustomerMenu[] = [
     {
       key: 'home',
-      label: 'Home',
+      // Renamed Home → Overview (owner-approved product naming; matches the
+      // design prototype + the desktop sidebar). Key + route + exact-match
+      // unchanged — the bottom-nav registry slot `customer.bottom-nav.home`
+      // carries the same rename.
+      label: 'Overview',
       icon: Home,
       href: base,
       activeMatch: [base, `${base}/checklist`],
       activeMatchExact: true,
       sectionMatch: [base, `${base}/checklist`],
       sectionMatchExact: true,
-      subnavLabel: 'Home',
+      subnavLabel: 'Overview',
       children: [
         {
           key: 'overview',
@@ -224,7 +228,11 @@ export function buildCustomerMenuTree(
     },
     {
       key: 'explore',
-      label: 'Explore',
+      // Renamed Explore → Merkado (owner-approved product naming; matches the
+      // design prototype + the desktop sidebar). Key + route (/vendors) + match
+      // unchanged — the bottom-nav registry slot `customer.bottom-nav.explore`
+      // carries the same rename.
+      label: 'Merkado',
       icon: Compass,
       href: `${base}/vendors`,
       activeMatch: `${base}/vendors`,

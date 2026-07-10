@@ -147,6 +147,8 @@ export function CustomerSidebar({
   websiteEnabled,
   monogramEnabled,
   slug,
+  guestCount,
+  unreadMessages,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -169,6 +171,12 @@ export function CustomerSidebar({
   /** The event's public slug — points the top-level "Launch" entry at the
    *  couple's live personal website (`/[slug]`). Resolved in layout.tsx. */
   slug?: string | null;
+  /** Live guest head-count → the Guests item badge. Resolved in layout.tsx;
+   *  0/absent → no badge (never fabricated). */
+  guestCount?: number | null;
+  /** Unread thread count → the Overview › Messages child badge. Already loaded
+   *  by the layout for the topbar bell; 0/absent → no badge. */
+  unreadMessages?: number;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -176,7 +184,15 @@ export function CustomerSidebar({
     setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
   }, [eventDate]);
   const groups = applyRegistry(
-    buildCustomerNavGroups(eventId, { dayOfOpen, hideKeys, websiteEnabled, monogramEnabled, slug }),
+    buildCustomerNavGroups(eventId, {
+      dayOfOpen,
+      hideKeys,
+      websiteEnabled,
+      monogramEnabled,
+      slug,
+      guestCount,
+      unreadMessages,
+    }),
     navSlots,
   );
 

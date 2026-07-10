@@ -1,22 +1,28 @@
 /**
- * Customer NavGroup[] builder — UNIFIED 5-TAB NAV (sidebar mirrors mobile).
+ * Customer NavGroup[] builder — TWO LABELLED SECTIONS (design:
+ * setnayan-overview-energy.html · 2026-07-10).
  *
- * Owner 2026-06-17: the desktop sidebar now mirrors the mobile 5-tab bar
- * (Home · Guests · Explore · Studio · Budget). ONE header-less group, five
- * top-level items, each auto-expanding on the desktop sidebar to reveal their
- * sub-pages. This makes the desktop and mobile primary nav structurally
- * identical at the top level while the sidebar reveals deeper sub-pages.
+ * The desktop sidebar is organised into two labelled sections matching the
+ * couple energy prototype:
+ *   PLAN    → Overview · Guests · Merkado · Studio · Budget
+ *   GO LIVE → Launch (the couple's live personal website)
+ * Each top-level item auto-expands on the desktop sidebar to reveal its
+ * sub-pages. The mobile bottom nav (lib/customer-menu.ts) carries the same
+ * top-level destinations + labels (Overview · Guests · Merkado · Studio).
  *
- * Five tabs (same as the mobile bottom nav — sourced from lib/customer-menu.ts):
- *   1. Home    → /dashboard/[id]         (checklist · schedule · messages · contracts)
- *   2. Guests  → /dashboard/[id]/guests  (five journey stages + event-qr)
- *   3. Explore → /dashboard/[id]/vendors (marketplace — leaf, no sub-pages)
- *   4. Studio  → /dashboard/[id]/add-ons (website · mood-board · monogram · live wall)
- *   5. Budget  → /dashboard/[id]/budget  (activity · disputes)
+ * PLAN items (same destinations as before — only regrouped + relabelled):
+ *   1. Overview → /dashboard/[id]         (checklist · schedule · messages · contracts · refer)
+ *      — renamed from "Home"; route + exact-match sentinel unchanged.
+ *   2. Guests   → /dashboard/[id]/guests  (five journey stages + event-qr) · guest-count badge
+ *   3. Merkado  → /dashboard/[id]/vendors (marketplace + Build tabs)
+ *      — renamed from "Explore"; key + route unchanged.
+ *   4. Studio   → /dashboard/[id]/studio  (website · mood-board · monogram · live wall)
+ *   5. Budget   → /dashboard/[id]/budget  (activity · disputes)
+ * GO LIVE items:
+ *   6. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
  *
- * The `group.label === ''` convention signals to SidebarSection that no
- * heading button should be rendered — just the items list. The group key
- * 'root' is stable so no localStorage section-state is lost.
+ * A non-empty `group.label` makes SidebarSection render a collapsible heading.
+ * The 'plan'/'golive' group keys are stable (localStorage section-state).
  *
  * GUEST JOURNEY — the Guests item carries `children` = the five guest-journey
  * stages from lib/guest-journey (Build · Invite · Confirm · Seat · Day-of),
@@ -80,6 +86,13 @@ export function buildCustomerNavGroups(
      *  points AT the couple's live personal website (`/[slug]`); when absent
      *  (no slug yet) it falls back to the go-live/setup surface. */
     slug?: string | null;
+    /** Live guest count → the Guests item's badge (neutral tone). Resolved
+     *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
+    guestCount?: number | null;
+    /** Unread thread count → the Home › Messages child badge (orange/attention
+     *  tone). Already loaded by the layout for the topbar bell; 0/absent → no
+     *  badge. */
+    unreadMessages?: number;
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
@@ -97,17 +110,34 @@ export function buildCustomerNavGroups(
     muted: stage.muted,
   }));
 
-  const groups: NavGroup[] = [
-    {
-      key: 'root',
-      label: '', // header-less — SidebarSection skips the heading button
-      defaultOpen: true,
-      items: [
+  // Launch = the couple's live personal website. It lives in its OWN "Go live"
+  // section (design: setnayan-overview-energy.html), not among the Plan items.
+  // OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly (owner
+  // 2026-07-02 "launch on customer event is their personal website"). A
+  // signed-in host always sees their own page even while it's private
+  // (app/[slug]/page.tsx host-gate), so this is safe pre-publish; before a slug
+  // exists we fall back to the go-live/setup surface (`/website/launch`) so they
+  // can publish. Gated on the 'website' surface (websiteEnabled).
+  const launchItem: NavItem | null = opts?.websiteEnabled
+    ? {
+        key: 'launch',
+        label: 'Launch',
+        href: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
+        icon: Rocket,
+        matchPrefix: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
+      }
+    : null;
+
+  // PLAN section items — Overview · Guests · Merkado · Studio · Budget. (Was the
+  // single header-less 'root' group; split into labelled sections below.)
+  const planItems: NavItem[] = [
         {
           // 1 · Home — event dashboard. Sentinel matchPrefix so the strict-
           // prefix branch never fires (every other route shares ${base}/).
           key: 'home',
-          label: 'Home',
+          // Renamed Home → Overview (owner-approved product naming; matches the
+          // design prototype). Route + exact-match sentinel unchanged.
+          label: 'Overview',
           href: base,
           icon: SetnayanMark as unknown as LucideIcon,
           matchPrefix: '__home__',
@@ -132,6 +162,11 @@ export function buildCustomerNavGroups(
               href: `${base}/messages`,
               icon: MessageSquare,
               matchPrefix: `${base}/messages`,
+              // Unread-thread badge — real count already loaded by the layout
+              // (topbar bell). 0/absent → no badge (never fabricated).
+              ...(opts?.unreadMessages && opts.unreadMessages > 0
+                ? { badge: { count: opts.unreadMessages, tone: 'orange' as const } }
+                : {}),
             },
             {
               key: 'contracts',
@@ -160,6 +195,11 @@ export function buildCustomerNavGroups(
           href: `${base}/guests`,
           icon: Users,
           matchPrefix: `${base}/guests`,
+          // Guest-count badge — real head-count resolved in layout.tsx. 0/absent
+          // → no badge (never fabricated).
+          ...(opts?.guestCount && opts.guestCount > 0
+            ? { badge: { count: opts.guestCount, tone: 'neutral' as const } }
+            : {}),
           children: [
             ...guestJourneyChildren,
             {
@@ -177,7 +217,9 @@ export function buildCustomerNavGroups(
           // the BB_TAB_EVENT bus (no server round-trip) via SidebarItem's tab
           // child handler, mirroring what the mobile <SubNav> pill does.
           key: 'explore',
-          label: 'Explore',
+          // Renamed Explore → Merkado (owner-approved product naming; matches
+          // the design prototype). Key + route (/vendors) + match unchanged.
+          label: 'Merkado',
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,
@@ -251,29 +293,8 @@ export function buildCustomerNavGroups(
             },
           ],
         },
-        // "Launch" (owner 2026-06-28; repointed 2026-07-02) — a TOP-LEVEL,
-        // always-visible sidebar entry that OPENS THE COUPLE'S LIVE PERSONAL
-        // WEBSITE (`/[slug]`) directly (owner: "launch on customer event is
-        // their personal website"). A signed-in host always sees their own page
-        // even while it's still private (app/[slug]/page.tsx host-gate), so this
-        // is safe pre-publish. Before a slug exists we fall back to the
-        // go-live/setup surface (`/website/launch`) so they can publish. NOT a
-        // Studio child: the sidebar collapses a parent's children unless the
-        // active route is inside that section, so as a Studio child it was
-        // invisible from Home/Guests/etc. Gated on the 'website' surface
-        // (websiteEnabled). Not added to the locked 5-tab mobile bottom nav;
-        // mobile reaches it via the Studio section sub-nav.
-        ...(opts?.websiteEnabled
-          ? [
-              {
-                key: 'launch',
-                label: 'Launch',
-                href: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
-                icon: Rocket,
-                matchPrefix: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
-              } as NavItem,
-            ]
-          : []),
+        // (Launch moved OUT of the Plan items into its own "Go live" section —
+        // see `launchItem` above + the two-group composition below.)
         {
           // 5 · Budget — financial planning. Activity + Disputes are secondary
           // financial views surfaced only on the desktop sidebar.
@@ -299,8 +320,19 @@ export function buildCustomerNavGroups(
             },
           ],
         },
-      ],
-    },
+  ];
+
+  // Two labelled sidebar sections (design: setnayan-overview-energy.html):
+  //   PLAN    → Overview · Guests · Merkado · Studio · Budget
+  //   GO LIVE → Launch (the couple's live personal website)
+  // Replaces the single header-less 'root' group. The Go-live section only
+  // exists when Launch does (websiteEnabled) — an empty section would render a
+  // heading with no rows.
+  const groups: NavGroup[] = [
+    { key: 'plan', label: 'Plan', defaultOpen: true, items: planItems },
+    ...(launchItem
+      ? [{ key: 'golive', label: 'Go live', defaultOpen: true, items: [launchItem] } as NavGroup]
+      : []),
   ];
 
   // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore' +

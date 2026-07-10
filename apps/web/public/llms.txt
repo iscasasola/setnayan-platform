@@ -59,7 +59,7 @@ Couples can purchase the following in-app services individually. Pricing in PHP.
 - **Editorial PRO** — ₱2,999. Author your editorial front page: name the moments, tell each story, and arrange the layout.
 - **Custom Subdomain** — ₱999 / year. Your own web address (yourname.setnayan.com) for the wedding website. Couples only. Renewed yearly. (Rolling out.)
 - **Stories** — ₱2,000 per day (cap). 30-second story maker for guests.
-- **Cinematic Reveal** — ₱999. Premium save-the-date cinematic opening animations.
+- **Cinematic Reveal** — ₱999. Premium save-the-date cinematic opening animations, and it unlocks the couple's own background music, video, and photo gallery on the Save-the-Date film (the free Save-the-Date is the text-only content film).
 - **Patiktok** — ₱1,499. TikTok-style mimic-station booth; unlimited 9:16 vertical recordings of guests, compiled into post-ready reels.
 - **Camera Bridge** — ₱499 per day (flat, event-wide). Connects external DSLR cameras to Papic and Live Studio.
 - **Pabati** — ₱1,299 per day. Guest-recorded 5-second greeting videos.

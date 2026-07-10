@@ -247,7 +247,12 @@ export async function EventDashboard({
           .from('orders')
           .select('order_id, service_key, requested_total_php, reference_code, status')
           .eq('event_id', eventId)
-          .eq('status', 'pending_payment');
+          // `awaiting_payment` is the couple-facing "needs to be paid" state in
+          // the order_status enum. The old 'pending_payment' is NOT an enum
+          // member (it lives on vendor token/subscription tables), so this query
+          // threw 22P02 and graceful-degraded to [] — the "Settle a payment"
+          // decision group + pendingPaymentCount were silently always 0.
+          .eq('status', 'awaiting_payment');
       } catch (caught) {
         logQueryError(
           'EventDashboard (pending orders SELECT threw)',

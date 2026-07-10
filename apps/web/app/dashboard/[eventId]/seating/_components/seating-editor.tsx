@@ -90,6 +90,10 @@ import {
   type TableType,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
+// Feature C (2D booth footprint + facing): reuse the 3D booth dims + facing
+// derivation so the 2D editor and the 3D venue walk agree (no magic numbers,
+// one source for "which wall a booth backs onto").
+import { BOOTH_FOOTPRINT_M, boothFacingDeg2D } from '@/lib/seating-3d';
 import {
   addSeatingConstraint,
   assignGroup,
@@ -136,6 +140,18 @@ function isSeatingLockLost(err: unknown): boolean {
   if (e.code === 'seating_lock_not_held') return true;
   return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
 }
+
+// Feature B — room-size presets. One-tap common reception footprints (metres,
+// width × length). "Standard 20×30" is the historical default (venue useState).
+// The typed Width/Length inputs stay as the precision path (min 1 / max 500 m).
+const ROOM_PRESETS: ReadonlyArray<{ label: string; width: number; length: number }> = [
+  { label: 'Intimate', width: 14, length: 10 },
+  { label: 'Standard', width: 20, length: 30 },
+  { label: 'Grand', width: 30, length: 20 },
+  { label: 'Garden', width: 60, length: 40 },
+  { label: 'Estate', width: 120, length: 90 },
+  { label: 'Field', width: 200, length: 200 },
+];
 
 export type SeatingGuest = {
   guest_id: string;
@@ -377,6 +393,26 @@ export function SeatingEditor({
     service_entrance_x: serviceDoor.x,
     service_entrance_y: serviceDoor.y,
   });
+  // Feature A — stage / dance-floor WALL-SNAP. Booths already hug the perimeter
+  // (clampBoothToPerimeter); the stage + dance rects moved freely. When a rect's
+  // nearest edge comes within WALL_SNAP_TOL of a room wall (0 / 100 %), snap that
+  // EDGE flush to the wall — axis-independent, using the rect's own width/height.
+  // Percent units + a small tolerance mirror the booth perimeter clamp's
+  // wall-hug convention (lib/seating), so it reads consistently. These rects
+  // have no facing, so there is no rotation — only an x/y translate. Away from a
+  // wall the rect keeps following the cursor untouched.
+  const WALL_SNAP_TOL = 4; // percent of the canvas (≈ the booth WALL_INSET feel)
+  const snapRectToWalls = (cx: number, cy: number, w: number, h: number) => {
+    let x = cx;
+    let y = cy;
+    const halfW = w / 2;
+    const halfH = h / 2;
+    if (Math.abs(cx - halfW) <= WALL_SNAP_TOL) x = halfW; // left edge → wall 0
+    else if (Math.abs(100 - (cx + halfW)) <= WALL_SNAP_TOL) x = 100 - halfW; // right edge → wall 100
+    if (Math.abs(cy - halfH) <= WALL_SNAP_TOL) y = halfH; // top edge → wall 0
+    else if (Math.abs(100 - (cy + halfH)) <= WALL_SNAP_TOL) y = 100 - halfH; // bottom edge → wall 100
+    return { x, y };
+  };
   // Drag-resize of the stage / dance-floor (SE grip, NW corner anchored) and
   // of the venue walls. Self-contained pointer handlers on the grips; the
   // pxPerMeter is FROZEN at wall-grab so the canvas resizing mid-drag can't
@@ -424,8 +460,39 @@ export function SeatingEditor({
 
   const venueScaled = venue.enabled && venue.width > 0 && venue.length > 0;
   // Pixels-per-metre at zoom 1 (the world layer width === canvas width). Tables
-  // multiply this by their real footprint to render at true scale.
+  // multiply this by their real footprint to render at true scale. The canvas
+  // preserves the room aspect ratio, so px-per-metre is isotropic (x === y).
   const pxPerMeter = venueScaled && canvasW > 0 ? canvasW / venue.width : null;
+
+  // Feature B — metre-aware dot grid. The free board keeps its fixed 22px dots;
+  // a sized room coarsens the dot spacing to a "nice" number of metres kept
+  // ≥ ~16px, so a 200 m field doesn't smear into a dense speckle. Isotropic, so
+  // one spacing drives both axes (square dots).
+  const gridPx = (() => {
+    if (!pxPerMeter) return 22;
+    for (const m of [0.5, 1, 2, 5, 10, 20, 50, 100]) {
+      if (m * pxPerMeter >= 16) return m * pxPerMeter;
+    }
+    return 100 * pxPerMeter;
+  })();
+
+  // Feature B — adaptive scale bar. Pick a "nice" metre length so the bar reads
+  // ~95px (in the ~80–110px band) at the current px-per-metre, keeping big rooms
+  // legible. null on the free board (no metre scale to show).
+  const scaleBar = (() => {
+    if (!pxPerMeter) return null;
+    const NICE = [1, 2, 5, 10, 20, 50, 100];
+    let metres = NICE[0]!;
+    let bestErr = Infinity;
+    for (const m of NICE) {
+      const err = Math.abs(m * pxPerMeter - 95);
+      if (err < bestErr) {
+        bestErr = err;
+        metres = m;
+      }
+    }
+    return { metres, px: metres * pxPerMeter };
+  })();
 
   // Positions are owned by the auto-place layout-effect below (it resolves a
   // non-overlapping home for every table before paint). Until it runs, the
@@ -1995,9 +2062,12 @@ export function SeatingEditor({
         // non-overlapping home, so nothing lands stacked on load.
         setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
       } else if (d.kind === 'stage') {
-        setStage((s) => ({ ...s, x, y }));
+        // Wall-snap only in a sized (walled) room; a free board has no walls.
+        const p = venueScaled ? snapRectToWalls(x, y, stage.w, stage.h) : { x, y };
+        setStage((s) => ({ ...s, x: p.x, y: p.y }));
       } else if (d.kind === 'dance') {
-        setDance((dz) => ({ ...dz, x, y }));
+        const p = venueScaled ? snapRectToWalls(x, y, dance.w, dance.h) : { x, y };
+        setDance((dz) => ({ ...dz, x: p.x, y: p.y }));
       } else if (d.kind === 'cocktail') {
         // Dragging the room is the natural "separate" gesture — auto-unlink so
         // the couple can place it freely (re-link via the room's link toggle).
@@ -3404,6 +3474,38 @@ export function SeatingEditor({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
+            {/* Feature B — room-size presets: one tap sets a common footprint and
+                switches to-scale mode on (the typed inputs stay for fine-tuning). */}
+            <div className="flex flex-col gap-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Presets</span>
+              <div className="flex flex-wrap gap-1.5">
+                {ROOM_PRESETS.map((p) => {
+                  const active = venueScaled && venue.width === p.width && venue.length === p.length;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setVenue({ enabled: true, width: p.width, length: p.length });
+                        setFloorDirty(true);
+                      }}
+                      title={`${p.width} × ${p.length} m`}
+                      aria-pressed={active}
+                      className={`rounded-lg border px-2 py-1 text-xs font-medium ${
+                        active
+                          ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                          : 'border-ink/15 bg-cream text-ink/70 hover:border-terracotta hover:text-terracotta'
+                      }`}
+                    >
+                      {p.label}{' '}
+                      <span className="tabular-nums text-ink/40">
+                        {p.width}×{p.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {/* Stage + dance-floor dimensions in metres. Sizes store as percent
                 of the canvas, so they only map to metres once a room size is
                 set; otherwise size the stage/dance with their drag grips. */}
@@ -3581,7 +3683,7 @@ export function SeatingEditor({
           }`}
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
-            backgroundSize: '22px 22px',
+            backgroundSize: `${gridPx}px ${gridPx}px`,
             // To scale: take the room's aspect ratio, but cap the height (a 64vh
             // budget drives the width) so a portrait room doesn't balloon into a
             // giant canvas. Centered; never wider than the column.
@@ -3895,25 +3997,70 @@ export function SeatingEditor({
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}
               >
-                <button
-                  type="button"
-                  onPointerDown={onBoothPointerDown(b.booth_id)}
-                  aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — ${
-                    venueScaled ? 'drag along the walls' : 'drag to move'
-                  }`}
-                  className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
-                    unassigned
-                      ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
-                      : 'bg-cream/85 text-ink/70'
-                  } ${
-                    dragId === `__booth_${b.booth_id}__`
-                      ? 'border-terracotta cursor-grabbing'
-                      : `${unassigned ? '' : 'border-ink/25'} cursor-grab`
-                  }`}
-                >
-                  <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
-                  {unassigned ? 'Pick type' : b.label}
-                </button>
+                {venueScaled && pxPerMeter ? (
+                  // Feature C — true metre footprint + inward facing arrow + upright
+                  // label. The body draws BOOTH_FOOTPRINT_M (reused from the 3D lib)
+                  // at px-per-metre and rotates to face the room centre (same
+                  // derivation as the 3D boothFacingY). The arrow is a child of the
+                  // rotated body → points INWARD for free; the label counter-rotates
+                  // so text stays upright. Footprint is small, so the label chip may
+                  // overflow it — kept legible, centred on the booth.
+                  (() => {
+                    const deg = boothFacingDeg2D(
+                      { xPct: b.x_pos, yPct: b.y_pos },
+                      { w: venue.width, d: venue.length },
+                    );
+                    const fpW = BOOTH_FOOTPRINT_M.w * pxPerMeter; // lateral (along the wall)
+                    const fpH = BOOTH_FOOTPRINT_M.d * pxPerMeter; // depth (into the room)
+                    return (
+                      <button
+                        type="button"
+                        onPointerDown={onBoothPointerDown(b.booth_id)}
+                        aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag along the walls`}
+                        style={{ width: `${fpW}px`, height: `${fpH}px`, transform: `rotate(${deg}deg)` }}
+                        className={`relative block select-none rounded-[3px] border shadow-sm backdrop-blur-sm ${
+                          unassigned
+                            ? 'border-dashed border-terracotta/60 bg-terracotta/[0.10]'
+                            : 'border-ink/30 bg-terracotta/[0.06]'
+                        } ${
+                          dragId === `__booth_${b.booth_id}__`
+                            ? 'border-terracotta cursor-grabbing'
+                            : 'cursor-grab'
+                        }`}
+                      >
+                        <ChevronUp
+                          aria-hidden
+                          className="pointer-events-none absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 -translate-y-full text-terracotta-700"
+                        />
+                        <span
+                          style={{ transform: `translate(-50%, -50%) rotate(${-deg}deg)` }}
+                          className="pointer-events-none absolute left-1/2 top-1/2 flex items-center gap-1 whitespace-nowrap rounded bg-cream/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/70 shadow-sm"
+                        >
+                          <BoothIcon type={b.booth_type} className="h-3 w-3 text-terracotta-700" />
+                          {unassigned ? 'Pick type' : b.label}
+                        </span>
+                      </button>
+                    );
+                  })()
+                ) : (
+                  <button
+                    type="button"
+                    onPointerDown={onBoothPointerDown(b.booth_id)}
+                    aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag to move`}
+                    className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
+                      unassigned
+                        ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
+                        : 'bg-cream/85 text-ink/70'
+                    } ${
+                      dragId === `__booth_${b.booth_id}__`
+                        ? 'border-terracotta cursor-grabbing'
+                        : `${unassigned ? '' : 'border-ink/25'} cursor-grab`
+                    }`}
+                  >
+                    <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
+                    {unassigned ? 'Pick type' : b.label}
+                  </button>
+                )}
                 <button
                   type="button"
                   onPointerDown={(e) => e.stopPropagation()}
@@ -4355,6 +4502,21 @@ export function SeatingEditor({
           })}
           </div>
           {/* end world layer */}
+
+          {/* Feature B — adaptive scale bar. Fixed to the canvas (not the
+              pan/zoom world layer) at the room's default overview px-per-metre,
+              so big rooms stay legible. */}
+          {scaleBar ? (
+            <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col items-start gap-0.5">
+              <span className="rounded bg-cream/80 px-1 text-[9px] font-medium tabular-nums text-ink/60">
+                {scaleBar.metres} m
+              </span>
+              <div
+                className="h-1.5 border-x-2 border-b-2 border-ink/45"
+                style={{ width: `${scaleBar.px}px` }}
+              />
+            </div>
+          ) : null}
 
           {/* zoom controls */}
           <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm">

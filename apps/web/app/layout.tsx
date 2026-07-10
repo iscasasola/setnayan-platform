@@ -296,6 +296,18 @@ const baseMetadata: Metadata = {
       'max-snippet': -1,
     },
   },
+  // Search-engine ownership via meta tag (owner action: paste the tokens into
+  // the Vercel env vars, no redeploy-of-code needed). Google Search Console →
+  // NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION; Bing Webmaster → NEXT_PUBLIC_BING_
+  // SITE_VERIFICATION. When unset, Next emits nothing (no empty meta tag), so
+  // this is inert until the owner supplies the strings. Unblocks GSC (Google
+  // AI Overviews source) + Bing (Copilot source) property verification.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : {},
+  },
 };
 
 /**

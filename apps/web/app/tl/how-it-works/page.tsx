@@ -37,6 +37,19 @@ export const metadata = {
     canonical: `${SITE_URL}/tl/how-it-works`,
     languages: LANGUAGES,
   },
+  // OpenGraph — the EN twin (/how-it-works) ships this; the TL page was the one
+  // marketing route missing it, so chat/social unfurlers fell back to the
+  // generic site card. Added 2026-07-10 with tl_PH locale.
+  openGraph: {
+    type: 'website',
+    url: `${SITE_URL}/tl/how-it-works`,
+    title: 'Paano gumagana ang Setnayan — couples, vendors, guests, admins',
+    description:
+      'Ang buong mapa kung sino-sino sa Setnayan at saan gumugugol ng oras ang bawat isa. Isang talata bawat role, plus kung paano nagkokonekta ang flow.',
+    siteName: 'Setnayan',
+    locale: 'tl_PH',
+    images: [{ url: `${SITE_URL}/brand/og-card.webp`, width: 1200, height: 630 }],
+  },
 };
 
 const HOW_IT_WORKS_JSONLD = {

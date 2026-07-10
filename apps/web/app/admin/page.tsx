@@ -393,6 +393,70 @@ export default async function AdminOverview() {
         </div>
       </section>
 
+      {/* MORE QUEUES · the act-now queues whose open count is COMPUTED per item
+       *  (cross-table joins / severity from a jsonb array / a JS "stuck" cut)
+       *  rather than a single-table head-count — so they deliberately carry NO
+       *  badge in the shared digest (see lib/admin/queue-counts.ts). Without a
+       *  landing entry they were undiscoverable once the Overview sidebar
+       *  section defaults collapsed; these count-less tiles restore the
+       *  "reachable via the page tiles" contract. No fabricated numbers —
+       *  each is a plain destination. Several are time-sensitive (fraud /
+       *  corrections / repost watch). */}
+      <section aria-label="More queues" className="mb-8">
+        <h2 className="mb-1 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          More queues
+        </h2>
+        <p className="mb-4 text-sm text-ink/65">
+          These carry no live count — their open work is worked out per item, so
+          open each to see what&rsquo;s waiting. Fraud, corrections, and repost
+          watch are time-sensitive.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Tile
+            href="/admin/fraud"
+            icon="shield-check"
+            title="Fraud queue"
+            body="Vendor fraud signals + enforcement to review."
+          />
+          <Tile
+            href="/admin/corrections"
+            icon="briefcase"
+            title="Profile corrections"
+            body="Verified vendors requesting a locked-field fix."
+          />
+          <Tile
+            href="/admin/repost-watch"
+            icon="shield-check"
+            title="Repost watch"
+            body="Possible reposted / ghost listings + QR-media flags."
+          />
+          <Tile
+            href="/admin/completions"
+            icon="calendar"
+            title="Completions"
+            body="Stuck event-vendor completions to force-resolve."
+          />
+          <Tile
+            href="/admin/pax-changes"
+            icon="users"
+            title="Pax changes"
+            body="Guest-count-driven vendor cost changes to review."
+          />
+          <Tile
+            href="/admin/pakanta"
+            icon="camera"
+            title="Pakanta queue"
+            body="Custom-song writing + delivery to move along."
+          />
+          <Tile
+            href="/admin/editorial-review"
+            icon="message-square"
+            title="Editorial review"
+            body="Flagged editorial content awaiting a decision."
+          />
+        </div>
+      </section>
+
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiStatCard label="All users" value={users} />
         <KpiStatCard label="Couples" value={couples} />

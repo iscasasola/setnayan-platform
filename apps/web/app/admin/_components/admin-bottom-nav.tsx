@@ -98,6 +98,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/repost-watch',
       '/admin/corrections',
       '/admin/integrity-watch',
+      '/admin/fraud',
       '/admin/approvals',
       '/admin/pakanta',
       '/admin/editorial-review',
@@ -111,6 +112,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Users,
     activeMatch: [
       '/admin/directory',
+      '/admin/accounts',
       '/admin/users',
       '/admin/vendors',
       '/admin/demo-vendors',
@@ -129,6 +131,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Tag,
     activeMatch: [
       '/admin/taxonomy',
+      '/admin/ugat',
       '/admin/menus',
       '/admin/onboarding',
       '/admin/wedding-traditions',
@@ -168,7 +171,8 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // + /admin/money stay matched here as legacy bookmark landings.
     activeMatch: [
       '/admin/more',
-      // Studio group — Content lane
+      // Studio group — the consolidation hub landing + Content lane
+      '/admin/studio',
       '/admin/website',
       '/admin/hero-video',
       '/admin/reveal-studio',

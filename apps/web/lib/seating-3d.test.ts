@@ -25,6 +25,8 @@ import {
   contentBounds,
   checkPlacement,
   reconcileGrouping,
+  serpentineChainSnapWorld,
+  serpentineTipsWorld,
   DEFAULT_ROOM,
   VENUE_OBJECT_CATALOG,
   venueObjectDims,
@@ -1311,4 +1313,48 @@ test('separateAgents: predictive push is a per-second rate under deltaS (halves 
   // Reactive (overlapping) pairs are delta-independent — the hard guarantee.
   const overlap = () => [{ x: 0, z: 0 }, { x: 0.2, z: 0 }];
   assert.deepEqual(separateAgents(overlap(), MIN, 1 / 120), separateAgents(overlap(), MIN));
+});
+
+// ── serpentine end-to-end snap in the 3D lab (world metres) ──────────────────
+// Ground truth without a GPU: a fired snap must land the dragged wedge with one
+// of ITS tips exactly on one of the anchor's tips (a continuous chain), never
+// stacked on top, at a legal junction angle. serpentineTipsWorld uses the same
+// render-convention rotation as the lab, so "tips coincide" is provable here.
+
+test('serpentineChainSnapWorld: a near-tip drop glues the tips together exactly', () => {
+  const B = { x: 5, z: 5, rotDeg: 0 };
+  const tipGap = (a: typeof B) => {
+    const ta = serpentineTipsWorld(a);
+    const tb = serpentineTipsWorld(B);
+    let min = Infinity;
+    for (const p of ta) for (const q of tb) min = Math.min(min, Math.hypot(p.x - q.x, p.z - q.z));
+    return min;
+  };
+  let fired = 0;
+  for (let deg = 0; deg < 360; deg += 30) {
+    const probe = { x: B.x + 1.9 * Math.cos((deg * Math.PI) / 180), z: B.z + 1.9 * Math.sin((deg * Math.PI) / 180) };
+    const snap = serpentineChainSnapWorld(probe, [B], 1.4);
+    if (!snap) continue;
+    fired += 1;
+    assert.ok(tipGap(snap) < 1e-9, `tips glue at deg=${deg} (gap ${tipGap(snap)})`);
+    assert.ok(Math.hypot(snap.x - B.x, snap.z - B.z) > 0.6, 'beside the anchor, not stacked on it');
+    const r = ((snap.rotDeg % 360) + 360) % 360;
+    assert.ok([104, 256, 180].some((v) => Math.abs(r - v) < 1e-6), `legal junction angle, got ${r}`);
+  }
+  assert.ok(fired > 0, 'at least one probe snaps');
+});
+
+test('serpentineChainSnapWorld: far away → no snap (free drag)', () => {
+  assert.equal(serpentineChainSnapWorld({ x: 50, z: 50 }, [{ x: 5, z: 5, rotDeg: 0 }], 1), null);
+  assert.equal(serpentineChainSnapWorld({ x: 0, z: 0 }, [], 1), null);
+});
+
+test('serpentineChainSnapWorld: honours a rotated anchor + is deterministic', () => {
+  const B = { x: 3, z: -2, rotDeg: 37 };
+  const tb = serpentineTipsWorld(B);
+  // Probe right at a real S-bend candidate (180° about a tip) → must snap onto it.
+  const snap = serpentineChainSnapWorld({ x: tb[0].x, z: tb[0].z }, [B], 2);
+  assert.ok(snap, 'snaps near a rotated anchor tip');
+  const again = serpentineChainSnapWorld({ x: tb[0].x, z: tb[0].z }, [B], 2);
+  assert.deepEqual(snap, again, 'deterministic');
 });

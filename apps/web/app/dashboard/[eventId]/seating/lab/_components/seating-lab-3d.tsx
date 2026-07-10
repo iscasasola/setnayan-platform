@@ -157,6 +157,7 @@ import {
   boothFacingY,
   rotateLocalRad,
   tableDims,
+  serpentineChainSnapWorld,
   checkPlacement,
   serpentineBand,
   seatWorld,
@@ -794,14 +795,42 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     const freeBoard = !(floor.venueWidthM && floor.venueLengthM);
     const lo = freeBoard ? -200 : 2;
     const hi = freeBoard ? 600 : 98;
-    const xPct = Math.max(lo, Math.min(hi, (d.x / room.w + 0.5) * 100));
-    const yPct = Math.max(lo, Math.min(hi, (d.z / room.d + 0.5) * 100));
+    const clampPct = (v: number) => Math.max(lo, Math.min(hi, v));
+    const dragged = tablesById.get(d.id);
+
+    // Serpentine end-to-end AUTO-SNAP (owner 2026-07-10: "put the ends of the
+    // serpentine next to each other to create that auto connect snap between
+    // tables"). On drop near another serpentine's tip, click into the chained
+    // placement — position AND rotation — the 3D twin of the 2D editor's snap.
+    // A snapped chain is an INTENTIONAL touch, so it skips the overlap guard
+    // below (the guard's coarse bounding circles would otherwise reject it).
+    let dropX = d.x;
+    let dropZ = d.z;
+    let snappedRotDeg: number | null = null;
+    if (dragged && dragged.shape === 'serpentine' && !dragged.linkGroupId) {
+      const neighbours = tables
+        .filter((t) => t.id !== d.id && t.shape === 'serpentine')
+        .map((t) => {
+          const p = pctToWorld(t.xPct, t.yPct, room);
+          return { x: p.x, z: p.z, rotDeg: t.rotationDeg };
+        });
+      const serpW = tableDims('serpentine', dragged.capacity).w;
+      const snap = serpentineChainSnapWorld({ x: d.x, z: d.z }, neighbours, Math.max(0.6, serpW * 0.4));
+      if (snap) {
+        dropX = snap.x;
+        dropZ = snap.z;
+        snappedRotDeg = snap.rotDeg;
+      }
+    }
+
+    const xPct = clampPct((dropX / room.w + 0.5) * 100);
+    const yPct = clampPct((dropZ / room.d + 0.5) * 100);
 
     // Placement rules (owner 2026-06-26): no overlap · no tables on the dance
     // floor · stage = sweetheart only. If the drop breaks one, revert (skip the
-    // commit) — the mesh eases back to its stored spot — and say why.
-    const dragged = tablesById.get(d.id);
-    if (dragged) {
+    // commit) — the mesh eases back to its stored spot — and say why. A snapped
+    // serpentine chain is exempt (intentional touch; still wall-clamped above).
+    if (dragged && snappedRotDeg === null) {
       const radiusOf = (t: LiveTable) => {
         const dim = tableDims(t.shape, t.capacity);
         return Math.max(dim.w, dim.round ? dim.w : dim.d) / 2;
@@ -855,7 +884,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       return;
     }
 
-    setTables((prev) => prev.map((t) => (t.id === d.id ? { ...t, xPct, yPct } : t)));
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === d.id ? { ...t, xPct, yPct, ...(snappedRotDeg !== null ? { rotationDeg: snappedRotDeg } : {}) } : t,
+      ),
+    );
     if (canEdit) {
       const fd = new FormData();
       fd.set('event_id', eventId);
@@ -864,6 +897,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       fd.set('x_pos', String(xPct));
       fd.set('y_pos', String(yPct));
       void persist(() => updateTablePosition(fd));
+      // A serpentine that snapped into a chain also rotated into the joint —
+      // persist that through the dedicated rotation action (position + rotation
+      // are separate server writes, mirroring the rotate control).
+      if (snappedRotDeg !== null) {
+        const rd = new FormData();
+        rd.set('event_id', eventId);
+        rd.set('lock_id', lock.lockId ?? '');
+        rd.set('table_id', d.id);
+        rd.set('rotation_deg', String(snappedRotDeg));
+        void persist(() => updateTableRotation(rd));
+      }
     }
   }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById]);
 

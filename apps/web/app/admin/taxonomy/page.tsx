@@ -28,6 +28,7 @@ import {
 } from './_components/taxonomy-studio';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { KpiStatCard } from '../_components/kpi-stat-card';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
 // future root app/loading.tsx can't pull it into build-time static generation.
@@ -557,10 +558,10 @@ export default async function AdminTaxonomyPage({
 
       {/* Stats */}
       <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Folders" value={folders.length} />
-        <Stat label="Tiles" value={tiles.length} />
-        <Stat label="Filed services" value={totalMapped} />
-        <Stat label="Unfiled" value={unfiledCount} />
+        <KpiStatCard label="Folders" value={folders.length} />
+        <KpiStatCard label="Tiles" value={tiles.length} />
+        <KpiStatCard label="Filed services" value={totalMapped} />
+        <KpiStatCard label="Unfiled" value={unfiledCount} />
       </section>
 
       {/* The three-pane studio (client) */}
@@ -738,15 +739,6 @@ export default async function AdminTaxonomyPage({
           </ul>
         </details>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">{value}</p>
     </div>
   );
 }

@@ -16,11 +16,12 @@ import { EventTypePhotoPicker } from './event-type-photo-picker';
 type ConciergeChoice = 'diy';
 
 /**
- * Create-event surface — owner directive 2026-06-04: a "feel photo" picker
- * (full-bleed event photos, no carousel indicators; tap the centered photo to
- * begin). Selecting a type jumps STRAIGHT into that event's own onboarding when
- * one exists (`onboardingHref`); otherwise it falls back to the inline name
- * form so the event still creates today.
+ * Create-event surface — a GRID of "feel photo" tiles (owner 2026-07-10: "just
+ * show a grid of the different events — maximize screen space for both mobile
+ * and desktop"; supersedes the 2026-06-04 swipe-carousel picker). Selecting a
+ * type jumps STRAIGHT into that event's own onboarding when one exists
+ * (`onboardingHref`); otherwise it falls back to the inline name form so the
+ * event still creates today.
  *
  * Wedding → /onboarding/wedding (the 15-screen guided flow). The other eight
  * types route into their tailored onboarding as it lands (Debut next); until
@@ -54,10 +55,10 @@ export function EventTypePicker({
     : null;
 
   // Inline name-form fallback (types without their own onboarding, exp-quiz
-  // flag off) mounts BELOW the full-bleed photo deck — on a phone that's past
-  // the fold, so the tap looked dead ("the picker isn't clickable"). Bring the
-  // form into view and focus its field the moment a type is chosen, so every
-  // tap is visibly acknowledged. (owner bug 2026-06-28)
+  // flag off) mounts BELOW the photo grid — on a phone that's past the fold, so
+  // the tap looked dead ("the picker isn't clickable"). Bring the form into view
+  // and focus its field the moment a type is chosen, so every tap is visibly
+  // acknowledged. (owner bug 2026-06-28)
   useEffect(() => {
     if (!selectedKey) return;
     const form = formRef.current;
@@ -97,7 +98,7 @@ export function EventTypePicker({
   }
 
   // QR fast-lane: once, on mount, jump straight to the pre-selected type's flow
-  // (wedding → its onboarding, non-wedding → inline / experience) so the carousel
+  // (wedding → its onboarding, non-wedding → inline / experience) so the grid
   // is skipped. handleSelect is hoisted; safe to call from the effect.
   useEffect(() => {
     if (autoAdvanced.current || !preselect) return;
@@ -115,7 +116,7 @@ export function EventTypePicker({
       </section>
 
       {selected ? (
-        <form ref={formRef} action={createWeddingEvent} className="mt-10 space-y-6">
+        <form ref={formRef} action={createWeddingEvent} className="mt-10 max-w-lg space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />
           {next ? <input type="hidden" name="next" value={next} /> : null}

@@ -14,7 +14,7 @@
  * DB-sourced) — the hero speaks the "all set, kept free" thesis, not a number.
  */
 import Image from 'next/image';
-import Link from 'next/link';
+import { VendorHeroGate } from './vendor-hero-gate';
 
 export function VendorGrowHero() {
   return (
@@ -66,6 +66,11 @@ export function VendorGrowHero() {
             letterSpacing: '-0.025em',
             margin: '0 0 18px',
             maxWidth: '16ch',
+            /* .m-display hard-sets color:var(--m-ink) (dark navy) — override to
+               white so the headline reads over the photo, matching the header's
+               inherited #fff. Without this the h1 rendered navy-on-photo and was
+               unreadable (owner 2026-07-10). */
+            color: '#fff',
             textShadow: '0 2px 40px rgba(0,0,0,.35)',
           }}
         >
@@ -83,26 +88,10 @@ export function VendorGrowHero() {
           Profile, clients, calendar, bookings, and your own website. All set up
           free, kept free. Pay only for the extra reach you choose.
         </p>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Link href="/open-shop" className="m-btn m-btn-orange m-btn-lg">
-            List your business for free
-          </Link>
-          <a href="#model" className="m-btn m-btn-lg m-hero-wire">
-            How the model works ↓
-          </a>
-        </div>
+        {/* CTA row + hero scroll-lock gate — a client island (the hero itself
+            stays a Server Component with the LCP <Image>). */}
+        <VendorHeroGate />
       </div>
-      {/* Wire button — glass on the photo (kept local; not a global variant). */}
-      <style>{`
-        .m-hero-wire {
-          background: rgba(255,255,255,.08);
-          color: #fff;
-          border: 1px solid rgba(255,255,255,.5);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-        }
-        .m-hero-wire:hover { background: rgba(255,255,255,.16); }
-      `}</style>
     </header>
   );
 }

@@ -24,6 +24,13 @@ export type LoginSearchParams = {
   check_email?: string;
   ready?: string;
   next?: string;
+  /**
+   * Account-type hint carried through to the signup link (only 'vendor' is
+   * honored). Lets a login-first vendor CTA (e.g. /open-shop when logged out)
+   * land on Sign in yet keep the "New? Create your vendor account" path
+   * preselecting the vendor radio via /signup?as=vendor.
+   */
+  as?: string;
 };
 
 export type LoginView = {
@@ -47,7 +54,13 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const readyEmail = params.ready ? decodeURIComponent(params.ready) : null;
   const prefilledEmail = readyEmail ?? '';
   const next = safeNext(params.next);
-  const signupHref = `/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // Carry both the return destination and the (whitelisted) account-type hint
+  // onto the signup link so a login-first vendor CTA doesn't lose vendor intent.
+  const signupParams = new URLSearchParams();
+  if (next !== '/') signupParams.set('next', next);
+  if (params.as === 'vendor') signupParams.set('as', 'vendor');
+  const signupQuery = signupParams.toString();
+  const signupHref = `/signup${signupQuery ? `?${signupQuery}` : ''}`;
 
   // OAuth visibility by shell — see prior /login/page.tsx note. Desktop renders
   // the loopback variant; web renders the server-action row; mobile stays

@@ -74,6 +74,7 @@ export async function GrowthSurface({ searchParams }: Props) {
 
       {/* Range picker — GET form, no client JS (mirrors /admin/funnels). */}
       <form method="get" className="mb-8 flex flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value="growth" />
         <label
           htmlFor="range"
           className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55"

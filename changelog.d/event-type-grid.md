@@ -16,10 +16,11 @@ screen space for both mobile and desktop." Supersedes the 2026-06-04 "feel
 photo" swipe carousel (`event-type-photo-picker.tsx` rewritten in place; the
 in-chrome add-event sheet's `event-type-carousel.tsx` is untouched).
 
+Also adds the missing `public/event-types/simple_event.webp` hero photo (a
+warm golden-hour intimate-gathering shot, matching the other tiles). Simple
+Event was enabled 2026-03-07 but had no asset, so its tile was falling back to
+`wedding.webp`; it now shows its own photo.
+
 SPEC IMPACT: None (presentation-only refactor of an existing surface; the
 2026-06-04 carousel directive is superseded — logged here + in the component
 doc-comments, no corpus spec file describes the picker's interaction model).
-
-Follow-up (not in this PR): `public/event-types/simple_event.webp` hero photo
-does not exist yet, so the Simple Event tile falls back to `wedding.webp` (a
-pre-existing gap since the type was enabled). Blocked on generating the asset.

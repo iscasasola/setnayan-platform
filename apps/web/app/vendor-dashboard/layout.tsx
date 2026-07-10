@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { countUnread } from '@/lib/notifications';
+import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
@@ -114,11 +115,39 @@ export default async function VendorDashboardLayout({
     };
   });
 
+  // Sidebar Bookings badge — count of inquiry threads still awaiting the vendor's
+  // Accept/Decline (inquiry_status='pending'). Real, RLS-scoped, indexed head
+  // count chained off the vendor profile (fires as soon as the id resolves, in
+  // parallel with the chrome batch); fail-soft to 0 so the badge simply omits on
+  // any error — never fabricated. The Threads badge (unread chat threads) uses
+  // the existing countUnreadMessages RPC in the batch below.
+  const bookingsPendingPromise = vendorProfilePromise
+    .then(async (vp) => {
+      if (!vp?.vendor_profile_id) return 0;
+      const { count, error } = await supabase
+        .from('chat_threads')
+        .select('thread_id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vp.vendor_profile_id)
+        .eq('inquiry_status', 'pending');
+      return error ? 0 : count ?? 0;
+    })
+    .catch(() => 0);
+
   // Single parallel batch for all chrome data with no inter-dependency. The
   // nav-registry overrides (getNavSlotMap) used to run sequentially near the
   // bottom of the layout — it has no dependency on anything, so it joins the
   // batch here (2026-07-01 perf) and stops sitting on the critical path.
-  const [profileRes, unreadCount, switcherData, vendorRole, vendorProfile, navSlots, tierWallet] =
+  const [
+    profileRes,
+    unreadCount,
+    switcherData,
+    vendorRole,
+    vendorProfile,
+    navSlots,
+    tierWallet,
+    threadsUnread,
+    bookingsPending,
+  ] =
     await timer.track('chrome', () => Promise.all([
       supabase
         .from('users')
@@ -148,6 +177,11 @@ export default async function VendorDashboardLayout({
       // fails open. No dependency → batched here rather than run sequentially.
       getNavSlotMap(),
       tierWalletPromise,
+      // Threads badge — unread chat threads for this user (existing graceful RPC,
+      // already used on the couple chrome). Independent of the vendor profile.
+      countUnreadMessages(supabase, user.id),
+      // Bookings badge — pending-inquiry count (chained on the vendor profile).
+      bookingsPendingPromise,
     ]));
   const profile = profileRes.data;
   // Service-aware nav: Repertoire is a music-act surface only.
@@ -263,6 +297,8 @@ export default async function VendorDashboardLayout({
             initials={vendorInitials}
             logoUrl={vendorLogoUrl}
             isVerified={vendorIsVerified}
+            bookingsBadge={bookingsPending}
+            threadsBadge={threadsUnread}
           />
         }
         sidebarFooter={<VendorSidebarFooter tier={vendorTier} tokenBalance={vendorTokenBalance} />}

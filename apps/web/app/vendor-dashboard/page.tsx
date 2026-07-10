@@ -9,6 +9,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
 import {
+  VendorEnergyStats,
   WhatsNewFeed,
   OngoingTasks,
   UpcomingSchedules,
@@ -188,7 +189,7 @@ export default async function VendorOverviewPage() {
       {/* Heading */}
       <header className="mb-8 space-y-1.5">
         <h1
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
+          className="m-serif text-4xl tracking-tight sm:text-5xl"
           style={{ color: 'var(--m-ink)' }}
         >
           Overview
@@ -197,6 +198,9 @@ export default async function VendorOverviewPage() {
           What needs you today — {todayLabel()}.
         </p>
       </header>
+
+      {/* 0 · Energy stats — the databerry stat bento (real feed-derived counts) */}
+      <VendorEnergyStats whatsNew={whatsNew} ongoing={ongoing} upcoming={upcoming} />
 
       {/* Spotlight Award — celebratory banner, shown only when this vendor holds
           at least one current-period award (empty list renders nothing). */}

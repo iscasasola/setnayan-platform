@@ -113,6 +113,8 @@ import {
   Sparkles,
   Star,
   Tag,
+  TrendingUp,
+  ListChecks,
   User,
   Users,
   Wallet,
@@ -127,11 +129,12 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import { SidebarSection } from '@/app/_components/nav/sidebar-section';
+import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
-import type { LucideIcon } from 'lucide-react';
-import type { NavGroup, NavItem } from '@/app/_components/nav/types';
+import type { NavGroup, NavBadge } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
-import { filterVendorNavGroups } from '@/lib/vendor-role';
+import { filterVendorNavGroups, canManageVendor } from '@/lib/vendor-role';
 import { TIER_LABEL, asVendorTier, type VendorTier } from '@/lib/vendor-tier-caps';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 
@@ -281,64 +284,167 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
 ];
 
 /**
- * THE 6 FLAT SIDEBAR DESTINATIONS (proto-shell 2026-07-01).
+ * THE DESKTOP SIDEBAR TREE — "Energy, not skin" reskin (2026-07-09).
  *
- * The finalized prototype renders the vendor sidebar as SIX flat destination
- * items — NOT the collapsible group tree. Each is a single menu that lands on
- * its own overview page; the sub-surfaces underneath each menu (the full
- * `VENDOR_NAV_GROUPS` items) still exist as routes and stay reachable via the
- * /more landing + deep-links — they're just no longer enumerated in the desktop
- * sidebar chrome. Keys/hrefs/matchPrefixes match the group model 1:1 where a
- * destination already existed:
- *   1. Overview        → /vendor-dashboard            (exact-match)
- *   2. My Shop         → /vendor-dashboard/shop
- *   3. My Customers    → /vendor-dashboard/customers
- *   4. My Performance  → /vendor-dashboard/performance
- *   5. My Services     → /vendor-dashboard/services
- *   6. On the Day      → /vendor-dashboard/on-the-day (amber "attention" dot)
+ * The desktop sidebar renders TWO labelled sections (Business · Grow) matching
+ * the `setnayan-vendor-energy.html` prototype. A handful of relabelled PRIMARY
+ * rows (Home · Bookings · Services · Threads · My Shop · Growth & Setnayan) each
+ * carry the rest of the surfaces as auto-expanding sub-items (SidebarItem's
+ * in-section nesting), so NOTHING orphans — every route in the flat canonical
+ * `VENDOR_NAV_GROUPS` above also appears here, just grouped + nested.
  *
- * REGISTRY: each destination keys off a `vendor.sidebar.<key>` slot for the
- * admin label/icon override (same overlay the group tree used), so /admin/menus
- * still governs these. `overview` + `services` + `on-the-day` reuse their
- * existing slots; `shop` + `customers` + `performance` get new slots in
- * nav-registry-defaults.ts.
+ * This tree is SEPARATE from `VENDOR_NAV_GROUPS` on purpose: that flat 6-group
+ * export still drives the mobile /more landing + `vendor-mobile-landing`, which
+ * enumerate every item as a top-level row (mobile reachability). Nesting is a
+ * DESKTOP presentation only; the two stay in sync by covering the same route
+ * set. Active-state = wine (SidebarItem's shared `--m-nav-active`); the vendor's
+ * photography-blue secondary accent lives in the identity card + the Overview
+ * body, never replacing the shared wine chrome.
+ *
+ * REGISTRY: each PRIMARY row keys off a `vendor.sidebar.<key>` slot for the
+ * admin label/icon override (nested children keep their code defaults, as the
+ * flat destinations did). Keys reuse the canonical item keys 1:1 so deep-links,
+ * the role filter (by key), and localStorage section state all stay valid.
  */
-const VENDOR_SIDEBAR_DESTINATIONS: NavItem[] = [
-  { key: 'overview', label: 'Overview', href: '/vendor-dashboard', icon: Home, matchPrefix: '__overview-exact__' },
-  { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
-  { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
-  { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: BarChart2, matchPrefix: '/vendor-dashboard/performance' },
-  { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day', badge: { count: 1, tone: 'amber' } },
+const VENDOR_SIDEBAR_TREE: NavGroup[] = [
+  {
+    // BUSINESS — the day-to-day running of the shop.
+    key: 'shell-business',
+    label: 'Business',
+    items: [
+      { key: 'overview', label: 'Home', href: '/vendor-dashboard', icon: Home, matchPrefix: '__overview-exact__' },
+      {
+        key: 'bookings',
+        label: 'Bookings',
+        href: '/vendor-dashboard/bookings',
+        icon: Briefcase,
+        // The booking pipeline + the money that flows from it. Badge (pending
+        // inquiries) injected at render from real layout data.
+        children: [
+          { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
+          { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
+          { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
+          { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
+          { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },
+          { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
+          { key: 'payday', label: 'Payday', href: '/vendor-dashboard/payday', icon: CalendarClock, matchPrefix: '/vendor-dashboard/payday' },
+          { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
+          { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
+        ],
+      },
+      {
+        key: 'services',
+        label: 'Services',
+        href: '/vendor-dashboard/services',
+        icon: ListChecks,
+        // The offerings couples book + the specialist tools that configure them.
+        children: [
+          { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
+          { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
+          { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
+          { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
+        ],
+      },
+      // Threads = the chat inbox (Messages route). Badge (unread threads)
+      // injected at render from real layout data.
+      { key: 'messages', label: 'Threads', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
+    ],
+  },
+  {
+    // GROW — reputation, reach, plan. Owner/admin surfaces (dropped for
+    // agent/viewer by the role filter, which strips the whole group).
+    key: 'shell-grow',
+    label: 'Grow',
+    items: [
+      {
+        key: 'shop',
+        label: 'My Shop',
+        href: '/vendor-dashboard/shop',
+        icon: ShoppingBag,
+        // Storefront identity + reputation surfaces.
+        children: [
+          { key: 'profile', label: 'Profile', href: '/vendor-dashboard/profile', icon: User, matchPrefix: '/vendor-dashboard/profile' },
+          { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
+          { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
+          { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
+          { key: 'track-record', label: 'Track record', href: '/vendor-dashboard/track-record', icon: BarChart2, matchPrefix: '/vendor-dashboard/track-record' },
+          { key: 'disputes', label: 'Disputes', href: '/vendor-dashboard/disputes', icon: Scale, matchPrefix: '/vendor-dashboard/disputes' },
+          { key: 'theft-watch', label: 'Theft Watch', href: '/vendor-dashboard/theft-watch', icon: ShieldAlert, matchPrefix: '/vendor-dashboard/theft-watch' },
+          { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
+          { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },
+          { key: 'recommendations', label: 'Recommend', href: '/vendor-dashboard/recommendations', icon: Lightbulb, matchPrefix: '/vendor-dashboard/recommendations' },
+          { key: 'partnerships', label: 'Partnerships', href: '/vendor-dashboard/partnerships', icon: Handshake, matchPrefix: '/vendor-dashboard/partnerships' },
+          { key: 'team', label: 'Team & Setnayan', href: '/vendor-dashboard/team', icon: Users, matchPrefix: '/vendor-dashboard/team' },
+          { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
+        ],
+      },
+      {
+        key: 'performance',
+        label: 'Growth & Setnayan',
+        href: '/vendor-dashboard/performance',
+        icon: TrendingUp,
+        // Analytics + market intel + the plan/tokens relationship with Setnayan.
+        children: [
+          { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
+          { key: 'subscription', label: 'Plan & tokens', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
+        ],
+      },
+    ],
+  },
 ];
 
 /**
- * Active-detection for a flat destination — exact href OR strict prefix-match
- * (trailing slash so /vendor-dashboard/services doesn't light /vendor-dashboard).
- * Overview carries a sentinel matchPrefix so its strict-prefix branch never
- * fires (every other route shares the /vendor-dashboard prefix).
+ * Overlays the admin nav-registry label + icon onto each PRIMARY row via its
+ * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
+ * Fallback = the item's hardcoded default; a hidden slot drops the primary; a
+ * no-op when navSlots is absent (fails open). Nested children + href/matchPrefix
+ * stay in code, mirroring the flat-destination overlay this replaced.
  */
-function destinationActive(item: NavItem, pathname: string): boolean {
-  const prefix = item.matchPrefix ?? item.href;
-  return pathname === item.href || pathname.startsWith(prefix + '/');
+function applyVendorRegistryGroups(
+  groups: NavGroup[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slot = navSlots[`vendor.sidebar.${item.key}`];
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
 }
 
 /**
- * Overlays the admin nav-registry label + icon onto a flat destination via its
- * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
- * Fallback = the item's hardcoded default; a hidden slot drops the item; no-op
- * when navSlots is absent (fails open). href/matchPrefix/badge stay in code.
+ * Injects a live count badge onto a PRIMARY row when the badge map carries a
+ * positive number for its key. Real counts only — a 0/undefined entry leaves the
+ * row unbadged (the caller omits rather than fakes). Runs AFTER the registry
+ * overlay so an admin-renamed label keeps its count.
  */
-function applyVendorRegistry(
-  items: NavItem[],
-  navSlots?: Record<string, NavSlotLite>,
-): NavItem[] {
-  if (!navSlots) return items;
-  return items.flatMap((item) => {
-    const slot = navSlots[`vendor.sidebar.${item.key}`];
-    if (!slot) return [item];
-    if (slot.isHidden) return [];
-    return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
-  });
+function applyPrimaryBadges(
+  groups: NavGroup[],
+  badges: Record<string, NavBadge | undefined>,
+): NavGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const badge = badges[item.key];
+      return badge && badge.count > 0 ? { ...item, badge } : item;
+    }),
+  }));
+}
+
+/**
+ * Strips nested children from every primary row — used for agent/viewer roles so
+ * the scoped sidebar shows only their flat primaries (Home · Bookings · Threads)
+ * without exposing owner-only sub-surfaces underneath them.
+ */
+function flattenChildren(groups: NavGroup[]): NavGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map(({ children: _children, ...item }) => item),
+  }));
 }
 
 /**
@@ -360,14 +466,25 @@ function VendorIdentityCard({
 }) {
   return (
     <div
-      className="mx-2 mb-2 flex items-center gap-3 rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
-      style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+      className="mx-2 mb-2 flex items-center gap-3 overflow-hidden rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
+      style={{
+        background: 'var(--m-paper)',
+        borderColor: 'var(--m-line)',
+        // Photography-blue secondary accent (vendor doorway) — a thin left rail
+        // so the identity tile reads as the prototype's blue business switcher.
+        boxShadow: 'inset 3px 0 0 var(--v-blue)',
+      }}
     >
-      <VendorAvatar
-        logoUrl={logoUrl}
-        initials={initials}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
-      />
+      <span
+        className="shrink-0"
+        style={{ borderRadius: 'var(--m-r-sm)', boxShadow: '0 0 0 1.5px var(--v-blue)' }}
+      >
+        <VendorAvatar
+          logoUrl={logoUrl}
+          initials={initials}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
+        />
+      </span>
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {displayName}
@@ -391,62 +508,13 @@ function VendorIdentityCard({
 }
 
 /**
- * A single flat destination row — the prototype's obsidian-active treatment:
- * ACTIVE = solid --m-ink (obsidian) rounded fill + white icon/label; INACTIVE =
- * obsidian text on transparent, subtle paper hover. Label + amber dot hide on
- * the collapsed 64px rail. This is a purpose-built row (NOT <SidebarItem>, whose
- * active state is a champagne-gold tint + accent bar) so it reads as the
- * prototype's dark selected pill.
- */
-function VendorDestinationRow({
-  item,
-  active,
-}: {
-  item: NavItem;
-  active: boolean;
-}) {
-  const Icon = item.icon as LucideIcon;
-  const hasDot = item.badge && item.badge.count > 0;
-  return (
-    <li>
-      <Link
-        href={item.href}
-        aria-current={active ? 'page' : undefined}
-        title={item.label}
-        className={`relative flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-          active ? '' : 'hover:bg-[var(--m-paper)]'
-        }`}
-        style={{
-          color: active ? 'var(--m-paper)' : 'var(--m-ink)',
-          background: active ? 'var(--m-ink)' : 'transparent',
-          outlineColor: 'var(--m-orange)',
-        }}
-      >
-        <Icon
-          aria-hidden
-          className="h-[19px] w-[19px] shrink-0"
-          strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-paper)' : 'var(--m-slate)' }}
-        />
-        <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
-        {hasDot ? (
-          <span
-            aria-label={item.badge?.label ?? 'Needs attention'}
-            className="ml-auto h-2 w-2 shrink-0 rounded-full [[data-sidebar-collapsed='1']_&]:hidden"
-            style={{ background: 'var(--m-orange)' }}
-          />
-        ) : null}
-      </Link>
-    </li>
-  );
-}
-
-/**
- * VendorSidebar — the prototype vendor shell body: the identity card + the SIX
- * flat destination rows. The brand wordmark + "Vendor" eyebrow + account
- * switcher live in DoorwaySidebarHeader (pinned above this by SidebarShell); the
- * subscription chip + token row live in VendorSidebarFooter (pinned below via
- * SidebarShell's sidebarFooter slot).
+ * VendorSidebar — the "Energy, not skin" vendor shell body: the identity card +
+ * the two labelled sections (Business · Grow) rendered through the shared
+ * <SidebarSection> + <SidebarItem> primitives (wine active-state · nested
+ * auto-expanding sub-items · live badges — all inherited from the shared
+ * chrome). The brand wordmark + "Vendor" eyebrow + account switcher live in
+ * DoorwaySidebarHeader (pinned above by SidebarShell); the subscription chip +
+ * token row live in VendorSidebarFooter (pinned below via SidebarShell).
  */
 export function VendorSidebar({
   role,
@@ -456,10 +524,12 @@ export function VendorSidebar({
   initials,
   logoUrl = null,
   isVerified,
+  bookingsBadge = 0,
+  threadsBadge = 0,
 }: {
   role: VendorTeamRole | null;
-  /** Retained for API compatibility; the flat destinations don't surface
-   *  the music-only Repertoire sub-surface, so this is a no-op here. */
+  /** Retained for API compatibility; the Service tools nest under the Services
+   *  primary, so this remains a no-op here (Repertoire stays reachable). */
   showRepertoire?: boolean;
   navSlots?: Record<string, NavSlotLite>;
   displayName: string;
@@ -467,21 +537,36 @@ export function VendorSidebar({
   /** Presigned display URL of the uploaded logo — replaces the initials tile. */
   logoUrl?: string | null;
   isVerified: boolean;
+  /** Pending-inquiry count → Bookings badge. Real layout data; 0 omits it. */
+  bookingsBadge?: number;
+  /** Unread-thread count → Threads badge. Real layout data; 0 omits it. */
+  threadsBadge?: number;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
-  // Role-aware: owner/admin see all five destinations; agent/viewer see only the
-  // scoped subset per VENDOR_SCOPED_NAV_ITEM_KEYS (of the flat destinations, just
-  // Overview — 'services' was retired 2026-07-02 when the Services editor folded
-  // into owner/admin-only My Shop). We reuse the NavGroup-based filter by
-  // wrapping the flat list in a single group, then unwrapping — one source of
-  // truth in lib/vendor-role.ts. The filter drops the group if every item is
-  // scoped out; default to [] then.
-  const visibleItems =
-    filterVendorNavGroups(
-      [{ key: 'shell', label: '', items: VENDOR_SIDEBAR_DESTINATIONS }],
-      role,
-    )[0]?.items ?? [];
-  const destinations = applyVendorRegistry(visibleItems, navSlots);
+
+  // Role-aware: owner/admin see both sections in full; agent/viewer see only the
+  // scoped primaries (Home · Bookings · Threads per VENDOR_SCOPED_NAV_ITEM_KEYS)
+  // with their owner-only sub-surfaces stripped. filterVendorNavGroups gates by
+  // top-level item key + drops empty groups (the whole Grow section falls away
+  // for staff); flattenChildren then removes nested rows so staff never see a
+  // sub-surface they can't open.
+  const isManager = canManageVendor(role);
+  const scoped = filterVendorNavGroups(VENDOR_SIDEBAR_TREE, role);
+  const roleGated = isManager ? scoped : flattenChildren(scoped);
+
+  // Registry label/icon overrides → live badges (real counts only) onto the
+  // primaries. Badge tone 'orange' = the shared brand-accent pill.
+  const groups = applyPrimaryBadges(
+    applyVendorRegistryGroups(roleGated, navSlots),
+    {
+      bookings: bookingsBadge > 0
+        ? { count: bookingsBadge, tone: 'orange', label: `${bookingsBadge} new inquiries` }
+        : undefined,
+      messages: threadsBadge > 0
+        ? { count: threadsBadge, tone: 'orange', label: `${threadsBadge} unread threads` }
+        : undefined,
+    },
+  );
 
   return (
     <div className="pt-1">
@@ -491,16 +576,14 @@ export function VendorSidebar({
         logoUrl={logoUrl}
         isVerified={isVerified}
       />
-      <nav aria-label="Vendor menu" className="px-2">
-        <ul className="flex flex-col gap-1">
-          {destinations.map((item) => (
-            <VendorDestinationRow
-              key={item.key}
-              item={item}
-              active={destinationActive(item, pathname)}
-            />
-          ))}
-        </ul>
+      <nav aria-label="Vendor menu">
+        {groups.map((group) => (
+          <SidebarSection key={group.key} group={group} pathname={pathname}>
+            {group.items.map((item) => (
+              <SidebarItem key={item.key} item={item} pathname={pathname} />
+            ))}
+          </SidebarSection>
+        ))}
       </nav>
     </div>
   );

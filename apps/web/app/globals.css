@@ -674,6 +674,13 @@ html.subnav-docked [data-shell-main] {
    * chrome above is shared by all three doorways. */
   --a-violet: #6D28D9;
 
+  /* Vendor doorway accent — PHOTOGRAPHY BLUE ("Energy, not skin" 2026-07-09:
+   * couple = wine, vendor = wine+blue, admin = wine+violet). SECONDARY accent
+   * for the vendor doorway only — the identity-card ring + the Overview stat
+   * bento's rings/dots/KPI numerals. The wine nav-active chrome above stays the
+   * shared primary for all three doorways; blue never replaces it. */
+  --v-blue: #3F6EA5;
+
   /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
   --m-mulberry:    #1E2229;
   --m-mulberry-2:  #343A44;

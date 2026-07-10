@@ -213,8 +213,9 @@ function TableMesh({
   const ry = (-table.rotationDeg * Math.PI) / 180;
   // Table-local chair placements — 2 instanced draw calls per table (Wave 2a).
   const chairs = useMemo(
-    () => chairPlacements(table.shape, table.capacity),
-    [table.shape, table.capacity],
+    // Linked serpentines get even chair spacing (uniform across the chain).
+    () => chairPlacements(table.shape, table.capacity, table.linkGroupId != null),
+    [table.shape, table.capacity, table.linkGroupId],
   );
   return (
     <group position={[pos.x, 0, pos.z]} rotation={[0, ry, 0]}>

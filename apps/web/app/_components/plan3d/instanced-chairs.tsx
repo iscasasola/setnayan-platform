@@ -56,8 +56,10 @@ export type ChairPlacement = { x: number; z: number; faceY: number };
 /** Chair centres + facing for a shape — serpentine carries its own per-chair
  *  facing (outer chairs look onto the band, inner outward); every other shape
  *  faces the table-local origin. Mirrors the lab's retired per-mesh logic. */
-export function chairPlacements(shape: ShapeHint, capacity: number): ChairPlacement[] {
-  if (shape === 'serpentine') return serpentineChairs(capacity);
+export function chairPlacements(shape: ShapeHint, capacity: number, even = false): ChairPlacement[] {
+  // `even` → linked serpentine chains render chairs at a uniform spacing (no
+  // seam pile-up); ignored for every other shape.
+  if (shape === 'serpentine') return serpentineChairs(capacity, even);
   // One source of truth (slice-2 review fix): the chair yaw is the PROMOTED
   // SeatPose gaze + π (the documented backrest bridge) — never re-derived.
   // The old radial atan2(x, z) matched the gaze flip only for round tables;

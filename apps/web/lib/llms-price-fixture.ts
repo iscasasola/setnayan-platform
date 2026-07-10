@@ -24,13 +24,13 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
 
   // Planning tier — Setnayan AI subscription (28-day cycle)
   '₱799', // recurring per 28-day cycle
-  '₱499', // first cycle (also: Live Background)
+  '₱499', // first cycle (also: Live Background · Camera Bridge per day)
 
   // À-la-carte customer software services
   '₱30', // Papic Ltd per camera per day (floor of the retail range)
   '₱100', // Papic Unli per camera per day · flat per-token price
   '₱299', // Kwento
-  '₱1,299', // Camera Bridge · Pabati (per day) · Live Studio Mobile (per day)
+  '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
   '₱1,499', // Cinematic Reveal · Patiktok
   '₱1,999', // Animated Monogram
   '₱2,000', // Stories (per-day cap)

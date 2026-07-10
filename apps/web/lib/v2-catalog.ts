@@ -138,7 +138,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PAPIC_ADDON_STORIES:   'live',     // ₱2,000 · 30s guest story maker
   PAPIC_ADDON_THANK_YOU: 'live',     // ₱2,499 · compiled thank-you video
   STD_PREMIUM_OPENINGS:  'live',     // ₱1,499 · Save-the-Date Cinematic Reveal openings · buy flow shipped #1705/#1709/#1718
-  CAMERA_BRIDGE:         'partial',  // ₱1,299 · HELD "In build" — needs native iOS/Android + DSLR SDK
+  CAMERA_BRIDGE:         'partial',  // ₱499 (reprice 2026-07-08 · migration 20270711042075) · HELD "In build" — needs native iOS/Android + DSLR SDK
   LIVE_WALL:             'partial',  // ₱2,499 · HELD "In build" — WebSocket display surface not built
   CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
 };

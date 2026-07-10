@@ -60,7 +60,7 @@ Couples can purchase the following in-app services individually. Pricing in PHP.
 - **Stories** — ₱2,000 per day (cap). 30-second story maker for guests.
 - **Cinematic Reveal** — ₱1,499. Premium save-the-date cinematic opening animations. (Also included in Couple Website PRO.)
 - **Patiktok** — ₱1,499. TikTok-style mimic-station booth; unlimited 9:16 vertical recordings of guests, compiled into post-ready reels.
-- **Camera Bridge** — ₱1,299 per day (flat, event-wide). Connects external DSLR cameras to Papic and Live Studio.
+- **Camera Bridge** — ₱499 per day (flat, event-wide). Connects external DSLR cameras to Papic and Live Studio.
 - **Pabati** — ₱1,299 per day. Guest-recorded 5-second greeting videos.
 - **Live Background** — ₱499. LED wall design background with monogram and theme matched to the wedding palette.
 - **Kwento** — ₱299 (whole event). Guest-contributed story and message collection for the couple.

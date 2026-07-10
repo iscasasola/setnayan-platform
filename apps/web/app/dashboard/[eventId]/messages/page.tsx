@@ -9,6 +9,7 @@ import {
   ThreadListCard,
   ThreadListAvatar,
 } from '@/app/_components/chat/thread-list-card';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { isFollowingVendor } from '@/lib/follow';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
@@ -95,6 +96,80 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       };
     }
   }
+
+  // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
+  // deletes nothing — it just moves a thread out of the active list into the
+  // collapsible "Archived" section; a new message auto-un-archives it.
+  const returnTo = `/dashboard/${eventId}/messages`;
+  const activeThreads = threads.filter((t) => !t.archived);
+  const archivedThreads = threads.filter((t) => t.archived);
+
+  const renderRow = (t: (typeof threads)[number]) => {
+    // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
+    // Free/Verified vendors who haven't yet replied show their
+    // screen_name (Bark format) — paid + revealed + venue vendors
+    // show real business_name. Single resolver call keeps the
+    // Avatar initials + visible label in lock-step.
+    const vendorDisplayName = t.vendor
+      ? resolveVendorDisplayName({
+          business_name: t.vendor.business_name ?? null,
+          name_revealed_at: t.vendor.name_revealed_at ?? null,
+          services: t.vendor.services ?? null,
+          screen_name: t.vendor.screen_name ?? null,
+          // Phase C: Pro/Enterprise reveal real business_name day-1.
+          isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+          primary_canonical_service: t.vendor.services?.[0] ?? null,
+          location_city: t.vendor.location_city ?? null,
+        })
+      : 'Vendor';
+    // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the
+    // vendor's real logo is as identifying as the business name, so it
+    // must stay masked until the SAME predicate that reveals the name
+    // says reveal. Reuse `isVendorNameRevealed` (the single source of
+    // truth behind `resolveVendorDisplayName`) so the logo and the
+    // label can never drift — pre-reveal we pass null and the avatar
+    // falls back to screen-name initials.
+    const vendorNameRevealed = t.vendor
+      ? isVendorNameRevealed({
+          name_revealed_at: t.vendor.name_revealed_at ?? null,
+          isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+          services: t.vendor.services ?? null,
+        })
+      : false;
+    const vendorLogoUrl = vendorNameRevealed ? t.vendor?.logo_url ?? null : null;
+    return (
+      <li key={t.thread_id} className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1">
+          <ThreadListCard
+            href={`/dashboard/${eventId}/messages/${t.thread_id}`}
+            title={vendorDisplayName}
+            avatar={<ThreadListAvatar logoUrl={vendorLogoUrl} name={vendorDisplayName} />}
+            badge={
+              t.inquiry_status === 'pending' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                  Waiting for reply
+                </span>
+              ) : t.inquiry_status === 'accepted' ? (
+                // Accepted (inquiry-accepted-visibility 2026-06-16) — the
+                // vendor took the inquiry, the thread is open + the name is
+                // revealed. Emerald matches the inquiry_accepted notification
+                // tone so the couple reads "this one's live" at a glance.
+                <span className="mt-0.5 inline-block rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
+                  Ready to quote
+                </span>
+              ) : t.inquiry_status === 'declined' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  Not available
+                </span>
+              ) : null
+            }
+            timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
+          />
+        </div>
+        <ThreadArchiveToggle threadId={t.thread_id} returnTo={returnTo} archived={t.archived} />
+      </li>
+    );
+  };
 
   return (
     <section className="space-y-6">
@@ -206,78 +281,24 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           </div>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {threads.map((t) => {
-            // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
-            // Free/Verified vendors who haven't yet replied show their
-            // screen_name (Bark format) — paid + revealed + venue vendors
-            // show real business_name. Single resolver call keeps the
-            // Avatar initials + visible label in lock-step.
-            const vendorDisplayName = t.vendor
-              ? resolveVendorDisplayName({
-                  business_name: t.vendor.business_name ?? null,
-                  name_revealed_at: t.vendor.name_revealed_at ?? null,
-                  services: t.vendor.services ?? null,
-                  screen_name: t.vendor.screen_name ?? null,
-                  // Phase C: Pro/Enterprise reveal real business_name day-1.
-                  isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
-                  primary_canonical_service: t.vendor.services?.[0] ?? null,
-                  location_city: t.vendor.location_city ?? null,
-                })
-              : 'Vendor';
-            // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the
-            // vendor's real logo is as identifying as the business name, so it
-            // must stay masked until the SAME predicate that reveals the name
-            // says reveal. Reuse `isVendorNameRevealed` (the single source of
-            // truth behind `resolveVendorDisplayName`) so the logo and the
-            // label can never drift — pre-reveal we pass null and the avatar
-            // falls back to screen-name initials.
-            const vendorNameRevealed = t.vendor
-              ? isVendorNameRevealed({
-                  name_revealed_at: t.vendor.name_revealed_at ?? null,
-                  isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
-                  services: t.vendor.services ?? null,
-                })
-              : false;
-            const vendorLogoUrl = vendorNameRevealed
-              ? t.vendor?.logo_url ?? null
-              : null;
-            return (
-              <li key={t.thread_id}>
-                <ThreadListCard
-                  href={`/dashboard/${eventId}/messages/${t.thread_id}`}
-                  title={vendorDisplayName}
-                  avatar={
-                    <ThreadListAvatar
-                      logoUrl={vendorLogoUrl}
-                      name={vendorDisplayName}
-                    />
-                  }
-                  badge={
-                    t.inquiry_status === 'pending' ? (
-                      <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                        Waiting for reply
-                      </span>
-                    ) : t.inquiry_status === 'accepted' ? (
-                      // Accepted (inquiry-accepted-visibility 2026-06-16) — the
-                      // vendor took the inquiry, the thread is open + the name is
-                      // revealed. Emerald matches the inquiry_accepted notification
-                      // tone so the couple reads "this one's live" at a glance.
-                      <span className="mt-0.5 inline-block rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
-                        Ready to quote
-                      </span>
-                    ) : t.inquiry_status === 'declined' ? (
-                      <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                        Not available
-                      </span>
-                    ) : null
-                  }
-                  timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {activeThreads.length > 0 ? (
+            <ul className="space-y-2">{activeThreads.map(renderRow)}</ul>
+          ) : (
+            <p className="rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+              No active conversations — everything&rsquo;s tucked into Archived below.
+            </p>
+          )}
+
+          {archivedThreads.length > 0 ? (
+            <details className="mt-4 rounded-xl border border-ink/10 bg-cream/60">
+              <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
+                Archived · {archivedThreads.length}
+              </summary>
+              <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
+            </details>
+          ) : null}
+        </>
       )}
     </section>
   );

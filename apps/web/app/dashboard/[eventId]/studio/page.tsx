@@ -5,6 +5,8 @@ import {
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
+import { recommendStudioAddOns } from '@/lib/studio-recommendations';
+import { monthsUntil } from '@/lib/wedding-roadmap';
 import { addOnDetail } from '@/lib/add-ons-detail';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
@@ -86,14 +88,22 @@ export default async function StudioPage({ params }: Props) {
   const serviceKeys = Array.from(
     new Set(ADD_ONS.map((a) => a.serviceKey).filter((k): k is string => Boolean(k))),
   );
-  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }] =
+  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }, eventDateRes] =
     await Promise.all([
       eventActiveSkus(createAdminClient(), eventId),
       supabase
         .from('platform_retail_catalog_v2')
         .select('service_code, retail_price_php')
         .in('service_code', serviceKeys),
+      // Event date — the ONE input the "Recommended for you now" strip needs to
+      // place the couple on their timeline (same months-to-date question the
+      // free Home roadmap uses). Best-effort: a null date just anchors the
+      // recommendations to early-planning (see NO_DATE_ANCHOR_MONTHS).
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
     ]);
+  const eventDate =
+    (eventDateRes.data as { event_date?: string | null } | null)?.event_date ?? null;
+  const monthsToDate = monthsUntil(eventDate, Date.now());
 
   const priceMap = new Map<string, string>();
   for (const r of priceRows ?? []) {
@@ -289,20 +299,79 @@ export default async function StudioPage({ params }: Props) {
       } => Boolean(x.entry) && isRecommendable(x.entry as AddOnEntry),
     );
 
+  // ── "Recommended for you now" (owner 2026-07-10 · simpler Studio) ─────────
+  // Lead the hub with the 2–3 add-ons that fit WHERE THE COUPLE IS on their
+  // timeline, so Studio opens as "here's your next step" instead of a 24-tile
+  // catalog. Eligible = surface-enabled for this event type AND not coming-soon;
+  // owned items are never re-recommended. Pure ranking lives in
+  // lib/studio-recommendations.ts (the months-to-date question the free Home
+  // roadmap already uses). Free picks are allowed on purpose — this answers
+  // "what to set up next", not "what to buy".
+  const recommendedEntries = recommendStudioAddOns({
+    monthsToDate,
+    isEligible: (key) => {
+      const e = entryByKey.get(key);
+      if (!e) return false;
+      return e.status !== 'coming_soon' && surfaceOk(e);
+    },
+    isOwned: (key) => {
+      const e = entryByKey.get(key);
+      return e ? isOwned(e) : false;
+    },
+    limit: 3,
+  })
+    .map((key) => entryByKey.get(key))
+    .filter((e): e is AddOnEntry => Boolean(e));
+
+  const recommendLede =
+    monthsToDate === null
+      ? 'Great places to start while your date settles.'
+      : monthsToDate > 6
+        ? 'Where couples put their energy with this much time to go.'
+        : monthsToDate > 3
+          ? 'The pieces to line up as your day gets closer.'
+          : 'Your last-stretch picks — capture, and the day itself.';
+
   const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
   return (
     <section className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-          Everything you can make with Setnayan
+          Your Studio
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Browse the tools you can add to your event — from candid capture to
-          your public website, planning aids, and music. Tap any one to see what
-          it does. New ones light up as they ship.
+          Everything you can add to your day. Start with what we suggest for
+          where you are — or browse it all below.
         </p>
       </header>
+
+      {recommendedEntries.length > 0 ? (
+        <section aria-label="Recommended for you now" className="space-y-3">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
+              Recommended for you now
+            </p>
+            <p className="mt-1 text-sm text-ink/60">{recommendLede}</p>
+          </div>
+          <RevealList
+            as="ul"
+            className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-terracotta/25 bg-cream shadow-[0_1px_3px_rgba(92,37,66,0.06)]"
+          >
+            {recommendedEntries.map((addon) => (
+              <StudioAppRow
+                key={addon.key}
+                href={cardHref(addon)}
+                label={addon.label}
+                blurb={addon.blurb}
+                Icon={addon.Icon}
+                gradient={addon.poster.baseBackground}
+                pill={pillFor(addon)}
+              />
+            ))}
+          </RevealList>
+        </section>
+      ) : null}
 
       {coupleSuggestions.length > 0 ? (
         <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
@@ -417,6 +486,16 @@ export default async function StudioPage({ params }: Props) {
         </p>
         <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/60">
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
+        </p>
+      </div>
+
+      <div className="border-t border-ink/10 pt-6">
+        <h2 className="text-xl font-semibold tracking-tight text-ink">
+          Browse everything
+        </h2>
+        <p className="mt-1 max-w-prose text-sm text-ink/60">
+          The full library, grouped by what it&rsquo;s for. New ones light up as
+          they ship.
         </p>
       </div>
 

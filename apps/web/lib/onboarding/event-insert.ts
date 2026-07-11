@@ -82,6 +82,13 @@ export function buildGenericEventInsert(
     story_language: null,
     special_message: null,
     together_since: null,
+    // Per-type signature answers (the generalised love_story). NULL when nothing
+    // was captured, so the Brief's specialty richness gate reads "not
+    // personalised yet" rather than "answered with {}".
+    signature_details:
+      payload.signatureDetails && Object.keys(payload.signatureDetails).length > 0
+        ? payload.signatureDetails
+        : null,
     // Experience-persona intent — flag-guarded (absent before the migration lands).
     ...(opts.experienceEnabled
       ? {

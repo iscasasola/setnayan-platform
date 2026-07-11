@@ -256,6 +256,9 @@ export function GenericOnboarding(props: Props) {
       sendTopInquiries: false,
       inquiriesPerCategory: 3,
       role: 'host',
+      // The per-type signature answers were collected in `details` but never
+      // sent — this is the fix that stops the silent drop → events.signature_details.
+      signatureDetails: details,
     };
     // Anon-draft commit mints a Supabase anonymous session that global captcha
     // gates — mint a Turnstile token (no-op/undefined when unconfigured).

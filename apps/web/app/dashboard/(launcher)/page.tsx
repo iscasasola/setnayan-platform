@@ -844,7 +844,10 @@ function SpaceCard({
           }`}
         >
           {logoUrl ? (
-            <ShopLogo src={logoUrl} fallbackIcon={Icon} />
+            <ShopLogo
+              src={logoUrl}
+              fallback={<Icon className="h-[18px] w-[18px]" />}
+            />
           ) : (
             <Icon className="h-[18px] w-[18px]" />
           )}

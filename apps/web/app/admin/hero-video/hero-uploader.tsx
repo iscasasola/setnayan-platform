@@ -32,7 +32,7 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
 // Frame density = SMOOTHNESS, not duration (owner 2026-06-16). The hero plays as a
-// time-paced scroll-scrub: HeroVideoScrub's MIN_PLAY_SECONDS sets how many SECONDS a
+// time-paced scroll-scrub: the player's MIN_PLAY_SECONDS sets how many SECONDS a
 // play-through lasts (a fast swipe can't rush it), independent of frame count. Frame
 // COUNT only controls how smooth those seconds look — too few frames over a multi-second
 // play = a stepped slideshow. 24fps over a ~5–6s clip → ~120–144 frames, which reads as

@@ -45,6 +45,17 @@ export interface CustomComposition {
   tokensPerCycle: number;
   /** Custom domain included. */
   domain: boolean;
+  /**
+   * API access granted (Enterprise-vendor SDK). An ENTITLEMENT toggle, not a
+   * numeric ceiling — the admin ticks it while composing the Custom plan when an
+   * enterprise vendor requests API integration (owner 2026-07-11: "available if
+   * custom plan of enterprise requests allowing api"). Optional so pre-existing
+   * composition rows read as "not granted" (fail-closed). NOT priced in
+   * `computeCustomQuote` today — it rides in the negotiated Custom quote; attach
+   * a per-cycle price later by adding it to the rate card if the owner wants it
+   * itemised. The API gate (lib/enterprise-vendor-gate.ts) reads this flag.
+   */
+  api_access?: boolean;
 }
 
 /** Per-unit prices (PHP), read from the admin-managed catalog by the caller. */

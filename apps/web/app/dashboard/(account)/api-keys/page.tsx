@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Copy, Key, Plus, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { userOwnsActiveEnterpriseVendor } from '@/lib/enterprise-vendor-gate';
+import { userHasApiAccessGrant } from '@/lib/enterprise-vendor-gate';
 import {
   API_SCOPES,
   DEFAULT_SCOPES,
@@ -38,10 +38,10 @@ export default async function ApiKeysPage({ searchParams }: Props) {
     .order('created_at', { ascending: false });
   const keys = (data ?? []) as ApiKeyRow[];
 
-  // The /api/v1 SDK is an enterprise-vendor feature (owner 2026-07-11) — only an
-  // active Enterprise/Custom vendor owner may mint keys (enforced in the action +
-  // on every request). Non-enterprise users see an upsell instead of the form.
-  const ownsEnterprise = await userOwnsActiveEnterpriseVendor(createAdminClient(), user.id);
+  // The /api/v1 SDK requires an explicit API-access grant on an active Custom
+  // vendor plan (owner 2026-07-11) — only that vendor owner may mint keys
+  // (enforced in the action + on every request). Everyone else sees an upsell.
+  const hasApiAccess = await userHasApiAccessGrant(createAdminClient(), user.id);
 
   const justCreated = search.just_created ?? null;
 
@@ -102,7 +102,7 @@ export default async function ApiKeysPage({ searchParams }: Props) {
         </section>
       ) : null}
 
-      {ownsEnterprise ? (
+      {hasApiAccess ? (
       <section className="mb-8 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Create a key
@@ -153,8 +153,9 @@ export default async function ApiKeysPage({ searchParams }: Props) {
         <p className="text-sm text-ink/70">
           The Setnayan API is an{' '}
           <span className="font-medium text-ink">Enterprise vendor</span> feature —
-          integrate Setnayan with your own systems. Upgrade your vendor plan to
-          Enterprise to mint API keys.
+          integrate Setnayan with your own systems. It&rsquo;s enabled per
+          request on a <span className="font-medium text-ink">Custom</span> plan;
+          talk to us about a Custom plan with API access to mint keys.
         </p>
         <Link
           href="/vendor-dashboard/subscription"

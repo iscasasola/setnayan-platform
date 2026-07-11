@@ -2,17 +2,24 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hashApiKey, hasScope, type ApiScope } from '@/lib/api-keys';
-import { userOwnsActiveEnterpriseVendor } from '@/lib/enterprise-vendor-gate';
+import { resolveApiVendor } from '@/lib/enterprise-vendor-gate';
 
 export type ApiAuthResult = {
   userId: string;
   apiKeyId: string;
   scopes: ApiScope[];
+  /**
+   * The vendor profile this key is scoped to — the shop that holds the
+   * api_access grant. Every /api/v1/vendor/* route filters to THIS id, so the
+   * resolution happens once here and routes never re-derive it. Always present
+   * on a successful auth (a key can't authenticate without an api_access grant).
+   */
+  vendorProfileId: string;
 };
 
 export type ApiAuthError = {
   status: number;
-  error: 'missing_auth' | 'invalid_format' | 'invalid_key' | 'revoked' | 'expired' | 'not_enterprise';
+  error: 'missing_auth' | 'invalid_format' | 'invalid_key' | 'revoked' | 'expired' | 'no_api_access';
 };
 
 const ERROR_HTTP_STATUS: Record<ApiAuthError['error'], number> = {
@@ -21,7 +28,7 @@ const ERROR_HTTP_STATUS: Record<ApiAuthError['error'], number> = {
   invalid_key: 401,
   revoked: 401,
   expired: 401,
-  not_enterprise: 403,
+  no_api_access: 403,
 };
 
 const ERROR_MESSAGE: Record<ApiAuthError['error'], string> = {
@@ -30,7 +37,7 @@ const ERROR_MESSAGE: Record<ApiAuthError['error'], string> = {
   invalid_key: 'API key not recognised.',
   revoked: 'API key has been revoked.',
   expired: 'API key has expired.',
-  not_enterprise: 'The Setnayan API is available on the Enterprise vendor plan.',
+  no_api_access: 'The Setnayan API requires a Custom vendor plan with API access enabled.',
 };
 
 function authError(error: ApiAuthError['error']): ApiAuthError {
@@ -72,12 +79,21 @@ export async function authenticateApiRequest(
     return authError('expired');
   }
 
-  // The /api/v1 SDK is an enterprise-vendor feature (owner 2026-07-11). Enforce
-  // it at this shared auth choke point so every bearer route inherits the gate.
-  // This is also the DOWNGRADE DEFENSE: a key minted while Enterprise stops
-  // working the moment that vendor's tier lapses or downgrades.
-  if (!(await userOwnsActiveEnterpriseVendor(admin, data.user_id))) {
-    return authError('not_enterprise');
+  // The /api/v1 SDK requires an explicit API-access grant on an active Custom
+  // vendor plan (owner 2026-07-11: "available if custom plan of enterprise
+  // requests allowing api"). Enforce it at this shared auth choke point so every
+  // bearer route inherits the gate. REVOCATION is admin-driven: un-ticking
+  // api_access + re-activating, replacing the plan, or demoting the tier all cut
+  // access on the next request. NOTE: custom plans do not yet AUTO-lapse on
+  // non-renewal (tier_expires_at is left NULL on custom activation and no sweep
+  // demotes an active custom plan — tracked with the recurring-billing work), so
+  // a granted vendor keeps access until an admin acts. Acceptable for V1: custom
+  // plans are white-glove, manually composed + activated per deal.
+  // The resolved vendorProfileId is carried on the auth result so vendor.* routes
+  // scope to exactly the blessed shop without re-querying.
+  const vendor = await resolveApiVendor(admin, data.user_id);
+  if (!vendor) {
+    return authError('no_api_access');
   }
 
   // Don't await — log the touch and return immediately.
@@ -89,7 +105,12 @@ export async function authenticateApiRequest(
 
   const scopes = Array.isArray(data.scopes) ? (data.scopes as ApiScope[]) : [];
 
-  return { userId: data.user_id, apiKeyId: data.api_key_id, scopes };
+  return {
+    userId: data.user_id,
+    apiKeyId: data.api_key_id,
+    scopes,
+    vendorProfileId: vendor.vendorProfileId,
+  };
 }
 
 export function isAuthError(

@@ -36,6 +36,7 @@ import {
   buildRequirementsBlock,
   isPersistableCanonicalService,
 } from '@/lib/requirements-capture';
+import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -51,6 +52,13 @@ export type StartServiceInquiryResult =
 
 export async function startServiceInquiry(input: {
   vendorProfileId: string;
+  /**
+   * Who initiated this call. 'manual' (default) = the couple pressed Inquire in
+   * the composer → subject to the Phase-A velocity gate. 'system' = a legitimate
+   * batch fan-out (the pending-pick dispatcher flushing saved picks) → exempt, so
+   * securing an account and flushing a shortlist never trips the anti-spam cap.
+   */
+  source?: 'manual' | 'system';
   /** vendor_service the couple clicked Inquire on → source='initial'. */
   initialServiceId: string;
   /** Canonical category for the initial service (display/scoping). */
@@ -116,6 +124,36 @@ export async function startServiceInquiry(input: {
   const isExisting =
     existingThread?.thread_id != null &&
     (existingThread as { inquiry_status?: string | null }).inquiry_status !== 'declined';
+
+  // ── Phase A · inquiry velocity gate (fake-inquiry protection) ──────────────
+  // Only a brand-NEW, MANUAL inquiry can be spam. Resuming an existing thread
+  // (isExisting) is never gated — that's a couple continuing a conversation they
+  // already started. System fan-outs pass source:'system' and are exempt. The
+  // whole gate is dormant until NEXT_PUBLIC_INQUIRY_GATE_ENABLED is flipped on.
+  const source = input.source ?? 'manual';
+  if (!isExisting && source === 'manual' && inquiryGateEnabled()) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Rolling-24h count of threads this couple opened across all their events.
+    const { count: dailyCount } = await supabase
+      .from('chat_threads')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('created_by_user_id', user.id)
+      .gte('created_at', since);
+    // Non-declined threads already open on THIS event.
+    const { count: concurrentOpenCount } = await supabase
+      .from('chat_threads')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .neq('inquiry_status', 'declined');
+    const verdict = evaluateInquiryVelocity({
+      dailyCount: dailyCount ?? 0,
+      concurrentOpenCount: concurrentOpenCount ?? 0,
+    });
+    if (!verdict.ok) {
+      // Friendly, non-accusatory — surfaced via the composer's message channel.
+      return { status: 'error', message: verdict.message };
+    }
+  }
 
   // Validate the submitted service ids belong to THIS vendor + are active —
   // host-supplied form data, so a stale/forged id should be dropped, not

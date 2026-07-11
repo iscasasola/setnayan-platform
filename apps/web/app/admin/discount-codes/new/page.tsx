@@ -12,6 +12,7 @@ import { VoucherForm, type VoucherFormInitial } from '../_components/voucher-for
 import { createDiscountCode } from '../actions';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'New discount code · Admin' };
 
 type ServiceRow = {
@@ -22,6 +23,9 @@ type ServiceRow = {
 };
 
 export default async function NewDiscountCodePage() {
+  // Defense-in-depth: this page reads the RLS-bypassing service-role client,
+  // so it gates itself (a layout is not a safe auth boundary).
+  await requireAdmin();
   // Source: V2 customer catalog + bundle catalog + vendor catalog. Per owner
   // 2026-05-29 follow-up after #598: vendor SKUs (Pro Vendor monthly/annual,
   // Enterprise, verification renewal, token packs) should also be voucherable

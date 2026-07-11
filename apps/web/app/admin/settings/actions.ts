@@ -109,7 +109,7 @@ export async function saveBusinessIdentity(formData: FormData) {
     .update(payload)
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
   }
 
   // Vendor VALIDATE destinations (migration 20270503417266) — saved in a
@@ -138,7 +138,7 @@ export async function saveBusinessIdentity(formData: FormData) {
 
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
-  redirect('/admin/settings?saved=1');
+  redirect('/admin/settings?tab=settings&saved=1');
 }
 
 /**
@@ -155,10 +155,10 @@ export async function saveAdminDigest(formData: FormData) {
     .update({ admin_digest_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
   }
   revalidatePath('/admin/settings');
-  redirect('/admin/settings?saved=1');
+  redirect('/admin/settings?tab=settings&saved=1');
 }
 
 /**
@@ -194,13 +194,13 @@ export async function saveLoaderAppearance(formData: FormData) {
     })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
   }
 
   revalidateTag(LOADER_SETTINGS_TAG);
   revalidatePath('/', 'layout');
   revalidatePath('/admin/settings');
-  redirect('/admin/settings?loader_saved=1');
+  redirect('/admin/settings?tab=settings&loader_saved=1');
 }
 
 export async function savePaymentInstruments(formData: FormData) {
@@ -361,7 +361,7 @@ const BRAND_ICON_COLUMNS =
   'brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version';
 
 function settingsError(message: string): never {
-  return redirect(`/admin/settings?error=${encodeURIComponent(message)}`);
+  return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(message)}`);
 }
 
 export async function uploadBrandIcon(formData: FormData) {
@@ -515,7 +515,7 @@ export async function uploadBrandIcon(formData: FormData) {
   revalidateTag(BRAND_SETTINGS_TAG);
   revalidatePath('/', 'layout');
   revalidatePath('/favicon.ico');
-  redirect('/admin/settings?brand_icon=1');
+  redirect('/admin/settings?tab=settings&brand_icon=1');
 }
 
 export async function removeBrandIcon() {
@@ -565,5 +565,5 @@ export async function removeBrandIcon() {
   revalidateTag(BRAND_SETTINGS_TAG);
   revalidatePath('/', 'layout');
   revalidatePath('/favicon.ico');
-  redirect('/admin/settings?brand_icon_removed=1');
+  redirect('/admin/settings?tab=settings&brand_icon_removed=1');
 }

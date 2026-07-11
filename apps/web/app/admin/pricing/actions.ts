@@ -474,7 +474,7 @@ export async function saveAllPricing(formData: FormData) {
   const params = new URLSearchParams({ saved: String(changed) });
   if (skipped.length > 0) params.set('skipped', String(skipped.length));
   if (firstError) params.set('error', '1');
-  redirect(`/admin/pricing?${params.toString()}`);
+  redirect(`/admin/pricing?tab=pricing&${params.toString()}`);
 }
 
 // ─── createBundle ─────────────────────────────────────────────────────
@@ -498,10 +498,10 @@ export async function createBundle(formData: FormData) {
   const priceRaw = (formData.get('bundle_price') ?? '').toString().trim();
   const desc = (formData.get('bundle_desc') ?? '').toString().trim();
 
-  if (!name) redirect('/admin/pricing?createError=name');
+  if (!name) redirect('/admin/pricing?tab=pricing&createError=name');
   const price = Number(priceRaw);
   if (!Number.isFinite(price) || price < 0) {
-    redirect('/admin/pricing?createError=price');
+    redirect('/admin/pricing?tab=pricing&createError=price');
   }
   const priceR = round2(price);
 
@@ -534,7 +534,7 @@ export async function createBundle(formData: FormData) {
   });
   if (error) {
     console.error('[createBundle] insert failed', error.message);
-    redirect('/admin/pricing?createError=db');
+    redirect('/admin/pricing?tab=pricing&createError=db');
   }
 
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
@@ -556,5 +556,5 @@ export async function createBundle(formData: FormData) {
   revalidatePath('/pricing');
   revalidatePath('/vendors');
   revalidatePath('/admin/pricing');
-  redirect(`/admin/pricing?created=${encodeURIComponent(code)}`);
+  redirect(`/admin/pricing?tab=pricing&created=${encodeURIComponent(code)}`);
 }

@@ -38,6 +38,7 @@ import { PesoPerLeadAdminCard } from './_components/peso-per-lead-admin-card';
 import { fetchAdminOutcomeOverview } from '@/lib/inquiry-outcomes';
 import { WonLostAdminCard } from './_components/won-lost-admin-card';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Insights · Admin' };
 
 const INSIGHTS_ITEMS: LandingItem[] = [
@@ -110,6 +111,8 @@ const INSIGHTS_ITEMS: LandingItem[] = [
 ];
 
 export default async function AdminInsightsLanding() {
+  // Defense-in-depth: reads service-role admin overviews below.
+  await requireAdmin();
   // Vendor unit-economics scorecard (Wave 6). The /admin layout already 404s
   // non-admins, and the RPC self-gates on is_console_admin(), so this only
   // resolves for admins. Visible at all breakpoints (unlike the mobile-only

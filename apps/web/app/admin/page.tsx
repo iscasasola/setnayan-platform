@@ -262,10 +262,10 @@ export default async function AdminOverview() {
           Everything that needs admin action right now — requests, transactions
           awaiting approval, reports, and disputes at a glance. Tap a card to
           clear it. <strong className="text-ink">Accounts</strong> looks people
-          up, <strong className="text-ink">Performance</strong> carries the
+          up, <strong className="text-ink">App Performance</strong> carries the
           cockpit and platform upgrades, and{' '}
-          <strong className="text-ink">System Settings</strong> holds the
-          catalog and engine-room config.
+          <strong className="text-ink">Money</strong> holds the catalog and
+          engine-room config.
         </p>
       </header>
 
@@ -296,7 +296,7 @@ export default async function AdminOverview() {
           <ProgressRing pct={clearedPct} size={64} stroke={6}>
             <span
               className="text-lg font-semibold tracking-tight tabular-nums"
-              style={{ fontFamily: 'var(--m-display)', color: 'var(--m-ink)' }}
+              style={{ fontFamily: "var(--font-condensed), 'Saira Condensed', sans-serif", color: 'var(--m-ink)' }}
             >
               {totalOpen}
             </span>
@@ -753,7 +753,7 @@ function ActionQueueTile({
       </div>
       <p
         className={`text-3xl font-semibold tracking-tight tabular-nums ${tone.value}`}
-        style={{ fontFamily: 'var(--m-display)' }}
+        style={{ fontFamily: "var(--font-condensed), 'Saira Condensed', sans-serif" }}
       >
         {value === null ? '—' : value}
       </p>

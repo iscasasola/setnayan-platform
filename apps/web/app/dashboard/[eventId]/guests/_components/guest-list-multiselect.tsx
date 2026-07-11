@@ -9,6 +9,13 @@ import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { pushUndo } from './undo-toast';
 import { QuickViewButton } from './guest-drawer';
+import {
+  AddToGroupControl,
+  RoleChipEditor,
+  RsvpChipEditor,
+  SideChipEditor,
+} from './chip-editors';
+import { keepGuestAction, removeGuestAction } from '../claims/actions';
 import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
@@ -319,8 +326,10 @@ function DesktopRow({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -329,8 +338,10 @@ function DesktopRow({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
 }) {
   // Group labels for the quick-view drawer (Contact + groups live there now).
   const groupLabels = groupIds
@@ -377,25 +388,123 @@ function DesktopRow({
         </div>
       </td>
       <td className="px-3 py-2.5">
-        <SidePill side={guest.side} />
+        {/* Inline editors (P2): the chip opens an anchored popover that applies
+            through the optimistic overlay + drops an undo toast. */}
+        <SideChipEditor eventId={eventId} guest={guest}>
+          <SidePill side={guest.side} />
+        </SideChipEditor>
       </td>
       <td className="px-3 py-2.5">
-        <RoleChips guest={guest} palette={palette} />
+        <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
+          <RoleChips guest={guest} palette={palette} />
+        </RoleChipEditor>
       </td>
       <td className="px-3 py-2.5">
-        <GroupChipList
-          eventId={eventId}
-          guestId={guest.guest_id}
-          groupIds={groupIds}
-          groupsById={groupsById}
-          currentGroupId={currentGroupId}
-        />
+        <div className="flex items-center gap-1.5">
+          <GroupChipList
+            eventId={eventId}
+            guestId={guest.guest_id}
+            groupIds={groupIds}
+            groupsById={groupsById}
+            currentGroupId={currentGroupId}
+            compact
+          />
+          <AddToGroupControl
+            eventId={eventId}
+            guest={guest}
+            groups={groups}
+            memberGroupIds={groupIds}
+          />
+        </div>
       </td>
       <td className="px-3 py-2.5">
-        <RsvpPill status={guest.rsvp_status} />
+        <RsvpChipEditor eventId={eventId} guest={guest}>
+          <RsvpPill status={guest.rsvp_status} />
+        </RsvpChipEditor>
       </td>
       <td className="px-3 py-2.5 text-xs text-ink/60">
         {guest.email ?? guest.mobile ?? '—'}
+      </td>
+    </tr>
+  );
+}
+
+// Self-join "needs you" row (Living Roster P2). People who joined via the
+// couple's invite link but whose name didn't match the list arrive as real
+// guest rows tagged `entry_source='self_added_unlisted'`; page.tsx threads their
+// ids in so the roster surfaces them INLINE (blush-tinted) with the three
+// reconcile choices, instead of a couple having to visit /guests/claims. Keep /
+// Remove call the SAME claim actions the deep page uses (so the semantics — and
+// what clears the "needs you" state — stay identical); Link (a merge into an
+// existing guest, which needs a target picker) deep-links to that page.
+function SelfJoinDesktopRow({
+  guest,
+  eventId,
+  displayUrl,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  displayUrl?: string;
+}) {
+  const name = guestDisplayName(guest);
+  return (
+    <tr className="border-t border-danger-200/60 bg-danger-50/50">
+      <td className="px-3 py-3" />
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          {displayUrl ? (
+            <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={displayUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </span>
+          ) : (
+            <span
+              aria-hidden
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-100 text-xs font-semibold text-danger-900"
+            >
+              {guestInitials(guest)}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink">{name}</p>
+            <p className="truncate text-xs font-medium text-danger-700">
+              joined via your link · not on your list
+            </p>
+            <p className="truncate text-[11px] text-ink/45">
+              Already has their QR &amp; personal page — Keep to add them, Remove to revoke
+            </p>
+          </div>
+        </div>
+      </td>
+      <td colSpan={5} className="px-3 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
+            <input type="hidden" name="guest_id" value={guest.guest_id} />
+            <SubmitButton
+              overlay={false}
+              pendingLabel="Keeping…"
+              className="inline-flex h-8 items-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-700"
+            >
+              Keep
+            </SubmitButton>
+          </form>
+          <Link
+            href={`/dashboard/${eventId}/guests/claims`}
+            className="inline-flex h-8 items-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
+          >
+            Link to invite
+          </Link>
+          <form action={removeGuestAction.bind(null, eventId)} className="inline-flex">
+            <input type="hidden" name="guest_id" value={guest.guest_id} />
+            <SubmitButton
+              overlay={false}
+              pendingLabel="Removing…"
+              className="inline-flex h-8 items-center rounded-md border border-danger-300/70 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
+            >
+              Remove
+            </SubmitButton>
+          </form>
+        </div>
       </td>
     </tr>
   );
@@ -408,6 +517,10 @@ type Props = {
   groups: GuestGroupWithCount[];
   groupMemberships: Record<string, string[]>; // guest_id → group_id[]
   currentGroupId: string | null;
+  // Self-join reconcile queue (Living Roster P2): guest_ids of unlisted joiners
+  // (entry_source='self_added_unlisted'), fetched into page.tsx. Rendered as the
+  // blush "needs you" row inline in the roster (Keep / Link / Remove).
+  selfJoinIds: string[];
   // guest.photo_url (the stored r2:// ref or raw Google avatar URL) →
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
@@ -436,14 +549,19 @@ export function GuestListMultiselect({
   groups,
   groupMemberships,
   currentGroupId,
+  selfJoinIds,
   photoDisplayUrls,
   groupMode,
   roleSetKey,
   recentlyDeleted,
   recentlyApplied,
 }: Props) {
-  // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5).
+  // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
+  // the role-editor popover's option groups (P2).
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
+  // Which visible rows are unlisted self-joiners → render the blush needs-you
+  // variant instead of the normal editable row.
+  const selfJoinSet = useMemo(() => new Set(selfJoinIds), [selfJoinIds]);
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
   // and the desktop SelectionBar stay in lockstep (owner directive
@@ -480,7 +598,14 @@ export function GuestListMultiselect({
       return next;
     });
 
-  const allIds = useMemo(() => rosterGuests.map((g) => g.guest_id), [rosterGuests]);
+  // Exclude self-join (needs-you) rows: they render WITHOUT a checkbox and are
+  // managed only via their inline Keep/Link/Remove, so they must never be swept
+  // into select-all or the SelectionBar bulk actions — and keeping them out lets
+  // allSelected/someSelected be reached by clicking the visible checkboxes.
+  const allIds = useMemo(
+    () => rosterGuests.map((g) => g.guest_id).filter((id) => !selfJoinSet.has(id)),
+    [rosterGuests, selfJoinSet],
+  );
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
@@ -617,20 +742,31 @@ export function GuestListMultiselect({
                   </tr>
                 ) : null}
                 {(!sec.label || !collapsed.has(sec.key)) &&
-                  sec.guests.map((guest) => (
-                  <DesktopRow
-                    key={guest.guest_id}
-                    guest={guest}
-                    eventId={eventId}
-                    palette={palette}
-                    displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-                    selected={selectedSet.has(guest.guest_id)}
-                    onToggle={() => guestSelection.toggle(guest.guest_id)}
-                    groupIds={groupMemberships[guest.guest_id] ?? []}
-                    groupsById={groupsById}
-                    currentGroupId={currentGroupId}
-                  />
-                ))}
+                  sec.guests.map((guest) =>
+                    selfJoinSet.has(guest.guest_id) ? (
+                      <SelfJoinDesktopRow
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                      />
+                    ) : (
+                      <DesktopRow
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        palette={palette}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        selected={selectedSet.has(guest.guest_id)}
+                        onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
+                        groupsById={groupsById}
+                        currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
+                      />
+                    ),
+                  )}
               </Fragment>
             ))}
           </tbody>

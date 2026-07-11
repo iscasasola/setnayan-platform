@@ -2671,3 +2671,22 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     animation: gl-slidein 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
 }
+
+/*
+ * Capture-bar "Adding…" shimmer (P2 · 2026-07-11). A gentle opacity pulse on the
+ * in-flight single-add indicator while the server round-trip lands the new guest
+ * (prototype `.adding`, :163). The universal `prefers-reduced-motion: reduce`
+ * block above freezes it to a steady 0.7 opacity — no per-rule opt-out needed.
+ */
+@keyframes gl-adding {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.gl-adding {
+  animation: gl-adding 0.9s ease-in-out infinite;
+}

@@ -153,6 +153,26 @@ function formatGrossCentavos(centavosStr: string): string {
   })}`;
 }
 
+/**
+ * Pre-mint a Setnayan reference code CLIENT-SIDE (same `SN` + 8-hex shape as the
+ * server's generateReferenceCode) so the drawer can show it BEFORE the couple
+ * leaves to pay — they copy it into their BDO/GCash transfer note, and the
+ * reconciliation matcher pairs the inbound bank/GCash message to this order by
+ * reference. Generated in a mount effect (never during SSR) to avoid a
+ * hydration mismatch; the server re-validates + accepts it at submit.
+ */
+function generateClientReference(): string {
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  return (
+    'SN' +
+    Array.from(arr)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
+}
+
 export function InlineCheckoutDrawer({
   serviceKey,
   displayName,
@@ -216,6 +236,15 @@ export function InlineCheckoutDrawer({
   // associated with its input (a11y · screen readers announce the field name
   // on focus). Mirrors the wrapped-label pattern the order-detail page uses.
   const referenceFieldId = useId();
+
+  // Pre-minted Setnayan reference · shown in the payment step BEFORE the couple
+  // pays, and threaded to submitOrderAction so the created order carries the
+  // same code. Minted in an effect (client-only) to avoid an SSR hydration
+  // mismatch; stays '' until mount, by which point the drawer is still closed.
+  const [referenceCode, setReferenceCode] = useState('');
+  useEffect(() => {
+    setReferenceCode(generateClientReference());
+  }, []);
 
   // Compute final price displayed in the drawer header.
   const finalPriceStr =
@@ -415,7 +444,11 @@ export function InlineCheckoutDrawer({
                 <ChannelToggle channel={channel} onChange={setChannel} />
 
                 {/* (3) QR + account block based on channel. */}
-                <PaymentDetailsBlock channel={channel} settings={settings} />
+                <PaymentDetailsBlock
+                  channel={channel}
+                  settings={settings}
+                  referenceCode={referenceCode}
+                />
 
                 {/* (3b) Instant online payment · shown but LOCKED until the
                     PayMongo merchant verification is approved (owner directive
@@ -443,6 +476,10 @@ export function InlineCheckoutDrawer({
                     fd.set('channel', channel);
                     fd.set('screenshot_ref', screenshotRef);
                     fd.set('client_idempotency_key', idempotencyKey);
+                    // The pre-minted reference shown in the payment step — the
+                    // server accepts it (validated) so the order carries the
+                    // same code the couple put in their transfer note.
+                    if (referenceCode) fd.set('preminted_reference', referenceCode);
                     if (hasVoucher && voucherResult?.code) {
                       fd.set('voucher_code', voucherResult.code);
                       fd.set(
@@ -843,9 +880,11 @@ function PayMongoSoon() {
 function PaymentDetailsBlock({
   channel,
   settings,
+  referenceCode,
 }: {
   channel: 'gcash' | 'bdo';
   settings: InlineCheckoutDrawerProps['settings'];
+  referenceCode: string;
 }) {
   // Pre-resolve the matching name + number + qr per channel.
   const name = channel === 'gcash' ? settings.gcash_account_name : settings.bdo_account_name;
@@ -870,6 +909,26 @@ function PaymentDetailsBlock({
         Send your <span className="font-semibold text-ink">{label}</span> payment,
         then upload your screenshot below.
       </p>
+
+      {referenceCode ? (
+        <div className="rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
+                Reference code
+              </p>
+              <p className="truncate font-mono text-[15px] font-semibold text-ink">
+                {referenceCode}
+              </p>
+            </div>
+            <CopyButton value={referenceCode} />
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
+            Put this in your {label} transfer note so we can match your payment
+            instantly.
+          </p>
+        </div>
+      ) : null}
 
       {qrUrl ? (
         <div className="flex flex-col items-center gap-2">

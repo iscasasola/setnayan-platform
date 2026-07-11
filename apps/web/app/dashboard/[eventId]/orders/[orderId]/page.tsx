@@ -267,32 +267,51 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Payment instructions
         </h2>
-        <ul className="list-inside list-disc space-y-1 text-sm text-ink/75">
-          <li>
-            Send <span className="font-mono">{formatPhp(totals.headlineTotal)}</span> via BDO
-            or GCash to the merchant account
-            {hasMerchantPaymentInfo(settings)
-              ? ' below.'
-              : ' (details emailed once your order is confirmed).'}{' '}
-            <CopyButton value={String(totals.headlineTotal)} label="Copy amount" />
-          </li>
-          <li>
-            Include the reference code{' '}
-            <span className="font-mono text-terracotta-700">{order.reference_code}</span> in
-            the transfer notes so we can match your payment automatically.{' '}
-            <CopyButton value={order.reference_code} label="Copy code" />
-          </li>
-          <li>Take a screenshot of the receipt and log it below.</li>
-        </ul>
+
+        {/* The two values a couple must get exactly right — amount + reference. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+                Amount to send
+              </p>
+              <p className="font-mono text-lg font-semibold text-ink">
+                {formatPhp(totals.headlineTotal)}
+              </p>
+            </div>
+            <CopyButton value={String(totals.headlineTotal)} label="Copy" />
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
+                Reference code
+              </p>
+              <p className="truncate font-mono text-lg font-semibold text-ink">
+                {order.reference_code}
+              </p>
+            </div>
+            <CopyButton value={order.reference_code} label="Copy" />
+          </div>
+        </div>
+        <p className="text-xs leading-relaxed text-ink/60">
+          Send the amount via BDO or GCash
+          {hasMerchantPaymentInfo(settings)
+            ? ' to the account below'
+            : ' (details emailed once your order is confirmed)'}
+          , include the{' '}
+          <span className="font-semibold text-ink">reference code</span> in your
+          transfer note so we can match it instantly, then take a screenshot and
+          log it below.
+        </p>
 
         {hasMerchantPaymentInfo(settings) ? (
-          <div className="grid gap-3 border-t border-ink/10 pt-3 sm:grid-cols-2">
+          <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
             {settings.bdo_account_number || settings.bdo_qr_url ? (
-              <div className="space-y-2 rounded-md bg-ink/[0.03] p-3">
+              <div className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
                   BDO bank transfer
                 </p>
@@ -310,18 +329,20 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   </div>
                 ) : null}
                 {settings.bdo_qr_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={settings.bdo_qr_url}
-                    alt="BDO merchant QR"
-                    className="mt-2 h-40 w-40 rounded-md border border-ink/10 bg-cream object-contain"
-                  />
+                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={settings.bdo_qr_url}
+                      alt="BDO merchant QR"
+                      className="h-40 w-40 rounded-lg object-contain"
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}
 
             {settings.gcash_number || settings.gcash_qr_url ? (
-              <div className="space-y-2 rounded-md bg-ink/[0.03] p-3">
+              <div className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
                   GCash
                 </p>
@@ -339,12 +360,14 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   </div>
                 ) : null}
                 {settings.gcash_qr_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={settings.gcash_qr_url}
-                    alt="GCash QR"
-                    className="mt-2 h-40 w-40 rounded-md border border-ink/10 bg-cream object-contain"
-                  />
+                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={settings.gcash_qr_url}
+                      alt="GCash QR"
+                      className="h-40 w-40 rounded-lg object-contain"
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}

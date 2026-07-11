@@ -3,7 +3,13 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchMessages, fetchReturningClientFlags, fetchThreadById } from '@/lib/chat';
+import {
+  fetchMessages,
+  fetchReturningClientFlags,
+  fetchLeadTrustActivePlanner,
+  fetchThreadById,
+} from '@/lib/chat';
+import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -249,6 +255,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   }));
 
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
+
+  // Phase D — lead trust badge (fake-inquiry protection · "informed accept").
+  // Flag-gated + pending-only + fail-soft. "Active planner" is a purely positive
+  // cue (real engagement) — a new couple simply has no badge, never a warning.
+  const leadActivePlanner =
+    leadTrustBadgeEnabled() && thread.inquiry_status === 'pending'
+      ? await fetchLeadTrustActivePlanner(supabase, profile.vendor_profile_id, thread.event_id)
+      : false;
 
   const headerPax = livePax ?? thread.pax_current;
   // paxProposals depends on livePax, so it's the one query that follows the batch.
@@ -535,6 +549,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               Booked you for{' '}
               {returning.prior_event_display_name ?? 'a previous event'}
               {returning.resync_flat ? ' — accepting costs just 1 token.' : '.'}
+            </p>
+          ) : null}
+          {/* Phase D — lead trust badge. Positive-only; shown only when the couple
+              is already actively planning. A new couple gets no chip (never a
+              warning), and the couple never sees this. */}
+          {leadActivePlanner ? (
+            <p className="text-sm text-ink">
+              <span className="mr-1.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
+                Active planner
+              </span>
+              An engaged couple who&rsquo;s already deep in planning.
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">

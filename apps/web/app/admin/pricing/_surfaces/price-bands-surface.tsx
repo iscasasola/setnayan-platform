@@ -72,7 +72,7 @@ export async function PriceBandsSurface({
       : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-5xl">
       <header className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
           <Gauge className="h-5 w-5 text-terracotta" strokeWidth={1.75} />

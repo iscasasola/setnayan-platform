@@ -199,7 +199,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div>
       <header className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">

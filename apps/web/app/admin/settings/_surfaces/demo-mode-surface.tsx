@@ -102,7 +102,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-3xl">
       {/* BackButton dropped — Demo mode is a tab inside the Settings studio. */}
 
       <header className="mb-6 space-y-2">

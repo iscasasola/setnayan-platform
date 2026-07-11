@@ -44,7 +44,7 @@ export async function GrowthSurface({ searchParams }: Props) {
     GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.label ?? 'window';
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div>
       <header className="mb-6 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">

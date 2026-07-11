@@ -16,7 +16,7 @@ export async function MenusSurface() {
   const slots = await getResolvedNavSlots();
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-4xl">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Menus &amp; icons</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">

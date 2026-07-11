@@ -203,10 +203,7 @@ export async function CockpitSurface({ searchParams }: Props) {
   const errors = [...growth.errors, ...perf.errors];
 
   return (
-    <div
-      id="apx-root"
-      className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8"
-    >
+    <div id="apx-root">
       <style>{APX_CSS}</style>
       <CockpitFx />
 

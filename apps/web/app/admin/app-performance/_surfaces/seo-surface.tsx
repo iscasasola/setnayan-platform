@@ -65,7 +65,7 @@ export async function SeoSurface() {
   const nags = (snap?.findings ?? []).filter((f) => f.status !== 'ok');
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       <header className="flex items-start gap-3">
         <Search className="mt-1 h-6 w-6 text-ink/40" />
         <div>

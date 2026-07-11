@@ -7,6 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   CLUSTER_GAP_MS,
@@ -280,4 +281,31 @@ test('scopeOptions: only scopes clearing the dignity thresholds are offered', ()
   assert.deepEqual(options.events.map((o) => o.key), ['ee1']);
   assert.equal(options.events[0]!.count, 3);
   assert.equal(options.events[0]!.label, 'The wedding');
+});
+
+// ---------------------------------------------------------------------------
+// SAFETY REGRESSION GUARD (2026-07-11) — the moderation gate.
+//
+// fetchMomentGraph's papic_photos + papic_guest_captures reads MUST keep
+// `.eq('moderation_state','clean')`. That filter is the only thing keeping
+// nsfw_blocked / unscreened / RA-10173 consent_withheld / faceblock_withheld
+// media out of the fullscreen auto-playing flash (the couple RLS policy gates
+// on event membership only; NSFW screening writes moderation_state, never
+// hidden_at — so hidden_at is NOT a content proxy). It lives at the Supabase
+// query layer, so the pure assembler tests above can't reach it — this reads
+// the source and asserts each media query still carries the gate before it
+// ends (bounded by the query's own `.limit(`), so nobody can silently drop it.
+// ---------------------------------------------------------------------------
+test('SAFETY GUARD: both papic media queries keep the moderation_state=clean gate', () => {
+  const src = readFileSync(new URL('./life-story-moment-graph.ts', import.meta.url), 'utf8');
+  for (const table of ['papic_photos', 'papic_guest_captures'] as const) {
+    // From `.from('<table>')`, before the query's `.limit(`, require the clean gate.
+    const re = new RegExp(
+      `\\.from\\('${table}'\\)(?:(?!\\.limit\\()[\\s\\S])*?\\.eq\\(\\s*'moderation_state'\\s*,\\s*'clean'\\s*\\)`,
+    );
+    assert.ok(
+      re.test(src),
+      `SAFETY: fetchMomentGraph's ${table} query must keep .eq('moderation_state','clean') — removing it leaks nsfw_blocked / unscreened / consent_withheld / faceblock_withheld media into Life-Flash.`,
+    );
+  }
 });

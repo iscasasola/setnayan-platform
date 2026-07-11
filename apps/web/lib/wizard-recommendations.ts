@@ -159,6 +159,11 @@ export type WizardVendorRec = {
    *  (`vendor_service_attributes` is empty in prod today), so zero regression. */
   preference_matched?: boolean;
   preference_matched_dimensions?: number;
+  /** Vendor's declared ceremony/faith compatibility (same value space as the
+   *  couple's ceremony_type). NULL = "serves all faiths". Already fetched in the
+   *  base select for the gate's OR filter; surfaced on the row so the compat
+   *  score can lift a declared faith-specialist (faithFit dim · 2026-07-12). */
+  compatible_ceremony_types?: string[] | null;
 };
 
 type Args = {

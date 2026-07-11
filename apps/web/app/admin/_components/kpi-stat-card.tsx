@@ -36,7 +36,7 @@ export function KpiStatCard({
       </p>
       <p
         className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--m-ink)]"
-        style={{ fontFamily: 'var(--m-display)', fontVariantNumeric: 'tabular-nums' }}
+        style={{ fontFamily: "var(--font-condensed), 'Saira Condensed', sans-serif", fontVariantNumeric: 'tabular-nums' }}
       >
         {value === null ? '—' : value}
       </p>

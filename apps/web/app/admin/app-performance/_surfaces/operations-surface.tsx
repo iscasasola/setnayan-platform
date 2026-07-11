@@ -52,7 +52,7 @@ export async function OperationsHiringSurface() {
   // reference_setnayan_cron_strategy.
   const dashboardUrl =
     (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com') +
-    '/admin/operations-hiring';
+    '/admin/app-performance?tab=operations';
   const sweep = await runHiringAlertSweep(dashboardUrl).catch((err) => {
     console.error('[operations-hiring] alert sweep failed', err);
     return { alertsFired: 0, emailsSent: 0, emailsFailed: 0, errors: [String(err)] };

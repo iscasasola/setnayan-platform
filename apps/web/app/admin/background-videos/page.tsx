@@ -1,6 +1,7 @@
 import { fetchBackgroundVideosForAdmin } from '@/lib/background-videos';
 import { BackgroundVideosManager, type SlotState } from './background-videos-manager';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Background videos · Admin' };
 
 /**
@@ -10,6 +11,9 @@ export const metadata = { title: 'Background videos · Admin' };
  * Migration: 20270328031951_homepage_background_videos.sql.
  */
 export default async function AdminBackgroundVideosPage() {
+  // Defense-in-depth: this page reads the RLS-bypassing service-role client,
+  // so it gates itself (a layout is not a safe auth boundary).
+  await requireAdmin();
   const rows = await fetchBackgroundVideosForAdmin();
   const slots: SlotState[] = rows.map((r) => ({
     slot: r.slot,

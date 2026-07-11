@@ -144,7 +144,7 @@ export default async function CatalogStudioPage({ searchParams }: Props) {
               aria-current={active ? 'page' : undefined}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-mulberry/10 text-mulberry'
+                  ? 'bg-terracotta/10 text-terracotta-700'
                   : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
               }`}
             >

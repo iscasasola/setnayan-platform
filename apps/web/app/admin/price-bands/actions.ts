@@ -37,5 +37,5 @@ export async function recomputePriceBands() {
   if (error) throw new Error(error.message);
   const written = typeof data === 'number' ? data : 0;
   revalidatePath('/admin/pricing');
-  redirect(`/admin/price-bands?recomputed=${written}`);
+  redirect(`/admin/pricing?tab=price-bands&recomputed=${written}`);
 }

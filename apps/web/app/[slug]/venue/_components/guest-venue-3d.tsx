@@ -112,7 +112,7 @@ export type VenueScene = {
     entrance: { enabled: boolean; xPct: number; yPct: number; kind?: 'door' | 'tunnel'; depthM?: number };
     dance: { enabled: boolean; xPct: number; yPct: number; wPct: number; hPct: number };
   };
-  tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[] }[];
+  tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[]; linkGroupId?: string | null }[];
   objects: { kind: string; xPct: number; yPct: number; rotationDeg: number }[];
   /** Vendor booths (v2 payload; absent on an old cached payload → treated as []).
    *  v4 adds `offerings` + a PUBLIC booth-vendor block for the booth card (both
@@ -189,7 +189,10 @@ function GuestTable({
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   // Shared placements (seat + facing) — feeds the 2-draw-call InstancedChairs
   // (Wave 2a; same silhouette as the couple lab, replacing the plain cube).
-  const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
+  const chairs = useMemo(
+    () => chairPlacements(table.shape, table.capacity, table.linkGroupId != null),
+    [table.shape, table.capacity, table.linkGroupId],
+  );
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   return (
     <group position={[home.x, 0, home.z]} rotation={[0, (-table.rotationDeg * Math.PI) / 180, 0]}>
@@ -526,7 +529,7 @@ export default function GuestVenue3D({
         xPct: t.xPct,
         yPct: t.yPct,
         rotationDeg: t.rotationDeg,
-        linkGroupId: null,
+        linkGroupId: t.linkGroupId ?? null,
       })),
     [scene],
   );
@@ -638,7 +641,7 @@ export default function GuestVenue3D({
     for (const t of tables) {
       const occupied = occByTable.get(t.id);
       if (!occupied || occupied.size === 0) continue;
-      const chairs = chairPlacements(t.shape, t.capacity);
+      const chairs = chairPlacements(t.shape, t.capacity, t.linkGroupId != null);
       const home = pctToWorld(t.xPct, t.yPct, room);
       const tableFaceY = (-t.rotationDeg * Math.PI) / 180;
       const yourSeat = scene.you?.table === t.id ? scene.you.seatNumber : null;

@@ -488,7 +488,18 @@ export async function submitOrderAction(
   // If the redemption INSERT fails on a UNIQUE-violation race (parallel
   // tab), the couple gets a clear error and the order rolls back too.
 
-  const referenceCode = generateReferenceCode();
+  // Reference code: prefer the client PRE-MINTED code (the drawer shows it
+  // BEFORE the couple leaves to pay, so they can put it in their BDO/GCash
+  // transfer note → the reconciliation matcher pairs the inbound bank message
+  // to this order by reference). Accept it only when well-formed (SN + 8 hex);
+  // otherwise mint one here as before. The code is a non-sensitive tag — a
+  // (astronomically rare) collision just fails this INSERT on the unique
+  // reference_code, it can never hijack another order.
+  const premintedRaw = formData.get('preminted_reference');
+  const referenceCode =
+    typeof premintedRaw === 'string' && /^SN[0-9A-F]{8}$/.test(premintedRaw.trim())
+      ? premintedRaw.trim()
+      : generateReferenceCode();
   const originalPriceForOrderTotal = Number(originalCentavos) / 100;
   // Owner ruling 2026-06-25: catalog prices are PRE-VAT; the couple pays the
   // VAT-INCLUSIVE gross (+12%). computeOrderTotals + the BIR receipt already gross

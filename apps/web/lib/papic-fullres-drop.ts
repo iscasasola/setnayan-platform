@@ -32,7 +32,13 @@ import {
 const KEEP_FULL_RES_SKU = 'HIGH_RES_ARCHIVE';
 
 function dropEnabled(): boolean {
-  return process.env.PAPIC_FULLRES_DROP_ENABLED === 'true';
+  // Owner 2026-07-11 "enable the drop" — ON by default now that the model is
+  // live (downloads fall back to the web copy, Keep Full-Res is the opt-out, and
+  // the couple's Drive holds full-res). KILL-SWITCH: set PAPIC_FULLRES_DROP_ENABLED
+  // ='false' on Vercel to instantly turn all deletion back OFF. (Note: prod has
+  // only the excluded sample photos today, so nothing is drop-eligible yet — real
+  // couple photos only age into the 90-day window over time.)
+  return process.env.PAPIC_FULLRES_DROP_ENABLED !== 'false';
 }
 
 function retentionDays(): number {

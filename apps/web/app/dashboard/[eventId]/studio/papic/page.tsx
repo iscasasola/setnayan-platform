@@ -221,18 +221,33 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   const unlockAdmin = createAdminClient();
-  const [{ data: unlockPkg }, ownsPapicUnlock, papicPlatformSettings] =
-    await Promise.all([
-      unlockAdmin
-        .from('platform_package_catalog')
-        .select('retail_price_php, is_active')
-        .eq('package_code', 'PAPIC_UNLOCK')
-        .maybeSingle(),
-      eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
-      fetchPlatformSettings(supabase),
-    ]);
+  const [
+    { data: unlockPkg },
+    ownsPapicUnlock,
+    papicPlatformSettings,
+    { data: keepFullResRow },
+    ownsKeepFullRes,
+  ] = await Promise.all([
+    unlockAdmin
+      .from('platform_package_catalog')
+      .select('retail_price_php, is_active')
+      .eq('package_code', 'PAPIC_UNLOCK')
+      .maybeSingle(),
+    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+    fetchPlatformSettings(supabase),
+    // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
+    unlockAdmin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, is_active')
+      .eq('service_code', 'HIGH_RES_ARCHIVE')
+      .maybeSingle(),
+    eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
+  ]);
   const papicUnlockPricePhp = unlockPkg?.is_active
     ? Number(unlockPkg.retail_price_php)
+    : null;
+  const keepFullResPricePhp = keepFullResRow?.is_active
+    ? Number(keepFullResRow.retail_price_php)
     : null;
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
@@ -361,6 +376,43 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           ) : (
             <span className="shrink-0 font-mono text-sm text-ink/60">
               {formatPhp(papicUnlockPricePhp)}
+            </span>
+          )}
+        </section>
+      ) : null}
+
+      {/* ── Keep Full-Res (owner 2026-07-11 · sold on apply-then-pay) ─────── */}
+      {ownsKeepFullRes ? (
+        <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
+          ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
+          keep every full-resolution original for this event, undegraded.
+        </section>
+      ) : keepFullResPricePhp ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-cream/40 p-5">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
+              <h2 className="text-sm font-semibold text-ink">Keep your full-res forever</h2>
+            </div>
+            <p className="text-xs text-ink/60">
+              Your online gallery stays free forever. After 3 months we keep a
+              beautiful compressed copy, and your full-resolution originals live in
+              your own Google Drive. Want us to keep every pristine original too?
+            </p>
+          </div>
+          {papicPlatformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="HIGH_RES_ARCHIVE"
+              displayName="Keep Full-Res"
+              originalPriceCentavos={String(Math.round(keepFullResPricePhp * 100))}
+              settings={papicPlatformSettings}
+              triggerLabel={`Keep Full-Res · ${formatPhp(keepFullResPricePhp)}/yr`}
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-mulberry/40 px-4 py-2.5 text-sm font-medium text-mulberry hover:bg-mulberry/5"
+            />
+          ) : (
+            <span className="shrink-0 font-mono text-sm text-ink/60">
+              {formatPhp(keepFullResPricePhp)}/yr
             </span>
           )}
         </section>

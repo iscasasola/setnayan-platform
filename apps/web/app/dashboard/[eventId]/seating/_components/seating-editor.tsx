@@ -4221,7 +4221,7 @@ export function SeatingEditor({
                         onPointerDown={onBoothPointerDown(b.booth_id)}
                         aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag along the walls`}
                         style={{ width: `${fpW}px`, height: `${fpH}px`, transform: `rotate(${deg}deg)` }}
-                        className={`relative block select-none rounded-[3px] border shadow-sm backdrop-blur-sm ${
+                        className={`relative block select-none rounded-sm border shadow-sm backdrop-blur-sm ${
                           unassigned
                             ? 'border-dashed border-terracotta/60 bg-terracotta/[0.10]'
                             : 'border-ink/30 bg-terracotta/[0.06]'

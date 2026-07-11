@@ -216,6 +216,13 @@ export async function setPlanningMode(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
+// toggleRoadmapItem (the manual "thing to complete" check-off) was REMOVED
+// 2026-07-11 along with its only surface, WeddingRoadmapAsync — both orphaned
+// when the 2026-07-10 refactor made `<EventDashboard>` the event Home and
+// retired the Progress tab. `events.roadmap_completed` is no longer written;
+// the Studio recommendation strip still READS it (existing values stay valid)
+// but now runs effectively on auto-signals only. See lib/studio-recommendations.ts.
+
 const MANUAL_KEYS = new Set<StepKey>(
   STEPS.filter((s) => s.source === 'manual').map((s) => s.key),
 );

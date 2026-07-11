@@ -15,6 +15,8 @@ import {
   recommendStudioAddOns,
   STUDIO_PEAK_MONTHS,
   STUDIO_RECOMMEND_EXCLUDED,
+  STUDIO_ROADMAP_ANCHORS,
+  STUDIO_PREREQUISITE,
 } from './studio-recommendations';
 import type { RoadmapSignals } from './wedding-roadmap';
 import { ADD_ONS } from './add-ons-catalog';
@@ -155,4 +157,49 @@ test('every peak/excluded key still exists in the catalog (no stale entries)', (
     ...STUDIO_RECOMMEND_EXCLUDED,
   ].filter((k) => !catalogKeys.has(k));
   assert.deepEqual(stale, [], `Stale key(s) not in the catalog: ${stale.join(', ')}`);
+});
+
+test('DRIFT GUARD: every anchor/prerequisite key is a real, peaked catalog key', () => {
+  const catalogKeys = new Set(ADD_ONS.map((a) => a.key));
+  const referenced = [
+    ...Object.values(STUDIO_ROADMAP_ANCHORS).flatMap((keys) => keys ?? []),
+    ...Object.keys(STUDIO_PREREQUISITE),
+  ];
+  const bad = referenced.filter(
+    (k) => !(k in STUDIO_PEAK_MONTHS) || !catalogKeys.has(k),
+  );
+  // A typo'd add-on key in the anchor/prerequisite maps would silently drop an
+  // item with no other failing test — this is the guard against that.
+  assert.deepEqual(bad, [], `Anchor/prerequisite key(s) not peaked or not in catalog: ${bad.join(', ')}`);
+});
+
+test('non-wedding events skip the wedding phase-follow pass (followRoadmap: false)', () => {
+  // 5 months out with an overdue save-the-dates item would normally surface
+  // Save the Date via Phase 1. A non-wedding event must NOT get that wedding-
+  // canon pass — it ranks by date-peak proximity alone.
+  const wedding = recommendStudioAddOns({
+    monthsToDate: 5,
+    signals: signals({ dateLocked: true }),
+    completed: [],
+    isEligible: ALL_ELIGIBLE,
+    isOwned: NONE_OWNED,
+    followRoadmap: true,
+    limit: 3,
+  });
+  assert.ok(wedding.includes('save-the-date'), 'wedding path surfaces Save the Date');
+
+  const nonWedding = recommendStudioAddOns({
+    monthsToDate: 5,
+    signals: signals({ dateLocked: true }),
+    completed: [],
+    isEligible: ALL_ELIGIBLE,
+    isOwned: NONE_OWNED,
+    followRoadmap: false,
+    limit: 3,
+  });
+  // Peak-proximity at 5mo → custom-qr-guest(5)/rsvp(5)/pakanta(6)/music(6)/led(4),
+  // NOT the roadmap-forced Save the Date lead. Just assert the phase-follow bump
+  // is gone: the result is purely proximity-ranked (save-the-date peak 8 is far
+  // from 5, so it should not lead).
+  assert.equal(nonWedding[0] !== 'save-the-date', true, 'non-wedding must not force Save the Date first');
 });

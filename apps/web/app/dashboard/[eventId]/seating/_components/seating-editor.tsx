@@ -56,6 +56,7 @@ import {
   CHAIR_PX,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
+  boothTypeForVendorCategory,
   boothPerimeterSlots,
   clampBoothToPerimeter,
   computeAutoLayout,
@@ -90,6 +91,11 @@ import {
   type TableType,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
+import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
+// Feature C (2D booth footprint + facing): reuse the 3D booth dims + facing
+// derivation so the 2D editor and the 3D venue walk agree (no magic numbers,
+// one source for "which wall a booth backs onto").
+import { BOOTH_FOOTPRINT_M, boothFacingDeg2D } from '@/lib/seating-3d';
 import {
   addSeatingConstraint,
   assignGroup,
@@ -136,6 +142,18 @@ function isSeatingLockLost(err: unknown): boolean {
   if (e.code === 'seating_lock_not_held') return true;
   return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
 }
+
+// Feature B — room-size presets. One-tap common reception footprints (metres,
+// width × length). "Standard 20×30" is the historical default (venue useState).
+// The typed Width/Length inputs stay as the precision path (min 1 / max 500 m).
+const ROOM_PRESETS: ReadonlyArray<{ label: string; width: number; length: number }> = [
+  { label: 'Intimate', width: 14, length: 10 },
+  { label: 'Standard', width: 20, length: 30 },
+  { label: 'Grand', width: 30, length: 20 },
+  { label: 'Garden', width: 60, length: 40 },
+  { label: 'Estate', width: 120, length: 90 },
+  { label: 'Field', width: 200, length: 200 },
+];
 
 export type SeatingGuest = {
   guest_id: string;
@@ -184,6 +202,9 @@ type Props = {
   floorPlan: FloorPlanRow;
   booths: FloorBoothRow[];
   signs: FloorSignRow[];
+  // Booth picker (decision #9): the event's BOOKED vendors — the only vendors
+  // the couple may drop as a booth. Empty when nothing's booked yet.
+  bookedVendors: BoothVendorOption[];
   // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs.
   constraints: KeepApartRule[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
@@ -191,6 +212,14 @@ type Props = {
 };
 
 const NEUTRAL = '#B7B1A6';
+
+// The booth picker's "Stations" section — the NON-vendor fixtures the couple
+// places directly (Front Desk + a generic custom booth). Every OTHER booth type
+// is now driven by a booked vendor's category (chosen from "Your booked
+// vendors"), so it is deliberately omitted from the manual station list.
+const STATION_BOOTHS = BOOTH_CATALOG.filter(
+  (c) => c.type === 'registration_desk' || c.type === 'custom',
+);
 
 // Chinese (Tsinoy) tradition avoids the number 4 (四 sounds like 死, "death").
 // ADVISORY copy only — surfaced via setNotice when a Chinese-wedding couple names
@@ -224,6 +253,7 @@ export function SeatingEditor({
   floorPlan,
   booths: boothsProp,
   signs: signsProp,
+  bookedVendors,
   constraints: constraintsProp,
   me,
 }: Props) {
@@ -290,6 +320,10 @@ export function SeatingEditor({
     enabled: floorPlan.entrance_enabled,
     x: floorPlan.entrance_x,
     y: floorPlan.entrance_y,
+    // Door (shallow) vs walk-through (deeper, back flush to the nearest wall).
+    // Schema value stays 'tunnel'; the UI labels it "Walk-through".
+    kind: floorPlan.entrance_kind,
+    depthM: floorPlan.entrance_depth_m,
   });
   const [serviceDoor, setServiceDoor] = useState({
     enabled: floorPlan.service_entrance_enabled,
@@ -377,6 +411,26 @@ export function SeatingEditor({
     service_entrance_x: serviceDoor.x,
     service_entrance_y: serviceDoor.y,
   });
+  // Feature A — stage / dance-floor WALL-SNAP. Booths already hug the perimeter
+  // (clampBoothToPerimeter); the stage + dance rects moved freely. When a rect's
+  // nearest edge comes within WALL_SNAP_TOL of a room wall (0 / 100 %), snap that
+  // EDGE flush to the wall — axis-independent, using the rect's own width/height.
+  // Percent units + a small tolerance mirror the booth perimeter clamp's
+  // wall-hug convention (lib/seating), so it reads consistently. These rects
+  // have no facing, so there is no rotation — only an x/y translate. Away from a
+  // wall the rect keeps following the cursor untouched.
+  const WALL_SNAP_TOL = 4; // percent of the canvas (≈ the booth WALL_INSET feel)
+  const snapRectToWalls = (cx: number, cy: number, w: number, h: number) => {
+    let x = cx;
+    let y = cy;
+    const halfW = w / 2;
+    const halfH = h / 2;
+    if (Math.abs(cx - halfW) <= WALL_SNAP_TOL) x = halfW; // left edge → wall 0
+    else if (Math.abs(100 - (cx + halfW)) <= WALL_SNAP_TOL) x = 100 - halfW; // right edge → wall 100
+    if (Math.abs(cy - halfH) <= WALL_SNAP_TOL) y = halfH; // top edge → wall 0
+    else if (Math.abs(100 - (cy + halfH)) <= WALL_SNAP_TOL) y = 100 - halfH; // bottom edge → wall 100
+    return { x, y };
+  };
   // Drag-resize of the stage / dance-floor (SE grip, NW corner anchored) and
   // of the venue walls. Self-contained pointer handlers on the grips; the
   // pxPerMeter is FROZEN at wall-grab so the canvas resizing mid-drag can't
@@ -424,8 +478,39 @@ export function SeatingEditor({
 
   const venueScaled = venue.enabled && venue.width > 0 && venue.length > 0;
   // Pixels-per-metre at zoom 1 (the world layer width === canvas width). Tables
-  // multiply this by their real footprint to render at true scale.
+  // multiply this by their real footprint to render at true scale. The canvas
+  // preserves the room aspect ratio, so px-per-metre is isotropic (x === y).
   const pxPerMeter = venueScaled && canvasW > 0 ? canvasW / venue.width : null;
+
+  // Feature B — metre-aware dot grid. The free board keeps its fixed 22px dots;
+  // a sized room coarsens the dot spacing to a "nice" number of metres kept
+  // ≥ ~16px, so a 200 m field doesn't smear into a dense speckle. Isotropic, so
+  // one spacing drives both axes (square dots).
+  const gridPx = (() => {
+    if (!pxPerMeter) return 22;
+    for (const m of [0.5, 1, 2, 5, 10, 20, 50, 100]) {
+      if (m * pxPerMeter >= 16) return m * pxPerMeter;
+    }
+    return 100 * pxPerMeter;
+  })();
+
+  // Feature B — adaptive scale bar. Pick a "nice" metre length so the bar reads
+  // ~95px (in the ~80–110px band) at the current px-per-metre, keeping big rooms
+  // legible. null on the free board (no metre scale to show).
+  const scaleBar = (() => {
+    if (!pxPerMeter) return null;
+    const NICE = [1, 2, 5, 10, 20, 50, 100];
+    let metres = NICE[0]!;
+    let bestErr = Infinity;
+    for (const m of NICE) {
+      const err = Math.abs(m * pxPerMeter - 95);
+      if (err < bestErr) {
+        bestErr = err;
+        metres = m;
+      }
+    }
+    return { metres, px: metres * pxPerMeter };
+  })();
 
   // Positions are owned by the auto-place layout-effect below (it resolves a
   // non-overlapping home for every table before paint). Until it runs, the
@@ -1995,9 +2080,12 @@ export function SeatingEditor({
         // non-overlapping home, so nothing lands stacked on load.
         setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
       } else if (d.kind === 'stage') {
-        setStage((s) => ({ ...s, x, y }));
+        // Wall-snap only in a sized (walled) room; a free board has no walls.
+        const p = venueScaled ? snapRectToWalls(x, y, stage.w, stage.h) : { x, y };
+        setStage((s) => ({ ...s, x: p.x, y: p.y }));
       } else if (d.kind === 'dance') {
-        setDance((dz) => ({ ...dz, x, y }));
+        const p = venueScaled ? snapRectToWalls(x, y, dance.w, dance.h) : { x, y };
+        setDance((dz) => ({ ...dz, x: p.x, y: p.y }));
       } else if (d.kind === 'cocktail') {
         // Dragging the room is the natural "separate" gesture — auto-unlink so
         // the couple can place it freely (re-link via the room's link toggle).
@@ -2112,7 +2200,7 @@ export function SeatingEditor({
   };
 
   const addEntrance = () => {
-    setEntrance({ enabled: true, x: 50, y: 94 });
+    setEntrance({ enabled: true, x: 50, y: 94, kind: 'door', depthM: 3 });
     // A linked cocktail room docks to the new entrance immediately.
     setCocktail((c) => (c.linked && c.enabled ? { ...c, ...dockCocktail(c, { x: 50, y: 94 }) } : c));
     setFloorDirty(true);
@@ -2245,8 +2333,11 @@ export function SeatingEditor({
     setBoothsDirty(true);
     setBoothPickerFor(id);
   };
-  // Assign / change a booth's type from the picker. The label follows the type
-  // unless the couple has renamed it to something off-catalog.
+  // Assign / change a booth's type from the picker's "Stations" section (a
+  // NON-vendor fixture like Front Desk / Custom). Picking a fixture UN-LINKS any
+  // booked vendor the booth carried (event_vendor_id → null), so a station is
+  // never mistaken for a vendor booth. The label follows the type unless the
+  // couple has renamed it to something off-catalog.
   const setBoothType = (boothId: string, type: Exclude<BoothType, 'unassigned'>) => {
     const catalogLabels = new Set<string>([
       'New booth',
@@ -2256,13 +2347,39 @@ export function SeatingEditor({
     setBooths((bs) =>
       bs.map((b) =>
         b.booth_id === boothId
-          ? { ...b, booth_type: type, label: catalogLabels.has(b.label) ? newLabel : b.label }
+          ? {
+              ...b,
+              booth_type: type,
+              label: catalogLabels.has(b.label) ? newLabel : b.label,
+              // Fixture path un-links any previously-linked vendor.
+              event_vendor_id: null,
+            }
           : b,
       ),
     );
     setBoothsDirty(true);
     // Keep the popover open after picking a type so the couple can (optionally)
     // type the offerings copy in the same sheet — the field lives below the list.
+  };
+  // Link a booth to a BOOKED vendor from the picker's "Your booked vendors"
+  // section: the booth type + label follow the vendor (category → 2D icon +
+  // footprint via boothTypeForVendorCategory; name → label), and
+  // event_vendor_id carries the link that fetchBooths joins for the 3D card.
+  const setBoothVendor = (boothId: string, vendor: BoothVendorOption) => {
+    const type = boothTypeForVendorCategory(vendor.category);
+    setBooths((bs) =>
+      bs.map((b) =>
+        b.booth_id === boothId
+          ? {
+              ...b,
+              booth_type: type,
+              label: vendor.vendor_name,
+              event_vendor_id: vendor.vendor_id,
+            }
+          : b,
+      ),
+    );
+    setBoothsDirty(true);
   };
   // Edit a booth's guest-facing "offerings" copy (what it serves) — surfaced on
   // the 3D venue-walk booth card. Trimmed/capped on save (server + DB CHECK);
@@ -2578,6 +2695,8 @@ export function SeatingEditor({
           fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
           fd.set('entrance_x', String(entrance.x));
           fd.set('entrance_y', String(entrance.y));
+          fd.set('entrance_kind', entrance.kind);
+          fd.set('entrance_depth_m', String(entrance.depthM));
           fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
           fd.set('dance_x', String(dance.x));
           fd.set('dance_y', String(dance.y));
@@ -3404,6 +3523,38 @@ export function SeatingEditor({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
+            {/* Feature B — room-size presets: one tap sets a common footprint and
+                switches to-scale mode on (the typed inputs stay for fine-tuning). */}
+            <div className="flex flex-col gap-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Presets</span>
+              <div className="flex flex-wrap gap-1.5">
+                {ROOM_PRESETS.map((p) => {
+                  const active = venueScaled && venue.width === p.width && venue.length === p.length;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setVenue({ enabled: true, width: p.width, length: p.length });
+                        setFloorDirty(true);
+                      }}
+                      title={`${p.width} × ${p.length} m`}
+                      aria-pressed={active}
+                      className={`rounded-lg border px-2 py-1 text-xs font-medium ${
+                        active
+                          ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                          : 'border-ink/15 bg-cream text-ink/70 hover:border-terracotta hover:text-terracotta'
+                      }`}
+                    >
+                      {p.label}{' '}
+                      <span className="tabular-nums text-ink/40">
+                        {p.width}×{p.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {/* Stage + dance-floor dimensions in metres. Sizes store as percent
                 of the canvas, so they only map to metres once a room size is
                 set; otherwise size the stage/dance with their drag grips. */}
@@ -3581,7 +3732,7 @@ export function SeatingEditor({
           }`}
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
-            backgroundSize: '22px 22px',
+            backgroundSize: `${gridPx}px ${gridPx}px`,
             // To scale: take the room's aspect ratio, but cap the height (a 64vh
             // budget drives the width) so a portrait room doesn't balloon into a
             // giant canvas. Centered; never wider than the column.
@@ -3829,6 +3980,59 @@ export function SeatingEditor({
             </button>
           </div>
 
+          {/* Walk-through entrance footprint — a deeper rectangle whose back edge
+              is flush to the nearest wall, extending inward by the couple's
+              chosen depth. Only when kind==='tunnel'; the DoorOpen pill below
+              stays the mouth label. Sits under the pill (z-0). */}
+          {entrance.enabled && entrance.kind === 'tunnel'
+            ? (() => {
+                // Nearest wall (argmin distance) — same pattern as stageWallOf.
+                const dTop = entrance.y;
+                const dBottom = 100 - entrance.y;
+                const dLeft = entrance.x;
+                const dRight = 100 - entrance.x;
+                const min = Math.min(dTop, dBottom, dLeft, dRight);
+                // Depth as a % of the room dimension along the inward axis; a
+                // free board (no metre size) uses a fixed ~12% fallback.
+                const vertical = min === dTop || min === dBottom;
+                const roomDim = venueScaled ? (vertical ? venue.length : venue.width) : 0;
+                const depthPct = roomDim > 0 ? Math.min(60, (entrance.depthM / roomDim) * 100) : 12;
+                const MOUTH = 13; // clear width of the walk-through, % of canvas
+                let left: number;
+                let top: number;
+                let width: number;
+                let height: number;
+                if (min === dTop) {
+                  width = MOUTH;
+                  height = depthPct;
+                  left = entrance.x - MOUTH / 2;
+                  top = 0;
+                } else if (min === dBottom) {
+                  width = MOUTH;
+                  height = depthPct;
+                  left = entrance.x - MOUTH / 2;
+                  top = 100 - depthPct;
+                } else if (min === dLeft) {
+                  width = depthPct;
+                  height = MOUTH;
+                  left = 0;
+                  top = entrance.y - MOUTH / 2;
+                } else {
+                  width = depthPct;
+                  height = MOUTH;
+                  left = 100 - depthPct;
+                  top = entrance.y - MOUTH / 2;
+                }
+                return (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute z-0 rounded-sm border border-terracotta/40 bg-terracotta/[0.06]"
+                    style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
+                  />
+                );
+              })()
+            : null}
+
           {/* draggable entrance door marker */}
           {entrance.enabled ? (
             <div
@@ -3843,7 +4047,8 @@ export function SeatingEditor({
                   dragId === '__entrance__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
                 }`}
               >
-                <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" /> Entrance
+                <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" />{' '}
+                {entrance.kind === 'tunnel' ? 'Walk-through' : 'Entrance'}
               </button>
               <button
                 type="button"
@@ -3854,6 +4059,72 @@ export function SeatingEditor({
               >
                 <X className="h-3 w-3" />
               </button>
+              {/* Door | Walk-through toggle + (walk-through only) a depth stepper.
+                  stopPropagation so a control tap can't start a marker drag. */}
+              {canEdit ? (
+                <div className="absolute left-1/2 top-full mt-1 flex -translate-x-1/2 flex-col items-center gap-1">
+                  <div
+                    role="group"
+                    aria-label="Entrance style"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="flex overflow-hidden rounded-md border border-ink/15 bg-cream text-[9px] font-semibold uppercase tracking-[0.1em] shadow-sm"
+                  >
+                    {(['door', 'tunnel'] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => {
+                          setEntrance((en) => ({ ...en, kind: k }));
+                          setFloorDirty(true);
+                        }}
+                        className={`px-2 py-1 ${
+                          entrance.kind === k
+                            ? 'bg-terracotta text-cream'
+                            : 'text-ink/60 hover:bg-ink/[0.04]'
+                        }`}
+                      >
+                        {k === 'door' ? 'Door' : 'Walk-through'}
+                      </button>
+                    ))}
+                  </div>
+                  {entrance.kind === 'tunnel' ? (
+                    <div
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-1.5 py-0.5 text-[10px] text-ink/70 shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        aria-label="Decrease walk-through depth"
+                        onClick={() => {
+                          setEntrance((en) => ({
+                            ...en,
+                            depthM: Math.max(1.5, Math.round((en.depthM - 0.5) * 2) / 2),
+                          }));
+                          setFloorDirty(true);
+                        }}
+                        className="px-1 hover:text-terracotta-700"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="tabular-nums">{entrance.depthM.toFixed(1)} m deep</span>
+                      <button
+                        type="button"
+                        aria-label="Increase walk-through depth"
+                        onClick={() => {
+                          setEntrance((en) => ({
+                            ...en,
+                            depthM: Math.min(8, Math.round((en.depthM + 0.5) * 2) / 2),
+                          }));
+                          setFloorDirty(true);
+                        }}
+                        className="px-1 hover:text-terracotta-700"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -3895,25 +4166,70 @@ export function SeatingEditor({
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}
               >
-                <button
-                  type="button"
-                  onPointerDown={onBoothPointerDown(b.booth_id)}
-                  aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — ${
-                    venueScaled ? 'drag along the walls' : 'drag to move'
-                  }`}
-                  className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
-                    unassigned
-                      ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
-                      : 'bg-cream/85 text-ink/70'
-                  } ${
-                    dragId === `__booth_${b.booth_id}__`
-                      ? 'border-terracotta cursor-grabbing'
-                      : `${unassigned ? '' : 'border-ink/25'} cursor-grab`
-                  }`}
-                >
-                  <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
-                  {unassigned ? 'Pick type' : b.label}
-                </button>
+                {venueScaled && pxPerMeter ? (
+                  // Feature C — true metre footprint + inward facing arrow + upright
+                  // label. The body draws BOOTH_FOOTPRINT_M (reused from the 3D lib)
+                  // at px-per-metre and rotates to face the room centre (same
+                  // derivation as the 3D boothFacingY). The arrow is a child of the
+                  // rotated body → points INWARD for free; the label counter-rotates
+                  // so text stays upright. Footprint is small, so the label chip may
+                  // overflow it — kept legible, centred on the booth.
+                  (() => {
+                    const deg = boothFacingDeg2D(
+                      { xPct: b.x_pos, yPct: b.y_pos },
+                      { w: venue.width, d: venue.length },
+                    );
+                    const fpW = BOOTH_FOOTPRINT_M.w * pxPerMeter; // lateral (along the wall)
+                    const fpH = BOOTH_FOOTPRINT_M.d * pxPerMeter; // depth (into the room)
+                    return (
+                      <button
+                        type="button"
+                        onPointerDown={onBoothPointerDown(b.booth_id)}
+                        aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag along the walls`}
+                        style={{ width: `${fpW}px`, height: `${fpH}px`, transform: `rotate(${deg}deg)` }}
+                        className={`relative block select-none rounded-[3px] border shadow-sm backdrop-blur-sm ${
+                          unassigned
+                            ? 'border-dashed border-terracotta/60 bg-terracotta/[0.10]'
+                            : 'border-ink/30 bg-terracotta/[0.06]'
+                        } ${
+                          dragId === `__booth_${b.booth_id}__`
+                            ? 'border-terracotta cursor-grabbing'
+                            : 'cursor-grab'
+                        }`}
+                      >
+                        <ChevronUp
+                          aria-hidden
+                          className="pointer-events-none absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 -translate-y-full text-terracotta-700"
+                        />
+                        <span
+                          style={{ transform: `translate(-50%, -50%) rotate(${-deg}deg)` }}
+                          className="pointer-events-none absolute left-1/2 top-1/2 flex items-center gap-1 whitespace-nowrap rounded bg-cream/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/70 shadow-sm"
+                        >
+                          <BoothIcon type={b.booth_type} className="h-3 w-3 text-terracotta-700" />
+                          {unassigned ? 'Pick type' : b.label}
+                        </span>
+                      </button>
+                    );
+                  })()
+                ) : (
+                  <button
+                    type="button"
+                    onPointerDown={onBoothPointerDown(b.booth_id)}
+                    aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag to move`}
+                    className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
+                      unassigned
+                        ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
+                        : 'bg-cream/85 text-ink/70'
+                    } ${
+                      dragId === `__booth_${b.booth_id}__`
+                        ? 'border-terracotta cursor-grabbing'
+                        : `${unassigned ? '' : 'border-ink/25'} cursor-grab`
+                    }`}
+                  >
+                    <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
+                    {unassigned ? 'Pick type' : b.label}
+                  </button>
+                )}
                 <button
                   type="button"
                   onPointerDown={(e) => e.stopPropagation()}
@@ -3943,23 +4259,89 @@ export function SeatingEditor({
                       onPointerDown={(e) => e.stopPropagation()}
                       className="absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
                     >
+                      {/* Section 1 — Your booked vendors. Only BOOKED vendors are
+                          placeable; a vendor already on another booth is hidden
+                          (unless it's THIS booth's current link). */}
                       <p className="px-3 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
-                        What is this booth?
+                        Your booked vendors
                       </p>
-                      {BOOTH_CATALOG.map((c) => (
-                        <button
-                          key={c.type}
-                          role="menuitem"
-                          type="button"
-                          onClick={() => setBoothType(b.booth_id, c.type)}
-                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
-                            b.booth_type === c.type ? 'text-terracotta-700' : 'text-ink'
-                          }`}
-                        >
-                          <BoothIcon type={c.type} className="h-4 w-4 text-terracotta-700" />
-                          {c.label}
-                        </button>
-                      ))}
+                      {(() => {
+                        const placedVendorIds = new Set(
+                          booths
+                            .map((x) => x.event_vendor_id)
+                            .filter((id): id is string => !!id),
+                        );
+                        const availableVendors = bookedVendors.filter(
+                          (v) =>
+                            !placedVendorIds.has(v.vendor_id) ||
+                            v.vendor_id === b.event_vendor_id,
+                        );
+                        if (availableVendors.length === 0) {
+                          return (
+                            <div className="px-3 pb-2 pt-0.5 text-[11px] leading-snug text-ink/50">
+                              {bookedVendors.length === 0 ? (
+                                <>
+                                  No booked vendors yet —{' '}
+                                  <a
+                                    href={`/dashboard/${eventId}/vendors`}
+                                    className="font-medium text-terracotta-700 underline hover:text-terracotta"
+                                  >
+                                    book vendors
+                                  </a>{' '}
+                                  to place their booths.
+                                </>
+                              ) : (
+                                'All your booked vendors are already placed.'
+                              )}
+                            </div>
+                          );
+                        }
+                        return availableVendors.map((v) => {
+                          const t = boothTypeForVendorCategory(v.category);
+                          const active = b.event_vendor_id === v.vendor_id;
+                          return (
+                            <button
+                              key={v.vendor_id}
+                              role="menuitem"
+                              type="button"
+                              onClick={() => setBoothVendor(b.booth_id, v)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+                                active ? 'text-terracotta-700' : 'text-ink'
+                              }`}
+                            >
+                              <BoothIcon type={t} className="h-4 w-4 shrink-0 text-terracotta-700" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{v.vendor_name}</span>
+                                <span className="block truncate text-[10px] text-ink/45">
+                                  {VENDOR_CATEGORY_LABEL[v.category]}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        });
+                      })()}
+                      {/* Section 2 — Stations (non-vendor fixtures). */}
+                      <div className="mt-1 border-t border-ink/10 pt-1">
+                        <p className="px-3 pb-1 pt-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+                          Stations
+                        </p>
+                        {STATION_BOOTHS.map((c) => (
+                          <button
+                            key={c.type}
+                            role="menuitem"
+                            type="button"
+                            onClick={() => setBoothType(b.booth_id, c.type)}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink/[0.04] ${
+                              b.booth_type === c.type && !b.event_vendor_id
+                                ? 'text-terracotta-700'
+                                : 'text-ink'
+                            }`}
+                          >
+                            <BoothIcon type={c.type} className="h-4 w-4 text-terracotta-700" />
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
                       {/* Offerings — guest-facing "what this booth serves" copy
                           shown on the 3D venue-walk booth card. */}
                       <div className="mt-1 border-t border-ink/10 px-2 pb-1.5 pt-2">
@@ -4355,6 +4737,21 @@ export function SeatingEditor({
           })}
           </div>
           {/* end world layer */}
+
+          {/* Feature B — adaptive scale bar. Fixed to the canvas (not the
+              pan/zoom world layer) at the room's default overview px-per-metre,
+              so big rooms stay legible. */}
+          {scaleBar ? (
+            <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col items-start gap-0.5">
+              <span className="rounded bg-cream/80 px-1 text-[9px] font-medium tabular-nums text-ink/60">
+                {scaleBar.metres} m
+              </span>
+              <div
+                className="h-1.5 border-x-2 border-b-2 border-ink/45"
+                style={{ width: `${scaleBar.px}px` }}
+              />
+            </div>
+          ) : null}
 
           {/* zoom controls */}
           <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm">

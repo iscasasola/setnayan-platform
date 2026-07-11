@@ -72,7 +72,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // standard POST-redirect-GET pattern that prevents accidental resend
   // on refresh.
   const redirect = NextResponse.redirect(
-    new URL(`/admin/settings/demo-mode?toggled=${state}`, req.url),
+    new URL(`/admin/settings?tab=demo-mode&toggled=${state}`, req.url),
     303,
   );
   setDemoModeCookie(redirect, turnOn);
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     target_id: user.id,
     before_json: { demo_mode: beforeJson },
     after_json: { demo_mode: turnOn ? 'on' : 'off' },
-    reason: `Demo mode toggled ${turnOn ? 'on' : 'off'} via /admin/settings/demo-mode.`,
+    reason: `Demo mode toggled ${turnOn ? 'on' : 'off'} via /admin/settings?tab=demo-mode.`,
     actor_user_id: user.id,
   });
 
@@ -114,7 +114,7 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json(
     {
       error: 'method_not_allowed',
-      message: 'POST only. Toggle via /admin/settings/demo-mode.',
+      message: 'POST only. Toggle via /admin/settings?tab=demo-mode.',
     },
     { status: 405, headers: { Allow: 'POST' } },
   );

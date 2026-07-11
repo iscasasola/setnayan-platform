@@ -12,7 +12,7 @@ import { NavFab } from '@/app/_components/nav/nav-fab';
  * job, so it earns the prominent floating shortcut.
  *
  * Thin client wrapper (the Lucide icon ref can't cross the Server→Client boundary,
- * same pattern as VendorBottomNav). `bookings` is in `VENDOR_SCOPED_BOTTOM_NAV_KEYS`,
+ * same pattern as VendorBottomNav). `bookings` is in `VENDOR_SCOPED_NAV_ITEM_KEYS`,
  * so every vendor role can reach it — no role gating needed. The NavFab primitive
  * hides itself whenever a docked SubNav is up (e.g. the Services takeover).
  */

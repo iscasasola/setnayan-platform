@@ -21,6 +21,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createHmac } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -40,6 +41,8 @@ const ROLLING_HASH_BUCKET_SECONDS = 60;
 const HASH_ACCEPT_WINDOW = 2; // ±2 buckets = ±2 minutes tolerance
 
 export async function POST(req: Request) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   let body: SyncBody;
   try {
     body = (await req.json()) as SyncBody;

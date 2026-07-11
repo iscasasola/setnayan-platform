@@ -9,6 +9,7 @@ import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '
 import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -411,6 +412,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active
               inquiry. Self-reported; "Won" is off-platform, not a payment. */}
           {outcomeCapture}
+          {/* Free 1:1 voice/video call — accepted threads only (PR 10). */}
+          <ThreadCallLauncher
+            threadId={threadId}
+            currentUserId={user.id}
+            counterpartyLabel={coupleLabel}
+          />
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>
       ) : thread.inquiry_status === 'pending' ? (

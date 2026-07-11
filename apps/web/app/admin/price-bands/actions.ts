@@ -36,6 +36,6 @@ export async function recomputePriceBands() {
   const { data, error } = await supabase.rpc('recompute_market_price_bands');
   if (error) throw new Error(error.message);
   const written = typeof data === 'number' ? data : 0;
-  revalidatePath('/admin/price-bands');
+  revalidatePath('/admin/pricing');
   redirect(`/admin/price-bands?recomputed=${written}`);
 }

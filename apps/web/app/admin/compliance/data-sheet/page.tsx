@@ -113,7 +113,7 @@ export default async function ComplianceDataSheetPage() {
   return (
     <section className="mx-auto max-w-4xl space-y-6">
       <Link
-        href="/admin/compliance"
+        href="/admin/settings?tab=compliance"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to Compliance

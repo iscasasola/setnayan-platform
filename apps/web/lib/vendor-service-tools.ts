@@ -31,6 +31,7 @@ import {
   Gem,
   Gift,
   Handshake,
+  HardHat,
   Lightbulb,
   Mail,
   Martini,
@@ -115,6 +116,7 @@ export type SpecialistTool = {
  *   /vendor-dashboard/repertoire        — the music-act song bank / setlist
  *   /vendor-dashboard/on-the-day        — the category-tuned day-of console
  *   /vendor-dashboard/recaps            — post-event highlight recaps
+ *   /vendor-dashboard/manpower          — host-paid crew gigs on linked events
  */
 export const SPECIALIST_TOOLS: ReadonlyArray<SpecialistTool> = [
   {
@@ -170,6 +172,32 @@ export const SPECIALIST_TOOLS: ReadonlyArray<SpecialistTool> = [
     href: '/vendor-dashboard/recaps',
     icon: Handshake,
     categories: ['photographer', 'videographer'],
+  },
+  {
+    key: 'manpower',
+    title: 'Manpower gigs',
+    description:
+      'Pick up host-paid crew assignments on events you’re already linked to.',
+    href: '/vendor-dashboard/manpower',
+    icon: HardHat,
+    // Crew-heavy service categories that deploy people on the day — the vendors
+    // most likely to accept a manpower gig. Broad but service-scoped, so a
+    // pure-product vendor (rings, invitations) doesn't see an irrelevant tool.
+    categories: [
+      'photographer',
+      'videographer',
+      'catering',
+      'host_emcee',
+      'band_dj',
+      'planner_coordinator',
+      'makeup_artist',
+      'hair_stylist',
+      'security',
+      'lights_and_sound',
+      'reception_decor',
+      'photobooth',
+      'mobile_bar',
+    ],
   },
 ];
 

@@ -11,6 +11,7 @@ import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -161,6 +162,14 @@ export default async function CoupleThreadPage({ params }: Props) {
       ) : thread.inquiry_status === 'accepted' ||
       (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
         <div className="space-y-2">
+          {/* Free 1:1 voice/video call — accepted threads only (PR 10). */}
+          {thread.inquiry_status === 'accepted' ? (
+            <ThreadCallLauncher
+              threadId={threadId}
+              currentUserId={user.id}
+              counterpartyLabel={vendorLabel}
+            />
+          ) : null}
           {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
             <p className="text-xs text-ink/55">
               You can send one follow-up while you wait for {vendorLabel} to

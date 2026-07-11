@@ -342,7 +342,13 @@ export default async function EventLayout({ children, params }: Props) {
   return (
     <>
       <SidebarShell
-        sidebarHeader={<DoorwaySidebarHeader label="Planning" switcherData={switcherData} />}
+        sidebarHeader={
+          <DoorwaySidebarHeader
+            label="Planning"
+            accentColor="var(--m-sidebar-accent)"
+            switcherData={switcherData}
+          />
+        }
         sidebar={
           <CustomerSidebar
             eventId={eventId}

@@ -79,10 +79,13 @@ import {
   ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
-import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
+import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { useSeatingLiveRefresh } from '@/app/dashboard/[eventId]/seating/_components/use-seating-live-refresh';
+import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
+import { RemotePlayers, CameraMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
+import { colorFromId } from '@/lib/plan3d-room';
 import { SeatingLockError } from '@/app/dashboard/[eventId]/seating/seating-lock-error';
 import {
   assignGuest,
@@ -472,6 +475,14 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
   const lock = useSeatingLock(eventId, me.name, null);
   const canEdit = lock.status === 'editing';
+  // Shared room (slice 8): the authed user is the player identity. Inert unless
+  // NEXT_PUBLIC_PLAN3D_SHARED_ROOM is on → byte-identical single-player otherwise.
+  // Two partners in Play mode see each other's characters walk the room live.
+  const roomSelf = useMemo<LocalPlayer | null>(
+    () => (PLAN3D_SHARED_ROOM_ENABLED ? { id: me.id, name: me.name, color: colorFromId(me.id) } : null),
+    [me.id, me.name],
+  );
+  const sharedRoom = usePlan3dRoom(eventId, roomSelf);
   // View-only surface follows the editor live (2D or another 3D viewer) — the
   // EDITING surface never auto-refreshes (it can't clobber its own drag).
   useSeatingLiveRefresh(eventId, !canEdit);
@@ -997,6 +1008,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       fd.set('entrance_enabled', f.entrance.enabled ? 'true' : 'false');
       fd.set('entrance_x', String(f.entrance.xPct));
       fd.set('entrance_y', String(f.entrance.yPct));
+      // CRITICAL — saveFloorPlan upserts the WHOLE row, so a 3D-lab save that
+      // omitted the entrance kind/depth would reset any Walk-through the 2D
+      // editor set back to 'door' (whole-row data loss). Round-trip them like
+      // the service-door / cocktail fields below.
+      fd.set('entrance_kind', f.entrance.kind);
+      fd.set('entrance_depth_m', String(f.entrance.depthM));
       fd.set('dance_enabled', f.dance.enabled ? 'true' : 'false');
       fd.set('dance_x', String(f.dance.xPct));
       fd.set('dance_y', String(f.dance.yPct));
@@ -2181,6 +2198,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           <DancerToken key={d.gid} dancer={d} reduced={reduced} onReturn={returnDancer} />
         ))}
 
+        {/* Shared room (slice 8): draw the OTHER online people's characters (Play
+            mode), and broadcast MY camera position while I first-person-walk.
+            Both render nothing / no-op when the flag is off or I'm alone. */}
+        {sharedRoom.enabled && mode === 'play' ? <RemotePlayers remotes={sharedRoom.remotes} quality="low" /> : null}
+        {sharedRoom.enabled && walking ? <CameraMoveBroadcaster sendMove={sharedRoom.sendMove} /> : null}
+
         {walking ? (
           <WalkController
             active={walking}
@@ -2332,6 +2355,17 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           >
             {walking ? 'Exit walk' : '🚶 Walk around'}
           </button>
+          {/* Shared room "say hi" (slice 8) — only while another partner is here.
+              Waves at the room; the wave plays on MY figure on their screen. */}
+          {sharedRoom.enabled && sharedRoom.onlineCount > 1 ? (
+            <button
+              type="button"
+              onClick={() => sharedRoom.greet(null)}
+              className="absolute right-4 top-16 z-30 rounded-xl border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/25"
+            >
+              👋 Say hi · {sharedRoom.onlineCount} here
+            </button>
+          ) : null}
           {walking ? (
             <>
               <LookPad input={walkInput} />
@@ -2701,17 +2735,54 @@ function RoomShell({
         </>
       ) : null}
 
-      {/* Entrance marker (the walk spawn point) */}
-      <group position={[entrance.x, 0, entrance.z]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-          <ringGeometry args={[0.55, 0.78, 32]} />
-          <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
-        </mesh>
-        <mesh position={[0, 1.1, 0]}>
-          <boxGeometry args={[1.4, 2.2, 0.12]} />
-          <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
-        </mesh>
-      </group>
+      {/* Entrance marker (the walk spawn point). A 'door' keeps the shallow
+          doorway frame; a 'tunnel' (UI: Walk-through) renders two side walls +
+          a lintel running INWARD from the wall by the couple's depth (clamped by
+          coldSparkFrame so it never pushes through the far wall), open inward. */}
+      {floor.entrance.enabled && floor.entrance.kind === 'tunnel'
+        ? (() => {
+            const frame = coldSparkFrame(entrance, room);
+            // Honour the couple's depth, but never exceed the frame's clamped
+            // inward run (already fitted to the room's depth).
+            const len = Math.max(1, Math.min(floor.entrance.depthM, frame.len));
+            const yaw = Math.atan2(frame.dir.x, frame.dir.z);
+            const HALF_W = 0.7; // interior clear half-width (door mouth is 1.4)
+            const WALL_T = 0.12;
+            const H = 2.2;
+            return (
+              <group position={[entrance.x, 0, entrance.z]} rotation={[0, yaw, 0]}>
+                {/* mouth ring on the floor at the outer opening */}
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                  <ringGeometry args={[0.55, 0.78, 32]} />
+                  <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                </mesh>
+                {/* two side walls running inward (local +z) */}
+                {[-1, 1].map((side) => (
+                  <mesh key={side} position={[HALF_W * side, H / 2, len / 2]} castShadow>
+                    <boxGeometry args={[WALL_T, H, len]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                  </mesh>
+                ))}
+                {/* lintel across the top of the run */}
+                <mesh position={[0, H, len / 2]}>
+                  <boxGeometry args={[HALF_W * 2 + WALL_T, WALL_T, len]} />
+                  <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                </mesh>
+              </group>
+            );
+          })()
+        : (
+          <group position={[entrance.x, 0, entrance.z]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+              <ringGeometry args={[0.55, 0.78, 32]} />
+              <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh position={[0, 1.1, 0]}>
+              <boxGeometry args={[1.4, 2.2, 0.12]} />
+              <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+            </mesh>
+          </group>
+        )}
     </group>
   );
 }

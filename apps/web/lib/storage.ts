@@ -74,6 +74,12 @@ export { bucketForPrefix };
  * `${pathPrefix}/${randomUUID()}-${file.name}` so collisions are impossible
  * and the file's original name is preserved for downloads.
  *
+ * By default only images ≤ 6 MB pass (the image-proof precedent). A caller
+ * that needs a different envelope — e.g. chat file sharing, which allows PDFs
+ * and common docs up to 25 MB — passes `allowedMime` and/or `maxBytes` to
+ * override JUST for that call. Omitting them keeps the historical image-only /
+ * 6 MB behavior for every existing caller, unchanged.
+ *
  * When R2 env vars are unset, falls back to Supabase Storage
  * `platform-assets` bucket (legacy V0 behavior). This is the
  * graceful-degradation path used by dev / preview / staging environments
@@ -82,22 +88,28 @@ export { bucketForPrefix };
 export async function uploadPublicAsset(args: {
   pathPrefix: string;
   file: File;
+  /** Override the default image-only allowlist for this call. */
+  allowedMime?: Iterable<string>;
+  /** Override the default 6 MB cap for this call. */
+  maxBytes?: number;
 }): Promise<UploadResult> {
   const { pathPrefix, file } = args;
+  const allowed = args.allowedMime ? new Set(args.allowedMime) : ALLOWED_MIME;
+  const maxBytes = args.maxBytes ?? MAX_BYTES;
 
   // file.type can be empty if the browser couldn't detect (some older
   // Android browsers do this for HEIC). Fall back to extension sniffing.
   const declaredType = file.type || sniffMimeFromName(file.name);
-  if (!declaredType || !ALLOWED_MIME.has(declaredType)) {
+  if (!declaredType || !allowed.has(declaredType)) {
     return {
       ok: false,
-      error: `Unsupported file type: ${file.type || 'unknown'}. Use PNG, JPEG, WebP, GIF, or HEIC.`,
+      error: `Unsupported file type: ${file.type || 'unknown'}.`,
     };
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > maxBytes) {
     return {
       ok: false,
-      error: `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is 6 MB.`,
+      error: `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`,
     };
   }
 
@@ -230,6 +242,21 @@ function sniffMimeFromName(name: string): string | null {
       return 'image/heif';
     case 'avif':
       return 'image/avif';
+    // Non-image types — only ever accepted when a caller widens its allowlist
+    // (e.g. chat file sharing). Image-only callers still reject these against
+    // their own allowlist, so adding them here can't loosen existing paths.
+    case 'pdf':
+      return 'application/pdf';
+    case 'doc':
+      return 'application/msword';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case 'txt':
+      return 'text/plain';
     default:
       return null;
   }

@@ -4,30 +4,44 @@
  *
  * The desktop sidebar is organised into two labelled sections matching the
  * couple energy prototype:
- *   PLAN    → Overview · Guests · Merkado · Studio · Budget
+ *   PLAN    → Overview · Guests · Merkado · Studio
  *   GO LIVE → Launch (the couple's live personal website)
  * Each top-level item auto-expands on the desktop sidebar to reveal its
  * sub-pages. The mobile bottom nav (lib/customer-menu.ts) carries the same
- * top-level destinations + labels (Overview · Guests · Merkado · Studio).
+ * top-level destinations + labels (Overview · Guests · Merkado · Studio) — the
+ * two are now at parity (no desktop-only Budget menu).
  *
  * PLAN items (same destinations as before — only regrouped + relabelled):
- *   1. Overview → /dashboard/[id]         (checklist · schedule · messages · contracts · refer)
- *      — renamed from "Home"; route + exact-match sentinel unchanged.
- *   2. Guests   → /dashboard/[id]/guests  (five journey stages + event-qr) · guest-count badge
+ *   1. Overview → /dashboard/[id]         (plain leaf — its old checklist/
+ *      schedule/messages/contracts children were flattened #3004; those surfaces
+ *      live in the dashboard body + topbar). Renamed from "Home"; route +
+ *      exact-match sentinel unchanged.
+ *   2. Guests   → /dashboard/[id]/guests  (plain leaf — the guest-journey stages
+ *      are integrated into the single Guests page) · guest-count badge.
  *   3. Merkado  → /dashboard/[id]/vendors (marketplace + Build tabs)
  *      — renamed from "Explore"; key + route unchanged.
  *   4. Studio   → /dashboard/[id]/studio  (website · mood-board · monogram · live wall)
- *   5. Budget   → /dashboard/[id]/budget  (activity · disputes)
  * GO LIVE items:
- *   6. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
+ *   5. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
+ *
+ * BUDGET removed 2026-07-10 (owner) — the standalone top-level Budget menu (and
+ * its Activity + Disputes children) is GONE, matching the mobile SSOT
+ * (lib/customer-menu.ts), which dropped it when the budget moved into the
+ * Merkado (Vendors → Build · Budget · Compare). Reachability after removal:
+ *   • /budget    → Merkado's Budget tab ("Open budget & payments" lens link).
+ *   • /disputes  → the vendor booking cancel flow (cancel-booking-button → the
+ *                  0023 § 3.6 dispute filing page at /disputes).
+ *   • /activity  → the dashboard-body activity feed's "see all" link + direct
+ *                  link; the customer.sidebar.activity/disputes registry slots
+ *                  are kept so a re-surfaced link stays admin-editable.
  *
  * A non-empty `group.label` makes SidebarSection render a collapsible heading.
  * The 'plan'/'golive' group keys are stable (localStorage section-state).
  *
- * GUEST JOURNEY — the Guests item carries `children` = the five guest-journey
- * stages from lib/guest-journey (Build · Invite · Confirm · Seat · Day-of),
- * same SSOT as the mobile <SubNav> pill. `opts.dayOfOpen` un-mutes the
- * time-gated Day-of stage once the live window opens; defaults to false.
+ * GUEST JOURNEY — the Guests item is a plain leaf (the five guest-journey stages
+ * from lib/guest-journey — Build · Invite · Confirm · Seat · Day-of — now live
+ * inside the single Guests page, not as sidebar children). `opts.dayOfOpen` is
+ * retained as the day-of gating hook; defaults to false.
  *
  * HOME sentinel matchPrefix — `__home__` prevents the strict-prefix branch
  * from firing (every other /dashboard/[id]/... route shares the base prefix),
@@ -51,9 +65,6 @@ import {
   Palette,
   Type,
   MonitorPlay,
-  Wallet,
-  Activity,
-  Shield,
   Eye,
   Rocket,
 } from 'lucide-react';
@@ -82,10 +93,6 @@ export function buildCustomerNavGroups(
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
      *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
     guestCount?: number | null;
-    /** Unread thread count → the Home › Messages child badge (orange/attention
-     *  tone). Already loaded by the layout for the topbar bell; 0/absent → no
-     *  badge. */
-    unreadMessages?: number;
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
@@ -233,35 +240,15 @@ export function buildCustomerNavGroups(
         },
         // (Launch moved OUT of the Plan items into its own "Go live" section —
         // see `launchItem` above + the two-group composition below.)
-        {
-          // 5 · Budget — financial planning. Activity + Disputes are secondary
-          // financial views surfaced only on the desktop sidebar.
-          key: 'budget',
-          label: 'Budget',
-          href: `${base}/budget`,
-          icon: Wallet,
-          matchPrefix: `${base}/budget`,
-          children: [
-            {
-              key: 'activity',
-              label: 'Activity',
-              href: `${base}/activity`,
-              icon: Activity,
-              matchPrefix: `${base}/activity`,
-            },
-            {
-              key: 'disputes',
-              label: 'Disputes',
-              href: `${base}/disputes`,
-              icon: Shield,
-              matchPrefix: `${base}/disputes`,
-            },
-          ],
-        },
+        // Budget top-level item REMOVED 2026-07-10 (owner) to match the mobile
+        // SSOT (lib/customer-menu.ts): the budget now lives inside the Merkado
+        // (Vendors → Build · Budget · Compare). /budget stays reachable from the
+        // Merkado's Budget tab; /activity + /disputes from the dashboard body +
+        // the vendor booking cancel→dispute flow. See the header docstring.
   ];
 
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
-  //   PLAN    → Overview · Guests · Merkado · Studio · Budget
+  //   PLAN    → Overview · Guests · Merkado · Studio
   //   GO LIVE → Launch (the couple's live personal website)
   // Replaces the single header-less 'root' group. The Go-live section only
   // exists when Launch does (websiteEnabled) — an empty section would render a
@@ -273,9 +260,10 @@ export function buildCustomerNavGroups(
       : []),
   ];
 
-  // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore' +
-  // 'budget'). Empty/undefined hideKeys → unchanged for wedding + all existing
-  // types. Mirrors the same filter on the mobile tree (lib/customer-menu.ts).
+  // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore').
+  // Empty/undefined hideKeys → unchanged for wedding + all existing types.
+  // ('budget' is no longer a top-level item, so a 'budget' hideKey is a harmless
+  // no-op — kept accepted for parity with the mobile tree, lib/customer-menu.ts.)
   if (!opts?.hideKeys?.length) return groups;
   const hide = new Set(opts.hideKeys);
   return groups.map((g) => ({ ...g, items: g.items.filter((i) => !hide.has(i.key)) }));

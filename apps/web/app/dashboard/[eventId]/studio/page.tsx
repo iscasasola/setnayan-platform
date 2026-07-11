@@ -95,11 +95,11 @@ export default async function StudioPage({ params }: Props) {
         .from('platform_retail_catalog_v2')
         .select('service_code, retail_price_php')
         .in('service_code', serviceKeys),
-      // The couple's roadmap state (months-to-date + hard structural signals) —
-      // the SAME source of truth the free Home "Things to complete" list reads,
-      // so the "Recommended for you now" strip can never contradict it. Best-
-      // effort: a null state degrades the strip to date-peak only.
-      fetchRoadmapState(supabase, eventId, new Date()),
+      // The couple's planning state (months-to-date + hard structural signals)
+      // that powers the "Recommended for you now" strip. `.catch(() => null)` so
+      // a hiccup in these five reads degrades the strip (to date-peak only, or
+      // hidden) — it must never 500 the whole Studio hub for a nice-to-have.
+      fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
     ]);
 
   const priceMap = new Map<string, string>();
@@ -298,18 +298,20 @@ export default async function StudioPage({ params }: Props) {
 
   // ── "Recommended for you now" (owner 2026-07-10 · simpler Studio) ─────────
   // Lead the hub with the 2–3 add-ons that fit WHERE THE COUPLE ACTUALLY IS, so
-  // Studio opens as "here's your next step" instead of a 24-tile catalog. The
-  // ranking follows the SAME roadmap state the Home "Things to complete" list
-  // reads (overdue-first) and gates day-of add-ons behind readiness signals, so
-  // the two surfaces can never disagree — see lib/studio-recommendations.ts.
-  // Eligible = surface-enabled for this event type AND not coming-soon; owned
-  // items are never re-recommended. Free picks are allowed on purpose — this
-  // answers "what to set up next", not "what to buy".
+  // Studio opens as "here's your next step" instead of a 24-tile catalog. It's
+  // Studio's own phase-aware heuristic (see lib/studio-recommendations.ts) — it
+  // follows the couple's open planning items overdue-first and gates day-of
+  // add-ons behind readiness signals. Eligible = surface-enabled for this event
+  // type AND not coming-soon; owned items are never re-recommended. Free picks
+  // are allowed on purpose — this answers "what to set up next", not "what to
+  // buy". `followRoadmap` is wedding-only: the planning bands are wedding canon,
+  // so other event types rank by date-peak proximity alone.
   const monthsToDate = roadmapState?.months ?? null;
   const recommendedEntries = recommendStudioAddOns({
     monthsToDate,
     signals: roadmapState?.signals ?? null,
     completed: roadmapState?.completed ?? [],
+    followRoadmap: profile.eventType === 'wedding',
     isEligible: (key) => {
       const e = entryByKey.get(key);
       if (!e) return false;
@@ -505,36 +507,47 @@ export default async function StudioPage({ params }: Props) {
 
       <StudioSectionTabs tabs={tabs} />
 
-      {SECTIONS.map(({ group, label, anchor, flagship }) => {
+      {SECTIONS.map(({ group, label, anchor, flagship }, sectionIndex) => {
         const addOns = ADD_ONS.filter((a) => a.studioGroup === group && surfaceOk(a))
           .slice()
           .sort(comingSoonLast);
         if (addOns.length === 0) return null;
 
-        // Featured hero = the preferred flagship if it's available, else the
-        // first available item. Coming-soon never gets featured.
+        // Flagship = the preferred hero item if available, else the first
+        // available one. Coming-soon never gets featured.
         const available = addOns.filter((a) => a.status !== 'coming_soon');
         const featured =
           available.find((a) => a.key === flagship) ?? available[0] ?? null;
-        const rows = addOns.filter((a) => a.key !== featured?.key);
+
+        // Hero trim (owner 2026-07-11 · simpler Studio): only the FIRST section
+        // gets the tall gradient hero card — the 4 stacked heroes inflated scroll
+        // (worst on mobile, where the in-page tab strip is hidden) for no
+        // navigational payoff. The other sections demote their flagship to a
+        // normal row at the top of the list, so NOTHING is hidden.
+        const heroEntry = sectionIndex === 0 ? featured : null;
+        const rows = heroEntry
+          ? addOns.filter((a) => a.key !== heroEntry.key)
+          : featured
+            ? [featured, ...addOns.filter((a) => a.key !== featured.key)]
+            : addOns;
 
         return (
           <div key={group} id={anchor} className="scroll-mt-24 space-y-4">
             <h2 className="text-2xl font-semibold tracking-tight text-ink">{label}</h2>
 
-            {featured ? (
+            {heroEntry ? (
               <div className="space-y-2">
                 <StudioFeaturedCard
-                  href={cardHref(featured)}
+                  href={cardHref(heroEntry)}
                   eyebrow={label}
-                  label={featured.label}
-                  tagline={addOnDetail(featured.key)?.tagline ?? featured.blurb}
-                  Icon={featured.Icon}
-                  gradient={featured.poster.baseBackground}
-                  pillText={pillFor(featured)?.text ?? 'Open'}
+                  label={heroEntry.label}
+                  tagline={addOnDetail(heroEntry.key)?.tagline ?? heroEntry.blurb}
+                  Icon={heroEntry.Icon}
+                  gradient={heroEntry.poster.baseBackground}
+                  pillText={pillFor(heroEntry)?.text ?? 'Open'}
                 />
-                {coordinatorControl(featured) ? (
-                  <div className="flex justify-end">{coordinatorControl(featured)}</div>
+                {coordinatorControl(heroEntry) ? (
+                  <div className="flex justify-end">{coordinatorControl(heroEntry)}</div>
                 ) : null}
               </div>
             ) : null}

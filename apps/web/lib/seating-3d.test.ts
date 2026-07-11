@@ -73,7 +73,7 @@ function floor(danceEnabled: boolean): Lab3DFloor {
     venueWidthM: 20,
     venueLengthM: 20,
     stage: { xPct: 50, yPct: 8, wPct: 30, hPct: 8 },
-    entrance: { enabled: true, xPct: 50, yPct: 96 },
+    entrance: { enabled: true, xPct: 50, yPct: 96, kind: 'door', depthM: 3 },
     dance: { enabled: danceEnabled, xPct: 50, yPct: 55, wPct: 20, hPct: 20 },
     published: false,
   };

@@ -48,6 +48,7 @@ import {
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
+import { requireAdmin } from '@/lib/admin/require-admin';
 
 export const metadata = { title: 'Work · Admin' };
 
@@ -91,6 +92,15 @@ const DUE_RANK: Record<string, number> = {
 };
 
 export default async function AdminWorkLanding() {
+  // Page-level gate (council fix #1 2026-07-09) — the admin layout alone is not
+  // a safe auth boundary in front of the RLS-bypassing service-role client
+  // getAdminQueueDigest() reaches below (layouts don't re-run on soft
+  // navigation / crafted RSC requests), so a crafted RSC request from an
+  // authenticated non-admin could otherwise leak per-queue open counts +
+  // timestamps. MUST be the first statement, before any service-role read —
+  // matches app/admin/page.tsx.
+  await requireAdmin();
+
   // One round-trip per queue (count + oldest-open age). Fails open: a thrown
   // query degrades the whole feed to "all clear" rather than 500-ing.
   const digest = await getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest);

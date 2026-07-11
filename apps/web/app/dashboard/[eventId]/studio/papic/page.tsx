@@ -1043,7 +1043,7 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
   );
 }
 
-function DriveConnectedPanel({
+async function DriveConnectedPanel({
   eventId,
   grant,
   loginEmail,
@@ -1053,6 +1053,36 @@ function DriveConnectedPanel({
   loginEmail: string | null;
 }) {
   const accountLabel = grant.external_account_display ?? 'Connected Drive';
+
+  // The 2nd Drive (owner 2026-07-11 · up to 2 Drives per event). Queried here so
+  // the connected panel can show its state without threading through 3 parents.
+  const overflowSupabase = await createClient();
+  const overflowGrant = (await overflowSupabase
+    .from('oauth_grants')
+    .select('external_account_display, connection_health')
+    .eq('event_id', eventId)
+    .eq('provider', 'drive_overflow')
+    .is('revoked_at', null)
+    .maybeSingle()
+    .then((r) => r.data ?? null)) as {
+    external_account_display: string | null;
+    connection_health: 'ok' | 'needs_reauth' | null;
+  } | null;
+
+  // "Storage is full" detection: originals that exhausted every retry with a
+  // Drive-quota error (Drive #1 full and no usable overflow, or BOTH full). The
+  // web gallery is always safe on R2 — this only means some full-res didn't reach
+  // Drive. Count is capped at 1 (head:true) — we only need "any".
+  const strandedFull =
+    (
+      await overflowSupabase
+        .from('drive_copy_artifacts')
+        .select('artifact_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .is('drive_file_id', null)
+        .gte('attempt_count', 5)
+        .ilike('last_error_text', '%storageQuotaExceeded%')
+    ).count ?? 0;
   const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
     year: 'numeric',
     month: 'short',
@@ -1070,6 +1100,24 @@ function DriveConnectedPanel({
     <div className="space-y-3">
       {grant.connection_health === 'needs_reauth' ? (
         <DriveReconnectBanner reconnectHref={`/api/oauth/drive/start?event_id=${eventId}`} />
+      ) : null}
+
+      {strandedFull > 0 ? (
+        <div className="rounded-xl border border-amber-300/80 bg-amber-50/70 p-3 text-[12px] text-amber-900">
+          <p className="font-medium">Your Drive is full.</p>
+          <p className="mt-0.5 text-amber-800">
+            Some full-resolution originals couldn&rsquo;t be saved to Drive — your
+            online gallery is safe, but the full-res copies are waiting. Free up
+            space{overflowGrant ? ' on either Drive' : ''}, or{' '}
+            <Link
+              href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+              className="font-medium underline underline-offset-2"
+            >
+              {overflowGrant ? 'connect more space' : 'connect a second Drive you own'}
+            </Link>{' '}
+            — they&rsquo;ll finish uploading automatically.
+          </p>
+        </div>
       ) : null}
 
       <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-4">
@@ -1091,17 +1139,51 @@ function DriveConnectedPanel({
                 </Link>
               </p>
             ) : null}
-            <p className="text-[11px] text-ink/60">
-              Running low on space? Full-resolution photos always live in your own
-              Drive — if it fills up, add a second one.{' '}
-              <Link
-                href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
-                className="font-medium text-mulberry underline-offset-2 hover:underline"
-              >
-                Connect a second Drive you own
-              </Link>
-              . New photos overflow into it automatically once the first is full.
-            </p>
+            {overflowGrant ? (
+              <div className="space-y-1 text-[11px]">
+                <p className="text-ink/60">
+                  2nd Drive connected as{' '}
+                  <span className="font-medium text-ink/75">
+                    {overflowGrant.external_account_display ?? 'your second Drive'}
+                  </span>{' '}
+                  — new photos overflow here once the first fills.
+                </p>
+                {overflowGrant.connection_health === 'needs_reauth' ? (
+                  <p className="text-danger-600">
+                    Your 2nd Drive needs to reconnect —{' '}
+                    <Link
+                      href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      reconnect it
+                    </Link>
+                    .
+                  </p>
+                ) : null}
+                <form action="/api/oauth/drive/disconnect" method="post">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="slot" value="overflow" />
+                  <SubmitButton
+                    pendingLabel="Disconnecting…"
+                    className="text-ink/45 underline underline-offset-2 transition-colors hover:text-ink/70"
+                  >
+                    Disconnect 2nd Drive
+                  </SubmitButton>
+                </form>
+              </div>
+            ) : (
+              <p className="text-[11px] text-ink/60">
+                Running low on space? Full-resolution photos always live in your own
+                Drive — if it fills up, add a second one.{' '}
+                <Link
+                  href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                  className="font-medium text-mulberry underline-offset-2 hover:underline"
+                >
+                  Connect a second Drive you own
+                </Link>
+                . New photos overflow into it automatically once the first is full.
+              </p>
+            )}
           </div>
           <form action="/api/oauth/drive/disconnect" method="post">
             <input type="hidden" name="event_id" value={eventId} />

@@ -1554,6 +1554,10 @@ export function SeatingEditor({
     posFor: (o: EventTableRow, i: number) => LocalPos | null,
   ) => {
     const m = footprintPx(moving);
+    // Walkable aisle: ~0.6 m of clear space kept between a table and any
+    // obstacle in a to-scale room (falls back to the 10 px breathing gap on the
+    // free board, where there is no metre scale). Owner rule 2026-07-11.
+    const gap = pxPerMeter ? 0.6 * pxPerMeter : COLLIDE_GAP;
     // The dance floor is a no-table zone: a table can't be dropped inside it
     // (drags slide around it via nearestFree, same as around other tables).
     if (dance.enabled) {
@@ -1561,7 +1565,7 @@ export function SeatingEditor({
       const dzh = (dance.h / 100) * rect.height;
       const ddx = Math.abs(((x - dance.x) / 100) * rect.width);
       const ddy = Math.abs(((y - dance.y) / 100) * rect.height);
-      if (ddx < (m.w + dzw) / 2 && ddy < (m.h + dzh) / 2) return true;
+      if (ddx < (m.w + dzw) / 2 + gap && ddy < (m.h + dzh) / 2 + gap) return true;
     }
     // The cocktail / waiting-area room is also a no-table zone (booths only).
     if (cocktail.enabled) {
@@ -1569,7 +1573,19 @@ export function SeatingEditor({
       const czh = (cocktail.h / 100) * rect.height;
       const cdx = Math.abs(((x - cocktail.x) / 100) * rect.width);
       const cdy = Math.abs(((y - cocktail.y) / 100) * rect.height);
-      if (cdx < (m.w + czw) / 2 && cdy < (m.h + czh) / 2) return true;
+      if (cdx < (m.w + czw) / 2 + gap && cdy < (m.h + czh) / 2 + gap) return true;
+    }
+    // Vendor booths are obstacles too: a table can't be dropped on a booked
+    // booth. Uses the real metre booth footprint; skipped on the free board
+    // (no metre scale — booths there aren't wall-snapped either).
+    if (pxPerMeter) {
+      const bw = BOOTH_FOOTPRINT_M.w * pxPerMeter;
+      const bh = BOOTH_FOOTPRINT_M.d * pxPerMeter;
+      for (const b of booths) {
+        const bdx = Math.abs(((x - b.x_pos) / 100) * rect.width);
+        const bdy = Math.abs(((y - b.y_pos) / 100) * rect.height);
+        if (bdx < (m.w + bw) / 2 + gap && bdy < (m.h + bh) / 2 + gap) return true;
+      }
     }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
@@ -1590,7 +1606,7 @@ export function SeatingEditor({
       const of = footprintPx(o);
       const dx = Math.abs(((x - op.x) / 100) * rect.width);
       const dy = Math.abs(((y - op.y) / 100) * rect.height);
-      return dx < (m.w + of.w) / 2 + COLLIDE_GAP && dy < (m.h + of.h) / 2 + COLLIDE_GAP;
+      return dx < (m.w + of.w) / 2 + gap && dy < (m.h + of.h) / 2 + gap;
     });
   };
   // Nearest %-position to (x,y) where `moving` clears every other table. Spirals
@@ -2069,16 +2085,34 @@ export function SeatingEditor({
           if (gy === null) ay = Math.round(ay / gridY) * gridY;
         }
         guidesRef.current = { x: gx, y: gy };
-        // Follow the cursor directly (with the alignment + grid snap above).
-        // We deliberately DON'T run the overlap resolver here: it used to
-        // spiral an already-touching table far across the room on the first
-        // pixel of a drag — the "table jumps a lot to the right when clicked"
-        // bug, worst on round/sweetheart (collision-prone) and invisible on
-        // banquet/serpentine (same-kind collision is exempt + they chain).
-        // The couple can place tables wherever they like, touching included;
-        // the mount-time auto-place still gives un-positioned tables a
-        // non-overlapping home, so nothing lands stacked on load.
-        setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
+        // No-overlap + walkable aisle (owner 2026-07-11). In a SIZED room a
+        // table can't be dropped overlapping another table, the dance floor,
+        // the cocktail room, or a vendor booth — overlapsAny keeps a ~0.6 m
+        // aisle clear. Axis-separated slide: if the target overlaps, keep
+        // whichever single axis is clear so the table GLIDES along the obstacle
+        // to the nearest gap. We only call overlapsAny (a cheap AABB), never
+        // nearestFree per-frame — so this cannot resurrect the old "spiral an
+        // already-touching table far across the room on the first drag pixel"
+        // bug. A table that STARTS overlapping (pre-existing layout) drags FREE
+        // so it can never get boxed in. The STAGE is not an obstacle (it's a
+        // platform tables may sit on). The free board keeps place-anywhere
+        // (0.6 m is meaningless without a metre scale).
+        const posFor = (o: EventTableRow, i: number) =>
+          positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+        const cur = positions[d.id] ?? { x, y };
+        if (
+          !venueScaled ||
+          !movingEarly ||
+          overlapsAny(cur.x, cur.y, movingEarly, rect, posFor) || // already stuck → drag free
+          !overlapsAny(ax, ay, movingEarly, rect, posFor) // target is clear
+        ) {
+          setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
+        } else if (!overlapsAny(ax, cur.y, movingEarly, rect, posFor)) {
+          setPositions((p) => ({ ...p, [d.id]: { x: ax, y: cur.y } })); // slide along X
+        } else if (!overlapsAny(cur.x, ay, movingEarly, rect, posFor)) {
+          setPositions((p) => ({ ...p, [d.id]: { x: cur.x, y: ay } })); // slide along Y
+        }
+        // else fully boxed in → hold at cur (apply nothing)
       } else if (d.kind === 'stage') {
         // Wall-snap only in a sized (walled) room; a free board has no walls.
         const p = venueScaled ? snapRectToWalls(x, y, stage.w, stage.h) : { x, y };

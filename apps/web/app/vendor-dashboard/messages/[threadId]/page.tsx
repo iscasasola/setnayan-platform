@@ -38,6 +38,8 @@ import {
   THREAD_STAGE_TONE,
 } from '@/lib/vendor-thread-stage';
 import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
+import { regionLabel } from '@/lib/region-source';
+import { eventTypeLabel } from '@/lib/demand-radar';
 import {
   InquiryOutcomeCapture,
   type OutcomeReasonOption,
@@ -48,6 +50,16 @@ export const metadata = { title: 'Thread · Vendor' };
 type Props = {
   params: Promise<{ threadId: string }>;
   searchParams?: Promise<{ notice?: string }>;
+};
+
+// Masked-lead inquiry basics (PR 1) — the 4 non-identifying fields the gated
+// get_pending_inquiry_basics RPC returns for a PENDING lead. NEVER carries the
+// couple's name/contact/venue.
+type InquiryBasics = {
+  event_date: string | null;
+  region: string | null;
+  event_type: string | null;
+  setnayan_ai_active: boolean | null;
 };
 
 const PROPOSAL_NOTICE: Record<string, string> = {
@@ -101,6 +113,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     planProgress,
     reasonCodes,
     { data: existingOutcome },
+    inquiryBasics,
   ] = await msgTimer.track('thread', () => Promise.all([
     // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
     getThreadBlockState(thread, user.id, 'vendor'),
@@ -167,6 +180,27 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       .eq('chat_thread_id', threadId)
       .is('vendor_proposal_id', null)
       .maybeSingle(),
+    // Masked-lead inquiry basics (PR 1 · owner-approved 2026-07-11). A vendor is
+    // NOT an event_members row while the inquiry is pending, so a direct read on
+    // `events` returns NULL under their RLS. This gated SECURITY DEFINER RPC
+    // returns ONLY 4 non-identifying fields (date / region / event_type /
+    // AI-status) for a PENDING thread the caller's vendor org owns — never
+    // name/contact/venue. FAIL-SOFT: any error (e.g. the function isn't in prod
+    // yet) degrades to null so the masked lead still renders.
+    thread.inquiry_status === 'pending'
+      ? (async (): Promise<InquiryBasics | null> => {
+          try {
+            const { data, error } = await supabase.rpc(
+              'get_pending_inquiry_basics',
+              { p_thread_id: thread.thread_id },
+            );
+            if (error || !Array.isArray(data)) return null;
+            return (data[0] as InquiryBasics | undefined) ?? null;
+          } catch {
+            return null;
+          }
+        })()
+      : Promise.resolve<InquiryBasics | null>(null),
     // Mark read (WRITE) — fired concurrently; result ignored. No-op + logged if
     // migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
     markThreadRead(threadId).catch(() => undefined),
@@ -439,6 +473,42 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             <span className="font-semibold">New inquiry.</span> Accept to open the
             chat and reply, or decline if you&rsquo;re not available for this date.
           </p>
+          {/* Inquiry basics (PR 1 · owner-approved 2026-07-11) — decision-useful,
+              non-identifying facts surfaced on the MASKED lead. The couple's name
+              stays hidden; these come from the gated get_pending_inquiry_basics
+              RPC and are null-safe (RPC absent / pre-migration → no chips). */}
+          {inquiryBasics ? (
+            <div className="flex flex-wrap gap-1.5">
+              {inquiryBasics.event_date ? (
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                  {inquiryBasics.event_date}
+                </span>
+              ) : null}
+              {(() => {
+                const pax = thread.pax_at_inquiry ?? thread.pax_current;
+                return pax ? (
+                  <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                    {pax} pax
+                  </span>
+                ) : null;
+              })()}
+              {inquiryBasics.event_type ? (
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                  {eventTypeLabel(inquiryBasics.event_type)}
+                </span>
+              ) : null}
+              {regionLabel(inquiryBasics.region) ? (
+                <span className="inline-flex items-center rounded-full bg-terracotta/15 px-2.5 py-1 text-xs font-medium text-terracotta">
+                  {regionLabel(inquiryBasics.region)}
+                </span>
+              ) : null}
+              {inquiryBasics.setnayan_ai_active ? (
+                <span className="inline-flex items-center rounded-full bg-mulberry/10 px-2.5 py-1 text-xs font-semibold text-mulberry">
+                  Setnayan AI · Active
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           {returning ? (
             <p className="text-sm text-ink">
               <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">

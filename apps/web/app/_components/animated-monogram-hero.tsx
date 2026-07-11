@@ -6,7 +6,7 @@ import { splitInitials } from '@/lib/monogram';
 
 /**
  * AnimatedMonogramHero — the paid ANIMATED_MONOGRAM SKU's render
- * (₱2,499 · v2.1 brief § 5), backed by the Monogram Motion Library.
+ * (₱999 · v2.1 brief § 5), backed by the Monogram Motion Library.
  *
  * It plays ONE of six premium motion signatures on mount
  * (lib/monogram-motion.ts · persisted as events.monogram_motion_key):
@@ -34,9 +34,9 @@ import { splitInitials } from '@/lib/monogram';
  * (WCAG 2.2 § 2.3.3). `motion` defaults to 'draw' so every existing call site
  * renders exactly what it did before the library landed.
  *
- * SKU DISAMBIGUATION — this is the standalone ANIMATED_MONOGRAM (₱2,499 · V2
+ * SKU DISAMBIGUATION — this is the standalone ANIMATED_MONOGRAM (₱999 · V2
  * catalog). It is SEPARATE from the iteration-0004 Monogram Hero widget upgrade
- * (`monogram_hero_upgrade` · ₱1,999) which bundles a custom video/photo
+ * (`monogram_hero_upgrade` · the ₱999 Animated Monogram) which bundles a custom video/photo
  * background + SVG/PNG-upload via Potrace and is gated through the
  * invitation_widgets.tier flip. See lib/animated-monogram.ts.
  *

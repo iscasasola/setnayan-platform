@@ -279,7 +279,7 @@ export const getVendorPrices = cache(async () => {
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
   // Fallback strings/numbers mirror the LIVE vendor_billing_catalog ladder
-  // (Solo ₱999/₱9,999 · Pro ₱2,499/₱24,999 · Enterprise ₱4,999/₱49,999) so a
+  // (Solo ₱999/₱9,999 · Pro ₱2,499/₱24,999 · Enterprise ₱7,999/₱79,999) so a
   // DB-unreachable build never renders a stale pre-reprice price. They only
   // ever surface if the catalog read returns empty — the live read wins.
   return {

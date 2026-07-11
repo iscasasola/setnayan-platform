@@ -40,8 +40,8 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 // 20260520005000_v1_sku_lock_papic_seat_packs.sql.
 //
 // Retired 2026-05-28 V2 cutover — the `concierge` category surfaces here as
-// historical / retired rows (Concierge ₱2,499 SKU is_active=FALSE). The V2
-// replacement (TODAYS_FOCUS ₱1,499 one-time) lives in platform_retail_catalog_v2
+// historical / retired rows (Concierge retired, is_active=FALSE). The V2
+// replacement (Setnayan AI ₱499 one-time) lives in platform_retail_catalog_v2
 // once that view is wired into this admin surface; until then audit happens
 // in Supabase Studio. See CLAUDE.md 2026-05-28 V1→V2 cutover decision-log rows.
 // ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   papic: 'Papic (Candid capture)',
   patiktok: 'Patiktok (Reels)',
   // Brand-layer rename 2026-05-28 V2 cutover — "Setnayan Concierge" SKU
-  // retired (replaced by ₱1,499 TODAYS_FOCUS one-time). Category key in
+  // retired (replaced by Setnayan AI ₱499 one-time). Category key in
   // service_catalog still reads `concierge`; display label aligns with the
   // V2 surface name. Retired SKUs surface here read-only with an Inactive pill.
   concierge: "Setnayan AI",

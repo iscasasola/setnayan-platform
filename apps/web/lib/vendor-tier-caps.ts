@@ -4,7 +4,7 @@
  *
  * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
  * free + verified are legacy states kept for backward compatibility.
- * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,499/28d).
+ * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,999/28d).
  * (Prices shown for reference only — the live figures are read from
  * vendor_billing_catalog; this file only carries capability caps, not prices.)
  *
@@ -202,10 +202,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   pro: {
     serviceRadiusKm: 50,
-    // Market intel is ENTERPRISE-ONLY (owner 2026-07-01 My Performance tiering).
-    // Pro gets the full OWN-business analytics via performanceAdvanced, not the
-    // cross-business Demand Radar / Price-Position surface.
-    marketIntel: false,
+    // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
+    // (owner 2026-07-11 — supersedes the 2026-07-01 "Enterprise-only" call, which
+    // the marketing copy had already been advertising as a Pro benefit). Pro also
+    // keeps the full OWN-business analytics via performanceAdvanced.
+    marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
     performanceAdvanced: true,
@@ -231,7 +232,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   // Enterprise is now a BOUNDED "larger range", not truly unlimited (owner
-  // 2026-07-01, alongside the ₱4,999→₱7,499 reprice). The four scale axes are
+  // 2026-07-01, alongside the ₱4,999→₱7,999 reprice — 28-day fee finalized at
+  // ₱7,999 on 2026-07-10). The four scale axes are
   // finite; a negotiated "Custom" tier (follow-up) is the home for franchises /
   // multi-location / truly-unlimited. Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
@@ -305,18 +307,18 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
  * hardcode a price in UI copy.
  *
  * LADDER B (owner-confirmed 2026-07-01 · the pre-reset ₱2,000/6,000/10,000
- * "Ladder A" is dead): Solo ₱999 · Pro ₱2,499 · Enterprise ₱7,499 /28d, with
+ * "Ladder A" is dead): Solo ₱999 · Pro ₱2,499 · Enterprise ₱7,999 /28d, with
  * annual = 10× the 28-day fee (a subscription year is 13 cycles, billed for 10
- * — first 3 free). Enterprise repriced ₱4,999→₱7,499 the same day it became a
- * BOUNDED tier (see TIER_CAPS below); a negotiated "Custom" tier for the
- * truly-unlimited case lands in a follow-up.
+ * — first 3 free). Enterprise became a BOUNDED tier on 2026-07-01 (₱4,999→₱7,499)
+ * and its 28-day fee was finalized at ₱7,999 on 2026-07-10 (annual ₱79,999); a
+ * negotiated "Custom" tier for the truly-unlimited case sits above it.
  */
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
   solo: { monthly: 999, annual: 9999 },
   pro: { monthly: 2499, annual: 24999 },
-  enterprise: { monthly: 7499, annual: 74999 },
+  enterprise: { monthly: 7999, annual: 79999 },
   // Custom is priced PER PLAN (composed 28-day total on vendor_custom_plans,
   // computed by lib/vendor-custom-pricing.ts). These are the base-only fallback
   // figures (base ₱8,999/28d · annual = 10× base) for display when no plan is
@@ -466,7 +468,7 @@ export function canPlotTimeSlots(tier: string | null | undefined): boolean {
  * out until paid vendors exist in prod.
  */
 export function canSeeMarketIntel(tier: string | null | undefined): boolean {
-  return tierCaps(tier).marketIntel; // Demand Radar + Price-Position (ENTERPRISE-only)
+  return tierCaps(tier).marketIntel; // Demand Radar + Price-Position (Pro-and-up · 2026-07-11)
 }
 export function canSeeTheftWatch(tier: string | null | undefined): boolean {
   return tierCaps(tier).theftWatch; // reverse-image theft watch (Pro+)

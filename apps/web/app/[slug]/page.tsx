@@ -439,7 +439,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const monogram = resolveMonogram(event);
 
-  // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
+  // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
   // When the event owns it, the monogram hero circle ANIMATES on load with
   // the couple's chosen Motion Library signature (lib/monogram-motion.ts ·
   // events.monogram_motion_key · NULL → 'draw') instead of rendering static.
@@ -456,7 +456,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? resolveMonogramMotion(event.monogram_motion_key)
     : false;
 
-  // Paid COUPLE_WEBSITE_PRO upgrade (₱3,999 · the single website-Pro unlock).
+  // Paid COUPLE_WEBSITE_PRO upgrade (retired/unbundled · the single website-Pro unlock).
   // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the
   // freemium "Powered by Setnayan · setnayan.com" footer watermark. Resolved
   // once here via the admin client (anonymous public path, no RLS session) and
@@ -790,7 +790,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
-  // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
+  // (RevealOverlay) layer ON TOP and become the ₱999 premium (P5 gate). Env
   // for a global rollout, ?film=1 for a per-visit preview while it bakes.
   // Film is on by default for the STD phase; ?film=0 disables it for a
   // plain-countdown fallback (useful for testing the static path).
@@ -1609,7 +1609,7 @@ function InvitationShell({
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
-  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when the event owns the ACTIVE
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when the event owns the ACTIVE
   // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
   // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
   // + threaded through each render branch. Defaults false → free site keeps it.

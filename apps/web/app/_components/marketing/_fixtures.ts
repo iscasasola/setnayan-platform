@@ -10,7 +10,7 @@
  *
  * v2.1 DRIFT SCRUBS applied:
  *   - "5% platform fee" / "we take a cut" → "0% commission"
- *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
+ *   - "₱499/wk Pro" → "₱2,499/28 days Pro Vendor"
  *   - "Setnayan Concierge" → "Setnayan AI"
  *   - Vendor verification FREE during launch ("₱1,499 one-time verification" + "₱499 refresh" fee removed 2026-06-13 — stale)
  */

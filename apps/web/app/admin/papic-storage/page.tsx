@@ -12,9 +12,11 @@ import {
 // 20270718100867). Surfaces the two numbers the pricing councils flagged as
 // UNMEASURED and asked to lock from real data before hard-coding:
 //   • the real web-copy / original RATIO (the modelled "~8%", now born-AVIF), and
-//   • the per-event forever-hosted web-copy size vs the soft 40 GB ceiling.
-// The whole point: watch these across the first ~50 real Unli events, then lock
-// the ceiling + the ₱11,999 cap from data, not a guess.
+//   • the per-event forever-hosted web-copy size (the 40 GB governor was retired
+//     2026-07-11 — storage is bounded by born-AVIF compression + the 3-month
+//     full-res drop, not a hosting ceiling).
+// The whole point: watch these across the first ~50 real Unli events to confirm
+// the ₱15,000 Unli capture cap + web-copy ratio hold up, not a guess.
 
 export const dynamic = 'force-dynamic';
 
@@ -108,8 +110,8 @@ export default async function PapicStoragePage() {
           <h1 className="text-lg font-semibold text-ink">Papic storage telemetry</h1>
           <p className="text-sm text-ink/60">
             The real web-copy ratio + per-event web-copy size, measured from actual
-            captures. Watch these across the first ~50 Unli events, then lock the
-            40 GB ceiling + the ₱11,999 cap from data.
+            captures. Watch these across the first ~50 Unli events to confirm the
+            ₱15,000 Unli capture cap and the born-AVIF web-copy ratio hold up in the wild.
           </p>
         </div>
       </header>

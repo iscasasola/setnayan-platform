@@ -23,7 +23,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { normalizeGuestName } from '@/lib/guest-name';
 import {
   type GuestRole,
   type GuestSide,
@@ -33,6 +32,7 @@ import type { ReleasedSeat } from '@/lib/guest-optimistic';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { ParsedGuestDraft } from '@/lib/guest-parse';
+import { runAddSingleGuest } from '@/lib/add-single-guest-core';
 import {
   quickAddGuest,
   quickCreateGroup,
@@ -359,66 +359,71 @@ export async function addSingleGuest(
   eventId: string,
   draft: ParsedGuestDraft,
 ): Promise<QuickAddResult> {
-  // Guard the clearly-failing add BEFORE creating any `#groups`. `quickAddGuest`
-  // (and the guests.last_name NOT NULL column) reject a missing first/last name,
-  // and the common capture-bar miss is a mononym like "Ana #Barkada". Without
-  // this short-circuit, `quickCreateGroup` would already have minted the group
-  // before the add bounced — orphaning an empty group on every rejected line.
-  // Mirror quickAddGuest's exact normalize + message so we never drift softer.
-  if (!normalizeGuestName(draft.firstName) || !normalizeGuestName(draft.lastName)) {
-    return { ok: false, error: 'Add both a first and last name.' };
-  }
+  // Thin wrapper: the orchestration (name-guard → mint `#groups` → role hint →
+  // insert → attach extra groups / plus-one → ON-FAILURE compensate the freshly
+  // minted groups) lives in the DB-free, unit-tested `runAddSingleGuest` core.
+  // Here we only inject the real, RLS-scoped server actions as its deps, so the
+  // verbatim quickAddGuest-reuse contract and every write are unchanged.
+  return runAddSingleGuest(eventId, draft, {
+    createGroup: (eid, name) => quickCreateGroup(eid, name),
+    addGuest: (eid, input) => quickAddGuest(eid, input),
+    resolveOfferedRoles: async (eid) => (await resolveRoleSetForEvent(eid)).offeredRoles,
 
-  // Resolve/create the parsed group names → ids up front (order preserved).
-  const groupIds: string[] = [];
-  for (const name of draft.groups) {
-    const res = await quickCreateGroup(eventId, name);
-    if (res.ok && !groupIds.includes(res.group.group_id)) {
-      groupIds.push(res.group.group_id);
-    }
-    // A group we couldn't create/find just isn't attached — the add proceeds.
-  }
+    // Extra-group membership beyond the first (quickAddGuest attached group[0]).
+    attachMembership: async (gid, guestId) => {
+      const supabase = await createClient();
+      await supabase
+        .from('guest_group_memberships')
+        .upsert([{ group_id: gid, guest_id: guestId }], {
+          onConflict: 'group_id,guest_id',
+          ignoreDuplicates: true,
+        });
+    },
 
-  // Map the role hint to a real role only when the event offers it (else guest).
-  let role: GuestRole = 'guest';
-  if (draft.roleHint) {
-    const roleSet = await resolveRoleSetForEvent(eventId);
-    if (roleSet.offeredRoles.includes(draft.roleHint)) role = draft.roleHint;
-  }
+    // Plus-one permission from the parsed `+N`.
+    setPlusOne: async (guestId) => {
+      const supabase = await createClient();
+      await supabase
+        .from('guests')
+        .update({ plus_one_allowed: true, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId);
+    },
 
-  // Core insert + validation (names required, side valid, finalize gate, the
-  // bride/groom singleton 23505 message, the auto-place reconcile) — verbatim.
-  const added = await quickAddGuest(eventId, {
-    first_name: draft.firstName,
-    last_name: draft.lastName,
-    side: draft.side,
-    role,
-    group_id: groupIds[0] ?? null,
+    // On-failed-add compensation for a group THIS call freshly minted. Guarded
+    // so a group a concurrent same-couple tab already populated is left intact:
+    // guest_group_memberships.group_id → guest_groups(group_id) is ON DELETE
+    // CASCADE (migration 20260604170000), so an unconditional delete of a
+    // now-non-empty group would silently drop that other guest's membership.
+    // Absent concurrency a freshly-minted group is always empty here (its
+    // group[0] membership is only attached AFTER a SUCCESSFUL insert), so the
+    // guard never blocks the intended cleanup. Couple-scoped
+    // `.eq('group_id').eq('event_id')` delete — the exact pattern
+    // `deleteGuestGroup` (groups-actions.ts) uses, authorized by the
+    // couple_writes_guest_group RLS policy. Best-effort: a failed cleanup is
+    // logged and swallowed, never masking the real add error.
+    deleteEmptyGroup: async (gid, eid) => {
+      const supabase = await createClient();
+      const { count } = await supabase
+        .from('guest_group_memberships')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', gid);
+      if ((count ?? 0) > 0) return;
+      const { error: delErr } = await supabase
+        .from('guest_groups')
+        .delete()
+        .eq('group_id', gid)
+        .eq('event_id', eid);
+      if (delErr) {
+        logQueryError(
+          'addSingleGuest (orphan-group compensation)',
+          delErr,
+          { event_id: eid, group_id: gid },
+          'graceful_degrade',
+        );
+      }
+    },
+
+    revalidate: (eid) => revalidatePath(guestsPath(eid)),
   });
-  if (!added.ok) return added;
-
-  const guestId = added.guest.guest_id;
-  const supabase = await createClient();
-
-  // Extra groups beyond the first (which quickAddGuest already attached).
-  for (const gid of groupIds.slice(1)) {
-    await supabase
-      .from('guest_group_memberships')
-      .upsert([{ group_id: gid, guest_id: guestId }], {
-        onConflict: 'group_id,guest_id',
-        ignoreDuplicates: true,
-      });
-  }
-
-  // Plus-one permission from the parsed `+N`.
-  if (draft.plusOnes > 0) {
-    await supabase
-      .from('guests')
-      .update({ plus_one_allowed: true, updated_at: new Date().toISOString() })
-      .eq('event_id', eventId)
-      .eq('guest_id', guestId);
-  }
-
-  revalidatePath(guestsPath(eventId));
-  return added;
 }

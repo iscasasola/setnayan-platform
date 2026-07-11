@@ -1675,31 +1675,81 @@ export async function finalizeVendor(
       );
       if (loserVpids.length > 0) {
         // The couple's OPEN inquiry threads with those vendors on this event.
+        // inquiry_status is carried so we can (a) stamp displaced_from_status
+        // for the revive-on-unlock path (revertVendorToConsidering) and (b)
+        // refund vendors whose thread was 'accepted' — they burned 1-3 tokens
+        // to answer; 'pending' vendors spent nothing.
         const { data: threadRows } = await supabase
           .from('chat_threads')
-          .select('thread_id, vendor_profile_id')
+          .select('thread_id, vendor_profile_id, inquiry_status')
           .eq('event_id', eventId)
           .in('vendor_profile_id', loserVpids)
           .in('inquiry_status', ['pending', 'accepted']);
         const openThreads = (threadRows ?? []) as {
           thread_id: string;
           vendor_profile_id: string;
+          inquiry_status: 'pending' | 'accepted';
         }[];
         if (openThreads.length > 0) {
-          // Displace them (couple-RLS write — the couple owns these threads).
-          const { error: dispErr } = await supabase
-            .from('chat_threads')
-            .update({ inquiry_status: 'displaced', updated_at: new Date().toISOString() })
-            .in(
-              'thread_id',
-              openThreads.map((t) => t.thread_id),
+          // Displace them (couple-RLS write — the couple owns these threads),
+          // stamping the PRIOR status into displaced_from_status so a later
+          // un-lock can revive each thread to exactly where it was. Partition by
+          // prior status because Supabase .update() can't copy column→column.
+          const nowIso = new Date().toISOString();
+          let displaceFailed = false;
+          for (const priorStatus of ['pending', 'accepted'] as const) {
+            const ids = openThreads
+              .filter((t) => t.inquiry_status === priorStatus)
+              .map((t) => t.thread_id);
+            if (ids.length === 0) continue;
+            const { error: dispErr } = await supabase
+              .from('chat_threads')
+              .update({
+                inquiry_status: 'displaced',
+                displaced_from_status: priorStatus,
+                updated_at: nowIso,
+              })
+              .in('thread_id', ids);
+            if (dispErr) {
+              displaceFailed = true;
+              console.warn(
+                `[finalizeVendor] displace-others failed for event=${eventId} group=${groupId}:`,
+                dispErr.message,
+              );
+            }
+          }
+          if (!displaceFailed) {
+            // REFUND (fairness · payment-gated) — vendors whose thread was
+            // 'accepted' burned tokens via unlock_vendor_event. Losing the
+            // couple to a rival they never got to compete against should not
+            // cost them, so credit those tokens back. Refund is per
+            // (vendor, event) — one unlock covers all a vendor's services — and
+            // idempotent: refund_displaced_inquiry_unlock guards on
+            // refunded_at, so a re-displace after a revive never double-refunds,
+            // and it leaves the unlock row so revival never re-charges. The
+            // couple is the actor; the RPC is SECURITY DEFINER + couple-scoped
+            // (current_couple_event_ids) because no couple RLS reaches vendor
+            // wallets. Best-effort: a refund hiccup must never roll back the
+            // lock.
+            const refundVpids = Array.from(
+              new Set(
+                openThreads
+                  .filter((t) => t.inquiry_status === 'accepted')
+                  .map((t) => t.vendor_profile_id),
+              ),
             );
-          if (dispErr) {
-            console.warn(
-              `[finalizeVendor] displace-others failed for event=${eventId} group=${groupId}:`,
-              dispErr.message,
-            );
-          } else {
+            for (const vpid of refundVpids) {
+              const { error: refundErr } = await supabase.rpc(
+                'refund_displaced_inquiry_unlock',
+                { p_vendor_profile_id: vpid, p_event_id: eventId },
+              );
+              if (refundErr) {
+                console.warn(
+                  `[finalizeVendor] displacement refund failed for event=${eventId} vendor=${vpid}:`,
+                  refundErr.message,
+                );
+              }
+            }
             // Notify each released vendor — cross-party, so resolve their auth
             // user via the admin client (same pattern as booking_confirmed).
             const notifyAdmin = createAdminClient();
@@ -2029,7 +2079,7 @@ export async function revertVendorToConsidering(
 
   const { data: current, error: readErr } = await supabase
     .from('event_vendors')
-    .select('status, marketplace_vendor_id')
+    .select('status, marketplace_vendor_id, category')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -2067,6 +2117,99 @@ export async function revertVendorToConsidering(
     .eq('event_id', eventId);
   if (revertErr) {
     return { status: 'error', message: revertErr.message };
+  }
+
+  // ── REVIVE displaced inquiries (fairness · payment-gated) ────────────────
+  // Un-locking a HARD-SINGLE pick reverses the exclusivity displacement its
+  // lock caused: restore the inquiries this couple's lock pushed to 'displaced'
+  // back to the status they held before it (chat_threads.displaced_from_status,
+  // stamped by finalizeVendor's exclusivity block), then clear the marker.
+  // 'displaced' is the documented REVIVABLE state — this closes the loop.
+  // Scoped to THIS event + the reverted pick's hard-single GROUP categories;
+  // only that group's inquiries were ever displaced by this lock. Couple-RLS
+  // write (the couple owns these threads). Gated behind the same
+  // payment-gated-lock flag as the displace it undoes. Best-effort + fail-soft:
+  // the un-lock already succeeded, so a revive hiccup never rolls it back.
+  //
+  // Token accounting (refund ↔ revival): a revived 'accepted' thread is NOT
+  // re-charged. The vendor was already refunded on displacement and keeps its
+  // (refunded, still-present) unlock row, so answering the revived inquiry costs
+  // nothing — a displace→revive flip-flop is the couple's indecision and must
+  // never bill the vendor twice nor double-refund them (the refund RPC's
+  // refunded_at guard enforces the no-double-refund half).
+  const revertedCategory = (current as { category?: string | null }).category;
+  const revertGroupId =
+    typeof revertedCategory === 'string' && isValidCategory(revertedCategory)
+      ? planGroupForCategory(revertedCategory)
+      : null;
+  if (
+    isPaymentGatedLockEnabled() &&
+    revertGroupId &&
+    HARD_SINGLE_PICK_GROUPS.has(revertGroupId)
+  ) {
+    try {
+      const revertGroupCategories = VENDOR_CATEGORIES.filter(
+        (c) => planGroupForCategory(c) === revertGroupId,
+      );
+      // Marketplace vendors the couple has in this event's group (the reverted
+      // winner + the ones its lock displaced).
+      const { data: groupRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .in('category', revertGroupCategories as unknown as string[])
+        .not('marketplace_vendor_id', 'is', null);
+      const groupVpids = Array.from(
+        new Set(
+          (groupRows ?? [])
+            .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      if (groupVpids.length > 0) {
+        // Displaced threads with a recoverable prior status for those vendors.
+        const { data: displacedRows } = await supabase
+          .from('chat_threads')
+          .select('thread_id, displaced_from_status')
+          .eq('event_id', eventId)
+          .in('vendor_profile_id', groupVpids)
+          .eq('inquiry_status', 'displaced')
+          .not('displaced_from_status', 'is', null);
+        const revivable = (displacedRows ?? []) as {
+          thread_id: string;
+          displaced_from_status: 'pending' | 'accepted';
+        }[];
+        // Restore each thread to its prior status + clear the marker. Partition
+        // by target status (Supabase .update() can't copy column→column).
+        const reviveNowIso = new Date().toISOString();
+        for (const targetStatus of ['pending', 'accepted'] as const) {
+          const ids = revivable
+            .filter((t) => t.displaced_from_status === targetStatus)
+            .map((t) => t.thread_id);
+          if (ids.length === 0) continue;
+          const { error: reviveErr } = await supabase
+            .from('chat_threads')
+            .update({
+              inquiry_status: targetStatus,
+              displaced_from_status: null,
+              updated_at: reviveNowIso,
+            })
+            .in('thread_id', ids);
+          if (reviveErr) {
+            console.warn(
+              `[revertVendorToConsidering] revive failed for event=${eventId} group=${revertGroupId}:`,
+              reviveErr.message,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Fail-soft — the un-lock already succeeded; never roll it back.
+      console.warn(
+        `[revertVendorToConsidering] revive block failed for event=${eventId}:`,
+        e,
+      );
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');

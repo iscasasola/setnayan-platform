@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -51,14 +52,35 @@ export function JourneyView({
     return <JourneyEmptyState eventId={eventId} hasEventDate={hasEventDate} />;
   }
 
+  // Stagger cursor — each phase consumes one slot for its header plus one per
+  // row, so the arc → headers → rows cascade in one continuous top-to-bottom
+  // sweep. The arc animates first (slot 0); phases follow.
+  let cursor = 1;
+  const phaseStarts = timeline.phases.map((phase) => {
+    const start = cursor;
+    cursor += 1 + phase.entries.length;
+    return start;
+  });
+
   return (
     <div className="space-y-8">
       <JourneyArc timeline={timeline} />
-      {timeline.phases.map((phase) => (
-        <PhaseSection key={phase.id} phase={phase} />
+      {timeline.phases.map((phase, i) => (
+        <PhaseSection key={phase.id} phase={phase} startIndex={phaseStarts[i] ?? 1} />
       ))}
     </div>
   );
+}
+
+// Delay for the Nth element in the cascade — capped so a long "road there"
+// phase can't push later rows into a multi-second wait.
+function stepDelay(index: number): string {
+  return `${Math.min(140 + index * 55, 1100)}ms`;
+}
+
+/** Inline `--journey-delay` custom property, typed for React's style prop. */
+function delayStyle(index: number): CSSProperties {
+  return { '--journey-delay': stepDelay(index) } as CSSProperties;
 }
 
 // ── The progress arc header ────────────────────────────────────────────────
@@ -77,7 +99,7 @@ function JourneyArc({ timeline }: { timeline: JourneyTimeline }) {
   ];
 
   return (
-    <section className="rounded-2xl border border-mulberry/15 bg-mulberry/[0.03] p-4 sm:p-5">
+    <section className="journey-rise rounded-2xl border border-mulberry/15 bg-mulberry/[0.03] p-4 sm:p-5">
       <div className="mb-3 flex items-baseline justify-between">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
           Your journey
@@ -88,13 +110,13 @@ function JourneyArc({ timeline }: { timeline: JourneyTimeline }) {
       {/* Rail */}
       <div className="relative mx-1 h-1.5 rounded-full bg-ink/10">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-mulberry/70"
+          className="journey-rail-fill absolute inset-y-0 left-0 rounded-full bg-mulberry/70"
           style={{ width: `${pct}%` }}
         />
         {/* "today" marker */}
         <span
           aria-hidden
-          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-mulberry bg-cream"
+          className="journey-today absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-mulberry bg-cream"
           style={{ left: `${pct}%` }}
         />
       </div>
@@ -129,10 +151,10 @@ function JourneyArc({ timeline }: { timeline: JourneyTimeline }) {
 
 // ── One phase ──────────────────────────────────────────────────────────────
 
-function PhaseSection({ phase }: { phase: JourneyPhase }) {
+function PhaseSection({ phase, startIndex }: { phase: JourneyPhase; startIndex: number }) {
   return (
     <section aria-labelledby={`journey-phase-${phase.id}`} className="space-y-3">
-      <header className="space-y-0.5">
+      <header className="journey-rise space-y-0.5" style={delayStyle(startIndex)}>
         <h2
           id={`journey-phase-${phase.id}`}
           className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
@@ -145,26 +167,32 @@ function PhaseSection({ phase }: { phase: JourneyPhase }) {
         <p className="text-xs text-ink/50">{phase.caption}</p>
       </header>
 
-      {/* Vertical timeline: a rail down the left, a node per entry. */}
+      {/* Vertical timeline: a rail down the left, a node per entry. Each row
+          rises in on a staggered delay continuing the cascade from the header. */}
       <ol className="relative ml-1 space-y-2 border-l border-ink/10 pl-5">
-        {phase.entries.map((entry) => (
-          <li key={entry.id} className="relative">
-            <TimelineNode entry={entry} />
-            <JourneyRow entry={entry} />
-          </li>
-        ))}
+        {phase.entries.map((entry, i) => {
+          const idx = startIndex + 1 + i;
+          return (
+            <li key={entry.id} className="journey-rise relative" style={delayStyle(idx)}>
+              <TimelineNode entry={entry} delayIndex={idx} />
+              <JourneyRow entry={entry} />
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
 }
 
-/** The little dot on the rail, left of each row. Milestones get a ring. */
-function TimelineNode({ entry }: { entry: JourneyEntry }) {
+/** The little dot on the rail, left of each row. Milestones get a ring that
+ *  pops in (on the row's own cascade delay); agenda dots ride the row rise. */
+function TimelineNode({ entry, delayIndex }: { entry: JourneyEntry; delayIndex: number }) {
   if (entry.milestone) {
     return (
       <span
         aria-hidden
-        className={`absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-full border-2 ${
+        style={delayStyle(delayIndex)}
+        className={`journey-node-pop absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-full border-2 ${
           entry.pending
             ? 'border-ink/25 bg-cream'
             : 'border-mulberry bg-mulberry/30'

@@ -170,13 +170,21 @@ export async function addGuestToGroup(
   if (!gid) return { ok: false, error: 'Pick a group.' };
 
   const supabase = await createClient();
-  const { data: groupRow } = await supabase
-    .from('guest_groups')
-    .select('event_id')
-    .eq('group_id', gid)
-    .maybeSingle();
+  // Gate BOTH sides on this event before writing the membership. RLS on
+  // guest_group_memberships (couple_writes_membership) only scopes group_id, and
+  // the table has no event_id column, so a bare guest_id from the payload would
+  // otherwise let a couple attach another event's guest to their own group (the
+  // FK resolves against the GLOBAL guests table). Mirror the g.event_id ===
+  // eventId check the canonical single-guest role actions use.
+  const [{ data: groupRow }, { data: guestRow }] = await Promise.all([
+    supabase.from('guest_groups').select('event_id').eq('group_id', gid).maybeSingle(),
+    supabase.from('guests').select('event_id').eq('guest_id', guestId).maybeSingle(),
+  ]);
   if (!groupRow || groupRow.event_id !== eventId) {
     return { ok: false, error: 'That group isn’t part of this event.' };
+  }
+  if (!guestRow || guestRow.event_id !== eventId) {
+    return { ok: false, error: 'Couldn’t find that guest.' };
   }
 
   const { error } = await supabase

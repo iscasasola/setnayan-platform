@@ -598,7 +598,14 @@ export function GuestListMultiselect({
       return next;
     });
 
-  const allIds = useMemo(() => rosterGuests.map((g) => g.guest_id), [rosterGuests]);
+  // Exclude self-join (needs-you) rows: they render WITHOUT a checkbox and are
+  // managed only via their inline Keep/Link/Remove, so they must never be swept
+  // into select-all or the SelectionBar bulk actions — and keeping them out lets
+  // allSelected/someSelected be reached by clicking the visible checkboxes.
+  const allIds = useMemo(
+    () => rosterGuests.map((g) => g.guest_id).filter((id) => !selfJoinSet.has(id)),
+    [rosterGuests, selfJoinSet],
+  );
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;

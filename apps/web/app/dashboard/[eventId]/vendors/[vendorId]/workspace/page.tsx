@@ -144,10 +144,17 @@ import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
-import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+// Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
+// stays out of the initial page JS until that tab mounts — see the lazy loader.
+import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+// Completion handshake (Event Lifecycle Menu §6.1) — surface the couple's
+// "confirm received" + review prompt inside the shell (flag-ON only). Reuses the
+// same actions + review-state logic the standalone /review page uses.
+import { reviewState, type ReviewState } from '@/lib/completion-handshake';
+import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
 
 export const metadata = { title: 'Service workspace · Setnayan' };
 
@@ -1956,6 +1963,137 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // ChatMessageStream + gated composer). Falls back to the existing
   // conversation link block when there's no thread / the vendor is off-platform.
   // ------------------------------------------------------------------------
+
+  // Completion handshake (Event Lifecycle Menu §6.1) — resolve the couple-facing
+  // state so the Details tab can surface "confirm received" + the review prompt
+  // in the shell (previously reachable only on the standalone /review page).
+  // Only for connected vendors — an off-platform/manual vendor has no account to
+  // mark complete and no profile to review. Flag-ON-only reads, so the flag-OFF
+  // path adds zero queries. RLS session client (couple's own booking + event).
+  let coupleHandshake: ReviewState | null = null;
+  if (ev.marketplace_vendor_id) {
+    const [{ data: complRow }, { data: evtRow }] = await Promise.all([
+      supabase
+        .from('event_vendors')
+        .select(
+          'completion_status, service_marked_complete_at, customer_confirmed_received_at',
+        )
+        .eq('vendor_id', ev.vendor_id)
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const compl = complRow as {
+      completion_status: string | null;
+      service_marked_complete_at: string | null;
+      customer_confirmed_received_at: string | null;
+    } | null;
+    if (compl) {
+      coupleHandshake = reviewState(
+        {
+          status: ev.status,
+          completion_status: compl.completion_status,
+          service_marked_complete_at: compl.service_marked_complete_at,
+          customer_confirmed_received_at: compl.customer_confirmed_received_at,
+        },
+        (evtRow as { event_date?: string | null } | null)?.event_date ?? null,
+      );
+    }
+  }
+
+  // Completion card for the Details tab. `awaiting_confirm` is the actionable
+  // gap (vendor marked complete, couple hasn't confirmed); `reviewable` nudges
+  // the review — but only when the marketplace-info section isn't ALSO showing a
+  // review link (it only does so at legacy status 'delivered'/'complete'), so we
+  // never double up. `awaiting_vendor` renders nothing (nothing to do yet).
+  const reviewHref = `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`;
+  const coupleCompletionSection =
+    coupleHandshake === 'awaiting_confirm' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-success-300/50 bg-success-50/50 p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
+          Did you get everything from {displayName}?
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          {displayName} marked their service complete. Confirm you received everything to
+          unlock your review and galleries — or let us know if something is missing.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <form action={coupleConfirmReceived}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+            <SubmitButton
+              pendingLabel="Confirming…"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              Yes, I got everything
+            </SubmitButton>
+          </form>
+          <form action={coupleReportNonDelivery}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+            <SubmitButton
+              pendingLabel="Reporting…"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              Something&rsquo;s missing
+            </SubmitButton>
+          </form>
+        </div>
+        <p className="mt-3 text-[11px] text-ink/55">
+          If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still
+          go up.
+        </p>
+      </section>
+    ) : coupleHandshake === 'disputed' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <Info aria-hidden className="h-4 w-4 text-warn-700" strokeWidth={1.75} />
+          You reported a problem
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          We&rsquo;ve noted that something was missing from {displayName}. Your review is on hold
+          while this is sorted out — once it&rsquo;s resolved, you can leave a review.
+        </p>
+      </section>
+    ) : coupleHandshake === 'reviewable' &&
+      ev.status !== 'delivered' &&
+      ev.status !== 'complete' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-success-300/50 bg-success-50/50 p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <Sparkles aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
+          How was {displayName}?
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          Your service is complete. Leave a public review to help other couples decide.
+        </p>
+        <Link
+          href={reviewHref}
+          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          Leave a review
+        </Link>
+      </section>
+    ) : null;
+
   let chatTabNode: ReactNode = null;
   let callTabNode: ReactNode = null;
   if (ev.marketplace_vendor_id && chatThread) {
@@ -1986,7 +2124,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
       callTabNode =
         thread.inquiry_status === 'accepted' ? (
-          <ThreadCallLauncher
+          <ThreadCallLauncherLazy
             threadId={thread.thread_id}
             currentUserId={user.id}
             counterpartyLabel={displayName}
@@ -2147,6 +2285,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       icon: <Info aria-hidden className={tabIconClass} strokeWidth={1.75} />,
       node: (
         <div className="space-y-6">
+          {coupleCompletionSection}
           {includedSection}
           {marketplaceInfoSection}
           {notesSection}

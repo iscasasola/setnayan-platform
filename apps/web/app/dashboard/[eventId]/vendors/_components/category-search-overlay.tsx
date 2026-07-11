@@ -28,6 +28,7 @@ import {
   searchCategoryVendors,
   type CategoryVendorResult,
 } from '../_actions/category-search';
+import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
 
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
@@ -70,6 +71,10 @@ const CSS = `
 .csov .r .badge.far{color:#9a6a00;background:rgba(197,160,89,.16)}
 /* First-Look "Replies fast" (Wave 2) — calm, trustworthy green, subtle. */
 .csov .r .badge.rf{color:#2f7d4f;background:rgba(47,125,79,.12)}
+/* Facet match — the couple's structured picks. Confident green. */
+.csov .r .badge.fx{font-weight:600;color:#2f7d4f;background:rgba(47,125,79,.14)}
+/* Service-date unavailable — muted, factual (down-ranked, never removed). */
+.csov .r .badge.busy{color:#9a3b3b;background:rgba(154,59,59,.1)}
 /* Relationship-depth badges */
 .csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
 .csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(30, 34, 41,.12);border:1px solid rgba(30, 34, 41,.25)}
@@ -163,15 +168,32 @@ export function CategorySearchOverlay({
   // Vendor IDs whose logo <img> failed to load (e.g. picsum rate-limiting the
   // demo placeholders) → fall back to the initials tile, not a broken-image icon.
   const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
+  // Facet refinement (lib/vendor-facets). The catalog + saved-pref seed come
+  // back with every search; `appliedFacets` is the couple's committed selection
+  // (undefined = untouched → the server seeds from saved preferences).
+  const [facetCatalog, setFacetCatalog] = useState<FacetDimension[]>([]);
+  const [facetDefaults, setFacetDefaults] = useState<FacetSelection>({});
+  const [appliedFacets, setAppliedFacets] = useState<FacetSelection | undefined>(
+    undefined,
+  );
+  const [facetHardFilter, setFacetHardFilter] = useState(false);
   // draft filter state (committed on Apply)
   const [draftVerified, setDraftVerified] = useState(false);
   const [draftKm, setDraftKm] = useState<number | null>(null);
+  const [draftFacets, setDraftFacets] = useState<FacetSelection>({});
+  const [draftHardFilter, setDraftHardFilter] = useState(false);
   const reqSeq = useRef(0);
   const csovRef = useRef<HTMLDivElement>(null);
   const fsheetRef = useRef<HTMLDivElement>(null);
 
   const run = useCallback(
-    async (q: string, vOnly: boolean, km: number | null) => {
+    async (
+      q: string,
+      vOnly: boolean,
+      km: number | null,
+      facets: FacetSelection | undefined,
+      hardFilter: boolean,
+    ) => {
       const seq = ++reqSeq.current;
       setLoading(true);
       try {
@@ -181,11 +203,15 @@ export function CategorySearchOverlay({
           query: q,
           verifiedOnly: vOnly,
           maxKm: km,
+          facets,
+          facetHardFilter: hardFilter,
         });
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
+        setFacetCatalog(res.facets);
+        setFacetDefaults(res.facetDefaults);
         // New search → collapse any expanded "farther away" set.
         setFarther([]);
         setFartherShown(false);
@@ -212,6 +238,8 @@ export function CategorySearchOverlay({
         query: query.trim(),
         verifiedOnly,
         maxKm,
+        facets: appliedFacets,
+        facetHardFilter,
         includeFarther: true,
       });
       setFarther(res.results);
@@ -223,18 +251,22 @@ export function CategorySearchOverlay({
     } finally {
       setFartherLoading(false);
     }
-  }, [eventId, groupId, query, verifiedOnly, maxKm]);
+  }, [eventId, groupId, query, verifiedOnly, maxKm, appliedFacets, facetHardFilter]);
 
-  // initial load
+  // initial load — no explicit facets (undefined → server seeds from saved prefs)
   useEffect(() => {
-    void run('', false, null);
+    void run('', false, null, undefined, false);
   }, [run]);
 
-  // live search — debounce typing, re-query
+  // live search — debounce typing, re-query. Re-runs when the applied facets /
+  // hard-filter change too (setAppliedFacets on Apply).
   useEffect(() => {
-    const t = setTimeout(() => void run(query.trim(), verifiedOnly, maxKm), 240);
+    const t = setTimeout(
+      () => void run(query.trim(), verifiedOnly, maxKm, appliedFacets, facetHardFilter),
+      240,
+    );
     return () => clearTimeout(t);
-  }, [query, verifiedOnly, maxKm, run]);
+  }, [query, verifiedOnly, maxKm, appliedFacets, facetHardFilter, run]);
 
   // Focus-trap + scroll-lock + Escape, via the shared primitive. The filter
   // sheet nests over the main overlay: useModalA11y's modal stack makes the
@@ -269,15 +301,40 @@ export function CategorySearchOverlay({
   function openFilter() {
     setDraftVerified(verifiedOnly);
     setDraftKm(maxKm);
+    // Seed the draft facet chips from the committed selection, or the saved-pref
+    // seed when the couple hasn't touched them yet.
+    setDraftFacets(appliedFacets ?? facetDefaults);
+    setDraftHardFilter(facetHardFilter);
     setFilterOpen(true);
   }
   function applyFilter() {
     setVerifiedOnly(draftVerified);
     setMaxKm(draftKm);
+    setAppliedFacets(draftFacets);
+    setFacetHardFilter(draftHardFilter);
     setFilterOpen(false);
   }
+  function toggleFacet(key: string, value: string) {
+    setDraftFacets((prev) => {
+      const cur = new Set(prev[key] ?? []);
+      if (cur.has(value)) cur.delete(value);
+      else cur.add(value);
+      const next = { ...prev };
+      if (cur.size > 0) next[key] = Array.from(cur);
+      else delete next[key];
+      return next;
+    });
+  }
 
-  const filterCount = (verifiedOnly ? 1 : 0) + (maxKm !== null ? 1 : 0);
+  // Count of committed facet dimensions carrying values (undefined → 0).
+  const activeFacetCount = appliedFacets
+    ? Object.values(appliedFacets).filter((v) => v.length > 0).length
+    : 0;
+  const filterCount =
+    (verifiedOnly ? 1 : 0) +
+    (maxKm !== null ? 1 : 0) +
+    activeFacetCount +
+    (facetHardFilter ? 1 : 0);
   const scope = loading
     ? `Showing only ${label.toLowerCase()} vendors`
     : `Showing only ${label.toLowerCase()} vendors · ${results.length} ${
@@ -389,6 +446,27 @@ export function CategorySearchOverlay({
                 {r.lastMinuteSurchargePct ? (
                   <span className="pct">+{r.lastMinuteSurchargePct}%</span>
                 ) : null}
+              </span>
+            ) : null}
+            {/* Facet match — surfaced only when the couple has active picks AND
+                this vendor's tagged attributes overlap ≥1 of them. */}
+            {r.facetSelectedCount > 0 &&
+            r.facetMatchCount !== null &&
+            r.facetMatchCount > 0 ? (
+              <span
+                className="badge fx"
+                title="Matches the service details you picked"
+              >
+                ✓ Matches {r.facetMatchCount} of your {r.facetSelectedCount}
+              </span>
+            ) : null}
+            {/* Service-date availability — down-ranked, never removed. */}
+            {!r.serviceDateAvailable ? (
+              <span
+                className="badge busy"
+                title="This vendor has a calendar block on your event date"
+              >
+                Booked your date
               </span>
             ) : null}
           </div>
@@ -542,6 +620,46 @@ export function CategorySearchOverlay({
                       {c.label}
                     </button>
                   ))}
+                </div>
+              </div>
+            ) : null}
+            {/* Facet refinement — structured service attributes (cuisine, edit
+                aesthetic, service style, …). Rendered only when the category has
+                a facet schema; seeded from the couple's saved preferences. */}
+            {facetCatalog.map((dim) => (
+              <div className="frow" key={dim.key}>
+                <div className="flab">{dim.label}</div>
+                <div className="chips">
+                  {dim.options.map((opt) => {
+                    const on = (draftFacets[dim.key] ?? []).includes(opt.value);
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        className={`chip${on ? ' on' : ''}`}
+                        onClick={() => toggleFacet(dim.key, opt.value)}
+                        aria-pressed={on}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {facetCatalog.length > 0 ? (
+              <div className="frow">
+                <div className="ftoggle">
+                  <span className="tn">Only exact matches</span>
+                  <button
+                    type="button"
+                    className={`sw${draftHardFilter ? ' on' : ''}`}
+                    onClick={() => setDraftHardFilter((v) => !v)}
+                    aria-pressed={draftHardFilter}
+                    aria-label="Only exact matches"
+                  >
+                    <span className="knob" />
+                  </button>
                 </div>
               </div>
             ) : null}

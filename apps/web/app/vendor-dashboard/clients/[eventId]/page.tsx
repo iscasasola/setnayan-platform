@@ -66,6 +66,7 @@ import {
   suggestScheduleChange,
   vendorMarkServiceComplete,
   vendorAcknowledgeDeposit,
+  vendorRejectDeposit,
   vendorPostHandover,
   vendorRaiseChangeOrder,
   vendorRespondChangeOrder,
@@ -377,6 +378,7 @@ type Props = {
     suggest?: string;
     lens?: string;
     deposit_ack?: string;
+    deposit_reject?: string;
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
@@ -1461,7 +1463,7 @@ function OverviewTab(props: {
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
-  search: { deposit_ack?: string };
+  search: { deposit_ack?: string; deposit_reject?: string };
 }) {
   const {
     eventId,
@@ -1797,6 +1799,21 @@ function OverviewTab(props: {
       ) : null}
 
       {/* Deposit acknowledge (booked). */}
+      {/* Reject outcome — shown outside the deposit card because a successful
+          reject clears the recorded markers (depositRecorded flips false). */}
+      {search.deposit_reject === 'ok' ? (
+        <Card>
+          <p className="text-sm text-ink/75">
+            <span className="font-medium text-ink">Marked as not received.</span> The couple was
+            asked to re-submit their downpayment proof — you&rsquo;ll be prompted again when they do.
+          </p>
+        </Card>
+      ) : search.deposit_reject === 'error' ? (
+        <Card>
+          <p role="alert" className="text-xs text-warn-900">That didn&rsquo;t go through — try again.</p>
+        </Card>
+      ) : null}
+
       {depositRecorded && eventVendorId ? (
         <Card>
           {search.deposit_ack === 'error' ? (
@@ -1844,13 +1861,40 @@ function OverviewTab(props: {
                   </>
                 ) : null}
               </div>
-              <form action={vendorAcknowledgeDeposit}>
-                <input type="hidden" name="event_id" value={eventId} />
-                <input type="hidden" name="vendor_id" value={eventVendorId} />
-                <SubmitButton className="button-primary shrink-0" pendingLabel="Confirming…">
-                  Confirm deposit received
-                </SubmitButton>
-              </form>
+              <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                <form action={vendorAcknowledgeDeposit}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="vendor_id" value={eventVendorId} />
+                  <SubmitButton className="button-primary w-full shrink-0 sm:w-auto" pendingLabel="Confirming…">
+                    Confirm deposit received
+                  </SubmitButton>
+                </form>
+                {/* Reject path — the vendor never received this payment. Clears
+                    the couple's recorded deposit so they must re-submit (does NOT
+                    un-lock the booking). Optional reason reaches the couple. */}
+                <details className="text-right">
+                  <summary className="cursor-pointer list-none text-[11px] font-medium text-ink/50 underline-offset-2 hover:text-ink/75 hover:underline">
+                    Didn&rsquo;t receive it?
+                  </summary>
+                  <form action={vendorRejectDeposit} className="mt-2 flex flex-col gap-2 text-left">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="vendor_id" value={eventVendorId} />
+                    <input
+                      type="text"
+                      name="reason"
+                      maxLength={200}
+                      placeholder="Reason (optional) — e.g. no payment received"
+                      className="w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
+                    />
+                    <SubmitButton
+                      className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-danger-100"
+                      pendingLabel="Sending…"
+                    >
+                      Didn&rsquo;t receive this payment
+                    </SubmitButton>
+                  </form>
+                </details>
+              </div>
             </div>
           )}
         </Card>

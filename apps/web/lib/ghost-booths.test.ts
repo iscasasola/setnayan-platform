@@ -8,6 +8,7 @@ import {
   GHOST_BOOTH_CATEGORIES,
   unbookedGhostCategories,
   ghostBoothExploreHref,
+  ghostBoothSlots,
   type GhostBoothCategory,
 } from './ghost-booths';
 
@@ -82,4 +83,45 @@ test('every returned ghost booth has a non-empty label and a tappable tile slug'
 test('ghostBoothExploreHref builds the marketplace deep-link', () => {
   assert.equal(ghostBoothExploreHref('catering'), '/explore?tile=catering');
   assert.equal(ghostBoothExploreHref('photo booth'), '/explore?tile=photo%20booth');
+});
+
+// ── placement ────────────────────────────────────────────────────────────────
+
+test('ghostBoothSlots: assigns up to count distinct perimeter slots', () => {
+  const slots = ghostBoothSlots(4, []);
+  assert.equal(slots.length, 4);
+  // all distinct
+  const keys = new Set(slots.map((s) => `${s.xPct},${s.yPct}`));
+  assert.equal(keys.size, 4);
+  // no two placed slots are within tolerance of each other
+  for (let i = 0; i < slots.length; i++)
+    for (let j = i + 1; j < slots.length; j++)
+      assert.ok(Math.hypot(slots[i]!.xPct - slots[j]!.xPct, slots[i]!.yPct - slots[j]!.yPct) > 11);
+});
+
+test('ghostBoothSlots: never lands within tolerance of an occupied point', () => {
+  // occupy the whole top wall → those candidates are skipped, later ones used
+  const occupied = [
+    { xPct: 22, yPct: 9 }, { xPct: 39, yPct: 9 }, { xPct: 56, yPct: 9 }, { xPct: 73, yPct: 9 },
+  ];
+  const slots = ghostBoothSlots(3, occupied);
+  for (const s of slots)
+    for (const o of occupied)
+      assert.ok(Math.hypot(s.xPct - o.xPct, s.yPct - o.yPct) > 11, 'clears every occupied point');
+  assert.ok(slots.length >= 1, 'still finds side/bottom slots');
+});
+
+test('ghostBoothSlots: returns fewer than requested when the perimeter is full', () => {
+  // occupy near every candidate → nothing free
+  const occupied = [
+    { xPct: 22, yPct: 9 }, { xPct: 39, yPct: 9 }, { xPct: 56, yPct: 9 }, { xPct: 73, yPct: 9 },
+    { xPct: 9, yPct: 32 }, { xPct: 91, yPct: 32 }, { xPct: 9, yPct: 52 }, { xPct: 91, yPct: 52 },
+    { xPct: 9, yPct: 72 }, { xPct: 91, yPct: 72 }, { xPct: 22, yPct: 91 }, { xPct: 78, yPct: 91 },
+  ];
+  assert.equal(ghostBoothSlots(12, occupied).length, 0);
+});
+
+test('ghostBoothSlots: deterministic (same input → same slots)', () => {
+  const occ = [{ xPct: 50, yPct: 50 }];
+  assert.deepEqual(ghostBoothSlots(5, occ), ghostBoothSlots(5, occ));
 });

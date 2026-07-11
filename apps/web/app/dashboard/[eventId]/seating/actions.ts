@@ -509,6 +509,85 @@ export async function setSeatingGroupAdjacency(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// ── 3D Booth Ads · Part A (slice 9, owner-locked 2026-07-08) ──────────────────
+// The couple's controls for the dashed "ghost booths" (unbooked vendor
+// categories) shown ONLY in their own 3D planning lab. Prefs persist on
+// event_floor_plan; couple-scoped (RLS gates the row to the event's owner).
+
+/** Master toggle: show/hide ghost booths for the whole event. */
+export async function setGhostBoothsEnabled(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return;
+  const enabled = formData.get('enabled') === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_floor_plan')
+    .update({ ghost_booths_enabled: enabled })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
+}
+
+/** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). */
+export async function dismissGhostBooth(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const category = formData.get('category');
+  if (typeof eventId !== 'string' || eventId.length === 0) return;
+  if (typeof category !== 'string' || category.length === 0) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Read-modify-write to keep the dismissed set deduped (idempotent re-dismiss).
+  const { data: row } = await supabase
+    .from('event_floor_plan')
+    .select('ghost_booths_dismissed')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const current = (row?.ghost_booths_dismissed as string[] | null) ?? [];
+  if (current.includes(category)) {
+    revalidatePath(`/dashboard/${eventId}/seating/lab`);
+    return;
+  }
+  const { error } = await supabase
+    .from('event_floor_plan')
+    .update({ ghost_booths_dismissed: [...current, category] })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
+}
+
+/** Restore every dismissed ghost booth (the master toggle's "show all again"). */
+export async function restoreGhostBooths(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_floor_plan')
+    .update({ ghost_booths_dismissed: [] })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
+}
+
 // Save the floor-plan markers (stage position + the single entrance door).
 // Upserts the per-event singleton row; coords are clamped to 0–100 percent.
 export async function saveFloorPlan(formData: FormData) {

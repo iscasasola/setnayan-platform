@@ -8,8 +8,8 @@ import type { VendorPesoScorecard } from '@/lib/vendor-peso';
  * booked couple."
  *
  * BEHAVIORAL HONESTY: token burn-on-answer IS live — `unlock_vendor_event`
- * consumes 1–3 region-banded (minimum-wage) tokens when a paid-tier vendor
- * accepts an inquiry (FREE blocked · VERIFIED ≤10/wk AND burns · SOLO/PRO/
+ * consumes a flat 1 token (₱200 · 2026-07-12 lock, previously 1–3 region-banded)
+ * when a paid-tier vendor accepts an inquiry (FREE blocked · VERIFIED ≤10/wk AND burns · SOLO/PRO/
  * ENTERPRISE unlimited AND burns). Token spend reads ₱0 for a vendor who simply
  * hasn't answered a burning inquiry this cycle. The card says THAT plainly
  * when `burnInert` (= ₱0 token spend this cycle); it never implies the vendor is
@@ -111,9 +111,8 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
         <p className="mt-4 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-[12px] leading-relaxed text-ink/60">
           <span className="font-medium text-ink/75">Your peso-per-lead reads</span>{' '}
           <span className="font-mono">₱0</span> because you haven&apos;t answered an
-          inquiry that burned tokens this cycle. Each answered lead burns{' '}
-          {peso(tokenPricePhp)}–{peso(tokenPricePhp * 3)} (by the wedding&apos;s
-          region) — this scorecard tracks it the moment you do.
+          inquiry that burned tokens this cycle. Each answered lead burns a flat{' '}
+          {peso(tokenPricePhp)} — this scorecard tracks it the moment you do.
         </p>
       )}
     </section>

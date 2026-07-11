@@ -5,10 +5,17 @@
  * WHY THIS LIVES HERE
  * -------------------
  * Owner-locked 2026-06-05 (DECISION_LOG + Token_Economy_Flow_Map_2026-06-01):
- * the burn to answer an inquiry is region-weighted 1 / 2 / 3 tokens
- * (= ₱100 / ₱200 / ₱300 at ₱100/token, ₱300 ceiling), keyed to the
- * WEDDING's region (events.region), banded by that region's minimum wage.
- * This SUPERSEDES the earlier 3-4-5-6 ladder.
+ * the burn to answer an inquiry was region-weighted 1 / 2 / 3 tokens, keyed to
+ * the WEDDING's region (events.region), banded by that region's minimum wage.
+ *
+ * ⚠ FLATTENED 2026-07-12 (PRICING LOCK ②, DB migration 20270728200000): the
+ * burn is now a CONSTANT 1 token for ALL regions — public.regions.burn_band = 1
+ * everywhere. Paired with the ₱100 → ₱200 token reprice (migration
+ * 20270728100000), every inquiry costs a flat 1 × ₱200 = ₱200. The 1/2/3 band
+ * MACHINERY is kept intact below (the DB column + resolver still support bands
+ * 1-3 so an admin could re-band from /admin/token-bands), but the live DATA is
+ * flat 1, so the effective cost is a uniform ₱200. This SUPERSEDED the earlier
+ * 3-4-5-6 ladder.
  *
  * The burn is an anti-spam / skin-in-the-game gate, NOT a value meter:
  * realized booking value is off-platform-invisible (RA 11967) and one
@@ -16,12 +23,14 @@
  * priced to the booking. It is priced cheap at the low-ticket floor; the
  * value-scaling lives in the region-tiered subscription instead.
  *
- * Bands (by non-agri daily minimum wage; NCR ₱695 top, mid-2026):
- *   3 (₱300) — NCR · CALABARZON · Central Luzon                (wage ≥ ₱600)
- *   2 (₱200) — Cebu/C.Visayas · Iloilo/W.Visayas · Davao ·
- *              CDO/N.Mindanao · CAR · Ilocos · Cagayan · MIMAROPA   (~₱480-550)
- *   1 (₱100) — Bicol · E.Visayas · Zamboanga · SOCCSKSARGEN ·
- *              Caraga · BARMM                                       (~₱415-475)
+ * Bands (retained machinery — currently ALL flattened to band 1 = ₱200 at the
+ * ₱200/token rate; the min-wage grouping below is the historical band map an
+ * admin could restore):
+ *   3 — NCR · CALABARZON · Central Luzon                (wage ≥ ₱600)
+ *   2 — Cebu/C.Visayas · Iloilo/W.Visayas · Davao ·
+ *       CDO/N.Mindanao · CAR · Ilocos · Cagayan · MIMAROPA   (~₱480-550)
+ *   1 — Bicol · E.Visayas · Zamboanga · SOCCSKSARGEN ·
+ *       Caraga · BARMM                                       (~₱415-475)
  *
  * Region resolution is now delegated to the canonical region source
  * (lib/region-source · public.regions.burn_band), keyed on the onboarding
@@ -55,8 +64,14 @@
 
 import { resolveRegion } from '@/lib/region-source';
 
-/** Flat price of one vendor token, in pesos (owner-locked "₱100, no more 250"). */
-export const TOKEN_PRICE_PHP = 100;
+/**
+ * Flat DISPLAY price of one vendor token, in pesos. ₱200 since the 2026-07-12
+ * PRICING LOCK (token unit ₱100 → ₱200; the CHARGE moved in DB migration
+ * 20270728100000_vendor_token_pack_reprice_200). This is the display mirror of
+ * that charge — vendor_billing_catalog.price_php ÷ token_grant_count = ₱200 —
+ * so every vendor/admin surface reads the same peso figure the pack sells at.
+ */
+export const TOKEN_PRICE_PHP = 200;
 
 /** The top burn band — a wedding in NCR/CALABARZON/Central Luzon costs this many tokens. */
 export const BURN_CEILING_TOKENS = 3;
@@ -88,7 +103,7 @@ export function regionBurnTokens(region: string | null | undefined): BurnBand {
   return resolveRegion(region)?.burn_band ?? DEFAULT_BURN_BAND;
 }
 
-/** Peso cost of answering an inquiry for a wedding in `region` (tokens × ₱100). */
+/** Peso cost of answering an inquiry for a wedding in `region` (tokens × ₱200). */
 export function regionBurnPhp(region: string | null | undefined): number {
   return regionBurnTokens(region) * TOKEN_PRICE_PHP;
 }

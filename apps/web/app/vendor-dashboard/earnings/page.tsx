@@ -162,7 +162,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
       {/* Buy-tokens discovery · repointed from the retired redeem-code voucher
           surface (hard-deleted 2026-07-01 under "no free tokens"). Tokens are
-          purchased at ₱100 each (verified stores only). Lands on the unified
+          purchased at ₱200 each (verified stores only). Lands on the unified
           Plan & tokens hub. */}
       <Link
         href="/vendor-dashboard/subscription"

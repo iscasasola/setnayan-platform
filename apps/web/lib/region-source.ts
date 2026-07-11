@@ -75,26 +75,32 @@ export type CanonicalRegion = {
  * `aliases` are stored lower-cased; `resolveRegion()` also matches on the
  * canonical slug and the lower-cased PSGC code, so the array only needs the
  * spellings NOT already covered by those two.
+ *
+ * burn_band is FLAT 1 for every region (2026-07-12 PRICING LOCK ②, DB migration
+ * 20270728200000 set public.regions.burn_band = 1 everywhere → a constant
+ * 1-token inquiry burn). This static fallback mirrors that live state. The band
+ * field still types 1|2|3 and the DB hydrator preserves any admin re-band, so
+ * the machinery is intact — only the seeded DATA is flat.
  */
 const STATIC_REGIONS: readonly CanonicalRegion[] = [
-  { slug: 'ncr', psgc_code: 'NCR', display_label: 'Metro Manila', descriptor: 'NCR · Metro Manila', aliases: ['ncr'], burn_band: 3, centroid_lat: 14.58, centroid_lon: 121.0, sort_order: 1, is_scopable: true },
-  { slug: 'car', psgc_code: 'CAR', display_label: 'Cordillera (CAR)', descriptor: 'CAR · Cordillera (Baguio, La Trinidad, Sagada, Banaue)', aliases: ['car'], burn_band: 2, centroid_lat: 16.9, centroid_lon: 120.9, sort_order: 2, is_scopable: true },
-  { slug: 'ilocos', psgc_code: 'I', display_label: 'Ilocos Region', descriptor: 'I · Ilocos Region (Vigan, Laoag, Dagupan)', aliases: ['i', 'ilocos'], burn_band: 2, centroid_lat: 17.4, centroid_lon: 120.5, sort_order: 3, is_scopable: true },
-  { slug: 'cagayan', psgc_code: 'II', display_label: 'Cagayan Valley', descriptor: 'II · Cagayan Valley (Tuguegarao, Santiago)', aliases: ['ii', 'cagayan_valley', 'cagayan-valley'], burn_band: 2, centroid_lat: 17.3, centroid_lon: 121.8, sort_order: 4, is_scopable: true },
-  { slug: 'c-luzon', psgc_code: 'III', display_label: 'Central Luzon', descriptor: 'III · Central Luzon (Pampanga, Bulacan, Tarlac, Subic)', aliases: ['iii', 'central_luzon'], burn_band: 3, centroid_lat: 15.3, centroid_lon: 120.6, sort_order: 5, is_scopable: true },
-  { slug: 'calabarzon', psgc_code: 'IV-A', display_label: 'CALABARZON', descriptor: 'IV-A · CALABARZON (Tagaytay, Cavite, Laguna, Batangas, Rizal, Quezon)', aliases: ['iv-a', 'calabarzon'], burn_band: 3, centroid_lat: 14.2, centroid_lon: 121.3, sort_order: 6, is_scopable: true },
-  { slug: 'mimaropa', psgc_code: 'IV-B', display_label: 'MIMAROPA', descriptor: 'IV-B · MIMAROPA (Palawan, Coron, El Nido, Mindoro)', aliases: ['iv-b', 'mimaropa'], burn_band: 2, centroid_lat: 12.0, centroid_lon: 120.8, sort_order: 7, is_scopable: true },
+  { slug: 'ncr', psgc_code: 'NCR', display_label: 'Metro Manila', descriptor: 'NCR · Metro Manila', aliases: ['ncr'], burn_band: 1, centroid_lat: 14.58, centroid_lon: 121.0, sort_order: 1, is_scopable: true },
+  { slug: 'car', psgc_code: 'CAR', display_label: 'Cordillera (CAR)', descriptor: 'CAR · Cordillera (Baguio, La Trinidad, Sagada, Banaue)', aliases: ['car'], burn_band: 1, centroid_lat: 16.9, centroid_lon: 120.9, sort_order: 2, is_scopable: true },
+  { slug: 'ilocos', psgc_code: 'I', display_label: 'Ilocos Region', descriptor: 'I · Ilocos Region (Vigan, Laoag, Dagupan)', aliases: ['i', 'ilocos'], burn_band: 1, centroid_lat: 17.4, centroid_lon: 120.5, sort_order: 3, is_scopable: true },
+  { slug: 'cagayan', psgc_code: 'II', display_label: 'Cagayan Valley', descriptor: 'II · Cagayan Valley (Tuguegarao, Santiago)', aliases: ['ii', 'cagayan_valley', 'cagayan-valley'], burn_band: 1, centroid_lat: 17.3, centroid_lon: 121.8, sort_order: 4, is_scopable: true },
+  { slug: 'c-luzon', psgc_code: 'III', display_label: 'Central Luzon', descriptor: 'III · Central Luzon (Pampanga, Bulacan, Tarlac, Subic)', aliases: ['iii', 'central_luzon'], burn_band: 1, centroid_lat: 15.3, centroid_lon: 120.6, sort_order: 5, is_scopable: true },
+  { slug: 'calabarzon', psgc_code: 'IV-A', display_label: 'CALABARZON', descriptor: 'IV-A · CALABARZON (Tagaytay, Cavite, Laguna, Batangas, Rizal, Quezon)', aliases: ['iv-a', 'calabarzon'], burn_band: 1, centroid_lat: 14.2, centroid_lon: 121.3, sort_order: 6, is_scopable: true },
+  { slug: 'mimaropa', psgc_code: 'IV-B', display_label: 'MIMAROPA', descriptor: 'IV-B · MIMAROPA (Palawan, Coron, El Nido, Mindoro)', aliases: ['iv-b', 'mimaropa'], burn_band: 1, centroid_lat: 12.0, centroid_lon: 120.8, sort_order: 7, is_scopable: true },
   { slug: 'bicol', psgc_code: 'V', display_label: 'Bicol Region', descriptor: 'V · Bicol (Legazpi, Naga, Sorsogon)', aliases: ['v', 'bicol'], burn_band: 1, centroid_lat: 13.4, centroid_lon: 123.4, sort_order: 8, is_scopable: true },
-  { slug: 'w-visayas', psgc_code: 'VI', display_label: 'Western Visayas', descriptor: 'VI · Western Visayas (Iloilo, Bacolod, Boracay, Aklan)', aliases: ['vi', 'western_visayas'], burn_band: 2, centroid_lat: 10.9, centroid_lon: 122.6, sort_order: 9, is_scopable: true },
-  { slug: 'c-visayas', psgc_code: 'VII', display_label: 'Central Visayas', descriptor: 'VII · Central Visayas (Cebu, Bohol, Panglao, Dumaguete)', aliases: ['vii', 'central_visayas'], burn_band: 2, centroid_lat: 10.0, centroid_lon: 123.6, sort_order: 10, is_scopable: true },
+  { slug: 'w-visayas', psgc_code: 'VI', display_label: 'Western Visayas', descriptor: 'VI · Western Visayas (Iloilo, Bacolod, Boracay, Aklan)', aliases: ['vi', 'western_visayas'], burn_band: 1, centroid_lat: 10.9, centroid_lon: 122.6, sort_order: 9, is_scopable: true },
+  { slug: 'c-visayas', psgc_code: 'VII', display_label: 'Central Visayas', descriptor: 'VII · Central Visayas (Cebu, Bohol, Panglao, Dumaguete)', aliases: ['vii', 'central_visayas'], burn_band: 1, centroid_lat: 10.0, centroid_lon: 123.6, sort_order: 10, is_scopable: true },
   { slug: 'e-visayas', psgc_code: 'VIII', display_label: 'Eastern Visayas', descriptor: 'VIII · Eastern Visayas (Tacloban, Ormoc)', aliases: ['viii', 'eastern_visayas'], burn_band: 1, centroid_lat: 11.4, centroid_lon: 124.9, sort_order: 11, is_scopable: true },
   { slug: 'zamboanga', psgc_code: 'IX', display_label: 'Zamboanga Peninsula', descriptor: 'IX · Zamboanga Peninsula (Zamboanga, Dipolog)', aliases: ['ix', 'zamboanga'], burn_band: 1, centroid_lat: 7.8, centroid_lon: 122.5, sort_order: 12, is_scopable: true },
-  { slug: 'n-mindanao', psgc_code: 'X', display_label: 'Northern Mindanao', descriptor: 'X · Northern Mindanao (Cagayan de Oro, Iligan, Malaybalay)', aliases: ['x', 'northern_mindanao'], burn_band: 2, centroid_lat: 8.3, centroid_lon: 124.7, sort_order: 13, is_scopable: true },
-  { slug: 'davao', psgc_code: 'XI', display_label: 'Davao Region', descriptor: 'XI · Davao Region (Davao City, Tagum, Digos)', aliases: ['xi', 'davao'], burn_band: 2, centroid_lat: 7.1, centroid_lon: 125.6, sort_order: 14, is_scopable: true },
+  { slug: 'n-mindanao', psgc_code: 'X', display_label: 'Northern Mindanao', descriptor: 'X · Northern Mindanao (Cagayan de Oro, Iligan, Malaybalay)', aliases: ['x', 'northern_mindanao'], burn_band: 1, centroid_lat: 8.3, centroid_lon: 124.7, sort_order: 13, is_scopable: true },
+  { slug: 'davao', psgc_code: 'XI', display_label: 'Davao Region', descriptor: 'XI · Davao Region (Davao City, Tagum, Digos)', aliases: ['xi', 'davao'], burn_band: 1, centroid_lat: 7.1, centroid_lon: 125.6, sort_order: 14, is_scopable: true },
   { slug: 'soccsksargen', psgc_code: 'XII', display_label: 'SOCCSKSARGEN', descriptor: 'XII · SOCCSKSARGEN (General Santos, Koronadal, Cotabato City)', aliases: ['xii', 'soccsksargen'], burn_band: 1, centroid_lat: 6.3, centroid_lon: 124.8, sort_order: 15, is_scopable: true },
   { slug: 'caraga', psgc_code: 'XIII', display_label: 'Caraga', descriptor: 'XIII · Caraga (Butuan, Surigao)', aliases: ['xiii', 'caraga'], burn_band: 1, centroid_lat: 9.2, centroid_lon: 125.8, sort_order: 16, is_scopable: true },
   { slug: 'barmm', psgc_code: 'BARMM', display_label: 'Bangsamoro (BARMM)', descriptor: 'BARMM · Bangsamoro (Marawi, Cotabato, Sulu, Tawi-Tawi)', aliases: ['barmm'], burn_band: 1, centroid_lat: 6.5, centroid_lon: 122.0, sort_order: 17, is_scopable: true },
-  { slug: 'nir', psgc_code: 'NIR', display_label: 'Negros Island Region', descriptor: 'NIR · Negros Island Region (Bacolod, Dumaguete)', aliases: ['nir'], burn_band: 2, centroid_lat: 10.0, centroid_lon: 123.0, sort_order: 18, is_scopable: true },
+  { slug: 'nir', psgc_code: 'NIR', display_label: 'Negros Island Region', descriptor: 'NIR · Negros Island Region (Bacolod, Dumaguete)', aliases: ['nir'], burn_band: 1, centroid_lat: 10.0, centroid_lon: 123.0, sort_order: 18, is_scopable: true },
   { slug: 'abroad', psgc_code: null, display_label: 'Outside the Philippines', descriptor: 'Outside the PH', aliases: ['abroad', 'outside_ph'], burn_band: 1, centroid_lat: null, centroid_lon: null, sort_order: 99, is_scopable: false },
 ] as const;
 

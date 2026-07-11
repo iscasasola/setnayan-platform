@@ -30,7 +30,7 @@ import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
  * sample numbers), assembled in `fetchVendorOverviewData`:
  *
  *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries with
- *      the region-banded ◎ token cost to Accept · lock requests · new 5-star
+ *      the flat 1-token (₱200) cost to Accept · lock requests · new 5-star
  *      reviews awaiting a reply · flagged delivery delays). Centrepiece.
  *   2. Amber note    — the token-cost-follows-event-location explainer.
  *   3. "Ongoing"     — the vendor's open tasks with due chips.
@@ -243,9 +243,8 @@ export default async function VendorOverviewPage() {
           style={{ color: 'var(--m-orange-2)' }}
         />
         <p>
-          Token cost per lead follows the customer&rsquo;s event location — nearer
-          bands cost less (◎2 Batangas), NCR more (◎3). You only spend when you
-          Accept.
+          Answering a lead costs a flat 1 token (₱200), anywhere in the
+          Philippines. You only spend when you Accept.
         </p>
       </div>
 

@@ -12,7 +12,11 @@ import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
-import { leadTokenHoldEnabled, acceptInquiryViaHold } from '@/lib/lead-token-holds';
+import {
+  leadTokenHoldEnabled,
+  acceptInquiryViaHold,
+  runVendorLeadReportBackstop,
+} from '@/lib/lead-token-holds';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -645,6 +649,23 @@ export async function reportUser(formData: FormData) {
         : null,
   });
   if (error) throw new Error(error.message);
+
+  // Phase C (fake-inquiry protection): when a VENDOR reports a couple, wire the
+  // report into the token economy — refund this vendor's held token if the lead
+  // never replied, and refund the whole blast radius if ≥N distinct vendors have
+  // reported this couple. The report row above (+ admin review) is unchanged;
+  // this only returns money. Off the request path, dormant unless the hold
+  // feature is live.
+  if (role === 'vendor' && leadTokenHoldEnabled()) {
+    after(() =>
+      runVendorLeadReportBackstop({
+        vendorProfileId: thread.vendor_profile_id,
+        eventId: thread.event_id,
+        reportedUserId: targetUserId,
+        reason,
+      }),
+    );
+  }
 
   const dest = safeReturn(formData.get('return_to'), 'reported=1');
   if (dest) {

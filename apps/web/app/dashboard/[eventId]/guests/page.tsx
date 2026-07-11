@@ -45,6 +45,8 @@ import {
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
+import { UndoToastHost } from './_components/undo-toast';
+import { GuestDrawerHost } from './_components/guest-drawer';
 
 export const metadata = { title: 'Guests' };
 
@@ -672,6 +674,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         groups={quickAddGroups}
         roleSetKey={guestRoleSetKey}
       />
+
+      {/* Living Roster P1 · in-page overlay hosts. UndoToastHost is the single
+          bottom snackbar for optimistic deletes; GuestDrawerHost is the right
+          slide-in quick-view a roster row opens. Both are portal-rendered
+          client islands that sit idle until acted on. */}
+      <UndoToastHost />
+      <GuestDrawerHost eventId={eventId} />
     </section>
   );
 }

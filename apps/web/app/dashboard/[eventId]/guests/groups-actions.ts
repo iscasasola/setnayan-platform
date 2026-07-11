@@ -14,6 +14,7 @@ import {
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
+import type { ReleasedSeat } from '@/lib/guest-optimistic';
 
 // Side enum values — owner directive 2026-05-23 added bulk Side
 // assignment to the SelectionBar. Mirrors the existing per-guest side
@@ -613,4 +614,162 @@ export async function bulkSoftDeleteGuests(
   redirect(
     backToList(eventId, { bulk_deleted: String(rows.length) }),
   );
+}
+
+// -----------------------------------------------------------------------
+// Living Roster P1 · optimistic delete + undo.
+//
+// `bulkSoftDeleteGuests` above (FormData → redirect) still backs the mobile
+// swipe-to-delete path unchanged. The desktop SelectionBar now deletes WITHOUT
+// a confirm dialog: it hides the rows optimistically and drops a 6s undo
+// snackbar. That flow needs actions that RETURN a result (to build the undo)
+// rather than redirect, so the pair below mirrors the gates of
+// `bulkSoftDeleteGuests` but (a) captures the released seats before deleting so
+// an undo can re-place them, and (b) returns `{ ok, removedIds, releasedSeats }`
+// instead of navigating. `restoreDeletedGuests` is the inverse — it un-soft-
+// deletes and re-inserts those seats.
+//
+// RLS: `couple_writes_guest` is FOR ALL and NOT gated on `deleted_at IS NULL`
+// (only the SELECT read policy is), so a couple can flip `deleted_at` back to
+// NULL. `event_seat_assignments` accepts couple upserts (the seat editor writes
+// under the user client). Seat restore is best-effort — if the exact chair was
+// re-taken during the undo window, the guest is still restored (just unseated),
+// never a hard failure.
+// -----------------------------------------------------------------------
+
+export type SoftDeleteForUndoResult =
+  | { ok: true; removedIds: string[]; releasedSeats: ReleasedSeat[] }
+  | { ok: false; error: string };
+
+export async function bulkSoftDeleteGuestsForUndo(
+  eventId: string,
+  guestIds: string[],
+): Promise<SoftDeleteForUndoResult> {
+  const ids = Array.from(
+    new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
+  );
+  if (ids.length === 0) return { ok: false, error: 'Nothing selected.' };
+
+  const supabase = await createClient();
+
+  // Same pre-flight as bulkSoftDeleteGuests: RSVP status + names + role for the
+  // gates. RLS scopes the read to the couple's own event.
+  const { data: rows, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, role, rsvp_status, first_name, last_name, display_name')
+    .eq('event_id', eventId)
+    .in('guest_id', ids)
+    .is('deleted_at', null);
+
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!rows || rows.length === 0) return { ok: false, error: 'Nothing selected.' };
+
+  // Couple gate — bride & groom are never removable.
+  if (rows.some((r) => r.role === 'bride' || r.role === 'groom')) {
+    return {
+      ok: false,
+      error:
+        "The bride and groom can't be removed — they're the foundation of the event.",
+    };
+  }
+
+  // RSVP-set gate — all-or-nothing, same as the redirect path.
+  const blocked = rows.filter((r) => r.rsvp_status !== 'pending');
+  if (blocked.length > 0) {
+    const names = blocked
+      .slice(0, 3)
+      .map((r) => r.display_name?.trim() || `${r.first_name} ${r.last_name}`.trim())
+      .filter(Boolean);
+    const tail = blocked.length > 3 ? ` (and ${blocked.length - 3} more)` : '';
+    return {
+      ok: false,
+      error: `Can't delete — ${names.join(', ')}${tail} already RSVP'd. Reset their RSVP to "Pending" first.`,
+    };
+  }
+
+  const removedIds = rows.map((r) => r.guest_id as string);
+
+  // Capture seat placements BEFORE releasing them, so an undo can re-place the
+  // guest on the exact same table/chair. (bulkSoftDeleteGuests drops these with
+  // no capture — the undo path is the reason we read them first.)
+  const { data: seatRows } = await supabase
+    .from('event_seat_assignments')
+    .select('guest_id, table_id, seat_number, locked')
+    .eq('event_id', eventId)
+    .in('guest_id', removedIds);
+
+  const releasedSeats: ReleasedSeat[] = (seatRows ?? []).map((s) => ({
+    guest_id: s.guest_id as string,
+    table_id: s.table_id as string,
+    seat_number: (s.seat_number as number | null) ?? null,
+    locked: (s.locked as boolean | null) ?? false,
+  }));
+
+  // Release seats (matches the ON DELETE CASCADE intent for a soft-delete).
+  await supabase
+    .from('event_seat_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .in('guest_id', removedIds);
+
+  // Soft-delete.
+  const { error: updateErr } = await supabase
+    .from('guests')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .in('guest_id', removedIds);
+
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true, removedIds, releasedSeats };
+}
+
+export type RestoreResult = { ok: boolean; error?: string };
+
+export async function restoreDeletedGuests(
+  eventId: string,
+  guestIds: string[],
+  seats: ReleasedSeat[],
+): Promise<RestoreResult> {
+  const ids = Array.from(
+    new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
+  );
+  if (ids.length === 0) return { ok: true };
+
+  const supabase = await createClient();
+
+  // Un-soft-delete. RLS (couple_writes_guest · FOR ALL, not deleted_at-gated)
+  // lets the couple flip deleted_at back to NULL for their own event's guests.
+  const { error: undeleteErr } = await supabase
+    .from('guests')
+    .update({ deleted_at: null })
+    .eq('event_id', eventId)
+    .in('guest_id', ids);
+
+  if (undeleteErr) return { ok: false, error: undeleteErr.message };
+
+  // Re-place seats — best-effort. Only the guests we just restored, scoped to
+  // this event. Upsert on (event_id, guest_id) so a retry is idempotent; a
+  // physical-chair collision (someone took the seat during the undo window)
+  // leaves the guest restored-but-unseated rather than failing the whole undo.
+  const restoreSet = new Set(ids);
+  const seatRows = (seats ?? [])
+    .filter((s) => s && restoreSet.has(s.guest_id))
+    .map((s) => ({
+      event_id: eventId,
+      guest_id: s.guest_id,
+      table_id: s.table_id,
+      seat_number: s.seat_number,
+      locked: s.locked,
+    }));
+
+  if (seatRows.length > 0) {
+    await supabase
+      .from('event_seat_assignments')
+      .upsert(seatRows, { onConflict: 'event_id,guest_id' });
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true };
 }

@@ -2601,3 +2601,73 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   animation-delay: 0.05s;
 }
+
+/*
+ * Living Roster · in-page overlays (P1 · 2026-07-11). The entry motion for the
+ * overlay primitives (`overlay-primitives.tsx` / `undo-toast.tsx`): a menu pop,
+ * a drawer slide-in (bottom-sheet on mobile → right-rail on desktop), and the
+ * undo snackbar. Same `.gl-*` namespace + one-shot intent as the settle above.
+ * The universal `prefers-reduced-motion: reduce` block near the top of this file
+ * (`*{ animation-duration:0.001ms !important }`) freezes every one of these to a
+ * still frame — no per-rule opt-out needed, its `!important` wins.
+ */
+@keyframes gl-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gl-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gl-slidein {
+  from {
+    opacity: 0.4;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gl-sheetup {
+  from {
+    opacity: 0.5;
+    transform: translateY(34px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Transparent/dim dismiss layer — a gentle fade so it doesn't hard-cut in. */
+.gl-scrim {
+  animation: gl-fade 0.16s ease;
+}
+/* Anchored popover menu (P1 kit; P2's inline chip editors consume it). */
+.gl-pop {
+  animation: gl-pop 0.14s ease;
+}
+/* Undo snackbar. */
+.gl-toast {
+  animation: gl-pop 0.18s ease;
+}
+/* Quick-view / invite drawer — bottom sheet by default, right rail at ≥sm
+ * (640px, Tailwind's `sm`), mirroring the primitive's responsive positioning. */
+.gl-drawer {
+  animation: gl-sheetup 0.3s ease;
+}
+@media (min-width: 640px) {
+  .gl-drawer {
+    animation: gl-slidein 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}

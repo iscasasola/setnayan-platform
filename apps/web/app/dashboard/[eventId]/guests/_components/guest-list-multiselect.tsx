@@ -3,15 +3,21 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Trash2, X } from 'lucide-react';
-import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
+import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
+import { pushUndo } from './undo-toast';
+import { QuickViewButton } from './guest-drawer';
+import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
   bulkApplyRoleAndGroup,
   bulkSoftDeleteGuests,
+  bulkSoftDeleteGuestsForUndo,
   createGuestGroup,
   removeGuestFromGroup,
+  restoreDeletedGuests,
 } from '../groups-actions';
 import {
   guestDisplayName,
@@ -326,6 +332,10 @@ function DesktopRow({
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
 }) {
+  // Group labels for the quick-view drawer (Contact + groups live there now).
+  const groupLabels = groupIds
+    .map((id) => groupsById[id]?.label)
+    .filter((label): label is string => Boolean(label));
   return (
     <tr
       className={`border-t border-ink/5 transition-colors ${
@@ -344,22 +354,27 @@ function DesktopRow({
         </label>
       </td>
       <td className="px-4 py-2.5">
-        <Link
-          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-          className="flex items-center gap-3"
-        >
-          <RowAvatar guest={guest} displayUrl={displayUrl} />
-          <div className="min-w-0">
-            <p className="truncate font-medium text-ink">
-              {guestDisplayName(guest)}
-            </p>
-            {guest.plus_one_allowed ? (
-              <p className="truncate text-xs text-ink/55">
-                + {guest.plus_one_name ?? 'TBA'}
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+            className="flex min-w-0 flex-1 items-center gap-3"
+          >
+            <RowAvatar guest={guest} displayUrl={displayUrl} />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-ink">
+                {guestDisplayName(guest)}
               </p>
-            ) : null}
-          </div>
-        </Link>
+              {guest.plus_one_allowed ? (
+                <p className="truncate text-xs text-ink/55">
+                  + {guest.plus_one_name ?? 'TBA'}
+                </p>
+              ) : null}
+            </div>
+          </Link>
+          {/* Quick-view drawer (P1) — the row name Link still opens the full
+              detail route; this opens the in-context read-only sheet. */}
+          <QuickViewButton guest={guest} groupLabels={groupLabels} />
+        </div>
       </td>
       <td className="px-3 py-2.5">
         <SidePill side={guest.side} />
@@ -435,6 +450,25 @@ export function GuestListMultiselect({
   // 2026-06-03). `selectMode` only gates the MOBILE card checkbox; the
   // desktop grid keeps its always-interactive checkbox overlay.
   const { selectMode, ids: selectedIds, set: selectedSet } = useGuestSelection();
+
+  // Optimistic overlay (Living Roster P1): a soft-delete hides its rows
+  // instantly, before the server round-trip, and an undo restores them. The
+  // overlay lives in its own module store (like `guestSelection`) so the delete
+  // button, the rows, and this reconcile all share it.
+  const optimistic = useGuestOptimistic();
+  // Reconcile-by-id every time a fresh server list arrives: once the soft-delete
+  // has propagated (the guest is gone from `guests`), prune it from the overlay.
+  // Idempotent, so it never flips a row twice.
+  useEffect(() => {
+    guestOptimistic.reconcile(guests);
+  }, [guests]);
+  // Project the SSR list through the overlay — everything below renders from
+  // `rosterGuests`, so optimistically-removed guests vanish immediately.
+  const rosterGuests = useMemo(
+    () => projectGuests(guests, optimistic),
+    [guests, optimistic],
+  );
+
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -446,7 +480,7 @@ export function GuestListMultiselect({
       return next;
     });
 
-  const allIds = useMemo(() => guests.map((g) => g.guest_id), [guests]);
+  const allIds = useMemo(() => rosterGuests.map((g) => g.guest_id), [rosterGuests]);
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
@@ -497,7 +531,7 @@ export function GuestListMultiselect({
     if (groupMode === 'group') {
       // Each guest's first custom group (alphabetical) → section key + label.
       groupKey = new Map();
-      for (const g of guests) {
+      for (const g of rosterGuests) {
         let best: { key: string; label: string } | null = null;
         for (const id of groupMemberships[g.guest_id] ?? []) {
           const grp = groupsById[id];
@@ -508,8 +542,8 @@ export function GuestListMultiselect({
         if (best) groupKey.set(g.guest_id, best);
       }
     }
-    return buildSections(guests, groupMode, groupKey);
-  }, [guests, groupMode, groupMemberships, groupsById]);
+    return buildSections(rosterGuests, groupMode, groupKey);
+  }, [rosterGuests, groupMode, groupMemberships, groupsById]);
 
   return (
     <div className="space-y-4">
@@ -694,12 +728,13 @@ function SelectionBar({
           bulkRoleSections={bulkRoleSections}
         />
 
-        {/* Delete affordance · owner directive 2026-05-23. Separate
-         *  form (different server action) but inline with the apply
-         *  toolbar via the parent flex container. Confirm dialog is
-         *  intentional — soft-delete is reversible only via direct DB
-         *  write, not by host UI. */}
-        <BulkDeleteForm
+        {/* Delete affordance · owner directive 2026-05-23. Living Roster P1
+         *  (2026-07-11): the blocking confirm dialog is replaced by an
+         *  OPTIMISTIC remove + 6s undo snackbar — the rows vanish instantly and
+         *  a soft-delete is now reversible from the host UI (undo restores the
+         *  guests AND the seats the delete released). Same server gates
+         *  (couple-protected, RSVP-set-blocked) enforced server-side. */}
+        <OptimisticDeleteButton
           eventId={eventId}
           selectedIds={selectedIds}
           count={count}
@@ -717,7 +752,13 @@ function SelectionBar({
   );
 }
 
-function BulkDeleteForm({
+// Optimistic bulk-delete (Living Roster P1). Hides the selected rows via the
+// optimistic overlay, clears the selection (so the SelectionBar retracts), then
+// calls the return-based `bulkSoftDeleteGuestsForUndo`. On success it drops a 6s
+// undo snackbar whose Undo restores the guests + their released seats; on a
+// server-side gate rejection (couple/RSVP) it rolls the overlay back and toasts
+// the reason. No confirm dialog — undo is the safety net.
+function OptimisticDeleteButton({
   eventId,
   selectedIds,
   count,
@@ -726,39 +767,68 @@ function BulkDeleteForm({
   selectedIds: string[];
   count: number;
 }) {
-  // Confirm prompt mentions the seat-release + RSVP-gate behavior so
-  // the host knows what's about to happen. The server still enforces
-  // both — this is informational, not authoritative.
-  const confirmMessage = `Remove ${count} guest${count === 1 ? '' : 's'} from this event? Their seat assignments (if any) will open up. Guests who have already RSVP'd will be skipped — reset their RSVP to Pending first if you want to remove them.`;
+  const toast = useToast();
+  const [deleting, setDeleting] = useState(false);
 
-  // In-app `<ConfirmForm>` (upgraded 2026-05-30) replaces the prior
-  // `<form onSubmit={confirm()}>` pattern · no UI block, brand-voice copy.
-  // Parent SelectionBar still wraps this in `flex flex-wrap items-center
-  // gap-3` so the Delete button sits inline with the Apply toolbar (owner
-  // directive 2026-05-23 — "delete button is not aligned").
+  async function handleDelete() {
+    if (deleting) return;
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const mutation = { kind: 'remove' as const, guestIds: ids };
+
+    setDeleting(true);
+    guestOptimistic.apply(mutation); // hide rows now
+    guestSelection.clear(); // retract the bar (the acted-on guests are gone)
+
+    let result;
+    try {
+      result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
+    } catch {
+      guestOptimistic.clear(mutation); // rollback the hide
+      setDeleting(false);
+      toast.error('Could not remove — check your connection and try again.');
+      return;
+    }
+    setDeleting(false);
+
+    if (!result.ok) {
+      guestOptimistic.clear(mutation); // rollback — server refused (gate)
+      toast.error(result.error);
+      return;
+    }
+
+    // buildUndo carries the released seats through, so restore re-places them.
+    const plan = buildUndo(
+      { kind: 'remove', guestIds: result.removedIds },
+      [],
+      result.releasedSeats,
+    );
+    const n = result.removedIds.length;
+    pushUndo({
+      label: `${n} guest${n === 1 ? '' : 's'} removed`,
+      undo: async () => {
+        if (plan.kind !== 'restore') return;
+        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
+        if (r.ok) {
+          guestOptimistic.clear(mutation); // un-hide the restored rows
+        } else {
+          toast.error('Could not undo — refresh and try again.');
+        }
+      },
+    });
+  }
+
   return (
-    <ConfirmForm
-      action={bulkSoftDeleteGuests.bind(null, eventId)}
-      title="Remove selected guests?"
-      message={confirmMessage}
-      confirmLabel={`Delete ${count}`}
-      destructive
+    <button
+      type="button"
+      onClick={handleDelete}
+      disabled={deleting}
+      aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
+      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100 disabled:opacity-60"
     >
-      {selectedIds.map((id) => (
-        <input key={id} type="hidden" name="guest_ids[]" value={id} />
-      ))}
-      {/* SubmitButton (shared useFormStatus button) so the host gets a clear
-          "Removing…" + spinner + disabled state while the delete is in flight,
-          instead of a button that looks idle until the redirect lands. */}
-      <SubmitButton
-        pendingLabel="Removing…"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
-        aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
-      >
-        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Delete {count}
-      </SubmitButton>
-    </ConfirmForm>
+      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      {deleting ? 'Removing…' : `Delete ${count}`}
+    </button>
   );
 }
 

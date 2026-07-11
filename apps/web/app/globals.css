@@ -369,6 +369,96 @@
 }
 
 /*
+ * Journey view (event-lifecycle arc, /schedule ?view=journey) — entrance
+ * choreography. Pure CSS so the Journey mode stays a server component. Every
+ * animation here is frozen to instant by the global prefers-reduced-motion
+ * block above, so reduced-motion users still get the fully-rendered page (no
+ * JS gate). Stagger is driven by an inline `--journey-delay` custom property
+ * the component sets per element, so the arc → phase headers → rows cascade in
+ * top-to-bottom.
+ *
+ *   .journey-rise      — fade + lift for the arc, phase headers, and each row
+ *   .journey-rail-fill — the progress bar grows left→right once on mount
+ *   .journey-today     — the "you are here" marker pops in, then breathes
+ *   .journey-node-pop  — milestone nodes scale-in (uses the `scale` PROPERTY so
+ *                        it composes with the node's left/top positioning)
+ */
+@keyframes journey-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.journey-rise {
+  animation: journey-rise 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--journey-delay, 0ms);
+}
+
+@keyframes journey-rail-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.journey-rail-fill {
+  transform-origin: left center;
+  animation: journey-rail-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 160ms;
+}
+
+@keyframes journey-today-in {
+  from {
+    opacity: 0;
+    scale: 0.3;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes journey-beacon {
+  0%,
+  100% {
+    scale: 1;
+    box-shadow: 0 0 0 0 rgb(var(--color-mulberry) / 0.4);
+  }
+  50% {
+    scale: 1.14;
+    box-shadow: 0 0 0 5px rgb(var(--color-mulberry) / 0);
+  }
+}
+.journey-today {
+  animation:
+    journey-today-in 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both 900ms,
+    journey-beacon 2.6s ease-in-out infinite 1500ms;
+}
+
+@keyframes journey-node-pop {
+  0% {
+    opacity: 0;
+    scale: 0.2;
+  }
+  70% {
+    opacity: 1;
+    scale: 1.18;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.journey-node-pop {
+  animation: journey-node-pop 440ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--journey-delay, 0ms);
+}
+
+/*
  * Bottom-clearance for a docked <SubNav>. When a section shelf is on screen it
  * flags <html> — <GuestsSectionSubnav> uses `guests-subnav-docked`,
  * <VendorsSectionSubnav> (Explore/Services takeover) uses the shared

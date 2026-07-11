@@ -821,6 +821,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/addons',
       },
       {
+        // Papic storage telemetry (owner 2026-07-11) — the real web-copy ratio +
+        // per-event web-copy GB vs the 40 GB ceiling, to lock the provisional
+        // storage numbers from measured data before hard-coding them.
+        key: 'papic-storage',
+        label: 'Papic storage',
+        href: '/admin/papic-storage',
+        icon: BarChart3,
+        matchPrefix: '/admin/papic-storage',
+      },
+      {
         // Vendor "recommend to your couples" map — the admin-editable vendor-leaf
         // → recommendable-SKU table + the two-way curation review queue.
         key: 'vendor-recommendations',

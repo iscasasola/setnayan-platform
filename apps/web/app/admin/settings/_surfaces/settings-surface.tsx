@@ -254,7 +254,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           knobs live there, grouped by onboarding type. */}
       <div className="mt-10 border-t border-ink/10 pt-8">
         <Link
-          href="/admin/onboarding"
+          href="/admin/ugat?tab=onboarding"
           className="group block rounded-xl border border-ink/10 bg-cream p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
         >
           <div className="flex items-start gap-3">

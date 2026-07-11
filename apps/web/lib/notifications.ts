@@ -42,6 +42,11 @@ export type NotificationType =
   // pointed at alternatives on the Services tab.
   | 'inquiry_accepted'
   | 'inquiry_declined'
+  // Exclusivity on lock (payment-gated lock): the couple locked another vendor
+  // in a hard-single group, so this vendor's open inquiry is released (thread →
+  // chat_inquiry_status 'displaced'). Vendor-recipient. Migration
+  // 20270521628193_notification_type_inquiry_displaced.sql.
+  | 'inquiry_displaced'
   | 'force_majeure_filed'
   // Added 2026-06-07 alongside migration
   // 20260907000000_notification_types_cross_actor_signals.sql — cross-actor
@@ -234,6 +239,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_inquiry_received: 'New booking inquiry',
   inquiry_accepted: 'Inquiry accepted',
   inquiry_declined: 'Inquiry declined',
+  inquiry_displaced: 'Inquiry released',
   force_majeure_filed: 'Force-majeure flag filed',
   booking_confirmed: 'Booking confirmed',
   review_received: 'New review',
@@ -305,6 +311,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   vendor_inquiry_received: 'bg-fuchsia-100 text-fuchsia-800',
   inquiry_accepted: 'bg-success-100 text-success-800',
   inquiry_declined: 'bg-ink/10 text-ink/70',
+  inquiry_displaced: 'bg-ink/10 text-ink/70',
   force_majeure_filed: 'bg-danger-100 text-danger-800',
   // Booking confirmed is the couple's strongest positive commitment — match
   // the celebratory emerald used by order_paid/inquiry_accepted.

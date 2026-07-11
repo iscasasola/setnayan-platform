@@ -50,8 +50,13 @@ export default async function VendorMessagesPage() {
   // deletes nothing; it moves a thread into the collapsible Archived section
   // until a new message auto-un-archives it.
   const returnTo = '/vendor-dashboard/messages';
-  const activeThreads = threads.filter((t) => !t.archived);
-  const archivedThreads = threads.filter((t) => t.archived);
+  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple booked
+  // another vendor in this hard-single group — is closed, so fold it into the
+  // Archived section here too (out of the active list). Only exists when the
+  // flag is on; inert otherwise.
+  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
+  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t));
+  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t));
 
   const renderRow = (t: (typeof threads)[number]) => {
     const returning =
@@ -70,6 +75,10 @@ export default async function VendorMessagesPage() {
               ) : t.inquiry_status === 'declined' ? (
                 <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                   Declined
+                </span>
+              ) : t.inquiry_status === 'displaced' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  Released · booked another
                 </span>
               ) : null
             }

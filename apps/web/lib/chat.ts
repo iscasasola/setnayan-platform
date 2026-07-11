@@ -18,7 +18,17 @@ export type ChatSenderRole = 'couple' | 'vendor' | 'coordinator' | 'system';
  * revealed) or `declined` (couple shown alternatives). Pre-migration threads
  * were backfilled to `accepted`.
  */
-export type ChatInquiryStatus = 'pending' | 'accepted' | 'declined';
+// Mirrors the public.chat_inquiry_status DB enum. 'displaced' (couple locked
+// another vendor in the same hard-single group — REVIVABLE), 'withdrawn' and
+// 'expired' are lifecycle-closed states provisioned in 20261126000000; the app
+// treats them as closed inquiries (folded out of the active inbox lists).
+export type ChatInquiryStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'displaced'
+  | 'withdrawn'
+  | 'expired';
 
 export type ChatThreadRow = {
   thread_id: string;

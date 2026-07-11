@@ -69,6 +69,7 @@ import {
   MonitorPlay,
   Eye,
   Rocket,
+  Gift,
 } from 'lucide-react';
 import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
@@ -238,6 +239,22 @@ export function buildCustomerNavGroups(
               icon: MonitorPlay,
               matchPrefix: `${base}/live`,
             },
+            // Pabuya (E-Gifts · digital money dance) — a public event-website
+            // surface the couple configures (like Event page / Live Wall), so
+            // it's gated on the same 'website' surface. The couple adds THEIR
+            // OWN GCash/Maya/bank/PayPal handles + QR codes; Setnayan never
+            // holds money. Guest-facing route: /[slug]/pabuya (flag-gated).
+            ...(opts?.websiteEnabled
+              ? [
+                  {
+                    key: 'pabuya',
+                    label: 'E-Gifts',
+                    href: `${base}/pabuya`,
+                    icon: Gift,
+                    matchPrefix: `${base}/pabuya`,
+                  },
+                ]
+              : []),
           ],
         },
         // (Launch moved OUT of the Plan items into its own "Go live" section —

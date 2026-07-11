@@ -1207,12 +1207,6 @@ export async function EventDashboard({
               {goldHairline}
               <div className="mb-2 flex items-center gap-2.5">
                 <h3 className="m-serif text-[16.5px] text-ink">Schedule</h3>
-                <Link
-                  href={`${base}/schedule`}
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
-                >
-                  Full schedule →
-                </Link>
               </div>
               {schedulePreview.isEmpty ? (
                 <p className="border-t border-ink/5 py-2 text-[13px] text-ink/50">
@@ -1246,6 +1240,15 @@ export async function EventDashboard({
                   ) : null}
                 </>
               )}
+              {/* Full-width CTA into the whole event arc — the Journey view
+               *  (creation → the day → editorial), not just this day-of program. */}
+              <Link
+                href={`${base}/schedule?view=journey`}
+                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-mulberry/25 bg-mulberry/[0.04] px-3 py-2 text-xs font-bold text-mulberry transition hover:bg-mulberry/10"
+              >
+                See full schedule
+                <span aria-hidden>→</span>
+              </Link>
             </article>
           </div>
           {/* Recent activity — the sole couple-UI entry to the full /activity

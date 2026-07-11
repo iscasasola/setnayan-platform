@@ -937,6 +937,15 @@ function SummaryFacetBar({
       const v = search[k];
       if (v) p.set(k, v);
     }
+    // Normalize the legacy `?view=group:<id>` encoding (pre-2026-06-13 bookmarks)
+    // to the clean `group` param before applying overrides. Seeding view/group
+    // from the server-NORMALIZED props (not raw search) is what keeps a View-pill
+    // click — which overrides `view` — from silently dropping the group filter;
+    // this mirrors the old FacetsSidebar baseQuery.
+    if (view && view !== 'all') p.set('view', view);
+    else p.delete('view');
+    if (currentGroupId) p.set('group', currentGroupId);
+    else p.delete('group');
     for (const [k, val] of Object.entries(overrides)) {
       if (val === null) p.delete(k);
       else p.set(k, val);
@@ -972,9 +981,11 @@ function SummaryFacetBar({
   ];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
-      {/* Meters — the pax target + confirmations progress that headlined the
-          old stat strip, kept verbatim (data-display only). */}
+    <div className="rounded-xl border border-ink/10 bg-cream">
+      {/* Root has NO overflow-hidden: the inline group pills' rename/delete kebab
+          opens downward and would otherwise be clipped past the bar's bottom edge.
+          Meters — the pax target + confirmations progress that headlined the old
+          stat strip, kept verbatim (data-display only). */}
       <div className="border-b border-ink/[0.07] px-4 py-3">
         {paxProgress ? (
           <div className="mb-2.5">

@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { userOwnsActiveEnterpriseVendor } from '@/lib/enterprise-vendor-gate';
 import {
   generateApiKey,
   hashApiKey,
@@ -31,6 +33,16 @@ export async function createApiKey(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // The /api/v1 SDK is an enterprise-vendor feature (owner 2026-07-11) — only an
+  // active Enterprise/Custom vendor OWNER may mint API keys. authenticateApiRequest
+  // re-checks this on every call (downgrade defense), but gating minting keeps a
+  // non-enterprise user from ever holding a dead key.
+  if (!(await userOwnsActiveEnterpriseVendor(createAdminClient(), user.id))) {
+    return redirect(
+      `/dashboard/api-keys?error=${encodeURIComponent('API keys are available on the Enterprise vendor plan.')}`,
+    );
+  }
 
   const key = generateApiKey();
   const hash = hashApiKey(key);

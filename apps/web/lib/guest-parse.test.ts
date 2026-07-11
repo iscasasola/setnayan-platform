@@ -110,8 +110,8 @@ test('+9 clamps to 2', () => {
   assert.equal(parseGuestInput('Ana +9').plusOnes, 2);
 });
 
-test('+0 → 1 (prototype `|| 1` fallthrough, documented quirk)', () => {
-  assert.equal(parseGuestInput('Ana +0').plusOnes, 1);
+test('+0 → 0 (reads as none — no phantom +1)', () => {
+  assert.equal(parseGuestInput('Ana +0').plusOnes, 0);
 });
 
 test('a non-numeric +tag is NOT a plus token — it stays a name word', () => {

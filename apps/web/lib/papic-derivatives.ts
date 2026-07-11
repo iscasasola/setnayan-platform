@@ -128,9 +128,14 @@ export async function generatePhotoDerivatives(
     const displayKey = encodeR2Ref(bucket, displayObjKey);
     const thumbKey = encodeR2Ref(bucket, thumbObjKey);
 
+    // WS4 telemetry: full byte accounting for a still — the original is the
+    // full-res, so display_bytes/orig_bytes is the real "~8%" web-copy ratio.
     await persistDerivativeRefs(table, idColumn, idValue, {
       display_r2_key: displayKey,
       thumb_r2_key: thumbKey,
+      orig_bytes: bytes.length,
+      display_bytes: displayBuf.length,
+      thumb_bytes: thumbBuf.length,
     });
 
     return { displayKey, thumbKey };
@@ -177,9 +182,14 @@ export async function generateClipThumb(
     // video bytes.
     const displayKey = posterRef;
 
+    // WS4 telemetry: record display (poster) + thumb bytes. orig_bytes is left
+    // NULL for clips — `bytes` here is the poster, NOT the video original, so
+    // writing it as orig would corrupt the photo web-copy ratio.
     await persistDerivativeRefs(table, idColumn, idValue, {
       display_r2_key: displayKey,
       thumb_r2_key: thumbKey,
+      display_bytes: bytes.length,
+      thumb_bytes: thumbBuf.length,
     });
 
     return { displayKey, thumbKey };
@@ -202,11 +212,36 @@ async function persistDerivativeRefs(
   table: PapicDerivativeTable,
   idColumn: string,
   idValue: string,
-  patch: { display_r2_key: string; thumb_r2_key: string },
+  patch: {
+    display_r2_key: string;
+    thumb_r2_key: string;
+    // WS4 storage telemetry — real byte sizes, best-effort. Omitted keys are not
+    // written (legacy behaviour); NULL is a valid "unmeasured" value.
+    orig_bytes?: number | null;
+    display_bytes?: number | null;
+    thumb_bytes?: number | null;
+  },
 ): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin.from(table).update(patch).eq(idColumn, idValue);
-  if (error && error.code !== 'PGRST204') {
+  // PGRST204 = a byte column doesn't exist yet on this deploy (migration not
+  // applied) → the derivative keys still need to land, so retry without the
+  // telemetry fields. Keeps derivative generation working ahead of the migration.
+  if (error?.code === 'PGRST204') {
+    const { orig_bytes, display_bytes, thumb_bytes, ...keysOnly } = patch;
+    void orig_bytes;
+    void display_bytes;
+    void thumb_bytes;
+    const retry = await admin
+      .from(table)
+      .update(keysOnly)
+      .eq(idColumn, idValue);
+    if (retry.error && retry.error.code !== 'PGRST204') {
+      throw new Error(retry.error.message);
+    }
+    return;
+  }
+  if (error) {
     throw new Error(error.message);
   }
 }

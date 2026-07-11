@@ -161,7 +161,12 @@ export async function quickAddGuest(
 }
 
 export type QuickGroupResult =
-  | { ok: true; group: { group_id: string; label: string } }
+  // `created` distinguishes a FRESH insert (true) from the case-insensitive
+  // find-or-create REUSE of a pre-existing group (false). The capture-bar
+  // single-add (inline-actions.ts › addSingleGuest) reads it so that, when the
+  // guest insert then fails, it deletes ONLY the groups it just minted and
+  // never a group the couple already had. See T18 (orphan-groups on-failed-add).
+  | { ok: true; group: { group_id: string; label: string }; created: boolean }
   | { ok: false; error: string };
 
 /**
@@ -206,7 +211,13 @@ export async function quickCreateGroup(
         .ilike('label', label)
         .maybeSingle();
       if (existing) {
-        return { ok: true, group: { group_id: existing.group_id, label: existing.label } };
+        // Reuse of a pre-existing group → created:false, so the caller never
+        // deletes it during on-failed-add compensation.
+        return {
+          ok: true,
+          group: { group_id: existing.group_id, label: existing.label },
+          created: false,
+        };
       }
       return { ok: false, error: 'A group with that name already exists.' };
     }
@@ -214,7 +225,13 @@ export async function quickCreateGroup(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, group: { group_id: inserted.group_id, label: inserted.label } };
+  // Fresh insert → created:true. Only these ids are eligible for the caller's
+  // on-failed-add cleanup.
+  return {
+    ok: true,
+    group: { group_id: inserted.group_id, label: inserted.label },
+    created: true,
+  };
 }
 
 export type QuickRoleResult =

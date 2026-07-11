@@ -1054,9 +1054,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ------------------------------------------------------------------------
   let chatTabNode: React.ReactNode = null;
   let callTabNode: React.ReactNode = null;
+  // Captured for the desktop context rail's next-action line — a pending inquiry
+  // means the vendor's next move is to accept/decline (in the Chat tab).
+  let inquiryStatus: string | null = null;
   if (threadId) {
     const fullThread = await fetchThreadById(supabase, threadId);
     if (fullThread) {
+      inquiryStatus = fullThread.inquiry_status ?? null;
       // Mark read only when Chat is the LANDING tab (no ?tab or ?tab=chat), so a
       // server round-trip that lands on another tab (e.g. the header's ?tab=files
       // quick-action, or a deep-link) doesn't clear the unread badge without the
@@ -1085,7 +1089,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         );
 
       chatTabNode = (
-        <section className="flex h-[calc(100dvh-16rem)] flex-col gap-4">
+        <section className="flex min-h-[24rem] max-h-[calc(100dvh-14rem)] flex-col gap-4">
           <div className="flex items-center justify-end">
             <ChatThreadMenu
               threadId={threadId}
@@ -1290,10 +1294,79 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     },
   ];
 
+  // ------------------------------------------------------------------------
+  // Desktop context rail (3-pane · lg+ only). A compact, always-visible summary
+  // of the client's stage + the VENDOR's next action (respond to inquiry / send
+  // quote / confirm payment / deliver), plus quick links to the Chat / Payments
+  // tabs. Reuses the pipeline + payment signals already computed above (no new
+  // queries). The shell hides this under lg, and the mobile header already
+  // carries the pipeline strip, so this is purely additive on desktop.
+  // ------------------------------------------------------------------------
+  let vRailTitle: string;
+  let vRailBody: string;
+  if (inquiryStatus === 'pending') {
+    vRailTitle = 'Respond to the inquiry';
+    vRailBody = `${eventName} reached out. Accept to open the chat, or decline if you’re not available.`;
+  } else if (pendingPayments.length > 0) {
+    const n = pendingPayments.length;
+    vRailTitle = `Confirm ${n} payment${n === 1 ? '' : 's'}`;
+    vRailBody = `${eventName} logged ${n === 1 ? 'a payment' : 'payments'} — confirm receipt to keep the plan on track.`;
+  } else if (isDelivered) {
+    vRailTitle = hasReview ? 'All wrapped up' : 'Awaiting confirmation';
+    vRailBody = hasReview
+      ? `${eventName} confirmed delivery and left a review.`
+      : `You marked this delivered. ${eventName} confirms receipt (auto-confirms after 7 days).`;
+  } else if (isBooked) {
+    vRailTitle = 'You’re booked';
+    vRailBody = `Coordinate the run-of-show and post deliverables as the day nears.`;
+  } else if (isQuoted) {
+    vRailTitle = 'Quote sent';
+    vRailBody = `Your quote is with ${eventName}. Follow up in chat while you wait.`;
+  } else {
+    vRailTitle = 'Send a quote';
+    vRailBody = `${eventName} is waiting. Reply in chat, then send a quote.`;
+  }
+
+  const vQuickLinkClass =
+    'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+
+  const contextRail = (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-ink/10 bg-white p-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+          Your next move
+        </p>
+        <div className="mt-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
+          >
+            {stagePill.label}
+          </span>
+        </div>
+        <h3 className="mt-2 text-sm font-semibold text-ink">{vRailTitle}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink/60">{vRailBody}</p>
+        {pendingPayments.length > 0 ? (
+          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
+            {pendingPayments.length} awaiting confirmation
+          </p>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <a href={`/vendor-dashboard/clients/${eventId}?tab=chat`} className={vQuickLinkClass}>
+          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
+        </a>
+        <a href={`/vendor-dashboard/clients/${eventId}?tab=payments`} className={vQuickLinkClass}>
+          <Wallet aria-hidden className="h-3.5 w-3.5" /> Payments
+        </a>
+      </div>
+    </div>
+  );
+
   return (
     <RelationshipTabShell
       tabs={tabs}
       initialTabId="chat"
+      contextRail={contextRail}
       header={
         <div>
           {backLink}

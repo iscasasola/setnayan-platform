@@ -153,6 +153,10 @@ export const metadata = { title: 'Service workspace · Setnayan' };
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
+  // searchParams added for mark-read parity with the vendor side: the shell
+  // reflects the active tab in `?tab=`, and a deep-link / quick-action landing
+  // on a non-chat tab must NOT clear the unread badge. Read RAW below.
+  searchParams: Promise<{ tab?: string }>;
 };
 
 // ----------------------------------------------------------------------------
@@ -258,8 +262,9 @@ function safeHttpUrl(url: string | null | undefined): string | null {
 // Page component
 // ----------------------------------------------------------------------------
 
-export default async function VendorWorkspacePage({ params }: Props) {
+export default async function VendorWorkspacePage({ params, searchParams }: Props) {
   const { eventId, vendorId } = await params;
+  const search = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -1959,7 +1964,18 @@ export default async function VendorWorkspacePage({ params }: Props) {
       // Mirror the couple thread page: mark read on open, resolve block state,
       // server-render the first message batch. `displayName` (the resolved
       // business_name for this booked vendor) is the counterparty label.
-      await markThreadRead(chatThread.thread_id);
+      //
+      // Mark-read parity with the vendor side (2026-07-11): only clear the
+      // unread badge when Chat is the LANDING tab (no ?tab or ?tab=chat). A
+      // server round-trip that lands on another tab (e.g. the rail's ?tab=payments
+      // quick link, or a deep-link) must NOT mark the thread read without the
+      // couple actually viewing the chat. The chat NODE is still built either way
+      // — only the WRITE is gated. Read the RAW searchParam (the shell reads it
+      // client-side too). RLS session client only; never admin for chat reads.
+      const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
+      if (!rawTab || rawTab === 'chat') {
+        await markThreadRead(chatThread.thread_id);
+      }
       const blockState = await getThreadBlockState(thread, user.id, 'couple');
       const initialMessages = await fetchMessages(supabase, chatThread.thread_id);
       const coupleMsgCount = initialMessages.filter(
@@ -1982,7 +1998,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
         );
 
       chatTabNode = (
-        <section className="flex h-[calc(100dvh-16rem)] flex-col gap-4">
+        <section className="flex min-h-[24rem] max-h-[calc(100dvh-14rem)] flex-col gap-4">
           {/* Menu carries the real block/unblock/report/archive affordances the
               blocked-state copy refers to — mirror the messages thread page so
               the Chat tab isn't an unblock dead-end. returnTo keeps the couple on
@@ -2140,10 +2156,93 @@ export default async function VendorWorkspacePage({ params }: Props) {
     },
   ];
 
+  // ------------------------------------------------------------------------
+  // Desktop context rail (3-pane · lg+ only). A compact, always-visible summary
+  // of the relationship's NEXT ACTION + quick links to the Chat / Payments tabs.
+  // Reuses the hero/status data already computed above (no new queries). The
+  // shell hides this under lg, and the mobile header already carries the hero +
+  // status, so this is purely additive on desktop.
+  // ------------------------------------------------------------------------
+  let railTitle: string;
+  let railBody: string;
+  if (isSetnayanService) {
+    const paidUp =
+      activeSetnayanOrder?.status === 'paid' ||
+      activeSetnayanOrder?.status === 'fulfilled';
+    if (paidUp) {
+      railTitle = 'Payment received';
+      railBody = 'Your payment is confirmed — this service is active.';
+    } else if (activeSetnayanOrder) {
+      railTitle = 'Payment in review';
+      railBody = 'We’re verifying your payment. You’ll get an email once it’s activated.';
+    } else {
+      railTitle = 'Pay for this service';
+      railBody =
+        'You pay Setnayan directly. Send your payment, upload the screenshot, and our team activates it within a business day.';
+    }
+  } else if (stage === 'delivered') {
+    railTitle = 'Delivered';
+    railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
+  } else if (stage === 'downpayment_paid') {
+    railTitle = 'Keep payments on track';
+    railBody = `Your downpayment is in. Log each payment to ${displayName} as money moves.`;
+  } else {
+    railTitle = 'Record your payment';
+    railBody = `Your booking with ${displayName} is locked. Log your downpayment to hold the date.`;
+  }
+
+  const quickLinkClass =
+    'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+
+  const contextRail = (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-ink/10 bg-cream/70 p-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Next step
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
+            <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Locked
+          </span>
+          {stage ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+              {STAGE_LABEL[stage]}
+            </span>
+          ) : null}
+        </div>
+        <h3 className="mt-2 text-sm font-semibold text-ink">{railTitle}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink/65">{railBody}</p>
+        {paidSoFarFormatted ? (
+          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Paid so far <span className="text-ink/80">· {paidSoFarFormatted}</span>
+          </p>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=chat`}
+          className={quickLinkClass}
+        >
+          <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Chat
+        </a>
+        <a
+          href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=payments`}
+          className={quickLinkClass}
+        >
+          <PiggyBank aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Payments
+        </a>
+      </div>
+    </div>
+  );
+
   return (
     <RelationshipTabShell
       tabs={tabs}
       initialTabId="chat"
+      contextRail={contextRail}
       header={
         <div className="space-y-4">
           {backNav}

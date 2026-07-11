@@ -23,6 +23,7 @@ function v(over: Partial<RotatableVendor> & Pick<RotatableVendor, 'vendorProfile
     category: 'catering',
     tier: null,
     adRank: 0,
+    bookable: true,
     ...over,
   };
 }

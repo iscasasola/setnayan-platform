@@ -70,13 +70,25 @@ export type RawGuestCapture = {
   event_id: string;
   guest_id: string;
   r2_object_key: string | null;
+  media_type: 'photo' | 'clip';
   captured_at: string;
 };
 export type RawTag = {
   source_table: 'papic_photos' | 'papic_guest_captures';
   source_id: string;
   guest_id: string;
+  /**
+   * How the tag was made. Only the high-trust sources (a guest scanned their own
+   * QR, or a human hand-picked the tag) are reliable enough to drive the
+   * memoriam beat — table-QR fan-out (everyone seated at a table, alphabetized,
+   * capped at 10, not necessarily in-frame) and low-confidence auto-face guesses
+   * must NOT decide who is honored as "remembered". See high-trust filter below.
+   */
+  source: 'individual_qr' | 'table_qr' | 'auto_face' | 'manual_pick';
 };
+
+/** Tag sources trusted enough to name a deceased person in the memoriam beat. */
+const HIGH_TRUST_TAG_SOURCES = new Set<RawTag['source']>(['individual_qr', 'manual_pick']);
 export type RawGuest = {
   guest_id: string;
   event_id: string;
@@ -231,8 +243,13 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
     }
   };
 
-  // Tags → people present per (source_table, source_id).
+  // Tags → people present per (source_table, source_id). `presence` is the full
+  // set (drives "N people present" + recurrence); `highTrustPresence` keeps only
+  // individual-QR / hand-picked tags and is the ONLY presence the memoriam beat
+  // may name — so a deceased person is never captioned "here" off a table-QR
+  // fan-out or a low-confidence auto-face guess on a photo they aren't in.
   const presence = new Map<string, Set<string>>(); // media key → personKeys
+  const highTrustPresence = new Map<string, Set<string>>();
   const mediaKey = (t: RawTag['source_table'], id: string) => `${t}:${id}`;
   for (const tag of raw.tags) {
     const guest = guestById.get(tag.guest_id);
@@ -243,6 +260,11 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
     const set = presence.get(mk);
     if (set) set.add(key);
     else presence.set(mk, new Set([key]));
+    if (HIGH_TRUST_TAG_SOURCES.has(tag.source)) {
+      const hset = highTrustPresence.get(mk);
+      if (hset) hset.add(key);
+      else highTrustPresence.set(mk, new Set([key]));
+    }
   }
 
   // Normalize both capture tables into CaptureItems + capturedBy resolvers.
@@ -303,7 +325,7 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
     mediaFor.set(mk, {
       sourceTable: 'papic_guest_captures',
       sourceId: capture.capture_id,
-      type: 'photo',
+      type: capture.media_type,
       r2Key: capture.r2_object_key,
       eventId: capture.event_id,
       capturedAt: capture.captured_at,
@@ -356,6 +378,7 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
       capturedAt: media.capturedAt,
       capturedBy: capturedByFor.get(mk)!,
       peoplePresent: [...(presence.get(mk) ?? [])].sort().map(toMomentPerson),
+      peoplePresentHighTrust: [...(highTrustPresence.get(mk) ?? [])].sort().map(toMomentPerson),
       coverage: coverage.get(mk) ?? 1,
       clusterId: clusterIds.get(mk) ?? null,
     });
@@ -571,22 +594,33 @@ export async function fetchMomentGraph(
       .in('event_id', eventIds),
     supabase
       .from('papic_photos')
+      // `moderation_state='clean'` is the SAME allowlist every other guest-facing
+      // surface uses (guest-live-gallery, guest-stories, alaala-orb, download).
+      // Without it this fullscreen auto-playing flash would surface nsfw_blocked,
+      // unscreened (never-checked), and the RA 10173 consent_withheld /
+      // faceblock_withheld opt-out media — `hidden_at` is NOT a content proxy
+      // (NSFW screening writes only moderation_state). Non-negotiable safety gate.
       .select('photo_id, event_id, r2_object_key, photo_type, captured_at, captured_by_person_id')
       .in('event_id', eventIds)
+      .eq('moderation_state', 'clean')
       .is('hidden_at', null)
       .order('captured_at', { ascending: false })
       .limit(MAX_ROWS_PER_MEDIA_TABLE),
     supabase
       .from('papic_guest_captures')
-      .select('capture_id, event_id, guest_id, r2_object_key, captured_at')
+      // Same clean-only safety gate. `media_type` is now selected so a guest 5s
+      // clip renders as a clip, not a broken <img> (was hardcoded 'photo').
+      .select('capture_id, event_id, guest_id, r2_object_key, media_type, captured_at')
       .in('event_id', eventIds)
+      .eq('moderation_state', 'clean')
       .is('hidden_at', null)
       .not('r2_object_key', 'is', null)
       .order('captured_at', { ascending: false })
       .limit(MAX_ROWS_PER_MEDIA_TABLE),
     supabase
       .from('photo_tags')
-      .select('source_table, source_id, guest_id')
+      // `source` drives the high-trust filter for the memoriam beat (below).
+      .select('source_table, source_id, guest_id, source')
       .in('event_id', eventIds)
       .limit(MAX_TAG_ROWS),
   ]);

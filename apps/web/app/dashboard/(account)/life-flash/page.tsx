@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { ArrowLeft } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/auth';
+import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import {
@@ -13,7 +15,7 @@ import {
   flashScopeKey,
 } from '@/lib/life-story-moment-graph';
 import { lifeStoryFixtureGraph } from '@/lib/life-story-fixtures';
-import { displayUrlsForStoredAssets } from '@/lib/uploads';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import type { MomentGraph, ScoredMoment } from '@/lib/life-story-types';
 import { compileBeats } from '@/lib/life-story-beats';
 import { ScrollReel, type ReelMoment } from './_components/scroll-reel';
@@ -40,6 +42,25 @@ export const metadata = { title: 'Life-Flash' };
  */
 
 const REEL_PAGE_SIZE = 48;
+
+/** Human name list for the memoriam hold: "A" · "A & B" · "A, B & C". */
+function joinNames(names: string[]): string {
+  if (names.length === 0) return 'They';
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
+
+/**
+ * Presign a list of R2 keys PRESERVING index alignment + nulls. Unlike
+ * `displayUrlsForStoredAssets`, which `.filter()`s nulls out and shifts the
+ * array, so a null hero/frame would slide a DIFFERENT event's photo under the
+ * wrong name (a person's caption landing on the wrong face).
+ */
+async function signedUrlsAligned(
+  keys: ReadonlyArray<string | null | undefined>,
+): Promise<(string | null)[]> {
+  return Promise.all(keys.map((k) => displayUrlForStoredAsset(k)));
+}
 
 export default async function LifeFlashPage({
   searchParams,
@@ -72,6 +93,21 @@ export default async function LifeFlashPage({
     }
   }
 
+  // Heal stuck-unscreened media (owner 2026-07-11 · the strict `clean` gate's
+  // mitigation). Screening is fail-open + fire-and-forget, so a dropped screen
+  // leaves a row 'unscreened' forever — invisible to Life-Flash's clean-only
+  // gate even though the couple's own gallery still shows it. Opening Life-Flash
+  // re-screens the couple's events (bounded, idempotent, non-blocking), so those
+  // frames flow back in on the next open. Same after() pattern as the Papic
+  // moderation surface.
+  if (!useFixtures && !loadError) {
+    after(() =>
+      Promise.all(
+        graph.events.map((e) => reScreenStuckCaptures(e.eventId).catch(() => 0)),
+      ),
+    );
+  }
+
   // Scope — whole life (default) · year · month · event. The scoped graph
   // drives the flash + reel; the ✦ people section stays LIFETIME-scoped.
   const scope = parseFlashScope(sp.scope);
@@ -96,7 +132,7 @@ export default async function LifeFlashPage({
   const surfaced = scoped.moments.slice(0, REEL_PAGE_SIZE);
   const urls = useFixtures
     ? surfaced.map((m) => fixtureUrl(m.media.r2Key))
-    : await displayUrlsForStoredAssets(surfaced.map((m) => m.media.r2Key));
+    : await signedUrlsAligned(surfaced.map((m) => m.media.r2Key));
 
   const reelMoments: ReelMoment[] = surfaced.map((m, i) => ({
     id: m.id,
@@ -111,7 +147,9 @@ export default async function LifeFlashPage({
     byGuest: m.capturedBy.kind === 'guest',
     peopleNames: m.peoplePresent.slice(0, 3).map((p) => p.displayName),
     peopleCount: m.peoplePresent.length,
-    memoriam: m.peoplePresent.some((p) => p.inMemoriam),
+    // High-trust only, same gate as the memoriam beat — a ✦ marker never lands
+    // on a photo where the remembered person is only a table-QR / auto-face guess.
+    memoriam: m.peoplePresentHighTrust.some((p) => p.inMemoriam),
   }));
 
   // Sparse dignity: events with no surfaced media become quiet chapter cards.
@@ -120,7 +158,7 @@ export default async function LifeFlashPage({
   const emptyEvents = scoped.events.filter((e) => !eventIdsWithMoments.has(e.eventId));
   const heroUrls = useFixtures
     ? emptyEvents.map((e) => fixtureUrl(e.heroImageUrl))
-    : await displayUrlsForStoredAssets(emptyEvents.map((e) => e.heroImageUrl));
+    : await signedUrlsAligned(emptyEvents.map((e) => e.heroImageUrl));
 
   // ✦ opt-in rows: durable people only (pseudo guest:* keys can't be marked),
   // editable = people the viewer added (created_by ownership, checked here so
@@ -136,12 +174,19 @@ export default async function LifeFlashPage({
       .in('person_id', durablePeople.map((p) => p.personId));
     editableIds = new Set((data ?? []).map((r) => r.person_id as string));
   }
+  // The viewer can NEVER mark their OWN node in-memoriam. The self-claim trigger
+  // stamps every account holder's own person with created_by_user_id = self, so
+  // the created_by ownership check alone would (wrongly) offer the ✦ toggle on
+  // themselves — a living couple could memorialize themselves and, being the
+  // most-recurring person, open their own flash on a memorial orb. Exclude the
+  // viewer's own person here AND in the server action (markPersonInMemoriam).
+  const viewerPersonId = graph.viewer.personId;
   const storyPeople: StoryPerson[] = durablePeople.map((p) => ({
     personId: p.personId,
     displayName: p.displayName,
     inMemoriam: p.inMemoriam,
     recurrence: p.recurrence,
-    canEdit: useFixtures ? false : editableIds.has(p.personId),
+    canEdit: !useFixtures && editableIds.has(p.personId) && p.personId !== viewerPersonId,
   }));
 
   // The flash — compile the arc server-side (pure) from the SCOPED graph,
@@ -152,7 +197,7 @@ export default async function LifeFlashPage({
   ) as ScoredMoment[];
   const beatUrls = useFixtures
     ? beatMoments.map((m) => fixtureUrl(m.media.r2Key))
-    : await displayUrlsForStoredAssets(beatMoments.map((m) => m.media.r2Key));
+    : await signedUrlsAligned(beatMoments.map((m) => m.media.r2Key));
   const urlByMomentId = new Map(beatMoments.map((m, i) => [m.id, beatUrls[i] ?? null]));
 
   const flashBeats: FlashBeatView[] = beats.map((b): FlashBeatView => {
@@ -186,7 +231,7 @@ export default async function LifeFlashPage({
       peopleCount: m.peoplePresent.length,
       byName: m.capturedBy.displayName,
       bySelf: m.capturedBy.kind === 'self',
-      ...(b.kind === 'memoriam_hold' ? { personName: b.person.displayName } : {}),
+      ...(b.kind === 'memoriam_hold' ? { personName: joinNames(b.people.map((p) => p.displayName)) } : {}),
     };
   });
 

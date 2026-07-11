@@ -93,16 +93,16 @@ function raw(): RawInputs {
     ],
     guestCaptures: [
       // Guest capture by linked guest Kiko.
-      { capture_id: 'gc1', event_id: 'e1', guest_id: 'g-kiko', r2_object_key: 'e1/gc1.jpg', captured_at: at(30) },
+      { capture_id: 'gc1', event_id: 'e1', guest_id: 'g-kiko', r2_object_key: 'e1/gc1.jpg', media_type: 'photo', captured_at: at(30) },
       // Quota-only row (no bytes) — must be skipped.
-      { capture_id: 'gc2', event_id: 'e1', guest_id: 'g-kiko', r2_object_key: null, captured_at: at(90) },
+      { capture_id: 'gc2', event_id: 'e1', guest_id: 'g-kiko', r2_object_key: null, media_type: 'photo', captured_at: at(90) },
     ],
     tags: [
-      { source_table: 'papic_photos', source_id: 'ph1', guest_id: 'g-lola' },
-      { source_table: 'papic_photos', source_id: 'ph1', guest_id: 'g-anon' },
-      { source_table: 'papic_guest_captures', source_id: 'gc1', guest_id: 'g-lola' },
+      { source_table: 'papic_photos', source_id: 'ph1', guest_id: 'g-lola', source: 'individual_qr' },
+      { source_table: 'papic_photos', source_id: 'ph1', guest_id: 'g-anon', source: 'individual_qr' },
+      { source_table: 'papic_guest_captures', source_id: 'gc1', guest_id: 'g-lola', source: 'individual_qr' },
       // Lola again at the OTHER event → recurrence 2.
-      { source_table: 'papic_photos', source_id: 'ph3', guest_id: 'g-lola-e2' },
+      { source_table: 'papic_photos', source_id: 'ph3', guest_id: 'g-lola-e2', source: 'individual_qr' },
     ],
     guests: [
       { guest_id: 'g-kiko', event_id: 'e1', display_name: null, first_name: 'Kiko', last_name: 'R', person_id: 'p-kiko' },

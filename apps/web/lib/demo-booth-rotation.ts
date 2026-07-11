@@ -27,11 +27,12 @@ export const ROTATION_PERIOD_MS = 60 * 60 * 1000;
 export type RotatableVendor = {
   vendorProfileId: string;
   name: string;
-  slug: string | null; // /v/[slug] — null when not publicly bookable
+  slug: string | null; // /v/[slug] — null when not publicly visible
   logoRef: string | null; // raw stored logo ref (resolved to a URL downstream)
   category: VendorCategory; // coerced from vendor_profiles.services[]
   tier: string | null; // vendor_profiles.tier_state
   adRank: number; // vendor_market_stats.ad_rank (0 = no boost)
+  bookable: boolean; // public_visibility === 'verified' — drives the booth CTA
 };
 
 /** Ring copies for a vendor — more copies = more airtime. Enterprise leads, then

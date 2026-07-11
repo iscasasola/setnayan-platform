@@ -490,6 +490,26 @@ const PREFIX_HOOKS: ReadonlyArray<{
       const targetId = (target as { custom_plan_id?: string } | null)?.custom_plan_id ?? null;
       if (!targetId) return; // nothing to provision (defensive)
 
+      // Stamp the Custom tier + lapse anchor FIRST — before touching the plan
+      // rows. tier_expires_at = the 28-day window end (also written to the order
+      // below). ORDERING IS A RACE GUARD: the lapse sweep (sweep_vendor_tier_expiry,
+      // fired post-response on dashboard load) and this hook are NOT in one
+      // transaction. Writing the fresh FUTURE expiry first means a concurrently-
+      // firing sweep sees a not-past-due tier and no-ops, instead of demoting the
+      // plan we are about to promote. The gate (lib/enterprise-vendor-gate.ts) +
+      // the sweep both read tier_expires_at, so a paid Custom tier now auto-lapses
+      // on non-renewal like Pro/Enterprise. (The comp lever activateCustomPlan
+      // intentionally leaves this NULL = never lapses — white-glove deals; do NOT
+      // copy this stamp there.)
+      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: tierErr } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ tier_state: 'custom', tier_expires_at: expiresAt })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (tierErr) {
+        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
+      }
+
       // Demote any OTHER active plan for the org so the one-active unique index
       // never conflicts (only touches rows that are NOT our target).
       await ctx.admin
@@ -499,7 +519,9 @@ const PREFIX_HOOKS: ReadonlyArray<{
         .eq('status', 'active')
         .neq('custom_plan_id', targetId);
 
-      // Promote the target to active + stamp a 28-day order window.
+      // Promote the target to active LAST — after the future expiry is committed,
+      // so a racing sweep (now disarmed by that future expiry) can never strand
+      // this freshly-activated plan.
       const { error: planErr } = await ctx.admin
         .from('vendor_custom_plans')
         .update({ status: 'active', updated_at: new Date().toISOString() })
@@ -508,16 +530,6 @@ const PREFIX_HOOKS: ReadonlyArray<{
         throw new Error(`vendor_custom_plan activation write failed: ${planErr.message}`);
       }
 
-      // Flip the vendor onto the Custom tier so the caps overlay engages.
-      const { error: tierErr } = await ctx.admin
-        .from('vendor_profiles')
-        .update({ tier_state: 'custom' })
-        .eq('vendor_profile_id', vendorProfileId);
-      if (tierErr) {
-        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
-      }
-
-      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
       await ctx.admin
         .from('orders')
         .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })

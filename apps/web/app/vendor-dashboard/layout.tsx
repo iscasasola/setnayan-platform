@@ -225,6 +225,27 @@ export default async function VendorDashboardLayout({
     });
   }
 
+  // Login-driven vendor TIER lapse (no cron) — same post-response, downgrade-only,
+  // idempotent pattern as the token sweep above. sweep_vendor_tier_expiry reverts
+  // a tier past its tier_expires_at (pro/enterprise → verified-or-free; custom →
+  // verified-or-free + demotes the active custom plan). Only fired for a sweepable
+  // PAID tier — for free/verified it is a guaranteed no-op, so skip the background
+  // RPC (the same pointless-write avoidance the token sweep uses). The api_access
+  // gate already denies expired access inline; this reconciles tier_state + the
+  // caps overlay so a lapsed vendor stops reading Custom/Pro ceilings.
+  if (
+    tierWallet.vendorId &&
+    vendorTier != null &&
+    (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
+  ) {
+    const vendorId = tierWallet.vendorId;
+    after(async () => {
+      await supabase
+        .rpc('sweep_vendor_tier_expiry', { p_vendor_id: vendorId })
+        .then(() => undefined, () => undefined);
+    });
+  }
+
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
     redirect('/login?error=Account+deleted');

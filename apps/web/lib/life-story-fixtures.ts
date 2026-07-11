@@ -167,7 +167,7 @@ export function lifeStoryFixtureGraph(eventCount = 4): MomentGraph {
             capturer === 'self' ? VIEWER_PERSON_ID : capturer === 'bea' ? 'fx-person-bea' : null,
         });
         for (const castKey of tagged) {
-          raw.tags.push({ source_table: 'papic_photos', source_id: photoId, guest_id: guestIdFor(castKey) });
+          raw.tags.push({ source_table: 'papic_photos', source_id: photoId, guest_id: guestIdFor(castKey), source: 'individual_qr' });
         }
       } else {
         // Guest disposable-camera frame (kiko / cora shooting as guests).
@@ -177,10 +177,11 @@ export function lifeStoryFixtureGraph(eventCount = 4): MomentGraph {
           event_id: event.id,
           guest_id: guestIdFor(capturer),
           r2_object_key: fixturePhotoUrl(`${event.id}-guest-${index}`),
+          media_type: 'photo',
           captured_at: capturedAt,
         });
         for (const castKey of tagged) {
-          raw.tags.push({ source_table: 'papic_guest_captures', source_id: captureId, guest_id: guestIdFor(castKey) });
+          raw.tags.push({ source_table: 'papic_guest_captures', source_id: captureId, guest_id: guestIdFor(castKey), source: 'individual_qr' });
         }
       }
     });

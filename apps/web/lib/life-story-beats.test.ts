@@ -18,6 +18,7 @@ function person(id: string, over: Partial<MomentPerson> = {}): MomentPerson {
 }
 
 function moment(id: string, over: Partial<Moment> = {}): Moment {
+  const peoplePresent = over.peoplePresent ?? [person('a')];
   return {
     id,
     eventId: 'e1',
@@ -27,7 +28,10 @@ function moment(id: string, over: Partial<Moment> = {}): Moment {
     media: { sourceTable: 'papic_photos', sourceId: id, type: 'photo', r2Key: `k/${id}.jpg` },
     capturedAt: '2024-06-01T10:00:00Z',
     capturedBy: { kind: 'self', personId: 'viewer', displayName: 'Me' },
-    peoplePresent: [person('a')],
+    peoplePresent,
+    // Default: test people are high-trust (mirror peoplePresent) unless a case
+    // overrides it to exercise the low-trust memoriam exclusion.
+    peoplePresentHighTrust: over.peoplePresentHighTrust ?? peoplePresent,
     coverage: 1,
     clusterId: null,
     ...over,
@@ -132,7 +136,7 @@ test('✦ memoriam_hold: only from an opt-in flag, gets the longest dwell, never
   const beats = compileBeats(graph([withLola, moment('m2')], [lola, person('a')]));
   const hold = beats.find((b) => b.kind === 'memoriam_hold');
   assert.ok(hold, 'expected a memoriam hold');
-  assert.equal((hold as { person: MomentPerson }).person.personId, 'lola');
+  assert.deepEqual((hold as { people: MomentPerson[] }).people.map((p) => p.personId), ['lola']);
   assert.equal((hold as { dwellMs: number }).dwellMs, DWELL_MS.memoriam);
   const maxOther = Math.max(
     ...beats.filter((b) => b.kind !== 'memoriam_hold' && b.dwellMs !== null).map((b) => b.dwellMs!),
@@ -142,6 +146,45 @@ test('✦ memoriam_hold: only from an opt-in flag, gets the longest dwell, never
   // No flagged person anywhere → no memoriam beat, full stop.
   const unflagged = compileBeats(graph([moment('m3'), moment('m4')], [person('a')]));
   assert.ok(!unflagged.some((b) => b.kind === 'memoriam_hold'));
+});
+
+test('✦ memoriam: a person present ONLY via a low-trust tag is NEVER memorialized', () => {
+  const lolo = person('lolo', { inMemoriam: true, recurrence: 3 });
+  // In the frame (table-QR fan-out / auto-face), but NOT high-trust → must not
+  // be captioned "here". This is the dignity gate: no one is memorialized onto
+  // a photo they aren't actually in.
+  const m = moment('m1', { peoplePresent: [lolo], peoplePresentHighTrust: [] });
+  const beats = compileBeats(graph([m, moment('m2')], [lolo, person('a')]));
+  assert.ok(!beats.some((b) => b.kind === 'memoriam_hold'), 'no hold off a low-trust tag');
+});
+
+test('✦ memoriam: every remembered person is honored across frames (multiple deceased)', () => {
+  const lola = person('lola', { inMemoriam: true, recurrence: 3 });
+  const lolo = person('lolo', { inMemoriam: true, recurrence: 2 });
+  const beats = compileBeats(
+    graph(
+      [moment('m1', { peoplePresent: [lola] }), moment('m2', { peoplePresent: [lolo] }), moment('m3')],
+      [lola, lolo, person('a')],
+    ),
+  );
+  const named = beats
+    .filter((b) => b.kind === 'memoriam_hold')
+    .flatMap((b) => (b as { people: MomentPerson[] }).people.map((p) => p.personId));
+  assert.deepEqual(named.sort(), ['lola', 'lolo'], 'both remembered — nobody silently dropped');
+});
+
+test('✦ memoriam: two remembered people in one frame are honored together in one hold', () => {
+  const lola = person('lola', { inMemoriam: true, recurrence: 3 });
+  const lolo = person('lolo', { inMemoriam: true, recurrence: 3 });
+  const beats = compileBeats(
+    graph([moment('m1', { peoplePresent: [lola, lolo] }), moment('m2')], [lola, lolo, person('a')]),
+  );
+  const holds = beats.filter((b) => b.kind === 'memoriam_hold');
+  assert.equal(holds.length, 1, 'one hold for the shared frame');
+  assert.deepEqual(
+    (holds[0] as { people: MomentPerson[] }).people.map((p) => p.personId).sort(),
+    ['lola', 'lolo'],
+  );
 });
 
 test('burst dedup: one middle beat per cluster', () => {

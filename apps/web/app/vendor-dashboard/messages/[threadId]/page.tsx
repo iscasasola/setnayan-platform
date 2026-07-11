@@ -5,6 +5,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchMessages, fetchReturningClientFlags, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
@@ -114,6 +115,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     reasonCodes,
     { data: existingOutcome },
     inquiryBasics,
+    ownPaymentMethods,
   ] = await msgTimer.track('thread', () => Promise.all([
     // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
     getThreadBlockState(thread, user.id, 'vendor'),
@@ -201,6 +203,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           }
         })()
       : Promise.resolve<InquiryBasics | null>(null),
+    // Vendor Proposal Maker (§ 9) — the vendor's OWN published payment methods
+    // for the in-thread quote's method picker (RLS-scoped). Best-effort: any
+    // failure degrades to no picker (the couple falls back to all approved).
+    fetchOwnPaymentMethods(supabase, profile.vendor_profile_id).catch(
+      (): Awaited<ReturnType<typeof fetchOwnPaymentMethods>> => [],
+    ),
     // Mark read (WRITE) — fired concurrently; result ignored. No-op + logged if
     // migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
     markThreadRead(threadId).catch(() => undefined),
@@ -230,6 +238,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const proposalPackages = ((pkgRes.data ?? []) as { package_id: string; package_name: string }[]).map(
     (p) => ({ id: p.package_id, name: p.package_name }),
   );
+  // Vendor Proposal Maker (§ 9) — the vendor's payment rails for the quote's
+  // method picker (default-selects the publishable ones).
+  const proposalPaymentMethods = (ownPaymentMethods ?? []).map((m) => ({
+    id: m.payment_method_id,
+    label: m.label,
+    methodType: m.method_type,
+    provider: m.provider,
+    publishable: m.is_shown && m.moderation_status === 'approved',
+  }));
 
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
 
@@ -454,6 +471,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
               coupleName={coupleLabel}
               packages={proposalPackages}
+              paymentMethods={proposalPaymentMethods}
             />
           </div>
           {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active

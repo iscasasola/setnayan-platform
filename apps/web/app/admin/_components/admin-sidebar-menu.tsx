@@ -86,7 +86,18 @@ export function AdminSidebarMenu({ menu, pathname, collapsedWhenActive = false }
   // Default open-state: follow the route (auto-expand while active) unless this
   // menu is flagged to stay folded on its own landing.
   const defaultOpen = collapsedWhenActive ? false : inSection;
-  const storageKey = `setnayan.nav.section.${menu.key}.open`;
+  // Storage key. The collapsedWhenActive menu (Overview/'queues') uses a
+  // VERSIONED key: for months before the 2026-07-10 declutter, Overview was an
+  // always-open <SidebarSection> that persisted '1' under the un-versioned key,
+  // and that stale '1' was defeating the new collapsed-by-default (users landed
+  // on /admin and still saw the ~22 queue rows). A fresh key namespace means no
+  // pre-declutter value leaks in, so the collapsed default actually takes — the
+  // user can still toggle (which writes the versioned key). The other five menus
+  // never had a stale-open problem (they default closed), so they keep the
+  // original key for continuity.
+  const storageKey = collapsedWhenActive
+    ? `setnayan.nav.section.${menu.key}.declutter.open`
+    : `setnayan.nav.section.${menu.key}.open`;
   const panelId = `admin-nav-${menu.key}-items`;
 
   const [open, setOpen] = useState(defaultOpen);

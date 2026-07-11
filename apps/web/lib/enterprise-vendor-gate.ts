@@ -101,8 +101,9 @@ export async function resolveApiVendor(
  * (dashboard/api-keys), which only need yes/no. Every bearer request re-checks
  * this via resolveApiVendor, so an admin un-ticking api_access (then
  * re-activating), replacing the plan, or demoting the tier cuts access on the
- * next call. Custom plans do not yet auto-lapse on non-renewal (see the note in
- * lib/api-auth.ts) — revocation is admin-driven in V1.
+ * next call. A PAID custom plan also auto-lapses on non-renewal via the stamped
+ * tier_expires_at + sweep_vendor_tier_expiry (see the note in lib/api-auth.ts);
+ * only comp/off-platform custom deals (NULL expiry) are admin-revocation-only.
  */
 export async function userHasApiAccessGrant(
   admin: SupabaseClient,

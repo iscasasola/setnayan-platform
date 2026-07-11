@@ -86,10 +86,15 @@ export function parseGuestInput(
 
       const plusMatch = w.match(PLUS_RE);
       if (plusMatch) {
-        // Faithful to the prototype: `min(2, parseInt(n) || 1)`, so `+0` → 1 and
-        // `+3`/`+9` clamp to 2. The regex only matches digits, so a non-numeric
-        // `+x` never reaches here — it stays a name word.
-        plusOnes = Math.min(2, Number.parseInt(plusMatch[1] ?? '', 10) || 1);
+        // Read the digits honestly and clamp to 0–2: `+0` → 0 (a "+0" reads as
+        // NONE, so it must not grant a phantom +1 the way the prototype's
+        // `|| 1` did), `+1` → 1, `+3`/`+9` → 2. The regex only matches digits, so
+        // a non-numeric `+x` never reaches here — it stays a name word.
+        // NOTE: the schema models plus-one as a boolean `plus_one_allowed`, so
+        // any n>0 currently maps to a single +1 at the action; true "up to +2"
+        // reservation would need a count column (owner decision, no migration here).
+        const n = Number.parseInt(plusMatch[1] ?? '', 10);
+        plusOnes = Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 0;
         continue;
       }
 

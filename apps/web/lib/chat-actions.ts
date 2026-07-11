@@ -12,6 +12,7 @@ import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { leadTokenHoldEnabled, acceptInquiryViaHold } from '@/lib/lead-token-holds';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -328,10 +329,22 @@ export async function acceptInquiry(formData: FormData) {
     // RAISE rolls the whole tx back (no phantom unlock) — we surface a friendly,
     // tier-appropriate message and do NOT accept. The RPC also ownership-checks
     // the caller (defense-in-depth atop the loadVendorThreadForActor gate above).
-    const { error: burnErr } = await supabase.rpc('unlock_vendor_event', {
-      p_vendor_profile_id: thread.vendor_profile_id,
-      p_event_id: thread.event_id,
-    });
+    // Phase B (fake-inquiry protection): when the hold flag is ON, route to the
+    // PARALLEL unlock_vendor_event_hold — same gates + same error codes, but it
+    // HOLDS the token instead of burning it (consumed only when the couple
+    // genuinely replies; released if they ghost). Flag OFF → the live burn RPC,
+    // byte-identical to before. Both raise the same TIER/LIMIT/BALANCE errors, so
+    // the handling below is unchanged.
+    const { error: burnErr } = leadTokenHoldEnabled()
+      ? await acceptInquiryViaHold(supabase, {
+          vendorProfileId: thread.vendor_profile_id,
+          eventId: thread.event_id,
+          threadId: thread.thread_id,
+        })
+      : await supabase.rpc('unlock_vendor_event', {
+          p_vendor_profile_id: thread.vendor_profile_id,
+          p_event_id: thread.event_id,
+        });
     if (burnErr) {
       if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
         fail('Get your account verified to start receiving and answering couples in the app.');

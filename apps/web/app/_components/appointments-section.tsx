@@ -25,7 +25,6 @@
 // ============================================================================
 
 import { useState } from 'react';
-import Link from 'next/link';
 import {
   CalendarClock,
   CalendarPlus,
@@ -40,6 +39,7 @@ import {
   X,
 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { AppointmentJoinButton } from '@/app/_components/appointment-join';
 import {
   APPOINTMENT_KIND_LABEL,
   APPOINTMENT_STATUS_META,
@@ -61,7 +61,8 @@ type Props = {
   vendorProfileId: string;
   returnPath: string;
   threadId: string | null;
-  threadHref: string | null;
+  /** The viewer's auth uid — needed to key the live P2P "Join" call. */
+  currentUserId: string;
   counterpartyName: string;
   presets: AppointmentTypePreset[];
   appointments: AppointmentView[];
@@ -88,22 +89,11 @@ function formatWhen(iso: string | null): string {
   }).format(d);
 }
 
-/** Google Calendar "add event" template link — a no-server Add-to-calendar
- *  affordance for the MVP (the .ics file + reminder email are follow-ups). */
-function googleCalendarUrl(a: AppointmentView): string | null {
-  if (!a.scheduled_at) return null;
-  const start = new Date(a.scheduled_at);
-  if (Number.isNaN(start.getTime())) return null;
-  const end = new Date(start.getTime() + (a.duration_min ?? 60) * 60_000);
-  const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: a.label,
-    dates: `${stamp(start)}/${stamp(end)}`,
-  });
-  if (a.note) params.set('details', a.note);
-  if (a.location) params.set('location', a.location);
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+/** Universal Add-to-calendar: the per-appointment .ics download route. The route
+ *  is RLS-gated (only the two parties get the row) and returns a timed VEVENT
+ *  that Apple Calendar / Outlook / Google all import. */
+function appointmentIcsHref(a: AppointmentView): string {
+  return `/api/appointments/${a.appointment_id}/calendar.ics`;
 }
 
 function directionsUrl(location: string): string {
@@ -313,14 +303,18 @@ function AppointmentCard({
   eventId,
   vendorProfileId,
   returnPath,
-  threadHref,
+  threadId,
+  currentUserId,
+  counterpartyName,
 }: {
   a: AppointmentView;
   role: Role;
   eventId: string;
   vendorProfileId: string;
   returnPath: string;
-  threadHref: string | null;
+  threadId: string | null;
+  currentUserId: string;
+  counterpartyName: string;
 }) {
   const [proposingNew, setProposingNew] = useState(false);
 
@@ -330,7 +324,11 @@ function AppointmentCard({
   const canRespond = a.status === 'proposed' && a.initiated_by !== null && a.initiated_by !== role;
   const isActive = a.status === 'proposed' || a.status === 'confirmed';
   const isOnline = a.kind === 'video' || a.kind === 'voice';
-  const gcal = a.status === 'confirmed' ? googleCalendarUrl(a) : null;
+  // Universal .ics download for a confirmed, timed appointment.
+  const icsHref = a.status === 'confirmed' && a.scheduled_at ? appointmentIcsHref(a) : null;
+  // The room the live "Join" call keys on: the appointment's own thread when set,
+  // else the section's resolved (event, vendor) relationship thread.
+  const joinThreadId = a.thread_id ?? threadId;
   const joinOpen =
     !a.scheduled_at || Date.now() >= new Date(a.scheduled_at).getTime() - 10 * 60_000;
 
@@ -385,17 +383,17 @@ function AppointmentCard({
       {isActive ? (
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           {a.status === 'confirmed' && isOnline ? (
-            joinOpen && threadHref ? (
-              <Link
-                href={threadHref}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-2.5 py-1.5 text-[11px] font-semibold text-white"
-              >
-                <MessageSquare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Join
-              </Link>
+            joinOpen && joinThreadId ? (
+              <AppointmentJoinButton
+                threadId={joinThreadId}
+                currentUserId={currentUserId}
+                kind={a.kind === 'video' ? 'video' : 'voice'}
+                counterpartyLabel={counterpartyName}
+              />
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-ink/45">
                 <MessageSquare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                {threadHref ? 'Join opens near start' : 'Join via chat'}
+                {joinThreadId ? 'Join opens near start' : 'Join via chat'}
               </span>
             )
           ) : null}
@@ -409,11 +407,9 @@ function AppointmentCard({
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Directions
             </a>
           ) : null}
-          {gcal ? (
+          {icsHref ? (
             <a
-              href={gcal}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={icsHref}
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink/70 hover:border-terracotta/40"
             >
               <CalendarPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Add to calendar
@@ -534,7 +530,7 @@ export function AppointmentsSection({
   vendorProfileId,
   returnPath,
   threadId,
-  threadHref,
+  currentUserId,
   counterpartyName,
   presets,
   appointments,
@@ -581,7 +577,9 @@ export function AppointmentsSection({
               eventId={eventId}
               vendorProfileId={vendorProfileId}
               returnPath={returnPath}
-              threadHref={threadHref}
+              threadId={threadId}
+              currentUserId={currentUserId}
+              counterpartyName={counterpartyName}
             />
           ))}
         </ul>

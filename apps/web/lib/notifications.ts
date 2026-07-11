@@ -207,7 +207,17 @@ export type NotificationType =
   //                    budget). In-app only — spec § 4.1 keeps non-payment
   //                    guards out of the interrupt channels.
   | 'ai_payment_due'
-  | 'ai_guard_alert';
+  | 'ai_guard_alert'
+  // Added 2026-07-11 (Relationship Workspace + Appointments · PR 12 follow-ups)
+  // alongside migration 20270719834517_appointment_reminder_notification_type.sql.
+  // Fired (OTHER-party-recipient) from
+  // app/_components/appointments-actions.ts → respondAppointment() on the CONFIRM
+  // branch: "You're confirmed for {meeting} on {date}". ON the email allowlist —
+  // a confirmed meeting is a transactional booking signal the counterparty should
+  // get even when they're not in the app (same register as booking_confirmed /
+  // rsvp_received). MVP = confirm-time reminder; a scheduled T-minus reminder is a
+  // further follow-up (Resend scheduledAt / cron).
+  | 'appointment_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -272,6 +282,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // GRD template body carries the specifics.
   ai_payment_due: 'Payment due soon',
   ai_guard_alert: 'Setnayan AI flagged something',
+  // A meeting the other party confirmed (2026-07-11).
+  appointment_reminder: 'Appointment confirmed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -382,6 +394,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // gone wrong yet (that register belongs to rose/danger).
   ai_payment_due: 'bg-warn-100 text-warn-900',
   ai_guard_alert: 'bg-warn-100 text-warn-900',
+  // A confirmed meeting = a positive close-of-scheduling → emerald (matches
+  // booking_confirmed / the confirmation register).
+  appointment_reminder: 'bg-success-100 text-success-800',
 };
 
 export type NotificationRow = {

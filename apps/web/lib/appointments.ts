@@ -40,6 +40,12 @@ export type AppointmentView = {
   status: AppointmentStatus;
   initiated_by: AppointmentInitiator | null;
   note: string | null;
+  /**
+   * Optional link to the relationship chat thread. Used to key the live P2P
+   * "Join" call for a video/voice appointment; falls back to the section's
+   * resolved (event, vendor) thread when null.
+   */
+  thread_id: string | null;
   /** custom_label (custom) → catalog label → humanized type. */
   label: string;
 };

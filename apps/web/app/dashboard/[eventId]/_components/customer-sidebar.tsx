@@ -24,8 +24,9 @@
  *
  * BUDGET (with its Activity + Disputes children) was REMOVED 2026-07-10 (owner)
  * to match the mobile SSOT — the budget moved into the Merkado. /budget stays
- * reachable from the Merkado's Budget tab; /activity + /disputes from the
- * dashboard body + the vendor booking cancel→dispute flow. The
+ * reachable from the Merkado's Budget tab; /activity from the dashboard body's
+ * "See all recent activity →" link (event-dashboard.tsx, foot of "Around your
+ * event"); /disputes from the vendor booking cancel→dispute flow. The
  * customer.sidebar.activity/disputes registry slots are intentionally kept so a
  * re-surfaced link stays admin-editable.
  *

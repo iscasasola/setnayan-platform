@@ -31,9 +31,11 @@
  *   • /budget    → Merkado's Budget tab ("Open budget & payments" lens link).
  *   • /disputes  → the vendor booking cancel flow (cancel-booking-button → the
  *                  0023 § 3.6 dispute filing page at /disputes).
- *   • /activity  → the dashboard-body activity feed's "see all" link + direct
- *                  link; the customer.sidebar.activity/disputes registry slots
- *                  are kept so a re-surfaced link stays admin-editable.
+ *   • /activity  → the "See all recent activity →" link at the foot of the
+ *                  dashboard body's "Around your event" section
+ *                  (event-dashboard.tsx); the customer.sidebar.activity/disputes
+ *                  registry slots are kept so a re-surfaced link stays
+ *                  admin-editable.
  *
  * A non-empty `group.label` makes SidebarSection render a collapsible heading.
  * The 'plan'/'golive' group keys are stable (localStorage section-state).

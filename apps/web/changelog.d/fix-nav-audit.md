@@ -13,8 +13,10 @@ config left by earlier renames/flattens.
   `SIDEBAR_SLOT_KEYS`. Reachability after removal: `/budget` → the Merkado's
   Budget tab ("Open budget & payments" lens link, `merkado-budget-lens.tsx`);
   `/disputes` → the vendor booking cancel→dispute flow
-  (`cancel-booking-button.tsx`); `/activity` → the dashboard-body activity feed's
-  "see all" link + direct link. The `customer.sidebar.activity/disputes`
+  (`cancel-booking-button.tsx`); `/activity` → the "See all recent activity →"
+  link at the foot of the dashboard body's "Around your event" section
+  (`event-dashboard.tsx`, added in the re-audit follow-up). The
+  `customer.sidebar.activity/disputes`
   registry slots + their `CHILD_SLOT_KEYS` mappings are intentionally kept so a
   re-surfaced link stays admin-editable.
 

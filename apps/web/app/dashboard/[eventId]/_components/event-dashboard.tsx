@@ -1248,6 +1248,17 @@ export async function EventDashboard({
               )}
             </article>
           </div>
+          {/* Recent activity — the sole couple-UI entry to the full /activity
+           *  feed after the top-level Budget nav (whose `activity` child linked
+           *  here) was removed in #3055. Keeps /dashboard/[id]/activity reachable. */}
+          <div className="mt-3 flex justify-end">
+            <Link
+              href={`${base}/activity`}
+              className="whitespace-nowrap text-xs font-bold text-mulberry"
+            >
+              See all recent activity →
+            </Link>
+          </div>
         </section>
 
         {/* ── Suri on watch (AI · render-only) ─────────────────────────── */}

@@ -341,6 +341,14 @@ const VENDOR_SIDEBAR_TREE: NavGroup[] = [
         // child keeps the click in-section so <SidebarItem> expands the tools.
         label: 'Services',
         href: '/vendor-dashboard/attributes',
+        // matchPrefix defaults to the href PATHNAME (/vendor-dashboard/attributes),
+        // which does NOT cover the guided "Add a service" wizard at
+        // /vendor-dashboard/services/new/[category] — so that route left the
+        // Services section dark + collapsed (regression from #3052's href swap).
+        // Widen the prefix to /vendor-dashboard/services so the wizard re-lights
+        // + auto-expands. No double-lighting: the bare /vendor-dashboard/services
+        // redirects to /shop, and /shop does not start with /services.
+        matchPrefix: '/vendor-dashboard/services',
         icon: ListChecks,
         // The offerings couples book + the specialist tools that configure them.
         children: [
@@ -643,8 +651,14 @@ export function VendorSidebarFooter({
         <span
           className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
           style={{
-            background: 'var(--m-orange-4)',
-            border: '1px solid var(--m-orange-3)',
+            // This chip lives INSIDE `.sn-sidebar` (the obsidian panel), where
+            // globals.css remaps `--m-orange-2 → --m-orange-3` (light champagne,
+            // for the AccountSwitcher initials). The old light-cream fill
+            // (`--m-orange-4`) + that now-light text read ~1.34:1 (invisible).
+            // Recolour FOR the dark panel: a translucent gold fill lets the
+            // light `--m-orange-2` text/icon land ~6.4:1 on the obsidian tile.
+            background: 'color-mix(in srgb, var(--m-orange) 22%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--m-orange) 45%, transparent)',
             color: 'var(--m-orange-2)',
           }}
         >

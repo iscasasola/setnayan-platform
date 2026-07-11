@@ -11,13 +11,19 @@ import {
 } from '@/lib/package-line-pricing';
 import { formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
+  resolveSchedule,
+  type InstallmentDraft,
+  type InstallmentDue,
+  type AutoBalanceMeta,
+} from '@/lib/proposal-payment-schedule';
+import {
   sendCustomProposalFromChat,
   loadPackageLinesForQuote,
   type QuoteSeedLine,
 } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 
 /**
- * Vendor Proposal Maker · PR 3 — the in-thread quote editor.
+ * Vendor Proposal Maker — the in-thread quote editor.
  *
  * Translates prototypes/vendor_proposal_maker_2026-07-10.html into React:
  * per-line pricing bases (Flat / Per pax / Per hour) resolved against the
@@ -27,13 +33,17 @@ import {
  * (centavos) + persists a real vendor_proposals row + posts the in-thread card
  * (sendCustomProposalCore).
  *
- * ALL money math flows through the pure resolver in lib/package-line-pricing.ts
- * (the same helpers the bundle maker + lock use) — this component only converts
- * the vendor's peso-facing inputs to centavos and formats the results.
+ * The line-item / crew / transport money flows through the pure resolver in
+ * lib/package-line-pricing.ts; the self-balancing PAYMENT SCHEDULE (§ 8) flows
+ * through lib/proposal-payment-schedule.ts — the same pure resolver the server
+ * re-runs on send. This component only converts peso-facing inputs to centavos
+ * and formats the results.
  *
- * DEFERRED (see the changelog + spec § PR 3): the self-balancing payment
- * SCHEDULE editor + payment-methods persistence. The downpayment here is a
- * simple % PREVIEW; the methods row is cosmetic (saved at lock later).
+ * The self-balancing schedule (§ 8) + payment-methods pick (§ 9) — deferred by
+ * the first editor PR — ship here: seq-0 = the downpayment/lock, an auto "Final
+ * balance" row always pays the plan to ₱0 against the quote total, the crew-meal
+ * credit comes off the final first (downpayment protected), and the vendor picks
+ * which published payment rails the couple sees. Both persist on the proposal.
  */
 
 type Basis = 'flat' | 'per_pax' | 'per_hour';
@@ -55,7 +65,19 @@ type Line = {
 
 type Crew = { mode: CrewMode; size: number; perHeadPhp: number };
 type Transport = { mode: TransportMode; flatPhp: number };
-type PaymentMethod = 'bdo' | 'gcash' | 'bank' | 'maya';
+
+/** A vendor's published payment method, as the picker (§ 9) shows it. */
+export type ProposalPaymentMethodOption = {
+  id: string;
+  label: string;
+  methodType: 'bank' | 'qr' | 'link';
+  provider: string | null;
+  /** Approved + shown → publishable by default; else the vendor can still pick it but it's flagged. */
+  publishable: boolean;
+};
+
+/** One manual installment row in the editor (peso/percent-facing). */
+type SchedRow = InstallmentDraft & { key: string };
 
 /* ── Pure helpers (peso-facing UI ⇄ centavos resolver) ───────────────────── */
 
@@ -114,11 +136,23 @@ function basisDetail(l: Line, pax: number, hours: number): string | null {
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
-const METHOD_LIST: ReadonlyArray<[PaymentMethod, string]> = [
-  ['bdo', 'BDO'],
-  ['gcash', 'GCash'],
-  ['bank', 'Bank transfer'],
-  ['maya', 'Maya'],
+let schedSeq = 0;
+const nextSchedKey = () => `sch_${Date.now().toString(36)}_${schedSeq++}`;
+
+/** Ordinal labels for auto-generated installment names (matches the prototype). */
+const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth'];
+const ordinalLabel = (i: number) => `${ORDINALS[i] ?? `Payment ${i + 1}`} payment`;
+
+const METHOD_TYPE_LABEL: Record<'bank' | 'qr' | 'link', string> = {
+  bank: 'Bank / e-wallet',
+  qr: 'QR code',
+  link: 'Payment link',
+};
+
+const DUE_OPTIONS: ReadonlyArray<[InstallmentDue, string]> = [
+  ['on_lock', 'On booking'],
+  ['before_event', 'Before event'],
+  ['on_event', 'Event day'],
 ];
 
 export function ProposalMaker({
@@ -128,6 +162,7 @@ export function ProposalMaker({
   coupleName,
   packages = [],
   coupleCrewProvider = null,
+  paymentMethods = [],
 }: {
   threadId: string;
   /** Seeded from thread.pax_at_inquiry so the opening quote is sized to what they asked for. */
@@ -137,6 +172,8 @@ export function ProposalMaker({
   packages?: { id: string; name: string }[];
   /** When the couple has booked a crew-meal marketplace service, the provider name (enables the offset banner). */
   coupleCrewProvider?: string | null;
+  /** The vendor's published payment methods (§ 9) — the couple sees the picked subset. */
+  paymentMethods?: ProposalPaymentMethodOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [pax, setPax] = useState(requestedPax);
@@ -149,13 +186,20 @@ export function ProposalMaker({
   });
   const [transport, setTransport] = useState<Transport>({ mode: 'included', flatPhp: 2000 });
   const [discountPhp, setDiscountPhp] = useState(0);
-  const [methods, setMethods] = useState<Record<PaymentMethod, boolean>>({
-    bdo: true,
-    gcash: true,
-    bank: false,
-    maya: false,
+  // Self-balancing payment schedule (§ 8). seq-0 = the downpayment/lock; the auto
+  // "Final balance" is generated by the resolver, never a stored row.
+  const [installments, setInstallments] = useState<SchedRow[]>(() => [
+    { key: nextSchedKey(), label: 'First payment', kind: 'percent', amountPhp: null, percent: 20, due: 'on_lock', offsetDays: 0 },
+  ]);
+  const [autoBalanceMeta, setAutoBalanceMeta] = useState<AutoBalanceMeta>({
+    label: 'Final balance',
+    due: 'before_event',
+    offsetDays: 14,
   });
-  const [downpaymentPct, setDownpaymentPct] = useState(20);
+  // Accepted payment methods (§ 9) — default to every publishable (approved+shown) method.
+  const [selectedMethods, setSelectedMethods] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(paymentMethods.filter((m) => m.publishable).map((m) => [m.id, true])),
+  );
   const [validUntil, setValidUntil] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
@@ -222,11 +266,47 @@ export function ProposalMaker({
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
   }, [items, crew, transport, discountPhp, pax, hours]);
 
-  const downpaymentCentavos = Math.round((netPayable * Math.min(100, Math.max(0, downpaymentPct))) / 100);
+  // Self-balancing schedule — resolved against the quote total (gross, before the
+  // crew credit) so the downpayment is a % of the full contract; the credit then
+  // comes off the final. Same pure resolver the server re-runs on send.
+  const scheduleDraft = useMemo(
+    () => ({
+      manual: installments.map(
+        (r): InstallmentDraft => ({
+          label: r.label,
+          kind: r.kind,
+          amountPhp: r.amountPhp,
+          percent: r.percent,
+          due: r.due,
+          offsetDays: r.offsetDays,
+        }),
+      ),
+      autoBalance: autoBalanceMeta,
+      baseCentavos: gross,
+      creditCentavos: credit,
+    }),
+    [installments, autoBalanceMeta, gross, credit],
+  );
+  const schedule = useMemo(() => resolveSchedule(scheduleDraft), [scheduleDraft]);
+  // The generated auto "Final balance" row (last resolved installment), if any.
+  const autoRow = schedule.installments.find((r) => r.is_auto_balance) ?? null;
+
+  const selectedMethodIds = useMemo(
+    () => paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.id),
+    [paymentMethods, selectedMethods],
+  );
 
   const payload = useMemo(
-    () => JSON.stringify({ lineItems, validUntil, title, note }),
-    [lineItems, validUntil, title, note],
+    () =>
+      JSON.stringify({
+        lineItems,
+        validUntil,
+        title,
+        note,
+        schedule: scheduleDraft,
+        paymentMethodIds: selectedMethodIds,
+      }),
+    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds],
   );
 
   /* ── Line mutation helpers ────────────────────────────────────────────── */
@@ -245,6 +325,41 @@ export function ProposalMaker({
       next.splice(to, 0, moved);
       return next;
     });
+
+  /* ── Payment-schedule mutation helpers (§ 8) ──────────────────────────── */
+  const patchInstallment = (key: string, patch: Partial<InstallmentDraft>) =>
+    setInstallments((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  // A label the vendor hasn't personalized (still one of the auto ordinals).
+  const isDefaultLabel = (label: string) =>
+    label === 'First payment' || ORDINALS.some((_, i) => label === ordinalLabel(i));
+  const removeInstallment = (key: string) =>
+    setInstallments((prev) => {
+      // Never remove the downpayment (seq 0).
+      const idx = prev.findIndex((r) => r.key === key);
+      if (idx <= 0) return prev;
+      const next = prev.filter((r) => r.key !== key);
+      // Re-sequence the auto-ordinal labels so they stay in order; leave any
+      // vendor-personalized label untouched.
+      return next.map((r, i) => (isDefaultLabel(r.label) ? { ...r, label: ordinalLabel(i) } : r));
+    });
+  // "Add payment · splits the balance" — materialize the current auto Final
+  // balance (post-credit) into a real fixed installment; the resolver then
+  // regenerates a fresh (smaller / zero) balance so the plan still nets to ₱0.
+  const addPayment = () => {
+    if (!autoRow || autoRow.amount_centavos <= 0) return;
+    setInstallments((prev) => [
+      ...prev,
+      {
+        key: nextSchedKey(),
+        label: ordinalLabel(prev.length),
+        kind: 'fixed',
+        amountPhp: Math.round(autoRow.amount_centavos / 100),
+        percent: null,
+        due: autoBalanceMeta.due,
+        offsetDays: autoBalanceMeta.offsetDays,
+      },
+    ]);
+  };
 
   async function seedFromPackage(packageId: string) {
     if (!packageId) return;
@@ -686,44 +801,224 @@ export function ProposalMaker({
         ) : null}
       </div>
 
-      {/* Downpayment preview (schedule editor deferred) */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 p-4">
-        <span className={lbl}>Downpayment</span>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          value={downpaymentPct}
-          onChange={(e) => setDownpaymentPct(Number(e.target.value) || 0)}
-          aria-label="Downpayment percent"
-          className={`${numField} w-16`}
-        />
-        <span className="text-xs text-ink/55">
-          % · locks with <strong className="text-ink/75">{formatCentavos(downpaymentCentavos)}</strong>
-        </span>
-        <span className="ml-auto text-[11px] text-ink/40">Full schedule set at lock.</span>
+      {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
+      <div className="space-y-2 border-b border-ink/10 p-4">
+        <div className="flex items-center justify-between">
+          <span className={lbl}>Payment schedule</span>
+          {schedule.over_by_centavos > 0 ? (
+            <span className="text-[11px] font-medium text-warn-900">
+              over by {formatCentavos(schedule.over_by_centavos)} — trim a payment
+            </span>
+          ) : schedule.credit_over_centavos > 0 ? (
+            <span className="text-[11px] font-medium text-warn-900">
+              credit exceeds the balance — lower a payment
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-success-700">
+              ✓ balances to ₱0
+            </span>
+          )}
+        </div>
+
+        {installments.map((r, i) => {
+          const resolved = schedule.installments[i];
+          const isDown = i === 0;
+          return (
+            <div key={r.key} className="rounded-xl border border-ink/10 bg-white p-2.5">
+              <div className="flex items-center gap-2">
+                {isDown ? (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-terracotta/50 bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
+                    🔒 locks
+                  </span>
+                ) : null}
+                <input
+                  type="text"
+                  value={r.label}
+                  onChange={(e) => patchInstallment(r.key, { label: e.target.value })}
+                  aria-label="Installment name"
+                  className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
+                />
+                {r.kind === 'percent' ? (
+                  <span className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={r.percent ?? 0}
+                      onChange={(e) => patchInstallment(r.key, { percent: Number(e.target.value) || 0 })}
+                      aria-label="Percent of total"
+                      className={`${numField} w-16`}
+                    />
+                    <span className="text-xs text-ink/50">%</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs text-ink/50">
+                    ₱
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.amountPhp ?? 0}
+                      onChange={(e) => patchInstallment(r.key, { amountPhp: Number(e.target.value) || 0 })}
+                      aria-label="Installment amount"
+                      className={`${numField} w-24`}
+                    />
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    patchInstallment(r.key, r.kind === 'percent' ? { kind: 'fixed', amountPhp: Math.round((resolved?.raw_centavos ?? 0) / 100) } : { kind: 'percent', percent: r.percent ?? 0 })
+                  }
+                  aria-label="Toggle peso / percent"
+                  className="rounded-md border border-ink/15 px-1.5 py-0.5 text-[11px] text-ink/60 hover:border-terracotta"
+                >
+                  {r.kind === 'percent' ? '%' : '₱'}
+                </button>
+                {!isDown ? (
+                  <button
+                    type="button"
+                    onClick={() => removeInstallment(r.key)}
+                    aria-label="Remove installment"
+                    className="px-1 text-sm text-ink/40 hover:text-danger-700"
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-ink/10 pl-1 pt-2 text-xs text-ink/60">
+                <select
+                  value={r.due}
+                  onChange={(e) => patchInstallment(r.key, { due: e.target.value as InstallmentDue })}
+                  aria-label="Due timing"
+                  className={field}
+                >
+                  {DUE_OPTIONS.map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {r.due === 'before_event' ? (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.offsetDays}
+                      onChange={(e) => patchInstallment(r.key, { offsetDays: Number(e.target.value) || 0 })}
+                      aria-label="Days before event"
+                      className={`${numField} w-14`}
+                    />
+                    <span>days before</span>
+                  </>
+                ) : null}
+                <span className="ml-auto flex items-center gap-2 tabular-nums">
+                  {resolved && resolved.credit_applied_centavos > 0 ? (
+                    <span className="text-success-700">−{formatCentavos(resolved.credit_applied_centavos)} credit</span>
+                  ) : null}
+                  <strong className="font-serif text-sm text-ink">
+                    {formatCentavos(resolved?.amount_centavos ?? 0)}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Auto "Final balance" — the resolver's remainder row (pays to ₱0). */}
+        {autoRow ? (
+          <div className="rounded-xl border border-terracotta/30 bg-terracotta/[0.04] p-2.5">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-terracotta/50 bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
+                ✦ auto
+              </span>
+              <span className="min-w-0 flex-1 text-sm text-ink/70">{autoBalanceMeta.label}</span>
+              <span className="flex items-center gap-2 tabular-nums">
+                {autoRow.credit_applied_centavos > 0 ? (
+                  <span className="text-xs text-success-700">−{formatCentavos(autoRow.credit_applied_centavos)} credit</span>
+                ) : null}
+                <strong className="font-serif text-base text-ink">{formatCentavos(autoRow.amount_centavos)}</strong>
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-ink/10 pl-1 pt-2 text-xs text-ink/60">
+              <select
+                value={autoBalanceMeta.due}
+                onChange={(e) => setAutoBalanceMeta((m) => ({ ...m, due: e.target.value as InstallmentDue }))}
+                aria-label="Final balance due timing"
+                className={field}
+              >
+                {DUE_OPTIONS.map(([v, label]) => (
+                  <option key={v} value={v}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {autoBalanceMeta.due === 'before_event' ? (
+                <>
+                  <input
+                    type="number"
+                    min={0}
+                    value={autoBalanceMeta.offsetDays}
+                    onChange={(e) => setAutoBalanceMeta((m) => ({ ...m, offsetDays: Number(e.target.value) || 0 }))}
+                    aria-label="Days before event"
+                    className={`${numField} w-14`}
+                  />
+                  <span>days before</span>
+                </>
+              ) : null}
+              <span className="ml-auto text-ink/45">covers the remainder</span>
+            </div>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={addPayment}
+          disabled={!autoRow || autoRow.amount_centavos <= 0}
+          className="rounded-full border border-dashed border-terracotta/60 px-3 py-1 text-xs text-terracotta-700 enabled:hover:border-terracotta disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          + Add payment · splits the balance
+        </button>
+        <p className="text-[11px] text-ink/45">
+          First payment is the downpayment the couple pays to lock the date. The final balance always
+          settles the plan to ₱0{credit > 0 ? '; the crew-meal credit comes off it first' : ''}.
+        </p>
       </div>
 
-      {/* Accepted payment methods (cosmetic — persisted at lock) */}
+      {/* Accepted payment methods (§ 9) — which of the vendor's rails the couple sees */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <span className={lbl}>Accepted payment methods</span>
-        <div className="flex flex-wrap gap-2">
-          {METHOD_LIST.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setMethods((m) => ({ ...m, [id]: !m[id] }))}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                methods[id]
-                  ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                  : 'border-ink/15 bg-white text-ink/60 hover:border-ink/40'
-              }`}
-            >
-              {label}
-              {methods[id] ? ' ✓' : ''}
-            </button>
-          ))}
-        </div>
+        {paymentMethods.length === 0 ? (
+          <p className="text-xs text-ink/55">
+            No published payment methods yet. Add BDO / GCash / Maya details in your dashboard settings —
+            the couple will pay you directly, off-platform.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {paymentMethods.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setSelectedMethods((s) => ({ ...s, [m.id]: !s[m.id] }))}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs ${
+                    selectedMethods[m.id]
+                      ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                      : 'border-ink/15 bg-white text-ink/60 hover:border-ink/40'
+                  }`}
+                  title={`${METHOD_TYPE_LABEL[m.methodType]}${m.publishable ? '' : ' · pending review'}`}
+                >
+                  {m.label}
+                  {!m.publishable ? <span className="text-warn-900">·pending</span> : null}
+                  {selectedMethods[m.id] ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-ink/45">
+              Only the methods you tick show on this quote&rsquo;s &ldquo;how to pay.&rdquo; Untick all to fall
+              back to every approved method.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Meta + send */}

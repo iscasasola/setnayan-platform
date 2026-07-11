@@ -188,17 +188,23 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   let validUntil: string | null = null;
   let title: string | null = null;
   let note: string | null = null;
+  let schedule: unknown = null;
+  let paymentMethodIds: string[] = [];
   try {
     const parsed = JSON.parse(String(formData.get('payload') ?? '{}')) as {
       lineItems?: ProposalLineItem[];
       validUntil?: string;
       title?: string;
       note?: string;
+      schedule?: unknown;
+      paymentMethodIds?: string[];
     };
     lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
     validUntil = parsed.validUntil ?? null;
     title = parsed.title ?? null;
     note = parsed.note ?? null;
+    schedule = parsed.schedule ?? null;
+    paymentMethodIds = Array.isArray(parsed.paymentMethodIds) ? parsed.paymentMethodIds : [];
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
@@ -209,6 +215,8 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     validUntil,
     title,
     note,
+    schedule,
+    paymentMethodIds,
   });
 
   if (!result.ok) {

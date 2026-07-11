@@ -10,6 +10,10 @@ import {
   minimalBrief,
   type ProposalBrief,
 } from '@/lib/proposal-merge';
+import {
+  sanitizeAndResolveSchedule,
+  type ResolvedSchedule,
+} from '@/lib/proposal-payment-schedule';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -336,9 +340,24 @@ export interface SendCustomProposalInput {
   title?: string | null;
   /** Optional free-text note shown to the couple as the proposal body. */
   note?: string | null;
+  /**
+   * Optional self-balancing payment schedule draft (Vendor Proposal Maker § 8).
+   * Raw wire shape — { manual, autoBalance, baseCentavos, creditCentavos } — that
+   * the server RE-RESOLVES through the pure resolver so the persisted numbers are
+   * authoritative, never the client's arithmetic. Null / no installments → no
+   * schedule stored ({}), the proposal renders line items only.
+   */
+  schedule?: unknown;
+  /**
+   * Optional array of the vendor's own vendor_payment_methods.payment_method_id
+   * to show the couple with this quote (§ 9). Validated server-side against the
+   * vendor's OWN methods; unknown ids are dropped. [] = show all approved.
+   */
+  paymentMethodIds?: string[] | null;
 }
 
 const MAX_CUSTOM_LINE_ITEMS = 60;
+const MAX_PAYMENT_METHODS = 12;
 
 /** Coerce anything to a finite integer (0 fallback). */
 function intOrZero(v: unknown): number {
@@ -396,6 +415,37 @@ export async function sendCustomProposalCore(
     return { ok: false, code: 'failed', message: 'Add at least one line item before sending a quote.' };
   }
 
+  // Payment schedule (§ 8) — RE-RESOLVE server-side from the drafts so the
+  // persisted, self-balancing numbers come from the pure resolver, not the
+  // client. Null when the vendor built no schedule → store {} (degrades to line
+  // items only on the couple view).
+  const resolvedSchedule: ResolvedSchedule | null = sanitizeAndResolveSchedule(input.schedule);
+
+  // Accepted payment methods (§ 9) — keep ONLY ids that are this vendor's OWN
+  // methods (RLS-scoped read on the vendor's client; owner RLS already blocks
+  // reading anyone else's, but we intersect explicitly so a spoofed id is
+  // dropped). [] = show all approved by default (couple-side resolver).
+  let paymentMethodIds: string[] = [];
+  {
+    const requested = Array.isArray(input.paymentMethodIds)
+      ? input.paymentMethodIds
+          .filter((x): x is string => typeof x === 'string' && x.length > 0)
+          .slice(0, MAX_PAYMENT_METHODS)
+      : [];
+    if (requested.length > 0) {
+      const { data: ownMethods } = await supabase
+        .from('vendor_payment_methods')
+        .select('payment_method_id')
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .in('payment_method_id', requested);
+      const owned = new Set(
+        ((ownMethods ?? []) as { payment_method_id: string }[]).map((m) => m.payment_method_id),
+      );
+      // Preserve the vendor's chosen order; keep only owned ids.
+      paymentMethodIds = requested.filter((id) => owned.has(id));
+    }
+  }
+
   // Title — reuse the event display_name for the default (no template here).
   const { data: ev } = await supabase
     .from('events')
@@ -430,6 +480,8 @@ export async function sendCustomProposalCore(
       rendered_terms: '',
       line_items: lineItems,
       total_centavos: totalCentavos,
+      payment_schedule: resolvedSchedule ?? {},
+      payment_method_ids: paymentMethodIds,
       valid_until: /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : null,
       status: 'draft',
     })

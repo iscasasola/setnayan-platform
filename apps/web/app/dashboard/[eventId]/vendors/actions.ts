@@ -62,6 +62,8 @@ import {
   type PolicySnapshot,
 } from '@/lib/vendor-service-payment-schedules';
 import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-schedules.server';
+import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -3220,6 +3222,235 @@ export async function acknowledgeDeposit(
   if (env.status === 'already') return { status: 'already' };
   if (env.status === 'not_recorded') return { status: 'not_recorded' };
   return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
+}
+
+// ==========================================================================
+// Payment-gated lock (flag: NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).
+//
+// Reverses the "Lock-Free" default: after a couple locks a vendor, the lock
+// button opens a mandatory downpayment prompt that records the deposit through
+// the vendor's PUBLISHED payment method with a REQUIRED screenshot. finalizeVendor
+// is UNTOUCHED — these two actions run AFTER a successful lock (which already
+// held the date). The vendor then confirms via the existing acknowledge path.
+//
+// OFF-PLATFORM / 0% COMMISSION (owner lock): unchanged — the couple pays the
+// vendor directly off-platform and uploads proof; Setnayan is never the payee.
+// ==========================================================================
+
+/** A short, provenance-grade label frozen at pay-time (survives method edits). */
+function buildMethodLabel(m: CoupleFacingMethod): string {
+  const parts: string[] = [];
+  if (m.label && m.label.trim().length > 0) parts.push(m.label.trim());
+  if (m.provider) parts.push(m.provider);
+  if (m.method_type === 'bank' && m.account_number) {
+    const tail = m.account_number.replace(/\s+/g, '').slice(-4);
+    if (tail) parts.push(`•••• ${tail}`);
+  } else if (m.method_type === 'link' && m.link_domain) {
+    parts.push(m.link_domain);
+  }
+  const label = parts.join(' · ').slice(0, 200);
+  return label.length > 0 ? label : 'Payment method';
+}
+
+/**
+ * getLockDownpaymentContext — COUPLE side (read).
+ *
+ * Powers the post-lock downpayment modal: the booked vendor's PUBLISHED +
+ * approved payment methods (fetchPublishedMethodsForCouple proves couple
+ * ownership via RLS before the admin read), plus whether a deposit is already
+ * recorded (so a re-open is idempotent). Returns methods=[] for off-platform /
+ * manual vendors — the modal then degrades to "coordinate in chat" and the lock
+ * stands with no gated downpayment.
+ */
+export async function getLockDownpaymentContext(
+  eventId: string,
+  vendorId: string,
+): Promise<{
+  status: 'ok' | 'not_signed_in' | 'error';
+  methods?: CoupleFacingMethod[];
+  alreadyRecorded?: boolean;
+  vendorName?: string | null;
+  message?: string;
+}> {
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // RLS-scoped ownership read (couple-on-event only).
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_name, deposit_recorded_at')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) return { status: 'error', message: readErr.message };
+  if (!row) return { status: 'error', message: 'Vendor not found on this event.' };
+  const ev = row as { vendor_name: string | null; deposit_recorded_at: string | null };
+
+  // fetchPublishedMethodsForCouple re-proves ownership via the authed client
+  // before the admin read — safe to pass both clients here.
+  const methods = await fetchPublishedMethodsForCouple({
+    authedClient: supabase,
+    adminClient: createAdminClient(),
+    eventId,
+    eventVendorId: vendorId,
+  });
+
+  return {
+    status: 'ok',
+    methods,
+    alreadyRecorded: Boolean(ev.deposit_recorded_at),
+    vendorName: ev.vendor_name,
+  };
+}
+
+/**
+ * recordLockDownpayment — COUPLE side (write).
+ *
+ * Records the lock downpayment paid through one of the vendor's PUBLISHED
+ * methods with a REQUIRED proof screenshot. Distinct from recordDeposit (the
+ * legacy free-text/optional-proof path): here the method must be one of the
+ * vendor's approved published methods and the proof is mandatory. The date is
+ * already held by finalizeVendor, so this does NOT re-acquire schedule pools —
+ * it only stamps the orthogonal deposit markers + logs the couple's ledger row
+ * + notifies the vendor to confirm. Setnayan never holds the money.
+ *
+ * Idempotent-friendly: COALESCE keeps the original deposit_recorded_at on a
+ * re-submit and skips a duplicate ledger row (guards on the pre-update marker).
+ */
+export async function recordLockDownpayment(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const methodId = formData.get('deposit_method_id');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof methodId !== 'string' ||
+    methodId.length === 0
+  ) {
+    return { status: 'error', message: 'Choose the payment method you paid through.' };
+  }
+  const amountPhp = parseMoney(formData.get('deposit_php'));
+  if (amountPhp === null || amountPhp <= 0) {
+    return { status: 'error', message: 'Enter the downpayment amount you paid.' };
+  }
+  const proofEntry = formData.get('proof');
+  if (!(proofEntry instanceof File) || proofEntry.size === 0) {
+    return { status: 'error', message: 'Attach a screenshot of your payment to confirm the lock.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // RLS-gated ownership read + prior marker (so a re-submit doesn't double-log).
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_name, marketplace_vendor_id, deposit_recorded_at')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) return { status: 'error', message: readErr.message };
+  if (!row) return { status: 'error', message: 'Vendor not found on this event.' };
+  const ev = row as {
+    vendor_name: string | null;
+    marketplace_vendor_id: string | null;
+    deposit_recorded_at: string | null;
+  };
+
+  // Validate the chosen method is one of THIS vendor's published + approved
+  // methods (fetchPublishedMethodsForCouple re-proves couple ownership first).
+  // This blocks a forged deposit_method_id pointing at some other vendor's row.
+  const methods = await fetchPublishedMethodsForCouple({
+    authedClient: supabase,
+    adminClient: createAdminClient(),
+    eventId,
+    eventVendorId: vendorId,
+  });
+  const chosen = methods.find((m) => m.payment_method_id === methodId);
+  if (!chosen) {
+    return {
+      status: 'error',
+      message: 'That payment method is no longer available — pick another and try again.',
+    };
+  }
+
+  // Required proof → R2 (same pipeline as recordDeposit). Record-keeping only.
+  const uploadResult = await uploadPublicAsset({
+    pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
+    file: proofEntry,
+  });
+  if (!uploadResult.ok) {
+    return { status: 'error', message: uploadResult.error };
+  }
+  const proofUrl = uploadResult.publicUrl;
+  const methodLabel = buildMethodLabel(chosen);
+
+  // Stamp the orthogonal deposit markers + method provenance. COALESCE keeps the
+  // original recorded moment on a re-submit (date was held at lock). Never
+  // touches deposit_acknowledged_at — only the vendor's RPC may set it.
+  const { error: updateErr } = await supabase
+    .from('event_vendors')
+    .update({
+      deposit_recorded_at: ev.deposit_recorded_at ?? new Date().toISOString(),
+      deposit_method_id: methodId,
+      deposit_method_label: methodLabel,
+      deposit_proof_url: proofUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId);
+  if (updateErr) return { status: 'error', message: updateErr.message };
+
+  // Log the money against the couple's own ledger — first submit only (the
+  // COALESCE marker is idempotent, so match it to avoid overstating "paid").
+  if (!ev.deposit_recorded_at) {
+    const { error: payErr } = await supabase.from('event_vendor_payments').insert({
+      event_id: eventId,
+      vendor_id: vendorId,
+      amount_php: amountPhp,
+      method: methodLabel,
+      reference: nullIfBlank(formData.get('reference')),
+      notes: 'Downpayment (lock · awaiting vendor confirmation)',
+    });
+    if (payErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[recordLockDownpayment] ledger insert failed for vendor_id=${vendorId}:`, payErr.message);
+    }
+  }
+
+  // Notify the vendor to confirm receipt (reuses payment_logged · vendor
+  // recipient). Fail-soft — never rolls back the recorded deposit.
+  if (ev.marketplace_vendor_id) {
+    const { data: vp } = await createAdminClient()
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'payment_logged',
+        title: 'Downpayment submitted — please confirm',
+        body: `A couple submitted their lock downpayment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
+        relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+      });
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  return { status: 'ok' };
 }
 
 // ==========================================================================

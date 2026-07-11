@@ -93,7 +93,7 @@ import {
   ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
-import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
+import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 
 // A dance target is pulled this far inside the dance-floor edge so the avatar
@@ -495,8 +495,8 @@ export default function GuestVenue3D({
       stage: scene.floor.stage,
       entrance: {
         ...scene.floor.entrance,
-        // The public payload doesn't carry the entrance kind/depth yet — default
-        // to a 'door' so the guest walk renders the existing doorway marker.
+        // v7 public_venue_scene carries entrance kind/depth; keep a fallback for
+        // older / cached payloads so the walk still renders a plain door.
         kind: scene.floor.entrance.kind ?? 'door',
         depthM: scene.floor.entrance.depthM ?? 3,
       },
@@ -839,6 +839,54 @@ export default function GuestVenue3D({
           <boxGeometry args={[stageW, 0.3, stageD]} />
           <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
         </mesh>
+
+        {/* Entrance structure — mirrors the couple's 3D lab (seating-lab-3d) so
+            the guest walks through the same entrance they designed. A 'door'
+            renders a shallow frame slab; a 'tunnel' (UI: Walk-through) renders two
+            side walls + a lintel running INWARD from the wall by the couple's
+            depth (clamped by coldSparkFrame so it never crosses the far wall),
+            open inward. Gated on entrance.enabled — a disabled entrance draws
+            nothing (unlike the lab, which always sits at an enabled entrance). */}
+        {floor.entrance.enabled &&
+          (floor.entrance.kind === 'tunnel'
+            ? (() => {
+                const frame = coldSparkFrame(entrance, room);
+                const len = Math.max(1, Math.min(floor.entrance.depthM ?? 3, frame.len));
+                const yaw = Math.atan2(frame.dir.x, frame.dir.z);
+                const HALF_W = 0.7; // interior clear half-width (door mouth is 1.4)
+                const WALL_T = 0.12;
+                const H = 2.2;
+                return (
+                  <group position={[entrance.x, 0, entrance.z]} rotation={[0, yaw, 0]}>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                      <ringGeometry args={[0.55, 0.78, 32]} />
+                      <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                    </mesh>
+                    {[-1, 1].map((side) => (
+                      <mesh key={side} position={[HALF_W * side, H / 2, len / 2]} castShadow>
+                        <boxGeometry args={[WALL_T, H, len]} />
+                        <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                      </mesh>
+                    ))}
+                    <mesh position={[0, H, len / 2]}>
+                      <boxGeometry args={[HALF_W * 2 + WALL_T, WALL_T, len]} />
+                      <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                    </mesh>
+                  </group>
+                );
+              })()
+            : (
+                <group position={[entrance.x, 0, entrance.z]}>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                    <ringGeometry args={[0.55, 0.78, 32]} />
+                    <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                  </mesh>
+                  <mesh position={[0, 1.1, 0]}>
+                    <boxGeometry args={[1.4, 2.2, 0.12]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                  </mesh>
+                </group>
+              ))}
 
         {/* Dance floor — the mood-board mural (Fable §3.7). This walk had NO
             dance mesh: `floor.dance` fed floorObstacles only, so guests dodged

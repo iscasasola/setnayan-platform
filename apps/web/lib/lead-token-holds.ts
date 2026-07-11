@@ -68,6 +68,35 @@ export async function consumeLeadHoldOnCoupleReply(
 }
 
 /**
+ * Phase C — a VENDOR reported a couple. Wire that report into the token economy:
+ * refund the reporting vendor's held token if the lead never replied (a dead /
+ * fake lead), and if ≥ threshold distinct users have reported this couple, refund
+ * the whole blast radius (a competitor's sock-puppet spray costs every victim
+ * vendor nothing). The generic report row + admin review are unchanged; this only
+ * adds the money-return. Best-effort, off the request path, never throws. No-op
+ * unless the hold feature is live (there's nothing to refund otherwise).
+ */
+export async function runVendorLeadReportBackstop(args: {
+  vendorProfileId: string;
+  eventId: string;
+  reportedUserId: string;
+  reason: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await admin.rpc('handle_vendor_lead_report' as never, {
+      p_vendor_profile_id: args.vendorProfileId,
+      p_event_id: args.eventId,
+      p_reported_user_id: args.reportedUserId,
+      p_reason: args.reason,
+    } as never);
+  } catch (e) {
+    // Best-effort — the report itself already landed in the admin queue.
+    console.warn('[lead-token-holds] vendor report backstop failed:', e);
+  }
+}
+
+/**
  * Release every hold still 'held' past the ghost window (default 7 days) — the
  * couple never replied. Called by the lead-hold-sweep cron. Returns the count
  * released. Service-role only.

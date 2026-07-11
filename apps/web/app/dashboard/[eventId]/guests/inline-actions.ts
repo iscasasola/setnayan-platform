@@ -28,6 +28,8 @@ import {
   type GuestSide,
   type RsvpStatus,
 } from '@/lib/guests';
+import type { ReleasedSeat } from '@/lib/guest-optimistic';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { ParsedGuestDraft } from '@/lib/guest-parse';
 import {
@@ -72,14 +74,20 @@ export async function setGuestSide(
  *    optimistic overlay to the coerced value.
  *  • `rsvp_responded_at` is stamped for attending/declined, cleared otherwise.
  *  • declining AUTO-FREES the guest's seat via the live `free_seat_on_decline`
- *    DB trigger (owner-locked 2026-06-22) — nothing to do here; the P3 seat loop
- *    is what will surface the freed seat + carry it in the undo.
+ *    DB trigger (owner-locked 2026-06-22). Living Roster P3: we READ that seat
+ *    BEFORE the update (the trigger deletes it as part of the decline write) and
+ *    return it as `freedSeat`, so the client can offer an undo that restores BOTH
+ *    the RSVP and the exact chair. `freedSeat` is null on every non-decline path
+ *    (and when the guest wasn't seated).
  */
 export async function setGuestRsvp(
   eventId: string,
   guestId: string,
   rsvp: RsvpStatus,
-): Promise<{ ok: true; effective: RsvpStatus } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; effective: RsvpStatus; freedSeat: ReleasedSeat | null }
+  | { ok: false; error: string }
+> {
   if (!RSVP_VALUES.includes(rsvp)) return { ok: false, error: 'Pick a valid RSVP.' };
 
   const supabase = await createClient();
@@ -96,6 +104,28 @@ export async function setGuestRsvp(
   const effective: RsvpStatus =
     row.role === 'bride' || row.role === 'groom' ? 'attending' : rsvp;
 
+  // Capture the seat the impending decline will free (the trigger fires on the
+  // rsvp→declined edge, so the assignment is still present until the update
+  // below). Only when the EFFECTIVE rsvp is declined — the couple never decline,
+  // so they never free a seat here.
+  let freedSeat: ReleasedSeat | null = null;
+  if (effective === 'declined') {
+    const { data: seat } = await supabase
+      .from('event_seat_assignments')
+      .select('table_id, seat_number, locked')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .maybeSingle();
+    if (seat) {
+      freedSeat = {
+        guest_id: guestId,
+        table_id: seat.table_id as string,
+        seat_number: (seat.seat_number as number | null) ?? null,
+        locked: (seat.locked as boolean | null) ?? false,
+      };
+    }
+  }
+
   const { error } = await supabase
     .from('guests')
     .update({
@@ -110,7 +140,78 @@ export async function setGuestRsvp(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(guestsPath(eventId));
-  return { ok: true, effective };
+  return { ok: true, effective, freedSeat };
+}
+
+/**
+ * Undo the reactive decline (Living Roster P3): restore the guest's PRIOR RSVP
+ * and re-place the seat the decline freed. The inverse of `setGuestRsvp('declined')`.
+ *
+ * The `free_seat_on_decline` trigger only fires on the decline EDGE, so writing
+ * the RSVP back to a non-declined value doesn't re-free anything — the seat
+ * re-insert is safe. Seat restore is BEST-EFFORT, mirroring P1's
+ * `restoreDeletedGuests`: a single upsert on (event_id, guest_id) so a retry is
+ * idempotent, and a re-taken chair (23505 on the PARTIAL chair-unique index —
+ * which `onConflict:'event_id,guest_id'` can't resolve) is treated as benign, so
+ * the guest is restored UNSEATED rather than the whole undo crashing. RLS:
+ * `event_seat_assignments_couple_write` is FOR ALL, so the couple may re-insert
+ * (verified in P1) — the trigger is SECURITY DEFINER only because *guests* can't.
+ */
+export async function restoreGuestRsvpAndSeat(
+  eventId: string,
+  guestId: string,
+  priorRsvp: RsvpStatus,
+  freedSeat: ReleasedSeat | null,
+): Promise<InlineResult> {
+  if (!RSVP_VALUES.includes(priorRsvp)) return { ok: false, error: 'Pick a valid RSVP.' };
+
+  const supabase = await createClient();
+
+  // 1. Restore the RSVP. A declined guest is never the couple, so no coercion.
+  const { error: rsvpErr } = await supabase
+    .from('guests')
+    .update({
+      rsvp_status: priorRsvp,
+      rsvp_responded_at: ['attending', 'declined'].includes(priorRsvp)
+        ? new Date().toISOString()
+        : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+  if (rsvpErr) return { ok: false, error: rsvpErr.message };
+
+  // 2. Re-place the freed chair — best-effort.
+  if (freedSeat && freedSeat.table_id) {
+    const { error: seatErr } = await supabase
+      .from('event_seat_assignments')
+      .upsert(
+        [
+          {
+            event_id: eventId,
+            guest_id: guestId,
+            table_id: freedSeat.table_id,
+            seat_number: freedSeat.seat_number,
+            locked: freedSeat.locked,
+          },
+        ],
+        { onConflict: 'event_id,guest_id' },
+      );
+    // 23505 = the exact chair was re-taken during the undo window → benign, the
+    // guest is restored unseated. Any other error is likewise non-fatal (the
+    // RSVP is already back), but we log it so a real regression is visible.
+    if (seatErr && (seatErr as { code?: string }).code !== '23505') {
+      logQueryError(
+        'restoreGuestRsvpAndSeat (seat re-place)',
+        seatErr,
+        { event_id: eventId, guest_id: guestId },
+        'graceful_degrade',
+      );
+    }
+  }
+
+  revalidatePath(guestsPath(eventId));
+  return { ok: true };
 }
 
 /**

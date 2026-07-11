@@ -21,6 +21,10 @@
     {
       "path": "/api/cron/retention-sweep",
       "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/papic-fullres-drop",
+      "schedule": "0 4 * * 1"
     }
   ]
 }

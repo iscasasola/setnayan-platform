@@ -202,9 +202,14 @@ function JourneyRow({ entry }: { entry: JourneyEntry }) {
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           {monthDay(entry.date)}
         </span>
-        <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink/40">
-          {yearOf(entry.date)}
-        </span>
+        {/* Only surface the year when it differs from the current year — a
+            same-year arc doesn't need "2026" stamped on every row (the arc
+            header already anchors it); a cross-year engagement still reads. */}
+        {entry.date.getFullYear() !== new Date().getFullYear() ? (
+          <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink/40">
+            {yearOf(entry.date)}
+          </span>
+        ) : null}
       </div>
       <span
         aria-hidden

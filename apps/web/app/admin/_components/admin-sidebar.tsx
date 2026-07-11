@@ -645,10 +645,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         // Nav/icon/menu registry — the single source for the name + icon of
         // every menu across all account types (foundation 2026-06-16).
+        // Ugat Studio default tab (fold 2026-07-10). NORMAL matchPrefix on the
+        // legacy path — /admin/ugat != /admin/menus so no shell-path collision.
         key: 'menus',
         label: 'Menus & icons',
-        href: '/admin/menus',
+        href: '/admin/ugat?tab=menus',
         icon: Shapes,
+        matchPrefix: '/admin/menus',
       },
       {
         key: 'taxonomy',
@@ -671,8 +674,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // grouped by onboarding type. Scales as new event-type onboardings ship.
         key: 'onboarding',
         label: 'Onboarding',
-        href: '/admin/onboarding',
+        href: '/admin/ugat?tab=onboarding',
         icon: Compass,
+        matchPrefix: '/admin/onboarding',
       },
       // 'wedding-types' REMOVED 2026-07-03 — folded into the Taxonomy Studio's
       // Vocabularies → Faiths rail (/admin/taxonomy?view=vocab-faith). The
@@ -680,14 +684,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         key: 'wedding-traditions',
         label: 'Wedding traditions',
-        href: '/admin/wedding-traditions',
+        href: '/admin/ugat?tab=wedding-traditions',
         icon: BookOpen,
+        matchPrefix: '/admin/wedding-traditions',
       },
       {
         key: 'brain',
         label: "Setnayan AI brain",
-        href: '/admin/brain',
+        href: '/admin/ugat?tab=brain',
         icon: Brain,
+        matchPrefix: '/admin/brain',
       },
     ],
   },

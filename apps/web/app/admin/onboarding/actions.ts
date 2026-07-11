@@ -67,10 +67,10 @@ export async function updateOnboardingMusic(formData: FormData) {
     })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/onboarding?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/ugat?tab=onboarding&error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath('/admin/onboarding');
+  revalidatePath('/admin/ugat');
   revalidatePath('/onboarding/wedding');
-  redirect('/admin/onboarding?saved=1');
+  redirect('/admin/ugat?tab=onboarding&saved=1');
 }

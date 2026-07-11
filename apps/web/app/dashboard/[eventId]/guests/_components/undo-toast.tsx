@@ -16,7 +16,7 @@
  * model.
  */
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { Undo2, X } from 'lucide-react';
 
 const UNDO_WINDOW_MS = 6000;
@@ -107,6 +107,29 @@ function getSnapshot() {
  */
 export function UndoToastHost() {
   const toast = useSyncExternalStore(subscribe, getSnapshot, () => null);
+  const undoBtnRef = useRef<HTMLButtonElement>(null);
+  const rescuedId = useRef<number | null>(null);
+
+  // Focus rescue (a11y): the action that triggers an undo toast (e.g. the
+  // SelectionBar delete button) typically UNMOUNTS as it fires — clearing the
+  // selection retracts the bar — dropping keyboard focus to <body>. Without
+  // this, a keyboard / screen-reader user cannot reach the Undo button before
+  // the 6s window closes, so the delete is effectively irreversible for them.
+  // We move focus to Undo ONCE per new toast, and ONLY when focus actually fell
+  // to <body> — never stealing focus from a control the user is still on.
+  useEffect(() => {
+    if (!toast) {
+      rescuedId.current = null;
+      return;
+    }
+    if (rescuedId.current === toast.id || typeof document === 'undefined') return;
+    rescuedId.current = toast.id;
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      undoBtnRef.current?.focus();
+    }
+  }, [toast]);
+
   if (!toast) return null;
 
   return (
@@ -118,6 +141,7 @@ export function UndoToastHost() {
       <div className="gl-toast pointer-events-auto flex items-center gap-3 rounded-xl border border-ink/10 bg-paper px-4 py-2.5 text-sm text-ink shadow-lg">
         <span className="leading-snug">{toast.label}</span>
         <button
+          ref={undoBtnRef}
           type="button"
           onClick={runUndo}
           disabled={toast.state === 'undoing'}

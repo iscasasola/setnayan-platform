@@ -725,7 +725,12 @@ export async function bulkSoftDeleteGuestsForUndo(
   return { ok: true, removedIds, releasedSeats };
 }
 
-export type RestoreResult = { ok: boolean; error?: string };
+export type RestoreResult = {
+  ok: boolean;
+  error?: string;
+  seatsRestored?: number;
+  seatsSkipped?: number;
+};
 
 export async function restoreDeletedGuests(
   eventId: string,
@@ -749,10 +754,13 @@ export async function restoreDeletedGuests(
 
   if (undeleteErr) return { ok: false, error: undeleteErr.message };
 
-  // Re-place seats — best-effort. Only the guests we just restored, scoped to
-  // this event. Upsert on (event_id, guest_id) so a retry is idempotent; a
-  // physical-chair collision (someone took the seat during the undo window)
-  // leaves the guest restored-but-unseated rather than failing the whole undo.
+  // Re-place seats — best-effort, ONE ROW AT A TIME. event_seat_assignments has
+  // a partial unique index on (event_id, table_id, seat_number); the
+  // onConflict:'event_id,guest_id' arbiter can NOT absorb a CHAIR collision, so a
+  // single batched upsert would abort the whole statement (23505) the moment any
+  // one freed chair was re-taken during the 6s undo window — silently unseating
+  // EVERY guest in the undo. Per-row keeps a collision scoped to its own guest,
+  // and we capture the error so a failed re-seat is observable, not swallowed.
   const restoreSet = new Set(ids);
   const seatRows = (seats ?? [])
     .filter((s) => s && restoreSet.has(s.guest_id))
@@ -764,12 +772,27 @@ export async function restoreDeletedGuests(
       locked: s.locked,
     }));
 
-  if (seatRows.length > 0) {
-    await supabase
+  let seatsRestored = 0;
+  let seatsSkipped = 0;
+  for (const row of seatRows) {
+    const { error: seatErr } = await supabase
       .from('event_seat_assignments')
-      .upsert(seatRows, { onConflict: 'event_id,guest_id' });
+      .upsert(row, { onConflict: 'event_id,guest_id' });
+    if (seatErr) {
+      seatsSkipped += 1;
+      // 23505 = the chair was re-taken during the undo window: expected + benign
+      // (the guest stays restored, just unseated). Surface anything else.
+      if (seatErr.code !== '23505') {
+        console.error('[restoreDeletedGuests] seat re-place failed', {
+          guest_id: row.guest_id,
+          error: seatErr.message,
+        });
+      }
+    } else {
+      seatsRestored += 1;
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true };
+  return { ok: true, seatsRestored, seatsSkipped };
 }

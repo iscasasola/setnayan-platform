@@ -1499,6 +1499,10 @@ async function persistBooths(
   eventId: string,
   booths: BoothPayload[],
 ) {
+  // SECURITY (defense-by-construction): sanitize cross-event vendor links here,
+  // in the single choke point EVERY caller (saveBooths, autoArrange, and any
+  // future one) passes through — so the guard can never be forgotten again.
+  await nullOutForeignBoothVendors(supabase, eventId, booths);
   const keepIds = booths.map((b) => b.booth_id).filter((id): id is string => id !== null);
   const del = supabase.from('event_floor_booths').delete().eq('event_id', eventId);
   const { error: delError } = await (keepIds.length > 0
@@ -1566,8 +1570,7 @@ export async function saveBooths(formData: FormData) {
   if (!user) redirect('/login');
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
-  await nullOutForeignBoothVendors(supabase, eventId, booths);
-  await persistBooths(supabase, eventId, booths);
+  await persistBooths(supabase, eventId, booths); // guards cross-event vendor links internally
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }

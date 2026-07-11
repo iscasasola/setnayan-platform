@@ -101,7 +101,9 @@ import {
 } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
-import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+// Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
+// stays out of the initial page JS until that tab mounts — see the lazy loader.
+import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -949,6 +951,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       isCompleteConfirmed={isCompleteConfirmed}
       isDisputed={isDisputed}
       isVendorMarked={isVendorMarked}
+      hideCompletion={relationshipShellEnabled}
       search={search}
     />
   );
@@ -1077,7 +1080,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
       callTabNode =
         fullThread.inquiry_status === 'accepted' ? (
-          <ThreadCallLauncher
+          <ThreadCallLauncherLazy
             threadId={threadId}
             currentUserId={user.id}
             counterpartyLabel={eventName}
@@ -1282,11 +1285,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'details',
       label: 'Details',
       icon: <Info aria-hidden className={tabIconClass} />,
-      // The this-event profile hub — the full brief (with the returning-client
-      // marker + action bar, both already inside OverviewTab) plus the activity
-      // log & private CRM notes.
+      // The this-event profile hub — the completion handshake (surfaced here as
+      // a first-class node, mirroring the couple's Details tab), then the full
+      // brief (with the returning-client marker + action bar, both already inside
+      // OverviewTab) plus the activity log & private CRM notes.
       node: (
         <div className="space-y-6">
+          {isBooked ? (
+            <VendorCompletionCard
+              eventId={eventId}
+              isCompleteConfirmed={isCompleteConfirmed}
+              isDisputed={isDisputed}
+              isVendorMarked={isVendorMarked}
+            />
+          ) : null}
           {overviewNode}
           {activityNode}
         </div>
@@ -1405,6 +1417,68 @@ function Card({
     <div className={`rounded-2xl border border-ink/10 bg-white p-4 sm:p-5 ${className}`}>
       {children}
     </div>
+  );
+}
+
+// ===========================================================================
+// Completion handshake card (booked) — the vendor's "Mark service complete"
+// affordance + the four post-mark states. Extracted verbatim from OverviewTab
+// so BOTH the inline flag-OFF render and the flag-ON relationship-shell
+// Details-tab node share one source of truth (reuses vendorMarkServiceComplete —
+// no handshake logic reimplemented).
+// ===========================================================================
+function VendorCompletionCard({
+  eventId,
+  isCompleteConfirmed,
+  isDisputed,
+  isVendorMarked,
+}: {
+  eventId: string;
+  isCompleteConfirmed: boolean;
+  isDisputed: boolean;
+  isVendorMarked: boolean;
+}) {
+  return (
+    <Card>
+      {isCompleteConfirmed ? (
+        <div className="flex items-center gap-3 text-sm">
+          <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
+          <span className="text-ink/75">
+            <span className="font-medium text-ink">Service complete.</span> The couple confirmed
+            they received everything.
+          </span>
+        </div>
+      ) : isDisputed ? (
+        <div className="flex items-center gap-3 text-sm">
+          <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-warn-600" strokeWidth={1.75} />
+          <span className="text-ink/75">
+            <span className="font-medium text-ink">The couple reported a problem</span> with the
+            delivery. Reach out via your thread to sort it out.
+          </span>
+        </div>
+      ) : isVendorMarked ? (
+        <div className="flex items-center gap-3 text-sm">
+          <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-ink/40" strokeWidth={1.75} />
+          <span className="text-ink/75">
+            <span className="font-medium text-ink">Marked complete.</span> Waiting on the couple to
+            confirm they received everything (auto-confirms after 7 days).
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-ink/70">
+            <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
+            service complete — the couple confirms they got everything, then their review opens.
+          </div>
+          <form action={vendorMarkServiceComplete}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <SubmitButton className="button-primary shrink-0" pendingLabel="Marking…">
+              Mark service complete
+            </SubmitButton>
+          </form>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -1534,6 +1608,10 @@ function OverviewTab(props: {
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
+  /** Flag ON: the relationship shell renders the completion card as its own
+   *  Details-tab node, so suppress the inline copy here to avoid doubling up.
+   *  Flag OFF: false → the card renders inline exactly as before. */
+  hideCompletion: boolean;
   search: { deposit_ack?: string };
 }) {
   const {
@@ -1556,6 +1634,7 @@ function OverviewTab(props: {
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
+    hideCompletion,
     search,
   } = props;
 
@@ -1929,48 +2008,16 @@ function OverviewTab(props: {
         </Card>
       ) : null}
 
-      {/* Editorial media / completion handshake (booked). */}
-      {isBooked ? (
-        <Card>
-          {isCompleteConfirmed ? (
-            <div className="flex items-center gap-3 text-sm">
-              <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">Service complete.</span> The couple confirmed
-                they received everything.
-              </span>
-            </div>
-          ) : isDisputed ? (
-            <div className="flex items-center gap-3 text-sm">
-              <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-warn-600" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">The couple reported a problem</span> with the
-                delivery. Reach out via your thread to sort it out.
-              </span>
-            </div>
-          ) : isVendorMarked ? (
-            <div className="flex items-center gap-3 text-sm">
-              <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-ink/40" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">Marked complete.</span> Waiting on the couple to
-                confirm they received everything (auto-confirms after 7 days).
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-ink/70">
-                <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
-                service complete — the couple confirms they got everything, then their review opens.
-              </div>
-              <form action={vendorMarkServiceComplete}>
-                <input type="hidden" name="event_id" value={eventId} />
-                <SubmitButton className="button-primary shrink-0" pendingLabel="Marking…">
-                  Mark service complete
-                </SubmitButton>
-              </form>
-            </div>
-          )}
-        </Card>
+      {/* Completion handshake (booked). Rendered inline on flag OFF; on flag ON
+          the relationship shell surfaces it as its own Details-tab node instead
+          (hideCompletion), so it isn't shown twice. */}
+      {isBooked && !hideCompletion ? (
+        <VendorCompletionCard
+          eventId={eventId}
+          isCompleteConfirmed={isCompleteConfirmed}
+          isDisputed={isDisputed}
+          isVendorMarked={isVendorMarked}
+        />
       ) : null}
 
       {/* Cocktail area (booked, eligible). */}

@@ -35,6 +35,7 @@ import { ensureFinalized } from '@/lib/pax';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
+import { CaptureBar } from './_components/capture-bar';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { LiveSearch } from './_components/live-search';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
@@ -184,11 +185,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       fetchJoinUrl(supabase, eventId),
       // Unlisted joiners awaiting the couple's reconcile (Invite/Join v2,
       // 0000 ADDENDUM 2026-06-25). These are real guest rows optimistically
-      // admitted whose name didn't match the list. RLS scopes this to couples;
-      // a head+count read keeps it cheap.
+      // admitted whose name didn't match the list. RLS scopes this to couples.
+      // Living Roster P2: fetch their IDS (not just a head+count) so the roster
+      // can surface them INLINE as blush "needs you" rows — the /guests/claims
+      // deep route stays for the merge-into-existing (Link) flow. `count:exact`
+      // keeps the banner/count while also returning the rows.
       supabase
         .from('guests')
-        .select('guest_id', { count: 'exact', head: true })
+        .select('guest_id', { count: 'exact' })
         .eq('event_id', eventId)
         .eq('entry_source', 'self_added_unlisted')
         .is('deleted_at', null),
@@ -212,7 +216,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .select('checkin_id', { count: 'exact', head: true })
         .eq('event_id', eventId),
     ]);
-  const pendingClaimsCount = pendingClaims.count ?? 0;
+  // Self-join reconcile queue — the ids feed the inline blush roster rows; the
+  // count still drives the /guests/claims banner + the mobile carousel badge.
+  const selfJoinIds = ((pendingClaims.data ?? []) as { guest_id: string }[]).map(
+    (r) => r.guest_id,
+  );
+  const pendingClaimsCount = pendingClaims.count ?? selfJoinIds.length;
   const unsentCount = unsentInvites.count ?? 0;
   const seatedCount = seated.count ?? 0;
   const arrivedCount = arrived.count ?? 0;
@@ -440,30 +449,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           </h1>
         </div>
         <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
+          {/* Share stays in the header; the add paths (primary add, CSV import,
+              quick-add list, full form) moved INTO the capture bar's Add input +
+              its overflow menu (Living Roster P2 · capture-first). */}
           {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
-          {/* The bulk-entry paths (CSV import, rapid list) are real but rarely
-              the first move — tuck them behind one "More ways" disclosure so the
-              header leads with the single primary add, not four equal buttons. */}
-          <details className="group relative">
-            <summary className="button-secondary cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              More ways
-            </summary>
-            <div className="absolute right-0 z-20 mt-1 flex w-48 flex-col gap-0.5 rounded-lg border border-ink/10 bg-cream p-1 shadow-lg">
-              <Link
-                href={`/dashboard/${eventId}/guests/import`}
-                className="rounded-md px-3 py-2 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-terracotta-700"
-              >
-                Import CSV
-              </Link>
-              <Link
-                href={`/dashboard/${eventId}/guests/quick`}
-                className="rounded-md px-3 py-2 text-sm text-ink/80 hover:bg-terracotta/10 hover:text-terracotta-700"
-              >
-                Quick add list
-              </Link>
-            </div>
-          </details>
-          <OpenQuickAddButton />
         </div>
       </header>
 
@@ -527,6 +516,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           Same filter params, same server actions: this is presentation only.
           (Mobile top stays just the list; the carousel carries its own chrome.) */}
       <div className="gl-settle hidden space-y-3 lg:block">
+        {/* Capture-first (Living Roster P2): the dual-mode Add | Find bar heads
+            the chrome. Add parses "Ana Cruz +1 groom vip #Barkada" and lands it
+            inline; Find wraps LiveSearch. A new guest inherits the active Side
+            lens. Replaces the header's primary-add + More-ways disclosure. */}
+        <CaptureBar
+          eventId={eventId}
+          initialQuery={q}
+          defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+        />
+
         <SummaryFacetBar
           stats={stats}
           eventId={eventId}
@@ -646,6 +645,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               groups={groups}
               groupMemberships={groupMemberships}
               currentGroupId={currentGroupId}
+              selfJoinIds={selfJoinIds}
               photoDisplayUrls={photoDisplayUrls}
               groupMode={
                 sort === 'side'

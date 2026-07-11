@@ -332,7 +332,7 @@ function DesktopRow({
         selected ? 'bg-terracotta/[0.06]' : 'hover:bg-terracotta/[0.04]'
       }`}
     >
-      <td className="px-3 py-3">
+      <td className="px-3 py-2.5">
         <label className="flex items-center justify-center">
           <input
             type="checkbox"
@@ -343,7 +343,7 @@ function DesktopRow({
           />
         </label>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-2.5">
         <Link
           href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
           className="flex items-center gap-3"
@@ -361,13 +361,13 @@ function DesktopRow({
           </div>
         </Link>
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-2.5">
         <SidePill side={guest.side} />
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-2.5">
         <RoleChips guest={guest} palette={palette} />
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-2.5">
         <GroupChipList
           eventId={eventId}
           guestId={guest.guest_id}
@@ -376,10 +376,10 @@ function DesktopRow({
           currentGroupId={currentGroupId}
         />
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-2.5">
         <RsvpPill status={guest.rsvp_status} />
       </td>
-      <td className="px-3 py-3 text-xs text-ink/60">
+      <td className="px-3 py-2.5 text-xs text-ink/60">
         {guest.email ?? guest.mobile ?? '—'}
       </td>
     </tr>
@@ -545,7 +545,7 @@ export function GuestListMultiselect({
         <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
             <tr>
-              <th className="w-10 px-3 py-3">
+              <th className="w-10 px-3 py-2.5">
                 <label className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -561,12 +561,12 @@ export function GuestListMultiselect({
                   />
                 </label>
               </th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="w-[10%] px-3 py-3 font-medium">Side</th>
-              <th className="w-[18%] px-3 py-3 font-medium">Role</th>
-              <th className="w-[16%] px-3 py-3 font-medium">Groups</th>
-              <th className="w-[12%] px-3 py-3 font-medium">RSVP</th>
-              <th className="w-[14%] px-3 py-3 font-medium">Contact</th>
+              <th className="px-4 py-2.5 font-medium">Name</th>
+              <th className="w-[10%] px-3 py-2.5 font-medium">Side</th>
+              <th className="w-[18%] px-3 py-2.5 font-medium">Role</th>
+              <th className="w-[16%] px-3 py-2.5 font-medium">Groups</th>
+              <th className="w-[12%] px-3 py-2.5 font-medium">RSVP</th>
+              <th className="w-[14%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>

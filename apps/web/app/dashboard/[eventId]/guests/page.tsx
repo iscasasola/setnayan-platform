@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, X, ArrowRight } from 'lucide-react';
+import { Link2, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
@@ -42,7 +42,6 @@ import {
   OpenQuickAddButton,
   QuickAddSheet,
 } from './_components/quick-add-sheet';
-import { LifecycleRibbon } from './_components/lifecycle-ribbon';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
@@ -514,32 +513,32 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
-      {/* Desktop-only chrome — owner directive 2026-06-02 (mobile top = just
-          the guest list; the carousel carries the counts/search/add/filters).
-          Consolidated 2026-06-13 from 8 stacked blocks into 4 compact rows so
-          the guest list rises above the fold: a slim summary strip (the RSVP
-          counts ARE the filter), the lifecycle ribbon, one filter bar (search
-          · sort · list/map view switch), and the always-visible active-filters
-          chip row. Side moved into the rail; the duplicate "Invited" stat card
-          and the standalone "Seating chart" card were removed (the ribbon's
-          Seat step + the left nav already reach seating); Share moved to the
-          header. */}
-      <div className="hidden space-y-3 lg:block">
-        <SummaryStrip
+      {/* Desktop-only chrome — Living Roster reskin (P0 · 2026-07-11). The old
+          split-brain of a stat strip (GUEST TARGET / PAX POOL / CONFIRMATIONS)
+          up top + a SIDE / VIEW / GROUPS facet rail down the left is folded into
+          ONE horizontal summary-facet bar: the live counts now sit ON the filter
+          pills themselves (Side / RSVP / View / Group each a labelled row of
+          count-bearing pills), with the pax + confirmations meters as the bar's
+          header and the active-filter breadcrumb at its foot. The Build ▸ Invite
+          ▸ Confirm ▸ Seat ▸ Day-of stage-nav stepper (lifecycle ribbon) is
+          RETIRED — its steps live in the left nav + the roster's own affordances.
+          Same filter params, same server actions: this is presentation only.
+          (Mobile top stays just the list; the carousel carries its own chrome.) */}
+      <div className="gl-settle hidden space-y-3 lg:block">
+        <SummaryFacetBar
           stats={stats}
           eventId={eventId}
-          active={rsvpFilter}
           search={search}
           paxProgress={paxProgress}
-        />
-
-        <LifecycleRibbon
-          eventId={eventId}
-          active="build"
-          pendingClaims={pendingClaimsCount}
-          unsent={unsentCount}
-          unseated={Math.max(0, stats.attending - seatedCount)}
-          arrived={arrivedCount}
+          rsvpActive={rsvpFilter}
+          teamActive={teamFilter}
+          teamCounts={teamCounts}
+          view={view}
+          views={viewFilters}
+          groups={groups}
+          currentGroupId={currentGroupId}
+          tagFilter={tagFilter}
+          tags={allTags}
         />
 
         {/* inline search + sort + list/map switch — desktop only; mobile uses
@@ -551,8 +550,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           search={search}
           gview={gview}
         />
-
-        <ActiveFilters eventId={eventId} search={search} groups={groups} />
       </div>
 
       {/* Active filters — mobile sticky strip (lg:hidden). The always-visible
@@ -631,21 +628,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           groupMemberships={groupMemberships}
         />
       ) : (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
-        <FacetsSidebar
-          eventId={eventId}
-          view={view}
-          views={viewFilters}
-          team={teamFilter}
-          teamCounts={teamCounts}
-          tagFilter={tagFilter}
-          tags={allTags}
-          search={search}
-          groups={groups}
-          currentGroupId={currentGroupId}
-        />
-
-        <div className="min-w-0 space-y-4">
+      /* Roster-as-hero — full-width (Living Roster P0). The left facet rail is
+         gone: Side / View / Groups filtering now rides the summary-facet bar
+         above, so the list gets the whole width instead of a cramped 240px
+         column beside it. `gl-settle-delayed` eases the roster in a beat after
+         the bar on first load (frozen under prefers-reduced-motion). */
+      <div className="gl-settle-delayed min-w-0 space-y-4">
           {visible.length === 0 ? (
             <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
           ) : (
@@ -675,7 +663,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               )}
             />
           )}
-        </div>
       </div>
       )}
 
@@ -878,33 +865,82 @@ function pickFlash(search: {
   return null;
 }
 
-// Summary strip (redesign 2026-06-13) — replaces the old StatsStrip's
-// progress bar + FIVE stat cards. The total no longer gets its own
-// "Invited" card (it already headlines the H1 + the "of N" caption — the
-// duplication the owner flagged); instead the four RSVP states ARE the
-// filter, as toggle pills (tap an active pill to clear it). Plus-ones is
-// kept as a caption so the count isn't lost. Pill links preserve every
-// other active param so RSVP combines with side / view / group / tag.
-function SummaryStrip({
+// -----------------------------------------------------------------------
+// SummaryFacetBar · Living Roster P0 (2026-07-11). The old two-piece chrome
+// — a stat strip (GUEST TARGET / PAX POOL / CONFIRMATIONS) stacked over a
+// left SIDE / VIEW / GROUPS facet RAIL — is folded into ONE horizontal bar:
+//
+//   ┌ meters (pax + confirmations progress) ──────────────────────────┐
+//   │ Side   [Everyone · N] [Bride · N] [Groom · N]                    │
+//   │ RSVP   [Attending · N] [Pending · N] [Declined · N] [Maybe · N]  │
+//   │ View   [All] [VIP Family] [Wedding Party] …                      │
+//   │ Group  [Katropa · 3] [College Friends · 4]  + New group          │
+//   │ Tags   … (only when the couple has custom tags)                  │
+//   │ Filters: «q» ✕  Bride ✕  Attending ✕   Clear all                 │
+//   └──────────────────────────────────────────────────────────────────┘
+//
+// The live counts now sit ON the filter pills (per the prototype). Every
+// pill is a plain server-rendered <Link> that rewrites the SAME URL params
+// the old rail/strip used (q · rsvp · view · group · team · tag · sort ·
+// gview), so filtering behaviour + results are byte-for-byte unchanged —
+// this is presentation only. Group management (create / rename / delete)
+// keeps its full behaviour via the same GroupsSidebar client component,
+// now laid out inline (`layout="inline"`).
+const SUMMARY_FILTER_KEYS = [
+  'q',
+  'rsvp',
+  'view',
+  'group',
+  'team',
+  'tag',
+  'sort',
+  'gview',
+] as const;
+
+function SummaryFacetBar({
   stats,
   eventId,
-  active,
   search,
   paxProgress,
+  rsvpActive,
+  teamActive,
+  teamCounts,
+  view,
+  views,
+  groups,
+  currentGroupId,
+  tagFilter,
+  tags,
 }: {
   stats: GuestStats;
   eventId: string;
-  active: RsvpStatus | '';
   search: Record<string, string | undefined>;
   paxProgress: PaxProgress | null;
+  rsvpActive: RsvpStatus | '';
+  teamActive: 'all' | 'bride' | 'groom';
+  teamCounts: { all: number; bride: number; groom: number };
+  view: string;
+  views: { key: string; label: string }[];
+  groups: GuestGroupWithCount[];
+  currentGroupId: string | null;
+  tagFilter: string;
+  tags: string[];
 }) {
-  const buildHref = (rsvp: RsvpStatus | null) => {
+  // One href builder for every pill: seed from the current filter params,
+  // then override the single dimension this pill owns (null = drop it). This
+  // is the SAME "preserve everything, toggle one" contract the old
+  // SummaryStrip + FacetsSidebar each implemented — unified so every facet
+  // stacks cleanly.
+  const buildHref = (overrides: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries(search)) {
-      if (k === 'rsvp' || !v) continue;
-      p.set(k, v);
+    for (const k of SUMMARY_FILTER_KEYS) {
+      const v = search[k];
+      if (v) p.set(k, v);
     }
-    if (rsvp) p.set('rsvp', rsvp);
+    for (const [k, val] of Object.entries(overrides)) {
+      if (val === null) p.delete(k);
+      else p.set(k, val);
+    }
     const qs = p.toString();
     return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
   };
@@ -913,21 +949,33 @@ function SummaryStrip({
   const pct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
   const seg = (n: number) => (stats.total > 0 ? (n / stats.total) * 100 : 0);
 
-  const pills: {
-    key: RsvpStatus;
+  // Side facet — same `team` param + "both counts to both sides" rule as the
+  // old rail (Everyone clears; Bride / Groom set). Dot cue matches the roster.
+  const sideOptions: {
+    key: 'all' | 'bride' | 'groom';
     label: string;
     count: number;
-    tint: string;
+    dot?: string;
   }[] = [
-    { key: 'attending', label: 'Attending', count: stats.attending, tint: 'bg-success-100 text-success-800' },
-    { key: 'pending', label: 'Pending', count: stats.pending, tint: 'bg-warn-100 text-warn-800' },
-    { key: 'declined', label: 'Declined', count: stats.declined, tint: 'bg-danger-100 text-danger-800' },
-    { key: 'maybe', label: 'Maybe', count: stats.maybe, tint: 'bg-sky-100 text-sky-800' },
+    { key: 'all', label: 'Everyone', count: teamCounts.all },
+    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-danger-500' },
+    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: 'bg-sky-600' },
+  ];
+
+  // RSVP facet — toggle pills (tap an active one to clear), preserved from the
+  // old SummaryStrip. The four states carry the live counts.
+  const rsvpOptions: { key: RsvpStatus; label: string; count: number }[] = [
+    { key: 'attending', label: 'Attending', count: stats.attending },
+    { key: 'pending', label: 'Pending', count: stats.pending },
+    { key: 'declined', label: 'Declined', count: stats.declined },
+    { key: 'maybe', label: 'Maybe', count: stats.maybe },
   ];
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 lg:flex-row lg:items-center lg:gap-5">
-      <div className="min-w-0 flex-1">
+    <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+      {/* Meters — the pax target + confirmations progress that headlined the
+          old stat strip, kept verbatim (data-display only). */}
+      <div className="border-b border-ink/[0.07] px-4 py-3">
         {paxProgress ? (
           <div className="mb-2.5">
             <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -991,38 +1039,141 @@ function SummaryStrip({
           <div className="h-full bg-danger-300" style={{ width: `${seg(stats.declined)}%` }} />
         </div>
       </div>
-      <ul className="grid grid-cols-4 gap-2 lg:flex lg:shrink-0">
-        {pills.map((pill) => {
-          const isActive = pill.key === active;
-          // Tap an active pill to clear the RSVP filter (toggle); otherwise
-          // apply it. Either way the other active filters are preserved.
-          const href = isActive ? buildHref(null) : buildHref(pill.key);
-          return (
-            <li key={pill.key}>
-              <Link
-                href={href}
-                aria-current={isActive ? 'true' : undefined}
-                title={isActive ? `Clear ${pill.label} filter` : `Show only ${pill.label}`}
-                className={`flex min-w-[4.25rem] flex-col rounded-lg border px-3 py-1.5 transition-colors ${
-                  isActive
-                    ? 'border-terracotta bg-terracotta/5'
-                    : 'border-ink/10 hover:border-ink/25'
-                }`}
+
+      {/* Facet lens rows — the counts ride the filter pills. */}
+      <div className="flex flex-col gap-2.5 px-4 py-3">
+        <FacetRow label="Side">
+          {sideOptions.map((s) => (
+            <LensPill
+              key={s.key}
+              href={buildHref({ team: s.key === 'all' ? null : s.key })}
+              active={teamActive === s.key}
+              count={s.count}
+              dot={s.dot}
+            >
+              {s.label}
+            </LensPill>
+          ))}
+        </FacetRow>
+
+        <FacetRow label="RSVP">
+          {rsvpOptions.map((r) => {
+            const isActive = rsvpActive === r.key;
+            return (
+              <LensPill
+                key={r.key}
+                href={buildHref({ rsvp: isActive ? null : r.key })}
+                active={isActive}
+                count={r.count}
+                title={isActive ? `Clear ${r.label} filter` : `Show only ${r.label}`}
               >
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
-                  {pill.label}
-                </span>
-                <span
-                  className={`mt-0.5 inline-flex w-fit rounded-full px-2 py-0.5 text-base font-semibold ${pill.tint}`}
+                {r.label}
+              </LensPill>
+            );
+          })}
+        </FacetRow>
+
+        <FacetRow label="View">
+          {views.map((v) => (
+            <LensPill
+              key={v.key}
+              href={buildHref({ view: v.key === 'all' ? null : v.key })}
+              active={view === v.key}
+            >
+              {v.label}
+            </LensPill>
+          ))}
+        </FacetRow>
+
+        <FacetRow label="Group">
+          <GroupsSidebar
+            eventId={eventId}
+            groups={groups}
+            currentGroupId={currentGroupId}
+            layout="inline"
+            hrefByGroupId={Object.fromEntries(
+              groups.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
+            )}
+          />
+        </FacetRow>
+
+        {tags.length > 0 ? (
+          <FacetRow label="Tags">
+            {tags.map((t) => {
+              const isActive = tagFilter === t;
+              return (
+                <LensPill
+                  key={t}
+                  href={buildHref({ tag: isActive ? null : t })}
+                  active={isActive}
                 >
-                  {pill.count}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                  {t}
+                </LensPill>
+              );
+            })}
+          </FacetRow>
+        ) : null}
+
+        {/* Active-filter breadcrumb — the always-visible "what am I looking
+            at" chip row, now the foot of the bar (renders null when clean). */}
+        <ActiveFilters eventId={eventId} search={search} groups={groups} />
+      </div>
     </div>
+  );
+}
+
+// A labelled row of facet pills: a mono uppercase lens label + its pills,
+// wrapping together.
+function FacetRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+// One facet pill (a filter <Link>). Idle = hairline outline; active = the
+// champagne-gold wash (terracotta token). An optional side-dot + count ride
+// inside, per the prototype's lens pills.
+function LensPill({
+  href,
+  active,
+  children,
+  count,
+  dot,
+  title,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+  count?: number;
+  dot?: string;
+  title?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'true' : undefined}
+      title={title}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+        active
+          ? 'border-terracotta bg-terracotta/10 font-semibold text-terracotta-700'
+          : 'border-ink/15 text-ink/70 hover:border-ink/30'
+      }`}
+    >
+      {dot ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} /> : null}
+      <span className="whitespace-nowrap">{children}</span>
+      {typeof count === 'number' ? (
+        <span
+          className={`tabular-nums ${active ? 'text-terracotta-700/70' : 'text-ink/40'}`}
+        >
+          {count}
+        </span>
+      ) : null}
+    </Link>
   );
 }
 
@@ -1118,185 +1269,6 @@ function Toolbar({
         <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
       </div>
     </div>
-  );
-}
-
-function FacetsSidebar({
-  eventId,
-  view,
-  views,
-  team,
-  teamCounts,
-  tagFilter,
-  tags,
-  search,
-  groups,
-  currentGroupId,
-}: {
-  eventId: string;
-  view: string;
-  views: { key: string; label: string }[];
-  team: 'all' | 'bride' | 'groom';
-  teamCounts: { all: number; bride: number; groom: number };
-  tagFilter: string;
-  tags: string[];
-  search: { q?: string; rsvp?: string; sort?: string };
-  groups: GuestGroupWithCount[];
-  currentGroupId: string | null;
-}) {
-  // baseQuery now carries EVERY active dimension (2026-06-13) — not just
-  // q/rsvp/sort — so toggling any one facet preserves the rest. This is
-  // what lets a role-view, a custom group, a side, an RSVP, and a tag all
-  // stack: every link rebuilds from the full current state and overrides a
-  // single key.
-  const baseQuery = new URLSearchParams();
-  if (search.q) baseQuery.set('q', search.q);
-  if (search.rsvp) baseQuery.set('rsvp', search.rsvp);
-  if (search.sort) baseQuery.set('sort', search.sort);
-  if (view && view !== 'all') baseQuery.set('view', view);
-  if (team !== 'all') baseQuery.set('team', team);
-  if (tagFilter) baseQuery.set('tag', tagFilter);
-  if (currentGroupId) baseQuery.set('group', currentGroupId);
-
-  const buildHref = (overrides: Record<string, string | null>) => {
-    const q = new URLSearchParams(baseQuery);
-    for (const [key, value] of Object.entries(overrides)) {
-      if (value === null) q.delete(key);
-      else q.set(key, value);
-    }
-    const qs = q.toString();
-    return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
-  };
-
-  // Role-view + custom-group are independent now, so the role-view strip
-  // reflects `view` directly (no longer blanked when a group is active).
-  const activeRoleView = view;
-
-  // Side facet — moved into the rail (2026-06-13) from the old full-width
-  // segment row. Same `team` param + "both counts to both sides" rule.
-  const sideOptions: {
-    key: 'all' | 'bride' | 'groom';
-    label: string;
-    count: number;
-    dot?: string;
-  }[] = [
-    { key: 'all', label: 'Everyone', count: teamCounts.all },
-    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-danger-500' },
-    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: 'bg-sky-600' },
-  ];
-
-  return (
-    <aside className="hidden space-y-6 self-start lg:sticky lg:top-24 lg:block">
-      <FacetGroup label="Side">
-        <ul className="space-y-1">
-          {sideOptions.map((s) => (
-            <li key={s.key}>
-              <Link
-                href={buildHref({ team: s.key === 'all' ? null : s.key })}
-                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  team === s.key
-                    ? 'bg-terracotta/10 font-medium text-terracotta-700'
-                    : 'text-ink/70 hover:bg-ink/5'
-                }`}
-              >
-                {s.dot ? (
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
-                ) : null}
-                <span className="flex-1">{s.label}</span>
-                <span className="text-[10px] text-ink/40">{s.count}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </FacetGroup>
-
-      <FacetGroup label="View">
-        <ul className="space-y-1">
-          {views.map((v) => (
-            <li key={v.key}>
-              <Link
-                href={buildHref({ view: v.key === 'all' ? null : v.key })}
-                className={`block rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  activeRoleView === v.key
-                    ? 'bg-terracotta/10 font-medium text-terracotta-700'
-                    : 'text-ink/70 hover:bg-ink/5'
-                }`}
-              >
-                {v.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </FacetGroup>
-
-      {/* 7th-pass hotfix 2026-05-23 — pre-compute per-group hrefs on the
-          server side and pass as a plain Record<string,string> instead
-          of the previous `buildHref` callback. React Server Components
-          can't serialize functions across the RSC → Client boundary
-          (GroupsSidebar is `'use client'`), so passing the arrow
-          function crashed with "Functions cannot be passed directly to
-          Client Components" — Sentry digest 3284377371 that PRs #380 ·
-          #390 · #404 · #413 · #416 · #417 all chased through the data
-          layer in vain. Sweep #4 of the 5-way parallel sweep pulled the
-          actual stack trace from Vercel function logs and identified
-          this surface as the root cause. */}
-      <GroupsSidebar
-        eventId={eventId}
-        groups={groups}
-        currentGroupId={currentGroupId}
-        hrefByGroupId={Object.fromEntries(
-          groups.map((g) => [
-            g.group_id,
-            // Own `group` param now (2026-06-13) so the chosen group
-            // stacks with any active role view instead of replacing it.
-            buildHref({ group: g.group_id }),
-          ]),
-        )}
-      />
-
-      {tags.length > 0 ? (
-        <FacetGroup label="Custom tags">
-          <ul className="flex flex-wrap gap-2">
-            {tagFilter ? (
-              <li>
-                <Link
-                  href={buildHref({ tag: null })}
-                  className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-1 text-xs text-ink/70 hover:bg-ink/10"
-                >
-                  <X aria-hidden className="h-3 w-3" strokeWidth={2} />
-                  Clear
-                </Link>
-              </li>
-            ) : null}
-            {tags.map((t) => (
-              <li key={t}>
-                <Link
-                  href={buildHref({ tag: t })}
-                  className={`rounded-full px-2 py-1 text-xs ${
-                    tagFilter === t
-                      ? 'bg-terracotta text-cream'
-                      : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-                  }`}
-                >
-                  {t}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </FacetGroup>
-      ) : null}
-    </aside>
-  );
-}
-
-function FacetGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-        {label}
-      </h3>
-      {children}
-    </section>
   );
 }
 

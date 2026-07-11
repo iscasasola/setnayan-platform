@@ -127,7 +127,7 @@ export type VenueScene = {
     xPct: number;
     yPct: number;
     offerings?: string | null;
-    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null } | null;
+    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null; bookable?: boolean } | null;
   }[];
   /** Wayfinding signs (v2 payload). */
   signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];

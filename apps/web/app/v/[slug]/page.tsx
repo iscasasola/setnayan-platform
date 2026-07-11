@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { boothCanBrand } from '@/lib/seating-3d';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
@@ -663,6 +664,16 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
+  // 3D Booth Ads · Part C: Pro/Enterprise vendors get a shareable "walk into my
+  // booth" 3D showcase at /v/[slug]/booth (same gate that brands a booth). Behind
+  // NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE (inlined; kept in lock-step with the route).
+  // Include verification_state so the link never appears for a vendor the booth
+  // route will notFound() (the profile page skips its verified-gate for owner-
+  // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
+  const canShowBooth =
+    process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE === 'true' &&
+    boothCanBrand(vendor.tier_state ?? null) &&
+    vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
 
   const pageRaw = Number(search.reviewsPage ?? '1');
@@ -1678,6 +1689,14 @@ export async function renderVendorBySlug({
                   Inquire Now
                 </a>
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
+                {canShowBooth ? (
+                  <Link
+                    href={`/v/${vendor.business_slug ?? slug}/booth`}
+                    className="button-secondary inline-flex items-center gap-2"
+                  >
+                    Walk into my booth
+                  </Link>
+                ) : null}
               </div>
             ) : null}
             {/* Visual map (2026-06-28). The picture-of-the-map above the

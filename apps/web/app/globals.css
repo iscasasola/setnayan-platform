@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ── Atelier + macOS glass typography aliases (owner-locked 2026-07-12) ──
+ * Hanken Grotesk (--font-hanken) + Space Mono (--font-space-mono) are loaded
+ * in app/layout.tsx and are the ONLY chrome families going forward. The
+ * variables below keep every shipped consumer working without churn:
+ *   - --font-app          was Source Sans 3 (retired) — dashboards inherit
+ *     it through `.app-surface`, which now resolves to Hanken.
+ *   - --font-*-marketing / --font-condensed  were the retired v2.1 quartet
+ *     (Saira Condensed / Geist / Instrument Serif / JetBrains Mono).
+ * Root --font-sans / --font-display / --font-mono deliberately KEEP their
+ * Cormorant / Manrope / DM Mono faces: the /[slug] guest invitation surfaces
+ * are owner-excluded from the reskin and inherit those root vars. Chrome
+ * scopes (.app-surface below · marketing pages as they restyle in Phase 3)
+ * opt in to the Atelier faces instead.
+ */
+:root {
+  --font-app: var(--font-hanken);
+  --font-condensed: var(--font-hanken);
+  --font-sans-marketing: var(--font-hanken);
+  --font-serif-marketing: var(--font-hanken);
+  --font-mono-marketing: var(--font-space-mono);
+}
+
 @layer base {
   /*
    * A11Y-1 (Responsive_and_Mobile_UI_Ruleset_2026-06-21) — one global keyboard
@@ -886,20 +909,22 @@ html.subnav-docked [data-shell-main] {
 
 /*
  * Backend dashboard surface — opt-in. Applied to the root element of the
- * couple / vendor / admin dashboard layouts so the whole operational backend
- * renders in Source Sans, one simple minimalist family for body AND headings
- * (owner-locked 2026-06-10 — "easy to read" backend). Overriding the --font-*
- * vars here makes every `font-sans`/`font-display`/`font-serif` utility inside
- * a dashboard resolve to Source Sans without touching the 200+ components; the
- * direct font-family covers inherited text. --font-mono is left as DM Mono so
- * IDs / reference codes keep their monospace alignment. The editorial
- * Cormorant/Manrope stack stays on the public marketing site + guest-facing
+ * couple / vendor / admin dashboard layouts. Since the Atelier finalization
+ * (owner-locked 2026-07-12, superseding the 2026-06-10 Source Sans lock)
+ * --font-app resolves to Hanken Grotesk, so the whole operational backend
+ * renders in the one Atelier UI family. Overriding the --font-* vars here
+ * makes every `font-sans`/`font-display`/`font-serif` utility inside a
+ * dashboard resolve to Hanken without touching the 200+ components; the
+ * direct font-family covers inherited text. --font-mono flips to Space Mono
+ * (the Atelier data face) so IDs / reference codes / prices / dates read in
+ * the kit's mono. The editorial Cormorant/Manrope stack stays on guest-facing
  * pages, which live outside these layouts. Mirrors `.m-surface` below.
  */
 @layer components {
   .app-surface {
     --font-sans: var(--font-app);
     --font-display: var(--font-app);
+    --font-mono: var(--font-space-mono);
     font-family: var(--font-app), system-ui, sans-serif;
   }
 }
@@ -2780,3 +2805,203 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 .gl-adding {
   animation: gl-adding 0.9s ease-in-out infinite;
 }
+
+/* ============================================================
+   SETNAYAN DESIGN TOKENS · Atelier + macOS glass
+   Owner-locked 2026-07-12 (Design_Reskin_Atelier_Glass_2026-07-12).
+   Ported from the kit's setnayan-tokens.css + setnayan-animations.css.
+   ONE adaptation vs the kit: --sn-font / --sn-mono resolve through the
+   next/font variables (--font-hanken / --font-space-mono) because
+   next/font self-hosts under hashed family names — the literal
+   "Hanken Grotesk" family string would not resolve.
+   Rules of the skin:
+     1. Frame ONLY what is interactive (buttons, inputs, tappable tiles,
+        chips). Plain text, headings, stats, captions sit directly on the
+        backdrop unframed.
+     2. One gold primary action per view. Gold is jewelry, not paint.
+     3. Icons: Lucide line set, 1.75px stroke. Never emoji, never filled.
+     4. Shadows warm (rgba(30,26,18,·)), never grey/blue.
+     5. Skin only — structure, copy, routes, hero videos, demos untouched.
+   ============================================================ */
+:root {
+  /* paper & ink */
+  --sn-paper:      #FBFAF7;
+  --sn-surface:    #FFFFFF;
+  --sn-hairline:   #EDE8DE;
+  --sn-line:       #E1DCD1;
+  --sn-ink-300:    #A09A8E;
+  --sn-ink-500:    #6E6A62;
+  --sn-ink-700:    #3A382F;
+  --sn-ink-900:    #1B1A17;
+  --sn-ink-black:  #17160F;
+
+  /* gold accent — the only decorative color */
+  --sn-gold-100:   #F3ECDF;
+  --sn-gold-300:   #CBA766;
+  --sn-gold-500:   #A9834B;
+  --sn-gold-600:   #95713D;
+  --sn-gold-700:   #8A6B39;
+
+  /* semantic (warm-tuned, never neon) */
+  --sn-success:    #5E7C52;  --sn-success-soft: #E9EEE3;
+  --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
+  --sn-danger:     #A6483B;  --sn-danger-soft:  #F3E1DC;
+  --sn-info:       #4E6C82;  --sn-info-soft:    #E2EAEF;
+
+  /* type — via next/font variables (see header note) */
+  --sn-font: var(--font-hanken), system-ui, sans-serif;
+  --sn-mono: var(--font-space-mono), ui-monospace, monospace;
+
+  /* radius */
+  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: 14px;
+  --sn-r-xl: 18px; --sn-r-pill: 999px;
+
+  /* elevation (warm, never grey) */
+  --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
+  --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
+  --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
+
+  /* glass (macOS vibrancy) */
+  --sn-glass-bg:   rgba(255,255,255,.55);
+  --sn-glass-line: rgba(255,255,255,.75);
+  --sn-glass-blur: blur(18px) saturate(1.4);
+  --sn-glass-dark-bg:   rgba(23,22,15,.82);
+  --sn-glass-dark-line: rgba(255,255,255,.18);
+
+  /* motion */
+  --sn-ease:     cubic-bezier(.2,.7,.2,1);
+  --sn-ease-out: cubic-bezier(.16,1,.3,1);
+  --sn-dur-micro:   120ms;
+  --sn-dur-control: 200ms;
+  --sn-dur-elem:    320ms;
+  --sn-dur-enter:   640ms;
+}
+
+/* ---------- ambient backdrop (pages that use glass) ---------- */
+.sn-ambient {
+  background: #F2EFE8;
+  background-image:
+    radial-gradient(42% 52% at 12% 8%,  rgba(203,167,102,.22), transparent 62%),
+    radial-gradient(50% 60% at 88% 28%, rgba(94,124,82,.12),  transparent 62%),
+    radial-gradient(44% 54% at 50% 95%, rgba(78,108,130,.13), transparent 62%);
+  background-attachment: fixed;
+}
+
+/* ---------- glass surfaces ---------- */
+.sn-glass {
+  background: var(--sn-glass-bg);
+  border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  box-shadow: 0 8px 32px rgba(30,26,18,.07);
+}
+.sn-glass-dark {
+  background: var(--sn-glass-dark-bg);
+  border: 1px solid var(--sn-glass-dark-line);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  color: var(--sn-gold-100);
+}
+
+/* ---------- buttons ---------- */
+.sn-btn {
+  font-family: var(--sn-font); font-weight: 700; font-size: 14.5px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 22px; border-radius: var(--sn-r-md); border: none; cursor: pointer;
+  transition: transform var(--sn-dur-control) var(--sn-ease),
+              box-shadow var(--sn-dur-control), background var(--sn-dur-control);
+}
+.sn-btn-primary { background: var(--sn-gold-500); color: #FFFDF8; }
+.sn-btn-primary:hover { background: var(--sn-gold-600); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+.sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
+.sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
+.sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }
+.sn-btn-ghost:hover { background: var(--sn-gold-100); color: var(--sn-gold-700); }
+.sn-btn:disabled { background: var(--sn-hairline); color: var(--sn-ink-300); cursor: not-allowed; transform: none; box-shadow: none; }
+/* on ink / over video */
+.sn-btn-on-ink { background: var(--sn-gold-300); color: var(--sn-ink-black); }
+.sn-btn-on-ink:hover { background: #D8B979; transform: translateY(-2px); }
+
+/* ---------- inputs ---------- */
+.sn-input {
+  font-family: var(--sn-font); font-size: 14px; color: var(--sn-ink-900);
+  background: var(--sn-paper); border: 1.5px solid var(--sn-line);
+  border-radius: var(--sn-r-md); padding: 12px 14px; outline: none;
+  transition: border-color var(--sn-dur-control), box-shadow var(--sn-dur-control);
+}
+.sn-input:hover  { border-color: var(--sn-gold-500); }
+.sn-input:focus  { border-color: var(--sn-gold-500); box-shadow: 0 0 0 3px var(--sn-gold-100); }
+.sn-input-error  { background: #FBF3F1; border-color: var(--sn-danger); color: #8F3D31; }
+
+/* ---------- cards ---------- */
+.sn-card {
+  background: var(--sn-glass-bg); border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur); -webkit-backdrop-filter: var(--sn-glass-blur);
+  border-radius: var(--sn-r-xl); box-shadow: var(--sn-sh-sm);
+  transition: transform var(--sn-dur-elem) var(--sn-ease), box-shadow var(--sn-dur-elem);
+}
+.sn-card:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-md); }
+
+/* ---------- chips & badges ---------- */
+.sn-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--sn-r-pill);
+  font: 600 13px var(--sn-font); cursor: pointer;
+  background: var(--sn-surface); border: 1px solid var(--sn-line); color: var(--sn-ink-700);
+  transition: border-color var(--sn-dur-control), color var(--sn-dur-control);
+}
+.sn-chip:hover { border-color: var(--sn-gold-500); color: var(--sn-gold-700); }
+.sn-chip.selected { background: var(--sn-gold-100); border-color: transparent; color: var(--sn-gold-700); font-weight: 700; }
+.sn-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--sn-r-pill); font: 700 12px var(--sn-font); }
+.sn-badge-verified { background: var(--sn-gold-100); color: var(--sn-gold-700); }
+.sn-badge-going    { background: var(--sn-success-soft); color: var(--sn-success); }
+.sn-badge-flag     { background: var(--sn-danger-soft); color: var(--sn-danger); }
+
+/* ============================================================
+   SETNAYAN MOTION LIBRARY (kit setnayan-animations.css)
+   Prefer transform+opacity only.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .sn-reveal, .sn-skeleton, .sn-bar > i, .sn-scrim, .sn-modal { animation: none !important; }
+  .sn-acc, .sn-btn, .sn-card, .sn-chip, .sn-input { transition: none !important; }
+}
+
+/* ---------- entrances ---------- */
+@keyframes sn-rise     { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
+@keyframes sn-fade     { from { opacity:0; } to { opacity:1; } }
+@keyframes sn-scale-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
+@keyframes sn-blur-in  { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
+.sn-reveal { animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out); }
+.sn-reveal:nth-child(2) { animation-delay:.08s } .sn-reveal:nth-child(3) { animation-delay:.16s }
+.sn-reveal:nth-child(4) { animation-delay:.24s } .sn-reveal:nth-child(5) { animation-delay:.32s }
+/* scroll-gate: start paused; flip to running with IntersectionObserver */
+[data-reveal] .sn-reveal { animation-play-state: paused; }
+
+/* ---------- loaders ---------- */
+@keyframes sn-spin  { to { transform:rotate(360deg); } }
+@keyframes sn-dots  { 0%,80%,100% { transform:none; opacity:.45; } 40% { transform:translateY(-7px); opacity:1; } }
+@keyframes sn-sheen { from { background-position:-200% 0; } to { background-position:200% 0; } }
+@keyframes sn-indet { from { left:-35%; } to { left:105%; } }
+.sn-skeleton { background:linear-gradient(90deg,#EDE8DE 25%,#F5F0E6 50%,#EDE8DE 75%); background-size:200% 100%; animation:sn-sheen 1.4s linear infinite; }
+
+/* ---------- data viz ---------- */
+@keyframes sn-grow    { from { width:0; } }                 /* horizontal bars */
+@keyframes sn-grow-y  { from { transform:scaleY(0); } }     /* bar charts: transform-origin:bottom */
+@keyframes sn-donut   { from { stroke-dashoffset:251.2; } } /* r=40 circle; dasharray = pct * 2.512 */
+@keyframes sn-shimmer { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
+.sn-bar > i { display:block; height:100%; border-radius:inherit; animation: sn-grow var(--sn-dur-enter) var(--sn-ease-out) both; }
+
+/* ---------- live signatures (pulse ONLY on genuinely live states) ---------- */
+@keyframes sn-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.7); } }
+@keyframes sn-ring  { 0% { box-shadow:0 0 0 0 rgba(169,131,75,.45); } 100% { box-shadow:0 0 0 14px rgba(169,131,75,0); } }
+@keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
+
+/* ---------- expand / collapse (no height measuring) ---------- */
+.sn-acc { display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc.open { grid-template-rows:1fr; }
+.sn-acc > * { overflow:hidden; min-height:0; }
+
+/* ---------- overlays ---------- */
+.sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
+.sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
+/* route change: main { animation:sn-fade .32s both; } */

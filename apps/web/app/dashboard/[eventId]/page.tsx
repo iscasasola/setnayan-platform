@@ -104,18 +104,6 @@ export default async function EventHomePage({
   const event = eventRes.data;
   if (!event) notFound();
 
-  // Guests — the NikahEssentialsCard reads them for the wali / witness / imam
-  // role tallies. Fail-soft to [] so a guest-query hiccup never blocks Home.
-  const guests = await fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
-    logQueryError(
-      'EventHome (fetchGuestsByEvent threw)',
-      err instanceof Error ? err : new Error(String(err)),
-      { event_id: eventId, user_id: user.id },
-      'graceful_degrade',
-    );
-    return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
-  });
-
   const isNikahEvent = isMuslimWedding({
     ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
     secondary_ceremony_type:
@@ -126,6 +114,23 @@ export default async function EventHomePage({
     secondary_ceremony_type:
       (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
   });
+
+  // Guests — read ONLY by the Muslim-track NikahEssentialsCard (wali / witness /
+  // imam role tallies), which itself renders only when isNikahEvent. So the
+  // fetch is gated on isNikahEvent — every non-Muslim event skips the query
+  // entirely. Fail-soft to [] so a guest-query hiccup never blocks Home.
+  // (EventDashboard re-fetches its own guests for the at-a-glance stats.)
+  const guests = isNikahEvent
+    ? await fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (fetchGuestsByEvent threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
+      })
+    : ([] as Awaited<ReturnType<typeof fetchGuestsByEvent>>);
 
   // Day-of mode (iteration 0031): inside the T-1h..T+8h window of the event
   // date, load the schedule + seating + same-day + Pabati data for the live

@@ -11,7 +11,6 @@ import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import {
   buildCockpitModel,
-  formatRelativeDays,
   type CockpitDecision,
 } from '@/lib/setnayan-ai-cockpit';
 import {
@@ -21,6 +20,12 @@ import {
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
+import {
+  fetchScheduleBlocks,
+  selectSchedulePreviewBlocks,
+  SCHEDULE_BLOCK_LABEL,
+  type ScheduleBlockRow,
+} from '@/lib/schedule';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
 import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
@@ -150,6 +155,7 @@ export async function EventDashboard({
     paperworkRes,
     unreadCount,
     seatAssignmentsRes,
+    scheduleBlocks,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -325,6 +331,19 @@ export async function EventDashboard({
         return { data: null, error: null, count: 0 } as never;
       }
     })(),
+    // Schedule blocks — the couple's OWN day-of program (event_schedule_blocks)
+    // for the "Schedule" doorstep card. Distinct from the deadline/reminder
+    // stream (fetchUpcomingItems). fetchScheduleBlocks throws on a query error,
+    // so fail-soft to [] → the card shows the build-your-timeline empty state.
+    fetchScheduleBlocks(supabase, eventId).catch((err: unknown) => {
+      logQueryError(
+        'EventDashboard (fetchScheduleBlocks threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as ScheduleBlockRow[];
+    }),
   ]);
 
   const event = eventRes.data;
@@ -669,6 +688,11 @@ export async function EventDashboard({
     })),
   ];
 
+  // Schedule doorstep card — the couple's own program. Prefer upcoming top-level
+  // blocks; fall back to the earliest when the whole program is already past so
+  // the card never reads empty while blocks exist (see selectSchedulePreviewBlocks).
+  const schedulePreview = selectSchedulePreviewBlocks(scheduleBlocks, now);
+
   // Presentation helpers for the premium skin (page-scoped; tokens only).
   const card = aiActive
     ? 'm-card relative overflow-hidden border-terracotta/40 shadow-[0_2px_6px_rgba(92,37,66,0.07),0_16px_40px_rgba(92,37,66,0.11)]'
@@ -995,6 +1019,16 @@ export async function EventDashboard({
               Nothing needs a decision right now — your plan keeps moving on its own.
             </div>
           )}
+          {/* Doorway to the full planning checklist — the only in-UI entry point
+           *  to /checklist since the standalone checklist card was removed. */}
+          <div className="mt-3.5 text-sm">
+            <Link
+              href={`${base}/checklist`}
+              className="font-semibold text-mulberry hover:underline"
+            >
+              View your full checklist →
+            </Link>
+          </div>
         </section>
 
         {/* ── What's next rail (AI) ────────────────────────────────────── */}
@@ -1165,7 +1199,10 @@ export async function EventDashboard({
               )}
             </article>
 
-            {/* Schedule */}
+            {/* Schedule — the couple's OWN day-of program (event_schedule_blocks),
+             *  NOT the deadline/reminder stream. So the "Schedule" title now
+             *  reflects the ceremony/reception timeline the couple builds under
+             *  /schedule and that the day-of grid goes live with. */}
             <article className={`${card} px-5 py-4`}>
               {goldHairline}
               <div className="mb-2 flex items-center gap-2.5">
@@ -1177,28 +1214,37 @@ export async function EventDashboard({
                   Full schedule →
                 </Link>
               </div>
-              {upcoming.items.length > 0 ? (
-                upcoming.items.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                  >
-                    <span className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full bg-mulberry/10 px-1 text-[10.5px] font-bold text-mulberry">
-                      {shortDate.format(item.date)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">
-                      <span className="font-semibold text-ink">{item.title}</span>{' '}
-                      <span className="text-ink/50">· {item.subtitle}</span>
-                    </span>
-                    <span className="whitespace-nowrap text-[11px] text-ink/45">
-                      {formatRelativeDays(item.daysFromNow)}
-                    </span>
-                  </div>
-                ))
-              ) : (
+              {schedulePreview.isEmpty ? (
                 <p className="border-t border-ink/5 py-2 text-[13px] text-ink/50">
-                  Nothing scheduled in the next stretch — quiet weeks stay quiet.
+                  No program yet — map out your ceremony &amp; reception and your
+                  guests see the timeline on the day.
                 </p>
+              ) : (
+                <>
+                  {schedulePreview.display.map((block) => (
+                    <div
+                      key={block.block_id}
+                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                    >
+                      <span className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full bg-mulberry/10 px-1 text-[10.5px] font-bold text-mulberry">
+                        {shortDate.format(new Date(block.start_at))}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+                        {block.label}
+                      </span>
+                      <span className="whitespace-nowrap text-[11px] text-ink/45">
+                        {SCHEDULE_BLOCK_LABEL[block.block_type]}
+                      </span>
+                    </div>
+                  ))}
+                  {schedulePreview.moreCount > 0 ? (
+                    <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
+                      +{schedulePreview.moreCount} more{' '}
+                      {schedulePreview.moreCount === 1 ? 'block' : 'blocks'} in your
+                      timeline
+                    </p>
+                  ) : null}
+                </>
               )}
             </article>
           </div>

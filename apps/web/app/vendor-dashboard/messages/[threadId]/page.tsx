@@ -28,6 +28,7 @@ import {
   type VendorOfferOption,
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
+import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { interestChipLabel } from '@/lib/thread-interests';
@@ -406,6 +407,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             <SendProposalCard
               threadId={threadId}
               templates={proposalTemplates}
+              packages={proposalPackages}
+            />
+          </div>
+          {/* Proposal Maker (PR 3) — compose a custom priced quote (pricing
+              bases + freebies + crew/transport) right in the thread. Seeded
+              from the couple's requested pax. Additive to the template-based
+              SendProposalCard above. */}
+          <div id="build-quote" className="scroll-mt-24">
+            <ProposalMaker
+              threadId={threadId}
+              requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
+              coupleName={coupleLabel}
               packages={proposalPackages}
             />
           </div>

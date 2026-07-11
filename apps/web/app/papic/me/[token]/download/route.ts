@@ -65,7 +65,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     photoIds.length
       ? admin
           .from('papic_photos')
-          .select('photo_id, r2_object_key, photo_type, captured_at')
+          .select('photo_id, r2_object_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
           .in('photo_id', photoIds)
           .eq('moderation_state', 'clean')
           .is('hidden_at', null)
@@ -73,6 +73,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
           data: [] as Array<{
             photo_id: string;
             r2_object_key: string;
+            display_r2_key: string | null;
+            full_res_dropped_at: string | null;
             photo_type: string;
             captured_at: string | null;
           }>,
@@ -80,7 +82,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     captureIds.length
       ? admin
           .from('papic_guest_captures')
-          .select('capture_id, r2_object_key, media_type, captured_at')
+          .select('capture_id, r2_object_key, display_r2_key, full_res_dropped_at, media_type, captured_at')
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
           .is('hidden_at', null)
@@ -88,6 +90,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
           data: [] as Array<{
             capture_id: string;
             r2_object_key: string;
+            display_r2_key: string | null;
+            full_res_dropped_at: string | null;
             media_type: string;
             captured_at: string | null;
           }>,
@@ -96,22 +100,36 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
 
   type Item = { id: string; ref: string; kind: 'photo' | 'clip'; at: string | null };
   const items: Item[] = [];
+  // 3-month-drop fallback: once a PHOTO's full-res original is dropped from R2,
+  // serve the AVIF web copy instead so the download never 404s. Clips keep their
+  // video (never dropped). The drop only removes the R2 pixels — the row, its
+  // tags, and metadata are untouched.
+  const dl = (
+    orig: string | null,
+    display: string | null,
+    dropped: string | null,
+    isClip: boolean,
+  ): string | null => (!isClip && dropped ? (display ?? orig) : orig);
   for (const p of photosRes.data ?? []) {
-    if (p.r2_object_key) {
+    const isClip = p.photo_type === 'clip';
+    const ref = dl(p.r2_object_key, p.display_r2_key, p.full_res_dropped_at, isClip);
+    if (ref) {
       items.push({
         id: p.photo_id,
-        ref: p.r2_object_key,
-        kind: p.photo_type === 'clip' ? 'clip' : 'photo',
+        ref,
+        kind: isClip ? 'clip' : 'photo',
         at: p.captured_at ?? null,
       });
     }
   }
   for (const c of capturesRes.data ?? []) {
-    if (c.r2_object_key) {
+    const isClip = c.media_type === 'clip';
+    const ref = dl(c.r2_object_key, c.display_r2_key, c.full_res_dropped_at, isClip);
+    if (ref) {
       items.push({
         id: c.capture_id,
-        ref: c.r2_object_key,
-        kind: c.media_type === 'clip' ? 'clip' : 'photo',
+        ref,
+        kind: isClip ? 'clip' : 'photo',
         at: c.captured_at ?? null,
       });
     }

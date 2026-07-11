@@ -84,7 +84,7 @@ async function purgeOwnedEventBirthData(
 /**
  * RA 10173 right-to-erasure — chat residue (Data Retention Schedule 2026-07-11).
  *
- * The chat FKs to users are ON DELETE SET NULL (chat_messages.sender_user_id,
+ * The chat FKs to users are ON DELETE SET NULL (the message sender_user_id,
  * chat_threads.created_by_user_id), and chat_threads only cascade-delete when
  * the EVENT or vendor_profile is removed — but events have no owner FK and are
  * never deleted. So without this, a departing user's message BODIES (their own
@@ -111,7 +111,7 @@ async function purgeUserAuthoredChat(
   actorUserId: string,
 ): Promise<void> {
   const { error } = await admin
-    .from('chat_messages')
+    .from('chat_messages') // chat-guard-allow: RA 10173 right-to-erasure — deletes ONLY the leaving user's own authored messages on account deletion (service-role; audit-logged). See fn docstring.
     .delete()
     .eq('sender_user_id', targetUserId);
   if (error) {

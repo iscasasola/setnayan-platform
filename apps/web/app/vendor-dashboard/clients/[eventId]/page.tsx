@@ -10,6 +10,7 @@ import {
   FilePlus2,
   FileText,
   FolderOpen,
+  History,
   Info,
   LayoutGrid,
   Link2,
@@ -19,6 +20,7 @@ import {
   MessageSquarePlus,
   PackageCheck,
   Palette,
+  Phone,
   Sparkles,
   UserRound,
   Users,
@@ -31,7 +33,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
-import { fetchVendorThreads } from '@/lib/chat';
+import { fetchVendorThreads, fetchReturningClientFlags, type ReturningClientFlag } from '@/lib/chat';
 import {
   fetchPlanProgressForVendor,
   fetchPendingVendorPayments,
@@ -396,6 +398,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     { data: cocktailEdit },
     { data: liveBlocks },
     { data: mySuggestions },
+    returningFlags,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -435,6 +438,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
         .limit(10),
+      // Returning-client signal (Relationship Workspace · Details tab, PR 5).
+      // SAME source as the vendor inbox pending badge — the SECURITY DEFINER
+      // RPC that can see the couple's OTHER-event bookings (vendor RLS can't).
+      // Graceful-degrades to an empty Map pre-migration, so the marker simply
+      // doesn't render until 20261201000000 lands.
+      fetchReturningClientFlags(supabase, profile.vendor_profile_id, [eventId]),
     ]),
   );
 
@@ -473,6 +482,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flow lives inside the thread) in the header action row.
   const thread = threads.find((t) => t.event_id === eventId) ?? null;
   const threadId = thread?.thread_id ?? null;
+
+  // Returning-client marker (Details/Overview tab). A row exists ONLY when this
+  // couple previously CONFIRMED-booked THIS vendor on a DIFFERENT event — i.e.
+  // they're a returning client (N≥1). The RPC returns the most-recent such prior
+  // event's name/date (DISTINCT ON per event) — no exact count and no prior
+  // event_id, so we surface that one named past event, not a linked list.
+  const returningFlag: ReturningClientFlag | null = returningFlags.get(eventId) ?? null;
 
   // Reviewed pipeline step — vendor_reviews is publicly readable (USING TRUE),
   // so a cheap existence check on (vendor, event) is safe. Only worth a read once
@@ -875,6 +891,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             <OverviewTab
               eventId={eventId}
               brief={brief}
+              threadId={threadId}
+              returningFlag={returningFlag}
               isBooked={isBooked}
               isInquiry={isInquiry}
               paletteEntries={paletteEntries}
@@ -987,11 +1005,114 @@ function Card({
 }
 
 // ===========================================================================
+// Returning-client marker + quick-action bar (Details/Overview tab, PR 5).
+//
+// Marker: rendered ONLY when `returningFlag` is present — i.e. this couple has a
+// prior CONFIRMED booking with this vendor on a DIFFERENT event (the same signal
+// that makes an inquiry-accept cost a flat 1 token). The reuse RPC returns the
+// most-recent prior event's name/date (DISTINCT ON) — not an exact count and not
+// its event_id — so we name that one past event rather than link a list.
+//
+// Action bar: shortcut links only (no new call/quote logic). Chat + Call both
+// open the thread (the P2P call surface lands there per the Workspace spec);
+// Quote deep-links the thread's #send-proposal composer; Files jumps to this
+// card's Files tab; Details is the current view (inert).
+// ===========================================================================
+function ReturningMarkerAndActions({
+  eventId,
+  threadId,
+  returningFlag,
+}: {
+  eventId: string;
+  threadId: string | null;
+  returningFlag: ReturningClientFlag | null;
+}) {
+  const actionBase =
+    'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors';
+
+  return (
+    <div className="rounded-2xl border border-ink/10 bg-white p-4 sm:p-5">
+      {returningFlag ? (
+        <div className="mb-3 flex items-start gap-3 rounded-xl border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
+            <History aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-mulberry">
+              Returning client · you&rsquo;ve worked together before
+            </p>
+            <p className="mt-0.5 text-xs text-ink/65">
+              {returningFlag.prior_event_display_name ? (
+                <>
+                  Previously booked you for{' '}
+                  <span className="font-medium text-ink/80">
+                    {returningFlag.prior_event_display_name}
+                  </span>
+                  {returningFlag.prior_event_date
+                    ? ` · ${fmtShortDate(returningFlag.prior_event_date)}`
+                    : ''}
+                  .
+                </>
+              ) : (
+                'This couple has booked you on a previous event.'
+              )}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {threadId ? (
+          <Link
+            href={`/vendor-dashboard/messages/${threadId}`}
+            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
+          >
+            <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
+          </Link>
+        ) : null}
+        {threadId ? (
+          <Link
+            href={`/vendor-dashboard/messages/${threadId}`}
+            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
+          >
+            <Phone aria-hidden className="h-3.5 w-3.5" /> Call
+          </Link>
+        ) : null}
+        <Link
+          href={
+            threadId
+              ? `/vendor-dashboard/messages/${threadId}#send-proposal`
+              : '/vendor-dashboard/proposals'
+          }
+          className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
+        >
+          <FileText aria-hidden className="h-3.5 w-3.5" /> Quote
+        </Link>
+        <Link
+          href={`/vendor-dashboard/clients/${eventId}?tab=files`}
+          className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
+        >
+          <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
+        </Link>
+        <span
+          aria-current="page"
+          className={`${actionBase} cursor-default border-ink/15 bg-ink/5 text-ink/55`}
+        >
+          <Info aria-hidden className="h-3.5 w-3.5" /> Details
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
 // OVERVIEW TAB
 // ===========================================================================
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  threadId: string | null;
+  returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
   isInquiry: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
@@ -1014,6 +1135,8 @@ function OverviewTab(props: {
   const {
     eventId,
     brief,
+    threadId,
+    returningFlag,
     isBooked,
     isInquiry,
     paletteEntries,
@@ -1034,6 +1157,14 @@ function OverviewTab(props: {
 
   return (
     <div className="space-y-4">
+      {/* Returning-client marker + quick-action bar (Relationship Workspace ·
+          Details tab, PR 5). Additive — sits at the top of the Overview. */}
+      <ReturningMarkerAndActions
+        eventId={eventId}
+        threadId={threadId}
+        returningFlag={returningFlag}
+      />
+
       {/* Imported hint (invite the couple to Setnayan). */}
       {isImported ? (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-4 sm:p-5">

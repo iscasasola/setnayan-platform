@@ -1091,6 +1091,17 @@ function DriveConnectedPanel({
                 </Link>
               </p>
             ) : null}
+            <p className="text-[11px] text-ink/60">
+              Running low on space? Full-resolution photos always live in your own
+              Drive — if it fills up, add a second one.{' '}
+              <Link
+                href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              >
+                Connect a second Drive you own
+              </Link>
+              . New photos overflow into it automatically once the first is full.
+            </p>
           </div>
           <form action="/api/oauth/drive/disconnect" method="post">
             <input type="hidden" name="event_id" value={eventId} />

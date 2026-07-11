@@ -214,8 +214,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // carousel wants), and `fetchTables` gives each assignment's table_label +
       // the pool the pure suggestion heuristic drafts unseated guests into. Both
       // are couple-RLS-scoped reads that fold into the same parallel fan-out.
-      fetchAssignments(supabase, eventId),
-      fetchTables(supabase, eventId),
+      // …guarded like every other read in this fan-out: fetchAssignments/
+      // fetchTables THROW on error (unlike the head+count reads they replaced),
+      // and this Promise.all must never take down the whole Guests tab (the
+      // roster/RSVP/invites) over a transient seat-read blip — the documented
+      // "log loudly, return empty, never throw" invariant (Sentry 3284377371).
+      // On failure seats degrade to 0/suggested exactly as before. Mirrors the
+      // dashboard overview's fetchTables(...).catch(() => []).
+      fetchAssignments(supabase, eventId).catch(
+        () => [] as Awaited<ReturnType<typeof fetchAssignments>>,
+      ),
+      fetchTables(supabase, eventId).catch(
+        () => [] as Awaited<ReturnType<typeof fetchTables>>,
+      ),
       supabase
         .from('guest_checkins')
         .select('checkin_id', { count: 'exact', head: true })

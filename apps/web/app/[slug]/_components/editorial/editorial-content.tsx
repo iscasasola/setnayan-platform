@@ -114,7 +114,7 @@ export async function EditorialContent({
     mono = null;
   }
 
-  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when ACTIVE (admin-approved), the
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
   // editorial sheds the freemium "Powered by Setnayan" colophon watermark
   // (the masthead sign-off below), matching the wedding site + recap. The
   // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)

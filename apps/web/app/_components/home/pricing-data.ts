@@ -128,14 +128,14 @@ export async function getHomePricingData(): Promise<PricingData> {
   // ── Papic group (per-camera / per-day, all from catalog) ──
   const papicRoll = priceOf(catalog, 'PAPIC_CAMERA_ROLL_DAY', 30);
   const papicUnli = priceOf(catalog, 'PAPIC_CAMERA_UNLIMITED_DAY', 100);
-  const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 499); // owner 2026-07-08 (was 1299)
+  const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 500); // owner 2026-07-08 (was 1299; rounded 499→500 2026-07-11)
   // Owner-locked FREE: Stories (2026-06-30) · Kwento + Pabati (2026-07-08).
   // Fallback 0 so an absent/zeroed catalog row renders "Free" via freeOrPrice(),
   // never a stale paid figure.
   const stories = priceOf(catalog, 'PAPIC_ADDON_STORIES', 0);
   const kwento = priceOf(catalog, 'KWENTO', 0);
   const pabati = priceOf(catalog, 'PABATI', 0);
-  const liveWall = priceOf(catalog, 'LIVE_WALL', 2499);
+  const liveWall = priceOf(catalog, 'LIVE_WALL', 2500);
 
   // ── Couple Website group ──
   const reveal = priceOf(catalog, 'STD_PREMIUM_OPENINGS', 999);
@@ -152,7 +152,7 @@ export async function getHomePricingData(): Promise<PricingData> {
   const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 999);
   const liveBg = priceOf(catalog, 'LIVE_BACKGROUND', 499);
   const pakanta = priceOf(catalog, 'PAKANTA', 2499);
-  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 3499);
+  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2499); // Desktop Controller ₱2,499/day (Mobile ₱1,299/day is a separate SKU)
 
   const groups: PriceGroup[] = [
     {
@@ -166,7 +166,7 @@ export async function getHomePricingData(): Promise<PricingData> {
           v: `${peso(papicRoll.rate)}/guest·day`,
           model: 'perGuestDay',
           rate: papicRoll.rate,
-          cap: 15000,
+          cap: 9000,
         },
         {
           n: 'Papic Unli · unlimited',

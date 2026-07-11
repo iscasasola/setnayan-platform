@@ -98,7 +98,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
 
-  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when ACTIVE (admin-approved), the
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
   // recap sheds the freemium "Powered by Setnayan · setnayan.com" footer
   // watermark, matching the wedding site. Admin client (public/anonymous
   // viewer); graceful-degrades to false (= keep the watermark) on any error.

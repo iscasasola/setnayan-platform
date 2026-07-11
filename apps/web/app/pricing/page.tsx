@@ -183,7 +183,7 @@ export default async function PricingPage() {
           retail_price_php: papicRoll?.retail_price_php ?? 30,
           saas_overhead_cost_php: 0,
           is_token_able: false,
-          description: `Turn your guests into paparazzi — every candid lands in your shared gallery. Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free · each tier capped per day (Ltd ₱5,999 · Unli ₱11,999).`,
+          description: `Turn your guests into paparazzi — every candid lands in your shared gallery. Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free · each tier capped per day (Ltd ₱9,000 · Unli ₱15,000).`,
           build_status: 'live',
           billing_period: 'one_time',
           is_pax_priced: true, // drives the "from ₱X" label

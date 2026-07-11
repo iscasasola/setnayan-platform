@@ -117,13 +117,14 @@ function SectionEyebrow({ label }: { label: string }) {
 /**
  * /vendor-dashboard/performance — the "My Performance" cockpit.
  *
- * TIERED (owner 2026-07-01, "apply this to our live website"):
+ * TIERED (owner 2026-07-01, "apply this to our live website"; Market Intel moved
+ * to Pro-and-up 2026-07-11):
  *   • Solo   — own-shop glance: Health composite · Grow recs · basic Momentum
  *              (count, Monthly/Annual). variant='basic'.
  *   • Pro    — full own-business analytics: + revenue & Daily Momentum · ROI
- *              (Setnayan vs your book) · booking Funnel.
- *   • Enter. — + cross-business MARKET INTEL (Demand Radar · Price-Position),
- *              de-identified + min-N, nationwide totals only.
+ *              (Setnayan vs your book) · booking Funnel · cross-business MARKET
+ *              INTEL (Demand Radar · Price-Position), de-identified + min-N.
+ *   • Enter. — same Market Intel surface, at nationwide scale.
  *   • Free/Verified — no My Performance (full-page upsell).
  *
  * The gates read the caps in lib/vendor-tier-caps.ts (performanceTrends /
@@ -176,7 +177,7 @@ export default async function VendorPerformancePage({
   }
 
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
-  const canMarket = !gateOn || canSeeMarketIntel(tier); // Enterprise
+  const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
 
   // Momentum window from the URL. Daily is Pro+ only — normalize a stray ?day.
   const raw = search.momentum;
@@ -624,8 +625,8 @@ export default async function VendorPerformancePage({
           ) : (
             <VendorTierTeaser
               feature="Demand Radar & Price-Position"
-              requiredTier="enterprise"
-              blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
+              requiredTier="pro"
+              blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is a Pro feature."
               icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
             />
           )}

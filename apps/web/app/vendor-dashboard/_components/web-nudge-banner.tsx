@@ -19,7 +19,7 @@ import { isNativeApp } from '@/lib/capacitor';
 interface WebNudgeBannerProps {
   /** Copy for the savings claim, e.g. "₱100/token (save ₱50 each)" */
   savingsCopy: string;
-  /** Sub-line showing web prices, e.g. "Pro ₱2,499/28d · Enterprise ₱7,499/28d on web" */
+  /** Sub-line showing web prices, e.g. "Pro ₱2,499/28d · Enterprise ₱7,999/28d on web" */
   webPricesCopy?: string;
   /** Full URL to the equivalent page on setnayan.com */
   webUrl: string;

@@ -661,6 +661,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           unseated={Math.max(0, stats.attending - seatedCount)}
           arrived={arrivedCount}
           roleSetKey={guestRoleSetKey}
+          joinUrl={joinUrl}
         />
       </Suspense>
 

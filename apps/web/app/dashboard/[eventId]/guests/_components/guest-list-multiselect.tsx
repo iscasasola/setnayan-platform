@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ChevronDown, Trash2, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -594,6 +595,13 @@ export function GuestListMultiselect({
   // desktop grid keeps its always-interactive checkbox overlay.
   const { selectMode, ids: selectedIds, set: selectedSet } = useGuestSelection();
 
+  // Mobile density (Living Roster P4) — the carousel's grid/list toggle writes
+  // `?density=list`; the phone roster reads it HERE so the control surface and
+  // the rows stay one URL-driven state (no second encoder — same param the
+  // desktop facet bar's buildHref merges). Default = the photo-card grid.
+  const searchParams = useSearchParams();
+  const mobileDensity = searchParams.get('density') === 'list' ? 'list' : 'grid';
+
   // Optimistic overlay (Living Roster P1): a soft-delete hides its rows
   // instantly, before the server round-trip, and an undo restores them. The
   // overlay lives in its own module store (like `guestSelection`) so the delete
@@ -800,7 +808,12 @@ export function GuestListMultiselect({
         </table>
       </div>
 
-      {/* Mobile · sectioned grids; checkbox only in select mode; swipe kept. */}
+      {/* Mobile · sectioned grids; checkbox only in select mode; swipe kept.
+          Living Roster P4 (parity with the desktop rows): self-joiners render the
+          blush "needs you" card (full width, Keep / Link / Remove), every card
+          carries the reactive SeatChip + one-tap RSVP cycle, and the carousel's
+          density toggle (`?density=list`) swaps the photo grid for a compact
+          list. */}
       <div className="space-y-5 sm:hidden">
         {sections.map((sec) => (
           <section key={sec.key}>
@@ -808,23 +821,61 @@ export function GuestListMultiselect({
               <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
             ) : null}
             {!sec.label || !collapsed.has(sec.key) ? (
-            <ul className={`grid gap-2 ${sec.mobileCols}`}>
-              {sec.guests.map((guest) => (
-                <MobileGridItem
-                  key={guest.guest_id}
-                  guest={guest}
-                  eventId={eventId}
-                  palette={palette}
-                  displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-                  selectMode={selectMode}
-                  selected={selectedSet.has(guest.guest_id)}
-                  onToggle={() => guestSelection.toggle(guest.guest_id)}
-                  groupIds={groupMemberships[guest.guest_id] ?? []}
-                  groupsById={groupsById}
-                  currentGroupId={currentGroupId}
-                />
-              ))}
-            </ul>
+              mobileDensity === 'list' ? (
+                <ul className="flex list-none flex-col gap-2">
+                  {sec.guests.map((guest) =>
+                    selfJoinSet.has(guest.guest_id) ? (
+                      <li key={guest.guest_id} className="list-none">
+                        <MobileSelfJoinCard
+                          guest={guest}
+                          eventId={eventId}
+                          displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        />
+                      </li>
+                    ) : (
+                      <MobileListRow
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        selectMode={selectMode}
+                        selected={selectedSet.has(guest.guest_id)}
+                        onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        seat={seatByGuest[guest.guest_id]}
+                      />
+                    ),
+                  )}
+                </ul>
+              ) : (
+                <ul className={`grid gap-2 ${sec.mobileCols}`}>
+                  {sec.guests.map((guest) =>
+                    selfJoinSet.has(guest.guest_id) ? (
+                      <li key={guest.guest_id} className="col-span-full list-none">
+                        <MobileSelfJoinCard
+                          guest={guest}
+                          eventId={eventId}
+                          displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        />
+                      </li>
+                    ) : (
+                      <MobileGridItem
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        palette={palette}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        selectMode={selectMode}
+                        selected={selectedSet.has(guest.guest_id)}
+                        onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groupsById={groupsById}
+                        currentGroupId={currentGroupId}
+                        seat={seatByGuest[guest.guest_id]}
+                      />
+                    ),
+                  )}
+                </ul>
+              )
             ) : null}
           </section>
         ))}
@@ -1267,6 +1318,7 @@ function GuestCard({
   groupIds,
   groupsById,
   currentGroupId,
+  seat,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -1278,6 +1330,9 @@ function GuestCard({
   groupIds: string[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  // Reactive seat (Living Roster P4 · mobile parity) — same placed/suggested
+  // contract the desktop row gets. Undefined when no seat data reached this card.
+  seat?: { placed: string | null; suggested: string | null };
 }) {
   return (
     <div
@@ -1335,9 +1390,25 @@ function GuestCard({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-1">
+          {/* Role stays read-only here; RSVP is a one-tap cycle (P4) and the
+              seat chip mirrors the desktop row. pointer-events-auto so the RSVP
+              button sits above the card's stretched detail link. */}
+          <div className="pointer-events-auto flex flex-wrap items-center gap-1">
             <RoleChips guest={guest} palette={palette} />
-            <RsvpPill status={guest.rsvp_status} />
+            <RsvpChipEditor
+              eventId={eventId}
+              guest={guest}
+              mobileCycle
+              seatedTableLabel={seat?.placed ?? null}
+            >
+              <RsvpPill status={guest.rsvp_status} />
+            </RsvpChipEditor>
+            <SeatChip
+              placed={seat?.placed ?? null}
+              suggested={seat?.suggested ?? null}
+              rsvp={guest.rsvp_status}
+              hasPlusOne={guest.plus_one_allowed}
+            />
           </div>
           {/* GroupChipList can render a remove-from-group <form>; give it back
               pointer events so that button works above the stretched link. */}
@@ -1371,6 +1442,7 @@ function MobileGridItem({
   groupIds,
   groupsById,
   currentGroupId,
+  seat,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -1382,6 +1454,7 @@ function MobileGridItem({
   groupIds: string[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  seat?: { placed: string | null; suggested: string | null };
 }) {
   const card = (
     <GuestCard
@@ -1395,6 +1468,7 @@ function MobileGridItem({
       groupIds={groupIds}
       groupsById={groupsById}
       currentGroupId={currentGroupId}
+      seat={seat}
     />
   );
 
@@ -1419,6 +1493,158 @@ function MobileGridItem({
         card
       )}
     </li>
+  );
+}
+
+// MobileListRow — the compact (density='list') phone row: a small side-tinted
+// avatar (or photo) + name + plus-one sub, with the one-tap RSVP cycle and the
+// reactive seat chip on the right (Living Roster P4 · mobile parity). A stretched
+// Link covers the row for tap-to-detail; the checkbox + the RSVP button re-enable
+// their own pointer events above it, exactly like GuestCard.
+function MobileListRow({
+  guest,
+  eventId,
+  displayUrl,
+  selectMode,
+  selected,
+  onToggle,
+  seat,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  displayUrl?: string;
+  selectMode: boolean;
+  selected: boolean;
+  onToggle: () => void;
+  seat?: { placed: string | null; suggested: string | null };
+}) {
+  return (
+    <li className="list-none">
+      <div
+        className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
+          selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
+        }`}
+      >
+        {/* Stretched detail link (z-0); content sits above it (z-10) and the
+            interactive bits re-enable pointer events (z-20). */}
+        <Link
+          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+          aria-label={guestDisplayName(guest)}
+          className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+        />
+        {selectMode ? (
+          <label
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
+          >
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              aria-label={`Select ${guestDisplayName(guest)}`}
+              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+          </label>
+        ) : (
+          <span className="pointer-events-none relative z-10">
+            <RowAvatar guest={guest} displayUrl={displayUrl} />
+          </span>
+        )}
+        <div className="pointer-events-none relative z-10 min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
+          {guest.plus_one_allowed ? (
+            <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
+          ) : null}
+        </div>
+        <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
+          <RsvpChipEditor
+            eventId={eventId}
+            guest={guest}
+            mobileCycle
+            seatedTableLabel={seat?.placed ?? null}
+          >
+            <RsvpPill status={guest.rsvp_status} />
+          </RsvpChipEditor>
+          <SeatChip
+            placed={seat?.placed ?? null}
+            suggested={seat?.suggested ?? null}
+            rsvp={guest.rsvp_status}
+            hasPlusOne={guest.plus_one_allowed}
+          />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// MobileSelfJoinCard — the mobile twin of SelfJoinDesktopRow (Living Roster P4).
+// A blush "needs you" card for an unlisted joiner surfaced inline in the roster:
+// Keep / Link / Remove call the SAME claim actions the desktop row + the
+// /guests/claims deep page use, so the semantics (and what clears the "needs you"
+// state) stay identical.
+function MobileSelfJoinCard({
+  guest,
+  eventId,
+  displayUrl,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  displayUrl?: string;
+}) {
+  const name = guestDisplayName(guest);
+  return (
+    <div className="overflow-hidden rounded-xl border border-danger-200/70 bg-danger-50/60">
+      <div className="flex items-center gap-3 p-3">
+        {displayUrl ? (
+          <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={displayUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-100 text-xs font-semibold text-danger-900"
+          >
+            {guestInitials(guest)}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-medium text-ink">{name}</p>
+          <p className="truncate text-xs font-medium text-danger-700">joined via your link</p>
+        </div>
+      </div>
+      <p className="px-3 pb-2 text-[11px] text-ink/55">
+        Already has their QR &amp; page — Keep to add them, Remove to revoke.
+      </p>
+      <div className="flex items-center gap-2 px-3 pb-3">
+        <form action={keepGuestAction.bind(null, eventId)} className="flex-1">
+          <input type="hidden" name="guest_id" value={guest.guest_id} />
+          <SubmitButton
+            overlay={false}
+            pendingLabel="Keeping…"
+            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-700"
+          >
+            Keep
+          </SubmitButton>
+        </form>
+        <Link
+          href={`/dashboard/${eventId}/guests/claims`}
+          className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
+        >
+          Link
+        </Link>
+        <form action={removeGuestAction.bind(null, eventId)} className="flex-1">
+          <input type="hidden" name="guest_id" value={guest.guest_id} />
+          <SubmitButton
+            overlay={false}
+            pendingLabel="Removing…"
+            className="inline-flex h-9 w-full items-center justify-center rounded-md border border-danger-300/70 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
+          >
+            Remove
+          </SubmitButton>
+        </form>
+      </div>
+    </div>
   );
 }
 

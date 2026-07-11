@@ -10,6 +10,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
+import { buildJourneyTimeline } from '@/lib/journey';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -31,12 +32,16 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
 import { EmceeScriptButton } from './_components/emcee-script-button';
 import { PreparationAgendaView } from './_components/preparation-agenda';
+// Journey mode — the full event-lifecycle arc (creation → the day →
+// editorial), a phase-grouped read-only view over the same agenda data plus
+// three lifecycle bookends. See lib/journey.ts.
+import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 
 export const metadata = { title: 'Schedule' };
 
-type ScheduleView = 'preparation' | 'event-day';
+type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -57,10 +62,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, ceremony_type, event_type')
+      .select('event_id, event_date, ceremony_type, event_type, created_at')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
@@ -75,6 +80,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       .eq('event_id', eventId)
       .eq('status', 'open')
       .order('created_at', { ascending: true }),
+    // Recap publish row — the Journey mode's editorial bookend. RLS lets the
+    // couple/coordinator read their own row; a missing table (pre-migration)
+    // or absent row both fall through to null (no editorial anchor yet).
+    supabase
+      .from('event_recaps')
+      .select('status, published_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -83,6 +96,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         event_date: string | null;
         ceremony_type: string | null;
         event_type: string | null;
+        created_at: string | null;
       }
     | null;
   const eventDate = eventRow?.event_date ?? null;
@@ -93,21 +107,44 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const profile = await resolveProfile(eventRow?.event_type ?? 'wedding');
   const statutory = profile.statutoryPackKey === 'ph_marriage';
 
+  const now = new Date();
   const agenda = await fetchPreparationAgenda({
     supabase,
     eventId,
     eventDate,
     ceremonyType,
-    now: new Date(),
+    now,
     statutory,
+  });
+
+  // Journey mode — the full event-lifecycle arc. Reuses the agenda for the
+  // middle and adds three lifecycle bookends: creation (events.created_at),
+  // the day (events.event_date), and the editorial (event_recaps.published_at).
+  // The editorial anchor only counts when the recap is actually PUBLISHED —
+  // a draft/unpublished row leaves the arc's end as a forward placeholder.
+  const recapRow = recapRes.data as { status: string; published_at: string | null } | null;
+  const recapPublishedAt =
+    recapRow?.status === 'published' ? (recapRow.published_at ?? null) : null;
+  const journey = buildJourneyTimeline({
+    eventId,
+    agenda,
+    createdAt: eventRow?.created_at ?? null,
+    eventDate,
+    recapPublishedAt,
+    now,
+    copy: {
+      dayLabel: term(profile, { wedding: 'your wedding day', generic: 'your event day' }),
+      eventNoun: term(profile, { wedding: 'wedding', generic: 'event' }),
+    },
   });
 
   // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no
   // param, default to Preparation when there's something to prepare; else
   // open straight on the day-of timeline so empty-prep couples aren't met
-  // with a blank agenda.
+  // with a blank agenda. (Journey is opt-in via its segment — it never
+  // becomes the silent default, to keep the existing landing behavior.)
   const active: ScheduleView =
-    viewParam === 'preparation' || viewParam === 'event-day'
+    viewParam === 'journey' || viewParam === 'preparation' || viewParam === 'event-day'
       ? viewParam
       : agenda.items.length > 0
         ? 'preparation'
@@ -132,24 +169,41 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       <header className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Schedule</h1>
         <p className="max-w-prose text-base text-ink/65">
-          {active === 'preparation'
+          {active === 'journey'
             ? term(profile, {
                 wedding:
-                  'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                  'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward. Your story, on one continuous timeline.',
                 generic:
-                  'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                  'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward. Your story, on one continuous timeline.',
               })
-            : term(profile, {
-                wedding:
-                  'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-                generic:
-                  'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-              })}
+            : active === 'preparation'
+              ? term(profile, {
+                  wedding:
+                    'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                  generic:
+                    'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                })
+              : term(profile, {
+                  wedding:
+                    'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                  generic:
+                    'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                })}
         </p>
-        <ScheduleModeToggle active={active} prepCount={agenda.items.length} />
+        <ScheduleModeToggle
+          active={active}
+          prepCount={agenda.items.length}
+          journeyCount={journey.totalEntries}
+        />
       </header>
 
-      {active === 'preparation' ? (
+      {active === 'journey' ? (
+        <JourneyView
+          timeline={journey}
+          hasEventDate={eventDate !== null}
+          eventId={eventId}
+        />
+      ) : active === 'preparation' ? (
         <PreparationAgendaView
           eventId={eventId}
           agenda={agenda}

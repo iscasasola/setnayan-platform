@@ -2,34 +2,36 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { CalendarRange, CalendarClock } from 'lucide-react';
+import { Route, CalendarRange, CalendarClock } from 'lucide-react';
 
 /**
  * ScheduleModeToggle — the segmented control at the top of /schedule that
- * switches between the two modes of the page (chrome redesign delta #3,
- * 2026-06-03):
+ * switches between the three modes of the page (chrome redesign delta #3,
+ * 2026-06-03; Journey added 2026-07-11):
  *
- *   Preparation │ Event Day
+ *   Journey │ Preparation │ Event Day
  *
- * Mode is URL-driven via `?view=preparation` / `?view=event-day` so it's
- * bookmarkable + SSR-resolved on the server (the page reads searchParams).
- * This client component owns ONLY the link rendering + active-state
- * highlight; it never lifts the editable Event-Day blocks UI into the
- * client. Each segment is a real <Link> (prefetched, accessible, works
- * without JS) that preserves the rest of the query string.
+ * Mode is URL-driven via `?view=journey` / `?view=preparation` /
+ * `?view=event-day` so it's bookmarkable + SSR-resolved on the server (the
+ * page reads searchParams). This client component owns ONLY the link
+ * rendering + active-state highlight; it never lifts the editable Event-Day
+ * blocks UI into the client. Each segment is a real <Link> (prefetched,
+ * accessible, works without JS) that preserves the rest of the query string.
  *
- * `prepCount` lets the Preparation segment show a small count badge so the
- * couple knows there's something there before they tap.
+ * `prepCount` / `journeyCount` let those segments show a small count badge so
+ * the couple knows there's something there before they tap.
  */
 
-type Mode = 'preparation' | 'event-day';
+type Mode = 'journey' | 'preparation' | 'event-day';
 
 export function ScheduleModeToggle({
   active,
   prepCount,
+  journeyCount,
 }: {
   active: Mode;
   prepCount: number;
+  journeyCount: number;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -46,6 +48,14 @@ export function ScheduleModeToggle({
       aria-label="Schedule view"
       className="sn-seg w-full max-w-md sm:w-auto"
     >
+      <Segment
+        key={`journey-${active === 'journey'}`}
+        href={hrefFor('journey')}
+        isActive={active === 'journey'}
+        Icon={Route}
+        label="Journey"
+        badge={journeyCount > 0 ? journeyCount : undefined}
+      />
       <Segment
         key={`preparation-${active === 'preparation'}`}
         href={hrefFor('preparation')}

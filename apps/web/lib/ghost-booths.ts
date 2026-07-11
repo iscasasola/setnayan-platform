@@ -20,6 +20,10 @@ import { type VendorCategory, VENDOR_CATEGORY_LABEL } from './vendors';
 import { primaryTileForVendorCategory } from './vendor-category-taxonomy';
 import { WEDDING_TILE_SLUG } from './taxonomy';
 
+/** Build-time flag (Next.js inlines NEXT_PUBLIC_*). Default OFF → the couple lab
+ *  never computes or renders ghost booths, byte-identical to today. */
+export const PLAN3D_BOOTH_ADS_ENABLED = process.env.NEXT_PUBLIC_PLAN3D_BOOTH_ADS === 'true';
+
 /**
  * The DOMAIN of ghost booths — the core reception-floor vendor categories that
  * (a) read as a physical BOOTH at a wedding, (b) are prime ad inventory, and
@@ -128,4 +132,26 @@ export function ghostBoothSlots(
     }
   }
   return placed;
+}
+
+/** A ghost booth with its assigned floor slot — ready to render. */
+export type GhostBooth3D = GhostBoothCategory & { xPct: number; yPct: number };
+
+/**
+ * The fully-resolved, placed ghost booths for one lab: the unbooked categories
+ * (§ toggle/booked/dismissed) each assigned a free perimeter slot that clears
+ * the real booths + tables. A category with no free wall drops out (fewer slots
+ * than categories). Pure — composes the selection + placement so the lab page
+ * and the tests share one path.
+ */
+export function placedGhostBooths(input: {
+  bookedCategories: readonly VendorCategory[];
+  dismissed: readonly VendorCategory[];
+  enabled: boolean;
+  /** Real booths + tables in room %-space, so ghosts don't overlap them. */
+  occupied: readonly GhostSlot[];
+}): GhostBooth3D[] {
+  const cats = unbookedGhostCategories(input);
+  const slots = ghostBoothSlots(cats.length, input.occupied);
+  return cats.slice(0, slots.length).map((c, i) => ({ ...c, xPct: slots[i]!.xPct, yPct: slots[i]!.yPct }));
 }

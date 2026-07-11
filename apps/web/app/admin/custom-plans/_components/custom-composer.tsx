@@ -16,6 +16,7 @@ import {
   Info,
   Send,
   CheckCircle2,
+  Terminal,
 } from 'lucide-react';
 import {
   computeCustomQuote,
@@ -60,6 +61,7 @@ const DEFAULT_COMPOSITION: CustomComposition = {
   photos: CUSTOM_BASE.photos,
   tokensPerCycle: 0,
   domain: false,
+  api_access: false,
 };
 
 /** One slider row — label + icon + live value + range input. */
@@ -297,6 +299,22 @@ export function CustomComposer({
                   Include a custom domain
                 </label>
               </Knob>
+
+              <Knob
+                icon={<Terminal className="h-4 w-4" strokeWidth={2} />}
+                label="API access"
+                hint="Enterprise SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the vendor requests it."
+              >
+                <label className="flex items-center gap-2 text-xs text-ink/70">
+                  <input
+                    type="checkbox"
+                    checked={comp.api_access ?? false}
+                    onChange={(e) => setK('api_access', e.target.checked)}
+                    className="h-4 w-4 rounded border-ink/30 accent-ink"
+                  />
+                  Allow API access
+                </label>
+              </Knob>
             </div>
 
             {/* Unit-price overrides (per-quote, in-memory) */}
@@ -456,6 +474,12 @@ export function CustomComposer({
                   Branded custom domain
                 </li>
               ) : null}
+              {comp.api_access ? (
+                <li className="flex items-center gap-2">
+                  <Terminal className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
+                  API access — Enterprise SDK + API keys
+                </li>
+              ) : null}
             </ul>
 
             {/* Price block */}
@@ -502,6 +526,7 @@ export function CustomComposer({
               <input type="hidden" name="photos" value={comp.photos} />
               <input type="hidden" name="tokensPerCycle" value={comp.tokensPerCycle} />
               <input type="hidden" name="domain" value={String(comp.domain)} />
+              <input type="hidden" name="api_access" value={String(comp.api_access ?? false)} />
               <input type="hidden" name="unit_base" value={prices.base} />
               <input type="hidden" name="unit_branch" value={prices.branch} />
               <input type="hidden" name="unit_reachStep" value={prices.reachStep} />

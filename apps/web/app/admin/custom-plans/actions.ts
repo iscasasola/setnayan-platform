@@ -82,6 +82,7 @@ function parseComposition(formData: FormData): CustomComposition {
     photos: Math.max(0, Math.floor(num(formData.get('photos'), 300))),
     tokensPerCycle: Math.max(0, Math.floor(num(formData.get('tokensPerCycle'), 0))),
     domain: bool(formData.get('domain')),
+    api_access: bool(formData.get('api_access')),
   };
 }
 

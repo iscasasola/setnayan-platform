@@ -60,6 +60,7 @@ import {
 import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
+import { createPayMongoCheckout } from '@/lib/paymongo';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -230,6 +231,12 @@ export type SubmitOrderResult =
       ok: true;
       order_id: string;
       reference_code: string;
+      /**
+       * PayMongo lane only: the hosted checkout URL to redirect the buyer to.
+       * Present only when payment_mode='paymongo' AND the gateway is provisioned;
+       * the manual-QR lane never sets it.
+       */
+      checkout_url?: string;
     }
   | {
       ok: false;
@@ -440,6 +447,17 @@ export async function submitOrderAction(
     };
   }
 
+  // PayMongo lane (Phase 1): the drawer sets payment_mode='paymongo' when the
+  // build-time gate NEXT_PUBLIC_PAYMONGO_STATUS='APPROVED' is on. In that mode
+  // the order is created WITHOUT a screenshot (the buyer pays on PayMongo's
+  // hosted page next) and the manual-reconciliation email + admin ping are
+  // skipped (the webhook confirms). Re-checked against the build gate here so a
+  // forged payment_mode can't skip the screenshot requirement while the gateway
+  // is off. Every existing manual-QR submit (no payment_mode) is byte-identical.
+  const payMongoMode =
+    formData.get('payment_mode') === 'paymongo' &&
+    process.env.NEXT_PUBLIC_PAYMONGO_STATUS === 'APPROVED';
+
   // Resolve the screenshot ref. Drawer uses <FileUpload name="screenshot_ref">
   // which uploads direct-to-R2 and emits the r2:// ref. Fallback to legacy
   // <input type="file" name="screenshot"> covers any future drift.
@@ -463,7 +481,10 @@ export async function submitOrderAction(
     }
   }
 
-  if (!screenshotUrl) {
+  // The manual-QR lane always requires a screenshot (no orphan "no payment"
+  // state). The PayMongo lane does NOT — the buyer pays on the hosted page and
+  // the webhook confirms, so screenshot stays null.
+  if (!payMongoMode && !screenshotUrl) {
     return { ok: false, reason: 'A payment screenshot is required.' };
   }
 
@@ -709,6 +730,32 @@ export async function submitOrderAction(
     payment_id: paymentId,
     metadata: { channel, reference_number: referenceNumberClean },
   });
+
+  // ---- PayMongo lane: open the hosted checkout + return its URL ----
+  //
+  // The order + pending payment now exist (status 'submitted' / 'pending'); the
+  // webhook (checkout_session.payment.paid) is the ONLY thing that will flip
+  // them to paid. We skip the manual reconciliation email + admin ping below —
+  // those are the manual-QR flow. If the gateway call fails, the order stays
+  // pre-paid (recoverable: the buyer can retry or pay manually), and we surface
+  // the reason.
+  if (payMongoMode) {
+    const checkout = await createPayMongoCheckout(orderId);
+    if (!checkout.ok) {
+      return { ok: false, reason: checkout.reason };
+    }
+    if (eventIdClean) {
+      revalidatePath(`/dashboard/${eventIdClean}/orders`);
+    } else {
+      revalidatePath('/dashboard', 'layout');
+    }
+    return {
+      ok: true,
+      order_id: orderId,
+      reference_code: referenceCode,
+      checkout_url: checkout.checkoutUrl,
+    };
+  }
 
   // ---- Admin confirmation (best-effort · Notification Foundation Phase B) ----
   //

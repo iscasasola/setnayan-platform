@@ -6,26 +6,13 @@ import { redirect } from 'next/navigation';
 // Shared admin gate (council fix #1 2026-07-09) — same Forbidden contract the
 // local requireAdmin had before it was promoted to lib/admin/require-admin.ts.
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
-// Couple referral rewards (2026-07-01). QUALIFYING EVENT = the referred
-// couple's FIRST PAID ORDER. Fired best-effort off an after() hook the moment
-// an order flips to 'paid' — never blocks or fails the reconciliation flow.
-// Idempotent + inert-when-reward-unset (see lib/referrals.ts).
-import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp, orderGrossOwed, isVatInclusiveServiceKey } from '@/lib/orders';
-import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
-import { captureEvent } from '@/lib/analytics';
-import {
-  computePayoutBreakdown,
-  dispatchVendorPayouts,
-  getSetnayanFeeBps,
-  phpToCentavos,
-  releasePayoutHold,
-  resolveVendorVerificationState,
-} from '@/lib/payouts';
-import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+// releasePayoutHold backs releasePayoutHoldAction (below); the payout-scheduling
+// + receipt helpers moved into lib/finalize-paid-order.ts with the promote block.
+import { releasePayoutHold } from '@/lib/payouts';
 // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
 // row). All admin payment-state transitions append a row to public.order_ledger
 // via the canonical helper. Best-effort writes — never throws, never blocks
@@ -46,6 +33,10 @@ import { appendLedger } from '@/lib/ledger';
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
+// Shared order-fulfillment tail (order→paid · receipt · payouts · activation),
+// extracted VERBATIM from the promote block below so the manual admin lane and
+// the PayMongo gateway webhook produce byte-identical fulfillment.
+import { finalizePaidOrder } from '@/lib/finalize-paid-order';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -197,126 +188,38 @@ export async function approvePayment(formData: FormData) {
       }
     }
 
-    // Capture the update result. If this silently failed we'd notify
-    // the buyer "your order is paid" while the DB row still says
-    // pending — and downstream payout / receipt logic would diverge.
-    // Fail loudly so the admin can re-run rather than leaking a
-    // half-promoted order.
-    const { error: promoteErr } = await admin
-      .from('orders')
-      .update({ status: 'paid', updated_at: new Date().toISOString() })
-      .eq('order_id', payment.order_id);
-    if (promoteErr) {
-      await insertFaultLog({
-        event_type: 'SUPABASE_SAVE_ERROR',
-        element_name: 'Approve payment — promote order to paid',
-        file_path: 'app/admin/payments/actions.ts',
-        error_message: promoteErr.message,
-        payload_snapshot: { paymentId, orderId: payment.order_id, serviceKey: order?.service_key ?? null },
-      });
-      throw new Error(
-        `Failed to promote order ${payment.order_id} to paid: ${promoteErr.message}`,
-      );
-    }
-
-    // Best-effort (same contract as payment_matched above): the order is
-    // already promoted to 'paid'; a notification failure must not surface a
-    // 500 that makes the admin think the fully-successful approval failed.
-    try {
-      await emitNotification({
-        userId: payment.user_id,
-        type: 'order_paid',
-        title: `Order ${order?.public_id ?? ''} marked paid`,
-        body: "Your order is fully paid. We'll start work right away.",
-        relatedUrl: order?.event_id
-          ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-          : null,
-      });
-    } catch (e) {
-      console.error('order_paid notification failed (non-fatal):', e);
-    }
-
-    // Couple referral rewards — QUALIFYING EVENT is this buyer's FIRST PAID
-    // ORDER. If they signed up via a ?refc= code, the hook marks their open
-    // redemption qualified and (when the admin-managed reward is set) mints the
-    // two single-use reward vouchers. after() runs post-response so it never
-    // delays the admin's reconciliation click; the helper is best-effort and
-    // never throws. Idempotent — the redemption lookup only matches an `open`
-    // row, so re-approvals / partial-then-full flows can't double-mint.
-    after(() => qualifyReferralOnFirstPaidOrder(payment.user_id));
-
-    // Funnel event — fires the moment an order's status flips to paid.
-    // Distinct id is the buyer's Supabase user_id (payment.user_id), so it
-    // joins with `signup_completed` / `event_created` for the same person.
-    // `sku_key` maps to the order's `service_key` column (closest existing
-    // analog; no schema change per the wiring scope).
-    try {
-      await captureEvent({
-        distinctId: payment.user_id,
-        event: 'order_paid',
-        properties: {
-          order_id: payment.order_id,
-          amount_php: Number(payment.amount_php),
-          sku_key: order?.service_key ?? null,
-        },
-      });
-    } catch {
-      // analytics never breaks the admin reconciliation flow.
-    }
-
-    // Auto-issue an app transaction receipt — one per order. This is NOT a
-    // BIR Official Receipt (the actual BIR OR is issued separately, offline).
-    // The unique constraint on receipts.order_id makes the insert idempotent
-    // across retries; subsequent runs silently no-op.
-    await issueReceiptForOrder({ admin, orderId: payment.order_id });
-
-    // Vendor Payout dispatcher (locked 2026-05-16). If this order is linked
-    // to a vendor_profile (vendor_profile_id column on orders, populated by
-    // the legacy Setnayan Pay cart flow), schedule the payout rows now.
-    // Verified vendors get a single T+1 immediate stage; coming_soon /
-    // demoted get the 20/60/20 staged release.
-    //
-    // No-op when the order isn't a vendor booking (vendor_profile_id NULL)
-    // — couples buying Setnayan SKUs don't trigger vendor payouts. Failures
-    // here NEVER block the payment-approval flow; payouts can be retried
-    // from /admin/payouts.
-    //
-    // Retired 2026-05-28 V2 cutover — Setnayan Pay 5% convenience fee is
-    // retired entirely; Setnayan is now a software publisher, not a
-    // marketplace intermediary, and vendor bookings settle directly
-    // off-platform with 0% commission. This dispatcher stays wired for any
-    // legacy orders still carrying vendor_profile_id; new V2 orders won't
-    // route through it.
-    try {
-      await schedulePayoutsForOrder({
-        admin,
+    // All downstream fulfillment — order → paid, the order_paid notification,
+    // referral qualify, analytics, the app receipt, vendor payouts, AND per-SKU
+    // activation — is the SHARED helper (lib/finalize-paid-order.ts), so this
+    // manual admin lane and the PayMongo gateway webhook produce byte-identical
+    // fulfillment. The specific payment was already flipped → matched above
+    // (with admin_notes + reviewed_by + the 'payment_approved' ledger), so
+    // alreadyMatchedPayment=true tells the helper NOT to re-touch payment rows —
+    // exactly what the old inline promote block did (it never re-flipped). The
+    // shortfall-guard redirect above still exits BEFORE this for a short-paid
+    // order, so finalizePaidOrder (and its activation) never runs for one.
+    if (order) {
+      await finalizePaidOrder(admin, {
         orderId: payment.order_id,
+        order: {
+          event_id: order.event_id,
+          public_id: order.public_id,
+          service_key: order.service_key,
+        },
+        buyerUserId: payment.user_id,
         actorUserId: userId,
+        actorRole: 'admin',
+        alreadyMatchedPayment: true,
+        amountPhp: Number(payment.amount_php),
       });
-    } catch (e) {
-      console.error('vendor payout scheduling failed (non-fatal):', e);
     }
-  }
-
-  // Per-SKU activation dispatcher (PR3 hardening; PR4 dead-unlock repair
-  // 2026-06-15: moved OUT of the `if (promoteOrder)` block so it runs on EVERY
-  // approval). WHY: ownership reads off orders.status via checkOrderOwnership(),
-  // which already counts a 'submitted' order as OWNED — so the moment a payment
-  // is matched the capability is owned, whether or not the admin ticked
-  // "promote to paid". Previously activation lived inside the promote block, so
-  // approving WITHOUT promote matched the payment but never ran the side-effect
-  // provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch
-  // flag), leaving the capability owned-but-unprovisioned. Running it
-  // unconditionally aligns provisioning with ownership.
-  //
-  // Some SKUs need a side effect to unlock the capability; MOST are pure no-ops
-  // (ownership alone suffices). Non-fatal by contract — activateOrderSku never
-  // throws, so a failed activation leaves a recoverable state (admin re-runs /
-  // flips the row manually) but never rolls back the already-approved payment.
-  // Hooks are idempotent, so the promote-on path (which falls through to here
-  // exactly once) and a later re-approval are both safe. PR4 registers
-  // PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
-  if (order) {
+  } else if (order) {
+    // Approve WITHOUT promote: the order stays pre-paid, but the capability is
+    // OWNED the moment the payment is matched (checkOrderOwnership counts a
+    // 'submitted' order as owned), so provisioning must still run — mirrors the
+    // pre-refactor behavior where activateOrderSku ran on EVERY approval.
+    // finalizePaidOrder owns this SAME call for the promote path, so it fires
+    // exactly once either way. Non-fatal by contract (never throws) + idempotent.
     await activateOrderSku({
       admin,
       orderId: payment.order_id,
@@ -341,182 +244,6 @@ export async function approvePayment(formData: FormData) {
   // fully-successful approval never shows the admin an error; the couple's UI
   // still refreshes a beat later. See DECISION_LOG 2026-07-05.
   after(() => revalidatePath('/dashboard', 'layout'));
-}
-
-async function schedulePayoutsForOrder(args: {
-  admin: ReturnType<typeof createAdminClient>;
-  orderId: string;
-  actorUserId: string;
-}): Promise<void> {
-  const { admin, orderId, actorUserId } = args;
-
-  // Pull the order + linked vendor + linked event date in one round-trip.
-  const { data: orderRow } = await admin
-    .from('orders')
-    .select(
-      `order_id, vendor_profile_id, confirmed_total_php, requested_total_php,
-       setnayan_fee_bps, gateway_fee_centavos, payment_method_key, event_id,
-       service_key,
-       vendor:vendor_profiles!orders_vendor_profile_id_fkey(public_visibility),
-       event:events!orders_event_id_fkey(event_date)`,
-    )
-    .eq('order_id', orderId)
-    .maybeSingle();
-
-  if (!orderRow) return;
-  const row = orderRow as unknown as {
-    order_id: string;
-    vendor_profile_id: string | null;
-    confirmed_total_php: number | null;
-    requested_total_php: number;
-    setnayan_fee_bps: number | null;
-    gateway_fee_centavos: number | null;
-    payment_method_key: string | null;
-    event_id: string | null;
-    service_key: string | null;
-    vendor: { public_visibility: string | null } | null;
-    event: { event_date: string | null } | null;
-  };
-
-  // Skip non-vendor orders silently — couples buying Setnayan SKUs don't
-  // generate a vendor payout schedule.
-  if (!row.vendor_profile_id) return;
-
-  // MONEY-DIRECTION GUARD (M1): a vendor payout must only ever be dispatched
-  // for a COUPLE BOOKING — i.e. an order where a couple paid Setnayan for a
-  // vendor's service and we owe the vendor their net. A vendor BRANCH
-  // activation order (`vendor_additional_branch__{id}`, owner-locked
-  // 2026-06-05) runs the OTHER direction: the VENDOR pays Setnayan ₱999 for an
-  // Enterprise sub-location. Those orders carry `vendor_profile_id` (the paying
-  // vendor) but NO `event_id` (there's no wedding behind them), so the old
-  // `if (!row.vendor_profile_id) return;` guard let them fall through and
-  // wrongly queued a vendor PAYOUT — i.e. Setnayan would pay the vendor for an
-  // order the vendor was paying US for.
-  //
-  // Two independent signals, either of which means "not a couple booking":
-  //   1. No linked event   → couple bookings always carry an event_id.
-  //   2. A branch service_key → the vendor-pays-Setnayan direction explicitly.
-  // The event_id check alone is robust; the service_key check is belt-and-
-  // suspenders for any other vendor-pays-Setnayan SKU that joins this code path.
-  const isBranchOrder =
-    !!row.service_key && branchIdFromServiceKey(row.service_key) !== null;
-  if (!row.event_id || isBranchOrder) return;
-
-  const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
-  if (basePhp <= 0) return;
-
-  // Gross = pre-VAT base + 12% VAT (the customer pays gross).
-  const { gross } = computeVatFromBase(basePhp);
-  const grossCentavos = phpToCentavos(gross);
-
-  // Effective convenience-fee bps: a per-order snapshot wins (orders.setnayan_fee_bps,
-  // captured at checkout) so historical orders keep their original fee; otherwise
-  // use the admin-set platform fee from platform_settings, which itself falls back
-  // to the 5.0% code constant when unset (= unchanged behavior pre-migration).
-  const effectiveFeeBps =
-    row.setnayan_fee_bps ?? (await getSetnayanFeeBps(admin));
-
-  const breakdown = computePayoutBreakdown({
-    grossCentavos,
-    setnayanFeeBps: effectiveFeeBps,
-    gatewayFeeCentavos: row.gateway_fee_centavos ?? undefined,
-  });
-
-  // Write the breakdown back onto the order row so receipts / vendor surfaces
-  // can read it without re-computing.
-  await admin
-    .from('orders')
-    .update({
-      gateway_fee_centavos: breakdown.gatewayFeeCentavos,
-      bir_withholding_centavos: breakdown.birWithholdingCentavos,
-      vendor_net_centavos: breakdown.vendorNetCentavos,
-      disbursement_fee_centavos: breakdown.disbursementFeeCentavos,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('order_id', orderId);
-
-  const verificationState = resolveVendorVerificationState({
-    public_visibility: row.vendor?.public_visibility ?? null,
-  });
-
-  await dispatchVendorPayouts(admin, {
-    orderId,
-    vendorProfileId: row.vendor_profile_id,
-    verificationState,
-    paidAt: new Date().toISOString(),
-    eventDate: row.event?.event_date ?? null,
-    breakdown,
-    // Default disbursement rail until the vendor sets a preferred one in
-    // their profile (V1.5 field). `maya_account` maps to the spec's
-    // 'maya' rail in the legacy `payout_method` CHECK column on
-    // vendor_payouts (migration 20260516020000).
-    payoutMethod: 'maya_account',
-    actorUserId,
-  });
-}
-
-async function issueReceiptForOrder(args: {
-  admin: ReturnType<typeof createAdminClient>;
-  orderId: string;
-}): Promise<void> {
-  const { admin, orderId } = args;
-
-  // Skip if a receipt was already issued for this order.
-  const { data: existing } = await admin
-    .from('receipts')
-    .select('receipt_id')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (existing) return;
-
-  const { data: order } = await admin
-    .from('orders')
-    .select('user_id, service_key, confirmed_total_php, requested_total_php, voucher_discount_centavos')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (!order) return;
-
-  // For customer SKUs the order's *_total_php fields are the **pre-VAT base**
-  // (the value Setnayan quotes); VAT is added on top, so the buyer paid
-  // base + 12%. For vendor charm prices the stored total is ALREADY the
-  // all-in gross (VAT baked in) — see isVatInclusiveServiceKey.
-  //
-  // #3 (money bug-hunt 2026-06-26): a BIR Official Receipt must reflect the
-  // amount actually paid. `requested_total_php` is the PRE-voucher base, so a
-  // voucher-discounted order whose `confirmed_total_php` is still NULL was
-  // getting a receipt overstating the pre-VAT/VAT/gross. Mirror `orderGrossOwed`:
-  // net the voucher discount off the requested base when not yet confirmed.
-  const voucherDiscountPhp = Number(order.voucher_discount_centavos ?? 0) / 100;
-  const storedTotal =
-    order.confirmed_total_php != null
-      ? Number(order.confirmed_total_php)
-      : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
-  if (storedTotal <= 0) return;
-
-  const { data: buyer } = await admin
-    .from('users')
-    .select('email, display_name')
-    .eq('user_id', order.user_id)
-    .maybeSingle();
-
-  // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
-  // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
-  // orders: build VAT UP from the pre-VAT base, unchanged.
-  const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
-    ? computeVatFromGross(storedTotal)
-    : computeVatFromBase(storedTotal);
-
-  // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
-  // The display "Transaction No." is composed at read-time via formatReceiptNumber().
-  await admin.from('receipts').insert({
-    order_id: orderId,
-    user_id: order.user_id,
-    issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
-    issued_to_name: buyer?.display_name ?? null,
-    pre_vat_php: preVat,
-    vat_amount_php: vat,
-    gross_total_php: gross,
-  });
 }
 
 export async function rejectPayment(formData: FormData) {

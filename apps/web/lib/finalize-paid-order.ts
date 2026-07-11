@@ -186,8 +186,18 @@ export async function finalizePaidOrder(
   }
 
   // Auto-issue an app transaction receipt — one per order (idempotent via the
-  // UNIQUE constraint on receipts.order_id).
-  await issueReceiptForOrder({ admin, orderId });
+  // UNIQUE constraint on receipts.order_id). BEST-EFFORT: the order is already
+  // promoted to 'paid' at this point, so a transient receipt-insert failure must
+  // NOT throw — if it did, finalizePaidOrder would bubble a 500 to the webhook,
+  // PayMongo's retry would short-circuit at the caller's status==='paid'
+  // idempotency guard, and schedulePayoutsForOrder + activateOrderSku below would
+  // NEVER run (customer charged, order paid, capability never granted). The
+  // receipt is idempotent and can be back-filled; payout + SKU activation cannot.
+  try {
+    await issueReceiptForOrder({ admin, orderId });
+  } catch (e) {
+    console.error('issueReceiptForOrder failed (non-fatal):', e);
+  }
 
   // Vendor payout dispatcher — no-op unless the order is linked to a
   // vendor_profile. Failures NEVER block fulfillment.

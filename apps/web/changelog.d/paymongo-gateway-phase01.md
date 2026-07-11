@@ -54,6 +54,25 @@ enabled.
   `NEXT_PUBLIC_PAYMONGO_STATUS='APPROVED'`, KEEPING the manual GCash/BDO path as
   the fallback branch.
 
+**Review fixes (draft PR #3146)**
+
+- **M1 (correctness):** wrapped `issueReceiptForOrder()` in `finalizePaidOrder`
+  in a best-effort try/catch (log, don't rethrow), mirroring the adjacent
+  `schedulePayoutsForOrder` guard. Previously an ungrated receipt-insert failure
+  AFTER the order was already flipped to `paid` would throw → webhook 500 →
+  PayMongo retry short-circuits at the route's `status==='paid'` idempotency
+  guard → `schedulePayoutsForOrder` + `activateOrderSku` never ran (customer
+  charged, order paid, capability never granted). The receipt is idempotent and
+  back-fillable; SKU activation now always runs.
+- **L3 (analytics parity):** the webhook now threads the order's pending-payment
+  `amount_php` (VAT-inclusive gross) into `finalizePaidOrder` as `amountPhp`, so
+  the `order_paid` PostHog event records the real figure instead of `null` —
+  matching how the manual admin lane threads the matched payment's `amount_php`.
+- **L2 (replay defense-in-depth):** `verifyPayMongoSignature` now rejects a
+  delivery whose signed `t` (unix seconds) is more than 300s from now (either
+  direction), so a captured valid delivery can't be replayed indefinitely. HMAC
+  scheme unchanged.
+
 Not in scope (deferred): Phase 2 recurring / Subscriptions. No paywall/status
 flag enabled. Maya lane (dead, no live callers) left intact.
 

@@ -44,6 +44,14 @@ const TOKEN_REF_RE = /TKN-[A-Z0-9]{8}/;
 
 type Secrets = { test: string | null; live: string | null };
 
+/**
+ * Replay window (seconds). A captured valid delivery is only accepted if its
+ * signed timestamp is within this tolerance of now (both directions), so a
+ * sniffed-and-stored request can't be replayed indefinitely. Kept lenient
+ * enough to absorb legit clock skew + PayMongo's own delivery retries.
+ */
+const SIGNATURE_FRESHNESS_TOLERANCE_S = 300;
+
 /** Parse 't=..,te=..,li=..' into its parts (missing parts → ''). */
 function parsePayMongoSignature(header: string): { t: string; te: string; li: string } {
   const out: { t: string; te: string; li: string } = { t: '', te: '', li: '' };
@@ -81,6 +89,20 @@ function timingSafeEqualHex(aHex: string, bHex: string): boolean {
 function verifyPayMongoSignature(rawBody: string, header: string, secrets: Secrets): boolean {
   const { t, te, li } = parsePayMongoSignature(header);
   if (!t) return false;
+
+  // Replay defense-in-depth: reject a delivery whose signed unix-seconds
+  // timestamp is more than SIGNATURE_FRESHNESS_TOLERANCE_S from now (either
+  // direction). A valid but captured request is otherwise replayable forever —
+  // the HMAC below only proves authenticity, not freshness. Non-numeric or
+  // stale `t` fails closed. (The order lane's status==='paid' idempotency guard
+  // already no-ops a duplicate of an already-fulfilled order; this stops a
+  // captured delivery from being replayed BEFORE the order is fulfilled, and
+  // caps the token lane's replay window too.)
+  const tSeconds = Number(t);
+  if (!Number.isFinite(tSeconds)) return false;
+  const nowSeconds = Date.now() / 1000;
+  if (Math.abs(nowSeconds - tSeconds) > SIGNATURE_FRESHNESS_TOLERANCE_S) return false;
+
   const signedPayload = `${t}.${rawBody}`;
   if (secrets.live && li) {
     const expected = createHmac('sha256', secrets.live).update(signedPayload).digest('hex');
@@ -224,6 +246,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, already: true }, { status: 200 });
   }
 
+  // Paid amount (PHP) for the 'order_paid' analytics event. The manual admin
+  // lane threads the matched payment's amount_php; mirror that here so gateway
+  // orders don't record amount_php:null. The order's pending payment row carries
+  // the VAT-inclusive gross the buyer was instructed to pay (and did, via
+  // PayMongo) — the same value finalizePaidOrder flips to 'matched' below.
+  const { data: pendingPayments } = await admin
+    .from('payments')
+    .select('amount_php')
+    .eq('order_id', order.order_id)
+    .eq('status', 'pending');
+  const pendingPaymentRow = (pendingPayments ?? [])[0] as
+    | { amount_php: number | string }
+    | undefined;
+  const paidAmountPhp = pendingPaymentRow ? Number(pendingPaymentRow.amount_php) : null;
+
   try {
     await finalizePaidOrder(admin, {
       orderId: order.order_id,
@@ -238,6 +275,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       actorUserId: order.user_id,
       actorRole: 'system',
       alreadyMatchedPayment: false,
+      // Analytics parity with the manual lane's `amountPhp: Number(payment.amount_php)`.
+      amountPhp: paidAmountPhp,
     });
   } catch (e) {
     // Real server error → 500 so PayMongo retries (which is what we want; the

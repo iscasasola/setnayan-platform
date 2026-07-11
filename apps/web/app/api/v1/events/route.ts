@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   apiErrorResponse,
@@ -40,8 +39,6 @@ type EventRow = {
  * field too so consumers have one canonical key.
  */
 export async function GET(req: Request) {
-  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
-  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   const auth = await authenticateApiRequest(req);
   if (isAuthError(auth)) return authErrorResponse(auth);
 

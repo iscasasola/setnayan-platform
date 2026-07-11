@@ -2,6 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hashApiKey, hasScope, type ApiScope } from '@/lib/api-keys';
+import { userOwnsActiveEnterpriseVendor } from '@/lib/enterprise-vendor-gate';
 
 export type ApiAuthResult = {
   userId: string;
@@ -11,7 +12,7 @@ export type ApiAuthResult = {
 
 export type ApiAuthError = {
   status: number;
-  error: 'missing_auth' | 'invalid_format' | 'invalid_key' | 'revoked' | 'expired';
+  error: 'missing_auth' | 'invalid_format' | 'invalid_key' | 'revoked' | 'expired' | 'not_enterprise';
 };
 
 const ERROR_HTTP_STATUS: Record<ApiAuthError['error'], number> = {
@@ -20,6 +21,7 @@ const ERROR_HTTP_STATUS: Record<ApiAuthError['error'], number> = {
   invalid_key: 401,
   revoked: 401,
   expired: 401,
+  not_enterprise: 403,
 };
 
 const ERROR_MESSAGE: Record<ApiAuthError['error'], string> = {
@@ -28,6 +30,7 @@ const ERROR_MESSAGE: Record<ApiAuthError['error'], string> = {
   invalid_key: 'API key not recognised.',
   revoked: 'API key has been revoked.',
   expired: 'API key has expired.',
+  not_enterprise: 'The Setnayan API is available on the Enterprise vendor plan.',
 };
 
 function authError(error: ApiAuthError['error']): ApiAuthError {
@@ -67,6 +70,14 @@ export async function authenticateApiRequest(
   if (data.revoked_at) return authError('revoked');
   if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) {
     return authError('expired');
+  }
+
+  // The /api/v1 SDK is an enterprise-vendor feature (owner 2026-07-11). Enforce
+  // it at this shared auth choke point so every bearer route inherits the gate.
+  // This is also the DOWNGRADE DEFENSE: a key minted while Enterprise stops
+  // working the moment that vendor's tier lapses or downgrades.
+  if (!(await userOwnsActiveEnterpriseVendor(admin, data.user_id))) {
+    return authError('not_enterprise');
   }
 
   // Don't await — log the touch and return immediately.

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   apiErrorResponse,
@@ -20,8 +19,6 @@ type Params = { params: Promise<{ eventId: string }> };
  * — we never leak the existence of an event the caller can't see.
  */
 export async function GET(req: Request, { params }: Params) {
-  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
-  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   const auth = await authenticateApiRequest(req);
   if (isAuthError(auth)) return authErrorResponse(auth);
 

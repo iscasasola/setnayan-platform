@@ -2563,3 +2563,41 @@ input[type='range'].sn-range::-moz-range-thumb {
  * only `animation`, so a slider's own thumb size/colour rules still win. */
 input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
 input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
+
+/*
+ * ─────────────────────────────────────────────────────────────────────
+ * Guests · Living Roster (`.gl-*`) — the editorial "roster is the hero"
+ * reskin of the couple Guests page (P0 · 2026-07-11). Namespaced `.gl-`
+ * for "Guests / Living-roster", a sibling convention to `.sn-*`.
+ *
+ * Only ONE piece of motion needs a hand-authored keyframe: the on-mount
+ * "settle" (fade + rise) that lets the summary-facet bar and the roster
+ * ease in when the page FIRST loads. It is a ONE-SHOT (`both`, no
+ * iteration) applied to elements that persist across in-page filter
+ * navigations — the App-Router client transition reconciles the DOM
+ * rather than remounting, so the animation plays once on entry and does
+ * NOT replay when a facet pill re-filters the list. The global
+ * `prefers-reduced-motion: reduce` block near the top of this file
+ * freezes it to a still frame for motion-sensitive visitors (no per-rule
+ * opt-out needed — that block wins with `!important`).
+ * ─────────────────────────────────────────────────────────────────────
+ */
+@keyframes gl-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gl-settle {
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* A hair of stagger so the roster settles just after the facet bar,
+ * reading as one connected motion rather than two independent pops. */
+.gl-settle-delayed {
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: 0.05s;
+}

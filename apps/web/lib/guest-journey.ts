@@ -3,9 +3,11 @@
  *
  * Owner direction 2026-06-16: the Guests area is a JOURNEY, not a pile of tools —
  * Build → Invite → Confirm → Seat → Day-of. This module is the one place that
- * defines the stages (label · icon · route · active-match) so the desktop strip
- * (lifecycle-ribbon.tsx) and the mobile docked sub-nav (guests-section-subnav.tsx)
- * can never drift apart. Neutral module (no `'use client'`) so a Server Component
+ * defines the stages (label · icon · route · active-match) so the guest-area
+ * nav surfaces (the left sidebar + the mobile docked sub-nav) can never drift
+ * apart. (The desktop lifecycle-ribbon strip that also consumed this was retired
+ * in the Living Roster P0 reskin, 2026-07-11 — its steps live in the left nav +
+ * the roster's own affordances now.) Neutral module (no `'use client'`) so a Server Component
  * AND a Client Component can both import it — same pattern as customer-nav-config.ts
  * (lucide icon refs render in both contexts; the boundary issue was only ever the
  * `'use client'` file wrapping, not the icons).

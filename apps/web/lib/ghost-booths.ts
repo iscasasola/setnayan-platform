@@ -90,3 +90,42 @@ export function unbookedGhostCategories(input: {
 export function ghostBoothExploreHref(tileSlug: string): string {
   return `/explore?tile=${encodeURIComponent(tileSlug)}`;
 }
+
+/** A perimeter slot in room %-space (0–100). */
+export type GhostSlot = { xPct: number; yPct: number };
+
+// Wall-hugging candidate ring, in priority order (top wall first, then sides,
+// then bottom corners — the bottom-CENTRE is left clear for the entrance). Ghost
+// booths fill EMPTY wall space, so they never crowd the seated floor.
+const GHOST_CANDIDATE_SLOTS: readonly GhostSlot[] = [
+  { xPct: 22, yPct: 9 }, { xPct: 39, yPct: 9 }, { xPct: 56, yPct: 9 }, { xPct: 73, yPct: 9 },
+  { xPct: 9, yPct: 32 }, { xPct: 91, yPct: 32 },
+  { xPct: 9, yPct: 52 }, { xPct: 91, yPct: 52 },
+  { xPct: 9, yPct: 72 }, { xPct: 91, yPct: 72 },
+  { xPct: 22, yPct: 91 }, { xPct: 78, yPct: 91 },
+];
+
+/**
+ * Assign up to `count` ghost booths to perimeter slots, greedily skipping any
+ * candidate too near an already-occupied point (a real booth or a table) OR a
+ * ghost booth already placed this pass. Pure %-space (room-independent) and
+ * deterministic. Returns fewer than `count` if the perimeter is full — a ghost
+ * booth with no free wall simply doesn't show (never overlaps the floor).
+ */
+export function ghostBoothSlots(
+  count: number,
+  occupied: readonly GhostSlot[],
+  tolerancePct = 11,
+): GhostSlot[] {
+  const placed: GhostSlot[] = [];
+  const taken: GhostSlot[] = [...occupied];
+  const clear = (s: GhostSlot) => taken.every((o) => Math.hypot(s.xPct - o.xPct, s.yPct - o.yPct) > tolerancePct);
+  for (const c of GHOST_CANDIDATE_SLOTS) {
+    if (placed.length >= count) break;
+    if (clear(c)) {
+      placed.push(c);
+      taken.push(c);
+    }
+  }
+  return placed;
+}

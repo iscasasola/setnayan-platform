@@ -70,10 +70,6 @@ import {
   type FacetSelection,
   type VendorFacetMatch,
 } from '@/lib/vendor-facets';
-import {
-  getBatchVendorAvailableDays,
-  formatDayKey,
-} from '@/lib/vendor-availability';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -554,32 +550,26 @@ export async function searchCategoryVendors(input: {
     : new Map<string, VendorFacetMatch>();
 
   // Service-date availability: flag vendors whose vendor_calendar_blocks cover
-  // the event's locked date. Single-day window → a vendor is unavailable iff its
-  // computed available-day set for that day is empty (has a covering block).
-  // No locked date / no blocks / RLS-empty read → nobody is flagged (fail-open,
-  // never wrongly mark a vendor busy). Extends the dormant date-availability
-  // reader (lib/vendor-availability) to the couple's single event date.
+  // the event's locked date. Couples can't read vendor_calendar_blocks directly
+  // (no couple RLS SELECT — deliberate: labels + full calendars are private), so
+  // we ask the SCOPED `vendors_blocked_on_date` RPC (SECURITY DEFINER · migration
+  // 20270721314905) which returns ONLY the busy subset of the candidate ids for
+  // the couple's ONE event date — no labels, no other dates leak. No locked
+  // date / no blocks / RPC error → nobody is flagged (fail-open, never wrongly
+  // mark a vendor busy). Owner-picked privacy model (2026-07-11).
   const unavailableIds = new Set<string>();
   const eventDateStr = (ev.event_date as string | null) ?? null;
-  if (eventDateStr && /^\d{4}-\d{2}-\d{2}$/.test(eventDateStr)) {
-    const [y, m, d] = eventDateStr.split('-').map(Number);
-    const day = new Date(y!, m! - 1, d!);
-    if (!Number.isNaN(day.getTime())) {
-      try {
-        const availByVendor = await getBatchVendorAvailableDays(
-          supabase,
-          ids,
-          day,
-          day,
-        );
-        const dayKey = formatDayKey(day);
-        for (const id of ids) {
-          const avail = availByVendor.get(id);
-          if (avail && !avail.has(dayKey)) unavailableIds.add(id);
-        }
-      } catch {
-        // Fail-open: leave unavailableIds empty so the search is unchanged.
+  if (eventDateStr && /^\d{4}-\d{2}-\d{2}$/.test(eventDateStr) && ids.length > 0) {
+    try {
+      const { data: blockedRows } = await supabase.rpc('vendors_blocked_on_date', {
+        p_vendor_ids: ids,
+        p_event_date: eventDateStr,
+      });
+      for (const r of (blockedRows ?? []) as { vendor_profile_id: string | null }[]) {
+        if (r.vendor_profile_id) unavailableIds.add(r.vendor_profile_id);
       }
+    } catch {
+      // Fail-open: leave unavailableIds empty so the search is unchanged.
     }
   }
 

@@ -31,7 +31,7 @@ import {
   roleImportanceRank,
 } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -174,7 +174,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived] =
+  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan] =
     await Promise.all([
       fetchGuestsByEvent(supabase, eventId),
       supabase
@@ -231,6 +231,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .from('guest_checkins')
         .select('checkin_id', { count: 'exact', head: true })
         .eq('event_id', eventId),
+      // Living Roster P4 — the event's real stage anchor, so the reactive seat
+      // SUGGESTION ranks tables from where the couple actually placed the stage
+      // (matching Auto-Arrange), not the hardcoded top-center default. Folds into
+      // this same parallel fan-out (fetchFloorPlan is a fast PK-indexed singleton,
+      // never the slowest read) and is guarded like the other seat reads: a blip
+      // degrades to the default anchor rather than taking down the Guests tab.
+      fetchFloorPlan(supabase, eventId).catch(() => null),
     ]);
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
@@ -378,6 +385,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     const label = tableLabelById.get(a.table_id);
     if (label) placedByGuest.set(a.guest_id, label);
   }
+  // The event's real stage anchor for the suggestion heuristic (P4) — the actual
+  // floor-plan stage the couple placed, so "~T#" hints rank from the same point
+  // Auto-Arrange does. Falls back to suggestTableFor's default when no floor plan
+  // row exists yet (undefined → the param default kicks in).
+  const stage = floorPlan ? { x: floorPlan.stage_x, y: floorPlan.stage_y } : undefined;
   const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
     Object.fromEntries(
       visible.map((g) => {
@@ -387,7 +399,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         const suggested =
           placed || g.rsvp_status === 'declined'
             ? null
-            : suggestTableFor(g, tables, assignments);
+            : suggestTableFor(g, tables, assignments, stage);
         return [g.guest_id, { placed, suggested }];
       }),
     );

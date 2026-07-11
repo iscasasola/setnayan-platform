@@ -33,7 +33,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
-import { fetchVendorThreads, fetchReturningClientFlags, type ReturningClientFlag } from '@/lib/chat';
+import {
+  fetchVendorThreads,
+  fetchReturningClientFlags,
+  fetchThreadById,
+  fetchMessages,
+  type ReturningClientFlag,
+} from '@/lib/chat';
 import {
   fetchPlanProgressForVendor,
   fetchPendingVendorPayments,
@@ -73,6 +79,36 @@ import {
   type AppointmentTypePreset,
   type AppointmentView,
 } from '@/lib/appointments';
+// Relationship Workspace shell (flag-gated · 2026-07-11). When
+// NEXT_PUBLIC_RELATIONSHIP_WORKSPACE_ENABLED is set, the SAME tab components are
+// re-grouped into the unified chat-first shell (Chat · Quote · Payments · Files ·
+// Schedule · Call · Details) — a true two-sided mirror of the couple's Vendor
+// Workspace. Otherwise the current tabbed page renders byte-for-byte unchanged.
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import {
+  RelationshipTabShell,
+  type RelationshipTab,
+} from '@/app/_components/relationship-tab-shell';
+// Chat-tab embed — mirror the VENDOR thread page (Chat tab = the live thread with
+// the vendor accept/decline gate preserved). RLS-scoped session client ONLY for
+// these reads — never admin/service-role for chat content.
+import { getThreadBlockState } from '@/lib/chat-block';
+import {
+  sendChatMessage,
+  acceptInquiry,
+  declineInquiry,
+  markThreadRead,
+} from '@/lib/chat-actions';
+import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
+// Payments tab — reuse the vendor thread's LIVE payment-confirm surface
+// (couple-logged payments awaiting confirmation + plan progress / "mark cleared").
+// Reused as-is; no payment logic is reimplemented here.
+import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-payment-live';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -512,6 +548,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   let planSteps: ReturnType<typeof computePlanRollup> | null = null;
   let planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null = null;
   let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
+  // Full per-booking plan list — retained (beyond the single matched row) so the
+  // flag-ON Payments tab can feed the live VendorPaymentLive surface exactly as
+  // the thread page does. Unused on the flag-OFF path, so its render is unchanged.
+  let planRowsAll: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
   if (isBooked) {
     const [plans, pending] = await Promise.all([
       fetchPlanProgressForVendor({
@@ -525,6 +565,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         vendorProfileId: profile.vendor_profile_id,
       }),
     ]);
+    planRowsAll = plans;
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
@@ -765,213 +806,503 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   clientTimer.flush();
 
+  const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
   const bodyPad = 'px-4 py-6 sm:px-6';
 
-  return (
-    <section className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 lg:px-8">
-      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-cream">
-        {/* ============================ HEADER ============================ */}
-        <header className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
-          <Link
-            href="/vendor-dashboard/clients"
-            className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
+  // ------------------------------------------------------------------------
+  // Header pieces + tab-body nodes — extracted so BOTH the flag-OFF tabbed page
+  // and the flag-ON RelationshipTabShell render the SAME JSX. Nothing INSIDE any
+  // tab component changed; the flag-OFF branch reproduces the original markup
+  // byte-for-byte (same wrappers, same order, same CardTabs `?tab=` URL behavior).
+  // ------------------------------------------------------------------------
+  const backLink = (
+    <Link
+      href="/vendor-dashboard/clients"
+      className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
+    >
+      <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
+    </Link>
+  );
+
+  const identityBlock = (
+    <div className="flex items-start gap-4">
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
+        {initials(brief.event.display_name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+          {eventName}
+        </h1>
+        {metaBits.length > 0 ? (
+          <p className="mt-0.5 truncate text-sm text-ink/55">{metaBits.join(' · ')}</p>
+        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
           >
-            <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
-          </Link>
-
-          <div className="flex items-start gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
-              {initials(brief.event.display_name)}
+            {stagePill.label}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+              isImported
+                ? 'bg-ink/5 text-ink/60'
+                : 'bg-terracotta/10 text-terracotta'
+            }`}
+          >
+            {isImported ? (
+              <>
+                <UserRound aria-hidden className="h-3 w-3" /> Imported
+              </>
+            ) : (
+              <>
+                <Sparkles aria-hidden className="h-3 w-3" /> In-house
+              </>
+            )}
+          </span>
+          {brief.booked_categories.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+            >
+              {isBooked ? 'Booked · ' : ''}
+              {CATEGORY_LABELS[c] ?? c}
             </span>
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
-                {eventName}
-              </h1>
-              {metaBits.length > 0 ? (
-                <p className="mt-0.5 truncate text-sm text-ink/55">{metaBits.join(' · ')}</p>
-              ) : null}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
-                >
-                  {stagePill.label}
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                    isImported
-                      ? 'bg-ink/5 text-ink/60'
-                      : 'bg-terracotta/10 text-terracotta'
-                  }`}
-                >
-                  {isImported ? (
-                    <>
-                      <UserRound aria-hidden className="h-3 w-3" /> Imported
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles aria-hidden className="h-3 w-3" /> In-house
-                    </>
-                  )}
-                </span>
-                {brief.booked_categories.map((c) => (
-                  <span
-                    key={c}
-                    className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
-                  >
-                    {isBooked ? 'Booked · ' : ''}
-                    {CATEGORY_LABELS[c] ?? c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Action row */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {threadId ? (
-              <Link
-                href={`/vendor-dashboard/messages/${threadId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream"
-              >
-                <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
-              </Link>
-            ) : null}
-            <Link
-              href="/vendor-dashboard/proposals"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
-            </Link>
-            <Link
-              href={
-                hasContract
-                  ? '/vendor-dashboard/contracts'
-                  : `/vendor-dashboard/contracts/new?event=${eventId}`
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <FilePlus2 aria-hidden className="h-3.5 w-3.5" /> {hasContract ? 'Contract' : 'Contract'}
-            </Link>
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}?tab=files`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
-            </Link>
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <CalendarDays aria-hidden className="h-3.5 w-3.5" /> Schedule
-            </Link>
-            {threadId ? (
-              <Link
-                href={`/vendor-dashboard/messages/${threadId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-              >
-                <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
-              </Link>
-            ) : null}
-          </div>
-
-          {/* Pipeline strip */}
-          <div className="mt-3">
-            <PipelineStrip reached={reached} current={current} capAt={capAt} />
-          </div>
-
-          {/* Tab rail */}
-          <div className="mt-2">
-            <CardTabs eventId={eventId} active={tab} />
-          </div>
-        </header>
-
-        {/* ============================ BODY ============================ */}
-        <div className={bodyPad}>
-          {tab === 'overview' ? (
-            <OverviewTab
-              eventId={eventId}
-              brief={brief}
-              threadId={threadId}
-              returningFlag={returningFlag}
-              isBooked={isBooked}
-              isInquiry={isInquiry}
-              paletteEntries={paletteEntries}
-              mealEntries={mealEntries}
-              monogramSvg={monogramSvg}
-              isImported={isImported}
-              editorialEligibility={editorialEligibility}
-              canEditCocktail={canEditCocktail}
-              completion={completion}
-              eventVendorId={eventVendorId}
-              depositRecorded={depositRecorded}
-              depositAcked={depositAcked}
-              isCompleteConfirmed={isCompleteConfirmed}
-              isDisputed={isDisputed}
-              isVendorMarked={isVendorMarked}
-              search={search}
-            />
-          ) : null}
-
-          {tab === 'quote' ? (
-            <QuoteTab
-              proposals={proposals}
-              isBooked={isBooked}
-              planRollup={planSteps}
-              planStepRows={planStepRows}
-              pendingPayments={pendingPayments}
-              threadId={threadId}
-            />
-          ) : null}
-
-          {tab === 'files' ? (
-            <FilesTab contracts={contracts} threadId={threadId} handovers={handovers} isBooked={isBooked} />
-          ) : null}
-
-          {tab === 'schedule' ? (
-            <>
-              <ScheduleTab
-                eventId={eventId}
-                isInquiry={isInquiry}
-                brief={brief}
-                allBlocks={allBlocks}
-                blocks={blocks}
-                relevance={relevance}
-                mineOnly={mineOnly}
-                mineCount={mineCount}
-                runOfShowBlocks={runOfShowBlocks}
-                callTime={callTime}
-                callTimeAlreadyRequested={callTimeAlreadyRequested}
-                suggestions={suggestions}
-                blockLabel={blockLabel}
-                handovers={handovers}
-                eventVendorId={eventVendorId}
-                changeOrders={changeOrders}
-                search={search}
-              />
-              {isBooked ? (
-                <div className="mt-4">
-                  <AppointmentsSection
-                    role="vendor"
-                    eventId={eventId}
-                    vendorProfileId={profile.vendor_profile_id}
-                    returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-                    threadId={threadId}
-                    currentUserId={user.id}
-                    counterpartyName={eventName}
-                    presets={appointmentPresets}
-                    appointments={appointmentViews}
-                  />
-                </div>
-              ) : null}
-            </>
-          ) : null}
-
-          {tab === 'activity' ? (
-            <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
-          ) : null}
+          ))}
         </div>
       </div>
-    </section>
+    </div>
+  );
+
+  const actionRow = (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {threadId ? (
+        <Link
+          href={`/vendor-dashboard/messages/${threadId}`}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream"
+        >
+          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
+        </Link>
+      ) : null}
+      <Link
+        href="/vendor-dashboard/proposals"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
+      </Link>
+      <Link
+        href={
+          hasContract
+            ? '/vendor-dashboard/contracts'
+            : `/vendor-dashboard/contracts/new?event=${eventId}`
+        }
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <FilePlus2 aria-hidden className="h-3.5 w-3.5" /> {hasContract ? 'Contract' : 'Contract'}
+      </Link>
+      <Link
+        href={`/vendor-dashboard/clients/${eventId}?tab=files`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
+      </Link>
+      <Link
+        href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <CalendarDays aria-hidden className="h-3.5 w-3.5" /> Schedule
+      </Link>
+      {threadId ? (
+        <Link
+          href={`/vendor-dashboard/messages/${threadId}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        >
+          <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
+        </Link>
+      ) : null}
+    </div>
+  );
+
+  const pipelineBlock = (
+    <div className="mt-3">
+      <PipelineStrip reached={reached} current={current} capAt={capAt} />
+    </div>
+  );
+
+  const overviewNode = (
+    <OverviewTab
+      eventId={eventId}
+      brief={brief}
+      threadId={threadId}
+      returningFlag={returningFlag}
+      isBooked={isBooked}
+      isInquiry={isInquiry}
+      paletteEntries={paletteEntries}
+      mealEntries={mealEntries}
+      monogramSvg={monogramSvg}
+      isImported={isImported}
+      editorialEligibility={editorialEligibility}
+      canEditCocktail={canEditCocktail}
+      completion={completion}
+      eventVendorId={eventVendorId}
+      depositRecorded={depositRecorded}
+      depositAcked={depositAcked}
+      isCompleteConfirmed={isCompleteConfirmed}
+      isDisputed={isDisputed}
+      isVendorMarked={isVendorMarked}
+      search={search}
+    />
+  );
+
+  const quoteNode = (
+    <QuoteTab
+      proposals={proposals}
+      isBooked={isBooked}
+      planRollup={planSteps}
+      planStepRows={planStepRows}
+      pendingPayments={pendingPayments}
+      threadId={threadId}
+    />
+  );
+
+  const filesNode = (
+    <FilesTab contracts={contracts} threadId={threadId} handovers={handovers} isBooked={isBooked} />
+  );
+
+  const scheduleNode = (
+    <>
+      <ScheduleTab
+        eventId={eventId}
+        isInquiry={isInquiry}
+        brief={brief}
+        allBlocks={allBlocks}
+        blocks={blocks}
+        relevance={relevance}
+        mineOnly={mineOnly}
+        mineCount={mineCount}
+        runOfShowBlocks={runOfShowBlocks}
+        callTime={callTime}
+        callTimeAlreadyRequested={callTimeAlreadyRequested}
+        suggestions={suggestions}
+        blockLabel={blockLabel}
+        handovers={handovers}
+        eventVendorId={eventVendorId}
+        changeOrders={changeOrders}
+        search={search}
+      />
+      {isBooked ? (
+        <div className="mt-4">
+          <AppointmentsSection
+            role="vendor"
+            eventId={eventId}
+            vendorProfileId={profile.vendor_profile_id}
+            returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+            threadId={threadId}
+            currentUserId={user.id}
+            counterpartyName={eventName}
+            presets={appointmentPresets}
+            appointments={appointmentViews}
+          />
+        </div>
+      ) : null}
+    </>
+  );
+
+  const activityNode = (
+    <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+  );
+
+  // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
+  if (!relationshipShellEnabled) {
+    return (
+      <section className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 lg:px-8">
+        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+          {/* ============================ HEADER ============================ */}
+          <header className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
+            {backLink}
+            {identityBlock}
+            {actionRow}
+            {pipelineBlock}
+
+            {/* Tab rail */}
+            <div className="mt-2">
+              <CardTabs eventId={eventId} active={tab} />
+            </div>
+          </header>
+
+          {/* ============================ BODY ============================ */}
+          <div className={bodyPad}>
+            {tab === 'overview' ? overviewNode : null}
+            {tab === 'quote' ? quoteNode : null}
+            {tab === 'files' ? filesNode : null}
+            {tab === 'schedule' ? scheduleNode : null}
+            {tab === 'activity' ? activityNode : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // Flag ON — the unified RelationshipTabShell (a true two-sided mirror of the
+  // couple's Vendor Workspace). Everything below runs ONLY on this branch, so
+  // the flag-OFF path adds zero queries and stays untouched.
+  //
+  // Chat tab: mirror the VENDOR thread page — privacy notice + interest chips +
+  // ChatMessageStream(viewerRole="vendor") + the vendor accept/decline GATE (a
+  // vendor must accept an inquiry before the composer opens). Falls back to a
+  // Messages link when there's no thread for this event.
+  // ------------------------------------------------------------------------
+  let chatTabNode: React.ReactNode = null;
+  let callTabNode: React.ReactNode = null;
+  if (threadId) {
+    const fullThread = await fetchThreadById(supabase, threadId);
+    if (fullThread) {
+      // Mark read only when Chat is the LANDING tab (no ?tab or ?tab=chat), so a
+      // server round-trip that lands on another tab (e.g. the header's ?tab=files
+      // quick-action, or a deep-link) doesn't clear the unread badge without the
+      // vendor actually viewing the chat. Read the RAW searchParam (the shell
+      // reads it client-side too — the server's normalizeTab only knows the old
+      // CardTabs set). RLS session client only; never admin for chat reads.
+      const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
+      if (!rawTab || rawTab === 'chat') {
+        await markThreadRead(threadId).catch(() => undefined);
+      }
+      const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
+      const initialMessages = await fetchMessages(supabase, threadId);
+      const declineReason = fullThread.decline_reason?.trim() || null;
+
+      callTabNode =
+        fullThread.inquiry_status === 'accepted' ? (
+          <ThreadCallLauncher
+            threadId={threadId}
+            currentUserId={user.id}
+            counterpartyLabel={eventName}
+          />
+        ) : (
+          <p className="text-xs text-ink/55">
+            Voice and video calls open once you accept {eventName}&rsquo;s inquiry.
+          </p>
+        );
+
+      chatTabNode = (
+        <section className="flex h-[calc(100dvh-16rem)] flex-col gap-4">
+          <div className="flex items-center justify-end">
+            <ChatThreadMenu
+              threadId={threadId}
+              returnTo={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+              blockedByMe={blockState.blockedByMe}
+            />
+          </div>
+          <ChatPrivacyNotice />
+          <ThreadInterestChips supabase={supabase} threadId={threadId} />
+          <ChatMessageStream
+            threadId={threadId}
+            initialMessages={initialMessages}
+            currentUserId={user.id}
+            viewerRole="vendor"
+            counterpartyLabel={eventName}
+          />
+          {/* Vendor accept-gate — replicate the thread page's exact branches: a
+              vendor cannot reply until they ACCEPT the inquiry. Do not loosen. */}
+          {blockState.blockedByMe || blockState.blockedByThem ? (
+            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+              {blockState.blockedByMe
+                ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
+                : 'You can no longer message in this conversation.'}
+            </div>
+          ) : fullThread.inquiry_status === 'accepted' ? (
+            <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+          ) : fullThread.inquiry_status === 'pending' ? (
+            <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+              <p className="text-sm text-ink">
+                <span className="font-semibold">New inquiry.</span> Accept to open the
+                chat and reply, or decline if you&rsquo;re not available for this date.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <form action={acceptInquiry}>
+                  <input type="hidden" name="thread_id" value={threadId} />
+                  <input
+                    type="hidden"
+                    name="return_to"
+                    value={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+                  />
+                  <SubmitButton
+                    pendingLabel="Accepting…"
+                    className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                  >
+                    Accept inquiry
+                  </SubmitButton>
+                </form>
+                <form action={declineInquiry}>
+                  <input type="hidden" name="thread_id" value={threadId} />
+                  <input
+                    type="hidden"
+                    name="return_to"
+                    value={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+                  />
+                  <SubmitButton
+                    pendingLabel="Declining…"
+                    className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+                  >
+                    Decline
+                  </SubmitButton>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+              <p>
+                You declined this inquiry. The couple has been notified and pointed to
+                other vendors.
+                {declineReason ? (
+                  <>
+                    {' '}
+                    <span className="font-semibold text-ink">Your reason:</span> &ldquo;
+                    {declineReason}&rdquo;
+                  </>
+                ) : null}
+              </p>
+            </div>
+          )}
+        </section>
+      );
+    }
+  }
+  if (!chatTabNode) {
+    // No thread for this event → a small empty state (not a blank panel).
+    chatTabNode = (
+      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+        <p className="text-sm text-ink/70">
+          No conversation with {eventName} yet. When they message you (or you invite
+          them), the thread opens here.
+        </p>
+        <Link
+          href="/vendor-dashboard/messages"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        >
+          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Go to Messages
+        </Link>
+      </div>
+    );
+  }
+
+  // Payments tab — the vendor's LIVE payment-confirm surface (couple-logged
+  // payments awaiting confirmation + per-booking plan progress / "mark cleared").
+  // Reuses VendorPaymentLive exactly as the thread page does — no payment logic is
+  // reimplemented. A genuine empty state stands in when there's nothing to confirm
+  // or the booking isn't live.
+  const paymentsTabNode =
+    isBooked && threadId ? (
+      pendingPayments.length === 0 && planRowsAll.length === 0 ? (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Payments
+          </p>
+          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No payments to
+            confirm yet. When {eventName} logs a payment, confirm it here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Payments
+          </p>
+          <VendorPaymentLive
+            threadId={threadId}
+            eventId={eventId}
+            initialPending={pendingPayments}
+            initialPlans={planRowsAll}
+          />
+        </div>
+      )
+    ) : (
+      <div className="space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Payments
+        </p>
+        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment
+          schedule and couple-logged payments appear here once they book you
+          {threadId ? '' : ' and you start a conversation'}.
+        </p>
+      </div>
+    );
+
+  const tabIconClass = 'h-3.5 w-3.5';
+  const tabs: RelationshipTab[] = [
+    {
+      id: 'chat',
+      label: 'Chat',
+      icon: <MessageSquare aria-hidden className={tabIconClass} />,
+      node: chatTabNode,
+    },
+    {
+      id: 'quote',
+      label: 'Quote',
+      icon: <FileText aria-hidden className={tabIconClass} />,
+      node: quoteNode,
+    },
+    {
+      id: 'payments',
+      label: 'Payments',
+      icon: <Wallet aria-hidden className={tabIconClass} />,
+      node: paymentsTabNode,
+    },
+    {
+      id: 'files',
+      label: 'Files',
+      icon: <FolderOpen aria-hidden className={tabIconClass} />,
+      node: filesNode,
+    },
+    {
+      id: 'schedule',
+      label: 'Schedule',
+      icon: <CalendarDays aria-hidden className={tabIconClass} />,
+      node: scheduleNode,
+    },
+    {
+      id: 'call',
+      label: 'Call',
+      icon: <Phone aria-hidden className={tabIconClass} />,
+      // callTabNode is only set once a thread resolves. No thread → hide the tab
+      // (there's no marketplace/thread relationship to call through).
+      node: callTabNode ?? (
+        <p className="text-xs text-ink/55">
+          Voice and video calls open once you start a conversation with {eventName}.
+        </p>
+      ),
+      hidden: !threadId,
+    },
+    {
+      id: 'details',
+      label: 'Details',
+      icon: <Info aria-hidden className={tabIconClass} />,
+      // The this-event profile hub — the full brief (with the returning-client
+      // marker + action bar, both already inside OverviewTab) plus the activity
+      // log & private CRM notes.
+      node: (
+        <div className="space-y-6">
+          {overviewNode}
+          {activityNode}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <RelationshipTabShell
+      tabs={tabs}
+      initialTabId="chat"
+      header={
+        <div>
+          {backLink}
+          {identityBlock}
+          {actionRow}
+          {pipelineBlock}
+        </div>
+      }
+    />
   );
 }
 

@@ -70,6 +70,7 @@ import {
   type FacetSelection,
   type VendorFacetMatch,
 } from '@/lib/vendor-facets';
+import { resolveFacetSchemaKeys } from '@/lib/vendor-facet-schema-map';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -289,12 +290,21 @@ export async function searchCategoryVendors(input: {
   // Effective selection = explicit input.facets when provided (even {} = a real
   // "cleared" override), else the saved-pref seed. Inert until vendors carry
   // facet tags (vendor_service_attributes is empty in prod) → zero regression.
-  const facetCatalog = await fetchCategoryFacets(supabase, canonicals);
+  //
+  // The three facet reads key on the ATTRIBUTE-SCHEMA canonical, which is the
+  // taxonomy canonical for every real category (identity) — resolveFacetSchemaKeys
+  // is a no-op there. It only rewrites the couple of plan-group `subcategoryHint`
+  // slugs that aren't `canonical_service_schemas` rows (stylist → stylist_decorator,
+  // choreographer → entourage_choreographer) so a search scoped to one of those
+  // stops querying a dead key. The vendor RESULT scoping below keeps using the raw
+  // `canonicals`, so which vendors show up never changes (lib/vendor-facet-schema-map).
+  const facetCanonicals = resolveFacetSchemaKeys(canonicals);
+  const facetCatalog = await fetchCategoryFacets(supabase, facetCanonicals);
   let facetDefaults: FacetSelection = {};
   if (facetCatalog.length > 0) {
     const prefMap = await getEventPreferences(supabase, eventId);
     const seedRaw: Record<string, unknown> = {};
-    for (const svc of canonicals) {
+    for (const svc of facetCanonicals) {
       const pref = prefMap[svc];
       if (!pref) continue;
       for (const [k, v] of Object.entries(pref.attribute_payload)) {
@@ -546,7 +556,7 @@ export async function searchCategoryVendors(input: {
   // blocks per the vendor calendar RLS). Both fail-open — a missing table, an
   // RLS-denied read, or no data yields an empty map, so the search is unchanged.
   const facetByVendor: Map<string, VendorFacetMatch> = facetSelected
-    ? await matchVendorFacets(supabase, ids, canonicals, facetSelection)
+    ? await matchVendorFacets(supabase, ids, facetCanonicals, facetSelection)
     : new Map<string, VendorFacetMatch>();
 
   // Service-date availability: flag vendors whose vendor_calendar_blocks cover

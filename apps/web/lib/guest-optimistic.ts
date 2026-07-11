@@ -34,6 +34,11 @@ export type ReleasedSeat = {
   table_id: string;
   seat_number: number | null;
   locked: boolean;
+  /** The freed table's label at the moment of release (Living Roster P4) — lets
+   *  the decline-undo toast name the ACTUAL freed chair from server truth instead
+   *  of a possibly-stale SSR prop. Optional: only the reactive-decline path
+   *  (`setGuestRsvp`) populates it; the P1 delete-restore path leaves it unset. */
+  table_label?: string | null;
 };
 
 /** The mutable guest fields the optimistic overlay may patch (P1: delete only;
@@ -83,7 +88,13 @@ export function applyMutation(
 }
 
 /** Drop a mutation from the overlay — used on undo, on rollback (server error),
- *  and when a caller wants to release its optimistic claim. */
+ *  and when a caller wants to release its optimistic claim.
+ *
+ *  For a `setField` clear we remove ONLY the keys this mutation actually set —
+ *  not the guest's whole override entry. Two chip edits on the SAME row can be
+ *  in flight at once (e.g. a Side change and an RSVP change); if the Side write
+ *  fails, rolling it back must not also wipe the still-pending RSVP override.
+ *  The entry is dropped only once it holds no keys left. */
 export function clearMutation(
   state: OptimisticState,
   mutation: GuestMutation,
@@ -93,8 +104,16 @@ export function clearMutation(
     for (const id of mutation.guestIds) removedIds.delete(id);
     return { removedIds, overrides: state.overrides };
   }
+  const clearedKeys = Object.keys(mutation.override) as (keyof GuestFieldOverride)[];
   const overrides = new Map(state.overrides);
-  for (const id of mutation.guestIds) overrides.delete(id);
+  for (const id of mutation.guestIds) {
+    const existing = overrides.get(id);
+    if (!existing) continue;
+    const next: GuestFieldOverride = { ...existing };
+    for (const key of clearedKeys) delete next[key];
+    if (Object.keys(next).length === 0) overrides.delete(id);
+    else overrides.set(id, next);
+  }
   return { removedIds: state.removedIds, overrides };
 }
 

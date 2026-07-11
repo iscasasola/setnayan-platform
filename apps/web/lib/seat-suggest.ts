@@ -28,8 +28,11 @@ import {
   type SeatAssignmentRow,
 } from './seating';
 
-// Default stage anchor — mirrors seating.ts's private STAGE_POINT so a suggested
-// table lines up with where `computeAutoSeat` would actually fill.
+// Fallback stage anchor, used only when the caller doesn't pass the event's real
+// stage — mirrors seating.ts's private STAGE_POINT. The Guests page passes the
+// actual event_floor_plan { stage_x, stage_y } so the hint ranks tables from
+// where the couple actually placed the stage (matching what `computeAutoSeat`
+// fills), not a hardcoded top-center default.
 const STAGE = { x: 50, y: 8 };
 
 // The minimal guest shape the heuristic reads — a structural subset of GuestRow,
@@ -52,13 +55,15 @@ export function suggestTableFor(
   guest: SuggestGuest,
   tables: EventTableRow[],
   assignments: SeatAssignmentRow[],
+  stage: { x: number; y: number } = STAGE,
 ): string | null {
   if (tables.length === 0) return null;
 
   // Pool excludes the sweetheart table (reserved for the couple) and is ranked
-  // stage-nearest first — the SAME pool `computeAutoSeat` fills, so a suggestion
-  // matches what Auto-Arrange would do.
-  const pool = rankTablesByStage(tables, STAGE)
+  // stage-nearest first from the event's real stage anchor — the SAME pool and
+  // ordering `computeAutoSeat` uses, so a suggestion matches what Auto-Arrange
+  // would do even when the couple has moved the stage.
+  const pool = rankTablesByStage(tables, stage)
     .map((r) => r.table)
     .filter((t) => t.table_type !== 'sweetheart_2');
   if (pool.length === 0) return null;

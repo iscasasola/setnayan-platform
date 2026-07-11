@@ -145,6 +145,23 @@ test('every table full → falls back to the banded label (hint, not a guarantee
   );
 });
 
+// ── the event's real stage anchor (P4 — matches Auto-Arrange, not a default) ────
+
+test('a moved stage flips the banding — stage at the bottom makes the far table nearest', () => {
+  // Couple relocated the stage to the bottom of the hall (y=90). Now T6 (y=60)
+  // is stage-nearest and T1 (y=10) is farthest, so a tier-1 guest lands at T6 —
+  // the opposite end from the default top-center anchor.
+  assert.equal(
+    suggestTableFor({ ...BASE, seating_priority: 1 }, SIX, noSeats, { x: 50, y: 90 }),
+    'T6',
+  );
+});
+
+test('omitting the stage falls back to the top-center default (T1 nearest)', () => {
+  // No stage passed → the default { x:50, y:8 } anchor, top-center as before.
+  assert.equal(suggestTableFor({ ...BASE, seating_priority: 1 }, SIX, noSeats), 'T1');
+});
+
 // ── clamps past the pool ───────────────────────────────────────────────────────
 
 test('tier band past the last table clamps to the farthest table', () => {

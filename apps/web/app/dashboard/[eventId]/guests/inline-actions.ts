@@ -23,6 +23,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeGuestName } from '@/lib/guest-name';
 import {
   type GuestRole,
   type GuestSide,
@@ -112,16 +113,25 @@ export async function setGuestRsvp(
   if (effective === 'declined') {
     const { data: seat } = await supabase
       .from('event_seat_assignments')
-      .select('table_id, seat_number, locked')
+      .select('table_id, seat_number, locked, event_tables(table_label)')
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle();
     if (seat) {
+      // The freed table's CURRENT label (P4) — read here at decline time so the
+      // undo toast names the chair truthfully, not from a stale SSR prop. The
+      // many-to-one embed can type as an object or a 1-element array depending on
+      // inference; normalise both to the label string.
+      const embedded = (seat as { event_tables?: unknown }).event_tables;
+      const tableLabel = Array.isArray(embedded)
+        ? ((embedded[0] as { table_label?: string | null })?.table_label ?? null)
+        : ((embedded as { table_label?: string | null } | null)?.table_label ?? null);
       freedSeat = {
         guest_id: guestId,
         table_id: seat.table_id as string,
         seat_number: (seat.seat_number as number | null) ?? null,
         locked: (seat.locked as boolean | null) ?? false,
+        table_label: tableLabel,
       };
     }
   }
@@ -167,6 +177,23 @@ export async function restoreGuestRsvpAndSeat(
 
   const supabase = await createClient();
 
+  // Gate the guest to THIS event before writing — mirror the sibling
+  // `addGuestToGroup`. RLS scopes `event_seat_assignments` only by `event_id`,
+  // and the `guest_id` FK resolves against the GLOBAL `guests` table, so a bare
+  // `guest_id` from the payload could otherwise upsert a phantom seat referencing
+  // ANOTHER event's guest under this couple's own event. (The RSVP update below
+  // already filters on `event_id` so it's a no-op for a foreign guest, but reject
+  // cleanly rather than silently no-op'ing — and, the real point, refuse to reach
+  // the step-2 seat upsert with a cross-event `guest_id`.)
+  const { data: guestRow } = await supabase
+    .from('guests')
+    .select('event_id')
+    .eq('guest_id', guestId)
+    .maybeSingle();
+  if (!guestRow || guestRow.event_id !== eventId) {
+    return { ok: false, error: 'Couldn’t find that guest.' };
+  }
+
   // 1. Restore the RSVP. A declined guest is never the couple, so no coercion.
   const { error: rsvpErr } = await supabase
     .from('guests')
@@ -181,8 +208,21 @@ export async function restoreGuestRsvpAndSeat(
     .eq('guest_id', guestId);
   if (rsvpErr) return { ok: false, error: rsvpErr.message };
 
-  // 2. Re-place the freed chair — best-effort.
+  // 2. Re-place the freed chair — best-effort, and only when the chair belongs to
+  //    THIS event. `event_seat_assignments` RLS doesn't scope `table_id` either,
+  //    so a foreign/stale `table_id` from the payload would otherwise pin a seat to
+  //    another event's table; verify it first. The RSVP is already restored, so a
+  //    bad table just skips the re-place and the guest lands unseated.
   if (freedSeat && freedSeat.table_id) {
+    const { data: tableRow } = await supabase
+      .from('event_tables')
+      .select('event_id')
+      .eq('table_id', freedSeat.table_id)
+      .maybeSingle();
+    if (!tableRow || tableRow.event_id !== eventId) {
+      revalidatePath(guestsPath(eventId));
+      return { ok: true };
+    }
     const { error: seatErr } = await supabase
       .from('event_seat_assignments')
       .upsert(
@@ -319,6 +359,16 @@ export async function addSingleGuest(
   eventId: string,
   draft: ParsedGuestDraft,
 ): Promise<QuickAddResult> {
+  // Guard the clearly-failing add BEFORE creating any `#groups`. `quickAddGuest`
+  // (and the guests.last_name NOT NULL column) reject a missing first/last name,
+  // and the common capture-bar miss is a mononym like "Ana #Barkada". Without
+  // this short-circuit, `quickCreateGroup` would already have minted the group
+  // before the add bounced — orphaning an empty group on every rejected line.
+  // Mirror quickAddGuest's exact normalize + message so we never drift softer.
+  if (!normalizeGuestName(draft.firstName) || !normalizeGuestName(draft.lastName)) {
+    return { ok: false, error: 'Add both a first and last name.' };
+  }
+
   // Resolve/create the parsed group names → ids up front (order preserved).
   const groupIds: string[] = [];
   for (const name of draft.groups) {

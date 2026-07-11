@@ -278,7 +278,11 @@ export function RsvpChipEditor({
   // must restore BOTH the RSVP and the exact chair. The server action returns the
   // freed seat; the undo hands it back to `restoreGuestRsvpAndSeat`. The optimistic
   // rsvp→declined patch flips the seat chip to "—" instantly (the chip reads the
-  // effective rsvp), and the undo's rsvp→prior patch flips it back.
+  // effective rsvp). On UNDO the rsvp→prior patch flips the RSVP pill back
+  // instantly, but the seat chip's "🪑 T#" re-appears only when the undo action's
+  // revalidation lands (its `placed` label is a server prop, not optimistic) — a
+  // brief "—" in between. Restoring the chip optimistically would need a seat
+  // dimension in the optimistic store; deferred as accepted cosmetic (P4 review).
   const commitDecline = () => {
     const prior = guest.rsvp_status;
     const forward = {
@@ -302,7 +306,12 @@ export function RsvpChipEditor({
         return;
       }
       const freed = res.freedSeat;
-      const seatNote = freed && seatedTableLabel ? ` · Seat ${seatedTableLabel} freed` : '';
+      // Name the freed table from SERVER TRUTH (the seat the decline actually
+      // freed, read at decline time) — not the SSR `seatedTableLabel` prop, which
+      // is stale if the guest was re-seated after the page loaded. Fall back to the
+      // prop only when the server didn't carry a label.
+      const freedLabel = freed ? (freed.table_label ?? seatedTableLabel) : null;
+      const seatNote = freed && freedLabel ? ` · Seat ${freedLabel} freed` : '';
       pushUndo({
         label: `${name} · Declined${seatNote}`,
         undo: async () => {

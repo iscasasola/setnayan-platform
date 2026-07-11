@@ -718,7 +718,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -938,7 +938,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
                     vendorProfileId={profile.vendor_profile_id}
                     returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
                     threadId={threadId}
-                    threadHref={threadId ? `/vendor-dashboard/messages/${threadId}` : null}
+                    currentUserId={user.id}
                     counterpartyName={eventName}
                     presets={appointmentPresets}
                     appointments={appointmentViews}

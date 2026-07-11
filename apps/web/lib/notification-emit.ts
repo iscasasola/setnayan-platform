@@ -112,6 +112,13 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // (GRD-09/10 booked-out, GRD-03 price change) have no data source yet
   // (availability/price-change log = the MI spec's net-new table).
   'ai_payment_due',
+  // Appointment confirmed (2026-07-11, Relationship Workspace + Appointments · PR
+  // 12 follow-ups). When either side confirms a proposed meeting, the OTHER party
+  // gets a "You're confirmed for {meeting} on {date}" email — a transactional
+  // booking signal (same register as booking_confirmed / rsvp_received) worth
+  // reaching them outside the app. Branded HTML + plaintext via the shared
+  // renderer below. A scheduled T-minus reminder is a further follow-up.
+  'appointment_reminder',
 ]);
 
 export type EmitNotificationArgs = {

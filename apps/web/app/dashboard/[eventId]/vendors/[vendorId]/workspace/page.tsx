@@ -871,7 +871,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', ev.marketplace_vendor_id)
@@ -1504,7 +1504,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
           vendorProfileId={ev.marketplace_vendor_id}
           returnPath={`/dashboard/${eventId}/vendors/${ev.vendor_id}/workspace`}
           threadId={chatThread?.thread_id ?? null}
-          threadHref={chatThread ? conversationHref : null}
+          currentUserId={user.id}
           counterpartyName={displayName}
           presets={appointmentPresets}
           appointments={appointmentViews}

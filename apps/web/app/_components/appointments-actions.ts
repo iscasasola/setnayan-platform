@@ -28,7 +28,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import type { AppointmentInitiator } from '@/lib/appointments';
+import type { NotificationType } from '@/lib/notifications';
+import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
 
 function str(v: FormDataEntryValue | null, max = 200): string | null {
   if (typeof v !== 'string') return null;
@@ -49,6 +50,22 @@ function toDuration(v: FormDataEntryValue | null): number | null {
   return Math.round(n);
 }
 
+/** A readable Manila-time label for a confirmed appointment reminder. */
+function formatWhenManila(iso: string | null): string {
+  if (!iso) return 'the agreed time';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'the agreed time';
+  return new Intl.DateTimeFormat('en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Manila',
+  }).format(d);
+}
+
 function safeReturnPath(v: FormDataEntryValue | null): string {
   // Only ever revalidate/redirect to an in-app absolute path — never an
   // attacker-controlled external URL.
@@ -59,10 +76,14 @@ function safeReturnPath(v: FormDataEntryValue | null): string {
 /**
  * Best-effort fan-out to the OTHER party. `party='couple'` → every couple
  * member of the event (deep-linked to their vendor workspace); `party='vendor'`
- * → the vendor org's owner account (deep-linked to their Customer Card). Reuses
- * the generic `schedule_suggestion` notification type — the same "the other
- * side posted something schedule-related, open it" register the Suggest and
- * change-order flows use. Never blocks the appointment write.
+ * → the vendor org's owner account (deep-linked to their Customer Card).
+ *
+ * `type` defaults to the generic `schedule_suggestion` register (the same "the
+ * other side posted something schedule-related, open it" signal the Suggest and
+ * change-order flows use). The CONFIRM branch passes `appointment_reminder`
+ * instead — that type is ON the email allowlist (lib/notification-emit.ts), so a
+ * confirmed meeting reaches the counterparty by branded email even when they're
+ * not in the app. Never blocks the appointment write.
  */
 async function notifyOtherParty(opts: {
   party: AppointmentInitiator;
@@ -70,7 +91,9 @@ async function notifyOtherParty(opts: {
   vendorProfileId: string | null;
   title: string;
   body: string;
+  type?: NotificationType;
 }): Promise<void> {
+  const notificationType: NotificationType = opts.type ?? 'schedule_suggestion';
   try {
     const admin = createAdminClient();
     if (opts.party === 'couple') {
@@ -96,7 +119,7 @@ async function notifyOtherParty(opts: {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
+          type: notificationType,
           title: opts.title,
           body: opts.body,
           relatedUrl,
@@ -113,7 +136,7 @@ async function notifyOtherParty(opts: {
       if (vendorUserId) {
         await emitNotification({
           userId: vendorUserId,
-          type: 'schedule_suggestion',
+          type: notificationType,
           title: opts.title,
           body: opts.body,
           relatedUrl: `/vendor-dashboard/clients/${opts.eventId}`,
@@ -232,11 +255,18 @@ export async function respondAppointment(formData: FormData): Promise<void> {
   // single-winner precondition, and to build a readable notification label.
   const { data: apptRow } = await supabase
     .from('event_appointments')
-    .select('status, initiated_by, type, custom_label')
+    .select('status, initiated_by, type, custom_label, kind, scheduled_at')
     .eq('appointment_id', appointmentId)
     .maybeSingle();
   const appt = apptRow as
-    | { status: string; initiated_by: string | null; type: string; custom_label: string | null }
+    | {
+        status: string;
+        initiated_by: string | null;
+        type: string;
+        custom_label: string | null;
+        kind: AppointmentKind;
+        scheduled_at: string | null;
+      }
     | null;
   // Act only on a live proposal you did NOT author.
   if (!appt || appt.status !== 'proposed' || appt.initiated_by === actorRole) {
@@ -277,17 +307,29 @@ export async function respondAppointment(formData: FormData): Promise<void> {
   // Only notify on a real transition (single-winner: the loser updated 0 rows).
   if (updated && updated.length > 0) {
     const otherParty: AppointmentInitiator = actorRole === 'vendor' ? 'couple' : 'vendor';
-    const title =
-      decision === 'confirm'
-        ? `Meeting confirmed: ${label}`
-        : decision === 'decline'
-          ? `Meeting declined: ${label}`
-          : `New time proposed: ${label}`;
-    const body =
-      decision === 'propose_new'
-        ? 'Open the relationship page to confirm the new time.'
-        : 'Open the relationship page for details.';
-    await notifyOtherParty({ party: otherParty, eventId, vendorProfileId, title, body });
+    if (decision === 'confirm') {
+      // CONFIRM → the appointment_reminder template (PR 12 follow-up MVP): the
+      // OTHER party (who proposed) gets a "you're confirmed for X on <date>"
+      // notification + branded email. Best-effort — never blocks the write.
+      const kindLabel = (APPOINTMENT_KIND_LABEL[appt!.kind] ?? 'Meeting').toLowerCase();
+      const when = formatWhenManila(appt!.scheduled_at);
+      await notifyOtherParty({
+        party: otherParty,
+        eventId,
+        vendorProfileId,
+        type: 'appointment_reminder',
+        title: `Appointment confirmed: ${label}`,
+        body: `Your ${kindLabel} "${label}" is confirmed for ${when}. Add it to your calendar — and Join from the relationship page when it starts.`,
+      });
+    } else {
+      const title =
+        decision === 'decline' ? `Meeting declined: ${label}` : `New time proposed: ${label}`;
+      const body =
+        decision === 'propose_new'
+          ? 'Open the relationship page to confirm the new time.'
+          : 'Open the relationship page for details.';
+      await notifyOtherParty({ party: otherParty, eventId, vendorProfileId, title, body });
+    }
   }
 
   revalidatePath(returnPath);

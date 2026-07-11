@@ -46,7 +46,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
   const [{ data: seatRows }, { data: guestRows }] = await Promise.all([
     supabase
       .from('papic_photos')
-      .select('photo_id, r2_object_key, photo_type, captured_at')
+      .select('photo_id, r2_object_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
       .neq('moderation_state', 'nsfw_blocked')
@@ -54,7 +54,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       .limit(MAX_ITEMS),
     supabase
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, captured_at')
+      .select('capture_id, r2_object_key, display_r2_key, full_res_dropped_at, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
       .neq('moderation_state', 'nsfw_blocked')
@@ -64,21 +64,45 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
 
   type Item = { id: string; ref: string; kind: 'photo' | 'clip'; at: string | null };
   const items: Item[] = [];
+  // Download-ref with the 3-month-drop fallback: once a PHOTO's full-res original
+  // was dropped from R2 (full_res_dropped_at set), zip the AVIF web copy instead —
+  // the couple still gets every photo (compressed), never a broken/missing file.
+  // Clips keep r2_object_key (their video is never dropped). Tags + metadata live
+  // on the row and are never affected by the drop.
+  const dl = (
+    orig: string | null,
+    display: string | null,
+    dropped: string | null,
+    isClip: boolean,
+  ): string | null => (!isClip && dropped ? (display ?? orig) : orig);
   for (const r of seatRows ?? []) {
-    if (r.r2_object_key) {
+    const isClip = r.photo_type === 'clip';
+    const ref = dl(
+      r.r2_object_key as string | null,
+      r.display_r2_key as string | null,
+      r.full_res_dropped_at as string | null,
+      isClip,
+    );
+    if (ref) {
       items.push({
         id: r.photo_id as string,
-        ref: r.r2_object_key as string,
-        kind: r.photo_type === 'clip' ? 'clip' : 'photo',
+        ref,
+        kind: isClip ? 'clip' : 'photo',
         at: (r.captured_at as string) ?? null,
       });
     }
   }
   for (const r of guestRows ?? []) {
-    if (r.r2_object_key) {
+    const ref = dl(
+      r.r2_object_key as string | null,
+      r.display_r2_key as string | null,
+      r.full_res_dropped_at as string | null,
+      false,
+    );
+    if (ref) {
       items.push({
         id: r.capture_id as string,
-        ref: r.r2_object_key as string,
+        ref,
         kind: 'photo',
         at: (r.captured_at as string) ?? null,
       });

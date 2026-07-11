@@ -63,16 +63,23 @@ export async function getGuestLiveGallery(
       photoIds.length
         ? admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key')
+            .select('photo_id, r2_object_key, thumb_r2_key, display_r2_key')
             .in('photo_id', photoIds)
             .eq('moderation_state', 'clean')
             .eq('photo_type', 'photo')
             .is('hidden_at', null)
-        : Promise.resolve({ data: [] as { photo_id: string; r2_object_key: string }[] }),
+        : Promise.resolve({
+            data: [] as {
+              photo_id: string;
+              r2_object_key: string;
+              thumb_r2_key: string | null;
+              display_r2_key: string | null;
+            }[],
+          }),
       captureIds.length
         ? admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key')
+            .select('capture_id, r2_object_key, thumb_r2_key, display_r2_key')
             .in('capture_id', captureIds)
             .eq('moderation_state', 'clean')
             // Guest CLIPS (media_type='clip') are excluded — this gallery is
@@ -82,13 +89,28 @@ export async function getGuestLiveGallery(
             // filter on the papic_photos query above.
             .eq('media_type', 'photo')
             .is('hidden_at', null)
-        : Promise.resolve({ data: [] as { capture_id: string; r2_object_key: string }[] }),
+        : Promise.resolve({
+            data: [] as {
+              capture_id: string;
+              r2_object_key: string;
+              thumb_r2_key: string | null;
+              display_r2_key: string | null;
+            }[],
+          }),
     ]);
 
-    // Re-order by the tag feed (newest tag first), then presign the cap.
+    // Re-order by the tag feed (newest tag first), then presign the cap. Prefer
+    // the cheap web copy (thumb → display) over the full-res original — lighter
+    // for a thumbnail grid AND drop-safe: once a photo's original is dropped from
+    // R2 after 3 months, the web copy is what's left (the row + tags are kept).
+    const webRef = (r: {
+      r2_object_key: string;
+      thumb_r2_key: string | null;
+      display_r2_key: string | null;
+    }): string => r.thumb_r2_key ?? r.display_r2_key ?? r.r2_object_key;
     const keyById = new Map<string, string>();
-    for (const p of photosRes.data ?? []) keyById.set(p.photo_id, p.r2_object_key);
-    for (const c of capturesRes.data ?? []) keyById.set(c.capture_id, c.r2_object_key);
+    for (const p of photosRes.data ?? []) keyById.set(p.photo_id, webRef(p));
+    for (const c of capturesRes.data ?? []) keyById.set(c.capture_id, webRef(c));
 
     const ordered = tags
       .map((t) => ({

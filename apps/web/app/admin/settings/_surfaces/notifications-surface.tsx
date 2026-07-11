@@ -39,7 +39,7 @@ export async function NotificationsSurface() {
   const returnTo = '/admin/settings?tab=notifications';
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6 flex items-end justify-between gap-3">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>

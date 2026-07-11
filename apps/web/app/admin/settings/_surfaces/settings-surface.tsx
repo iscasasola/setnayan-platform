@@ -69,7 +69,7 @@ export async function SettingsSurface({ searchParams }: Props) {
   const loaderConfig = await getLoaderSettings();
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Platform settings</h1>
         <p className="text-sm text-ink/60">

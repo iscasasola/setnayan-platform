@@ -177,7 +177,7 @@ export async function BrainSurface() {
   const active = chunks.filter((c) => c.is_active).length;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div>
       <header className="mb-6 space-y-2">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">
           Iteration 0023 § 3.13 · Today&apos;s Focus brain

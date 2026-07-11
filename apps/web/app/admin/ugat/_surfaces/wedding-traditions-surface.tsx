@@ -45,7 +45,7 @@ export async function WeddingTraditionsSurface() {
   const totalRows = rows.length;
 
   return (
-    <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-4xl space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
           Wedding traditions

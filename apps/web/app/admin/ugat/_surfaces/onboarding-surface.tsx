@@ -42,7 +42,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
   const musicEnabled = settings.onboarding_bg_music_enabled === true;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6 space-y-2">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
         <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">

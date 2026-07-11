@@ -1,5 +1,13 @@
 # Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
 
+## 2026-07-11 · perf(papic): single-pass AVIF web copy (owner "only do 1 compression")
+
+The gallery web-copy derivatives are now born **AVIF** straight from the full-res original — ONE compression pass instead of the planned JPEG-now + AVIF-re-encode-at-1-year (owner 2026-07-11 "so we only do 1 compression"). Strictly better: a single lossy pass (no JPEG→AVIF double-compression), the ~2× storage saving lands immediately, and the whole 1-year re-encode cron is deleted from the plan.
+
+- `lib/papic-derivatives.ts` — `toJpeg` → exported `toAvif` (sharp `.avif({ quality, effort })`); display now AVIF q60 (~JPEG q80 to the eye), thumb AVIF q50; derivative keys `.avif`, content-type `image/avif`. Clip display stays the poster verbatim (already compressed once — no second pass). AVIF is decoded natively by every current browser; old JPEG derivatives keep serving via their stored refs (mixed is fine, nothing re-encoded or dropped).
+- Verified with a real sharp encode: valid AVIF (ftyp/avif magic), and on photo-like content AVIF q60 = **~25% of the JPEG q80 size** (~4× smaller; the ~2× spec figure is conservative). The new byte-telemetry below now measures this born-AVIF ratio directly in production.
+- Note: AVIF encode is CPU-heavier than JPEG, but derivative gen is async best-effort in the capture `after()` hook (off the capture path), so the added latency doesn't touch capture.
+
 ## 2026-07-11 · feat(papic): storage byte-accounting telemetry (WS4 foundation)
 
 The first, non-destructive slice of the Papic storage spine. Records the REAL byte sizes of every capture so the pricing councils' provisional numbers — the modelled "~8%" web-copy ratio, the 40 GB/event soft ceiling, the ₱/GB cost — get **locked from measured data** (first ~50 Unli events) instead of a guess. Pure measurement: no behaviour change, nothing gated, nothing dropped.

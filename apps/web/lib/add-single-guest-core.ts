@@ -110,6 +110,15 @@ export async function runAddSingleGuest(
   const guestId = added.guest.guest_id;
 
   // Extra groups beyond the first (which quickAddGuest already attached).
+  // KNOWN NARROW GAP (pre-existing, out of the T18 insert-failure window): the
+  // guest INSERT has already succeeded here, so we do NOT run orphan-group
+  // compensation. If a freshly-minted extra group's membership attach fails
+  // (a mid-sequence DB/RLS error on this second write), that group is left
+  // empty. attachMembership swallows its error to keep the succeeded add intact;
+  // closing this fully would mean error-checking each attach and cleaning up its
+  // gid only when it is in createdGroupIds AND still empty. Left as-is because it
+  // requires a failure strictly after a successful insert and never loses the
+  // guest — tracked as a follow-up, not part of the orphan window this flow closes.
   for (const gid of groupIds.slice(1)) {
     await deps.attachMembership(gid, guestId);
   }

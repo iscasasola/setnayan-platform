@@ -64,6 +64,7 @@ import {
 import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-schedules.server';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -1536,6 +1537,102 @@ export async function finalizeVendor(
       `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
       archiveErr.message,
     );
+  }
+
+  // ----------------------------------------------------------------------
+  // EXCLUSIVITY on lock (payment-gated lock · NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).
+  //
+  // Archiving above hides the couple's OWN losing picks. This also closes out
+  // the OTHER SIDE: when the couple locks a HARD-SINGLE pick (one venue /
+  // officiant / coordinator / host / LED at a time), the other marketplace
+  // vendors they were inquiring in the same group are out of the running.
+  // Displace their open inquiry threads (chat_inquiry_status → 'displaced' — the
+  // provisioned "slot filled by another booking · REVIVABLE" state) so BOTH
+  // sides stop chasing a dead lead, and notify each released vendor.
+  //
+  // Couple-authorized: the couple owns their side of these threads
+  // (chat_threads_member_write · event_id IN current_couple_event_ids), and the
+  // only inquiry_status trigger fires solely on →'accepted', so this couple-RLS
+  // write is unblocked. HARD-SINGLE groups only — a multi-pick category (e.g.
+  // two entertainers) excludes no one. Best-effort + fail-soft: the lock already
+  // succeeded, so a displacement/notify hiccup never rolls it back. Gated behind
+  // the payment-gated-lock flag so it ships dormant until the owner flips it.
+  // ----------------------------------------------------------------------
+  if (isPaymentGatedLockEnabled() && isHardSingle) {
+    try {
+      const winnerVpid = targetVendor.marketplace_vendor_id ?? null;
+      // Other marketplace vendors the couple has in the same hard-single GROUP
+      // (may span >1 category), excluding the winner.
+      const { data: groupRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .in('category', groupCategories as unknown as string[])
+        .not('marketplace_vendor_id', 'is', null);
+      const loserVpids = Array.from(
+        new Set(
+          (groupRows ?? [])
+            .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+            .filter((id): id is string => !!id && id !== winnerVpid),
+        ),
+      );
+      if (loserVpids.length > 0) {
+        // The couple's OPEN inquiry threads with those vendors on this event.
+        const { data: threadRows } = await supabase
+          .from('chat_threads')
+          .select('thread_id, vendor_profile_id')
+          .eq('event_id', eventId)
+          .in('vendor_profile_id', loserVpids)
+          .in('inquiry_status', ['pending', 'accepted']);
+        const openThreads = (threadRows ?? []) as {
+          thread_id: string;
+          vendor_profile_id: string;
+        }[];
+        if (openThreads.length > 0) {
+          // Displace them (couple-RLS write — the couple owns these threads).
+          const { error: dispErr } = await supabase
+            .from('chat_threads')
+            .update({ inquiry_status: 'displaced', updated_at: new Date().toISOString() })
+            .in(
+              'thread_id',
+              openThreads.map((t) => t.thread_id),
+            );
+          if (dispErr) {
+            console.warn(
+              `[finalizeVendor] displace-others failed for event=${eventId} group=${groupId}:`,
+              dispErr.message,
+            );
+          } else {
+            // Notify each released vendor — cross-party, so resolve their auth
+            // user via the admin client (same pattern as booking_confirmed).
+            const notifyAdmin = createAdminClient();
+            const { data: vps } = await notifyAdmin
+              .from('vendor_profiles')
+              .select('vendor_profile_id, user_id')
+              .in('vendor_profile_id', loserVpids);
+            const userByVpid = new Map(
+              ((vps ?? []) as { vendor_profile_id: string; user_id: string | null }[])
+                .filter((v) => !!v.user_id)
+                .map((v) => [v.vendor_profile_id, v.user_id as string]),
+            );
+            for (const t of openThreads) {
+              const uid = userByVpid.get(t.vendor_profile_id);
+              if (!uid) continue;
+              await emitNotification({
+                userId: uid,
+                type: 'inquiry_displaced',
+                title: 'An inquiry was released',
+                body: 'The couple booked another vendor for this service, so your inquiry has been released. We’ll let you know if it reopens.',
+                relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fail-soft — the lock already succeeded; never roll it back.
+      console.warn(`[finalizeVendor] exclusivity block failed for event=${eventId}:`, e);
+    }
   }
 
   // ----------------------------------------------------------------------

@@ -101,8 +101,13 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   // deletes nothing — it just moves a thread out of the active list into the
   // collapsible "Archived" section; a new message auto-un-archives it.
   const returnTo = `/dashboard/${eventId}/messages`;
-  const activeThreads = threads.filter((t) => !t.archived);
-  const archivedThreads = threads.filter((t) => t.archived);
+  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple locked
+  // another vendor in this hard-single group — is closed, so fold it into the
+  // Archived section on this side too (never in the active list). Only exists
+  // when the flag is on; inert otherwise.
+  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
+  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t));
+  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t));
 
   const renderRow = (t: (typeof threads)[number]) => {
     // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
@@ -160,6 +165,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
               ) : t.inquiry_status === 'declined' ? (
                 <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                   Not available
+                </span>
+              ) : t.inquiry_status === 'displaced' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  You booked another
                 </span>
               ) : null
             }

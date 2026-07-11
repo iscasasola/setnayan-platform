@@ -9,6 +9,7 @@ import {
   unbookedGhostCategories,
   ghostBoothExploreHref,
   ghostBoothSlots,
+  placedGhostBooths,
   type GhostBoothCategory,
 } from './ghost-booths';
 
@@ -124,4 +125,37 @@ test('ghostBoothSlots: returns fewer than requested when the perimeter is full',
 test('ghostBoothSlots: deterministic (same input → same slots)', () => {
   const occ = [{ xPct: 50, yPct: 50 }];
   assert.deepEqual(ghostBoothSlots(5, occ), ghostBoothSlots(5, occ));
+});
+
+// ── placed (composed) ────────────────────────────────────────────────────────
+
+test('placedGhostBooths: composes selection + placement; each carries a slot', () => {
+  const r = placedGhostBooths({
+    bookedCategories: ['catering', 'photographer'],
+    dismissed: ['florist'],
+    enabled: true,
+    occupied: [],
+  });
+  // catering + photographer booked, florist dismissed → excluded
+  const cats = r.map((g) => g.category);
+  assert.ok(!cats.includes('catering') && !cats.includes('photographer') && !cats.includes('florist'));
+  // every placed ghost has a slot + label + slug
+  for (const g of r) {
+    assert.ok(typeof g.xPct === 'number' && typeof g.yPct === 'number');
+    assert.ok(g.label.length > 0 && g.tileSlug.length > 0);
+  }
+});
+
+test('placedGhostBooths: off toggle → none; crowded perimeter → capped by free slots', () => {
+  assert.deepEqual(
+    placedGhostBooths({ bookedCategories: [], dismissed: [], enabled: false, occupied: [] }),
+    [],
+  );
+  // fill every candidate slot → no ghost booth can place even though many unbooked
+  const occupied = [
+    { xPct: 22, yPct: 9 }, { xPct: 39, yPct: 9 }, { xPct: 56, yPct: 9 }, { xPct: 73, yPct: 9 },
+    { xPct: 9, yPct: 32 }, { xPct: 91, yPct: 32 }, { xPct: 9, yPct: 52 }, { xPct: 91, yPct: 52 },
+    { xPct: 9, yPct: 72 }, { xPct: 91, yPct: 72 }, { xPct: 22, yPct: 91 }, { xPct: 78, yPct: 91 },
+  ];
+  assert.equal(placedGhostBooths({ bookedCategories: [], dismissed: [], enabled: true, occupied }).length, 0);
 });

@@ -38,6 +38,8 @@ import {
 import { fetchBoothCardItems } from '@/lib/vendor-services';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import type { VendorCategory } from '@/lib/vendors';
+import { PLAN3D_BOOTH_ADS_ENABLED, placedGhostBooths, type GhostBooth3D } from '@/lib/ghost-booths';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   sanitizeRolePalette,
@@ -309,10 +311,43 @@ export default async function SeatingLabPage({ params }: Props) {
   // (no bloom); other read errors propagate, matching the codebase pattern.
   const ownsAnimatedMonogram = await eventAnimatedMonogramActive(supabase, eventId);
 
+  // 3D Booth Ads · Part A (slice 9, flag-gated): dashed "ghost booths" for the
+  // vendor categories this couple hasn't booked, placed on free perimeter wall
+  // (never overlapping real booths/tables). DERIVED — never persisted; couple
+  // lab ONLY (the guest walk never receives these). The read is skipped entirely
+  // when the flag is off, so single-player is byte-identical + no new-column
+  // dependency until the flag flips.
+  let ghostBooths: GhostBooth3D[] = [];
+  let ghostBoothsEnabled = true;
+  if (PLAN3D_BOOTH_ADS_ENABLED) {
+    const [{ data: vendorRows }, { data: gbPrefs }] = await Promise.all([
+      supabase.from('event_vendors').select('category').eq('event_id', eventId),
+      supabase
+        .from('event_floor_plan')
+        .select('ghost_booths_enabled, ghost_booths_dismissed')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+    ghostBoothsEnabled = (gbPrefs?.ghost_booths_enabled as boolean | null) ?? true;
+    ghostBooths = placedGhostBooths({
+      bookedCategories: ((vendorRows ?? []) as { category: VendorCategory | null }[])
+        .map((r) => r.category)
+        .filter((c): c is VendorCategory => !!c),
+      dismissed: ((gbPrefs?.ghost_booths_dismissed as VendorCategory[] | null) ?? []),
+      enabled: ghostBoothsEnabled,
+      occupied: [
+        ...booths.map((b) => ({ xPct: b.xPct, yPct: b.yPct })),
+        ...tables.map((t) => ({ xPct: t.xPct, yPct: t.yPct })),
+      ],
+    });
+  }
+
   return (
     <section className="space-y-3">
       <SeatingLabLoader
         eventId={eventId}
+        ghostBooths={ghostBooths}
+        ghostBoothsEnabled={ghostBoothsEnabled}
         tables={tables}
         floor={floor}
         guests={guests}

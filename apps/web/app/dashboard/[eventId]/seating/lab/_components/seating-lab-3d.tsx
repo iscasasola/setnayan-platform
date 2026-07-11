@@ -113,6 +113,8 @@ import {
   saveFloorPlan,
   swapSeats,
   swapTableOccupants,
+  setGhostBoothsEnabled,
+  dismissGhostBooth,
 } from '@/app/dashboard/[eventId]/seating/actions';
 import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
 import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
@@ -196,6 +198,8 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { GhostBooths } from '@/app/_components/plan3d/ghost-booth';
+import { PLAN3D_BOOTH_ADS_ENABLED, type GhostBooth3D } from '@/lib/ghost-booths';
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
@@ -234,6 +238,8 @@ type Props = {
   sceneObjects: Lab3DSceneObject[];
   booths: Lab3DBooth[];
   signs: Lab3DSign[];
+  ghostBooths: GhostBooth3D[];
+  ghostBoothsEnabled: boolean;
 };
 
 type LiveTable = Lab3DTable;
@@ -407,7 +413,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -2135,6 +2141,18 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           cocktail={cocktail}
         />
 
+        {/* 3D Booth Ads Part A (flag-gated, couple-lab only): dashed ghost
+            booths for unbooked vendor categories → tap opens the marketplace
+            category. Non-interactive while a build placement is armed. */}
+        {PLAN3D_BOOTH_ADS_ENABLED && ghostBoothsEnabled ? (
+          <GhostBooths
+            ghosts={ghostBooths}
+            room={room}
+            palette={palette}
+            interactive={mode === 'play' || (!placeZone && !selectedId && !draggingId)}
+          />
+        ) : null}
+
         {/* Invisible per-booth tap targets (the plan3d-scene precedent) —
             tapping a booth opens its vendor card. Kept off the shared fixture
             renderer so it stays a pure visual (no interaction coupling).
@@ -2232,6 +2250,63 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           Canvas, shared Sheet conventions. Inspect-only in the lab: no walk-to,
           and the marketplace CTA reads "View vendor profile". */}
       <BoothVendorCard booth={openBooth} onClose={() => setOpenBooth(null)} profileCta="view" />
+
+      {/* 3D Booth Ads Part A (flag-gated): the "still to book" panel — the master
+          toggle + per-category dismiss for the dashed ghost booths. Server-action
+          forms (progressive-enhancement, no client state). */}
+      {PLAN3D_BOOTH_ADS_ENABLED ? (
+        <div className="pointer-events-auto absolute bottom-4 left-4 z-30 max-w-[min(78vw,320px)]">
+          {ghostBoothsEnabled ? (
+            ghostBooths.length > 0 ? (
+              <div className="rounded-2xl border border-white/15 bg-black/45 p-3 text-white backdrop-blur-md">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-white/80">Still to book</span>
+                  <form action={setGhostBoothsEnabled}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="enabled" value="false" />
+                    <button type="submit" className="text-[11px] text-white/55 hover:text-white/90">
+                      Hide
+                    </button>
+                  </form>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ghostBooths.map((g) => (
+                    <span
+                      key={g.category}
+                      className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs"
+                    >
+                      {g.label}
+                      <form action={dismissGhostBooth} className="inline leading-none">
+                        <input type="hidden" name="event_id" value={eventId} />
+                        <input type="hidden" name="category" value={g.category} />
+                        <button
+                          type="submit"
+                          aria-label={`Dismiss ${g.label} suggestion`}
+                          className="text-white/50 hover:text-white"
+                        >
+                          ×
+                        </button>
+                      </form>
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-white/50">Tap a dashed booth in the room to find vendors.</p>
+              </div>
+            ) : null
+          ) : (
+            <form action={setGhostBoothsEnabled}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="enabled" value="true" />
+              <button
+                type="submit"
+                className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-xs text-white/80 backdrop-blur-md transition hover:text-white"
+              >
+                Show vendor suggestions
+              </button>
+            </form>
+          )}
+        </div>
+      ) : null}
 
       <Hud
         mode={mode}

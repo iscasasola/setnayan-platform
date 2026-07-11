@@ -29,6 +29,7 @@ import {
   type CategoryVendorResult,
 } from '../_actions/category-search';
 import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
+import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
 
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
@@ -97,6 +98,14 @@ const CSS = `
 .csov .lm-cta .sub{font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--ink-soft);max-width:30ch}
 .csov .lm-cta a{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius: var(--m-r-full);padding:11px 20px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
 .csov .lm-cta a:active{transform:scale(.96)}
+/* Smart-sort "raise your budget?" nudge — a quiet inline banner above the list
+   when every shown option starts above the couple's category budget. Calm,
+   advisory tone (never a block); only rendered behind NEXT_PUBLIC_SMART_SORT_ENABLED. */
+.csov .budget-nudge{display:flex;flex-direction:column;gap:7px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius: var(--m-r-md);background:rgba(197,160,89,.07);padding:12px 14px;margin-bottom:12px}
+.csov .budget-nudge .lead{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.15;color:var(--ink)}
+.csov .budget-nudge .sub{font-family:var(--sans);font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+.csov .budget-nudge a{align-self:flex-start;display:inline-flex;align-items:center;border:1px solid var(--gold-deep);background:transparent;color:var(--gold-deep);border-radius: var(--m-r-full);padding:7px 15px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
+.csov .budget-nudge a:active{transform:scale(.96)}
 .csov .loading{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding:30px 20px}
 .csov .foot{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--paper)}
 .csov .searchwrap{flex:1 1 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius: var(--m-r-full);background:#fff;padding:0 14px;min-height:44px}
@@ -125,6 +134,11 @@ const CSS = `
 .csov .fapply{width:100%;margin-top:6px;border:0;background:var(--mulberry);color:#fff;border-radius: var(--m-r-md);min-height:48px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .csov .fapply:active{transform:scale(.98)}
 `;
+
+// Smart-sort flag, read once (NEXT_PUBLIC_ → inlined at build). Off by default:
+// gates BOTH the server re-rank and this overlay's "raise your budget?" nudge, so
+// with the flag off the overlay renders exactly as today.
+const SMART_SORT_ON = isSmartSortEnabled();
 
 const RADIUS_CHIPS: ReadonlyArray<{ label: string; km: number | null }> = [
   { label: 'Any distance', km: null },
@@ -156,6 +170,9 @@ export function CategorySearchOverlay({
   // the group is fully in its last-minute zone and Setnayan AI is off, so generic
   // search is empty — swap the bare copy for a capability-framed unlock CTA.
   const [lastMinuteLocked, setLastMinuteLocked] = useState(false);
+  // Smart-sort "raise your budget?" pressure from the server (flag-gated; false
+  // when the flag is off since the server omits the field then).
+  const [budgetRaise, setBudgetRaise] = useState(false);
   const [loading, setLoading] = useState(true);
   // "Show vendors farther away" expander — the out-of-range vendors, fetched
   // lazily on demand so the default view stays in-range (the radius reach gate).
@@ -210,6 +227,7 @@ export function CategorySearchOverlay({
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
+        setBudgetRaise(res.budgetPressure === true);
         setFacetCatalog(res.facets);
         setFacetDefaults(res.facetDefaults);
         // New search → collapse any expanded "farther away" set.
@@ -533,6 +551,22 @@ export function CategorySearchOverlay({
           </div>
         ) : (
           <>
+            {/* Smart-sort "raise your budget?" nudge — only when the flag is on
+                AND every shown option starts above the couple's category budget.
+                Advisory, never a filter. */}
+            {SMART_SORT_ON && budgetRaise ? (
+              <div className="budget-nudge">
+                <p className="lead">
+                  These {label.toLowerCase()} vendors start above your budget
+                </p>
+                <p className="sub">
+                  Every match here begins higher than what you set aside for{' '}
+                  {label.toLowerCase()}. Raising this category&rsquo;s budget
+                  opens up options that fit.
+                </p>
+                <a href={`/dashboard/${eventId}/budget`}>Adjust your budget</a>
+              </div>
+            ) : null}
             {results.map(renderRow)}
             {/* Show-farther expander — in-range vendors are the default; this
                 reveals the out-of-range ones (the radius reach gate stays the

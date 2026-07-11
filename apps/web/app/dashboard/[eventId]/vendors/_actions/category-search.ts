@@ -71,6 +71,17 @@ import {
   type VendorFacetMatch,
 } from '@/lib/vendor-facets';
 import { resolveFacetSchemaKeys } from '@/lib/vendor-facet-schema-map';
+import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
+import {
+  cheapestStartsAt,
+  priceFitScore,
+  budgetPressure,
+  PRICE_FIT_NEUTRAL,
+  type ServicePricingRow,
+} from '@/lib/smart-sort';
+import { resolveLivePax } from '@/lib/pax';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -169,6 +180,12 @@ export type CategorySearchResult = {
   /** The couple's saved-preference seed (dimension → values) the overlay uses as
    *  the DEFAULT facet selection. Empty when no prefs are saved. */
   facetDefaults: FacetSelection;
+  /** Smart-sort "raise your budget?" pressure (lib/smart-sort · budgetPressure).
+   *  TRUE only when NEXT_PUBLIC_SMART_SORT_ENABLED is on AND the couple has a
+   *  per-category budget AND every priced option shown starts above it — so the
+   *  soft re-rank alone can't help and the overlay nudges the couple to lift the
+   *  budget. Omitted entirely when the flag is off (off-path shape is unchanged). */
+  budgetPressure?: boolean;
 };
 
 const EMPTY: CategorySearchResult = {
@@ -232,6 +249,13 @@ export async function searchCategoryVendors(input: {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   if (!eventId || !groupId) return EMPTY;
+
+  // Smart-sort SOFT re-rank gate (NEXT_PUBLIC_SMART_SORT_ENABLED · lib/smart-sort-flag).
+  // OFF by default: every smart-sort read + comparator below is guarded by this
+  // flag, so the owner-locked tier ladder + result shape stay byte-identical to
+  // today until the flag flips on. Nothing here ever hard-filters — it only
+  // reorders WITHIN the existing tail tier and surfaces a budget-pressure nudge.
+  const smartSort = isSmartSortEnabled();
 
   const groupCanonicals = canonicalsForGroup(groupId);
   if (groupCanonicals.length === 0) return EMPTY;
@@ -726,6 +750,75 @@ export async function searchCategoryVendors(input: {
     }
   }
 
+  // ── Smart-sort SOFT price-fit signal (flag-gated · lib/smart-sort) ─────────
+  // PROGRESSIVE constraint math: the vendor's "starts at" adapts to the couple's
+  // LIVE pax (per-head × headcount for pax-priced services), then a SOFT [0,1]
+  // price-fit score ranks toward the couple's REMAINING per-category budget. All
+  // three reads are done ONLY when the flag is on, so the off-path issues the
+  // exact same queries as today. Each read fails open (→ null → neutral fit → no
+  // reorder) so a smart-sort read can never break the search.
+  //   • livePax          — lib/pax resolveLivePax (frozen final_pax / live count).
+  //   • categoryBudgetPhp — the couple's recommended ₱ for THIS category, from the
+  //                         Budget Planner allocation (leaf keyed by groupId).
+  //   • startsAtByVendor  — each vendor's cheapest pax-adjusted floor across its
+  //                         in-scope, standalone (non-linked) active services.
+  let livePax: number | null = null;
+  let categoryBudgetPhp: number | null = null;
+  const startsAtByVendor = new Map<string, number | null>();
+  if (smartSort) {
+    try {
+      livePax = await resolveLivePax(supabase, eventId);
+    } catch {
+      livePax = null;
+    }
+    try {
+      const alloc = await resolveAllocationInputs(supabase, eventId);
+      if (alloc.budgetPhp != null) {
+        const result = computeBudgetAllocation({
+          budgetPhp: alloc.budgetPhp,
+          leaves: alloc.leaves,
+          config: alloc.config,
+        });
+        // The Budget Planner leaf ids share the plan-group namespace with the
+        // search's groupId (reception_venue, catering, photography, …); no match
+        // (a group the planner doesn't benchmark) → null → neutral fit.
+        const leaf = result.leaves.find((l) => l.canonicalService === groupId);
+        categoryBudgetPhp = leaf ? leaf.amountPhp : null;
+      }
+    } catch {
+      categoryBudgetPhp = null;
+    }
+    if (ids.length > 0) {
+      try {
+        const { data: priceRows } = await admin
+          .from('vendor_services')
+          .select(
+            'vendor_profile_id, pricing_basis, starting_price_php, per_pax_price_php, base_pax, added_pax_block, added_pax_price_php, min_pax, hour_base_php, extra_hour_php, min_hours',
+          )
+          .in('vendor_profile_id', ids)
+          .in('category', canonicals)
+          .eq('is_active', true)
+          // Linked-only rows are auto-covered components with no standalone
+          // market price — excluding them keeps the "starts at" a real floor
+          // (mirrors lib/budget-allocation-data's median source).
+          .eq('is_linked_only', false);
+        const svcByVendor = new Map<string, ServicePricingRow[]>();
+        for (const row of (priceRows ?? []) as Array<
+          ServicePricingRow & { vendor_profile_id: string }
+        >) {
+          const list = svcByVendor.get(row.vendor_profile_id) ?? [];
+          list.push(row);
+          svcByVendor.set(row.vendor_profile_id, list);
+        }
+        for (const [vid, svcs] of svcByVendor) {
+          startsAtByVendor.set(vid, cheapestStartsAt(svcs, livePax).startsAtPhp);
+        }
+      } catch {
+        // Fail-open: no pricing → neutral price-fit → no reorder.
+      }
+    }
+  }
+
   // Shape every rec, then partition into the locked tier ladder.
   type Shaped = CategoryVendorResult & {
     _adRank: number;
@@ -737,6 +830,13 @@ export async function searchCategoryVendors(input: {
     /** Matched facet-dimension count for the soft rank (0 when untagged / no
      *  selection); the nullable public field is `facetMatchCount`. */
     _facetMatch: number;
+    /** Smart-sort SOFT price-fit in [0,1] (lib/smart-sort · priceFitScore). Always
+     *  PRICE_FIT_NEUTRAL when the flag is off or budget/price is unknown, so the
+     *  tail comparator that reads it is a no-op then (byte-identical order). */
+    _priceFit: number;
+    /** Pax-adjusted cheapest "starts at" PHP (null = no usable price). Feeds the
+     *  budget-pressure nudge; internal (never surfaced on the public result). */
+    _startsAt: number | null;
   };
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
@@ -803,6 +903,14 @@ export async function searchCategoryVendors(input: {
     const fm = facetByVendor.get(r.vendor_profile_id);
     const facetMatchCount = fm ? fm.matchedCount : null;
     const serviceDateAvailable = !unavailableIds.has(r.vendor_profile_id);
+    // Smart-sort SOFT price-fit (flag-gated): neutral when off / no price / no
+    // budget, so the tail comparator never reorders in those cases.
+    const startsAt = smartSort
+      ? (startsAtByVendor.get(r.vendor_profile_id) ?? null)
+      : null;
+    const priceFit = smartSort
+      ? priceFitScore(startsAt, categoryBudgetPhp)
+      : PRICE_FIT_NEUTRAL;
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
@@ -832,6 +940,8 @@ export async function searchCategoryVendors(input: {
       _depth: depthMap.get(r.vendor_profile_id) ?? 0,
       _searchable: searchable,
       _facetMatch: fm?.matchedCount ?? 0,
+      _priceFit: priceFit,
+      _startsAt: startsAt,
     };
   });
 
@@ -887,6 +997,17 @@ export async function searchCategoryVendors(input: {
     if (facetSelected && b._facetMatch !== a._facetMatch) {
       return b._facetMatch - a._facetMatch;
     }
+    // Smart-sort SOFT price-fit re-rank (flag-gated · lib/smart-sort). Scoped to
+    // the TAIL tier ONLY — the relationship / boosted / top-reviews tiers stay
+    // exactly as the owner-locked ladder puts them, so this never reorders across
+    // a tier boundary. Because priceFitScore returns a flat 1.0 for EVERY vendor
+    // within budget, all affordable vendors tie here and fall through to the
+    // existing distance→review order unchanged; only OVER-budget vendors sink
+    // (proportionally to how far over). Off-path (`!smartSort`) this term is a
+    // no-op (all _priceFit === PRICE_FIT_NEUTRAL) → byte-identical tail order.
+    if (smartSort && b._priceFit !== a._priceFit) {
+      return b._priceFit - a._priceFit;
+    }
     // Reception-proximity sort is a Setnayan AI feature — gate on `aiActive`.
     // AI off → keep review/rating order (generic), the same fallback used when
     // the event has no reception coords.
@@ -941,6 +1062,19 @@ export async function searchCategoryVendors(input: {
     ];
   }
 
+  // Smart-sort "raise your budget?" pressure (flag-gated): TRUE when the couple
+  // has a per-category budget but EVERY priced option shown starts above it — so
+  // the soft re-rank alone can't surface anything affordable and the overlay
+  // nudges the couple to lift the category budget. Computed over the final shown
+  // set; one affordable vendor clears it (lib/smart-sort · budgetPressure).
+  const budgetRaisePressure =
+    smartSort && categoryBudgetPhp != null
+      ? budgetPressure(
+          ordered.map((s) => s._startsAt),
+          categoryBudgetPhp,
+        )
+      : false;
+
   const results: CategoryVendorResult[] = ordered.map((s) => ({
     vendorProfileId: s.vendorProfileId,
     name: s.name,
@@ -972,5 +1106,7 @@ export async function searchCategoryVendors(input: {
     hasReceptionCoords: hasCoords,
     facets: facetCatalog,
     facetDefaults,
+    // Only present when the flag is on → off-path result shape is unchanged.
+    ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
   };
 }

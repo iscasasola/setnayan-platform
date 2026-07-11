@@ -60,6 +60,20 @@ import {
   canonicalServicesForTile,
   canonicalServicesForFolder,
 } from '@/lib/vendor-counts';
+import { getEventPreferences } from '@/lib/event-preferences';
+import {
+  fetchCategoryFacets,
+  matchVendorFacets,
+  sanitizeFacetSelection,
+  hasFacetSelection,
+  type FacetDimension,
+  type FacetSelection,
+  type VendorFacetMatch,
+} from '@/lib/vendor-facets';
+import {
+  getBatchVendorAvailableDays,
+  formatDayKey,
+} from '@/lib/vendor-availability';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -120,6 +134,22 @@ export type CategoryVendorResult = {
   /** The vendor's tier service radius in km (20 verified · 50 pro). null =
    *  unscoped (Free 0) or nationwide (Enterprise ∞) — no finite range to show. */
   serviceRadiusKm: number | null;
+  /** Facet refinement (lib/vendor-facets · vendor_service_attributes ⋈ the
+   *  couple's facet picks/seed). How many of the selected facet dimensions this
+   *  vendor's attributes overlap. null = the vendor carries NO facet data for
+   *  this category, so it can't be judged (never down-ranked/filtered for it —
+   *  graceful degrade). 0 = tagged but matches none of the picks. */
+  facetMatchCount: number | null;
+  /** How many facet dimensions the couple has values selected on (0 = none →
+   *  the facet layer is inert and the UI shows no match cue). Same for every
+   *  row of a given search. */
+  facetSelectedCount: number;
+  /** Service-date availability (lib/vendor-availability · vendor_calendar_blocks
+   *  vs events.event_date). FALSE = the vendor has a calendar block covering the
+   *  event date → badge + down-rank (NOT removed). Always TRUE when the event has
+   *  no locked date, the vendor has no blocks, or the calendar read returns
+   *  nothing (fail-open — never wrongly flag a vendor unavailable). */
+  serviceDateAvailable: boolean;
 };
 
 export type CategorySearchResult = {
@@ -135,12 +165,21 @@ export type CategorySearchResult = {
    *  framed unlock CTA. Optional + defaults false → only ever set when an admin
    *  has seeded `last_minute_start` (none in prod), so this stays dormant. */
   isLastMinuteLocked?: boolean;
+  /** The selectable facet catalog for this category's refinement chips
+   *  (lib/vendor-facets). Empty when no schema/attributes exist for the scoped
+   *  services → the overlay renders no facet section (graceful degrade). */
+  facets: FacetDimension[];
+  /** The couple's saved-preference seed (dimension → values) the overlay uses as
+   *  the DEFAULT facet selection. Empty when no prefs are saved. */
+  facetDefaults: FacetSelection;
 };
 
 const EMPTY: CategorySearchResult = {
   results: [],
   total: 0,
   hasReceptionCoords: false,
+  facets: [],
+  facetDefaults: {},
 };
 
 /** Forward group → canonical services. Tightest-first: a leaf's single
@@ -183,6 +222,15 @@ export async function searchCategoryVendors(input: {
    *  out-of-range vendors (the in-range set is already on screen from the
    *  default fetch), each tagged withinRadius=false + sorted nearest-first. */
   includeFarther?: boolean;
+  /** Facet refinement picks (dimension key → chosen values). undefined = initial
+   *  load → seed from the couple's saved event_vendor_preferences. A provided
+   *  object (even {}) is an EXPLICIT selection that overrides the seed. Matching
+   *  vendors float up within the tier ladder (soft rank) + optionally hard-filter
+   *  (facetHardFilter). Inert until vendors carry facet tags. */
+  facets?: Record<string, string[]>;
+  /** When TRUE, hard-drop vendors that carry facet tags but match ZERO selected
+   *  facets. Vendors with no facet data are NEVER dropped (graceful degrade). */
+  facetHardFilter?: boolean;
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
@@ -233,6 +281,42 @@ export async function searchCategoryVendors(input: {
     );
   });
   if (canonicals.length === 0) return EMPTY;
+
+  // ── Facet refinement catalog + seed (lib/vendor-facets) ───────────────────
+  // Structured-attribute refinement: the couple can filter/rank by category
+  // facets (cuisine, edit aesthetic, service style, …). Both reads use the
+  // RLS-scoped session client and graceful-degrade to empty:
+  //   • the facet catalog (canonical_service_schemas + shared_attribute_groups,
+  //     RLS read-all) drives the overlay's chips;
+  //   • the couple's saved event_vendor_preferences (RLS host-scoped) seed the
+  //     DEFAULT selection when the caller passes no explicit picks.
+  // Effective selection = explicit input.facets when provided (even {} = a real
+  // "cleared" override), else the saved-pref seed. Inert until vendors carry
+  // facet tags (vendor_service_attributes is empty in prod) → zero regression.
+  const facetCatalog = await fetchCategoryFacets(supabase, canonicals);
+  let facetDefaults: FacetSelection = {};
+  if (facetCatalog.length > 0) {
+    const prefMap = await getEventPreferences(supabase, eventId);
+    const seedRaw: Record<string, unknown> = {};
+    for (const svc of canonicals) {
+      const pref = prefMap[svc];
+      if (!pref) continue;
+      for (const [k, v] of Object.entries(pref.attribute_payload)) {
+        // Union pref values per dimension across the scoped services.
+        const prior = Array.isArray(seedRaw[k]) ? (seedRaw[k] as unknown[]) : [];
+        seedRaw[k] = [...prior, ...(Array.isArray(v) ? v : [v])];
+      }
+    }
+    facetDefaults = sanitizeFacetSelection(facetCatalog, seedRaw);
+  }
+  const facetSelection: FacetSelection =
+    input.facets !== undefined
+      ? sanitizeFacetSelection(facetCatalog, input.facets)
+      : facetDefaults;
+  const facetSelected = hasFacetSelection(facetSelection);
+  const facetSelectedCount = Object.values(facetSelection).filter(
+    (v) => v.length > 0,
+  ).length;
 
   // Setnayan AI OFF (Manual mode) → GENERIC search: drop the per-candidate
   // "% match" pill AND the reception-proximity sort, so the order falls back to
@@ -334,7 +418,13 @@ export async function searchCategoryVendors(input: {
     // search is empty, but last-minute vendors could still take the date with AI
     // on. Flag it so the overlay shows a capability-framed unlock CTA instead of
     // the bare "no vendors" copy. Only reachable once an admin seeds a START.
-    return { ...EMPTY, hasReceptionCoords: hasCoords, isLastMinuteLocked: true };
+    return {
+      ...EMPTY,
+      hasReceptionCoords: hasCoords,
+      isLastMinuteLocked: true,
+      facets: facetCatalog,
+      facetDefaults,
+    };
   }
 
   // Vendors already in this event's picks (RLS-bounded to the user's events)
@@ -446,12 +536,53 @@ export async function searchCategoryVendors(input: {
     searchQuery: input.query,
     limit: input.includeFarther === true ? 100 : 60,
   });
-  if (recs.length === 0) return { ...EMPTY, hasReceptionCoords: hasCoords };
+  if (recs.length === 0)
+    return { ...EMPTY, hasReceptionCoords: hasCoords, facets: facetCatalog, facetDefaults };
 
   // Resolve hybrid-anonymity display names: a Free / Verified vendor's real
   // name is hidden until first reply, so we need screen_name + name_revealed_at
   // (+ services for the venue-exemption) — the rec view doesn't carry them.
   const ids = recs.map((r) => r.vendor_profile_id);
+
+  // ── Facet match + service-date availability (RLS-scoped, graceful-degrade) ──
+  // Both use the SESSION client (never admin): the couple's own session gates
+  // what they may read (vendor_service_attributes public-visible rows; calendar
+  // blocks per the vendor calendar RLS). Both fail-open — a missing table, an
+  // RLS-denied read, or no data yields an empty map, so the search is unchanged.
+  const facetByVendor: Map<string, VendorFacetMatch> = facetSelected
+    ? await matchVendorFacets(supabase, ids, canonicals, facetSelection)
+    : new Map<string, VendorFacetMatch>();
+
+  // Service-date availability: flag vendors whose vendor_calendar_blocks cover
+  // the event's locked date. Single-day window → a vendor is unavailable iff its
+  // computed available-day set for that day is empty (has a covering block).
+  // No locked date / no blocks / RLS-empty read → nobody is flagged (fail-open,
+  // never wrongly mark a vendor busy). Extends the dormant date-availability
+  // reader (lib/vendor-availability) to the couple's single event date.
+  const unavailableIds = new Set<string>();
+  const eventDateStr = (ev.event_date as string | null) ?? null;
+  if (eventDateStr && /^\d{4}-\d{2}-\d{2}$/.test(eventDateStr)) {
+    const [y, m, d] = eventDateStr.split('-').map(Number);
+    const day = new Date(y!, m! - 1, d!);
+    if (!Number.isNaN(day.getTime())) {
+      try {
+        const availByVendor = await getBatchVendorAvailableDays(
+          supabase,
+          ids,
+          day,
+          day,
+        );
+        const dayKey = formatDayKey(day);
+        for (const id of ids) {
+          const avail = availByVendor.get(id);
+          if (avail && !avail.has(dayKey)) unavailableIds.add(id);
+        }
+      } catch {
+        // Fail-open: leave unavailableIds empty so the search is unchanged.
+      }
+    }
+  }
+
   const { data: profRows } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state')
@@ -603,6 +734,9 @@ export async function searchCategoryVendors(input: {
     _depth: 0 | 1 | 2 | 3;
     /** Survives the last-minute filter (expired → never · last_minute → AI only). */
     _searchable: boolean;
+    /** Matched facet-dimension count for the soft rank (0 when untagged / no
+     *  selection); the nullable public field is `facetMatchCount`. */
+    _facetMatch: number;
   };
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
@@ -664,6 +798,11 @@ export async function searchCategoryVendors(input: {
       surchargePct: null,
     };
     const searchable = isLastMinuteSearchable(lm.zone, aiActive);
+    // Facet match: null when the vendor carries no facet data (unjudgeable →
+    // never down-ranked/filtered on facets); a number (possibly 0) when tagged.
+    const fm = facetByVendor.get(r.vendor_profile_id);
+    const facetMatchCount = fm ? fm.matchedCount : null;
+    const serviceDateAvailable = !unavailableIds.has(r.vendor_profile_id);
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
@@ -684,11 +823,15 @@ export async function searchCategoryVendors(input: {
       relationshipDepth: depthMap.get(r.vendor_profile_id) ?? 0,
       withinRadius,
       serviceRadiusKm,
+      facetMatchCount,
+      facetSelectedCount,
+      serviceDateAvailable,
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
       _rating: r.avg_rating_overall ?? 0,
       _depth: depthMap.get(r.vendor_profile_id) ?? 0,
       _searchable: searchable,
+      _facetMatch: fm?.matchedCount ?? 0,
     };
   });
 
@@ -705,6 +848,7 @@ export async function searchCategoryVendors(input: {
     .sort(
       (a, b) =>
         b._depth - a._depth ||
+        (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
         b._adRank - a._adRank ||
         b._reviews - a._reviews ||
         b._rating - a._rating,
@@ -718,17 +862,31 @@ export async function searchCategoryVendors(input: {
   // Tier 2 boosted: ad_rank desc (within the no-relationship pool).
   const boosted = noRelationshipShaped
     .filter((s) => s.boosted)
-    .sort((a, b) => b._adRank - a._adRank);
+    .sort(
+      (a, b) =>
+        b._adRank - a._adRank ||
+        (facetSelected ? b._facetMatch - a._facetMatch : 0),
+    );
   const rest0 = noRelationshipShaped.filter((s) => !s.boosted);
-  // Tier 3 top-10 by review_count then rating.
+  // Tier 3 top-10 by review_count then rating. When the couple has an active
+  // facet selection, matched vendors float to the front of this tier first (the
+  // soft rank), so an explicit refinement surfaces matches into the top tier.
   const byReview = [...rest0].sort(
-    (a, b) => b._reviews - a._reviews || b._rating - a._rating,
+    (a, b) =>
+      (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
+      b._reviews - a._reviews ||
+      b._rating - a._rating,
   );
   const top10 = byReview.slice(0, 10);
   const top10Ids = new Set(top10.map((s) => s.vendorProfileId));
   // Tier 4 the rest, nearest-first when we have coords, else keep review order.
   const tail = rest0.filter((s) => !top10Ids.has(s.vendorProfileId));
   tail.sort((a, b) => {
+    // Facet soft rank leads (only when the couple has an active selection), so a
+    // matching vendor floats above the distance/review order within the tail.
+    if (facetSelected && b._facetMatch !== a._facetMatch) {
+      return b._facetMatch - a._facetMatch;
+    }
     // Reception-proximity sort is a Setnayan AI feature — gate on `aiActive`.
     // AI off → keep review/rating order (generic), the same fallback used when
     // the event has no reception coords.
@@ -764,6 +922,24 @@ export async function searchCategoryVendors(input: {
       (s) => s.distanceKm !== null && s.distanceKm <= (input.maxKm as number),
     );
   }
+  // Optional HARD facet filter: drop vendors that carry facet tags but match
+  // ZERO selected facets. A vendor with no facet data (facetMatchCount === null)
+  // is unjudgeable → always kept (graceful degrade). Only active when the couple
+  // asked for it AND has a live selection.
+  if (input.facetHardFilter && facetSelected) {
+    ordered = ordered.filter(
+      (s) => s.facetMatchCount === null || s.facetMatchCount > 0,
+    );
+  }
+  // Service-date availability DOWN-RANK (never remove): stable-partition busy
+  // vendors to the bottom, preserving each group's tier order. No-op when the
+  // event has no locked date / nobody is flagged (fail-open).
+  if (unavailableIds.size > 0) {
+    ordered = [
+      ...ordered.filter((s) => s.serviceDateAvailable),
+      ...ordered.filter((s) => !s.serviceDateAvailable),
+    ];
+  }
 
   const results: CategoryVendorResult[] = ordered.map((s) => ({
     vendorProfileId: s.vendorProfileId,
@@ -785,7 +961,16 @@ export async function searchCategoryVendors(input: {
     relationshipDepth: s.relationshipDepth,
     withinRadius: s.withinRadius,
     serviceRadiusKm: s.serviceRadiusKm,
+    facetMatchCount: s.facetMatchCount,
+    facetSelectedCount: s.facetSelectedCount,
+    serviceDateAvailable: s.serviceDateAvailable,
   }));
 
-  return { results, total: results.length, hasReceptionCoords: hasCoords };
+  return {
+    results,
+    total: results.length,
+    hasReceptionCoords: hasCoords,
+    facets: facetCatalog,
+    facetDefaults,
+  };
 }

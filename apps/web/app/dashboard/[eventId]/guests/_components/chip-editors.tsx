@@ -41,6 +41,7 @@ import type { GuestFieldOverride } from '@/lib/guest-optimistic';
 import type { RoleSection } from './guest-list-multiselect';
 import {
   addGuestToGroup,
+  restoreGuestRsvpAndSeat,
   setGuestRole,
   setGuestRsvp,
   setGuestSide,
@@ -251,24 +252,84 @@ export function RsvpChipEditor({
   guest,
   children,
   mobileCycle = false,
+  seatedTableLabel = null,
 }: {
   eventId: string;
   guest: GuestRow;
   children: ReactNode;
   /** Mobile one-tap: clicking advances attending→pending→declined→attending. */
   mobileCycle?: boolean;
+  /** The guest's current seated table label (Living Roster P3) — folded into
+   *  the decline undo toast ("Seat T3 freed") when a decline frees a real seat. */
+  seatedTableLabel?: string | null;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [, startTransition] = useTransition();
+  const toast = useToast();
   const commit = useFieldEdit(guest.guest_id);
   const name = guestDisplayName(guest);
 
   // Couple RSVP is locked — render the plain pill, no interaction.
   if (rsvpLocked(guest)) return <>{children}</>;
 
+  // Reactive decline (Living Roster P3). Unlike the generic field edit, a decline
+  // also FREES the guest's seat (live `free_seat_on_decline` trigger), so the undo
+  // must restore BOTH the RSVP and the exact chair. The server action returns the
+  // freed seat; the undo hands it back to `restoreGuestRsvpAndSeat`. The optimistic
+  // rsvp→declined patch flips the seat chip to "—" instantly (the chip reads the
+  // effective rsvp), and the undo's rsvp→prior patch flips it back.
+  const commitDecline = () => {
+    const prior = guest.rsvp_status;
+    const forward = {
+      kind: 'setField' as const,
+      guestIds: [guest.guest_id],
+      override: { rsvp_status: 'declined' as RsvpStatus },
+    };
+    guestOptimistic.apply(forward);
+    startTransition(async () => {
+      let res: Awaited<ReturnType<typeof setGuestRsvp>>;
+      try {
+        res = await setGuestRsvp(eventId, guest.guest_id, 'declined');
+      } catch {
+        guestOptimistic.clear(forward);
+        toast.error('Could not save — check your connection and try again.');
+        return;
+      }
+      if (!res.ok) {
+        guestOptimistic.clear(forward);
+        toast.error(res.error ?? 'Could not save that change.');
+        return;
+      }
+      const freed = res.freedSeat;
+      const seatNote = freed && seatedTableLabel ? ` · Seat ${seatedTableLabel} freed` : '';
+      pushUndo({
+        label: `${name} · Declined${seatNote}`,
+        undo: async () => {
+          const back = {
+            kind: 'setField' as const,
+            guestIds: [guest.guest_id],
+            override: { rsvp_status: prior },
+          };
+          guestOptimistic.apply(back);
+          const r = await restoreGuestRsvpAndSeat(eventId, guest.guest_id, prior, freed);
+          if (!r.ok) {
+            guestOptimistic.clear(back);
+            toast.error('Could not undo — refresh and try again.');
+          }
+        },
+      });
+    });
+  };
+
   const pick = (value: RsvpStatus) => {
     setOpen(false);
     if (value === guest.rsvp_status) return;
+    // Declining routes through the seat-aware flow (restores rsvp + seat on undo).
+    if (value === 'declined') {
+      commitDecline();
+      return;
+    }
     commit({
       override: { rsvp_status: value },
       priorOverride: { rsvp_status: guest.rsvp_status },

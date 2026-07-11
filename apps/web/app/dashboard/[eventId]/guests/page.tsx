@@ -31,6 +31,8 @@ import {
   roleImportanceRank,
 } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -172,7 +174,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, seated, arrived] =
+  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived] =
     await Promise.all([
       fetchGuestsByEvent(supabase, eventId),
       supabase
@@ -207,10 +209,24 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .is('deleted_at', null)
         .is('invitation_sent_at', null)
         .neq('rsvp_status', 'declined'),
-      supabase
-        .from('event_seat_assignments')
-        .select('assignment_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
+      // Living Roster P3 — the per-guest seat READ. `fetchAssignments` returns the
+      // live seat rows (its length also gives the aggregate seatedCount the mobile
+      // carousel wants), and `fetchTables` gives each assignment's table_label +
+      // the pool the pure suggestion heuristic drafts unseated guests into. Both
+      // are couple-RLS-scoped reads that fold into the same parallel fan-out.
+      // …guarded like every other read in this fan-out: fetchAssignments/
+      // fetchTables THROW on error (unlike the head+count reads they replaced),
+      // and this Promise.all must never take down the whole Guests tab (the
+      // roster/RSVP/invites) over a transient seat-read blip — the documented
+      // "log loudly, return empty, never throw" invariant (Sentry 3284377371).
+      // On failure seats degrade to 0/suggested exactly as before. Mirrors the
+      // dashboard overview's fetchTables(...).catch(() => []).
+      fetchAssignments(supabase, eventId).catch(
+        () => [] as Awaited<ReturnType<typeof fetchAssignments>>,
+      ),
+      fetchTables(supabase, eventId).catch(
+        () => [] as Awaited<ReturnType<typeof fetchTables>>,
+      ),
       supabase
         .from('guest_checkins')
         .select('checkin_id', { count: 'exact', head: true })
@@ -223,7 +239,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
   const pendingClaimsCount = pendingClaims.count ?? selfJoinIds.length;
   const unsentCount = unsentInvites.count ?? 0;
-  const seatedCount = seated.count ?? 0;
+  // Seated count now derives from the seat rows we already fetched (P3) rather
+  // than a separate head+count round-trip — one fewer Singapore RTT.
+  const seatedCount = assignments.length;
   const arrivedCount = arrived.count ?? 0;
   // Log silent palette-read errors so a future ADD COLUMN regression
   // would surface in Sentry instead of falling through to an empty
@@ -346,6 +364,33 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const sortGroupKey =
     sort === 'group' ? buildGroupSortKey(groups, membershipsMap) : undefined;
   visible.sort((a, b) => sortCompare(a, b, sort, sortGroupKey));
+
+  // Living Roster P3 — the reactive seat column. Each rendered row resolves to
+  // one of three states: PLACED (a live assignment → its table label), DECLINED
+  // (handled client-side off the rsvp), or SUGGESTED (a pure per-row hint the
+  // seat plan self-drafts from role + side, via `suggestTableFor`). Built over
+  // the FILTERED `visible` set (the rows the roster actually renders) so it stays
+  // in lockstep with the filtered-vs-full split. DEGRADED by design: no persisted
+  // "held" state exists, so there's no held chip and no release-bar (P4/schema).
+  const tableLabelById = new Map(tables.map((t) => [t.table_id, t.table_label]));
+  const placedByGuest = new Map<string, string>();
+  for (const a of assignments) {
+    const label = tableLabelById.get(a.table_id);
+    if (label) placedByGuest.set(a.guest_id, label);
+  }
+  const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
+    Object.fromEntries(
+      visible.map((g) => {
+        const placed = placedByGuest.get(g.guest_id) ?? null;
+        // Only compute a suggestion for the state that actually renders it — a
+        // seated or declined guest never shows the dashed hint.
+        const suggested =
+          placed || g.rsvp_status === 'declined'
+            ? null
+            : suggestTableFor(g, tables, assignments);
+        return [g.guest_id, { placed, suggested }];
+      }),
+    );
 
   // Convert the Map<guest_id, group_id[]> to a plain object so it
   // serializes cleanly across the server/client component boundary.
@@ -646,6 +691,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               groupMemberships={groupMemberships}
               currentGroupId={currentGroupId}
               selfJoinIds={selfJoinIds}
+              seatByGuest={seatByGuest}
               photoDisplayUrls={photoDisplayUrls}
               groupMode={
                 sort === 'side'

@@ -9,6 +9,7 @@ import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { pushUndo } from './undo-toast';
 import { QuickViewButton } from './guest-drawer';
+import { SeatChip } from './seat-chip';
 import {
   AddToGroupControl,
   RoleChipEditor,
@@ -330,6 +331,7 @@ function DesktopRow({
   groupsById,
   currentGroupId,
   bulkRoleSections,
+  seat,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -342,6 +344,9 @@ function DesktopRow({
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
   bulkRoleSections: RoleSection[];
+  // Reactive seat state (Living Roster P3) — undefined only if a guest slips the
+  // server-built map (defensively degrades to the suggested/dash path).
+  seat?: { placed: string | null; suggested: string | null };
 }) {
   // Group labels for the quick-view drawer (Contact + groups live there now).
   const groupLabels = groupIds
@@ -418,9 +423,23 @@ function DesktopRow({
         </div>
       </td>
       <td className="px-3 py-2.5">
-        <RsvpChipEditor eventId={eventId} guest={guest}>
+        <RsvpChipEditor
+          eventId={eventId}
+          guest={guest}
+          seatedTableLabel={seat?.placed ?? null}
+        >
           <RsvpPill status={guest.rsvp_status} />
         </RsvpChipEditor>
+      </td>
+      {/* Reactive seat (Living Roster P3): placed 🪑 T# · declined — · else the
+          dashed ~T# suggestion. The +1 badge rides along. */}
+      <td className="px-3 py-2.5">
+        <SeatChip
+          placed={seat?.placed ?? null}
+          suggested={seat?.suggested ?? null}
+          rsvp={guest.rsvp_status}
+          hasPlusOne={guest.plus_one_allowed}
+        />
       </td>
       <td className="px-3 py-2.5 text-xs text-ink/60">
         {guest.email ?? guest.mobile ?? '—'}
@@ -476,7 +495,7 @@ function SelfJoinDesktopRow({
           </div>
         </div>
       </td>
-      <td colSpan={5} className="px-3 py-3">
+      <td colSpan={6} className="px-3 py-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
@@ -521,6 +540,11 @@ type Props = {
   // (entry_source='self_added_unlisted'), fetched into page.tsx. Rendered as the
   // blush "needs you" row inline in the roster (Keep / Link / Remove).
   selfJoinIds: string[];
+  // Reactive seat column (Living Roster P3), keyed by guest_id: `placed` = the
+  // guest's live assignment's table label (null when unseated); `suggested` = the
+  // pure per-row seat-suggest hint (null when seated/declined/no tables).
+  // Computed server-side in page.tsx over the same filtered `visible` set.
+  seatByGuest: Record<string, { placed: string | null; suggested: string | null }>;
   // guest.photo_url (the stored r2:// ref or raw Google avatar URL) →
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
@@ -550,6 +574,7 @@ export function GuestListMultiselect({
   groupMemberships,
   currentGroupId,
   selfJoinIds,
+  seatByGuest,
   photoDisplayUrls,
   groupMode,
   roleSetKey,
@@ -723,9 +748,10 @@ export function GuestListMultiselect({
               <th className="px-4 py-2.5 font-medium">Name</th>
               <th className="w-[10%] px-3 py-2.5 font-medium">Side</th>
               <th className="w-[18%] px-3 py-2.5 font-medium">Role</th>
-              <th className="w-[16%] px-3 py-2.5 font-medium">Groups</th>
-              <th className="w-[12%] px-3 py-2.5 font-medium">RSVP</th>
-              <th className="w-[14%] px-3 py-2.5 font-medium">Contact</th>
+              <th className="w-[14%] px-3 py-2.5 font-medium">Groups</th>
+              <th className="w-[11%] px-3 py-2.5 font-medium">RSVP</th>
+              <th className="w-[12%] px-3 py-2.5 font-medium">Seat</th>
+              <th className="w-[13%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>
@@ -734,7 +760,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
@@ -764,6 +790,7 @@ export function GuestListMultiselect({
                         groupsById={groupsById}
                         currentGroupId={currentGroupId}
                         bulkRoleSections={bulkRoleSections}
+                        seat={seatByGuest[guest.guest_id]}
                       />
                     ),
                   )}

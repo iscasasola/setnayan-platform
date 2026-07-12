@@ -8,6 +8,7 @@
  * columns. The wedding commit is NOT touched.
  */
 import type { GenericOnboardingPayload } from './types';
+import { anchorForType } from '../event-anchor';
 
 export type GenericInsertOpts = {
   slug: string;
@@ -41,6 +42,9 @@ export function buildGenericEventInsert(
   return {
     event_type: payload.eventType,
     display_name: payload.displayName,
+    // Date-anchor model (2026-07-12): per-type default anchor_kind from the
+    // authored map. Keeps the generic path consistent with createWeddingEvent.
+    anchor_kind: anchorForType(payload.eventType).kind,
     event_date: null,
     venue_name: null,
     venue_address: null,

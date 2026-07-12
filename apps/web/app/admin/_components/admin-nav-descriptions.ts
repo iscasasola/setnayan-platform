@@ -71,6 +71,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── Studio group (key 'media') — Content lane then Marketing lane ──────
   website:
     'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
+  'background-videos':
+    'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
   'hero-video':
     'The /login left-panel hero still — upload a video; its first frame becomes the sign-in page image. (The public homepage hero runs on Background videos, not this.)',
   'reveal-studio': 'The Save-the-Date cinematic reveal openings — design and manage.',

@@ -18,6 +18,15 @@
  * opt in to the Atelier faces instead.
  */
 :root {
+  /* Chrome typography = Atelier everywhere (2026-07-12 consistency pass).
+   * The editorial Cormorant/Manrope/DM Mono faces now load under
+   * --font-editorial-* (app/layout.tsx) and reach pages ONLY through the
+   * .sn-editorial scope below — applied at the /[slug] guest-tree root, the
+   * one surface family owner-excluded from the reskin. Everything else
+   * (marketing + dashboards + tools) reads the Atelier faces. */
+  --font-display: var(--font-hanken);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-space-mono);
   --font-app: var(--font-hanken);
   --font-condensed: var(--font-hanken);
   --font-sans-marketing: var(--font-hanken);
@@ -2874,6 +2883,18 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dur-control: 200ms;
   --sn-dur-elem:    320ms;
   --sn-dur-enter:   640ms;
+}
+
+
+/* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
+ * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so
+ * couples' guest-facing pages keep the wedding-editorial register (Cormorant
+ * display · Manrope body · DM Mono labels) exactly as before the Atelier
+ * chrome flip. Do NOT apply to chrome surfaces. */
+.sn-editorial {
+  --font-display: var(--font-editorial-display);
+  --font-sans: var(--font-editorial-sans);
+  --font-mono: var(--font-editorial-mono);
 }
 
 /* ---------- ambient backdrop (pages that use glass) ---------- */

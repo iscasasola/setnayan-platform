@@ -82,21 +82,21 @@ const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
-  variable: '--font-display',
+  variable: '--font-editorial-display',
 });
 
 const manrope = Manrope({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
+  variable: '--font-editorial-sans',
 });
 
 const dmMono = DM_Mono({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500'],
-  variable: '--font-mono',
+  variable: '--font-editorial-mono',
 });
 
 // Atelier + macOS glass typography — owner-locked 2026-07-12 (design

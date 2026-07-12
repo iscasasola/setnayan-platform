@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { surpriseRevealAtFor } from '@/lib/event-surprise';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -113,6 +114,76 @@ export async function updateLandingPageVisibility(formData: FormData) {
   // ISR-cached (`revalidate = 60` per app/[slug]/page.tsx) so this
   // invalidation matters — otherwise the locked screen could lag up to
   // 60 seconds after the host flips to 'private'.
+  revalidatePath(`/dashboard/${eventId}/website`);
+  revalidatePath(`/dashboard/${eventId}/website/privacy`);
+  if (event.slug) {
+    revalidatePath(`/${event.slug}`);
+  }
+
+  redirect(`/dashboard/${eventId}/website/privacy?saved=1`);
+}
+
+/**
+ * Surprise-mode toggle ("hidden website") — owner-locked 2026-07-12.
+ *
+ * ON  → mark the event a surprise AND seal the public site: visibility 'private'
+ *       + scheduled_launch_at = the event date (via surpriseRevealAtFor). The
+ *       cron-free read-time auto-launch reveals it on the day. If no event date
+ *       is set yet, the site is sealed private with no schedule and the privacy
+ *       page prompts the host to pick a date (or launch manually).
+ * OFF → clear the surprise flag only. Visibility is left as-is (still private):
+ *       turning off a surprise must never silently PUBLISH the site — the host
+ *       makes it public deliberately via the visibility control above.
+ *
+ * Same host gate + revalidation contract as updateLandingPageVisibility.
+ */
+export async function setSurpriseMode(formData: FormData) {
+  const eventIdRaw = formData.get('event_id');
+  const on = formData.get('surprise') === '1';
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  const eventId = eventIdRaw as string;
+
+  await requireHostMembership(eventId);
+
+  const supabase = await createClient();
+
+  const { data: event, error: fetchErr } = await supabase
+    .from('events')
+    .select('slug, event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (fetchErr) {
+    throw new Error(`Failed to load event: ${fetchErr.message}`);
+  }
+  if (!event) {
+    redirect('/dashboard');
+  }
+
+  const update: {
+    is_surprise: boolean;
+    landing_page_visibility?: 'private';
+    scheduled_launch_at?: string | null;
+  } = { is_surprise: on };
+
+  if (on) {
+    // Seal the site: private now, auto-reveal on the event date (if known).
+    update.landing_page_visibility = 'private';
+    update.scheduled_launch_at = surpriseRevealAtFor(
+      (event.event_date as string | null | undefined) ?? null,
+    );
+  }
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update(update)
+    .eq('event_id', eventId);
+  if (updateErr) {
+    throw new Error(`Failed to update surprise mode: ${updateErr.message}`);
+  }
+
   revalidatePath(`/dashboard/${eventId}/website`);
   revalidatePath(`/dashboard/${eventId}/website/privacy`);
   if (event.slug) {

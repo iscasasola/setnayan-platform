@@ -115,7 +115,7 @@
    */
   :root {
     /* Light mode — Clean Editorial (DEFAULT) */
-    --color-cream: 251 250 247;        /* page bg → Atelier paper #FBFAF7 */
+    --color-cream: 255 255 255;        /* page bg → white (owner 2026-07-13; was Atelier paper #FBFAF7) */
     --color-ink: 27 26 23;             /* primary text → Atelier warm ink #1B1A17 */
     --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
@@ -2897,14 +2897,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --font-mono: var(--font-editorial-mono);
 }
 
-/* ---------- ambient backdrop (pages that use glass) ---------- */
+/* ---------- ambient backdrop (dashboard shell page background) ----------
+ * Owner directive 2026-07-13: the main page background is plain WHITE. This
+ * class is applied by SidebarShell to every dashboard doorway (vendor /
+ * couple / admin), so it IS the visible page canvas there. Previously a warm
+ * #F2EFE8 base + gold/green/blue radial glows; flattened to solid white. */
 .sn-ambient {
-  background: #F2EFE8;
-  background-image:
-    radial-gradient(42% 52% at 12% 8%,  rgba(203,167,102,.22), transparent 62%),
-    radial-gradient(50% 60% at 88% 28%, rgba(94,124,82,.12),  transparent 62%),
-    radial-gradient(44% 54% at 50% 95%, rgba(78,108,130,.13), transparent 62%);
-  background-attachment: fixed;
+  background: #ffffff;
 }
 
 /* ---------- glass surfaces ---------- */

@@ -20,10 +20,11 @@ export const metadata = { title: 'Setnayan AI · Setnayan' };
 
 /**
  * /dashboard/[eventId]/studio/setnayan-ai — the BUY surface for the Setnayan AI
- * planner (the first paywall · catalog SETNAYAN_AI, a ₱499 ONE-TIME permanent
- * unlock · owner-locked 2026-07-02, per-event-pricing flag OFF since
- * 20270714262264; supersedes the earlier ₱499/28-day subscription framing and
- * the ₱3,999 one-time). This is the purchase path the audit flagged: the
+ * planner (the first paywall · catalog SETNAYAN_AI, a single ₱1,499 ONE-TIME
+ * permanent unlock · owner FINAL 2026-07-12, per-event-pricing flag OFF since
+ * 20270714262264; supersedes the ₱499 entry / ₱4,999 event-pass split, the
+ * earlier ₱499/28-day subscription framing and the ₱3,999 one-time). This is
+ * the purchase path the audit flagged: the
  * entitlement chain (checkout → admin approve → events.setnayan_ai_active →
  * lib/setnayan-ai.ts gate) was fully wired, but nothing let a couple actually
  * buy SETNAYAN_AI. This page closes that.

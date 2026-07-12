@@ -21,15 +21,6 @@ import {
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 
 /**
- * The ₱4,999 one-time Setnayan AI EVENT PASS (owner 2026-07-12). Sits above the
- * ₱499 low-friction ENTRY (service_code SETNAYAN_AI). Both grant the SAME
- * per-event boolean gate (events.setnayan_ai_active); the pass is simply the
- * full-price permanent door. Catalog row seeded by migration
- * 20270729000000_setnayan_ai_event_pass_sku.sql.
- */
-const AI_EVENT_PASS_SKU = 'SETNAYAN_AI_EVENT_PASS';
-
-/**
  * apps/web/lib/sku-activation.ts
  *
  * Per-SKU activation dispatcher. After admin approvePayment flips an order to
@@ -200,22 +191,6 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
         metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, active_until: stampedUntil },
       });
     }
-  },
-
-  // 'SETNAYAN_AI_EVENT_PASS' → the ₱4,999 one-time full EVENT PASS (owner
-  // 2026-07-12). Grants the SAME per-event boolean as the ₱499 entry SKU, but is
-  // ALWAYS a PERMANENT unlock — it never stamps a lapsing window, regardless of
-  // setnayan_ai_per_event_pricing_enabled (the intro/renewal windowing only ever
-  // applied to the ₱499 intro path). One approved order flips the flag and the
-  // planner is on for the wedding, forever. Throws only on the write so the
-  // dispatcher logs it (the order is already 'paid'; never rolls back approval).
-  [AI_EVENT_PASS_SKU]: async (ctx) => {
-    if (!ctx.eventId) return;
-    const { error } = await ctx.admin
-      .from('events')
-      .update({ setnayan_ai_active: true })
-      .eq('event_id', ctx.eventId);
-    if (error) throw new Error(`SETNAYAN_AI_EVENT_PASS activation write failed: ${error.message}`);
   },
 
   // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,
@@ -616,9 +591,7 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
  */
 async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
-  // Owned by EITHER door (₱499 entry OR ₱4,999 event pass) → keep the flag.
-  if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return;
-  if (await eventSkuActive(ctx.admin, ctx.eventId, AI_EVENT_PASS_SKU)) return;
+  if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
   const { error } = await ctx.admin
     .from('events')
     .update({ setnayan_ai_active: false })
@@ -641,7 +614,6 @@ async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<vo
 export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> {
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
-    ctx.serviceKey === AI_EVENT_PASS_SKU ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??

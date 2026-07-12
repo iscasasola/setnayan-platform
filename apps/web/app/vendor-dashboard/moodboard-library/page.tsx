@@ -31,6 +31,14 @@ export default async function StylistMoodboardLibraryPage() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
+  // OWNER-LOCKED 2026-07-12: the Moodboard library is a STYLIST's own
+  // collection — only stylist/decorator vendors (reception_decor category)
+  // may author boards here. Everyone else bounces to My Shop.
+  const isStylist = (profile.services ?? []).some(
+    (s: string) => s === 'reception_decor',
+  );
+  if (!isStylist) redirect('/vendor-dashboard/shop');
+
   const admin = createAdminClient();
   const { data: rows } = await admin
     .from('moodboard_library_assets')

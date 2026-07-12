@@ -11,7 +11,7 @@ import { endThreadCall } from '@/app/_actions/thread-call-actions';
  * the same room (keyed by threadId), then connect peer-to-peer — media NEVER
  * touches a server; STUN-only, no TURN (so a rare hard-NAT pair fails cleanly).
  *
- * Modeled on prototype/call/_components/call-room.tsx but self-starting (the
+ * Self-starting WebRTC call room (grew out of a since-removed prototype): the
  * caller already picked voice/video at launch) and wired to the thread_calls
  * metadata row: hang up / unmount → leave() + stop tracks + endThreadCall().
  */

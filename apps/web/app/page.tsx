@@ -32,6 +32,7 @@ import { getHomePricingData } from './_components/home/pricing-data';
 import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
@@ -176,6 +177,10 @@ export default async function HomePage() {
   // default internally; uses the service-role client (no cookies → safe in
   // after()). See lib/admin/digest-flush.ts.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary digest · renewal reminders · Papic drop
+  // warning) — CRON-FREE: public traffic + a per-job daily DB claim, so they
+  // run even when no admin/vendor is online (replaces the retired crons).
+  after(() => runDailyEmailJobs().catch(() => {}));
 
   return (
     <>

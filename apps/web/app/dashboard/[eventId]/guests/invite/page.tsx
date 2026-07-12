@@ -83,7 +83,7 @@ export default async function GuestInvitePage({ params }: Props) {
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 320,
-        color: { dark: '#1E2229', light: '#FBFBFA' },
+        color: { dark: '#1B1A17', light: '#FBFBFA' },
       })
     : null;
 

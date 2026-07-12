@@ -42,6 +42,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { parseOAuthAccountType, buildOAuthCallbackUrl } from '@/lib/oauth-signup';
 
 type SupabaseOAuthProvider = 'google' | 'apple';
 
@@ -49,21 +50,23 @@ async function signInWithProvider(
   provider: SupabaseOAuthProvider,
   formData: FormData,
 ) {
-  const next = safeNext(formData.get('next'));
+  const rawNext = safeNext(formData.get('next'));
+  // The /signup Couple/Vendor selection, mirrored into the OAuth form (login has
+  // no selector → 'customer'). signInWithOAuth can't seed user metadata, so we
+  // round-trip the intent as ?as=vendor and the callback reconciles it.
+  const accountType = parseOAuthAccountType(formData.get('account_type'));
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const { next, url: redirectTo } = buildOAuthCallbackUrl({ appUrl, rawNext, accountType });
 
   // Supabase returns { url } on success; the user's browser needs to
-  // navigate to that URL to start the provider's consent flow. We
-  // preserve `next` through the round trip by appending it to the
-  // callback redirect — Supabase forwards arbitrary query params on
-  // the redirectTo URL all the way through to /auth/callback per the
-  // standard Supabase OAuth + Next.js App Router cookbook.
+  // navigate to that URL to start the provider's consent flow. Supabase
+  // forwards arbitrary query params on the redirectTo URL all the way
+  // through to /auth/callback (the standard Supabase OAuth + Next.js App
+  // Router cookbook), so `next` + `as` round-trip intact.
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: {
-      redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
-    },
+    options: { redirectTo },
   });
 
   if (error) {

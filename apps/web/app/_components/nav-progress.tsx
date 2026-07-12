@@ -29,7 +29,7 @@
  *
  * Renders null on the server + first client paint (no hydration mismatch); all
  * listeners attach in useEffect. Colour follows the brand accent token
- * (--m-orange = Royal Champagne Gold) so it auto-tracks palette changes.
+ * (--m-orange = Atelier kit gold-500) so it auto-tracks palette changes.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -156,8 +156,8 @@ export function NavProgress() {
         zIndex: 2000,
         height: '2.5px',
         width: `${width}%`,
-        background: 'var(--m-orange, #C5A059)',
-        boxShadow: '0 0 8px 0 var(--m-orange, #C5A059)',
+        background: 'var(--m-orange, #A9834B)',
+        boxShadow: '0 0 8px 0 var(--m-orange, #A9834B)',
         borderRadius: '0 2px 2px 0',
         opacity: done ? 0 : 1,
         transition: done

@@ -165,6 +165,7 @@ import {
   Newspaper,
   Images,
   Radar,
+  Signal,
   Lightbulb,
   Film,
   Gift,
@@ -506,6 +507,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/hero-video',
       },
       {
+        // Background videos — the LIVE upload tool feeding the production
+        // homepage hero + pillar loop videos (lib/background-videos.ts →
+        // app/page.tsx → HomeReskin). Orphaned from every rendered nav during
+        // the IA consolidation; re-linked per the 2026-07-12 page-layer audit
+        // (owner decision #3 — additive only, the surface itself untouched).
+        key: 'background-videos',
+        label: 'Background videos',
+        href: '/admin/background-videos',
+        icon: Clapperboard,
+        matchPrefix: '/admin/background-videos',
+      },
+      {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).
         // matchPrefix keeps this item lit on the legacy /admin/reveal-studio
         // path (redirects in). NB /admin/studio and /admin/reveal-studio are
@@ -733,6 +746,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/app-performance?tab=intelligence',
         icon: Radar,
         matchPrefix: '/admin/intelligence',
+      },
+      {
+        // Demand Radar — the all-markets demand read (month heat · top regions
+        // · hot looks · event types) behind the vendor Market Intel feature
+        // (Pro-and-up, owner-locked 2026-07-11). Built with its own route but
+        // never menued; wired here by the page-layer hygiene pass 2026-07-12.
+        key: 'demand',
+        label: 'Demand Radar',
+        href: '/admin/demand',
+        icon: Signal,
+        matchPrefix: '/admin/demand',
       },
       {
         // SEO & GEO — the daily search + AI-answer-engine audit (owner Q

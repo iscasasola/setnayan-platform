@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
+import { maybeSweepGhostedLeadHolds } from '@/lib/lead-token-holds';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -255,6 +256,11 @@ export default async function VendorDashboardLayout({
   // (gated inside the helper). Vendor side: nudge if inquiries they received
   // sit unanswered past the threshold.
   after(() => runLoginGhostingCheck(user.id, 'vendor'));
+  // Ghosted lead-hold sweep (fake-inquiry protection) — CRON-FREE: rides vendor
+  // traffic via after() + a durable daily DB claim (replaces the retired Vercel
+  // cron). The RPC is global + idempotent, so any vendor's visit sweeps every
+  // vendor's ghosts; a no-op when the hold feature is off. Never throws.
+  after(() => maybeSweepGhostedLeadHolds().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

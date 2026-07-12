@@ -6,7 +6,7 @@
  * A native React port of the `Organic loaders` handoff (owner-supplied
  * 2026-06-07). The handoff shipped a dependency-free Web Component; we ported
  * it natively so the gold binds to our locked palette token (`--m-orange` =
- * Royal Champagne Gold #C5A059, NOT the handoff's #c69a4b), reuses the app's
+ * Atelier kit gold-500 #A9834B, NOT the handoff's #c69a4b), reuses the app's
  * `.loading-status-line` entrance fade, and inherits the global
  * `prefers-reduced-motion` freeze in globals.css instead of carrying its own.
  *
@@ -68,7 +68,7 @@ export type SDLoaderProps = {
 };
 
 /** Champagne-gold palette for the tap-to-pop motes (locked family). */
-const POP_GOLDS = ['#c5a059', '#e0cca0', '#cb9e4b', '#d3ae66'] as const;
+const POP_GOLDS = ['#a9834b', '#cba766', '#cb9e4b', '#d3ae66'] as const;
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);

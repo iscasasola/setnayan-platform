@@ -89,6 +89,17 @@ export async function becomeVendor(formData: FormData): Promise<void> {
 
   const admin = createAdminClient();
 
+  // Self-heal account_type: anyone opening a vendor shop IS a vendor. Corrects a
+  // customer-typed row — e.g. an OAuth vendor signup whose callback promotion
+  // didn't land (missing service-role key), or any legacy pre-fix OAuth vendor —
+  // so their doorway routing + RLS match reality. The `account_type='customer'`
+  // predicate makes it idempotent and NEVER touches an admin/existing-vendor row.
+  await admin
+    .from('users')
+    .update({ account_type: 'vendor' })
+    .eq('user_id', user.id)
+    .eq('account_type', 'customer');
+
   // Find-or-create the OWNED shop (mirrors the signup trigger; idempotent).
   // Read the full owned set (not `.maybeSingle()`) so the multi-business dial
   // can be enforced by count: re-open the existing shop, or mint the first —

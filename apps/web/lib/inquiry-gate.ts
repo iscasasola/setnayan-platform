@@ -32,6 +32,15 @@ export function inquiryGateEnabled(): boolean {
 }
 
 /**
+ * Phase D — the lead trust badge (the "informed accept"). When ON, the masked
+ * lead shows a POSITIVE "Active planner" chip for a couple with real engagement.
+ * Purely additive UI, default OFF → the vendor inbox looks exactly as today.
+ */
+export function leadTrustBadgeEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_LEAD_TRUST_BADGE_ENABLED === 'true';
+}
+
+/**
  * Max NEW inquiries one couple account may open in a rolling 24h window, across
  * all their events. Tuned to sit far above a real planning binge (a couple
  * shortlisting hard across many categories in a day) and only catch scripted

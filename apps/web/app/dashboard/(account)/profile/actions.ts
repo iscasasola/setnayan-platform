@@ -97,6 +97,25 @@ export async function updatePersonalInfo(formData: FormData) {
   const birth_date = birthDateStr || null;
   const public_greeting_opt_in = publicGreetingRaw === 'on';
 
+  // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
+  // current opt-in state so we only STAMP marketing_consent_at on an actual
+  // transition — opting in sets now(), opting out clears it to NULL, and an
+  // unrelated profile save while already opted-in leaves the original consent
+  // timestamp untouched (unlike updated_at, which every save overwrites).
+  const { data: existing } = await supabase
+    .from('users')
+    .select('marketing_opt_in')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const wasOptedIn = existing?.marketing_opt_in === true;
+
+  const consentPatch: { marketing_consent_at?: string | null } = {};
+  if (marketing_opt_in && !wasOptedIn) {
+    consentPatch.marketing_consent_at = new Date().toISOString();
+  } else if (!marketing_opt_in && wasOptedIn) {
+    consentPatch.marketing_consent_at = null;
+  }
+
   const { error } = await supabase
     .from('users')
     .update({
@@ -104,6 +123,7 @@ export async function updatePersonalInfo(formData: FormData) {
       phone,
       profile_photo_url,
       marketing_opt_in,
+      ...consentPatch,
       birth_date,
       public_greeting_opt_in,
       updated_at: new Date().toISOString(),

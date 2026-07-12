@@ -44,7 +44,7 @@ type Props = {
  * BottomNav.
  *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). topBar slot carries the EventSwitcher
+ * main content area with offset). topBar slot carries the AccountSwitcher
  * + utility cluster (Marketplace link · role-switch pill · unread bell ·
  * profile menu). Mobile chrome (CustomerBottomNav at bottom) is rendered
  * as a sibling of SidebarShell — both auto-hide / show via their own
@@ -52,7 +52,7 @@ type Props = {
  *
  * RETIRED from the previous layout shape:
  *   - Per-instance sticky top strip rendered inline. SidebarShell now
- *     owns the sticky top-bar slot; we just inject the EventSwitcher +
+ *     owns the sticky top-bar slot; we just inject the AccountSwitcher +
  *     utilities into it.
  *   - <BottomNav> from ./_components/bottom-nav.tsx (legacy 5-tab pill +
  *     desktop sidebar variant). The new CustomerBottomNav uses the shared
@@ -289,7 +289,7 @@ export default async function EventLayout({ children, params }: Props) {
   const tr = makeT(locale);
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
-  // scoped utilities cluster — EventSwitcher (left), Marketplace + role-
+  // scoped utilities cluster — AccountSwitcher (left), Marketplace + role-
   // switch + unread bell + profile menu (right). Pre-Phase 1 this sat
   // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
   // owned by the layout; now SidebarShell owns the sticky chrome and we

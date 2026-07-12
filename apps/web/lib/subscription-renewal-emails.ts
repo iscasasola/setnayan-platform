@@ -3,7 +3,8 @@ import { renderBrandedEmail } from '@/lib/email-template';
 
 // Renewal-reminder email (owner 2026-07-10 · recurring-billing scaffold).
 //
-// A daily cron (app/api/cron/renewal-reminders) finds paid subscription orders
+// A daily CRON-FREE job (runRenewalReminders in lib/daily-email-jobs.ts, fired
+// from public-page after() traffic) finds paid subscription orders
 // whose prepaid window (`orders.expires_at`) is within N days and sends the buyer
 // this "renew before {date}" note. V1 has NO auto-charge — renewal is a manual
 // prepaid re-purchase, so the CTA points at pricing/checkout. This module only

@@ -168,6 +168,12 @@ export async function runRenewalReminders(): Promise<{ scanned: number; sent: nu
 
 // ── Papic full-res drop warning ──────────────────────────────────────────────
 const WARN_LEAD_DAYS = 14;
+// Bound events processed per run. The retired route had its own maxDuration=60
+// budget; inside after() the work is bounded by the host page's timeout instead,
+// so cap the per-run batch and let the 14-day lead window absorb the spread —
+// each event stamps full_res_drop_warned_at on its own send, so the remainder is
+// picked up on the next run with no double-send.
+const PAPIC_WARN_MAX_BATCH = 300;
 
 function retentionDays(): number {
   const n = Number(process.env.PAPIC_FULLRES_RETENTION_DAYS);
@@ -206,7 +212,8 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
     .from('events')
     .select('event_id, display_name, full_res_drop_warned_at')
     .in('event_id', eventIds)
-    .is('full_res_drop_warned_at', null);
+    .is('full_res_drop_warned_at', null)
+    .limit(PAPIC_WARN_MAX_BATCH);
 
   let sent = 0;
   for (const ev of events ?? []) {

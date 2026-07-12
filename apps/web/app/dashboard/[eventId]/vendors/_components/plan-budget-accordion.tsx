@@ -1248,7 +1248,6 @@ function ChildRail({
               groupLabel={child.label}
               onOpen={onOpen}
               lockHintKey={lockHintKey}
-              personalizationEnabled={child.personalizationEnabled}
               reviewStatus={reviewStatusByVendorId?.get(pick.vendor_id) ?? null}
               existingBuildPick={
                 buildPickRow && buildPickRow.vendor_id !== pick.vendor_id
@@ -1388,7 +1387,6 @@ function VendorCardAtom({
   groupLabel,
   onOpen,
   lockHintKey,
-  personalizationEnabled,
   existingBuildPick,
   reviewStatus = null,
 }: {
@@ -1398,8 +1396,6 @@ function VendorCardAtom({
   groupLabel: string;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
-  /** Setnayan Assist on? When false (Manual mode) the "% match" pill is hidden. */
-  personalizationEnabled: boolean;
   /** The category's current build pick when it's a DIFFERENT vendor than this
    *  card (→ the "Add to build" Replace/Add-both popup). null otherwise. */
   existingBuildPick: { name: string; pricePhp: number | null } | null;
@@ -1483,8 +1479,12 @@ function VendorCardAtom({
     reviewCount,
     verified,
   };
+  // Matching is free for every couple (2026-07-12) — the % shows for any real
+  // marketplace vendor, no longer only in personalized/AI mode. Still limited to
+  // marketplace candidates (off-platform/manual + 1st-party Setnayan carry no
+  // comparable signal).
   const match =
-    personalizationEnabled && pick.marketplace_business_name && !setnayan
+    pick.marketplace_business_name && !setnayan
       ? computeCompatScore(compatInputs)
       : null;
   // Plain-English "why this %" — the same inputs, only the dimensions that are a
@@ -1937,11 +1937,9 @@ function CompareSheet({
       badges.push(pick.recommended_reason);
     }
     // Same per-candidate compatibility % the cards show (Architecture §2).
-    // Hidden in Manual mode (child.personalizationEnabled === false).
+    // Free for every couple (2026-07-12) — shown for any real marketplace vendor.
     const match =
-      child.personalizationEnabled &&
-      pick.marketplace_business_name &&
-      pick.is_setnayan_service !== true
+      pick.marketplace_business_name && pick.is_setnayan_service !== true
         ? computeCompatScore({
             distanceKm,
             avgRating: rating,

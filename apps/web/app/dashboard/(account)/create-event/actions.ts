@@ -10,7 +10,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
-import { anchorForType, isAnchorOrigin, parseISO } from '@/lib/event-anchor';
+import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
@@ -119,6 +119,13 @@ export async function createWeddingEvent(formData: FormData) {
   const rawAnnivOrigin = String(formData.get('anniversary_origin') ?? '').trim();
   const anniversaryDate = isAnniversary && parseISO(rawAnnivDate) ? rawAnnivDate : null;
   const anniversaryOrigin = isAnniversary && isAnchorOrigin(rawAnnivOrigin) ? rawAnnivOrigin : null;
+
+  // Date-anchor model (PR-E): the "yearly?" toggle. Anniversary recurs by nature;
+  // recur-eligible types (travel/corporate/gala/celebration/reunion/tournament)
+  // set recurs from the checkbox. Everything else is one-time.
+  const recurs =
+    isAnniversary ||
+    (canToggleRecur(event_type) && String(formData.get('recurs') ?? '') === 'on');
 
   // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
   // from the form only when the event_type is wedding; non-wedding
@@ -249,7 +256,7 @@ export async function createWeddingEvent(formData: FormData) {
       // recurs=true (anniversaries return every year). NULL for every other type.
       anchor_date: anniversaryDate,
       anchor_origin: anniversaryOrigin,
-      recurs: isAnniversary,
+      recurs,
       // Optional non-wedding capture (all null for weddings + name-only creation).
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the

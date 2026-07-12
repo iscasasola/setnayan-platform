@@ -14,6 +14,8 @@ import {
   ANCHOR_ORIGINS,
   ANCHOR_ORIGIN_LABELS,
   isAnchorOrigin,
+  canToggleRecur,
+  RECUR_TOGGLE_TYPES,
   FALLBACK_ANCHOR,
   milestoneAges,
   parseISO,
@@ -81,6 +83,23 @@ test('ANCHOR_ORIGINS: no memorial/death option exists (babang-luksa guardrail)',
   assert.equal(ANCHOR_ORIGINS.length, 4);
   assert.ok(!ANCHOR_ORIGINS.some((o) => /memorial|death|luksa|passing/i.test(o)));
   for (const o of ANCHOR_ORIGINS) assert.ok(ANCHOR_ORIGIN_LABELS[o]);
+});
+
+// ── recur toggle eligibility ────────────────────────────────────────────────
+
+test('canToggleRecur: travel/corporate/gala/etc show the yearly toggle', () => {
+  for (const t of RECUR_TOGGLE_TYPES) assert.equal(canToggleRecur(t), true);
+  assert.equal(canToggleRecur('travel'), true);
+  assert.equal(canToggleRecur('corporate'), true);
+});
+
+test('canToggleRecur: anniversary/birthday (auto-recur) + one-time types do NOT toggle', () => {
+  assert.equal(canToggleRecur('anniversary'), false); // recurs by nature
+  assert.equal(canToggleRecur('birthday'), false); // recurs by nature
+  assert.equal(canToggleRecur('wedding'), false);
+  assert.equal(canToggleRecur('debut'), false);
+  assert.equal(canToggleRecur('christening'), false);
+  assert.equal(canToggleRecur(null), false);
 });
 
 // ── the milestone ladder ────────────────────────────────────────────────────

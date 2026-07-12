@@ -84,6 +84,25 @@ export function isAnchorOrigin(v: unknown): v is AnchorOrigin {
   return typeof v === 'string' && (ANCHOR_ORIGINS as readonly string[]).includes(v);
 }
 
+/**
+ * Types that show the "Make it a yearly thing?" toggle at creation (owner:
+ * "travel can be annual or one-time"). Anniversary + birthday recur by nature
+ * (no toggle needed); wedding/debut/christening/gender_reveal/graduation are
+ * one-time. The rest are user's choice.
+ */
+export const RECUR_TOGGLE_TYPES = [
+  'travel',
+  'celebration',
+  'corporate',
+  'gala_night',
+  'reunion',
+  'tournament',
+] as const;
+
+export function canToggleRecur(eventType: string | null | undefined): boolean {
+  return !!eventType && (RECUR_TOGGLE_TYPES as readonly string[]).includes(eventType);
+}
+
 export function anchorForType(eventType: string | null | undefined): TypeAnchorDefault {
   if (!eventType) return FALLBACK_ANCHOR;
   return ANCHOR_BY_TYPE[eventType] ?? FALLBACK_ANCHOR;

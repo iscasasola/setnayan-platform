@@ -32,7 +32,10 @@ import {
   extractGatewayPaymentInfo,
   extractReferencedPaymentId,
   deriveGatewayFeeCentavos,
+  fallbackFeeBpsForMethod,
   resolveRefundMode,
+  shouldProceedToRefundStateMutation,
+  buildOrderRefundRow,
   normalizePayMongoRefundReason,
   buildPayMongoRefundBody,
   PAYMONGO_REFUND_REASONS,
@@ -335,7 +338,7 @@ test('extractReference finds the SN order code in reference_number', () => {
   assert.equal(extractReference(payload), 'SN0A1B2C3D');
 });
 
-test('extractGatewayPaymentInfo pulls the paid payment id + fee + amount', () => {
+test('extractGatewayPaymentInfo pulls the paid payment id + fee + amount + method type', () => {
   const payload = {
     data: {
       attributes: {
@@ -344,7 +347,10 @@ test('extractGatewayPaymentInfo pulls the paid payment id + fee + amount', () =>
           attributes: {
             reference_number: 'SN0A1B2C3D',
             payments: [
-              { id: 'pay_1', attributes: { amount: 49900, fee: 1747, status: 'paid' } },
+              {
+                id: 'pay_1',
+                attributes: { amount: 49900, fee: 1747, status: 'paid', source: { type: 'gcash' } },
+              },
             ],
           },
         },
@@ -352,7 +358,36 @@ test('extractGatewayPaymentInfo pulls the paid payment id + fee + amount', () =>
     },
   };
   const info = extractGatewayPaymentInfo(payload);
-  assert.deepEqual(info, { paymentId: 'pay_1', feeCentavos: 1747, amountCentavos: 49900 });
+  assert.deepEqual(info, {
+    paymentId: 'pay_1',
+    feeCentavos: 1747,
+    amountCentavos: 49900,
+    methodType: 'gcash',
+  });
+});
+
+test('extractGatewayPaymentInfo reads method from payment_method_type when no source.type', () => {
+  const payload = {
+    data: {
+      attributes: {
+        data: {
+          attributes: {
+            payments: [
+              { id: 'pay_2', attributes: { amount: 100000, status: 'paid', payment_method_type: 'card' } },
+            ],
+          },
+        },
+      },
+    },
+  };
+  assert.equal(extractGatewayPaymentInfo(payload).methodType, 'card');
+});
+
+test('extractGatewayPaymentInfo methodType is null when the payload carries none', () => {
+  const payload = {
+    data: { attributes: { data: { attributes: { payments: [{ id: 'pay_3', attributes: { amount: 5000 } }] } } } },
+  };
+  assert.equal(extractGatewayPaymentInfo(payload).methodType, null);
 });
 
 test('extractReferencedPaymentId reads a refund/dispute payment_id', () => {
@@ -381,3 +416,128 @@ test('fee derivation: falls back to the known rate when the payload omits the fe
 test('fee derivation: no amount + no fee → 0 (never negative)', () => {
   assert.equal(deriveGatewayFeeCentavos({ amountCentavos: null, providedFeeCentavos: null }), 0);
 });
+
+// ── 5b. Method-aware fallback fee (cost-visibility) ──────────────────────────
+
+test('fee fallback: bps is method-aware (card 350 / e-wallet 250 / qrph 150)', () => {
+  assert.equal(fallbackFeeBpsForMethod('card'), 350);
+  assert.equal(fallbackFeeBpsForMethod('gcash'), 250);
+  assert.equal(fallbackFeeBpsForMethod('paymaya'), 250);
+  assert.equal(fallbackFeeBpsForMethod('grab_pay'), 250);
+  assert.equal(fallbackFeeBpsForMethod('qrph'), 150);
+});
+
+test('fee fallback: unknown / missing method → the flat default rate', () => {
+  assert.equal(fallbackFeeBpsForMethod('dob'), PAYMONGO_FALLBACK_FEE_BPS);
+  assert.equal(fallbackFeeBpsForMethod(null), PAYMONGO_FALLBACK_FEE_BPS);
+  assert.equal(fallbackFeeBpsForMethod(undefined), PAYMONGO_FALLBACK_FEE_BPS);
+});
+
+test('fee derivation: no explicit fee → estimate uses the method-aware rate', () => {
+  const amount = 100000; // ₱1,000.00
+  // card = 3.5% → 3500 centavos; qrph = 1.5% → 1500; gcash = 2.5% → 2500.
+  assert.equal(
+    deriveGatewayFeeCentavos({ amountCentavos: amount, providedFeeCentavos: null, methodType: 'card' }),
+    3500,
+  );
+  assert.equal(
+    deriveGatewayFeeCentavos({ amountCentavos: amount, providedFeeCentavos: null, methodType: 'qrph' }),
+    1500,
+  );
+  assert.equal(
+    deriveGatewayFeeCentavos({ amountCentavos: amount, providedFeeCentavos: null, methodType: 'gcash' }),
+    2500,
+  );
+});
+
+test('fee derivation: the explicit payload fee STILL wins over the method-aware estimate', () => {
+  // A card payment whose payload carries an explicit fee → use the fee verbatim,
+  // NOT the 3.5% card estimate.
+  assert.equal(
+    deriveGatewayFeeCentavos({ amountCentavos: 100000, providedFeeCentavos: 1234, methodType: 'card' }),
+    1234,
+  );
+});
+
+test('fee derivation: an explicit feeBps overrides the method-aware rate', () => {
+  assert.equal(
+    deriveGatewayFeeCentavos({ amountCentavos: 100000, providedFeeCentavos: null, feeBps: 200, methodType: 'card' }),
+    2000,
+  );
+});
+
+// ── 6. Fix #1 — conditional order_refunds insert shape (deploy-ordering) ──────
+
+test('refund row: MANUAL shape has NO gateway columns (byte-shape = pre-migration)', () => {
+  const row = buildOrderRefundRow({
+    orderId: 'o-1',
+    refundCentavos: 49900,
+    reason: 'Couple cancelled — full refund per policy.',
+    adminUserId: 'admin-1',
+    proofUrl: null,
+    mode: 'manual',
+    gatewayRefundId: null,
+  });
+  // EXACT pre-gateway key set — no refund_mode / gateway_refund_id so the insert
+  // works before the hardening migration adds those columns.
+  assert.deepEqual(row, {
+    order_id: 'o-1',
+    refund_amount_centavos: 49900,
+    reason: 'Couple cancelled — full refund per policy.',
+    refunded_by_admin_id: 'admin-1',
+    proof_url: null,
+    status: 'sent',
+  });
+  assert.equal('refund_mode' in row, false);
+  assert.equal('gateway_refund_id' in row, false);
+});
+
+test('refund row: GATEWAY shape adds refund_mode + gateway_refund_id', () => {
+  const row = buildOrderRefundRow({
+    orderId: 'o-2',
+    refundCentavos: 79900,
+    reason: 'Gateway-paid order refunded to card per request.',
+    adminUserId: 'admin-2',
+    proofUrl: 'r2://proof.png',
+    mode: 'gateway',
+    gatewayRefundId: 'ref_abc123',
+  });
+  assert.deepEqual(row, {
+    order_id: 'o-2',
+    refund_amount_centavos: 79900,
+    reason: 'Gateway-paid order refunded to card per request.',
+    refunded_by_admin_id: 'admin-2',
+    proof_url: 'r2://proof.png',
+    status: 'sent',
+    refund_mode: 'gateway',
+    gateway_refund_id: 'ref_abc123',
+  });
+});
+
+// ── 7. Fix #2 — API-first ordering contract (state mutation gated on success) ─
+
+test('ordering: MANUAL proceeds to state mutation unconditionally', () => {
+  assert.equal(shouldProceedToRefundStateMutation({ mode: 'manual', gatewayOutcome: null }), true);
+});
+
+test('ordering: GATEWAY proceeds ONLY after a successful refund', () => {
+  // Success → proceed to flip/deactivate/insert.
+  assert.equal(
+    shouldProceedToRefundStateMutation({ mode: 'gateway', gatewayOutcome: { ok: true, refundId: 'ref_1' } }),
+    true,
+  );
+  // Failure → DO NOT proceed (order stays paid, access intact, retryable).
+  assert.equal(
+    shouldProceedToRefundStateMutation({ mode: 'gateway', gatewayOutcome: { ok: false, reason: 'HTTP 402' } }),
+    false,
+  );
+  // Defensive: gateway with a missing outcome is treated as "not confirmed".
+  assert.equal(shouldProceedToRefundStateMutation({ mode: 'gateway', gatewayOutcome: null }), false);
+  assert.equal(shouldProceedToRefundStateMutation({ mode: 'gateway' }), false);
+});
+
+// NOTE: the DB-dependent route wiring of refundOrder (the actual orders flip,
+// deactivateOrderSku, the order_refunds INSERT + UNIQUE(order_id) mutex, and the
+// admin_audit_log failure trail) is out of PURE unit scope — it needs Supabase +
+// Next server. These pure helpers lock the DECISIONS refundOrder makes; the
+// end-to-end route integration is covered separately.

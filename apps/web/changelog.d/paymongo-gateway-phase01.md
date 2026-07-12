@@ -1,3 +1,48 @@
+## 2026-07-12 · fix(payments): refundOrder API-first ordering + deploy-safe manual insert + method-aware fee fallback
+
+Two review-confirmed money-path fixes on the gateway refund path, plus a
+cost-visibility sharpening. All in `app/admin/payments/actions.ts` (refundOrder)
++ `lib/paymongo-webhook-core.ts` (pure helpers) + `lib/paymongo-webhook-core.test.ts`.
+
+- **Fix #1 (deploy-ordering) — manual refund survives a pre-migration deploy.**
+  Vercel auto-deploys on merge BEFORE the owner runs `supabase db push`, so the
+  new code must run against the OLD schema. The `order_refunds` insert is now
+  built by the pure `buildOrderRefundRow()` helper: the MANUAL path is
+  byte-shape-identical to the pre-gateway insert (`{order_id,
+  refund_amount_centavos, reason, refunded_by_admin_id, proof_url, status:'sent'}`
+  — NO `refund_mode` / `gateway_refund_id`), and only the GATEWAY path (which
+  can't fire pre-migration) adds the two new columns. The payment-rail read was
+  also split: it selects the pre-existing `channel` first and touches the NEW
+  `payments.gateway_payment_id` column ONLY when `channel='paymongo'` — so the
+  manual path has ZERO dependency on the unapplied hardening migrations (no
+  missing-column error).
+- **Fix #2 (unrecoverable failed gateway refund) — API-first.** Reordered so
+  nothing irreversible happens until the money is confirmed returned:
+  createPayMongoRefund is called FIRST; only on SUCCESS do we flip
+  order→refunded (the guarded `.in(['paid','fulfilled'])` mutex), run
+  deactivateOrderSku, and write the `order_refunds` row. On FAILURE we touch
+  nothing — the order stays `paid` (access intact), no `status:'failed'`
+  `order_refunds` row consumes the `UNIQUE(order_id)` slot, so the refund is
+  fully RETRYABLE with no Studio surgery. A best-effort failure trail goes to
+  `admin_audit_log` (JSONB metadata, no new column). New pure gate
+  `shouldProceedToRefundStateMutation()` encodes the ordering contract; a
+  best-effort `order_refunds` pre-check + PayMongo's rejection of a second full
+  refund keep concurrent gateway callers money-safe.
+- **Fee fallback is method-aware (LOW).** `deriveGatewayFeeCentavos` now takes a
+  `methodType` and picks the fallback bps by rail (card ~350 · e-wallet ~250 ·
+  qrph ~150) when the payload omits the explicit `fee`; the payload `fee` is still
+  preferred. `extractGatewayPaymentInfo` surfaces `methodType` from
+  `source.type` / `payment_method_type`; the webhook passes it through.
+- **Tests:** extended the pure suite — conditional `order_refunds` insert shape
+  (manual has no gateway columns), the API-first ordering gate, and the
+  method-aware fee fallback. DB-dependent route integration noted as out of unit
+  scope. `pnpm typecheck` + `pnpm lint` (changed files) + `pnpm test:unit` (1644
+  tests) all clean.
+
+SPEC IMPACT: None. (Money-path robustness only; no SKU/price/schema-contract
+change. The three hardening migrations from this PR are unchanged and still
+owner-applied via `supabase db push`.)
+
 ## 2026-07-12 · feat(payments): PayMongo one-time gateway — Phase 0 (seam + fulfillment refactor) + Phase 1 (Checkout Sessions)
 
 Wire the automated PayMongo one-time payment rail behind the existing manual

@@ -39,8 +39,15 @@ import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { finalizePaidOrder } from '@/lib/finalize-paid-order';
 // Gateway refund path (Gap 4). resolveRefundMode branches manual vs gateway from
 // the order's matched payment; createPayMongoRefund actually moves the money back
-// via PayMongo for gateway-paid orders.
-import { resolveRefundMode } from '@/lib/paymongo-webhook-core';
+// via PayMongo for gateway-paid orders. shouldProceedToRefundStateMutation is the
+// API-first ordering gate (state mutation only after a confirmed refund) and
+// buildOrderRefundRow builds the deploy-safe conditional order_refunds insert.
+import {
+  resolveRefundMode,
+  shouldProceedToRefundStateMutation,
+  buildOrderRefundRow,
+  type RefundOutcome,
+} from '@/lib/paymongo-webhook-core';
 import { createPayMongoRefund } from '@/lib/paymongo';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -630,9 +637,124 @@ export async function refundOrder(formData: FormData) {
     );
   }
 
-  // Step 2: flip the order to refunded. Conditional WHERE guards against
-  // a concurrent admin who already flipped it between the read and this
-  // update (race window is small but real).
+  // ── Step 2: resolve the refund RAIL up front — BEFORE any irreversible step ──
+  // (Fix #2, API-first). Nothing that revokes access or records the refund may
+  // happen until the money is confirmed returned, so we first learn HOW the order
+  // was paid, then branch:
+  //   • 'gateway' → the checkout drawer's PayMongo lane stamped the matched
+  //                 payment row with channel='paymongo' + a gateway_payment_id
+  //                 (pay_…, set by the webhook at fulfillment). We MOVE the money
+  //                 back via createPayMongoRefund and only THEN mutate state.
+  //   • 'manual'  → the legacy off-platform bank/e-wallet reversal (this action
+  //                 just records the truth; the owner transfers externally).
+  //
+  // Deploy-ordering guard (Fix #1): read the pre-existing `channel` column FIRST
+  // (always present) and touch the NEW `gateway_payment_id` column ONLY when the
+  // channel is PayMongo — the sole case a gateway refund is possible, which can
+  // only exist AFTER the hardening migration + the build-gated gateway go-live.
+  // So on a pre-migration deploy the manual path never selects a missing column.
+  const { data: matchedPay } = await admin
+    .from('payments')
+    .select('channel')
+    .eq('order_id', orderId)
+    .eq('status', 'matched')
+    .order('reviewed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const paidChannel = (matchedPay?.channel as string | null) ?? null;
+
+  let gatewayPaymentId: string | null = null;
+  if ((paidChannel ?? '').toLowerCase() === 'paymongo') {
+    // Gateway-paid → now (and only now) read the new gateway_payment_id column.
+    const { data: gwPay } = await admin
+      .from('payments')
+      .select('gateway_payment_id')
+      .eq('order_id', orderId)
+      .eq('status', 'matched')
+      .order('reviewed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    gatewayPaymentId = (gwPay?.gateway_payment_id as string | null) ?? null;
+  }
+  const refundMode = resolveRefundMode({ channel: paidChannel, gatewayPaymentId });
+
+  // ── GATEWAY: move the money FIRST; state mutation is gated on its success ────
+  let gatewayRefundId: string | null = null;
+  let gatewayOutcome: RefundOutcome | null = null;
+  if (refundMode === 'gateway') {
+    // Concurrency pre-check (best-effort): if an order_refunds row already exists
+    // for this order, a prior/concurrent caller already returned the money — do
+    // NOT call the gateway again. The UNIQUE(order_id) index is the authoritative
+    // guard; this read just shrinks the double-click window ahead of the API call.
+    const { data: existingRefund } = await admin
+      .from('order_refunds')
+      .select('order_id')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (existingRefund) {
+      revalidatePath('/admin/payments');
+      throw new Error(
+        `Order ${orderBefore.public_id} already has a recorded refund. Nothing to do — refresh the page.`,
+      );
+    }
+
+    const gw = await createPayMongoRefund({
+      paymongoPaymentId: gatewayPaymentId as string,
+      amountCentavos: refundCentavos,
+      reason: 'requested_by_customer',
+      metadata: {
+        reference_code: orderBefore.reference_code ?? '',
+        order_id: orderId,
+      },
+    });
+    gatewayOutcome = gw;
+    if (gw.ok) gatewayRefundId = gw.refundId;
+  }
+
+  // API-first ordering contract: proceed to the IRREVERSIBLE steps (flip →
+  // deactivate → write order_refunds) ONLY when the money is known-returned
+  // (manual = unconditional; gateway = the /v1/refunds call succeeded).
+  if (!shouldProceedToRefundStateMutation({ mode: refundMode, gatewayOutcome })) {
+    // The gateway refund FAILED. Do the SAFE thing: touch NOTHING irreversible.
+    // We do NOT flip the order (it stays 'paid' — access intact), do NOT run
+    // deactivateOrderSku, and do NOT write an order_refunds row (a 'failed' row
+    // would consume the UNIQUE(order_id) slot and BLOCK the retry). The refund is
+    // therefore fully retryable with zero Studio surgery. A best-effort failure
+    // trail goes to admin_audit_log (JSONB metadata — needs no new column), never
+    // to order_refunds.
+    const failReason =
+      gatewayOutcome && !gatewayOutcome.ok ? (gatewayOutcome.reason ?? 'unknown error') : 'unknown error';
+    try {
+      await admin.from('admin_audit_log').insert({
+        action: 'refund_order_gateway_failed',
+        target_id: orderId,
+        actor_user_id: adminUserId,
+        metadata: {
+          order_public_id: orderBefore.public_id,
+          refund_amount_centavos: refundCentavos,
+          refund_amount_php: amountPhp,
+          reason,
+          failure_reason: failReason,
+          refund_mode: 'gateway',
+        },
+      });
+    } catch (e) {
+      console.error('[refundOrder] gateway-refund failure audit insert (non-fatal):', e);
+    }
+    throw new Error(
+      `PayMongo refund FAILED for order ${orderBefore.public_id}: ${failReason}. ` +
+        `The money was NOT returned and the order is UNCHANGED (still paid, access intact) — safe to retry.`,
+    );
+  }
+
+  // ── From here the money is EITHER already back through the gateway OR is an
+  //    off-platform manual reversal. Only now do the irreversible steps. ────────
+
+  // Flip the order to refunded. The guarded WHERE is the MUTEX: exactly one
+  // admin/path wins the paid|fulfilled → refunded transition, so a concurrent
+  // double-click cannot double-revoke access or double-record the refund. (On the
+  // gateway lane the pre-check above + PayMongo rejecting a second full refund
+  // against an already-refunded payment keep the money-move itself safe.)
   const { data: orderAfter, error: updErr } = await admin
     .from('orders')
     .update({ status: 'refunded', updated_at: new Date().toISOString() })
@@ -647,68 +769,6 @@ export async function refundOrder(formData: FormData) {
     throw new Error(
       `Order ${orderBefore.public_id} was refunded by another admin or has moved out of paid/fulfilled. Refresh the page.`,
     );
-  }
-
-  // ── Gateway vs manual refund branch (Gap 4) ──────────────────────────────
-  // How was this order paid? The checkout drawer's PayMongo lane stamps the
-  // matched payment row with channel='paymongo' + a gateway_payment_id (pay_…,
-  // set by the webhook at fulfillment). resolveRefundMode reads those two fields:
-  //   • 'gateway' → actually MOVE the money back via createPayMongoRefund.
-  //   • 'manual'  → the legacy off-platform bank-reversal path (this action just
-  //                 records the truth; the owner does the transfer externally).
-  //
-  // The order→refunded flip above is the MUTEX (only one admin/path wins the
-  // guarded `.in(['paid','fulfilled'])` update), so we are the exclusive owner
-  // here — calling the PayMongo API now cannot double-refund on a concurrent
-  // double-click. If the API call fails, we record a 'failed' audit row and throw
-  // so the admin sees the money was NOT returned (order stays refunded — access
-  // is already revoked — and the failure is surfaced, not swallowed).
-  const { data: matchedPay } = await admin
-    .from('payments')
-    .select('channel, gateway_payment_id')
-    .eq('order_id', orderId)
-    .eq('status', 'matched')
-    .order('reviewed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const refundMode = resolveRefundMode({
-    channel: (matchedPay?.channel as string | null) ?? null,
-    gatewayPaymentId: (matchedPay?.gateway_payment_id as string | null) ?? null,
-  });
-
-  let gatewayRefundId: string | null = null;
-  if (refundMode === 'gateway') {
-    const gw = await createPayMongoRefund({
-      paymongoPaymentId: matchedPay!.gateway_payment_id as string,
-      amountCentavos: refundCentavos,
-      reason: 'requested_by_customer',
-      metadata: {
-        reference_code: orderBefore.reference_code ?? '',
-        order_id: orderId,
-      },
-    });
-    if (!gw.ok) {
-      // Best-effort audit row so the money-owed state is visible; UNIQUE(order_id)
-      // makes a race a no-op. Then surface the failure loudly.
-      try {
-        await admin.from('order_refunds').insert({
-          order_id: orderId,
-          refund_amount_centavos: refundCentavos,
-          reason,
-          refunded_by_admin_id: adminUserId,
-          proof_url: proofUrl,
-          status: 'failed',
-          refund_mode: 'gateway',
-        });
-      } catch (e) {
-        console.error('[refundOrder] failed-refund audit insert (non-fatal):', e);
-      }
-      throw new Error(
-        `Order ${orderBefore.public_id} was flipped to refunded but the PayMongo refund FAILED: ${gw.reason}. ` +
-          `The money was NOT returned — retry from Supabase Studio or issue a manual reversal.`,
-      );
-    }
-    gatewayRefundId = gw.refundId;
   }
 
   // Revoke flag-backed entitlements (today: SETNAYAN_AI's stored
@@ -731,18 +791,22 @@ export async function refundOrder(formData: FormData) {
   // is the belt-and-suspenders idempotency guard — a 23505 unique-violation
   // here means another concurrent refund already inserted, which we surface
   // the same way as the WHERE-clause no-op above.
-  const { error: refundInsertErr } = await admin.from('order_refunds').insert({
-    order_id: orderId,
-    refund_amount_centavos: refundCentavos,
+  //
+  // Fix #1 (deploy-ordering): the row shape is built CONDITIONALLY by
+  // buildOrderRefundRow — the MANUAL path is byte-shape-identical to the
+  // pre-gateway insert (NO refund_mode / gateway_refund_id), so a manual GCash/BDO
+  // refund succeeds BEFORE the hardening migration adds those columns. Only the
+  // gateway path (unreachable pre-migration) adds them.
+  const refundRow = buildOrderRefundRow({
+    orderId,
+    refundCentavos,
     reason,
-    refunded_by_admin_id: adminUserId,
-    proof_url: proofUrl,
-    status: 'sent',
-    // Gap 4: record which rail returned the money. 'gateway' rows carry the
-    // PayMongo refund id (ref_…); 'manual' rows are the off-platform reversal.
-    refund_mode: refundMode,
-    gateway_refund_id: gatewayRefundId,
+    adminUserId,
+    proofUrl,
+    mode: refundMode,
+    gatewayRefundId,
   });
+  const { error: refundInsertErr } = await admin.from('order_refunds').insert(refundRow);
   if (refundInsertErr) {
     // The order row already flipped to refunded above — if we can't write
     // the audit row, the order state is inconsistent with the ledger.

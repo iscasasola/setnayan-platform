@@ -29,14 +29,41 @@ export const TOKEN_REF_RE = /TKN-[A-Z0-9]{8}/;
 export const SIGNATURE_FRESHNESS_TOLERANCE_S = 300;
 
 /**
- * Fallback processor-fee rate (basis points) used ONLY when a
+ * DEFAULT fallback processor-fee rate (basis points) used ONLY when a
  * checkout_session.payment.paid payload does NOT carry an explicit per-payment
- * `fee` (rare — PayMongo almost always includes it). 2.5% (250 bps) is the
- * GCash/e-wallet rate, the most common PH rail; the real fee is read off the
- * payload first. This is a cost-visibility estimate for the ledger, NOT a charge
- * to the buyer (the buyer's OR/receipt is never touched by fee booking).
+ * `fee` (rare — PayMongo almost always includes it) AND the payment method is
+ * unknown. 2.5% (250 bps) is the GCash/e-wallet rate, the most common PH rail;
+ * the real fee is read off the payload first. This is a cost-visibility estimate
+ * for the ledger, NOT a charge to the buyer (the buyer's OR/receipt is never
+ * touched by fee booking).
  */
 export const PAYMONGO_FALLBACK_FEE_BPS = 250;
+
+/**
+ * Method-aware fallback processor-fee rates (basis points), used ONLY when a
+ * paid payload omits the explicit per-payment `fee`. Real PH gateway pricing
+ * differs materially by rail — cards run ~3.5%, e-wallets ~2.5%, QR Ph ~1.5% —
+ * so booking a single flat 2.5% over-/under-estimates card + QR Ph orders. The
+ * payload `fee` is ALWAYS preferred; this only sharpens the estimate when it is
+ * absent. Cost-visibility only — never a charge to the buyer.
+ */
+export const PAYMONGO_FALLBACK_FEE_BPS_BY_METHOD: Record<string, number> = {
+  card: 350,
+  gcash: 250,
+  paymaya: 250,
+  grab_pay: 250,
+  qrph: 150,
+};
+
+/**
+ * Pick the fallback fee bps for a PayMongo payment-method / source type
+ * (card · gcash · paymaya · grab_pay · qrph). Unknown / missing → the flat
+ * PAYMONGO_FALLBACK_FEE_BPS default.
+ */
+export function fallbackFeeBpsForMethod(method: string | null | undefined): number {
+  const key = (method ?? '').toLowerCase();
+  return PAYMONGO_FALLBACK_FEE_BPS_BY_METHOD[key] ?? PAYMONGO_FALLBACK_FEE_BPS;
+}
 
 export type PayMongoWebhookSecretPair = { test: string | null; live: string | null };
 
@@ -179,12 +206,19 @@ export type GatewayPaymentInfo = {
   feeCentavos: number | null;
   /** Gross amount charged, in centavos (null when absent). */
   amountCentavos: number | null;
+  /**
+   * Payment method / source type (card · gcash · paymaya · grab_pay · qrph …),
+   * used to pick a method-aware fallback fee rate when the explicit `fee` is
+   * absent. Null when the payload doesn't carry one.
+   */
+  methodType: string | null;
 };
 
 /**
- * Pull the settled payment's id + fee + amount from a
+ * Pull the settled payment's id + fee + amount + method type from a
  * checkout_session.payment.paid payload. Path:
- *   data.attributes.data.attributes.payments[] → { id, attributes:{ amount, fee } }
+ *   data.attributes.data.attributes.payments[] →
+ *     { id, attributes:{ amount, fee, source:{ type }, payment_method_type } }
  * Prefers a payment whose status is 'paid'; falls back to the first entry.
  */
 export function extractGatewayPaymentInfo(payload: unknown): GatewayPaymentInfo {
@@ -192,10 +226,24 @@ export function extractGatewayPaymentInfo(payload: unknown): GatewayPaymentInfo 
     data?: { attributes?: { data?: { attributes?: { payments?: unknown } } } };
   };
   const payments = p?.data?.attributes?.data?.attributes?.payments;
-  const empty: GatewayPaymentInfo = { paymentId: null, feeCentavos: null, amountCentavos: null };
+  const empty: GatewayPaymentInfo = {
+    paymentId: null,
+    feeCentavos: null,
+    amountCentavos: null,
+    methodType: null,
+  };
   if (!Array.isArray(payments) || payments.length === 0) return empty;
 
-  const rows = payments as Array<{ id?: unknown; attributes?: { amount?: unknown; fee?: unknown; status?: unknown } }>;
+  const rows = payments as Array<{
+    id?: unknown;
+    attributes?: {
+      amount?: unknown;
+      fee?: unknown;
+      status?: unknown;
+      source?: { type?: unknown };
+      payment_method_type?: unknown;
+    };
+  }>;
   const paid = rows.find((r) => r?.attributes?.status === 'paid');
   const chosen = paid ?? rows[0];
   if (!chosen) return empty;
@@ -203,10 +251,18 @@ export function extractGatewayPaymentInfo(payload: unknown): GatewayPaymentInfo 
   const idVal = chosen.id;
   const feeVal = chosen.attributes?.fee;
   const amtVal = chosen.attributes?.amount;
+  // PayMongo carries the rail on the payment's source.type (e-wallets/card) and/or
+  // payment_method_type — prefer source.type, fall back to payment_method_type.
+  const srcType = chosen.attributes?.source?.type;
+  const pmType = chosen.attributes?.payment_method_type;
+  const methodType =
+    (typeof srcType === 'string' && srcType ? srcType : null) ??
+    (typeof pmType === 'string' && pmType ? pmType : null);
   return {
     paymentId: typeof idVal === 'string' && idVal ? idVal : null,
     feeCentavos: typeof feeVal === 'number' && Number.isFinite(feeVal) ? Math.round(feeVal) : null,
     amountCentavos: typeof amtVal === 'number' && Number.isFinite(amtVal) ? Math.round(amtVal) : null,
+    methodType,
   };
 }
 
@@ -253,12 +309,16 @@ export function deriveGatewayFeeCentavos(args: {
   amountCentavos: number | null;
   providedFeeCentavos: number | null;
   feeBps?: number;
+  /** Payment method / source type (card · gcash · qrph …) for a method-aware estimate. */
+  methodType?: string | null;
 }): number {
   const { amountCentavos, providedFeeCentavos } = args;
   if (typeof providedFeeCentavos === 'number' && Number.isFinite(providedFeeCentavos) && providedFeeCentavos >= 0) {
     return Math.round(providedFeeCentavos);
   }
-  const bps = args.feeBps ?? PAYMONGO_FALLBACK_FEE_BPS;
+  // No explicit fee → estimate. An explicit feeBps wins; else a method-aware rate
+  // (card/e-wallet/QR Ph) derived from the payment method; else the flat fallback.
+  const bps = args.feeBps ?? fallbackFeeBpsForMethod(args.methodType);
   if (typeof amountCentavos === 'number' && Number.isFinite(amountCentavos) && amountCentavos > 0) {
     return Math.max(0, Math.round((amountCentavos * bps) / 10000));
   }
@@ -282,6 +342,65 @@ export function resolveRefundMode(args: {
   const isPayMongoChannel = (args.channel ?? '').toLowerCase() === 'paymongo';
   const hasPaymentId = typeof args.gatewayPaymentId === 'string' && args.gatewayPaymentId.length > 0;
   return isPayMongoChannel && hasPaymentId ? 'gateway' : 'manual';
+}
+
+/** Minimal success/failure shape of a gateway refund attempt (createPayMongoRefund). */
+export type RefundOutcome = { ok: true; refundId?: string | null } | { ok: false; reason?: string };
+
+/**
+ * API-first ordering contract for refundOrder (Fix #2). The IRREVERSIBLE state
+ * mutation — flip order→refunded · deactivateOrderSku · write the order_refunds
+ * row — may proceed ONLY when the money is known-returned:
+ *   • MANUAL  → unconditional: the owner already moved the money off-platform,
+ *               this action just records it.
+ *   • GATEWAY → TRUE iff the PayMongo /v1/refunds call SUCCEEDED. A FAILED gateway
+ *               refund must leave the order fully untouched (still 'paid', access
+ *               intact, no blocking order_refunds row) so it is retryable with no
+ *               manual Studio surgery.
+ * Pure + deterministic so the ordering guarantee is unit-tested without a DB.
+ */
+export function shouldProceedToRefundStateMutation(args: {
+  mode: RefundMode;
+  gatewayOutcome?: RefundOutcome | null;
+}): boolean {
+  if (args.mode === 'manual') return true;
+  return args.gatewayOutcome?.ok === true;
+}
+
+/**
+ * Build the order_refunds insert row for refundOrder. The row shape is
+ * CONDITIONAL on the refund rail (Fix #1, deploy-ordering) so the code survives a
+ * deploy that lands BEFORE the hardening migration (Vercel auto-deploys on merge;
+ * the owner runs `supabase db push` after):
+ *   • 'manual'  → byte-shape-identical to the pre-gateway insert: NO refund_mode /
+ *                 gateway_refund_id keys (those columns don't exist yet
+ *                 pre-migration), so a manual GCash/BDO refund still succeeds.
+ *   • 'gateway' → adds refund_mode='gateway' + gateway_refund_id (only reachable
+ *                 once PayMongo is live, which itself requires the migration).
+ * Pure + deterministic so the shape invariant is unit-tested without a DB.
+ */
+export function buildOrderRefundRow(args: {
+  orderId: string;
+  refundCentavos: number;
+  reason: string;
+  adminUserId: string;
+  proofUrl: string | null;
+  mode: RefundMode;
+  gatewayRefundId: string | null;
+}): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    order_id: args.orderId,
+    refund_amount_centavos: args.refundCentavos,
+    reason: args.reason,
+    refunded_by_admin_id: args.adminUserId,
+    proof_url: args.proofUrl,
+    status: 'sent',
+  };
+  if (args.mode === 'gateway') {
+    row.refund_mode = 'gateway';
+    row.gateway_refund_id = args.gatewayRefundId;
+  }
+  return row;
 }
 
 /** PayMongo's accepted refund `reason` enum. */

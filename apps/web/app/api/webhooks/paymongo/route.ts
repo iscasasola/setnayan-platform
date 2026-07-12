@@ -266,6 +266,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       gwInfo.amountCentavos ??
       (paidAmountPhp != null ? Math.round(paidAmountPhp * 100) : null),
     providedFeeCentavos: gwInfo.feeCentavos,
+    // Method-aware fallback when the payload omits an explicit fee (card ~3.5% /
+    // e-wallet ~2.5% / QR Ph ~1.5%). The explicit fee, when present, still wins.
+    methodType: gwInfo.methodType,
   });
 
   try {

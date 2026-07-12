@@ -42,7 +42,7 @@ export function EventTypePicker({
   budgetBands,
   next,
   preselect,
-  hasActiveWedding = false,
+  inPlanningWedding = null,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -52,10 +52,12 @@ export function EventTypePicker({
   /** A QR-provided event type (Locked/Shortlist fast-lane): auto-advance past
    *  the type carousel so the couple never re-picks what the QR already knows. */
   preselect?: string;
-  /** Wedding cardinality (owner-locked HARD BLOCK 2026-07-12): TRUE = the user
-   *  already co-hosts a non-archived wedding, so selecting Wedding shows the
-   *  block message instead of the create form. */
-  hasActiveWedding?: boolean;
+  /** Wedding cardinality (owner-locked 2026-07-12 · flow-check reconciled):
+   *  non-null = the user has a wedding still IN PLANNING, so selecting Wedding
+   *  shows the guided router (edit same-marriage / vow renewal / new marriage)
+   *  instead of the form. A settled wedding (archived/completed) is null → no
+   *  block, so remarriage works. */
+  inPlanningWedding?: { eventId: string; displayName: string; eventDate: string | null } | null;
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -128,28 +130,64 @@ export function EventTypePicker({
         <EventTypePhotoPicker types={types} onSelect={handleSelect} />
       </section>
 
-      {selected && selected.key === 'wedding' && hasActiveWedding ? (
-        <div className="mt-10 max-w-lg rounded-2xl border border-terracotta/30 bg-terracotta/[0.06] p-5 sm:p-6">
-          <p className="font-serif text-xl text-ink">One wedding at a time</p>
-          <p className="mt-2 text-sm leading-relaxed text-ink/70">
-            You already have a wedding in planning — you can only plan one wedding at a time.
-            Finish or archive it first to start a new one.
-          </p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <Link
-              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-mulberry/90"
-              href="/dashboard"
-            >
-              Go to my wedding
-            </Link>
+      {selected && selected.key === 'wedding' && inPlanningWedding ? (
+        <div className="mt-10 max-w-lg space-y-4">
+          <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-5 sm:p-6">
+            <p className="font-serif text-xl text-ink">You’re already planning a wedding</p>
+            <p className="mt-2 text-sm leading-relaxed text-ink/70">
+              You have <span className="font-medium text-ink">{inPlanningWedding.displayName}</span> in
+              planning. What is this one?
+            </p>
+          </div>
+
+          {/* Same marriage → add the church ceremony to the existing wedding. */}
+          <Link
+            className="block rounded-xl border border-ink/12 bg-cream/40 p-4 transition-colors hover:border-gold/40 hover:bg-gold/[0.05]"
+            href={`/dashboard/${inPlanningWedding.eventId}`}
+          >
+            <p className="text-sm font-medium text-ink">The church (or civil) ceremony of the same marriage</p>
+            <p className="mt-1 text-xs text-ink/55">
+              One wedding can have two ceremonies — add it to {inPlanningWedding.displayName} instead of
+              starting over.
+            </p>
+          </Link>
+
+          {/* Vow renewal / anniversary → route to the Anniversary type in this picker. */}
+          {types.some((t) => t.key === 'anniversary') ? (
             <button
-              className="inline-flex items-center justify-center rounded-lg border border-ink/15 px-5 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/[0.04]"
-              onClick={() => setSelectedKey(null)}
+              className="block w-full rounded-xl border border-ink/12 bg-cream/40 p-4 text-left transition-colors hover:border-gold/40 hover:bg-gold/[0.05]"
+              onClick={() => setSelectedKey('anniversary' as EventTypeKey)}
               type="button"
             >
-              Pick a different type
+              <p className="text-sm font-medium text-ink">A vow renewal or anniversary celebration</p>
+              <p className="mt-1 text-xs text-ink/55">
+                Silver, golden, or any year — this is an Anniversary, on full wedding rails.
+              </p>
             </button>
+          ) : null}
+
+          {/* New marriage → blocked while one is in planning (finish/archive first). */}
+          <div className="rounded-xl border border-terracotta/25 bg-terracotta/[0.05] p-4">
+            <p className="text-sm font-medium text-ink">A different, new marriage</p>
+            <p className="mt-1 text-xs leading-relaxed text-ink/60">
+              You can only plan one wedding at a time. Finish or archive {inPlanningWedding.displayName}{' '}
+              first — once its day has passed or it’s archived, you can start a new one.
+            </p>
+            <Link
+              className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              href={`/dashboard/${inPlanningWedding.eventId}`}
+            >
+              Go to {inPlanningWedding.displayName}
+            </Link>
           </div>
+
+          <button
+            className="text-sm font-medium text-ink/55 transition-colors hover:text-ink"
+            onClick={() => setSelectedKey(null)}
+            type="button"
+          >
+            ‹ Pick a different type
+          </button>
         </div>
       ) : selected ? (
         <form ref={formRef} action={createWeddingEvent} className="mt-10 max-w-lg space-y-6">

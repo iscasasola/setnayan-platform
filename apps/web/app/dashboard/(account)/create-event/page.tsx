@@ -3,7 +3,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { hasActiveWeddingForUser } from './wedding-guard';
+import { getInPlanningWedding } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -47,14 +47,16 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
 
-  // Wedding cardinality (owner-locked HARD BLOCK 2026-07-12): if the user
-  // already co-hosts a non-archived wedding, the picker shows the block message
-  // instead of the wedding form. The server action re-checks authoritatively.
+  // Wedding cardinality (owner-locked 2026-07-12 · flow-check reconciled): if the
+  // user has a wedding still IN PLANNING, the picker shows a guided router (edit
+  // the same-marriage wedding / vow renewal → Anniversary / a new marriage) instead
+  // of the form. A SETTLED wedding (archived, or completed) does NOT block — so
+  // remarriage works. The server action re-checks authoritatively.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const hasActiveWedding = user ? await hasActiveWeddingForUser(supabase, user.id) : false;
+  const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -87,7 +89,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
         preselect={preselect}
-        hasActiveWedding={hasActiveWedding}
+        inPlanningWedding={inPlanningWedding}
       />
     </div>
   );

@@ -31,7 +31,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
  * nir). Switching to public.regions fixes that AND surfaces all 19 regions as
  * editable rows (the old table was missing eight). token_burn_bands is retired
  * (dropped in a follow-up migration). The economy is flat 1:1 band:token at
- * ₱100/token, so tokens = band (shown read-only); decoupling them is a future
+ * ₱200/token, so tokens = band (shown read-only); decoupling them is a future
  * column on regions, not built here.
  *
  * Auth enforced at the admin layout level.
@@ -84,7 +84,7 @@ export async function TokenBandsSurface() {
               <th className="px-3 py-3 font-medium">Region</th>
               <th className="hidden px-3 py-3 font-medium sm:table-cell">Min wage (₱)</th>
               <th className="px-3 py-3 font-medium">Band</th>
-              <th className="px-3 py-3 font-medium">Tokens (= ₱{'×'}100)</th>
+              <th className="px-3 py-3 font-medium">Tokens (= ₱{'×'}200)</th>
               <th className="px-3 py-3 font-medium">Save</th>
             </tr>
           </thead>

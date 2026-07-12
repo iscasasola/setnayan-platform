@@ -54,7 +54,7 @@ export type CanonicalRegion = {
   /** Every other spelling that resolves here (lower-cased): underscore variant,
    *  'cagayan-valley', the PSGC code itself, 'outside_ph', etc. */
   aliases: string[];
-  /** Inquiry-burn band 1/2/3 (= ₱100/₱200/₱300). */
+  /** Inquiry-burn band 1/2/3 (= ₱200/₱400/₱600). */
   burn_band: 1 | 2 | 3;
   /** Fallback centroid coords (null for 'abroad'). */
   centroid_lat: number | null;

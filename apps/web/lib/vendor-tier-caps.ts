@@ -361,7 +361,7 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 export const TOKEN_BUY_PRICE_PHP = 100;
 
 /**
- * May purchase additional lifetime tokens (₱100/token)?
+ * May purchase additional lifetime tokens (₱200/token)?
  *
  * VERIFICATION-GATED (owner 2026-07-01: "they can only purchase tokens and
  * subscribe when they are verified"). Only a VERIFIED store may buy — i.e. any

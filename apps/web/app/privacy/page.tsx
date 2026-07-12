@@ -95,6 +95,34 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
+        <Section title="Device identifier (fraud prevention)">
+          <p>
+            To keep our marketplace safe from fake accounts and coordinated
+            abuse, we record a{' '}
+            <strong>hashed identifier for the device you sign in from</strong> —
+            a random value stored in your browser, one-way hashed on our servers
+            (we never store the raw value). We use it <strong>only</strong> to
+            detect fraud and duplicate/sock-puppet accounts.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              It is <strong>not</strong> a behavioral or biometric fingerprint
+              and uses no third-party tracking service — it identifies a
+              browser, not your activity.
+            </li>
+            <li>
+              We never use it for advertising, personalization, or tracking you
+              across other websites, and we never sell or share it.
+            </li>
+            <li>
+              Legal basis: our legitimate interest in preventing fraud and
+              protecting our vendors (RA 10173 &sect; 12). The hash is
+              pseudonymous, included in your data export, and deleted when you
+              delete your account.
+            </li>
+          </ul>
+        </Section>
+
         <Section title="Biometric data (facial recognition)">
           <p>
             Certain optional features — such as automatically matching you to

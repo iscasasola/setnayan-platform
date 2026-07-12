@@ -29,6 +29,16 @@ export type CreateCaptureInput = {
   windowEndRaw?: FormDataEntryValue | null;
   paxRaw?: FormDataEntryValue | null;
   budgetBandRaw?: FormDataEntryValue | null;
+  /** Up to 2 candidate area pick-keys (FormData.getAll('location_area')). */
+  locationAreasRaw?: (FormDataEntryValue | null)[];
+};
+
+/** Injected area resolver (wedding-cities.resolvePick) — a pick key → region
+ *  key + centroid coords. Injected so this module stays pure/data-free. */
+export type AreaResolver = (key: string) => {
+  rk: string | null;
+  lat: number | null;
+  lon: number | null;
 };
 
 export type CreateCaptureFields = {
@@ -43,6 +53,13 @@ export type CreateCaptureFields = {
   budgetBand: string | null;
   /** med (per-head pesos) × pax × 100. Null unless a real band + pax are both set. */
   estimatedBudgetCentavos: number | null;
+  /** Primary area's region key → events.region (null when no area picked). */
+  region: string | null;
+  /** Primary area's centroid → events.venue_latitude / _longitude. */
+  venueLatitude: number | null;
+  venueLongitude: number | null;
+  /** All picked area keys (max 2) → style_preferences.search_areas. */
+  searchAreas: string[];
 };
 
 const MAX_CANDIDATES = 4;
@@ -74,10 +91,12 @@ function validPax(raw: string): number | null {
   return Number.isInteger(n) && n > 0 && n <= MAX_PAX ? n : null;
 }
 
+const MAX_AREAS = 2;
+
 export function resolveCreateCapture(
   input: CreateCaptureInput,
   bands: readonly BudgetBand[],
-  opts?: { today?: string },
+  opts?: { today?: string; resolveArea?: AreaResolver },
 ): CreateCaptureFields {
   const minDate = opts?.today ?? null;
   const estimatedPax = validPax(str(input.paxRaw));
@@ -128,6 +147,22 @@ export function resolveCreateCapture(
     if (dateCandidates.length > 0) dateMode = 'specific';
   }
 
+  // Location — up to 2 candidate area pick-keys (de-duped). The primary drives
+  // region + venue centroid; all become search_areas. Resolution is injected so
+  // this stays pure. Unknown keys resolve to null coords but still count as areas
+  // (a couple may search a place the curated set doesn't geocode).
+  const areaKeys: string[] = [];
+  const seenArea = new Set<string>();
+  for (const raw of input.locationAreasRaw ?? []) {
+    const k = str(raw);
+    if (k && !seenArea.has(k)) {
+      seenArea.add(k);
+      areaKeys.push(k);
+      if (areaKeys.length >= MAX_AREAS) break;
+    }
+  }
+  const primary = areaKeys[0] && opts?.resolveArea ? opts.resolveArea(areaKeys[0]) : null;
+
   return {
     dateMode,
     dateCandidates,
@@ -136,5 +171,9 @@ export function resolveCreateCapture(
     estimatedPax,
     budgetBand: band ? band.value : null,
     estimatedBudgetCentavos,
+    region: primary?.rk ?? null,
+    venueLatitude: primary?.lat ?? null,
+    venueLongitude: primary?.lon ?? null,
+    searchAreas: areaKeys,
   };
 }

@@ -9,6 +9,7 @@ import { createWeddingEvent } from '../actions';
 import { type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
 import { CreateDatePicker } from './create-date-picker';
+import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
@@ -155,6 +156,10 @@ export function EventTypePicker({
             <div className="space-y-1.5">
               <span className="block text-sm font-medium text-ink">When</span>
               <CreateDatePicker />
+            </div>
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium text-ink">Where</span>
+              <CreateLocationPicker />
             </div>
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="estimated_pax">

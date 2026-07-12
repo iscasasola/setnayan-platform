@@ -10,6 +10,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
+import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -195,9 +196,10 @@ export async function createWeddingEvent(formData: FormData) {
           windowEndRaw: formData.get('date_window_end'),
           paxRaw: formData.get('estimated_pax'),
           budgetBandRaw: formData.get('budget_band'),
+          locationAreasRaw: formData.getAll('location_area'),
         },
         await getBudgetBands(),
-        { today: new Date().toISOString().slice(0, 10) },
+        { today: new Date().toISOString().slice(0, 10), resolveArea: resolvePick },
       );
 
   // Both writes go through the admin client because the user-scoped JWT can
@@ -224,6 +226,15 @@ export async function createWeddingEvent(formData: FormData) {
       estimated_pax: capture.estimatedPax,
       budget_band: capture.budgetBand,
       estimated_budget_centavos: capture.estimatedBudgetCentavos,
+      // Location — up to 2 candidate areas (owner 2026-07-12: "location can be in
+      // 2 places"): primary → region + venue centroid, all → search_areas.
+      // Matches the wedding onboarding's screen-6 model.
+      region: capture.region,
+      venue_latitude: capture.venueLatitude,
+      venue_longitude: capture.venueLongitude,
+      ...(capture.searchAreas.length
+        ? { style_preferences: { search_areas: capture.searchAreas } }
+        : {}),
       venue_name: null,
       venue_address: null,
       slug,

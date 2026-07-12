@@ -19,7 +19,7 @@
  * — desktop reaches these through the sidebar groups directly.
  */
 
-import { ADMIN_NAV_GROUPS } from '../_components/admin-sidebar';
+import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
 import { MobileLandingGrid } from '../_components/mobile-landing-grid';
 import { adaptAdminGroupsToLanding } from '../_components/admin-nav-descriptions';
 

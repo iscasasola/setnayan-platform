@@ -1422,6 +1422,7 @@ export function OnboardingShell({
   authed,
   resume,
   activeFaiths = null,
+  religionDefault = null,
   pricing,
   bgMusicUrl = null,
   refinements = REFINEMENTS_DATA,
@@ -1432,6 +1433,10 @@ export function OnboardingShell({
 }: {
   authed: boolean;
   resume: boolean;
+  /** Date-anchor model: the user's profile religion (already validated against
+   *  activeFaiths by the page). Pre-selects the faith when they choose a
+   *  Religious wedding; null = no pre-select. Never overrides a resumed draft. */
+  religionDefault?: string | null;
   /** Picker EXTRAS cats to hide (no live marketplace supply) — spec §0 available-only. */
   hiddenCats?: string[];
   /**
@@ -2193,7 +2198,14 @@ export function OnboardingShell({
 
   // No faith is pre-selected — the couple picks their tradition on the faith screen
   // (owner 2026-06-05: no prefilled onboarding values).
-  const selectKind = (k: OnboardingKind) => patch({ kind: k, faith: [] });
+  const selectKind = (k: OnboardingKind) =>
+    patch({
+      kind: k,
+      // Date-anchor pre-select: a Religious wedding pre-fills the faith from the
+      // user's profile religion (page-validated as an active faith). Civil/Mixed
+      // reset to empty as before. They can still change it on the faith screen.
+      faith: k === 'religious' && religionDefault ? [religionDefault as OnboardingFaith] : [],
+    });
 
   /* Experience-quiz axis pick (0016) — store the answer; the persona resolves on the reveal.
      setState (not patch) so the nested experienceAxes object merges instead of replacing. */

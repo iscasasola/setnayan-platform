@@ -9,14 +9,12 @@ import {
   Heart,
   CalendarClock,
   Rocket,
-  Gift,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { updateLandingPageVisibility, setShowcaseConsent, setSurpriseMode } from './actions';
-import { resolveSurpriseState } from '@/lib/event-surprise';
+import { updateLandingPageVisibility, setShowcaseConsent } from './actions';
 
 export const metadata = { title: 'Who can view your wedding page' };
 
@@ -59,7 +57,7 @@ export default async function PrivacyEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, is_surprise, event_type, event_date',
+      'event_id, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -85,19 +83,6 @@ export default async function PrivacyEditorPage({
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(new Date(scheduledAt))
-    : null;
-
-  // Surprise-mode ("hidden website", owner 2026-07-12). Offered for non-wedding
-  // events only — a wedding isn't a surprise to the couple planning it. When on,
-  // the site stays sealed until the reveal date via the same scheduled-launch
-  // machinery mirrored above.
-  const surprise = resolveSurpriseState(event);
-  const surpriseOfferable = (event.event_type ?? 'wedding') !== 'wedding';
-  const surpriseRevealLabel = surprise.revealAt
-    ? new Intl.DateTimeFormat('en-PH', {
-        timeZone: 'Asia/Manila',
-        dateStyle: 'medium',
-      }).format(new Date(surprise.revealAt))
     : null;
 
   // Real Weddings showcase consent (user-level). Read via the admin client so
@@ -195,47 +180,6 @@ export default async function PrivacyEditorPage({
           {launched ? 'Manage launch' : scheduledLabel ? 'Change schedule' : 'Launch or schedule'}
         </Link>
       </div>
-
-      {/* Surprise mode — a one-tap "hidden website" preset for surprise events
-          (owner-locked 2026-07-12). Keeps the public site sealed until the event
-          date via the scheduled-launch seal, so a leaked link can't spoil it for
-          the guest of honour. Non-wedding events only. */}
-      {surpriseOfferable ? (
-        <form
-          action={setSurpriseMode}
-          className="flex flex-col gap-3 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="surprise" value={surprise.isSurprise ? '0' : '1'} />
-          <div className="flex items-start gap-3">
-            <Gift aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
-            <div className="space-y-0.5">
-              <p className="text-sm font-semibold text-ink">
-                {surprise.isSurprise ? '🤫 Surprise mode is on' : 'Planning a surprise?'}
-              </p>
-              <p className="max-w-prose text-sm text-ink/65">
-                {surprise.isSurprise
-                  ? surprise.needsRevealDate
-                    ? 'Your public website is hidden. Set your event date so we can reveal it automatically on the day — until then it stays private.'
-                    : surprise.sealed
-                      ? `Your public website is hidden and reveals on ${surpriseRevealLabel} (Manila time), so a shared link can't spoil the surprise.`
-                      : 'Your website has been revealed — the surprise is out. You can turn this off now.'
-                  : "If the guest of honour shouldn't know yet, turn this on. Your public website stays hidden until your event date, so a shared link can't give it away."}
-              </p>
-            </div>
-          </div>
-          <SubmitButton
-            className={
-              surprise.isSurprise
-                ? 'inline-flex shrink-0 items-center justify-center self-start rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10 sm:self-center'
-                : 'button-primary self-start sm:self-center'
-            }
-            pendingLabel="Saving…"
-          >
-            {surprise.isSurprise ? 'Turn off' : 'Turn on surprise mode'}
-          </SubmitButton>
-        </form>
-      ) : null}
 
       {/* The picker — three radio cards in a single form */}
       <form action={updateLandingPageVisibility} className="space-y-4">

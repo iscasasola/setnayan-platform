@@ -45,6 +45,8 @@ import {
   CIVIL_STATUS_LABELS,
   RELIGIONS,
   RELIGION_LABELS,
+  SEXES,
+  SEX_LABELS,
 } from '@/lib/profile-personalization';
 import {
   setAccountFaceProfileConsent,
@@ -98,7 +100,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -384,6 +386,25 @@ export default async function ProfilePage({ searchParams }: Props) {
                 {RELIGIONS.map((r) => (
                   <option key={r} value={r}>
                     {RELIGION_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Gender"
+              htmlFor="sex"
+              help="Personalizes your own milestones — e.g. your debut (18th / 21st)"
+            >
+              <select
+                id="sex"
+                name="sex"
+                defaultValue={profile?.sex ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {SEXES.map((s) => (
+                  <option key={s} value={s}>
+                    {SEX_LABELS[s]}
                   </option>
                 ))}
               </select>

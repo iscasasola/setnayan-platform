@@ -7,6 +7,7 @@ import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   normalizeReligion,
   normalizeCivilStatus,
+  normalizeSex,
   consentPatch,
 } from '@/lib/profile-personalization';
 
@@ -108,6 +109,7 @@ export async function updatePersonalInfo(formData: FormData) {
   // the transition to a value, cleared on withdrawal (RA 10173 §3(l)).
   const religion = normalizeReligion(formData.get('religion'));
   const civil_status = normalizeCivilStatus(formData.get('civil_status'));
+  const sex = normalizeSex(formData.get('sex'));
 
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
   // current opt-in state so we only STAMP marketing_consent_at on an actual
@@ -116,7 +118,7 @@ export async function updatePersonalInfo(formData: FormData) {
   // timestamp untouched (unlike updated_at, which every save overwrites).
   const { data: existing } = await supabase
     .from('users')
-    .select('marketing_opt_in, religion, civil_status')
+    .select('marketing_opt_in, religion, civil_status, sex')
     .eq('user_id', user.id)
     .maybeSingle();
   const wasOptedIn = existing?.marketing_opt_in === true;
@@ -133,6 +135,7 @@ export async function updatePersonalInfo(formData: FormData) {
   // withdrawal, untouched when unchanged).
   const religionConsent = consentPatch(religion, existing?.religion ?? null, nowIso);
   const civilConsent = consentPatch(civil_status, existing?.civil_status ?? null, nowIso);
+  const sexConsent = consentPatch(sex, existing?.sex ?? null, nowIso);
 
   const { error } = await supabase
     .from('users')
@@ -151,6 +154,10 @@ export async function updatePersonalInfo(formData: FormData) {
       civil_status,
       ...(civilConsent.consent_at !== undefined
         ? { civil_status_consent_at: civilConsent.consent_at }
+        : {}),
+      sex,
+      ...(sexConsent.consent_at !== undefined
+        ? { sex_consent_at: sexConsent.consent_at }
         : {}),
       updated_at: nowIso,
     })

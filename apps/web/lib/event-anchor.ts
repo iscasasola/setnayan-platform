@@ -63,6 +63,27 @@ export const ANCHOR_BY_TYPE: Record<string, TypeAnchorDefault> = {
 /** Unknown/admin-created types fall back to a chosen fixed date. */
 export const FALLBACK_ANCHOR: TypeAnchorDefault = { kind: 'fixed_date', dateModel: 'input' };
 
+/**
+ * Anniversary typed origins — WHAT a recurring memorable date celebrates.
+ * POSITIVE origins only (the DB CHECK on events.anchor_origin enforces the same
+ * set): no memorial/death option, so generalized anniversaries can't backdoor
+ * babang-luksa (burial retirement 2026-05-16).
+ */
+export const ANCHOR_ORIGINS = ['wedding', 'relationship', 'milestone', 'matters'] as const;
+export type AnchorOrigin = (typeof ANCHOR_ORIGINS)[number];
+
+/** Human labels for the typed-origin picker (§ 3b of the setup design). */
+export const ANCHOR_ORIGIN_LABELS: Record<AnchorOrigin, string> = {
+  wedding: 'Our wedding',
+  relationship: 'Our relationship',
+  milestone: 'A milestone we’re proud of',
+  matters: 'A date that matters to us',
+};
+
+export function isAnchorOrigin(v: unknown): v is AnchorOrigin {
+  return typeof v === 'string' && (ANCHOR_ORIGINS as readonly string[]).includes(v);
+}
+
 export function anchorForType(eventType: string | null | undefined): TypeAnchorDefault {
   if (!eventType) return FALLBACK_ANCHOR;
   return ANCHOR_BY_TYPE[eventType] ?? FALLBACK_ANCHOR;

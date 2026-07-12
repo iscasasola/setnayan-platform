@@ -10,7 +10,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
-import { anchorForType } from '@/lib/event-anchor';
+import { anchorForType, isAnchorOrigin, parseISO } from '@/lib/event-anchor';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
@@ -104,6 +104,20 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/dashboard/create-event?error=invalid_type');
   }
   const isWedding = event_type === 'wedding';
+
+  // Date-anchor model — anniversary capture (PR-A · 2026-07-12). An anniversary
+  // is any yearly memorable date: read the celebrated date + typed origin from
+  // the form (both optional — the couple can add them later). recurs=true by
+  // definition. anchor_date drives the annual reminder (couples_with_anniversary_
+  // today reads it) and the Year view's derived next occurrence. anchor_origin is
+  // CHECK-constrained to POSITIVE origins only (no memorial — babang-luksa stays
+  // out). event_date stays NULL: the anchor is the commemorated date, the "next
+  // occurrence" is derived, never a fixed forward event_date.
+  const isAnniversary = event_type === 'anniversary';
+  const rawAnnivDate = String(formData.get('anniversary_date') ?? '').trim();
+  const rawAnnivOrigin = String(formData.get('anniversary_origin') ?? '').trim();
+  const anniversaryDate = isAnniversary && parseISO(rawAnnivDate) ? rawAnnivDate : null;
+  const anniversaryOrigin = isAnniversary && isAnchorOrigin(rawAnnivOrigin) ? rawAnnivOrigin : null;
 
   // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
   // from the form only when the event_type is wedding; non-wedding
@@ -221,6 +235,11 @@ export async function createWeddingEvent(formData: FormData) {
       // wedding lands 'none' (it PRODUCES a union date — its own date is an
       // output of venue discovery, never asked here).
       anchor_kind: anchorForType(event_type).kind,
+      // Anniversary capture (PR-A): the commemorated date + typed origin, and
+      // recurs=true (anniversaries return every year). NULL for every other type.
+      anchor_date: anniversaryDate,
+      anchor_origin: anniversaryOrigin,
+      recurs: isAnniversary,
       // Optional non-wedding capture (all null for weddings + name-only creation).
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the

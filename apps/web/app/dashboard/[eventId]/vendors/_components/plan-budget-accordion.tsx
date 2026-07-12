@@ -1470,14 +1470,18 @@ function VendorCardAtom({
   // Per-candidate compatibility % (Architecture §2 · GATE+SCORE). Shown only
   // for marketplace candidates — off-platform/manual picks carry no signal,
   // and 1st-party Setnayan services are supplementary (never ranked against the
-  // market). The scorer admits-unknown: distance + reviews + verification drive
-  // it today; refinement + date-headroom sit at a neutral baseline until 0044
-  // per-service detail data lands, then the spread sharpens on its own.
+  // market). The scorer admits-unknown: distance + reviews + verification +
+  // budget-fit drive it today (budget_fit_ratio = the vendor's "starts at" vs
+  // the couple's allocated ₱ for its category, from the page fetch); refinement
+  // + date-headroom sit at a neutral baseline until per-service detail data
+  // lands, then the spread sharpens on its own.
   const compatInputs = {
     distanceKm,
     avgRating: rating,
     reviewCount,
     verified,
+    budgetFitRatio:
+      typeof pick.budget_fit_ratio === 'number' ? pick.budget_fit_ratio : null,
   };
   // Matching is free for every couple (2026-07-12) — the % shows for any real
   // marketplace vendor, no longer only in personalized/AI mode. Still limited to
@@ -1945,6 +1949,8 @@ function CompareSheet({
             avgRating: rating,
             reviewCount,
             verified: pick.is_verified === true,
+            budgetFitRatio:
+              typeof pick.budget_fit_ratio === 'number' ? pick.budget_fit_ratio : null,
           })
         : null;
     return {

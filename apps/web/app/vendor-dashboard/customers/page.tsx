@@ -111,7 +111,7 @@ function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
 }
 
-export default async function VendorCustomersPage({ searchParams }: Props) {
+async function CustomersPipeline({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -683,4 +683,49 @@ function moneyNote(r: CustomerRow): { text: string; tone: string } {
     return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'var(--m-ink)' };
   }
   return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+}
+
+
+/* ── My Customers hub (owner 5-page IA, 2026-07-12) ─────────────────────────
+ * One menu item, every people-facing feature integrated as a tab: the
+ * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
+ * Messages. The old routes redirect in with their params preserved. */
+import { VendorHubTabs } from '../_components/hub-tabs';
+import BookingsSurface from '../bookings/surface';
+import ClientsSurface from '../clients/surface';
+import CalendarSurface from '../calendar/surface';
+import PaydaySurface from '../payday/surface';
+import MessagesSurface from '../messages/surface';
+
+const CUSTOMER_TABS = [
+  { key: 'pipeline', label: 'My Customers' },
+  { key: 'bookings', label: 'Bookings' },
+  { key: 'clients', label: 'Clients' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'payday', label: 'Payday' },
+  { key: 'messages', label: 'Messages' },
+];
+
+export default async function VendorCustomersHub({ searchParams }: Props) {
+  const sp = await searchParams;
+  const tab = typeof (sp as Record<string, unknown>).tab === 'string' ? String((sp as Record<string, unknown>).tab) : 'pipeline';
+  const pass = Promise.resolve(sp);
+  return (
+    <>
+      <VendorHubTabs base="/vendor-dashboard/customers" active={tab} tabs={CUSTOMER_TABS} />
+      {tab === 'bookings' ? (
+        <BookingsSurface searchParams={pass as never} />
+      ) : tab === 'clients' ? (
+        <ClientsSurface searchParams={pass as never} />
+      ) : tab === 'calendar' ? (
+        <CalendarSurface searchParams={pass as never} />
+      ) : tab === 'payday' ? (
+        <PaydaySurface />
+      ) : tab === 'messages' ? (
+        <MessagesSurface />
+      ) : (
+        <CustomersPipeline searchParams={Promise.resolve(sp) as never} />
+      )}
+    </>
+  );
 }

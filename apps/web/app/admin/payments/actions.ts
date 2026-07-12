@@ -37,6 +37,11 @@ import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 // extracted VERBATIM from the promote block below so the manual admin lane and
 // the PayMongo gateway webhook produce byte-identical fulfillment.
 import { finalizePaidOrder } from '@/lib/finalize-paid-order';
+// Gateway refund path (Gap 4). resolveRefundMode branches manual vs gateway from
+// the order's matched payment; createPayMongoRefund actually moves the money back
+// via PayMongo for gateway-paid orders.
+import { resolveRefundMode } from '@/lib/paymongo-webhook-core';
+import { createPayMongoRefund } from '@/lib/paymongo';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -597,7 +602,7 @@ export async function refundOrder(formData: FormData) {
   const { data: orderBefore, error: readErr } = await admin
     .from('orders')
     .select(
-      'order_id, user_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+      'order_id, user_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php, reference_code',
     )
     .eq('order_id', orderId)
     .maybeSingle();
@@ -644,6 +649,68 @@ export async function refundOrder(formData: FormData) {
     );
   }
 
+  // ── Gateway vs manual refund branch (Gap 4) ──────────────────────────────
+  // How was this order paid? The checkout drawer's PayMongo lane stamps the
+  // matched payment row with channel='paymongo' + a gateway_payment_id (pay_…,
+  // set by the webhook at fulfillment). resolveRefundMode reads those two fields:
+  //   • 'gateway' → actually MOVE the money back via createPayMongoRefund.
+  //   • 'manual'  → the legacy off-platform bank-reversal path (this action just
+  //                 records the truth; the owner does the transfer externally).
+  //
+  // The order→refunded flip above is the MUTEX (only one admin/path wins the
+  // guarded `.in(['paid','fulfilled'])` update), so we are the exclusive owner
+  // here — calling the PayMongo API now cannot double-refund on a concurrent
+  // double-click. If the API call fails, we record a 'failed' audit row and throw
+  // so the admin sees the money was NOT returned (order stays refunded — access
+  // is already revoked — and the failure is surfaced, not swallowed).
+  const { data: matchedPay } = await admin
+    .from('payments')
+    .select('channel, gateway_payment_id')
+    .eq('order_id', orderId)
+    .eq('status', 'matched')
+    .order('reviewed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const refundMode = resolveRefundMode({
+    channel: (matchedPay?.channel as string | null) ?? null,
+    gatewayPaymentId: (matchedPay?.gateway_payment_id as string | null) ?? null,
+  });
+
+  let gatewayRefundId: string | null = null;
+  if (refundMode === 'gateway') {
+    const gw = await createPayMongoRefund({
+      paymongoPaymentId: matchedPay!.gateway_payment_id as string,
+      amountCentavos: refundCentavos,
+      reason: 'requested_by_customer',
+      metadata: {
+        reference_code: orderBefore.reference_code ?? '',
+        order_id: orderId,
+      },
+    });
+    if (!gw.ok) {
+      // Best-effort audit row so the money-owed state is visible; UNIQUE(order_id)
+      // makes a race a no-op. Then surface the failure loudly.
+      try {
+        await admin.from('order_refunds').insert({
+          order_id: orderId,
+          refund_amount_centavos: refundCentavos,
+          reason,
+          refunded_by_admin_id: adminUserId,
+          proof_url: proofUrl,
+          status: 'failed',
+          refund_mode: 'gateway',
+        });
+      } catch (e) {
+        console.error('[refundOrder] failed-refund audit insert (non-fatal):', e);
+      }
+      throw new Error(
+        `Order ${orderBefore.public_id} was flipped to refunded but the PayMongo refund FAILED: ${gw.reason}. ` +
+          `The money was NOT returned — retry from Supabase Studio or issue a manual reversal.`,
+      );
+    }
+    gatewayRefundId = gw.refundId;
+  }
+
   // Revoke flag-backed entitlements (today: SETNAYAN_AI's stored
   // events.setnayan_ai_active). The order is now 'refunded' and out of the owned
   // set, so deactivateOrderSku re-derives ownership and clears the AI flag iff
@@ -671,6 +738,10 @@ export async function refundOrder(formData: FormData) {
     refunded_by_admin_id: adminUserId,
     proof_url: proofUrl,
     status: 'sent',
+    // Gap 4: record which rail returned the money. 'gateway' rows carry the
+    // PayMongo refund id (ref_…); 'manual' rows are the off-platform reversal.
+    refund_mode: refundMode,
+    gateway_refund_id: gatewayRefundId,
   });
   if (refundInsertErr) {
     // The order row already flipped to refunded above — if we can't write
@@ -700,6 +771,8 @@ export async function refundOrder(formData: FormData) {
         refund_amount_php: amountPhp,
         reason,
         proof_url: proofUrl,
+        refund_mode: refundMode,
+        gateway_refund_id: gatewayRefundId,
       },
     });
   } catch (auditErr) {
@@ -713,8 +786,11 @@ export async function refundOrder(formData: FormData) {
     type: 'payment_refunded',
     title: `Refund recorded for order ${orderBefore.public_id}`,
     body:
-      `Setnayan returned ${formatPhp(amountPhp)} to your bank or e-wallet. ` +
-      `Reach out if you don’t see the transfer within 1–3 banking days.`,
+      refundMode === 'gateway'
+        ? `Setnayan refunded ${formatPhp(amountPhp)} to the card or e-wallet you paid with. ` +
+          `It can take a few banking days to appear on your statement.`
+        : `Setnayan returned ${formatPhp(amountPhp)} to your bank or e-wallet. ` +
+          `Reach out if you don’t see the transfer within 1–3 banking days.`,
     relatedUrl: orderBefore.event_id
       ? `/dashboard/${orderBefore.event_id}/orders/${orderId}`
       : null,

@@ -17,6 +17,7 @@ import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { runPostPaidEffects } from '@/lib/paymongo-webhook-core';
 
 /**
  * apps/web/lib/finalize-paid-order.ts
@@ -93,6 +94,21 @@ export type FinalizePaidOrderContext = {
    * (byte-identical to the old promote block); webhook threads the gross paid.
    */
   amountPhp?: number | null;
+  /**
+   * WEBHOOK lane only: the PayMongo payment id (pay_…) that settled this order.
+   * Stamped onto the order's matched payment row (payments.gateway_payment_id)
+   * so a later refund can be issued against it via the gateway. Ignored on the
+   * manual lane (undefined) + when alreadyMatchedPayment=true.
+   */
+  gatewayPaymentId?: string | null;
+  /**
+   * WEBHOOK lane only (Gap 6): the PayMongo processor fee (centavos) for this
+   * charge, booked onto orders.gateway_fee_centavos so Setnayan's gateway cost
+   * is visible in the ledger even for couple SKUs (schedulePayoutsForOrder
+   * early-returns for non-vendor orders, so it never sets the fee otherwise).
+   * Does NOT touch the buyer's OR/receipt. Undefined on the manual lane.
+   */
+  gatewayFeeCentavos?: number | null;
 };
 
 export async function finalizePaidOrder(
@@ -107,9 +123,20 @@ export async function finalizePaidOrder(
   // this for its specific payment, so we skip it (alreadyMatchedPayment=true).
   if (!ctx.alreadyMatchedPayment) {
     const nowIso = new Date().toISOString();
+    // Stamp the PayMongo payment id (pay_…) onto the matched row when the webhook
+    // supplied one, so a later gateway refund can be issued against it. Only set
+    // it when present — a null would wipe a value on a re-run.
+    const paymentUpdate: Record<string, unknown> = {
+      status: 'matched',
+      reviewed_at: nowIso,
+      updated_at: nowIso,
+    };
+    if (ctx.gatewayPaymentId) {
+      paymentUpdate.gateway_payment_id = ctx.gatewayPaymentId;
+    }
     const { data: matched } = await admin
       .from('payments')
-      .update({ status: 'matched', reviewed_at: nowIso, updated_at: nowIso })
+      .update(paymentUpdate)
       .eq('order_id', orderId)
       .eq('status', 'pending')
       .select('payment_id, amount_php');
@@ -134,9 +161,23 @@ export async function finalizePaidOrder(
   // "your order is paid" while the DB row still says pending — and downstream
   // payout / receipt logic would diverge. Fail loudly so the caller can re-run
   // rather than leaking a half-promoted order. (Verbatim from approvePayment.)
+  // Book the gateway processor fee (Gap 6) in the SAME promote write when the
+  // webhook supplied one. For couple SKUs schedulePayoutsForOrder early-returns
+  // (no vendor_profile_id) so it never sets this — without booking it here the
+  // gateway cost is invisible in the ledger for couple orders. For vendor orders
+  // schedulePayoutsForOrder recomputes + overwrites from the payout breakdown, so
+  // stamping it here is harmless. The service-role admin client bypasses the
+  // orders money-column write guard; the buyer's OR/receipt is untouched.
+  const orderPromote: Record<string, unknown> = {
+    status: 'paid',
+    updated_at: new Date().toISOString(),
+  };
+  if (typeof ctx.gatewayFeeCentavos === 'number' && ctx.gatewayFeeCentavos >= 0) {
+    orderPromote.gateway_fee_centavos = Math.round(ctx.gatewayFeeCentavos);
+  }
   const { error: promoteErr } = await admin
     .from('orders')
-    .update({ status: 'paid', updated_at: new Date().toISOString() })
+    .update(orderPromote)
     .eq('order_id', orderId);
   if (promoteErr) {
     await insertFaultLog({
@@ -185,37 +226,29 @@ export async function finalizePaidOrder(
     // analytics never breaks fulfillment.
   }
 
-  // Auto-issue an app transaction receipt — one per order (idempotent via the
-  // UNIQUE constraint on receipts.order_id). BEST-EFFORT: the order is already
-  // promoted to 'paid' at this point, so a transient receipt-insert failure must
-  // NOT throw — if it did, finalizePaidOrder would bubble a 500 to the webhook,
-  // PayMongo's retry would short-circuit at the caller's status==='paid'
-  // idempotency guard, and schedulePayoutsForOrder + activateOrderSku below would
-  // NEVER run (customer charged, order paid, capability never granted). The
-  // receipt is idempotent and can be back-filled; payout + SKU activation cannot.
-  try {
-    await issueReceiptForOrder({ admin, orderId });
-  } catch (e) {
-    console.error('issueReceiptForOrder failed (non-fatal):', e);
-  }
-
-  // Vendor payout dispatcher — no-op unless the order is linked to a
-  // vendor_profile. Failures NEVER block fulfillment.
-  try {
-    await schedulePayoutsForOrder({ admin, orderId, actorUserId });
-  } catch (e) {
-    console.error('vendor payout scheduling failed (non-fatal):', e);
-  }
-
-  // Per-SKU activation dispatcher. Some SKUs need a side effect to unlock the
-  // capability; MOST are pure no-ops. Non-fatal by contract — activateOrderSku
-  // never throws — and idempotent, so a re-run is safe.
-  await activateOrderSku({
-    admin,
-    orderId,
-    eventId: order.event_id ?? null,
-    serviceKey: order.service_key ?? '',
-    actorUserId,
+  // Receipt → payouts → SKU-activation tail, run through the pure M1 orchestrator
+  // (lib/paymongo-webhook-core.ts · runPostPaidEffects). The ordering guarantee —
+  // a receipt or payout failure is SWALLOWED (best-effort, idempotent,
+  // back-fillable) so it can NEVER strand SKU activation (the one step that
+  // grants the capability the buyer paid for) — lives there and is unit-tested
+  // independently of Supabase. Byte-identical to the prior inline try/catch tail:
+  //   • receipt: idempotent (UNIQUE receipts.order_id), non-fatal.
+  //   • payouts: no-op unless linked to a vendor_profile, non-fatal.
+  //   • activation: non-fatal by contract (never throws) + idempotent; NOT
+  //     swallowed here so a hypothetical throw still surfaces.
+  await runPostPaidEffects({
+    issueReceipt: () => issueReceiptForOrder({ admin, orderId }),
+    schedulePayouts: () => schedulePayoutsForOrder({ admin, orderId, actorUserId }),
+    activateSku: () =>
+      activateOrderSku({
+        admin,
+        orderId,
+        eventId: order.event_id ?? null,
+        serviceKey: order.service_key ?? '',
+        actorUserId,
+      }),
+    onReceiptError: (e) => console.error('issueReceiptForOrder failed (non-fatal):', e),
+    onPayoutError: (e) => console.error('vendor payout scheduling failed (non-fatal):', e),
   });
 }
 

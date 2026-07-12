@@ -1,155 +1,66 @@
 import { NextResponse, type NextRequest, after } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import * as Sentry from '@sentry/nextjs';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolvePayMongoWebhookSecrets } from '@/lib/integration-config';
 import { finalizePaidOrder } from '@/lib/finalize-paid-order';
 import { notifyVendorTokensCredited } from '@/lib/token-purchase-notify';
+import { emitNotification } from '@/lib/notification-emit';
+import { deactivateOrderSku } from '@/lib/sku-activation';
+import { formatPhp } from '@/lib/orders';
+import {
+  verifyPayMongoSignature,
+  classifyPayMongoEvent,
+  extractEventEnvelope,
+  extractReference,
+  extractGatewayPaymentInfo,
+  extractReferencedPaymentId,
+  extractRefundId,
+  extractInnerStatus,
+  deriveGatewayFeeCentavos,
+  isTerminalPaidOrderStatus,
+  markWebhookEventProcessed,
+  unmarkWebhookEventProcessed,
+} from '@/lib/paymongo-webhook-core';
 
 export const runtime = 'nodejs';
 
 /**
- * PayMongo webhook → fulfill a one-time payment on `checkout_session.payment.paid`.
+ * PayMongo webhook → one-time payment fulfillment + money-path reconciliation.
  *
  * Structurally mirrors /api/webhooks/token-purchase (fail-closed 503 when
  * unprovisioned · after() post-response notify · 200/401/500 discipline so the
  * provider retries only real server errors) — BUT the signature verify is
- * PayMongo's scheme, NOT the token webhook's simple x-setnayan-signature HMAC
- * (copying that verbatim would ACCEPT FORGED events).
+ * PayMongo's scheme (see lib/paymongo-webhook-core.ts), NOT the token webhook's
+ * simple x-setnayan-signature HMAC (copying that verbatim would ACCEPT FORGED
+ * events).
  *
- * SIGNATURE (PayMongo):
- *   Header 'Paymongo-Signature: t=<timestamp>,te=<test-hmac>,li=<live-hmac>'.
- *   Compute HMAC-SHA256 over "<timestamp>.<raw-request-body>" using the WEBHOOK
- *   SIGNING SECRET (separate test vs live secret) and timing-safe compare against
- *   `te` (test-mode delivery) or `li` (live-mode delivery). A delivery is accepted
- *   iff EITHER the live secret verifies `li` OR the test secret verifies `te`.
- *   No secret configured (neither test nor live) → 503 (inert until provisioned).
- *   Bad/absent signature → 401.
+ * SIGNATURE (PayMongo): header 'Paymongo-Signature: t=<ts>,te=<test-hmac>,
+ *   li=<live-hmac>'. HMAC-SHA256 over "<ts>.<raw-body>" with the WEBHOOK SIGNING
+ *   SECRET (test vs live), timing-safe compared against te / li, AND the signed
+ *   timestamp must be within the freshness tolerance (replay defense). No secret
+ *   configured → 503 (inert). Bad/absent/stale signature → 401.
  *
- * FULFILLMENT — branch on the echoed reference_number:
- *   • couple orders (SN…) → finalizePaidOrder(): the SAME shared fulfillment tail
- *     the admin manual-approve path uses, so manual + webhook are byte-identical.
- *   • vendor token packs (TKN…) → confirm_vendor_token_purchase_by_reference RPC
- *     (the exact idempotent credit core the admin "Confirm" button + the
- *     token-purchase webhook use).
+ * DEDUP (hardening): every signature-verified delivery is check-and-inserted
+ *   into public.processed_webhook_events keyed by (provider,event_id). A second
+ *   delivery of the same evt_… id is deduped by DELIVERY ID and acked 200 with
+ *   no re-processing — not only by order status (which the paid lane also guards
+ *   on). A RETRYABLE (5xx) failure UNMARKS the id so PayMongo's retry isn't
+ *   dedup-swallowed.
+ *
+ * LANES (classifyPayMongoEvent):
+ *   • paid    → checkout_session.payment.paid → finalizePaidOrder (couple SN…)
+ *               or confirm_vendor_token_purchase_by_reference (vendor TKN…). The
+ *               couple lane also books the gateway payment id + processor fee.
+ *   • failed  → payment.failed → record + notify the buyer (NO fulfillment).
+ *   • refund  → refund.updated/refunded → reconcile order_refunds + order status.
+ *   • dispute → dispute.* / chargeback.* → flag for admin + notify.
+ *   • ignore  → any other event → ack 200 so PayMongo stops retrying.
  *
  * NEVER trusts the browser return_url as proof of payment — this webhook is the
- * only thing that flips an order to paid. Idempotent (webhooks retry): the order
- * lane no-ops when the order is already paid/fulfilled; the token RPC is
- * idempotent by contract.
+ * only thing that flips an order to paid. Idempotent throughout.
  */
 
-const ORDER_REF_RE = /SN[0-9A-F]{8}/;
-const TOKEN_REF_RE = /TKN-[A-Z0-9]{8}/;
-
-type Secrets = { test: string | null; live: string | null };
-
-/**
- * Replay window (seconds). A captured valid delivery is only accepted if its
- * signed timestamp is within this tolerance of now (both directions), so a
- * sniffed-and-stored request can't be replayed indefinitely. Kept lenient
- * enough to absorb legit clock skew + PayMongo's own delivery retries.
- */
-const SIGNATURE_FRESHNESS_TOLERANCE_S = 300;
-
-/** Parse 't=..,te=..,li=..' into its parts (missing parts → ''). */
-function parsePayMongoSignature(header: string): { t: string; te: string; li: string } {
-  const out: { t: string; te: string; li: string } = { t: '', te: '', li: '' };
-  for (const part of header.split(',')) {
-    const eq = part.indexOf('=');
-    if (eq < 0) continue;
-    const key = part.slice(0, eq).trim();
-    const val = part.slice(eq + 1).trim();
-    if (key === 't') out.t = val;
-    else if (key === 'te') out.te = val;
-    else if (key === 'li') out.li = val;
-  }
-  return out;
-}
-
-/** Timing-safe hex compare (false on any length/parse mismatch). */
-function timingSafeEqualHex(aHex: string, bHex: string): boolean {
-  if (!aHex || !bHex) return false;
-  let a: Buffer;
-  let b: Buffer;
-  try {
-    a = Buffer.from(aHex, 'hex');
-    b = Buffer.from(bHex, 'hex');
-  } catch {
-    return false;
-  }
-  if (a.length === 0 || a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-/**
- * Verify the PayMongo signature. Accepts the delivery iff the LIVE secret
- * verifies `li` OR the TEST secret verifies `te` over "<t>.<rawBody>".
- */
-function verifyPayMongoSignature(rawBody: string, header: string, secrets: Secrets): boolean {
-  const { t, te, li } = parsePayMongoSignature(header);
-  if (!t) return false;
-
-  // Replay defense-in-depth: reject a delivery whose signed unix-seconds
-  // timestamp is more than SIGNATURE_FRESHNESS_TOLERANCE_S from now (either
-  // direction). A valid but captured request is otherwise replayable forever —
-  // the HMAC below only proves authenticity, not freshness. Non-numeric or
-  // stale `t` fails closed. (The order lane's status==='paid' idempotency guard
-  // already no-ops a duplicate of an already-fulfilled order; this stops a
-  // captured delivery from being replayed BEFORE the order is fulfilled, and
-  // caps the token lane's replay window too.)
-  const tSeconds = Number(t);
-  if (!Number.isFinite(tSeconds)) return false;
-  const nowSeconds = Date.now() / 1000;
-  if (Math.abs(nowSeconds - tSeconds) > SIGNATURE_FRESHNESS_TOLERANCE_S) return false;
-
-  const signedPayload = `${t}.${rawBody}`;
-  if (secrets.live && li) {
-    const expected = createHmac('sha256', secrets.live).update(signedPayload).digest('hex');
-    if (timingSafeEqualHex(expected, li)) return true;
-  }
-  if (secrets.test && te) {
-    const expected = createHmac('sha256', secrets.test).update(signedPayload).digest('hex');
-    if (timingSafeEqualHex(expected, te)) return true;
-  }
-  return false;
-}
-
-/** Pull the reference from the checkout-session payload, else scan the body. */
-function extractReference(payload: unknown): string | null {
-  const p = payload as {
-    data?: { attributes?: { data?: { attributes?: { reference_number?: unknown; metadata?: { reference_code?: unknown } } } } };
-  };
-  const attrs = p?.data?.attributes?.data?.attributes;
-  const candidates = [attrs?.reference_number, attrs?.metadata?.reference_code];
-  for (const c of candidates) {
-    if (typeof c === 'string') {
-      const m = c.match(ORDER_REF_RE) ?? c.match(TOKEN_REF_RE);
-      if (m) return m[0];
-    }
-  }
-  // Fallback: walk the object for any SN…/TKN… code.
-  let found: string | null = null;
-  const seen = new Set<unknown>();
-  const walk = (node: unknown) => {
-    if (found || node == null || typeof node !== 'object' || seen.has(node)) return;
-    seen.add(node);
-    for (const val of Object.values(node as Record<string, unknown>)) {
-      if (found) return;
-      if (typeof val === 'string') {
-        const m = val.match(ORDER_REF_RE) ?? val.match(TOKEN_REF_RE);
-        if (m) {
-          found = m[0];
-          return;
-        }
-      } else if (typeof val === 'object') {
-        walk(val);
-      }
-    }
-  };
-  walk(payload);
-  return found;
-}
+const PROVIDER = 'paymongo';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const secrets = await resolvePayMongoWebhookSecrets();
@@ -171,18 +82,108 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, reason: 'invalid_json' }, { status: 400 });
   }
 
-  // We only fulfill on a fully-paid checkout session. Every other event
-  // (payment.failed, source.chargeable, refunds, the transient post-redirect
-  // "processing" states, etc.) is acked so PayMongo stops retrying it.
-  const eventType = (payload as { data?: { attributes?: { type?: unknown } } })?.data?.attributes
-    ?.type;
-  if (eventType !== 'checkout_session.payment.paid') {
+  const { eventId, eventType } = extractEventEnvelope(payload);
+  const admin = createAdminClient();
+
+  // ── Dedup (hardening): dedup by DELIVERY ID before any side effect ─────────
+  const dedup = await markWebhookEventProcessed(admin, {
+    provider: PROVIDER,
+    eventId,
+    eventType,
+  });
+  if (dedup === 'duplicate') {
+    return NextResponse.json({ ok: true, deduped: true }, { status: 200 });
+  }
+
+  // Any 5xx (retryable) response must UNMARK the delivery so PayMongo's retry
+  // isn't dedup-swallowed. 200/4xx are terminal — keep the marker.
+  const retryable = async (bodyStatus: { ok: false; reason: string }, status: number) => {
+    await unmarkWebhookEventProcessed(admin, { provider: PROVIDER, eventId });
+    return NextResponse.json(bodyStatus, { status });
+  };
+
+  const lane = classifyPayMongoEvent(eventType);
+
+  // ── payment.failed → record + notify (NO fulfillment) ──────────────────────
+  if (lane === 'failed') {
+    Sentry.addBreadcrumb({
+      category: 'webhook',
+      level: 'warning',
+      message: 'paymongo payment.failed',
+      data: { eventId },
+    });
+    const reference = extractReference(payload);
+    if (reference && reference.startsWith('SN')) {
+      const { data: order } = await admin
+        .from('orders')
+        .select('order_id, event_id, public_id, user_id, status')
+        .eq('reference_code', reference)
+        .maybeSingle();
+      // Only ping the buyer while the order is still pre-paid — never contradict
+      // an order another payment already settled.
+      if (order && !isTerminalPaidOrderStatus(order.status)) {
+        after(async () => {
+          try {
+            await emitNotification({
+              userId: order.user_id as string,
+              type: 'payment_rejected',
+              title: `A payment attempt didn't go through`,
+              body: 'Your online payment could not be completed. You can try again, or pay via GCash / BDO from the order page.',
+              relatedUrl: order.event_id
+                ? `/dashboard/${order.event_id}/orders/${order.order_id}`
+                : null,
+            });
+          } catch (e) {
+            console.error('payment.failed notify (non-fatal):', e);
+          }
+        });
+      }
+    }
+    return NextResponse.json({ ok: true, recorded: 'payment_failed' }, { status: 200 });
+  }
+
+  // ── refund.* → reconcile order_refunds + order status ──────────────────────
+  if (lane === 'refund') {
+    const status = extractInnerStatus(payload); // succeeded / pending / failed
+    // Only a settled refund reconciles the order; pending/failed just ack.
+    if (status !== 'succeeded' && status !== 'refunded') {
+      return NextResponse.json({ ok: true, ignored: 'refund_not_settled', status }, { status: 200 });
+    }
+    const order = await lookupOrderForRefundOrDispute(admin, payload);
+    if (!order) {
+      return NextResponse.json({ ok: true, ignored: 'refund_unmapped' }, { status: 200 });
+    }
+    const refundId = extractRefundId(payload);
+    try {
+      await reconcileGatewayRefund(admin, { order, refundId, payload });
+    } catch (e) {
+      Sentry.captureException(e, { tags: { webhook: 'paymongo', lane: 'refund' } });
+      return retryable({ ok: false, reason: 'refund_reconcile_failed' }, 500);
+    }
+    return NextResponse.json({ ok: true, reconciled: 'refund' }, { status: 200 });
+  }
+
+  // ── dispute.* / chargeback.* → flag for admin + notify ─────────────────────
+  if (lane === 'dispute') {
+    const order = await lookupOrderForRefundOrDispute(admin, payload);
+    try {
+      await flagDisputeForAdmins(admin, { order, eventType, payload });
+    } catch (e) {
+      Sentry.captureException(e, { tags: { webhook: 'paymongo', lane: 'dispute' } });
+      return retryable({ ok: false, reason: 'dispute_flag_failed' }, 500);
+    }
+    return NextResponse.json({ ok: true, flagged: 'dispute' }, { status: 200 });
+  }
+
+  // ── ignore → ack so PayMongo stops retrying an event we don't handle ───────
+  if (lane === 'ignore') {
     return NextResponse.json(
-      { ok: true, ignored: 'not_a_paid_event', type: typeof eventType === 'string' ? eventType : null },
+      { ok: true, ignored: 'unhandled_event', type: eventType },
       { status: 200 },
     );
   }
 
+  // ── paid → fulfill (the ONLY lane that flips an order to paid) ──────────────
   const reference = extractReference(payload);
   if (!reference) {
     Sentry.addBreadcrumb({
@@ -193,8 +194,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 200 so the provider doesn't retry-storm a payload we can't map.
     return NextResponse.json({ ok: true, ignored: 'no_reference' }, { status: 200 });
   }
-
-  const admin = createAdminClient();
 
   // ── Vendor token packs (TKN…) → the existing idempotent credit RPC ────────
   if (reference.startsWith('TKN-')) {
@@ -207,7 +206,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true, ignored: 'unknown_reference' }, { status: 200 });
       }
       Sentry.captureException(error, { tags: { webhook: 'paymongo', reference } });
-      return NextResponse.json({ ok: false, reason: 'confirm_failed' }, { status: 500 });
+      return retryable({ ok: false, reason: 'confirm_failed' }, 500);
     }
     const result = (data ?? {}) as { paid?: boolean; already?: boolean };
     if (result.paid) {
@@ -234,7 +233,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .maybeSingle();
   if (orderErr) {
     Sentry.captureException(orderErr, { tags: { webhook: 'paymongo', reference } });
-    return NextResponse.json({ ok: false, reason: 'order_lookup_failed' }, { status: 500 });
+    return retryable({ ok: false, reason: 'order_lookup_failed' }, 500);
   }
   if (!order) {
     // Unknown reference → ack so PayMongo stops retrying a code we'll never map.
@@ -242,15 +241,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Idempotency (webhooks retry): a terminal-paid order is a no-op.
-  if (order.status === 'paid' || order.status === 'fulfilled') {
+  if (isTerminalPaidOrderStatus(order.status)) {
     return NextResponse.json({ ok: true, already: true }, { status: 200 });
   }
 
-  // Paid amount (PHP) for the 'order_paid' analytics event. The manual admin
-  // lane threads the matched payment's amount_php; mirror that here so gateway
-  // orders don't record amount_php:null. The order's pending payment row carries
-  // the VAT-inclusive gross the buyer was instructed to pay (and did, via
-  // PayMongo) — the same value finalizePaidOrder flips to 'matched' below.
+  // Paid amount (PHP) for the 'order_paid' analytics event + the gateway payment
+  // id / processor fee for booking. The order's pending payment row carries the
+  // VAT-inclusive gross the buyer paid via PayMongo.
   const { data: pendingPayments } = await admin
     .from('payments')
     .select('amount_php')
@@ -260,6 +257,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     | { amount_php: number | string }
     | undefined;
   const paidAmountPhp = pendingPaymentRow ? Number(pendingPaymentRow.amount_php) : null;
+
+  // Gap 6 — derive the gateway processor fee (payload fee first, else known rate)
+  // + the pay_… id for a future refund.
+  const gwInfo = extractGatewayPaymentInfo(payload);
+  const gatewayFeeCentavos = deriveGatewayFeeCentavos({
+    amountCentavos:
+      gwInfo.amountCentavos ??
+      (paidAmountPhp != null ? Math.round(paidAmountPhp * 100) : null),
+    providedFeeCentavos: gwInfo.feeCentavos,
+  });
 
   try {
     await finalizePaidOrder(admin, {
@@ -275,16 +282,204 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       actorUserId: order.user_id,
       actorRole: 'system',
       alreadyMatchedPayment: false,
-      // Analytics parity with the manual lane's `amountPhp: Number(payment.amount_php)`.
       amountPhp: paidAmountPhp,
+      gatewayPaymentId: gwInfo.paymentId,
+      gatewayFeeCentavos,
     });
   } catch (e) {
     // Real server error → 500 so PayMongo retries (which is what we want; the
     // order is not yet paid). finalizePaidOrder throws only when the order→paid
-    // write itself fails.
+    // write itself fails. Unmark the dedup id so the retry isn't swallowed.
     Sentry.captureException(e, { tags: { webhook: 'paymongo', reference } });
-    return NextResponse.json({ ok: false, reason: 'fulfillment_failed' }, { status: 500 });
+    return retryable({ ok: false, reason: 'fulfillment_failed' }, 500);
   }
 
   return NextResponse.json({ ok: true, paid: true }, { status: 200 });
+}
+
+// ============================================================================
+// Refund / dispute helpers
+// ============================================================================
+
+type MinimalOrder = {
+  order_id: string;
+  event_id: string | null;
+  public_id: string | null;
+  user_id: string;
+  service_key: string | null;
+  status: string;
+};
+
+/**
+ * Map a refund.* / dispute.* event to its order: prefer the echoed SN reference
+ * (we set metadata.reference_code when we create a refund), else fall back to the
+ * referenced pay_… id → payments.gateway_payment_id → order.
+ */
+async function lookupOrderForRefundOrDispute(
+  admin: ReturnType<typeof createAdminClient>,
+  payload: unknown,
+): Promise<MinimalOrder | null> {
+  const cols = 'order_id, event_id, public_id, user_id, service_key, status';
+  const reference = extractReference(payload);
+  if (reference && reference.startsWith('SN')) {
+    const { data } = await admin
+      .from('orders')
+      .select(cols)
+      .eq('reference_code', reference)
+      .maybeSingle();
+    if (data) return data as unknown as MinimalOrder;
+  }
+  const paymentId = extractReferencedPaymentId(payload);
+  if (paymentId) {
+    const { data: pay } = await admin
+      .from('payments')
+      .select('order_id')
+      .eq('gateway_payment_id', paymentId)
+      .maybeSingle();
+    if (pay?.order_id) {
+      const { data } = await admin
+        .from('orders')
+        .select(cols)
+        .eq('order_id', pay.order_id)
+        .maybeSingle();
+      if (data) return data as unknown as MinimalOrder;
+    }
+  }
+  return null;
+}
+
+/**
+ * Reconcile a settled gateway refund against the order. When our own admin
+ * refundOrder ran first the order is ALREADY 'refunded' → we just stamp the
+ * gateway_refund_id onto the existing order_refunds row. When the refund was
+ * initiated OUTSIDE our flow (e.g. the PayMongo dashboard) we flip the order,
+ * record order_refunds, revoke the SKU, and notify the buyer. Idempotent.
+ */
+async function reconcileGatewayRefund(
+  admin: ReturnType<typeof createAdminClient>,
+  args: { order: MinimalOrder; refundId: string | null; payload: unknown },
+): Promise<void> {
+  const { order, refundId } = args;
+
+  // Already reconciled by admin refundOrder → best-effort stamp the gateway id.
+  if (order.status === 'refunded') {
+    if (refundId) {
+      const { data: existing } = await admin
+        .from('order_refunds')
+        .select('refund_id, gateway_refund_id')
+        .eq('order_id', order.order_id)
+        .maybeSingle();
+      if (existing && !existing.gateway_refund_id) {
+        await admin
+          .from('order_refunds')
+          .update({ gateway_refund_id: refundId, refund_mode: 'gateway', updated_at: new Date().toISOString() })
+          .eq('refund_id', existing.refund_id);
+      }
+    }
+    return;
+  }
+
+  // Only paid/fulfilled orders can be flipped to refunded (guard + race-safe).
+  if (!isTerminalPaidOrderStatus(order.status)) return;
+
+  const { data: flipped } = await admin
+    .from('orders')
+    .update({ status: 'refunded', updated_at: new Date().toISOString() })
+    .eq('order_id', order.order_id)
+    .in('status', ['paid', 'fulfilled'])
+    .select('order_id')
+    .maybeSingle();
+  if (!flipped) return; // lost the race — another path already refunded it.
+
+  // Revoke flag-backed entitlements (symmetric with admin refundOrder).
+  await deactivateOrderSku({
+    admin,
+    orderId: order.order_id,
+    eventId: order.event_id ?? null,
+    serviceKey: order.service_key ?? '',
+    actorUserId: order.user_id,
+  });
+
+  // Record the audit row (best-effort — UNIQUE(order_id) makes a race a no-op).
+  const refundAmountCentavos = refundAmountFromPayload(args.payload);
+  await admin
+    .from('order_refunds')
+    .insert({
+      order_id: order.order_id,
+      refund_amount_centavos: refundAmountCentavos,
+      reason: 'Gateway-initiated refund reconciled from the PayMongo webhook.',
+      refunded_by_admin_id: order.user_id,
+      status: 'sent',
+      refund_mode: 'gateway',
+      gateway_refund_id: refundId,
+    })
+    .then(
+      () => undefined,
+      (e: unknown) => console.error('order_refunds insert (webhook, non-fatal):', e),
+    );
+
+  after(async () => {
+    try {
+      await emitNotification({
+        userId: order.user_id,
+        type: 'payment_refunded',
+        title: `Refund processed for order ${order.public_id ?? ''}`.trim(),
+        body: 'Your refund was returned to your card or e-wallet. Allow a few banking days for it to appear.',
+        relatedUrl: order.event_id
+          ? `/dashboard/${order.event_id}/orders/${order.order_id}`
+          : null,
+      });
+    } catch (e) {
+      console.error('refund reconcile notify (non-fatal):', e);
+    }
+  });
+}
+
+function refundAmountFromPayload(payload: unknown): number {
+  const p = payload as { data?: { attributes?: { data?: { attributes?: { amount?: unknown } } } } };
+  const amt = p?.data?.attributes?.data?.attributes?.amount;
+  const n = typeof amt === 'number' && Number.isFinite(amt) ? Math.round(amt) : 0;
+  return n > 0 ? n : 1; // order_refunds CHECK requires > 0
+}
+
+/**
+ * Flag a dispute/chargeback for the admin team + notify the affected buyer.
+ * Best-effort fan-out to every internal/team/admin account (same OR-filter as
+ * notifyAdminsOrderAwaitingReconciliation). Fires in after() so it never delays
+ * the webhook ack.
+ */
+async function flagDisputeForAdmins(
+  admin: ReturnType<typeof createAdminClient>,
+  args: { order: MinimalOrder | null; eventType: string | null; payload: unknown },
+): Promise<void> {
+  const { order, eventType } = args;
+  Sentry.captureMessage('paymongo dispute event', {
+    level: 'warning',
+    tags: { webhook: 'paymongo', lane: 'dispute', eventType: eventType ?? 'unknown' },
+  });
+
+  after(async () => {
+    try {
+      const { data: admins } = await admin
+        .from('users')
+        .select('user_id')
+        .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin');
+      const label = order?.public_id ? `order ${order.public_id}` : 'a PayMongo payment';
+      const amountCentavos = refundAmountFromPayload(args.payload);
+      const amountLabel = amountCentavos > 1 ? ` (${formatPhp(amountCentavos / 100)})` : '';
+      await Promise.all(
+        (admins ?? []).map((row) =>
+          emitNotification({
+            userId: row.user_id as string,
+            type: 'dispute_filed',
+            title: `Payment dispute opened on ${label}`,
+            body: `PayMongo reported a ${eventType ?? 'dispute'} on ${label}${amountLabel}. Review it in the payments console and respond before the deadline.`,
+            relatedUrl: '/admin/payments',
+          }),
+        ),
+      );
+    } catch (e) {
+      console.error('dispute admin flag (non-fatal):', e);
+    }
+  });
 }

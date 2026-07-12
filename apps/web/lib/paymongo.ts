@@ -2,6 +2,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolvePayMongoConfig } from '@/lib/integration-config';
+import { buildPayMongoRefundBody } from '@/lib/paymongo-webhook-core';
 
 /**
  * apps/web/lib/paymongo.ts
@@ -163,4 +164,83 @@ export async function createPayMongoCheckout(
     return { ok: false, reason: 'The payment gateway did not return a checkout link.' };
   }
   return { ok: true, checkoutUrl, checkoutSessionId: json?.data?.id ?? null };
+}
+
+// ============================================================================
+// createPayMongoRefund — move money back through the gateway (Gap 4)
+// ============================================================================
+
+export type PayMongoRefundResult =
+  | { ok: true; refundId: string | null; status: string | null }
+  | { ok: false; reason: string };
+
+/**
+ * Issue a PayMongo refund against a settled payment (POST /v1/refunds). This is
+ * the ONLY code path that actually returns money to the buyer's card/e-wallet;
+ * `refundOrder` calls it for orders paid on the gateway and keeps the manual
+ * off-platform reversal for manually-paid orders.
+ *
+ * `paymongoPaymentId` is the `pay_…` id the webhook stored on the matched
+ * payment row at fulfillment (payments.gateway_payment_id). Auth is the same
+ * HTTP Basic base64("<secretKey>:") scheme as checkout. Amount is in centavos
+ * (PayMongo supports partial refunds). Inert when unconfigured (no key → the
+ * caller falls back to recording a manual reversal). `metadata.reference_code`
+ * is echoed on the refund.* webhook so the reconciliation lane can map it back.
+ */
+export async function createPayMongoRefund(args: {
+  paymongoPaymentId: string;
+  amountCentavos: number;
+  reason?: string | null;
+  metadata?: Record<string, string>;
+}): Promise<PayMongoRefundResult> {
+  const { secretKey, endpoint } = await resolvePayMongoConfig();
+  if (!secretKey) {
+    return { ok: false, reason: 'Online refunds are not configured (no PayMongo key).' };
+  }
+  if (!args.paymongoPaymentId) {
+    return { ok: false, reason: 'Missing PayMongo payment id to refund against.' };
+  }
+  if (!(args.amountCentavos > 0)) {
+    return { ok: false, reason: 'Refund amount must be greater than zero.' };
+  }
+
+  const body = buildPayMongoRefundBody({
+    paymentId: args.paymongoPaymentId,
+    amountCentavos: args.amountCentavos,
+    reason: args.reason,
+    metadata: args.metadata,
+  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${endpoint.replace(/\/+$/, '')}/v1/refunds`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, reason: 'Could not reach the payment gateway to issue the refund.' };
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.error('[paymongo] refunds failed', res.status, text.slice(0, 300));
+    return {
+      ok: false,
+      reason: `The payment gateway rejected the refund (HTTP ${res.status}).`,
+    };
+  }
+
+  const json = (await res.json().catch(() => null)) as {
+    data?: { id?: string; attributes?: { status?: string } };
+  } | null;
+  return {
+    ok: true,
+    refundId: json?.data?.id ?? null,
+    status: json?.data?.attributes?.status ?? null,
+  };
 }

@@ -73,6 +73,50 @@ enabled.
   direction), so a captured valid delivery can't be replayed indefinitely. HMAC
   scheme unchanged.
 
+## 2026-07-12 · feat(payments): PayMongo gateway hardening — refunds · webhook branches · fee booking · dedup · tests
+
+Four money-path hardening fixes on top of Phase 1 (still DRAFT · still gated on
+BOTH keys + `NEXT_PUBLIC_PAYMONGO_STATUS=APPROVED`; fully inert in prod today).
+
+- **Gateway refunds (Gap 4):** `createPayMongoRefund()` (`lib/paymongo.ts`, POST
+  `/v1/refunds`, Basic-auth) actually returns money via PayMongo. Admin
+  `refundOrder` (`app/admin/payments/actions.ts`) now branches: gateway-paid
+  orders (matched payment `channel='paymongo'` + stored `gateway_payment_id`)
+  call the API and move money back; manually-paid orders keep the off-platform
+  reversal path. Still records `order_refunds`, flips `status→refunded` (fires
+  `deactivateOrderSku`), and notifies. The order-flip is the mutex so a
+  concurrent double-click can't double-refund; an API failure records a `failed`
+  audit row and surfaces the money-not-returned error.
+- **Refund/dispute webhook branches (Gap 4):** the previously ack-and-ignored
+  events now have real handlers in `app/api/webhooks/paymongo/route.ts` —
+  `payment.failed` → record + notify the buyer (no fulfillment); `refund.*` →
+  reconcile `order_refunds`/order status (idempotent; stamps the `ref_…` id when
+  admin already refunded, or flips + records + revokes when refunded outside our
+  flow); `dispute.*`/`chargeback.*` → flag for the admin team + notify. All stay
+  signature-verified + idempotent.
+- **Gateway fee booking (Gap 6):** couple SKUs paid via PayMongo now book the
+  processor fee onto `orders.gateway_fee_centavos` from the webhook (payload
+  `payments[].fee` first, else the known ~2.5% rate) — `schedulePayoutsForOrder`
+  early-returns for non-vendor orders, so this was previously always 0. Threaded
+  through `finalizePaidOrder`; does NOT change the buyer's OR/receipt.
+- **Webhook dedup (hardening):** new `processed_webhook_events` table
+  (UNIQUE `(provider,event_id)`) + a check-and-insert at the top of the webhook,
+  so a duplicate valid delivery is deduped by DELIVERY ID (`evt_…`), not only by
+  order status. A retryable (5xx) failure unmarks the id so PayMongo's retry
+  isn't swallowed.
+- **Money-path tests:** `lib/paymongo-webhook-core.test.ts` (29 cases) covers
+  signature accept/forge/stale/tamper, dedup (duplicate delivery = no
+  double-fulfill), the M1 receipt-failure-does-not-strand-activation guarantee
+  (`runPostPaidEffects`), and the refund branch. The route's pure helpers were
+  extracted to `lib/paymongo-webhook-core.ts` (client-safe) so they're testable
+  without a DB, and the receipt→payout→activation tail moved into the tested
+  `runPostPaidEffects` orchestrator.
+- **Migrations (NOT pushed):**
+  `20270729690132_paymongo_gateway_hardening.sql` (`processed_webhook_events` +
+  `payments.gateway_payment_id` + `order_refunds.gateway_refund_id`/`refund_mode`)
+  and `20270729858219_order_refund_status_gateway_values.sql` (enum `processing`
+  / `failed`). `orders.gateway_fee_centavos` already existed.
+
 Not in scope (deferred): Phase 2 recurring / Subscriptions. No paywall/status
 flag enabled. Maya lane (dead, no live callers) left intact.
 

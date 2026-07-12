@@ -691,7 +691,7 @@ function moneyNote(r: CustomerRow): { text: string; tone: string } {
  * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
  * Messages. The old routes redirect in with their params preserved. */
 import { Suspense } from 'react';
-import { Briefcase, Users as UsersIcon, CalendarClock, SlidersHorizontal } from 'lucide-react';
+import { Users as UsersIcon, SlidersHorizontal } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
@@ -707,24 +707,20 @@ import MessagesSurface from '../messages/surface';
 // calendar + summary cards + QR + customers list). No "Calendar" section —
 // the grid lives in the pipeline; its EDIT tools live in "Availability &
 // capacity" (owner dedup 2026-07-12: "calendar already on the page").
+// Owner editorial pick 2026-07-12 — which sections stay ALWAYS-ON vs collapse.
+// Rule: always-on = glanced almost every visit AND light to render; collapse =
+// heavy / configure-once / already summarised elsewhere.
+//   ALWAYS-ON (rendered eagerly below the pipeline): Bookings (new inquiries —
+//   the daily heartbeat) + Payday (cash-flow timeline, 1 query, shown nowhere
+//   else). COLLAPSE: Clients (the pipeline list already covers the roster),
+//   Messages (unread count is on the pipeline's summary card), Availability
+//   (config).
 const CUSTOMER_SECTIONS: AccordionSection[] = [
-  {
-    key: 'bookings',
-    label: 'Bookings',
-    sub: 'Your booking pipeline + day-of prep per event',
-    icon: <Briefcase className="h-4 w-4" strokeWidth={1.75} />,
-  },
   {
     key: 'clients',
     label: 'Clients',
     sub: 'Booked · in conversation · outside clients',
     icon: <UsersIcon className="h-4 w-4" strokeWidth={1.75} />,
-  },
-  {
-    key: 'payday',
-    label: 'Payday',
-    sub: 'Installment due-dates across your bookings',
-    icon: <CalendarClock className="h-4 w-4" strokeWidth={1.75} />,
   },
   {
     key: 'messages',
@@ -749,12 +745,8 @@ async function CustomerSectionBody({
 }) {
   const pass = Promise.resolve(sp);
   switch (open) {
-    case 'bookings':
-      return <BookingsSurface searchParams={pass as never} />;
     case 'clients':
       return <ClientsSurface searchParams={pass as never} />;
-    case 'payday':
-      return <PaydaySurface />;
     case 'messages':
       return <MessagesSurface />;
     case 'availability':
@@ -781,6 +773,17 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       {/* The pipeline is the home: month calendar + summary cards + QR + list. */}
       <CustomersPipeline searchParams={Promise.resolve(sp) as never} />
 
+      {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
+          (new inquiries), Payday = the cash-flow timeline (1 query, shown
+          nowhere else). Rendered eagerly, not behind an accordion. */}
+      <div id="bookings">
+        <BookingsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
+      <div id="payday">
+        <PaydaySurface />
+      </div>
+
+      {/* The rest folds in — glance-covered or configure-once. */}
       <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
         {open ? (
           <Suspense fallback={<AccordionSkeleton />}>

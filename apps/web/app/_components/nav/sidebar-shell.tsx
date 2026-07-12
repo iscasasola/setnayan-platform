@@ -112,13 +112,14 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ac
   return (
     <div
       data-sidebar-collapsed={collapsed ? '1' : '0'}
-      className="min-h-screen"
-      style={{ background: 'var(--m-paper)' }}
+      // `sn-ambient` = the Atelier glass backdrop (kit, owner-locked
+      // 2026-07-12): warm wash + three soft radial tints, fixed attachment.
+      className="sn-ambient min-h-screen"
     >
       {/* Desktop sidebar — hidden < lg so mobile chrome (caller-injected) owns nav. */}
       <aside
         aria-label="Primary navigation"
-        // `sn-sidebar` paints the permanently-dark obsidian panel + remaps the
+        // `sn-sidebar` paints the Atelier frosted-glass panel + remaps the
         // base --m-* tokens the shared AccountSwitcher trigger reads (its panel
         // portals to <body> and stays light). `--violet` flips the active accent
         // for the admin doorway.
@@ -219,7 +220,9 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ac
                 topBarHidden ? '-translate-y-full' : 'translate-y-0'
               }`}
               style={{
-                background: 'var(--m-paper)',
+                background: 'rgba(255,255,255,.55)',
+                backdropFilter: 'blur(18px) saturate(1.4)',
+                WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
                 borderBottom: '1px solid var(--m-line)',
               }}
             >

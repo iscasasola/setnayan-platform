@@ -831,7 +831,8 @@ html.subnav-docked [data-shell-main] {
   --sidebar-width: 16rem;
 
   /*
-   * ── Dark sidebar chrome ──────────────────────────────────────────────────
+   * ── Sidebar chrome — Atelier frosted glass (2026-07-12; was the dark
+   *    obsidian island of the 2026-07-09 "Energy" reskin) ─────────────────
    * "Energy, not skin" reskin (2026-07-09 prototypes · setnayan-{overview,
    * vendor,admin}-energy.html): the DESKTOP sidebar is a permanently-dark
    * obsidian island — dark in BOTH app themes (the app is light-locked today,
@@ -848,22 +849,23 @@ html.subnav-docked [data-shell-main] {
    * shared AccountSwitcher TRIGGER consumes (it renders here but its panel is
    * portaled to <body>, outside this scope, so the panel stays light).
    */
-  --m-sidebar-bg:        #1A1E25;  /* obsidian panel */
-  --m-sidebar-bg-2:      #22262E;  /* elevated tiles — switcher · identity · footer chips */
-  --m-sidebar-fg:        #F1EFEA;  /* near-white — active label · wordmark · primary text */
-  --m-sidebar-fg-soft:   #C8C6C1;  /* inactive nav labels · icons */
-  --m-sidebar-fg-muted:  #9AA0A8;  /* section labels · chevrons · sub-text (contrast-checked ≥5:1) */
-  --m-sidebar-line:      #2B2F38;  /* borders / dividers */
-  --m-sidebar-hover:     #262B34;  /* hover-row wash */
+  --m-sidebar-bg:        rgba(255,255,255,.45);  /* Atelier frosted panel (kit glass, 2026-07-12) */
+  --m-sidebar-bg-2:      rgba(255,255,255,.62);  /* elevated tiles — switcher · identity · footer chips */
+  --m-sidebar-fg:        #1B1A17;  /* warm ink — active label · wordmark · primary text */
+  --m-sidebar-fg-soft:   #3A382F;  /* inactive nav labels · icons */
+  --m-sidebar-fg-muted:  #6E6A62;  /* section labels · chevrons · sub-text */
+  --m-sidebar-line:      rgba(30,26,18,.08);  /* hairline dividers on glass */
+  --m-sidebar-hover:     rgba(255,255,255,.6);  /* hover-row wash */
 
-  /* Per-doorway ACTIVE accent — default WINE (couple + vendor); admin flips to
-   * violet via `.sn-sidebar--violet`. `-fg` is the lighter tint used for the
-   * active icon + the wordmark "YAN" span; `-soft` is the active-row wash. */
-  --m-sidebar-accent:      #CBA766;  /* wine-bright on dark */
-  --m-sidebar-accent-fg:   #F2B9CC;  /* active icon · wordmark accent */
-  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 28%, transparent);
-  --m-sidebar-accent-violet:    #A78BFA;  /* admin active bar/ring — violet-bright on dark */
-  --m-sidebar-accent-violet-fg: #CBB1EC;  /* admin active icon · wordmark accent */
+  /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
+   * only decorative color; the wine/violet doorway accents retired with the
+   * 2026-07-12 finalization). `.sn-sidebar--violet` still exists as a hook
+   * but resolves to the same gold. */
+  --m-sidebar-accent:      #8A6B39;  /* gold-700 — active bar/ring on the light panel */
+  --m-sidebar-accent-fg:   #A9834B;  /* active icon · wordmark accent */
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 16%, transparent);
+  --m-sidebar-accent-violet:    #8A6B39;  /* admin — same gold (violet retired) */
+  --m-sidebar-accent-violet-fg: #A9834B;
 }
 
 /*
@@ -876,6 +878,9 @@ html.subnav-docked [data-shell-main] {
  */
 .sn-sidebar {
   background: var(--m-sidebar-bg);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 20px 50px -30px rgba(30,26,18,.4);
   color: var(--m-sidebar-fg);
   --m-paper:   var(--m-sidebar-hover);
   --m-paper-2: var(--m-sidebar-bg-2);
@@ -886,11 +891,8 @@ html.subnav-docked [data-shell-main] {
   --m-slate-3: var(--m-sidebar-fg-muted);
   --m-nav-active:      var(--m-sidebar-accent);
   --m-nav-active-soft: var(--m-sidebar-accent-soft);
-  /* Lift the gold text token used by the AccountSwitcher avatar-initials span to
-   * the lighter champagne. The base #A88340 lands ~3.98:1 on the obsidian panel
-   * (below WCAG 4.5:1); #E0CCA0 clears ~8.9:1 on the same terracotta-tinted
-   * backdrop. Scoped to .sn-sidebar so only the dark panel is affected. */
-  --m-orange-2: var(--m-orange-3);
+  /* (The dark-panel contrast lift for the AccountSwitcher gold initials is
+   * gone with the obsidian panel — base gold-700 reads ≥4.5:1 on glass.) */
 }
 .sn-sidebar--violet {
   --m-sidebar-accent:    var(--m-sidebar-accent-violet);

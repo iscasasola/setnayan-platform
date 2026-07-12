@@ -39,12 +39,13 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
 import { GroupsSidebar } from './_components/groups-sidebar';
-import { LiveSearch } from './_components/live-search';
+import { GuestsSearch } from './_components/guests-search';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import {
   OpenQuickAddButton,
   QuickAddSheet,
 } from './_components/quick-add-sheet';
+import { SortSelect } from './_components/sort-select';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
@@ -573,20 +574,28 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           Same filter params, same server actions: this is presentation only.
           (Mobile top stays just the list; the carousel carries its own chrome.) */}
       <div className="gl-settle hidden space-y-3 lg:block">
-        {/* Capture-first (Living Roster P2): the dual-mode Add | Find bar heads
-            the chrome. Add parses "Ana Cruz +1 groom vip #Barkada" and lands it
-            inline; Find wraps LiveSearch. A new guest inherits the active Side
-            lens. Replaces the header's primary-add + More-ways disclosure. */}
+        {/* Capture-first (Living Roster P2): the CaptureBar heads the chrome as
+            the ADD doorway — parses "Ana Cruz +1 groom vip #Barkada" and lands
+            it inline. A new guest inherits the active Side lens. FIND lives in
+            the SummaryFacetBar query row now (search consolidation 2026-07-13),
+            not behind a mode toggle here. */}
         <CaptureBar
           eventId={eventId}
-          initialQuery={q}
           defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
         />
 
+        {/* The single facet instrument. Search + Sort + List/Mind-map fold into
+            its query row (they were a separate Toolbar block pre-2026-07-13);
+            desktop chrome is now two blocks, not three. Desktop only — mobile
+            uses the carousel's own compose-row + Journey switch. */}
         <SummaryFacetBar
           stats={stats}
           eventId={eventId}
           search={search}
+          q={q}
+          sort={sort}
+          sortOptions={SORT_OPTIONS}
+          gview={gview}
           paxProgress={paxProgress}
           rsvpActive={rsvpFilter}
           teamActive={teamFilter}
@@ -597,16 +606,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           currentGroupId={currentGroupId}
           tagFilter={tagFilter}
           tags={allTags}
-        />
-
-        {/* inline search + sort + list/map switch — desktop only; mobile uses
-            the carousel's Search panel + Journey view switch. */}
-        <Toolbar
-          eventId={eventId}
-          q={q}
-          sort={sort}
-          search={search}
-          gview={gview}
         />
       </div>
 
@@ -969,6 +968,10 @@ function SummaryFacetBar({
   stats,
   eventId,
   search,
+  q,
+  sort,
+  sortOptions,
+  gview,
   paxProgress,
   rsvpActive,
   teamActive,
@@ -983,6 +986,10 @@ function SummaryFacetBar({
   stats: GuestStats;
   eventId: string;
   search: Record<string, string | undefined>;
+  q: string;
+  sort: SortKey;
+  sortOptions: readonly { value: string; label: string }[];
+  gview: 'list' | 'map';
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
   teamActive: 'all' | 'bride' | 'groom';
@@ -1116,6 +1123,23 @@ function SummaryFacetBar({
           <div className="h-full bg-success-400" style={{ width: `${seg(stats.attending)}%` }} />
           <div className="h-full bg-warn-300" style={{ width: `${seg(stats.maybe)}%` }} />
           <div className="h-full bg-danger-300" style={{ width: `${seg(stats.declined)}%` }} />
+        </div>
+      </div>
+
+      {/* Query row — the always-visible search + instant Sort + List/Mind-map
+          switch (search consolidation 2026-07-13, absorbed from the retired
+          Toolbar so search is never behind a toggle). Search + Sort are
+          Suspense-wrapped client islands (they read useSearchParams); the facet
+          bar itself stays a Server Component. */}
+      <div className="flex items-center gap-2 border-b border-ink/[0.07] px-4 py-3">
+        <Suspense fallback={null}>
+          <GuestsSearch initialValue={q} />
+        </Suspense>
+        <div className="flex shrink-0 items-center gap-2">
+          <Suspense fallback={null}>
+            <SortSelect value={sort} options={sortOptions} />
+          </Suspense>
+          <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
         </div>
       </div>
 
@@ -1278,76 +1302,6 @@ function ShareDropdown({ joinUrl }: { joinUrl: string }) {
         </code>
       </div>
     </details>
-  );
-}
-
-function Toolbar({
-  eventId,
-  q,
-  sort,
-  search,
-  gview,
-}: {
-  eventId: string;
-  q: string;
-  sort: SortKey;
-  search: {
-    rsvp?: string;
-    view?: string;
-    group?: string;
-    team?: string;
-    tag?: string;
-    gview?: string;
-  };
-  gview: 'list' | 'map';
-}) {
-  // Search input is a CLIENT ISLAND (owner directive 2026-05-23 — "no
-  // need to press enter"). It owns its own state + debounces URL
-  // updates so typing filters live. Sort + Apply remain in a native
-  // form because sort changes are infrequent and the existing
-  // form-submit pattern is fine for them. The List/Mind-map switch (was
-  // its own stacked row pre-2026-06-13) now lives at the right of this
-  // bar.
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      {/* Suspense required: LiveSearch uses useSearchParams() */}
-      <Suspense fallback={null}>
-        <LiveSearch
-          initialValue={q}
-          placeholder="Search names, roles, groups, RSVP…"
-        />
-      </Suspense>
-      <form
-        action={`/dashboard/${eventId}/guests`}
-        method="get"
-        className="flex items-center gap-2"
-      >
-        {q ? <input type="hidden" name="q" value={q} /> : null}
-        {search.rsvp ? <input type="hidden" name="rsvp" value={search.rsvp} /> : null}
-        {search.view ? <input type="hidden" name="view" value={search.view} /> : null}
-        {search.group ? <input type="hidden" name="group" value={search.group} /> : null}
-        {search.team ? <input type="hidden" name="team" value={search.team} /> : null}
-        {search.tag ? <input type="hidden" name="tag" value={search.tag} /> : null}
-        {search.gview ? <input type="hidden" name="gview" value={search.gview} /> : null}
-        <select
-          name="sort"
-          defaultValue={sort}
-          className="input-field appearance-none bg-cream pr-8 sm:w-56"
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              Sort: {o.label}
-            </option>
-          ))}
-        </select>
-        <button className="button-secondary" type="submit">
-          Apply
-        </button>
-      </form>
-      <div className="sm:ml-auto">
-        <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
-      </div>
-    </div>
   );
 }
 

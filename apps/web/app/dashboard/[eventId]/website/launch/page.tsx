@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarClock, Pencil, Lock, Link2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventNoun } from '@/lib/event-noun';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
 import { WebsiteLaunchPreview } from './_components/website-launch-preview';
 
@@ -97,7 +98,7 @@ export default async function WebsiteLaunchPage({
             Preview &amp; launch your website
           </h1>
           <p className="max-w-prose text-base text-ink/70">
-            See what every part of {event.display_name ? <em>{event.display_name}</em> : 'your wedding page'}{' '}
+            See what every part of {event.display_name ? <em>{event.display_name}</em> : `your ${eventNoun(event.event_type)} page`}{' '}
             looks like, then take it live — now, or at a time you choose.
           </p>
         </div>
@@ -121,10 +122,10 @@ export default async function WebsiteLaunchPage({
           <div className="flex flex-col items-start gap-3 rounded-2xl border border-ink/10 bg-cream/60 p-6">
             <p className="flex items-center gap-2 text-sm font-semibold text-ink">
               <Link2 aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-              Set your wedding URL to preview
+              Set your {eventNoun(event.event_type)} URL to preview
             </p>
             <p className="max-w-prose text-sm text-ink/65">
-              Once you pick your wedding URL in the website editor, a live preview of
+              Once you pick your {eventNoun(event.event_type)} URL in the website editor, a live preview of
               every part shows up here.
             </p>
             <Link

@@ -219,6 +219,12 @@ export type AccordionPick = PlanCardPick & {
    */
   budget_fit_ratio?: number | null;
   /**
+   * TRUE when the vendor explicitly serves one of the couple's faiths — feeds
+   * the card's compat % (`faithMatch`). Only the positive case is carried;
+   * absent → neutral (never a penalty). Wedding-only in practice.
+   */
+  faith_match?: boolean | null;
+  /**
    * Accept-gate state (CLAUDE.md 2026-06-02 · #1c). The chat thread for this
    * marketplace vendor: 'pending' = the couple's auto-inquiry is waiting for
    * the vendor to accept; 'accepted' = chat open; 'declined' = vendor not
@@ -256,6 +262,11 @@ export type VendorEnrichment = {
    *  dim) — priceFitScore(starting_price_php, the couple's allocated ₱ for this
    *  vendor's category). null/absent → neutral (no budget, or unmappable). */
   budget_fit_ratio?: number | null;
+  /** TRUE when the vendor's compatible_ceremony_types explicitly lists one of
+   *  the couple's faiths (compat-score `faithMatch` → `faithFit` dim). Only the
+   *  positive case is carried; null/absent → neutral (serves-all / non-wedding /
+   *  no match) — never a penalty. */
+  faith_match?: boolean | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
   /** Linked-services-on-card labels for this vendor's picked service.
@@ -580,6 +591,7 @@ export function buildPlanBudgetModel(args: {
       ...(ext?.is_setnayan_service ? { is_setnayan_service: true } : {}),
       ...(ext?.distance_km != null ? { distance_km: ext.distance_km } : {}),
       ...(ext?.budget_fit_ratio != null ? { budget_fit_ratio: ext.budget_fit_ratio } : {}),
+      ...(ext?.faith_match != null ? { faith_match: ext.faith_match } : {}),
       ...(ext?.inquiry_status != null ? { inquiry_status: ext.inquiry_status } : {}),
       ...(ext?.linked_services?.length
         ? {

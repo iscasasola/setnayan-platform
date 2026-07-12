@@ -30,6 +30,7 @@ import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
+import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -234,7 +235,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
-          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services',
+          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services, compatible_ceremony_types',
         )
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
@@ -265,6 +266,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       is_setnayan_service: boolean | null;
       public_visibility: string | null;
       services: string[] | null;
+      compatible_ceremony_types: string[] | null;
     };
     type ProfRow = {
       vendor_profile_id: string;
@@ -324,6 +326,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // budget-fit stays neutral — never blocks the vendors page.
       }
     }
+
+    // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
+    // 0.07). Read the couple's faith list from the Event Brief — the SAME source
+    // + representation the category-search overlay uses: raw lowercase ceremony
+    // ids (`catholic`, `civil`, …), so it intersects `compatible_ceremony_types`
+    // (also lowercase) directly. (A title-case WeddingFaithKey set would never
+    // match — the namespaces differ.) Empty when the event has no ceremony →
+    // faith stays neutral. A vendor matches when it EXPLICITLY lists one of the
+    // couple's faiths; NULL = "serves all" → neutral (never a penalty — the gate
+    // already guaranteed compatibility).
+    const coupleFaiths = buildEventBrief(ev as unknown as EventBriefSource).constraints.ceremony
+      .faiths;
 
     for (const v of vendors) {
       const pid = v.marketplace_vendor_id;
@@ -385,6 +399,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ? null
           : distanceKm <= radiusKm;
 
+      // Positive faith match only (true) — a non-match / serves-all / non-wedding
+      // stays null so the scorer applies its neutral (never a penalty).
+      const faithMatch =
+        coupleFaiths.length > 0 && Array.isArray(s.compatible_ceremony_types)
+          ? s.compatible_ceremony_types.some((t) => coupleFaiths.includes(t))
+          : false;
+
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
@@ -399,6 +420,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           startingPricePhp: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
           budgetByPlanGroup,
         }),
+        faith_match: faithMatch ? true : null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });

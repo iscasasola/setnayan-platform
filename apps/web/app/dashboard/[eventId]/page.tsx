@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -26,6 +26,9 @@ import type { PabatiClipThumb } from './_components/day-of-mode/video-guestbook-
 import { SetDateNudge } from './_components/set-date-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { EventDashboard } from './_components/event-dashboard';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { canPlanNextYear } from '@/lib/event-recurrence';
+import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -262,6 +265,11 @@ export default async function EventHomePage({
     }
   }
 
+  // Recurrence (owner 2026-07-12): recurring types (birthday · anniversary ·
+  // reunion · corporate) get a "plan next year" card that clones this event's
+  // details forward into a fresh instance.
+  const canRecur = canPlanNextYear((event.event_type as string | null) ?? null);
+
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
@@ -324,10 +332,44 @@ export default async function EventHomePage({
           <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
         </Link>
       ) : null}
+
+      {/* Plan next year — recurrence (owner-locked 2026-07-12). Recurring types
+       *  clone this event's details forward into next year's fresh planning
+       *  instance; the guest list starts fresh ("Details, not the guest list"). */}
+      {canRecur ? (
+        <form
+          action={planNextYearEvent}
+          className="flex items-center gap-3 rounded-xl border border-mulberry/25 bg-mulberry/[0.04] px-4 py-3"
+        >
+          <input type="hidden" name="event_id" value={eventId} />
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry"
+          >
+            <CalendarPlus className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-ink">
+              Make it an annual tradition
+            </span>
+            <span className="block text-xs text-ink/60">
+              Plan next year&rsquo;s celebration — we&rsquo;ll carry over the
+              details and start you a fresh guest list.
+            </span>
+          </span>
+          <SubmitButton
+            className="shrink-0 rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10"
+            pendingLabel="Creating…"
+          >
+            Plan next year
+          </SubmitButton>
+        </form>
+      ) : null}
     </>
   );
 
-  const hasOverlays = isNikahEvent || !event.event_date || isChineseEvent;
+  const hasOverlays =
+    isNikahEvent || !event.event_date || isChineseEvent || canRecur;
 
   return (
     <>

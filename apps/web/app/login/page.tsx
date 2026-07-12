@@ -11,7 +11,7 @@
  * app/@modal/(.)login, which reuses the same LoginHero + SignInRail.
  *
  * Design note: the dark treatment is the OBSIDIAN end of the existing Clean
- * Editorial palette (var(--m-ink) #1E2229), not a separate dark theme — so it
+ * Editorial palette (var(--m-ink) #1B1A17), not a separate dark theme — so it
  * coexists with the light-locked app surface. See globals.css `.sn-login`.
  *
  * The auth wiring (signInWithPassword server action, OAuth gating, the

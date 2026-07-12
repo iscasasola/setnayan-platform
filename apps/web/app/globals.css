@@ -79,7 +79,7 @@
    * MODES:
    *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
    *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
-   *            Mulberry CTAs (#5C2542). The ONLY mode (see LIGHT-LOCKED below).
+   *            Atelier gold CTAs (#A9834B). The ONLY mode (see LIGHT-LOCKED below).
    *   Dark   → DISABLED 2026-06-04. The `html.dark` overrides below are kept
    *            dormant (now unreachable) so re-enabling is a small revert.
    *
@@ -106,14 +106,14 @@
    */
   :root {
     /* Light mode — Clean Editorial (DEFAULT) */
-    --color-cream: 251 251 250;        /* page bg → Warm Alabaster #FBFBFA */
-    --color-ink: 30 34 41;             /* primary text → Deep Obsidian #1E2229 */
-    --color-terracotta: 197 160 89;    /* accent → Royal Champagne Gold #C5A059 */
+    --color-cream: 251 250 247;        /* page bg → Atelier paper #FBFAF7 */
+    --color-ink: 27 26 23;             /* primary text → Atelier warm ink #1B1A17 */
+    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 92 37 66;        /* CTA → Rich Mulberry wine #5C2542 ("Energy, not skin" reskin 2026-07-09; reverses the 2026-05-29 Clean-Editorial obsidian lock, owner-authorized) */
-    --color-mulberry-600: 122 49 87;   /* CTA hover (lifted wine) → #7A3157 */
-    --color-mulberry-700: 63 26 46;    /* CTA deepest → wine-deep #3F1A2E */
+    --color-mulberry: 169 131 75;        /* CTA → Atelier gold #A9834B (design finalization 2026-07-12: gold supersedes the 2026-07-09 wine; token NAME kept to avoid component churn) */
+    --color-mulberry-600: 149 113 61;   /* CTA hover → gold-600 #95713D */
+    --color-mulberry-700: 138 107 57;    /* CTA deepest → gold-700 #8A6B39 */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -124,14 +124,14 @@
 
   html.dark {
     /* Dark mode — Clean Editorial coherent variant */
-    --color-cream: 30 34 41;           /* page bg → Deep Obsidian #1E2229 */
-    --color-ink: 251 251 250;          /* primary text → Warm Alabaster #FBFBFA */
-    --color-terracotta: 224 204 160;   /* accent → brighter champagne #E0CCA0 */
+    --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
+    --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
+    --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 143 44 84;       /* CTA → wine-bright #8F2C54 (reads on the dark obsidian bg) */
-    --color-mulberry-600: 165 66 106;  /* CTA hover lighter → #A5426A */
-    --color-mulberry-700: 92 37 66;    /* CTA deepest → Rich Mulberry wine #5C2542 */
+    --color-mulberry: 203 167 102;       /* CTA → gold-300 #CBA766 (reads on the dark bg) */
+    --color-mulberry-600: 216 185 121;  /* CTA hover lighter → #D8B979 */
+    --color-mulberry-700: 169 131 75;    /* CTA deepest → gold-500 #A9834B */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -752,33 +752,30 @@ html.subnav-docked [data-shell-main] {
  */
 :root {
   /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
-  --m-paper:      #FBFBFA;
+  --m-paper:      #FBFAF7;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
-  --m-line:       #E2DED4;
-  --m-line-soft:  #ECE8DC;
+  --m-line:       #E1DCD1;
+  --m-line-soft:  #EDE8DE;
 
   /* Ink — Deep Obsidian (Clean Editorial · was slate #2D3038) */
-  --m-ink:        #1E2229;
-  --m-slate:      #4F535B;
-  --m-slate-2:    #6A6E76;
-  --m-slate-3:    #898D94;
-  --m-slate-4:    #B6B9BE;
+  --m-ink:        #1B1A17;
+  --m-slate:      #3A382F;
+  --m-slate-2:    #6E6A62;
+  --m-slate-3:    #8A857B;
+  --m-slate-4:    #B5AF9E;
 
   /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
-  --m-orange:     #C5A059;
-  --m-orange-2:   #A88340;
-  --m-orange-3:   #E0CCA0;
-  --m-orange-4:   #F4ECD8;
+  --m-orange:     #A9834B;
+  --m-orange-2:   #8A6B39;
+  --m-orange-3:   #CBA766;
+  --m-orange-4:   #F3ECDF;
 
-  /* Chrome nav active-state — Rich Mulberry WINE (NOT the champagne gold accent).
-   * "Energy, not skin" reskin 2026-07-09: the sidebar / bottom-nav active row +
-   * focus ring read in wine (= --color-mulberry #5C2542) so the app chrome
-   * matches the wine content behind it — the gold rail was the first seam users
-   * noticed (wine content behind a gold rail). Gold (--m-orange) STAYS the
-   * secondary accent (eyebrows · filter chips · "new" badges); only the nav
-   * active-state moves to wine. Owner-flagged open reskin item. */
-  --m-nav-active:      #5C2542;   /* = --color-mulberry (light) — active bar · icon · focus ring */
+  /* Chrome nav active-state — Atelier GOLD (owner-locked 2026-07-12 design
+   * finalization: gold supersedes wine; kit gold-700 for text/active contrast).
+   * The 2026-07-09 wine treatment is retired — chrome and content now share
+   * the one gold decorative family, so the old rail/content seam is gone. */
+  --m-nav-active:      #8A6B39;   /* = --color-mulberry (light) — active bar · icon · focus ring */
   --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
 
   /* Admin doorway accent — VIOLET ("Energy, not skin" 2026-07-09: couple =
@@ -821,9 +818,9 @@ html.subnav-docked [data-shell-main] {
   --m-r-full: 999px;
 
   /* Shadows (Obsidian-tinted · paper-friendly · was rgba(45,48,56,…) for v2.1 ink) */
-  --m-shadow-sm: 0 1px 2px rgba(30,34,41,.05), 0 1px 1px rgba(30,34,41,.04);
-  --m-shadow-md: 0 8px 24px -10px rgba(30,34,41,.18), 0 2px 6px -2px rgba(30,34,41,.08);
-  --m-shadow-lg: 0 40px 80px -30px rgba(30,34,41,.28), 0 10px 30px -8px rgba(30,34,41,.10);
+  --m-shadow-sm: 0 1px 2px rgba(30,26,18,.05), 0 1px 1px rgba(30,26,18,.04);
+  --m-shadow-md: 0 8px 24px -10px rgba(30,26,18,.18), 0 2px 6px -2px rgba(30,26,18,.08);
+  --m-shadow-lg: 0 40px 80px -30px rgba(30,26,18,.28), 0 10px 30px -8px rgba(30,26,18,.10);
 
   /*
    * Desktop sidebar rail width (DESK-1 · Responsive_and_Mobile_UI_Ruleset).
@@ -841,7 +838,7 @@ html.subnav-docked [data-shell-main] {
    * but these live at :root so the panel stays dark regardless of any future
    * theme flip; the content area still follows the app theme). Values reuse the
    * prototype's obsidian panel scale; the accent reuses the wine/violet doorway
-   * family (brightened for legibility ON dark — the light --m-nav-active #5C2542
+   * family (brightened for legibility ON dark — the light --m-nav-active gold #8A6B39
    * / --a-violet #6D28D9 are too dark against the panel).
    *
    * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
@@ -862,7 +859,7 @@ html.subnav-docked [data-shell-main] {
   /* Per-doorway ACTIVE accent — default WINE (couple + vendor); admin flips to
    * violet via `.sn-sidebar--violet`. `-fg` is the lighter tint used for the
    * active icon + the wordmark "YAN" span; `-soft` is the active-row wash. */
-  --m-sidebar-accent:      #B23E67;  /* wine-bright on dark */
+  --m-sidebar-accent:      #CBA766;  /* wine-bright on dark */
   --m-sidebar-accent-fg:   #F2B9CC;  /* active icon · wordmark accent */
   --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 28%, transparent);
   --m-sidebar-accent-violet:    #A78BFA;  /* admin active bar/ring — violet-bright on dark */

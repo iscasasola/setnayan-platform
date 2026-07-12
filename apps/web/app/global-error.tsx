@@ -54,7 +54,7 @@ export default function GlobalError({ error, reset }: Props) {
           // Tailwind's pipeline (Next.js root error boundary) so colors must be
           // inline hex literals matching the --m-* tokens in globals.css.
           backgroundColor: '#FBFBFA',
-          color: '#1E2229',
+          color: '#1B1A17',
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
           display: 'flex',
@@ -122,7 +122,7 @@ export default function GlobalError({ error, reset }: Props) {
                 // root) so colors must be inline hex literals, not utility
                 // classes. The Deep Obsidian value matches the
                 // --color-mulberry token in apps/web/app/globals.css.
-                backgroundColor: '#1E2229',
+                backgroundColor: '#1B1A17',
                 color: '#FFFFFF',
                 fontSize: '0.875rem',
                 fontWeight: 500,
@@ -143,7 +143,7 @@ export default function GlobalError({ error, reset }: Props) {
               href="/"
               style={{
                 padding: '0.75rem 1.5rem',
-                color: '#1E2229',
+                color: '#1B1A17',
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 letterSpacing: '0.025em',

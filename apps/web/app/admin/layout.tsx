@@ -5,6 +5,7 @@ import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
 import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
+import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -106,6 +107,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Fired from ADMIN traffic so the heavy matview REFRESH never rides an
   // end-user request; daily DB claim + device-fingerprint gate inside. Never throws.
   after(() => maybeRunFraudClusterSweep().catch(() => {}));
+  // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
+  // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
+  // feed /admin/seo; a skipped day only leaves the dashboard a day stale.
+  after(() => runSeoPeriodicJobs().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

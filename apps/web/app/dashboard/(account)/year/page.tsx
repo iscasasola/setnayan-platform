@@ -4,6 +4,8 @@ import { ArrowLeft, CalendarHeart, Sparkles, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import { buildYearMoments, type MomentEvent, type YearMoment } from '@/lib/year-moments';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { buildDependentMoments, type DependentForMoments } from '@/lib/dependent-moments';
 
 export const metadata = { title: 'Your year' };
 
@@ -74,7 +76,21 @@ export default async function YearPage() {
     .filter(Boolean);
 
   const today = manilaToday();
-  const moments = buildYearMoments(events, today);
+
+  // Family graph (Phase 3, flag-off): fold the guardian's dependents' next
+  // milestones (a child's 7th/debut, an elder's 60th) into the year. Gated —
+  // inert until dependentPeopleEnabled() + counsel clearance.
+  let dependentMoments: YearMoment[] = [];
+  if (dependentPeopleEnabled()) {
+    const { data: deps } = await supabase
+      .from('dependents')
+      .select('dependent_id, name, birth_date, sex');
+    dependentMoments = buildDependentMoments((deps ?? []) as DependentForMoments[], today);
+  }
+
+  const moments = [...buildYearMoments(events, today), ...dependentMoments].sort(
+    (a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label),
+  );
   const nudges = moments.filter((m) => m.isMilestone);
 
   return (

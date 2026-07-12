@@ -31,7 +31,7 @@ export type MomentEvent = {
   archived?: boolean | null;
 };
 
-export type YearMomentKind = 'anniversary' | 'wedding' | 'holiday' | 'recurring';
+export type YearMomentKind = 'anniversary' | 'wedding' | 'holiday' | 'recurring' | 'milestone';
 
 export type YearMoment = {
   dateISO: string;

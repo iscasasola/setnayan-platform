@@ -26,6 +26,7 @@ import type { GenericPersonaReveal } from '@/lib/onboarding/generic-content';
 import type { OnboardingIntro } from '@/lib/onboarding/onboarding-db';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { getSpecialtyFields } from '@/lib/onboarding/specialty-catalog';
+import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
@@ -270,7 +271,9 @@ export function GenericOnboarding(props: Props) {
       // Per-type signature answers: the light tq_ picks + the rich catalog fields
       // (the 18s, godparents, milestone-as-data…). Both land in
       // events.signature_details — the Brief's specialty layer reads the bag.
-      signatureDetails: { ...details, ...specialtyValues },
+      // Rich fields are normalised on the way out: numbers → numbers, roster
+      // cells coerced, empties + show_when-hidden fields dropped (specialty-values).
+      signatureDetails: { ...details, ...normalizeSpecialtyValues(specialtyFields, specialtyValues) },
     };
     // Anon-draft commit mints a Supabase anonymous session that global captcha
     // gates — mint a Turnstile token (no-op/undefined when unconfigured).

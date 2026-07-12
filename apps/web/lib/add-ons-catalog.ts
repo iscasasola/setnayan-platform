@@ -380,7 +380,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       baseBackground:
         'radial-gradient(circle at 40% 40%, #2A2A2E 0%, #121214 80%)',
       motionBackground:
-        'linear-gradient(90deg, transparent 0%, rgba(197, 160, 89, 0.55) 50%, transparent 100%)',
+        'linear-gradient(90deg, transparent 0%, rgba(169, 131, 75, 0.55) 50%, transparent 100%)',
       iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
@@ -408,7 +408,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       baseBackground:
         'radial-gradient(circle at 40% 40%, #1E3A4F 0%, #0F1F2D 80%)',
       motionBackground:
-        'radial-gradient(circle at 60% 60%, #C5A059 0%, transparent 55%)',
+        'radial-gradient(circle at 60% 60%, #A9834B 0%, transparent 55%)',
       iconBadgeClass: 'bg-sky-100/15 text-sky-100',
     },
   },

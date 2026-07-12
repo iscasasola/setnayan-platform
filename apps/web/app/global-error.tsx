@@ -70,7 +70,7 @@ export default function GlobalError({ error, reset }: Props) {
               fontSize: '0.75rem',
               textTransform: 'uppercase',
               letterSpacing: '0.2em',
-              color: 'rgba(30, 34, 41, 0.4)',
+              color: 'rgba(30, 26, 18, 0.4)',
               marginBottom: '1.5rem',
             }}
           >
@@ -92,7 +92,7 @@ export default function GlobalError({ error, reset }: Props) {
           <p
             style={{
               fontSize: '1.0625rem',
-              color: 'rgba(30, 34, 41, 0.7)',
+              color: 'rgba(30, 26, 18, 0.7)',
               lineHeight: 1.65,
               maxWidth: '28rem',
               margin: '0 auto 2.5rem',
@@ -147,7 +147,7 @@ export default function GlobalError({ error, reset }: Props) {
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 letterSpacing: '0.025em',
-                border: '1px solid rgba(30, 34, 41, 0.2)',
+                border: '1px solid rgba(30, 26, 18, 0.2)',
                 borderRadius: 'var(--m-r-xs)',
                 textDecoration: 'none',
                 display: 'inline-flex',
@@ -164,7 +164,7 @@ export default function GlobalError({ error, reset }: Props) {
                 fontSize: '0.625rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em',
-                color: 'rgba(30, 34, 41, 0.3)',
+                color: 'rgba(30, 26, 18, 0.3)',
                 marginTop: '2.5rem',
               }}
             >

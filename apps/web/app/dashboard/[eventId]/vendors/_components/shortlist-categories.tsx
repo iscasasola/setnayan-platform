@@ -68,10 +68,10 @@ import {
 } from '../requirements-actions';
 
 const SLCAT_CSS = `
-.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;
-  --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#1E2229);--line:var(--m-line,rgba(30,34,41,.12));
-  --line-soft:rgba(30,34,41,.07);--card:#fff;
+.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
+  --line-soft:rgba(30,26,18,.07);--card:#fff;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
@@ -81,7 +81,7 @@ const SLCAT_CSS = `
 
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 8px;background:var(--card);border:0.5px solid var(--line);border-radius: var(--m-r-md);overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
-.slcat .fold.open{box-shadow:0 8px 22px -16px rgba(30,34,41,.4);border-color:rgba(30,34,41,.16)}
+.slcat .fold.open{box-shadow:0 8px 22px -16px rgba(30,26,18,.4);border-color:rgba(30,26,18,.16)}
 .slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:13px 16px;font:inherit;text-align:left;min-height:48px}
 .slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.01em}
 .slcat .fold.open .fold-nm{color:var(--mulberry)}
@@ -93,7 +93,7 @@ const SLCAT_CSS = `
 
 /* ── Level 2 · category rows inside an open folder (connecting rail) ── */
 .slcat .fold-body{position:relative;padding:0 0 8px}
-.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(30, 34, 41,.16);border-radius: var(--m-r-xs);pointer-events:none}
+.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(30, 26, 18,.16);border-radius: var(--m-r-xs);pointer-events:none}
 /* smooth expand/collapse (2026-07-10): the body is ALWAYS mounted inside a
    grid-rows wrapper, so toggling the parent's .open class animates height 0fr↔1fr
    BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
@@ -111,8 +111,8 @@ const SLCAT_CSS = `
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
-.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(30, 34, 41,.3);background:rgba(30, 34, 41,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
-.slcat .cat-req:hover{background:rgba(30, 34, 41,.13)}
+.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(30, 26, 18,.3);background:rgba(30, 26, 18,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .cat-req:hover{background:rgba(30, 26, 18,.13)}
 .slcat .cat-req:active{transform:scale(.94)}
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
@@ -132,19 +132,19 @@ const SLCAT_CSS = `
 .slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
 .slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
 .slcat .vc .rpill.soft{color:var(--ink);background:rgba(255,255,255,.82);backdrop-filter:blur(2px)}
-html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,34,41,.7)}
+html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
 /* sort toggle — pill segmented control (databerry "Brand addition / Upcoming" feel) */
 .slcat .sortbar{display:flex;align-items:center;gap:9px;margin:0 0 13px;flex-wrap:wrap}
 .slcat .sortbar-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
-.slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,34,41,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
+.slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,26,18,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
 .slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .sortseg button:active{transform:scale(.96)}
 .slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
 html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
-html.dark .slcat .sortseg button.on{color:#1E2229;background:#C99DB0}
+html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
 /* bench search — client-side filter over categories + considered vendors */
 .slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
-.slcat .bench-search:focus-within{border-color:rgba(30,34,41,.28);box-shadow:0 0 0 3px rgba(30,34,41,.06)}
+.slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
 .slcat .bench-search svg{color:var(--ink-faint);flex:0 0 auto}
 .slcat .bench-search input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-family:var(--sans);font-size:14px;color:var(--ink)}
 .slcat .bench-search input::placeholder{color:var(--ink-faint)}
@@ -153,7 +153,7 @@ html.dark .slcat .sortseg button.on{color:#1E2229;background:#C99DB0}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
 /* search the WHOLE marketplace — a one-tap jump to /explore?q= (beyond the shortlist) */
 .slcat .bench-mkt{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);text-decoration:none;color:var(--ink);font-size:13px;transition:border-color .18s var(--ease),background .18s var(--ease)}
-.slcat .bench-mkt:hover{border-color:rgba(30,34,41,.28);background:rgba(30,34,41,.02)}
+.slcat .bench-mkt:hover{border-color:rgba(30,26,18,.28);background:rgba(30,26,18,.02)}
 .slcat .bench-mkt>svg{color:var(--mulberry);flex:0 0 auto}
 .slcat .bench-mkt>span{flex:1;min-width:0}
 .slcat .bench-mkt b{font-weight:600;color:var(--mulberry)}
@@ -165,7 +165,7 @@ html.dark .slcat .bench-mkt{background:#2A2E36}
 .slcat .bmr-head{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px 6px}
 .slcat .bmr-loading{padding:6px 14px 14px;font-size:12.5px;color:var(--ink-soft)}
 .slcat .bmr-row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-top:1px solid var(--line-soft);text-decoration:none;color:inherit;transition:background .15s var(--ease)}
-.slcat .bmr-row:hover{background:rgba(30,34,41,.03)}
+.slcat .bmr-row:hover{background:rgba(30,26,18,.03)}
 .slcat .bmr-av{width:32px;height:32px;border-radius:var(--m-r-sm);flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
 .slcat .bmr-m{flex:1;min-width:0}
 .slcat .bmr-m b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -179,30 +179,30 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft)}
+.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
+.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .fit.warn{color:#9a6a12;background:rgba(197,160,89,.16)}
+.slcat .vc .fit.warn{color:#9a6a12;background:rgba(169,131,75,.16)}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
-html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(197,160,89,.2)}
+html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the vendors) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
-.slcat .act.find>*{background:rgba(30, 34, 41,.05);border:1.5px dashed rgba(30, 34, 41,.4);color:var(--mulberry)}
-.slcat .act.manual>*{background:rgba(30,34,41,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
+.slcat .act.find>*{background:rgba(30, 26, 18,.05);border:1.5px dashed rgba(30, 26, 18,.4);color:var(--mulberry)}
+.slcat .act.manual>*{background:rgba(30,26,18,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
 .slcat .act .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
 /* empty category — Find + Add-manually share a row */
 .slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 2px 0}
 .slcat .fr{display:flex;align-items:center;gap:9px;flex:1 1 150px;padding:12px 14px;border-radius: var(--m-r-md);text-decoration:none;color:inherit;font:inherit;cursor:pointer;text-align:left;appearance:none;-webkit-appearance:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .slcat .fr:active{transform:scale(.99)}
-.slcat .fr.find{border:1.5px dashed rgba(30, 34, 41,.32);background:rgba(30, 34, 41,.03)}
-.slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,34,41,.025)}
+.slcat .fr.find{border:1.5px dashed rgba(30, 26, 18,.32);background:rgba(30, 26, 18,.03)}
+.slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,26,18,.025)}
 .slcat .fr .fr-i{display:inline-flex;flex:0 0 auto}
 .slcat .fr.find .fr-i,.slcat .fr.find .fr-t{color:var(--mulberry)}
 .slcat .fr.manual .fr-i,.slcat .fr.manual .fr-t{color:var(--ink-soft)}
@@ -211,24 +211,24 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(197,160,89,.2)}
 
 /* ── "Your plan" strip — the couple's onboarding category picks, surfaced atop
    the bench so the plan the reveal promised is one tap from acting on it ── */
-.slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:rgba(30,34,41,.035);border:0.5px solid var(--line);border-radius:var(--m-r-md)}
+.slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:rgba(30,26,18,.035);border:0.5px solid var(--line);border-radius:var(--m-r-md)}
 .slcat .plan-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
 .slcat .plan-chips{display:flex;flex-wrap:wrap;gap:7px}
 .slcat .plan-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
-.slcat .plan-chip:hover{border-color:rgba(30,34,41,.32)}
+.slcat .plan-chip:hover{border-color:rgba(30,26,18,.32)}
 .slcat .plan-chip:active{transform:scale(.97)}
 .slcat .plan-chip .pc-dot{width:6px;height:6px;border-radius:var(--m-r-full);background:var(--gold);flex:0 0 auto}
 .slcat .plan-chip.done .pc-dot{background:#2e7d4f}
 /* "In your plan" marker beside a category name */
-.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(197,160,89,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
    presentational chip on the venue category while its shortlist is empty */
-.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,34,41,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 
 html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
 html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
 html.dark .slcat .plan-chip{background:#2A2E36}
-html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
+html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
 html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}

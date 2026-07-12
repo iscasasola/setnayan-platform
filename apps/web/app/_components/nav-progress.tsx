@@ -29,7 +29,7 @@
  *
  * Renders null on the server + first client paint (no hydration mismatch); all
  * listeners attach in useEffect. Colour follows the brand accent token
- * (--m-orange = Royal Champagne Gold) so it auto-tracks palette changes.
+ * (--m-orange = Atelier kit gold-500) so it auto-tracks palette changes.
  */
 
 import { useEffect, useRef, useState } from 'react';

@@ -113,15 +113,15 @@ export default async function TourSeatingPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
-        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
           Every guest finds their table
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
           {bride} & {groom} arranged{' '}
           {tableCount > 0 ? (
             <>
-              <span className="font-medium text-[#1E2229]">{tableCount} tables</span> for{' '}
-              <span className="font-medium text-[#1E2229]">{seatedCount} guests</span>
+              <span className="font-medium text-[#1B1A17]">{tableCount} tables</span> for{' '}
+              <span className="font-medium text-[#1B1A17]">{seatedCount} guests</span>
             </>
           ) : (
             'their reception floor'
@@ -139,7 +139,7 @@ export default async function TourSeatingPage() {
             entrance={DEFAULT_ENTRANCE}
           />
         ) : (
-          <div className="mx-auto max-w-2xl rounded-2xl border border-[#1E2229]/10 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
+          <div className="mx-auto max-w-2xl rounded-2xl border border-[#1B1A17]/10 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
             This sample wedding doesn&rsquo;t have a published seating plan yet.
           </div>
         )}
@@ -148,7 +148,7 @@ export default async function TourSeatingPage() {
       <nav className="mx-auto mt-16 flex max-w-2xl items-center justify-between gap-4">
         <Link
           href="/tour/vendors"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#1E2229] transition-opacity hover:opacity-80"
+          className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#1B1A17] transition-opacity hover:opacity-80"
         >
           &larr; The vendors
         </Link>
@@ -160,15 +160,15 @@ export default async function TourSeatingPage() {
         </Link>
       </nav>
 
-      <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Seat your own crowd.</h2>
+      <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Seat your own crowd.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Build your floor plan on Setnayan and every guest gets a clear path to their table —
           free, in minutes. Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

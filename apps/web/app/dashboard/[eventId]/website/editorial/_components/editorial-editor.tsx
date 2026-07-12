@@ -174,7 +174,7 @@ const inputCls =
 // A small gold "PRO" chip — marks an authorship perk gated on Editorial PRO.
 function ProChip() {
   return (
-    <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#C5A059]/50 bg-[#C5A059]/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-[#8A6A2F]">
+    <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#A9834B]/50 bg-[#A9834B]/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-[#8A6A2F]">
       <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
       Pro
     </span>

@@ -613,7 +613,7 @@ html.hr-snap {
   font-style: italic;
   font-size: clamp(1.4rem, 2.5vw, 1.8rem);
   line-height: 1;
-  color: #8A6B39; /* deeper champagne — keeps 3:1+ on the greige bg */
+  color: #8A6B39; /* kit gold-700 — keeps 3:1+ on the greige bg */
 }
 .home-reskin .hr-psep {
   width: 28px;
@@ -818,8 +818,8 @@ html.hr-snap {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.09);
-  border: 1px solid rgba(197, 160, 89, 0.28);
+  background: rgba(169, 131, 75, 0.09);
+  border: 1px solid rgba(169, 131, 75, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -943,7 +943,7 @@ html.hr-snap {
   font-weight: 600;
 }
 .home-reskin .hr-mcal .hr-free {
-  background: rgba(197, 160, 89, 0.16);
+  background: rgba(169, 131, 75, 0.16);
   color: #97742f;
 }
 .home-reskin .hr-mck {
@@ -989,7 +989,7 @@ html.hr-snap {
   position: absolute;
   inset: 11px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.16);
+  background: rgba(169, 131, 75, 0.16);
 }
 .home-reskin .hr-mtl-row {
   display: flex;
@@ -1362,7 +1362,7 @@ html.hr-snap {
 }
 .home-reskin .hr-m-db2 .hr-me-mod.hr-live {
   border-color: var(--hr-pop2);
-  background: rgba(197, 160, 89, 0.07);
+  background: rgba(169, 131, 75, 0.07);
 }
 .home-reskin .hr-m-db2 .hr-me-foot {
   margin-top: auto;
@@ -1943,8 +1943,8 @@ html.hr-snap {
   margin: 2px 0 4px;
   padding: 12px 14px;
   border-radius: var(--hr-r14);
-  background: rgba(197, 160, 89, 0.1);
-  border: 1px solid rgba(197, 160, 89, 0.28);
+  background: rgba(169, 131, 75, 0.1);
+  border: 1px solid rgba(169, 131, 75, 0.28);
 }
 .home-reskin-ov .hr-gintro-h {
   display: block;
@@ -1969,7 +1969,7 @@ html.hr-snap {
   gap: 12px;
   margin-top: 4px;
   padding-top: 16px;
-  border-top: 1px solid rgba(30, 34, 41, 0.12);
+  border-top: 1px solid rgba(30, 26, 18, 0.12);
 }
 .home-reskin-ov .hr-gline-t {
   font-size: 13.5px;
@@ -2211,13 +2211,13 @@ html.hr-snap {
   gap: 0 20px;
 }
 .home-reskin-ov .hr-pr-papic {
-  background: rgba(197, 160, 89, 0.06);
+  background: rgba(169, 131, 75, 0.06);
   border-radius: var(--hr-r12);
   padding: 3px 16px;
   margin-bottom: 8px;
 }
 .home-reskin-ov .hr-pr-papic .hr-pr-row {
-  border-bottom-color: rgba(197, 160, 89, 0.18);
+  border-bottom-color: rgba(169, 131, 75, 0.18);
 }
 .home-reskin-ov .hr-pr-free {
   display: flex;
@@ -2523,7 +2523,7 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-si-input:focus {
   border-color: var(--hr-pop2);
-  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.18);
+  box-shadow: 0 0 0 3px rgba(169, 131, 75, 0.18);
 }
 .home-reskin-ov .hr-si-row {
   display: flex;
@@ -2583,7 +2583,7 @@ html.hr-snap {
 .home-reskin-ov .hr-vb-stat {
   font-size: 13.5px;
   color: var(--hr-ink);
-  background: rgba(197, 160, 89, 0.06);
+  background: rgba(169, 131, 75, 0.06);
   border: 1px solid var(--hr-line);
   border-radius: var(--hr-r12);
   padding: 12px 15px;

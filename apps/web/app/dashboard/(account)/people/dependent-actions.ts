@@ -55,6 +55,9 @@ export async function addDependent(formData: FormData): Promise<void> {
     sex,
     religion,
     relationship,
+    // Household consent asymmetry (B6): a JOINT child is shared with the spouse by
+    // default; every other relation stays private until the guardian opts in.
+    shared_with_spouse: relationship === 'child',
     // Guardian-consented on the dependent's behalf (RA 10173 durable proof).
     birth_date_consent_at: now,
     religion_consent_at: religion ? now : null,
@@ -81,6 +84,32 @@ export async function deleteDependent(formData: FormData): Promise<void> {
   await supabase.from('dependents').delete().eq('dependent_id', dependentId).eq('owner_user_id', user.id);
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?removed=1');
+}
+
+/**
+ * Toggle whether a dependent is shared with the guardian's spouse (household
+ * consent asymmetry, B6). Owner-only: the `.eq('owner_user_id')` + RLS ensure a
+ * spouse (who can READ shared rows) can never flip another person's sharing.
+ */
+export async function setDependentSharing(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  const share = String(formData.get('share') ?? '') === '1';
+  if (!dependentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await supabase
+    .from('dependents')
+    .update({ shared_with_spouse: share })
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
 }
 
 // ── Godparents (ninong / ninang) ─────────────────────────────────────────────

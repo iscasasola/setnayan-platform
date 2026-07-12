@@ -87,6 +87,13 @@ export function SelfieCapture({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [consent, setConsent] = useState(false);
+  // Adults-only gate (RA 10173 · NPC — minors are scoped OUT of biometric
+  // enrollment for V1). A separate REQUIRED affirmation the guest must tick
+  // alongside biometric consent before any capture UI unlocks. No age/DOB is
+  // collected — this is an attestation, not a data field.
+  const [ageAffirmed, setAgeAffirmed] = useState(false);
+  // Both facts must be affirmed before enrollment is allowed.
+  const enrollAllowed = consent && ageAffirmed;
   const [phase, setPhase] = useState<Phase>('idle');
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
@@ -111,8 +118,8 @@ export function SelfieCapture({
   // standalone enroll form (day-of / camera) can enable its submit button.
   useEffect(() => {
     const has = multiShot ? shots.length > 0 : Boolean(r2Ref);
-    onReadyChange?.(Boolean(consent && has));
-  }, [consent, r2Ref, shots.length, multiShot, onReadyChange]);
+    onReadyChange?.(Boolean(enrollAllowed && has));
+  }, [enrollAllowed, r2Ref, shots.length, multiShot, onReadyChange]);
 
   const startCamera = useCallback(async () => {
     setError(null);
@@ -291,17 +298,29 @@ export function SelfieCapture({
     [maxShots, shots.length, processCanvas],
   );
 
+  // Drop any captured selfie + reset the capture UI. Called when either the
+  // biometric consent OR the 18+ affirmation is withdrawn — losing either fact
+  // means we may no longer hold or capture the biometric.
+  const resetCapture = () => {
+    stopStream();
+    setR2Ref(null);
+    setGate(null);
+    setPreviewUrl(null);
+    setShots([]);
+    setPhase('idle');
+  };
+
   // Withdrawing consent drops any captured selfie — no consent, no photo.
   const onConsentChange = (checked: boolean) => {
     setConsent(checked);
-    if (!checked) {
-      stopStream();
-      setR2Ref(null);
-      setGate(null);
-      setPreviewUrl(null);
-      setShots([]);
-      setPhase('idle');
-    }
+    if (!checked) resetCapture();
+  };
+
+  // Withdrawing the 18+ affirmation likewise blocks + drops enrollment —
+  // minors are scoped out entirely.
+  const onAgeChange = (checked: boolean) => {
+    setAgeAffirmed(checked);
+    if (!checked) resetCapture();
   };
 
   // Derived multi-shot hidden-input payload (computed here so TS can narrow the
@@ -379,8 +398,17 @@ export function SelfieCapture({
         </div>
       </div>
 
-      {/* Biometric consent — gates the capture UI, never the RSVP submit. */}
-      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-ink/10 bg-cream p-3 text-xs text-ink/75">
+      {/* Adults-only notice + the two REQUIRED affirmations. Both gate the
+          capture UI (never the RSVP submit). Minors are scoped out of biometric
+          enrollment for V1 (RA 10173 · NPC) — hence a distinct 18+ box, not a
+          buried clause. No age/DOB is collected; these are attestations. */}
+      <p className="mt-3 text-[0.7rem] font-medium uppercase tracking-wide text-terracotta">
+        Adults only (18+)
+      </p>
+
+      {/* 1. Biometric consent — keeps name="biometric_consent" that the RSVP
+          action reads to decide whether to enroll. */}
+      <label className="mt-1.5 flex cursor-pointer items-start gap-2 rounded-lg border border-ink/10 bg-cream p-3 text-xs text-ink/75">
         <input
           type="checkbox"
           name="biometric_consent"
@@ -390,12 +418,34 @@ export function SelfieCapture({
           className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
         />
         <span>
-          I&rsquo;m an adult (18+) and I agree to{' '}
-          <span className="font-medium">face recognition for this wedding</span>
-          . My selfie is used to recognize me in this wedding&rsquo;s photos,
+          I consent to{' '}
+          <span className="font-medium">
+            facial-recognition photo matching for this event
+          </span>
+          . My selfie is used only to recognize me in this event&rsquo;s photos,
           only for this event, and I can withdraw anytime in my settings.{' '}
           <span className="text-ink/45">
             (Philippine Data Privacy Act, RA 10173.)
+          </span>
+        </span>
+      </label>
+
+      {/* 2. Required 18+ affirmation — attestation only, no age field. */}
+      <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-lg border border-ink/10 bg-cream p-3 text-xs text-ink/75">
+        <input
+          type="checkbox"
+          name="age_affirmation"
+          value="1"
+          checked={ageAffirmed}
+          onChange={(e) => onAgeChange(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        <span>
+          I confirm I am{' '}
+          <span className="font-medium">18 or older</span> and consent to
+          facial-recognition photo matching for this event.{' '}
+          <span className="text-ink/45">
+            (Face recognition is not offered to minors.)
           </span>
         </span>
       </label>
@@ -420,7 +470,7 @@ export function SelfieCapture({
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              disabled={!consent}
+              disabled={!enrollAllowed}
               onClick={startCamera}
               className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -434,7 +484,7 @@ export function SelfieCapture({
             {multiShot ? (
               <button
                 type="button"
-                disabled={!consent || busy}
+                disabled={!enrollAllowed || busy}
                 onClick={() => fileInputRef.current?.click()}
                 className="inline-flex items-center gap-2 rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
               >

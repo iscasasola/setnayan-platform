@@ -514,9 +514,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             {/* Public Event Summary consent · couples only. Hides via
                 [data-couple-only] when Vendor is checked. Field name +
                 value identical to prior implementation (locked in
-                CLAUDE.md 2026-05-19 rows 426 + 428). Default checked
-                per V2 publisher posture (public-by-default with 8 RA
-                10173 safe-harbor guardrails). */}
+                CLAUDE.md 2026-05-19 rows 426 + 428). Starts UNticked
+                (2026-07-05 NPC consent hygiene) — showcase consent must be
+                freely given, not pre-selected. The 8 RA 10173 safe-harbor
+                guardrails still apply once opted in. */}
             <div
               data-couple-only
               style={{
@@ -541,7 +542,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   type="checkbox"
                   name="public_summary_consent"
                   value="yes"
-                  defaultChecked
                   style={{
                     marginTop: 2,
                     width: 14,

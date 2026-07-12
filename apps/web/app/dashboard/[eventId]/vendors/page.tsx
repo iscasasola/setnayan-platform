@@ -30,6 +30,7 @@ import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
+  isMatchPreviewFree,
   isSetnayanAiActiveForUser,
   shouldOfferSetnayanAiPurchaseForUser,
 } from '@/lib/setnayan-ai';
@@ -541,6 +542,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     subscription: aiSubscription,
   };
   const aiActive = isSetnayanAiActiveForUser(ev, aiGateOpts);
+  // Gap 2 · free match-preview floor (Eventchy-parity): the "% match" pill is
+  // table-stakes, so it is keyed on the couple's Assist toggle ALONE — it
+  // survives even when the paywall flips ON and `aiActive` goes false. While the
+  // paywall is OFF this equals `aiActive`, so nothing changes today.
+  const matchPreviewEnabled = isMatchPreviewFree(ev);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -576,6 +582,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     enrichmentByVendorId,
     marketPoolCount,
     personalizationEnabled: aiActive,
+    matchPreviewEnabled,
     moodBoardSet: ev?.mood_board_updated_at != null,
     taxonomy,
     buildPicksByGroup,

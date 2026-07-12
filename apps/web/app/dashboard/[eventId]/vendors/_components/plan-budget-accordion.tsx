@@ -1248,7 +1248,7 @@ function ChildRail({
               groupLabel={child.label}
               onOpen={onOpen}
               lockHintKey={lockHintKey}
-              personalizationEnabled={child.personalizationEnabled}
+              matchPreviewEnabled={child.matchPreviewEnabled}
               reviewStatus={reviewStatusByVendorId?.get(pick.vendor_id) ?? null}
               existingBuildPick={
                 buildPickRow && buildPickRow.vendor_id !== pick.vendor_id
@@ -1388,7 +1388,7 @@ function VendorCardAtom({
   groupLabel,
   onOpen,
   lockHintKey,
-  personalizationEnabled,
+  matchPreviewEnabled,
   existingBuildPick,
   reviewStatus = null,
 }: {
@@ -1398,8 +1398,9 @@ function VendorCardAtom({
   groupLabel: string;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
-  /** Setnayan Assist on? When false (Manual mode) the "% match" pill is hidden. */
-  personalizationEnabled: boolean;
+  /** Free match-preview floor (Gap 2). When false (Manual mode) the "% match"
+   *  pill is hidden; it stays ON under the paywall — see lib/setnayan-ai. */
+  matchPreviewEnabled: boolean;
   /** The category's current build pick when it's a DIFFERENT vendor than this
    *  card (→ the "Add to build" Replace/Add-both popup). null otherwise. */
   existingBuildPick: { name: string; pricePhp: number | null } | null;
@@ -1484,7 +1485,7 @@ function VendorCardAtom({
     verified,
   };
   const match =
-    personalizationEnabled && pick.marketplace_business_name && !setnayan
+    matchPreviewEnabled && pick.marketplace_business_name && !setnayan
       ? computeCompatScore(compatInputs)
       : null;
   // Plain-English "why this %" — the same inputs, only the dimensions that are a
@@ -1937,9 +1938,10 @@ function CompareSheet({
       badges.push(pick.recommended_reason);
     }
     // Same per-candidate compatibility % the cards show (Architecture §2).
-    // Hidden in Manual mode (child.personalizationEnabled === false).
+    // Free match-preview floor (Gap 2): hidden only in Manual mode
+    // (child.matchPreviewEnabled === false), survives the paywall.
     const match =
-      child.personalizationEnabled &&
+      child.matchPreviewEnabled &&
       pick.marketplace_business_name &&
       pick.is_setnayan_service !== true
         ? computeCompatScore({

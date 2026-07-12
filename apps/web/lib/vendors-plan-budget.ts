@@ -281,9 +281,14 @@ export type AccordionChild = {
   /** ALL build picks for this category (multi-pick Look/Booths/Prints can have
    *  several; single-pick groups have ≤1). `buildPickVendorId` is the first. */
   buildPickVendorIds: string[];
-  /** Setnayan Assist on? (event `planning_mode` !== 'manual'). When false the
-   *  vendor cards drop the "% match" pill — Manual mode browses neutrally. */
+  /** Setnayan Assist on? (event `planning_mode` !== 'manual'). Gates the DEEP
+   *  personalization on the child — dependency nudges + the deadline chip. */
   personalizationEnabled: boolean;
+  /** Free MATCH-PREVIEW floor (Gap 2 · lib/setnayan-ai `isMatchPreviewFree`).
+   *  Gates ONLY the "% match" pill — it stays on for every couple even when the
+   *  paywall is ON (table-stakes), so it is keyed on the Manual toggle, not the
+   *  entitlement. While the paywall is OFF it equals `personalizationEnabled`. */
+  matchPreviewEnabled: boolean;
   /**
    * Dependency-awareness nudge (Setnayan AI §4B). `blocked` = a prerequisite
    * (e.g. the reception venue, the mood board) should be finalized first;
@@ -491,9 +496,14 @@ export function buildPlanBudgetModel(args: {
    */
   marketPoolCount?: number;
   /** Setnayan Assist toggle (event `planning_mode`). Default true (Guided).
-   *  When false (Manual), every child is flagged so its vendor cards drop the
-   *  "% match" pill and the couple browses in a neutral order. */
+   *  When false (Manual), the child's DEEP personalization (dependency nudges,
+   *  deadline chip, the "Do this next" hero) goes quiet. */
   personalizationEnabled?: boolean;
+  /** Free MATCH-PREVIEW floor (Gap 2 · lib/setnayan-ai `isMatchPreviewFree`).
+   *  Gates ONLY the "% match" pill so it survives the paywall. Defaults to
+   *  `personalizationEnabled` when omitted → callers that don't pass it (tests,
+   *  other surfaces) stay byte-identical to before this split. */
+  matchPreviewEnabled?: boolean;
   /** Has the couple set/locked their mood board (events.mood_board_updated_at)?
    *  Feeds the dependency engine (florals/cake/LED/invites design from it). */
   moodBoardSet?: boolean;
@@ -523,6 +533,9 @@ export function buildPlanBudgetModel(args: {
     enrichmentByVendorId,
     marketPoolCount = 0,
     personalizationEnabled = true,
+    // Defaults to personalizationEnabled so any caller that hasn't adopted the
+    // Gap 2 split keeps the pre-split behavior exactly (pill tracks Assist).
+    matchPreviewEnabled = personalizationEnabled,
     moodBoardSet = false,
     taxonomy,
     buildPicksByGroup,
@@ -742,6 +755,7 @@ export function buildPlanBudgetModel(args: {
       buildPickVendorId,
       buildPickVendorIds,
       personalizationEnabled,
+      matchPreviewEnabled,
       dependency,
       coveredBy: null,
     };

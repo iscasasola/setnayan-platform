@@ -46,6 +46,30 @@ export function isSetnayanAiPaywallEnabled(): boolean {
 }
 
 /**
+ * Free MATCH-PREVIEW floor (Gap 2 · Eventchy-parity, owner 2026-07-11).
+ *
+ * The basic "% match" pill + compat ranking + reception-proximity sort are
+ * TABLE-STAKES against the free-AI rival — they must stay on for EVERY couple,
+ * even after the paywall flips ON and the deeper intelligence (whole-plan fit,
+ * auto-build, the nudge/eyeing stream, deadlines) goes behind the entitlement.
+ *
+ * So this floor is deliberately keyed ONLY on the couple's own Assisted↔Manual
+ * toggle (`planning_mode`), NEVER on the paywall or the purchased entitlement:
+ *   • Not Manual → the match signal shows (free), regardless of paywall/purchase.
+ *   • Manual     → the couple chose "I'm driving"; the signal hides (unchanged).
+ *
+ * Behavior-preservation: while the paywall is OFF, `isSetnayanAiActive` already
+ * equals `planning_mode !== 'manual'`, so this predicate is byte-identical to the
+ * gate it replaces on the match surfaces. Only when the paywall flips ON do they
+ * diverge — and the divergence is the fix: the match preview survives.
+ */
+export function isMatchPreviewFree(
+  event: { planning_mode?: string | null } | null | undefined,
+): boolean {
+  return event?.planning_mode !== PLANNING_MODE_MANUAL;
+}
+
+/**
  * The governing gate. `true` = Setnayan AI active (full intelligence);
  * `false` = generic region-scoped search.
  *

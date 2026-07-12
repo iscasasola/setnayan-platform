@@ -41,7 +41,7 @@ import {
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { isMatchPreviewFree, isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
 import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -348,10 +348,11 @@ export async function searchCategoryVendors(input: {
     (v) => v.length > 0,
   ).length;
 
-  // Setnayan AI OFF (Manual mode) → GENERIC search: drop the per-candidate
-  // "% match" pill AND the reception-proximity sort, so the order falls back to
-  // boosted → reviews → rating. The one governing gate lives in lib/setnayan-ai
-  // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
+  // `aiActive` = the FULL Setnayan AI gate (Assist toggle + paywall entitlement).
+  // It still governs the DEEP behaviors on this surface — last-minute vendor
+  // surfacing (§4) and the AI-off-empty rule. The lighter match-preview signal
+  // (pill + proximity sort) now floors on `matchPreviewFree` below (Gap 2), so it
+  // survives the paywall. One governing gate module: lib/setnayan-ai.
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
   const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
   const aiSubscription = aiPerUserEnabled
@@ -365,7 +366,15 @@ export async function searchCategoryVendors(input: {
       subscription: aiSubscription,
     },
   );
-  const assistOff = !aiActive;
+  // Free MATCH-PREVIEW floor (Gap 2 · Eventchy-parity): the "% match" pill +
+  // the reception-proximity sort are table-stakes, so they gate on the couple's
+  // Assist toggle ALONE (isMatchPreviewFree) — they survive when the paywall is
+  // ON and `aiActive` is false. While the paywall is OFF this equals `aiActive`,
+  // so today's order + pills are byte-identical. The DEEPER behaviors below
+  // (last-minute surfacing, the AI-off-empty rule) stay on `aiActive`.
+  const matchPreviewFree = isMatchPreviewFree(
+    ev as { planning_mode?: string | null },
+  );
 
   const lat = (ev.venue_latitude as number | null) ?? null;
   const lng = (ev.venue_longitude as number | null) ?? null;
@@ -880,7 +889,7 @@ export async function searchCategoryVendors(input: {
       activityByVendor.get(r.vendor_profile_id),
       firstLook.slaHours,
     );
-    const compat = assistOff
+    const compat = !matchPreviewFree
       ? null
       : computeCompatScore({
           distanceKm: dKm,
@@ -1008,10 +1017,11 @@ export async function searchCategoryVendors(input: {
     if (smartSort && b._priceFit !== a._priceFit) {
       return b._priceFit - a._priceFit;
     }
-    // Reception-proximity sort is a Setnayan AI feature — gate on `aiActive`.
-    // AI off → keep review/rating order (generic), the same fallback used when
-    // the event has no reception coords.
-    if (hasCoords && aiActive) {
+    // Reception-proximity sort is part of the free match-preview floor (Gap 2)
+    // — gate on `matchPreviewFree`, so it survives the paywall. Manual mode / no
+    // reception coords → keep review/rating order (generic). (Equals `aiActive`
+    // while the paywall is OFF, so today's order is unchanged.)
+    if (hasCoords && matchPreviewFree) {
       const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
       const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
       if (da !== db) return da - db;

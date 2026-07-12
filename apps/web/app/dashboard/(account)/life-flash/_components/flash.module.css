@@ -146,7 +146,7 @@
   margin-top: 10px;
   font-size: 13px;
   letter-spacing: 0.03em;
-  color: #c5a059; /* champagne gold on dark */
+  color: #a9834b; /* champagne gold on dark */
 }
 
 /* ---- the ending ---- */
@@ -190,7 +190,7 @@
   width: 100%;
   transform-origin: left center;
   transform: scaleX(0);
-  background: #c5a059;
+  background: #a9834b;
   box-shadow: 0 0 10px rgba(197, 160, 89, 0.55);
 }
 
@@ -231,12 +231,12 @@
 }
 
 .controlBtn:hover {
-  border-color: #c5a059;
+  border-color: #a9834b;
   background: rgba(0, 0, 0, 0.65);
 }
 
 .controlBtn:focus-visible {
-  outline: 2px solid #c5a059;
+  outline: 2px solid #a9834b;
   outline-offset: 2px;
 }
 
@@ -250,7 +250,7 @@
 
 .endCta {
   composes: controlBtn;
-  border-color: #c5a059;
+  border-color: #a9834b;
   color: #fff;
 }
 

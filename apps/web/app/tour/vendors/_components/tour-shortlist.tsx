@@ -53,9 +53,9 @@ export type TourCategory = {
 };
 
 const CSS = `
-.tsl{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;
-  --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#1E2229);--line:rgba(30,34,41,.12);--card:#fff;
+.tsl{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --mulberry:var(--m-mulberry,#1B1A17);--line:rgba(30,26,18,.12);--card:#fff;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
@@ -82,12 +82,12 @@ const CSS = `
 .tsl .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
 .tsl .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
 .tsl .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.tsl .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
+.tsl .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft);white-space:nowrap}
 .tsl .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.tsl .bdg.setnayan{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
+.tsl .bdg.setnayan{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
 .tsl .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
 .tsl .v .ponq{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--ink-soft);margin-top:auto;padding-top:7px}
-html.dark .tsl{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}
+html.dark .tsl{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}
 html.dark .tsl .v .bdg.setnayan{color:#C99DB0}
 `;
 
@@ -139,7 +139,7 @@ function VendorCard({ v, aiOn }: { v: TourVendor; aiOn: boolean }) {
           {stars ? (
             <div className="stars" aria-label={`${v.rating} stars`}>
               {stars}
-              <span style={{ color: 'rgba(30,34,41,.18)' }}>{starsEmpty}</span>
+              <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
               {v.reviewCount !== null ? <span className="rcount">{v.reviewCount}</span> : null}
             </div>
           ) : null}
@@ -196,7 +196,7 @@ export function TourShortlist({
       <style>{CSS}</style>
 
       {/* AI toggle — visual mirror of SummaryAiToggle, no server action */}
-      <section className="flex items-center justify-between gap-3 rounded-xl border border-[#1E2229]/10 bg-[#FBF8F1] px-4 py-3">
+      <section className="flex items-center justify-between gap-3 rounded-xl border border-[#1B1A17]/10 bg-[#FBF8F1] px-4 py-3">
         <span className="flex items-center gap-2 text-sm text-[#5F5E5A]">
           <Gem className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} aria-hidden />
           {aiOn
@@ -210,7 +210,7 @@ export function TourShortlist({
           aria-label="Toggle Setnayan AI"
           onClick={() => setAiOn((v) => !v)}
           className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-            aiOn ? 'bg-[#8C6932]' : 'bg-[#1E2229]/20'
+            aiOn ? 'bg-[#8C6932]' : 'bg-[#1B1A17]/20'
           }`}
         >
           <span
@@ -225,7 +225,7 @@ export function TourShortlist({
         {sorted.map((cat) => (
           <section key={cat.id}>
             <div className="flex items-baseline justify-between gap-3">
-              <h2 className="font-serif text-2xl text-[#1E2229]">{cat.label}</h2>
+              <h2 className="font-serif text-2xl text-[#1B1A17]">{cat.label}</h2>
               <span className="font-mono text-[11px] uppercase tracking-wider text-[#9A8F86]">
                 {cat.vendors.length} found
               </span>
@@ -238,7 +238,7 @@ export function TourShortlist({
                 ))}
               </div>
             ) : (
-              <p className="mt-3 rounded-xl border border-dashed border-[#1E2229]/15 bg-white/50 p-5 text-sm text-[#9A8F86]">
+              <p className="mt-3 rounded-xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-5 text-sm text-[#9A8F86]">
                 No sample vendors seeded in this category yet.
               </p>
             )}

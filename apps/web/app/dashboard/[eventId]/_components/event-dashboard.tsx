@@ -27,6 +27,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -129,6 +130,16 @@ type DecisionGroupView = {
   items: DecisionItemView[];
 };
 
+// One row of the Hosts doorstep card — an account that manages this event:
+// the owning couple row(s), accepted event_moderators hosts, or a still-
+// pending invitation.
+type HostAccountView = {
+  key: string;
+  name: string;
+  roleLabel: string;
+  state: 'active' | 'invited';
+};
+
 export async function EventDashboard({
   eventId,
   suriPreviewParam,
@@ -156,6 +167,7 @@ export async function EventDashboard({
     unreadCount,
     seatAssignmentsRes,
     scheduleBlocks,
+    hostAccounts,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -344,6 +356,107 @@ export async function EventDashboard({
       );
       return [] as ScheduleBlockRow[];
     }),
+    // Hosts — every account managing this event (owner couple rows +
+    // event_moderators hosts and pending invites) for the Hosts doorstep
+    // card. Admin client on purpose: co-hosts' names live in `users`, which
+    // RLS scopes to self, and event_moderators mirrors the hosts page's
+    // admin-read pattern. Fail-soft to [] like every other card feed.
+    (async (): Promise<HostAccountView[]> => {
+      try {
+        const [membersRes, modsRes] = await Promise.all([
+          adminClient
+            .from('event_members')
+            .select('user_id')
+            .eq('event_id', eventId)
+            .eq('member_type', 'couple'),
+          adminClient
+            .from('event_moderators')
+            .select(
+              'moderator_id, user_id, role_subtype, display_label, invitation_email, accepted_at, invitation_token',
+            )
+            .eq('event_id', eventId)
+            .is('removed_at', null)
+            .order('accepted_at', { ascending: true }),
+        ]);
+        const members = (membersRes.data ?? []) as Array<{ user_id: string }>;
+        const mods = (modsRes.data ?? []) as Array<{
+          moderator_id: string;
+          user_id: string | null;
+          role_subtype: string;
+          display_label: string | null;
+          invitation_email: string | null;
+          accepted_at: string | null;
+          invitation_token: string | null;
+        }>;
+        const acceptedMods = mods.filter((m) => m.accepted_at);
+        const pendingMods = mods.filter((m) => !m.accepted_at && m.invitation_token);
+        // An accepted host may also hold an event_members row — keep the
+        // richer moderator row (it carries the role) and drop the duplicate.
+        const acceptedIds = new Set(acceptedMods.map((m) => m.user_id).filter(Boolean));
+        const owners = members.filter((m) => !acceptedIds.has(m.user_id));
+        const userIds = [
+          ...owners.map((m) => m.user_id),
+          ...acceptedMods
+            .map((m) => m.user_id)
+            .filter((id): id is string => !!id),
+        ];
+        let usersById: Record<string, { display_name: string | null; email: string | null }> = {};
+        if (userIds.length > 0) {
+          const { data: userRows } = await adminClient
+            .from('users')
+            .select('user_id, display_name, email')
+            .in('user_id', userIds);
+          usersById = Object.fromEntries(
+            (
+              (userRows ?? []) as Array<{
+                user_id: string;
+                display_name: string | null;
+                email: string | null;
+              }>
+            ).map((u) => [u.user_id, { display_name: u.display_name, email: u.email }]),
+          );
+        }
+        const modRoleLabel = (m: { role_subtype: string; display_label: string | null }) =>
+          m.display_label ??
+          (isRoleSubtype(m.role_subtype) ? ROLE_SUBTYPE_LABEL[m.role_subtype] : 'Host');
+        return [
+          ...owners.map((m) => ({
+            key: `member-${m.user_id}`,
+            name:
+              usersById[m.user_id]?.display_name ??
+              usersById[m.user_id]?.email ??
+              'Event owner',
+            roleLabel: 'Owner',
+            state: 'active' as const,
+          })),
+          ...acceptedMods.map((m) => ({
+            key: m.moderator_id,
+            name:
+              (m.user_id
+                ? (usersById[m.user_id]?.display_name ?? usersById[m.user_id]?.email)
+                : null) ??
+              m.invitation_email ??
+              'Host',
+            roleLabel: modRoleLabel(m),
+            state: 'active' as const,
+          })),
+          ...pendingMods.map((m) => ({
+            key: m.moderator_id,
+            name: m.invitation_email ?? 'Invitation sent',
+            roleLabel: modRoleLabel(m),
+            state: 'invited' as const,
+          })),
+        ];
+      } catch (caught) {
+        logQueryError(
+          'EventDashboard (host accounts fetch threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as HostAccountView[];
+      }
+    })(),
   ]);
 
   const event = eventRes.data;
@@ -1084,10 +1197,71 @@ export async function EventDashboard({
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="m-serif text-2xl text-ink">{spark}Around your event</h2>
             <p className="text-sm text-ink/55">
-              Your team, threads, services, and schedule — this is the doorstep.
+              Your hosts, team, threads, services, and schedule — this is the
+              doorstep.
             </p>
           </div>
           <div className="grid gap-3.5 sm:grid-cols-2">
+            {/* Hosts — every account managing this event. The add-host entry
+             *  moved here from the account switcher (owner 2026-07-12) so the
+             *  couple sees who can run their event right on the Overview;
+             *  the full invite/permission surface stays at /hosts. */}
+            <article className={`${card} px-5 py-4`}>
+              {goldHairline}
+              <div className="mb-2 flex items-center gap-2.5">
+                <h3 className="m-serif text-[16.5px] text-ink">Hosts</h3>
+                <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
+                  {hostAccounts.length}{' '}
+                  {hostAccounts.length === 1 ? 'account' : 'accounts'}
+                </span>
+                <Link
+                  href={`${base}/hosts`}
+                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
+                >
+                  Add a host →
+                </Link>
+              </div>
+              {hostAccounts.length > 0 ? (
+                hostAccounts.slice(0, 4).map((account) => (
+                  <div
+                    key={account.key}
+                    className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                  >
+                    <span className="min-w-0 truncate font-semibold text-ink">
+                      {account.name}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-ink/50">
+                      {account.roleLabel}
+                    </span>
+                    <span
+                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        account.state === 'invited'
+                          ? chipToneClass.warm
+                          : chipToneClass.ok
+                      }`}
+                    >
+                      {account.state}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/50">
+                  The accounts managing this {eventWord} appear here.
+                </p>
+              )}
+              {hostAccounts.length > 4 ? (
+                <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
+                  +{hostAccounts.length - 4} more on the Hosts page
+                </p>
+              ) : null}
+              {hostAccounts.length === 1 ? (
+                <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
+                  Planning solo so far — invite your partner, family, or
+                  coordinator to co-manage.
+                </p>
+              ) : null}
+            </article>
+
             {/* Your team */}
             <article className={`${card} px-5 py-4`}>
               {goldHairline}

@@ -111,7 +111,7 @@ function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
 }
 
-export default async function VendorCustomersPage({ searchParams }: Props) {
+async function CustomersPipeline({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -683,4 +683,112 @@ function moneyNote(r: CustomerRow): { text: string; tone: string } {
     return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'var(--m-ink)' };
   }
   return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+}
+
+
+/* ── My Customers hub (owner 5-page IA, 2026-07-12) ─────────────────────────
+ * One menu item, every people-facing feature integrated as a tab: the
+ * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
+ * Messages. The old routes redirect in with their params preserved. */
+import { Suspense } from 'react';
+import { Users as UsersIcon, SlidersHorizontal } from 'lucide-react';
+import {
+  FeatureAccordion,
+  AccordionSkeleton,
+  type AccordionSection,
+} from '../_components/feature-accordion';
+import BookingsSurface from '../bookings/surface';
+import ClientsSurface from '../clients/surface';
+import CalendarSurface from '../calendar/surface';
+import PaydaySurface from '../payday/surface';
+import MessagesSurface from '../messages/surface';
+
+// Folded sections below the pipeline (which already shows the ONE month
+// calendar + summary cards + QR + customers list). No "Calendar" section —
+// the grid lives in the pipeline; its EDIT tools live in "Availability &
+// capacity" (owner dedup 2026-07-12: "calendar already on the page").
+// Owner editorial pick 2026-07-12 — which sections stay ALWAYS-ON vs collapse.
+// Rule: always-on = glanced almost every visit AND light to render; collapse =
+// heavy / configure-once / already summarised elsewhere.
+//   ALWAYS-ON (rendered eagerly below the pipeline): Bookings (new inquiries —
+//   the daily heartbeat) + Payday (cash-flow timeline, 1 query, shown nowhere
+//   else). COLLAPSE: Clients (the pipeline list already covers the roster),
+//   Messages (unread count is on the pipeline's summary card), Availability
+//   (config).
+const CUSTOMER_SECTIONS: AccordionSection[] = [
+  {
+    key: 'clients',
+    label: 'Clients',
+    sub: 'Booked · in conversation · outside clients',
+    icon: <UsersIcon className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'availability',
+    label: 'Availability & capacity',
+    sub: 'Set daily limits, block dates, import clients, manage the waitlist',
+    icon: <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />,
+  },
+];
+
+async function CustomerSectionBody({
+  open,
+  sp,
+}: {
+  open: string;
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const pass = Promise.resolve(sp);
+  switch (open) {
+    case 'clients':
+      return <ClientsSurface searchParams={pass as never} />;
+    case 'availability':
+      // Management tools only — the month grid stays in the pipeline above.
+      return <CalendarSurface searchParams={pass as never} variant="manage" />;
+    default:
+      return null;
+  }
+}
+
+export default async function VendorCustomersHub({ searchParams }: Props) {
+  const sp = (await searchParams) as Record<string, string | string[] | undefined>;
+  const openRaw =
+    (typeof sp.open === 'string' && sp.open) ||
+    // Legacy alias: old /calendar deep-links redirect with ?tab=calendar →
+    // land on Availability. Everything else maps 1:1.
+    (typeof sp.tab === 'string' && (sp.tab === 'calendar' ? 'availability' : sp.tab)) ||
+    null;
+  const open =
+    openRaw && CUSTOMER_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+
+  return (
+    <>
+      {/* The pipeline is the home: month calendar + summary cards + QR + list. */}
+      <CustomersPipeline searchParams={Promise.resolve(sp) as never} />
+
+      {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
+          (new inquiries), Payday = the cash-flow timeline (1 query, shown
+          nowhere else). Rendered eagerly, not behind an accordion. */}
+      <div id="bookings">
+        <BookingsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
+      <div id="payday">
+        <PaydaySurface />
+      </div>
+      {/* Messages promoted to always-on (owner "build it" 2026-07-12) —
+          communication is daily; the thread list stays visible, live chat is
+          one click into a thread. */}
+      <div id="messages">
+        <MessagesSurface />
+      </div>
+
+      {/* The rest folds in — glance-covered or configure-once. */}
+      <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
+        {open ? (
+          <Suspense fallback={<AccordionSkeleton />}>
+            <CustomerSectionBody open={open} sp={sp} />
+          </Suspense>
+        ) : null}
+      </FeatureAccordion>
+    </>
+  );
 }

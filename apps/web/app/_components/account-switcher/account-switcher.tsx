@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  Users,
   LogOut,
   Store,
   ShieldCheck,
@@ -35,7 +34,7 @@ type Props = {
  *       – [User | Shop] for vendor accounts
  *       – [User | HQ] for admin-only accounts
  *       – [User | Shop | HQ] for admin + vendor accounts
- *   3. Slim footer: Profile · Settings · Sign out (+ Hosts when co-hosting)
+ *   3. Slim footer: Profile · Settings · Sign out
  *
  * Motion:
  *   – Mobile: bottom sheet slides up (translateY 100% → 0) + backdrop fades in
@@ -53,18 +52,17 @@ type Props = {
  *   1. Home — jumps to /dashboard (the home hub: events, add-event, Collection).
  *   2. Console rail (conditional) — vendor / Setnayan-team only. Home already
  *      covers the User console, so the rail only offers Shop / HQ.
- *   3. Footer — Hosts (co-hosting) · Secure-your-plan (anonymous) · Sign out.
+ *   3. Footer — Secure-your-plan (anonymous) · Sign out. (The Hosts link moved
+ *      to the event Overview's Hosts card, owner 2026-07-12.)
  */
 function SwitcherPanelBody({
   data,
   close,
   navigate,
-  hostsHref,
 }: {
   data: SwitcherData;
   close: () => void;
   navigate: (href: string) => void;
-  hostsHref: string | null;
 }) {
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
@@ -122,18 +120,9 @@ function SwitcherPanelBody({
         </div>
       ) : null}
 
-      {/* ── Footer — Hosts · Secure-your-plan (anon) · Sign out (set apart) ── */}
+      {/* ── Footer — Secure-your-plan (anon) · Sign out (set apart) ── */}
       <div className="border-t border-ink/10 px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          {hostsHref ? (
-            <button
-              type="button"
-              onClick={() => navigate(hostsHref)}
-              className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700"
-            >
-              <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
-            </button>
-          ) : null}
           {data.isAnonymous ? (
             <Link
               href="/signup"
@@ -178,13 +167,6 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
     router.push(href);
   }
 
-  // Hosts is event-scoped (/dashboard/[eventId]/hosts) — no /dashboard/hosts
-  // route exists. Target the user's primary OWNED event (role 'couple'),
-  // falling back to the first owned event; null when they organize none.
-  const ownedEvents = data.events.filter((e) => e.role === 'couple');
-  const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
-  const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
-
   // ─── Inner panel content ────────────────────────────────────────────────
 
   function renderPanel() {
@@ -221,7 +203,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
         {/* Drag handle (mobile only) */}
         <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
 
-        <SwitcherPanelBody data={data} close={close} navigate={navigate} hostsHref={hostsHref} />
+        <SwitcherPanelBody data={data} close={close} navigate={navigate} />
       </div>
     );
   }
@@ -343,13 +325,6 @@ export function AccountSwitcherStandalone({ data }: Props) {
     router.push(href);
   }
 
-  // Hosts is event-scoped (/dashboard/[eventId]/hosts) — no /dashboard/hosts
-  // route exists. Target the user's primary OWNED event (role 'couple'),
-  // falling back to the first owned event; null when they organize none.
-  const ownedEvents = data.events.filter((e) => e.role === 'couple');
-  const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
-  const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
-
   const initial = data.email?.charAt(0).toUpperCase() ?? '?';
 
   return (
@@ -418,7 +393,7 @@ export function AccountSwitcherStandalone({ data }: Props) {
                 className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-80 flex-col overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
                 style={{ animation: 'sn-switcher-drawer-in 0.3s ease' }}
               >
-                <SwitcherPanelBody data={data} close={close} navigate={navigate} hostsHref={hostsHref} />
+                <SwitcherPanelBody data={data} close={close} navigate={navigate} />
               </div>
             </>,
             document.body,

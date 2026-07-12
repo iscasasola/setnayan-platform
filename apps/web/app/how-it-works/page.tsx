@@ -11,11 +11,11 @@ import {
   } from 'lucide-react';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import {
-  HeroReveal,
   RoleGridReveal,
   FlowPanel,
   RevealBlock,
   FinalCtaReveal,
+  HowItWorksHero,
 } from './_how-it-works-motion';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -227,44 +227,10 @@ export default async function HowItWorksPage() {
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
 
-        {/* Hero — useLineReveal on the H1 (mount); eyebrow/lede/CTAs quiet rise. No thread. */}
-        <HeroReveal>
-          {(headingRef) => (
-            <>
-              <div data-reveal-item className="mb-3 flex items-center justify-end gap-4">
-                <Link
-                  href="/tl/how-it-works"
-                  hrefLang="tl-PH"
-                  className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
-                >
-                  Taglish
-                </Link>
-              </div>
-              <h1
-                ref={headingRef}
-                className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl"
-              >
-                One platform, six kinds of people. Here&rsquo;s the map.
-              </h1>
-              <p data-reveal-item className="mt-4 max-w-2xl text-base text-ink/70 sm:text-lg">
-                Setnayan brings couples, their vendors, and their guests onto one platform —
-                with an admin team behind the scenes. This page is the cheat-sheet for who
-                does what and where they go.
-              </p>
-              <div data-reveal-item className="mt-6 flex flex-wrap items-center gap-3">
-                <Link href="/signup" className="button-primary inline-flex h-11 items-center px-5 text-sm">
-                  Start planning — free
-                </Link>
-                <Link
-                  href="/vendors"
-                  className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
-                >
-                  I&rsquo;m a vendor
-                </Link>
-              </div>
-            </>
-          )}
-        </HeroReveal>
+        {/* Hero — moved into the client motion island (HowItWorksHero) so no
+            render-prop function crosses the server→client boundary (fixed the
+            production 500 on this route, 2026-07-12). */}
+        <HowItWorksHero />
 
         {/* Role cards */}
         <section

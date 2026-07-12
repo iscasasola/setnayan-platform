@@ -68,6 +68,35 @@ export async function consumeLeadHoldOnCoupleReply(
 }
 
 /**
+ * Phase C — a VENDOR reported a couple. Wire that report into the token economy:
+ * refund the reporting vendor's held token if the lead never replied (a dead /
+ * fake lead), and if ≥ threshold distinct users have reported this couple, refund
+ * the whole blast radius (a competitor's sock-puppet spray costs every victim
+ * vendor nothing). The generic report row + admin review are unchanged; this only
+ * adds the money-return. Best-effort, off the request path, never throws. No-op
+ * unless the hold feature is live (there's nothing to refund otherwise).
+ */
+export async function runVendorLeadReportBackstop(args: {
+  vendorProfileId: string;
+  eventId: string;
+  reportedUserId: string;
+  reason: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await admin.rpc('handle_vendor_lead_report' as never, {
+      p_vendor_profile_id: args.vendorProfileId,
+      p_event_id: args.eventId,
+      p_reported_user_id: args.reportedUserId,
+      p_reason: args.reason,
+    } as never);
+  } catch (e) {
+    // Best-effort — the report itself already landed in the admin queue.
+    console.warn('[lead-token-holds] vendor report backstop failed:', e);
+  }
+}
+
+/**
  * Release every hold still 'held' past the ghost window (default 7 days) — the
  * couple never replied. Called by the lead-hold-sweep cron. Returns the count
  * released. Service-role only.
@@ -82,4 +111,44 @@ export async function sweepGhostedLeadHolds(olderThan = '7 days'): Promise<numbe
     return 0;
   }
   return Array.isArray(data) ? data.length : 0;
+}
+
+/** In-memory pre-throttle per instance — makes the after() hook ~free. */
+const HOLD_SWEEP_CHECK_THROTTLE_MS = 30 * 60 * 1000;
+/** Target cadence — run the ghost sweep at most ~once per this window. */
+const HOLD_SWEEP_MIN_GAP_MS = 20 * 60 * 60 * 1000;
+let lastHoldSweepCheckMs = 0;
+
+/**
+ * CRON-FREE ghost sweep — replaces the deleted /api/cron/lead-hold-sweep. Fired
+ * from vendor/couple layout `after()` traffic; a durable single-row compare-and-
+ * swap on platform_settings.lead_hold_sweep_last_run_at guarantees the RPC runs
+ * ~once/day across the whole lambda fleet AND survives deploys (mirrors
+ * lib/admin/digest-flush.ts — the deploy-surviving alternative to an in-memory
+ * throttle). Cheap in-memory pre-throttle so most requests never touch the DB.
+ * Best-effort, never throws. sweep_ghosted_lead_holds is idempotent + a no-op
+ * when the hold feature is off (no held rows), so a double-fire is harmless.
+ */
+export async function maybeSweepGhostedLeadHolds(): Promise<void> {
+  const nowMs = Date.now();
+  if (nowMs - lastHoldSweepCheckMs < HOLD_SWEEP_CHECK_THROTTLE_MS) return;
+  lastHoldSweepCheckMs = nowMs;
+  try {
+    const admin = createAdminClient();
+    const nowIso = new Date(nowMs).toISOString();
+    const cutoffIso = new Date(nowMs - HOLD_SWEEP_MIN_GAP_MS).toISOString();
+    // Atomic daily claim — only one concurrent caller wins (the row-level lock
+    // re-checks the condition); the rest bail. Targets the platform_settings
+    // singleton (id=1) only when its watermark is stale.
+    const { data: claim } = await admin
+      .from('platform_settings')
+      .update({ lead_hold_sweep_last_run_at: nowIso })
+      .eq('id', 1)
+      .or(`lead_hold_sweep_last_run_at.is.null,lead_hold_sweep_last_run_at.lt.${cutoffIso}`)
+      .select('id');
+    if (!claim || claim.length === 0) return; // throttled, lost the race, or no row
+    await sweepGhostedLeadHolds('7 days');
+  } catch {
+    // Best-effort — a missed run just retries on the next eligible request.
+  }
 }

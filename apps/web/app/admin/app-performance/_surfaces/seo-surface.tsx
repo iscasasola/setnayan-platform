@@ -82,9 +82,9 @@ export async function SeoSurface() {
 
       {!snap ? (
         <div className="rounded-xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/60">
-          No health snapshot yet. The nightly <code className="rounded bg-ink/5 px-1">/api/cron/seo-health</code>{' '}
-          run writes the first one; trigger it manually with the{' '}
-          <code className="rounded bg-ink/5 px-1">CRON_SECRET</code> to populate this page now.
+          No health snapshot yet. The daily SEO health audit runs automatically off
+          admin traffic (cron-free) and writes the first one; just keep browsing the
+          console and it&rsquo;ll populate within a few minutes.
         </div>
       ) : (
         <>

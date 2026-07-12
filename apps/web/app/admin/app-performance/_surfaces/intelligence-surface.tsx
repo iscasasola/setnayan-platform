@@ -18,6 +18,10 @@ import {
   type LeadTier,
 } from '@/lib/admin/intelligence-stats';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
+import { fetchAdminPesoOverview } from '@/lib/vendor-peso';
+import { fetchAdminOutcomeOverview } from '@/lib/inquiry-outcomes';
+import { PesoPerLeadAdminCard } from '../_components/peso-per-lead-admin-card';
+import { WonLostAdminCard } from '../_components/won-lost-admin-card';
 
 /**
  * /admin/intelligence — churn radar · market pulse · lead scoring.
@@ -70,6 +74,16 @@ export async function IntelligenceSurface({ searchParams }: Props) {
     ? buildDemoIntelligenceStats(staleDays)
     : await fetchIntelligenceStats(staleDays);
 
+  // Vendor unit-economics scorecard (Wave 6) — re-homed from the retired
+  // /admin/insights landing grid (page-layer hygiene 2026-07-12; that route
+  // now redirects here). The page already ran requireAdmin() and both RPCs
+  // self-gate on is_console_admin(), so these service-role reads only resolve
+  // for admins.
+  const [pesoOverview, outcomeOverview] = await Promise.all([
+    fetchAdminPesoOverview(),
+    fetchAdminOutcomeOverview(),
+  ]);
+
   return (
     <div>
       <header className="mb-6 space-y-2">
@@ -101,6 +115,11 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           )}
         </p>
       </header>
+
+      {/* Vendor unit economics — Peso-per-Lead ROI + Won/Lost reasons (moved
+          from /admin/insights so the studio stays the one analytics home). */}
+      <PesoPerLeadAdminCard overview={pesoOverview} />
+      <WonLostAdminCard overview={outcomeOverview} />
 
       {/* Stale-window picker — GET form, no client JS (mirrors /admin/growth). */}
       <form method="get" className="mb-8 flex flex-wrap items-center gap-2">

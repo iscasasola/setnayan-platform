@@ -163,122 +163,30 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
   // moves them to sidebar chrome chips. (Redeem code was hard-deleted
   // 2026-07-01 under the "no free tokens" money-integrity pass.)
   {
-    // Overview — the single at-a-glance landing. Sentinel matchPrefix so the
-    // strict-prefix branch never fires; every other vendor route begins with
-    // `/vendor-dashboard/`, so a default startsWith match would keep Overview
-    // perpetually active.
+    // ── THE 5-PAGE IA (owner-locked 2026-07-12: "overview, my shop, my
+    // customers, my performance, BEO are all 1-page each with the different
+    // features integrated on that page"). The desktop sidebar is now exactly
+    // the mobile bottom nav's five destinations — every former child surface
+    // lives as a tab (or a More-tools card) INSIDE its hub, and the old
+    // routes redirect in with params preserved. Do NOT re-add children here;
+    // extend the hub's tab strip instead (customers/shop/performance page.tsx).
     key: 'home',
-    label: 'Overview',
+    label: 'Menu',
     items: [
       {
+        // Sentinel matchPrefix so the strict-prefix branch never fires —
+        // every other vendor route begins with `/vendor-dashboard/`, so a
+        // default startsWith match would keep Overview perpetually active.
         key: 'overview',
         label: 'Overview',
         href: '/vendor-dashboard',
         icon: Home,
         matchPrefix: '__overview-exact__',
       },
-    ],
-  },
-  {
-    // My Shop — the vendor's storefront: identity, reputation, network + the
-    // account/plan surfaces that run it.
-    key: 'shop',
-    label: 'My Shop',
-    items: [
-      // Shop overview — the storefront landing (proto-shell 6-menu destination).
-      // First item so the /more "My Shop" section leads with it.
       { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
-      // Profile editing + the gallery/video/Instagram media editors consolidated
-      // onto My Shop (2026-07-05); the old /vendor-dashboard/profile route now
-      // redirects there. Point the item at My Shop so it lands live, not on a
-      // redirect hop.
-      { key: 'profile', label: 'Profile', href: '/vendor-dashboard/shop', icon: User, matchPrefix: '/vendor-dashboard/profile' },
-      { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
-      { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
-      { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
-      // Track record across life events — the per-event-type reputation breakdown
-      // (Weddings 12 · ★4.8 / Debuts 3 · ★4.6). A reputation surface → lives under
-      // My Shop. Reachable via /more + mobile landing (both derive from this
-      // array); the 6 flat desktop destinations stay unchanged.
-      { key: 'track-record', label: 'Track record', href: '/vendor-dashboard/track-record', icon: BarChart2, matchPrefix: '/vendor-dashboard/track-record' },
-      // Disputes — "stand up for yourself" mediation. A neutral team reviews any
-      // dispute filed against your shop before it can touch your rating; you
-      // contest + track outcomes here. Reputation surface → lives under My Shop.
-      { key: 'disputes', label: 'Disputes', href: '/vendor-dashboard/disputes', icon: Scale, matchPrefix: '/vendor-dashboard/disputes' },
-      { key: 'theft-watch', label: 'Theft Watch', href: '/vendor-dashboard/theft-watch', icon: ShieldAlert, matchPrefix: '/vendor-dashboard/theft-watch' },
-      { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
-      { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },
-      { key: 'recommendations', label: 'Recommend', href: '/vendor-dashboard/recommendations', icon: Lightbulb, matchPrefix: '/vendor-dashboard/recommendations' },
-      { key: 'partnerships', label: 'Partnerships', href: '/vendor-dashboard/partnerships', icon: Handshake, matchPrefix: '/vendor-dashboard/partnerships' },
-      { key: 'team', label: 'Team & Setnayan', href: '/vendor-dashboard/team', icon: Users, matchPrefix: '/vendor-dashboard/team' },
-      // Branches — Enterprise sub-location accounts. Owner/admin only + the
-      // page/actions re-check tier + role server-side.
-      { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
-      { key: 'subscription', label: 'Plan & tokens', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-    ],
-  },
-  {
-    // My Customers — the people you work with + the money that flows from
-    // them (booking pipeline · comms · contracts · earnings).
-    key: 'customers',
-    label: 'My Customers',
-    items: [
-      // Customers overview — the pipeline landing (proto-shell 6-menu destination).
-      // First item so the /more "My Customers" section leads with it.
       { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
-      { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
-      { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
-      { key: 'bookings', label: 'Bookings', href: '/vendor-dashboard/bookings', icon: Briefcase, matchPrefix: '/vendor-dashboard/bookings' },
-      // Schedule-pool surface (owner lock 2026-06-12) — one schedule per
-      // service category; the calendar that stops double-bookings.
-      { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
-      { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
-      // Data-link program ③ — auto-filled proposals for booked clients.
-      { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },
-      { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
-      // Payday Calendar & Cash-Flow (Wave 4) — installment due-dates across
-      // booked events. Owner/admin only — surfaces money figures.
-      { key: 'payday', label: 'Payday', href: '/vendor-dashboard/payday', icon: CalendarClock, matchPrefix: '/vendor-dashboard/payday' },
-      { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
-    ],
-  },
-  {
-    // My Performance — analytics + market intel. Owner/admin only (every key
-    // absent from VENDOR_SCOPED_NAV_ITEM_KEYS). The Performance cockpit composes
-    // the ROI/health overview + booking funnel + by-source breakdown (the old
-    // standalone /funnel page was folded in · 2026-07-02); Demand Radar is its
-    // remaining drill-down.
-    key: 'performance',
-    label: 'My Performance',
-    items: [
-      { key: 'performance', label: 'Overview', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
-      { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
-    ],
-  },
-  {
-    // Service tools — the specialist tools that configure a vendor's offerings
-    // (Repertoire is music-only · gated in code + on the page). The Services
-    // editor itself was folded into My Shop (2026-07-02) — no 'services' item
-    // here; the group keeps its 'offerings' key so section open-state persists.
-    key: 'offerings',
-    label: 'Service tools',
-    items: [
-      { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
-      { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
-      { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
-      { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
-    ],
-  },
-  {
-    // On the Day — the free, category-conditional day-of console (Phase 7,
-    // 2026-07-01). Resolves the vendor's category from their services and shows
-    // the matching day-of tool: shot list (photo/video) · command center
-    // (coordinator) · headcount (caterer) · setlist (band/DJ), plus the live
-    // run-of-show for the event in focus. Ordered LAST per the 6-menu IA.
-    key: 'onday',
-    label: 'On the Day',
-    items: [
-      { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
+      { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
+      { key: 'on-the-day', label: 'On the Day (BEO)', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
     ],
   },
 ];
@@ -308,100 +216,33 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
  */
 const VENDOR_SIDEBAR_TREE: NavGroup[] = [
   {
-    // BUSINESS — the day-to-day running of the shop.
+    // ── THE 5-PAGE IA (owner-locked 2026-07-12: "overview, my shop, my
+    // customers, my performance, BEO are all 1-page each with the different
+    // features integrated on that page"). Desktop now mirrors the mobile
+    // bottom nav exactly — five destinations, no nested children. Every
+    // former sub-surface lives as a tab (or More-tools card) INSIDE its hub:
+    //   My Customers → pipeline · Bookings · Clients · Calendar · Payday · Messages
+    //   My Shop      → home (profile·services·verify·website) · Contracts ·
+    //                  Proposals · Earnings · How clients pay you · Manpower · tools
+    //   My Performance → overview · Demand Radar
+    // Old routes redirect in with params preserved. Do NOT re-add children
+    // here; extend the hub tab strips instead (customers/shop/performance).
     key: 'shell-business',
-    label: 'Business',
-    items: [
-      { key: 'overview', label: 'Home', href: '/vendor-dashboard', icon: Home, matchPrefix: '__overview-exact__' },
-      {
-        key: 'bookings',
-        label: 'Bookings',
-        href: '/vendor-dashboard/bookings',
-        icon: Briefcase,
-        // The booking pipeline + the money that flows from it. Badge (pending
-        // inquiries) injected at render from real layout data.
-        children: [
-          { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
-          { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
-          { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
-          { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
-          { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },
-          { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
-          { key: 'payday', label: 'Payday', href: '/vendor-dashboard/payday', icon: CalendarClock, matchPrefix: '/vendor-dashboard/payday' },
-          { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
-          { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
-        ],
-      },
-      {
-        key: 'services',
-        // Land on the first in-section child (Attributes), NOT the bare
-        // /vendor-dashboard/services route — that route redirects to /shop, so
-        // clicking the parent would strand the vendor OUT of section and the
-        // sub-tools (incl. Manpower) would never auto-expand. Pointing at a real
-        // child keeps the click in-section so <SidebarItem> expands the tools.
-        label: 'Services',
-        href: '/vendor-dashboard/attributes',
-        // matchPrefix defaults to the href PATHNAME (/vendor-dashboard/attributes),
-        // which does NOT cover the guided "Add a service" wizard at
-        // /vendor-dashboard/services/new/[category] — so that route left the
-        // Services section dark + collapsed (regression from #3052's href swap).
-        // Widen the prefix to /vendor-dashboard/services so the wizard re-lights
-        // + auto-expands. No double-lighting: the bare /vendor-dashboard/services
-        // redirects to /shop, and /shop does not start with /services.
-        matchPrefix: '/vendor-dashboard/services',
-        icon: ListChecks,
-        // The offerings couples book + the specialist tools that configure them.
-        children: [
-          { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
-          { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
-          { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
-          { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
-        ],
-      },
-      // Threads = the chat inbox (Messages route). Badge (unread threads)
-      // injected at render from real layout data.
-      { key: 'messages', label: 'Threads', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
-    ],
-  },
-  {
-    // GROW — reputation, reach, plan. Owner/admin surfaces (dropped for
-    // agent/viewer by the role filter, which strips the whole group).
-    key: 'shell-grow',
-    label: 'Grow',
+    label: 'Menu',
     items: [
       {
-        key: 'shop',
-        label: 'My Shop',
-        href: '/vendor-dashboard/shop',
-        icon: ShoppingBag,
-        // Storefront identity + reputation surfaces.
-        children: [
-          { key: 'profile', label: 'Profile', href: '/vendor-dashboard/profile', icon: User, matchPrefix: '/vendor-dashboard/profile' },
-          { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
-          { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
-          { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
-          { key: 'track-record', label: 'Track record', href: '/vendor-dashboard/track-record', icon: BarChart2, matchPrefix: '/vendor-dashboard/track-record' },
-          { key: 'disputes', label: 'Disputes', href: '/vendor-dashboard/disputes', icon: Scale, matchPrefix: '/vendor-dashboard/disputes' },
-          { key: 'theft-watch', label: 'Theft Watch', href: '/vendor-dashboard/theft-watch', icon: ShieldAlert, matchPrefix: '/vendor-dashboard/theft-watch' },
-          { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
-          { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },
-          { key: 'recommendations', label: 'Recommend', href: '/vendor-dashboard/recommendations', icon: Lightbulb, matchPrefix: '/vendor-dashboard/recommendations' },
-          { key: 'partnerships', label: 'Partnerships', href: '/vendor-dashboard/partnerships', icon: Handshake, matchPrefix: '/vendor-dashboard/partnerships' },
-          { key: 'team', label: 'Team & Setnayan', href: '/vendor-dashboard/team', icon: Users, matchPrefix: '/vendor-dashboard/team' },
-          { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
-        ],
+        // Sentinel matchPrefix so the strict-prefix branch never fires —
+        // a startsWith '/vendor-dashboard' match would keep this always lit.
+        key: 'overview',
+        label: 'Overview',
+        href: '/vendor-dashboard',
+        icon: Home,
+        matchPrefix: '__overview-exact__',
       },
-      {
-        key: 'performance',
-        label: 'Growth & Setnayan',
-        href: '/vendor-dashboard/performance',
-        icon: TrendingUp,
-        // Analytics + market intel + the plan/tokens relationship with Setnayan.
-        children: [
-          { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
-          { key: 'subscription', label: 'Plan & tokens', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-        ],
-      },
+      { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
+      { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
+      { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
+      { key: 'on-the-day', label: 'On the Day (BEO)', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
     ],
   },
 ];
@@ -590,11 +431,14 @@ export function VendorSidebar({
   const groups = applyPrimaryBadges(
     applyVendorRegistryGroups(repertoireGated, navSlots),
     {
-      bookings: bookingsBadge > 0
-        ? { count: bookingsBadge, tone: 'orange', label: `${bookingsBadge} new inquiries` }
-        : undefined,
-      messages: threadsBadge > 0
-        ? { count: threadsBadge, tone: 'orange', label: `${threadsBadge} unread threads` }
+      // Both live counts land on My Customers — the hub that now contains
+      // the booking pipeline AND the message threads (5-page IA 2026-07-12).
+      customers: bookingsBadge + threadsBadge > 0
+        ? {
+            count: bookingsBadge + threadsBadge,
+            tone: 'orange',
+            label: `${bookingsBadge} new inquiries · ${threadsBadge} unread threads`,
+          }
         : undefined,
     },
   );

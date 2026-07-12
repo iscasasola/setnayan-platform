@@ -13,7 +13,7 @@ import { Coins } from 'lucide-react';
  *   - `.m-card` paper surface + thin border + low shadow
  *   - `.m-display-tight` Saira Condensed wordmark eyebrow + headline number
  *   - `.m-label-mono` uppercase tracking-0.10em mono metadata
- *   - `--m-orange` (#C5A059) accent only on the icon chip
+ *   - `--m-orange` (#A9834B) accent only on the icon chip
  *
  * Server-side rendered; takes already-resolved numeric balances + does not
  * read Supabase directly. The parent page calls evaluate_earned_token_expiry()

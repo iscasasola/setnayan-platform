@@ -77,11 +77,11 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-start">
       {/* Search column */}
-      <div className="rounded-2xl border border-[#C5A059]/40 bg-[#FBF8F1] p-5 sm:p-6">
+      <div className="rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-5 sm:p-6">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#8C6932]">
           Find your seat
         </p>
-        <h2 className="mt-2 font-serif text-2xl text-[#1E2229]">Type your name</h2>
+        <h2 className="mt-2 font-serif text-2xl text-[#1B1A17]">Type your name</h2>
         <p className="mt-1.5 text-sm text-[#5F5E5A]">
           Start typing and we&rsquo;ll point you to your table.
         </p>
@@ -99,7 +99,7 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
             onChange={(e) => onChange(e.target.value)}
             placeholder="e.g. Maria"
             aria-label="Search for your name"
-            className="min-h-[48px] w-full rounded-full border border-[#1E2229]/15 bg-white py-3 pl-10 pr-4 text-sm text-[#1E2229] outline-none transition-colors placeholder:text-[#9A8F86] focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/30"
+            className="min-h-[48px] w-full rounded-full border border-[#1B1A17]/15 bg-white py-3 pl-10 pr-4 text-sm text-[#1B1A17] outline-none transition-colors placeholder:text-[#9A8F86] focus:border-[#A9834B] focus:ring-2 focus:ring-[#A9834B]/30"
           />
         </div>
 
@@ -122,11 +122,11 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
                       onClick={() => pick(seat)}
                       className={`flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2 text-left transition-colors ${
                         isActive
-                          ? 'border-[#1E2229]/40 bg-[#1E2229]/[0.06]'
-                          : 'border-[#1E2229]/10 bg-white hover:border-[#C5A059]/50 hover:bg-[#FBF6EA]'
+                          ? 'border-[#1B1A17]/40 bg-[#1B1A17]/[0.06]'
+                          : 'border-[#1B1A17]/10 bg-white hover:border-[#A9834B]/50 hover:bg-[#FBF6EA]'
                       }`}
                     >
-                      <span className="truncate text-sm font-medium text-[#1E2229]">
+                      <span className="truncate text-sm font-medium text-[#1B1A17]">
                         {seat.name}
                       </span>
                       <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-[#8C6932]">
@@ -143,10 +143,10 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
 
         {/* Confirmation line once a guest is picked. */}
         {selected ? (
-          <div className="mt-4 rounded-xl border border-[#1E2229]/25 bg-[#1E2229]/[0.05] px-4 py-3">
+          <div className="mt-4 rounded-xl border border-[#1B1A17]/25 bg-[#1B1A17]/[0.05] px-4 py-3">
             <p className="text-sm text-[#5F5E5A]">
-              <span className="font-semibold text-[#1E2229]">{selected.name}</span>, you&rsquo;re at{' '}
-              <span className="font-semibold text-[#1E2229]">{selected.tableLabel}</span>. Follow the
+              <span className="font-semibold text-[#1B1A17]">{selected.name}</span>, you&rsquo;re at{' '}
+              <span className="font-semibold text-[#1B1A17]">{selected.tableLabel}</span>. Follow the
               path on the map.
             </p>
           </div>

@@ -8,6 +8,9 @@ import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { createWeddingEvent } from '../actions';
 import { type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
+import { CreateDatePicker } from './create-date-picker';
+import { CreateLocationPicker } from './create-location-picker';
+import { type BudgetBand } from '@/lib/budget-bands-shared';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY by default; the hidden
@@ -35,10 +38,14 @@ type ConciergeChoice = 'diy';
  */
 export function EventTypePicker({
   types,
+  budgetBands,
   next,
   preselect,
 }: {
   types: EventTypeRow[];
+  /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
+   *  create form. Server-fetched (getBudgetBands) so it matches onboarding. */
+  budgetBands: BudgetBand[];
   next?: string;
   /** A QR-provided event type (Locked/Shortlist fast-lane): auto-advance past
    *  the type carousel so the couple never re-picks what the QR already knows. */
@@ -135,9 +142,58 @@ export function EventTypePicker({
               type="text"
             />
             <p className="text-xs text-ink/50">
-              Date and venue are added later from event settings.
+              Just the name to start — add the details below now, or anytime later.
             </p>
           </div>
+
+          {/* Optional committing-core capture (owner 2026-07-12 relaxed the
+              name-only lock). All optional — seed them to light up your planning
+              checklist's deadlines + budget guidance, or skip and add later. */}
+          <fieldset className="space-y-4 rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
+            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+              A few details — optional
+            </legend>
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium text-ink">When</span>
+              <CreateDatePicker />
+            </div>
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium text-ink">Where</span>
+              <CreateLocationPicker />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-ink" htmlFor="estimated_pax">
+                Guest count
+              </label>
+              <input
+                autoComplete="off"
+                className="input-field sm:max-w-[12rem]"
+                id="estimated_pax"
+                inputMode="numeric"
+                max={9999}
+                min={1}
+                name="estimated_pax"
+                placeholder="e.g. 120"
+                type="number"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-ink" htmlFor="budget_band">
+                Budget feel
+              </label>
+              <select className="input-field" defaultValue="" id="budget_band" name="budget_band">
+                <option value="">Not sure yet</option>
+                {budgetBands.map((b) => (
+                  <option key={b.value} value={b.value}>
+                    {b.label} — {b.tag}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-ink/50">
+                A rough feel — with your guest count we’ll estimate a starting budget.
+              </p>
+            </div>
+          </fieldset>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <SubmitButton

@@ -109,7 +109,7 @@ function SlotCard({ initial }: { initial: SlotState }) {
           <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)]">
             {isMain ? 'Main · slot 1' : `Bottom icon · slot ${initial.slot + 1}`}
           </div>
-          <div className="text-sm font-medium text-[var(--m-ink,#1e2229)] mt-0.5">{initial.label}</div>
+          <div className="text-sm font-medium text-[var(--m-ink,#1b1a17)] mt-0.5">{initial.label}</div>
         </div>
         <span
           className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap"
@@ -135,7 +135,7 @@ function SlotCard({ initial }: { initial: SlotState }) {
       </div>
 
       <label
-        className="block cursor-pointer rounded-xl border-2 border-dashed border-[var(--m-line,#e2ded4)] px-4 py-4 text-center hover:border-[var(--m-orange,#c5a059)] transition-colors"
+        className="block cursor-pointer rounded-xl border-2 border-dashed border-[var(--m-line,#e2ded4)] px-4 py-4 text-center hover:border-[var(--m-orange,#a9834b)] transition-colors"
         style={{ opacity: working ? 0.6 : 1, pointerEvents: working ? 'none' : 'auto' }}
       >
         <input
@@ -145,7 +145,7 @@ function SlotCard({ initial }: { initial: SlotState }) {
           onChange={onPick}
           disabled={working}
         />
-        <div className="text-[13px] text-[var(--m-ink,#1e2229)] font-medium">
+        <div className="text-[13px] text-[var(--m-ink,#1b1a17)] font-medium">
           {working ? msg || 'Working…' : hasVideo ? 'Replace video' : 'Upload video'}
         </div>
         <div className="text-[12px] text-[var(--m-slate,#4f535b)] mt-0.5">

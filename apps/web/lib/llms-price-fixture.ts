@@ -22,8 +22,8 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   // Free / zero
   '₱0',
 
-  // Planning tier — Setnayan AI (one-time, wedding-anchored, owner 2026-07-10)
-  '₱499', // Setnayan AI one-time (also: Live Background · Camera Bridge per day)
+  // À-la-carte add-on that shares this figure (Setnayan AI moved off ₱499 → ₱1,499 on 2026-07-12)
+  '₱499', // Live Background
 
   // À-la-carte customer software services
   '₱30', // Papic Ltd per camera per day (floor of the retail range)
@@ -31,7 +31,7 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱299', // Kwento
   '₱999', // Animated Monogram · Cinematic Reveal · Solo 28-day · additional-branch 28-day
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
-  '₱1,499', // Patiktok
+  '₱1,499', // Setnayan AI one-time (single ₱1,499 SKU, owner FINAL 2026-07-12) · Patiktok
   '₱2,000', // Stories (per-day cap) · 10-token pack (2026-07-12 reprice)
   '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day) · Pro vendor 28-day
   '₱2,500', // Live Photo Wall (per day)

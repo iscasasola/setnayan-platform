@@ -12,7 +12,7 @@ import {
 import { RELIGION_LABELS } from '@/lib/profile-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
-import { addDependent, deleteDependent } from '../dependent-actions';
+import { addDependent, deleteDependent, addGodparent, deleteGodparent } from '../dependent-actions';
 
 /**
  * "The people you care for" — the guardian-held dependent capture (Phase 3
@@ -28,6 +28,13 @@ type DependentRow = {
   sex: DependentSex | null;
   religion: string | null;
   relationship: string | null;
+};
+
+type GodparentRow = {
+  godparent_id: string;
+  dependent_id: string;
+  godparent_name: string;
+  role: string | null;
 };
 
 const FMT = new Intl.DateTimeFormat('en-US', {
@@ -49,6 +56,18 @@ export async function DependentsSection() {
   const dependents = (data ?? []) as DependentRow[];
   const today = manilaToday();
 
+  // Godparents (ninong/ninang) per dependent — RLS scopes to the owner's rows.
+  const { data: gpData } = await supabase
+    .from('godparents')
+    .select('godparent_id, dependent_id, godparent_name, role')
+    .order('created_at', { ascending: true });
+  const godparentsByDependent = new Map<string, GodparentRow[]>();
+  for (const g of (gpData ?? []) as GodparentRow[]) {
+    const list = godparentsByDependent.get(g.dependent_id) ?? [];
+    list.push(g);
+    godparentsByDependent.set(g.dependent_id, list);
+  }
+
   return (
     <section className="mt-10">
       <header className="mb-3">
@@ -69,31 +88,102 @@ export async function DependentsSection() {
             return (
               <li
                 key={d.dependent_id}
-                className="flex items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3"
+                className="rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-ink">{d.name}</p>
-                  <p className="truncate text-xs text-ink/55">
-                    {d.relationship ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS] : 'Someone I care for'}
-                    {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
-                    {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
-                  </p>
-                </div>
-                <ConfirmForm
-                  action={deleteDependent}
-                  title="Remove this record?"
-                  message={`Remove ${d.name}? This permanently deletes their record.`}
-                  confirmLabel="Remove"
-                  className="shrink-0"
-                >
-                  <input type="hidden" name="dependent_id" value={d.dependent_id} />
-                  <button
-                    type="submit"
-                    className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-ink">{d.name}</p>
+                    <p className="truncate text-xs text-ink/55">
+                      {d.relationship ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS] : 'Someone I care for'}
+                      {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
+                      {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
+                    </p>
+                  </div>
+                  <ConfirmForm
+                    action={deleteDependent}
+                    title="Remove this record?"
+                    message={`Remove ${d.name}? This permanently deletes their record.`}
+                    confirmLabel="Remove"
+                    className="shrink-0"
                   >
-                    Remove
-                  </button>
-                </ConfirmForm>
+                    <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                    <button
+                      type="submit"
+                      className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
+                    >
+                      Remove
+                    </button>
+                  </ConfirmForm>
+                </div>
+
+                {/* Godparents (ninong / ninang) — only meaningful for a child */}
+                {band === 'child' ? (
+                  <div className="mt-3 border-t border-ink/10 pt-3">
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-ink/40">
+                      Ninong &amp; ninang
+                    </p>
+                    {(godparentsByDependent.get(d.dependent_id) ?? []).length > 0 ? (
+                      <ul className="mt-2 flex flex-wrap gap-2">
+                        {(godparentsByDependent.get(d.dependent_id) ?? []).map((g) => (
+                          <li
+                            key={g.godparent_id}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 py-1 pl-3 pr-1.5 text-xs text-ink/70"
+                          >
+                            <span>
+                              {g.godparent_name}
+                              {g.role ? <span className="text-ink/40"> · {g.role}</span> : null}
+                            </span>
+                            <ConfirmForm
+                              action={deleteGodparent}
+                              title="Remove godparent?"
+                              message={`Remove ${g.godparent_name}?`}
+                              confirmLabel="Remove"
+                            >
+                              <input type="hidden" name="godparent_id" value={g.godparent_id} />
+                              <button
+                                type="submit"
+                                aria-label={`Remove ${g.godparent_name}`}
+                                className="rounded-full px-1.5 text-ink/40 transition-colors hover:text-terracotta"
+                              >
+                                ×
+                              </button>
+                            </ConfirmForm>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <form action={addGodparent} className="mt-2 flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                      <input
+                        name="godparent_name"
+                        className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[12rem]"
+                        placeholder="Add a ninong or ninang"
+                        aria-label={`Godparent name for ${d.name}`}
+                        required
+                      />
+                      <select
+                        name="role"
+                        defaultValue=""
+                        aria-label="Role"
+                        className="input-field h-9 w-auto py-1 text-sm"
+                      >
+                        <option value="">Role</option>
+                        <option value="ninong">Ninong</option>
+                        <option value="ninang">Ninang</option>
+                      </select>
+                      <input
+                        name="godparent_email"
+                        type="email"
+                        className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[13rem]"
+                        placeholder="Email (optional — for reminders)"
+                        aria-label={`Godparent email for ${d.name}`}
+                      />
+                      <SubmitButton className="button-secondary h-9 px-3 py-1 text-sm" pendingLabel="Adding…">
+                        Add
+                      </SubmitButton>
+                    </form>
+                  </div>
+                ) : null}
               </li>
             );
           })}

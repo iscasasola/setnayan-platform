@@ -723,12 +723,6 @@ const CUSTOMER_SECTIONS: AccordionSection[] = [
     icon: <UsersIcon className="h-4 w-4" strokeWidth={1.75} />,
   },
   {
-    key: 'messages',
-    label: 'Messages',
-    sub: 'Every couple thread, active and archived',
-    icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
-  },
-  {
     key: 'availability',
     label: 'Availability & capacity',
     sub: 'Set daily limits, block dates, import clients, manage the waitlist',
@@ -747,8 +741,6 @@ async function CustomerSectionBody({
   switch (open) {
     case 'clients':
       return <ClientsSurface searchParams={pass as never} />;
-    case 'messages':
-      return <MessagesSurface />;
     case 'availability':
       // Management tools only — the month grid stays in the pipeline above.
       return <CalendarSurface searchParams={pass as never} variant="manage" />;
@@ -781,6 +773,12 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       </div>
       <div id="payday">
         <PaydaySurface />
+      </div>
+      {/* Messages promoted to always-on (owner "build it" 2026-07-12) —
+          communication is daily; the thread list stays visible, live chat is
+          one click into a thread. */}
+      <div id="messages">
+        <MessagesSurface />
       </div>
 
       {/* The rest folds in — glance-covered or configure-once. */}

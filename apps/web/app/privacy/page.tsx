@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-04 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-13 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -98,11 +98,12 @@ export default function PrivacyPage() {
         <Section title="Device identifier (fraud prevention)">
           <p>
             To keep our marketplace safe from fake accounts and coordinated
-            abuse, we record a{' '}
+            abuse, we may record a{' '}
             <strong>hashed identifier for the device you sign in from</strong> —
             a random value stored in your browser, one-way hashed on our servers
-            (we never store the raw value). We use it <strong>only</strong> to
-            detect fraud and duplicate/sock-puppet accounts.
+            (we never store the raw value). Where active, we use it{' '}
+            <strong>only</strong> to detect fraud and duplicate/sock-puppet
+            accounts.
           </p>
           <ul className="ml-5 mt-2 list-disc space-y-1">
             <li>
@@ -149,6 +150,67 @@ export default function PrivacyPage() {
             You may withdraw consent at any time, which permanently deletes your
             face vector and enrolled selfie. If you never enroll a selfie, we
             collect no biometric data about you.
+          </p>
+        </Section>
+
+        <Section title="Optional personalization &amp; family details">
+          <p>
+            Some Setnayan features let you add details that are optional and that
+            you choose to provide. Several of these are{' '}
+            <strong>sensitive personal information</strong> under RA 10173, so we
+            process them only with your consent, record a timestamp when you
+            provide them, and let you remove them at any time. You never have to
+            provide any of these to use Setnayan.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              <strong>Profile personalization</strong> — your religion, civil
+              status, and gender, if you add them, so we can tailor suggestions
+              and salutations. Reference-only and always optional.
+            </li>
+            <li>
+              <strong>Family details</strong> — dependents (which may include a
+              child&rsquo;s name, birth date, sex, and religion) and godparents
+              (name and email), if you choose to track family milestones such as
+              upcoming christenings or godchild reminders. Data about a minor is
+              provided by you as the responsible adult, on that basis.
+            </li>
+            <li>
+              <strong>Event honoree details</strong> — for some event types (for
+              example a christening or a gender reveal) the person the event is
+              for is not the account holder; the details you enter about them —
+              which may include a child&rsquo;s birth date and gender, or an
+              expected due date — are stored as part of your event.
+            </li>
+            <li>
+              <strong>Guest RSVP details</strong> — when your guests reply we
+              store what the event needs, which may include meal or dietary
+              preferences. Because dietary information can imply health or
+              religious observance, we treat it as sensitive and use it only to
+              run your event.
+            </li>
+          </ul>
+          <p className="pt-2">
+            You can view, correct, or delete any of these from your profile or
+            the relevant event page; removing them deletes the underlying data.
+          </p>
+        </Section>
+
+        <Section title="Gift-receiving details (Pabuya)">
+          <p>
+            If you set up Pabuya (digital gift-giving), you can display your own
+            gift-receiving details to your guests — for example a GCash, Maya,
+            bank, or PayPal handle and a receiving QR image. This is your own
+            information, shown to your guests at your choice.
+          </p>
+          <p className="pt-2">
+            <strong>
+              Setnayan never holds, moves, or records the transfer of any money.
+            </strong>{' '}
+            We store only the receiving details you enter so we can display them
+            — there is no wallet, balance, or transaction ledger. You can edit or
+            remove these details at any time, and they are deleted with your
+            event.
           </p>
         </Section>
 
@@ -586,6 +648,8 @@ export default function PrivacyPage() {
             <li>Resend (transactional email)</li>
             <li>Sentry (server-side error monitoring · stack traces only)</li>
             <li>PostHog Cloud (product analytics — opt-out available in your profile)</li>
+            <li>Anthropic (AI features · United States · never trained on your data)</li>
+            <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
               Google (YouTube Data API — only for couples who purchase Panood
               and explicitly connect their YouTube channel via OAuth; Google

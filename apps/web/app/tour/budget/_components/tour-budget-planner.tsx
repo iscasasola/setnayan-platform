@@ -15,8 +15,8 @@
 //
 // This is the stop's "client-only interactive" moment: local React state
 // (pins) updates the on-screen split, calls NO server, and resets on reload.
-// Palette retuned to the tour's tokens (serif headings, #1E2229 ink, #5F5E5A
-// body, #8C6932 / #C5A059 gold, #1E2229 mulberry, #FBF8F1 / #FBF6EA creams).
+// Palette retuned to the tour's tokens (serif headings, #1B1A17 ink, #5F5E5A
+// body, #8C6932 / #A9834B gold, #1B1A17 mulberry, #FBF8F1 / #FBF6EA creams).
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -130,8 +130,8 @@ export function TourBudgetPlanner({ budgetPhp, leaves, config }: Props) {
 
   if (budgetPhp == null || final == null || recommended == null) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#1E2229]/20 bg-[#FBF8F1] p-8 text-center">
-        <PiggyBank aria-hidden className="mx-auto h-8 w-8 text-[#1E2229]/35" strokeWidth={1.5} />
+      <div className="rounded-2xl border border-dashed border-[#1B1A17]/20 bg-[#FBF8F1] p-8 text-center">
+        <PiggyBank aria-hidden className="mx-auto h-8 w-8 text-[#1B1A17]/35" strokeWidth={1.5} />
         <p className="mx-auto mt-3 max-w-sm text-sm text-[#5F5E5A]">
           This sample wedding hasn&rsquo;t set a budget yet, so there&rsquo;s no split to show.
         </p>
@@ -147,21 +147,21 @@ export function TourBudgetPlanner({ budgetPhp, leaves, config }: Props) {
   return (
     <div className="space-y-4">
       {/* Header — total budget + the cushion / over-budget readout. */}
-      <div className="rounded-2xl border border-[#1E2229]/10 bg-white p-5 shadow-sm sm:p-6">
+      <div className="rounded-2xl border border-[#1B1A17]/10 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
             <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#5F5E5A]">
               <Wallet aria-hidden className="h-3.5 w-3.5 text-[#8C6932]" strokeWidth={1.75} />
               Total budget
             </p>
-            <p className="font-serif text-3xl text-[#1E2229] sm:text-4xl">{formatPhp(budgetPhp)}</p>
+            <p className="font-serif text-3xl text-[#1B1A17] sm:text-4xl">{formatPhp(budgetPhp)}</p>
           </div>
           <div className="space-y-1 text-right">
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5F5E5A]">
               {overBudget ? 'Over budget' : 'Cushion'}
             </p>
             {overBudget ? (
-              <p className="font-serif text-2xl text-[#1E2229] sm:text-3xl">{formatPhp(Math.abs(cushion))}</p>
+              <p className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">{formatPhp(Math.abs(cushion))}</p>
             ) : (
               <p className="font-serif text-2xl text-emerald-700 sm:text-3xl">{formatPhp(cushion)}</p>
             )}
@@ -172,12 +172,12 @@ export function TourBudgetPlanner({ budgetPhp, leaves, config }: Props) {
         {hasShortfall ? (
           <div
             role="status"
-            className="mt-4 flex items-start gap-2 rounded-xl border border-[#1E2229]/30 bg-[#1E2229]/[0.06] px-3 py-2.5 text-sm text-[#1E2229]/80"
+            className="mt-4 flex items-start gap-2 rounded-xl border border-[#1B1A17]/30 bg-[#1B1A17]/[0.06] px-3 py-2.5 text-sm text-[#1B1A17]/80"
           >
-            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#1E2229]" strokeWidth={1.75} />
+            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#1B1A17]" strokeWidth={1.75} />
             <span>
               Your budget is about{' '}
-              <strong className="font-medium text-[#1E2229]">{formatPhp(final.shortfallPhp)}</strong> short for these
+              <strong className="font-medium text-[#1B1A17]">{formatPhp(final.shortfallPhp)}</strong> short for these
               services — consider raising it or trimming a few.
             </span>
           </div>
@@ -232,25 +232,25 @@ function OverspendBanner({ overspend }: { overspend: ReturnType<typeof computeBu
   return (
     <div
       role="status"
-      className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm text-[#1E2229]/80 ${
-        emerald ? 'border-emerald-300/60 bg-emerald-50/60' : 'border-[#1E2229]/30 bg-[#1E2229]/[0.06]'
+      className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm text-[#1B1A17]/80 ${
+        emerald ? 'border-emerald-300/60 bg-emerald-50/60' : 'border-[#1B1A17]/30 bg-[#1B1A17]/[0.06]'
       }`}
     >
       {emerald ? (
         <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" strokeWidth={1.75} />
       ) : (
-        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#1E2229]" strokeWidth={1.75} />
+        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#1B1A17]" strokeWidth={1.75} />
       )}
       <span>
         {joinLabels(overLabels)} {overLabels.length === 1 ? 'is' : 'are'} about{' '}
-        <strong className="font-medium text-[#1E2229]">{formatPhp(overspend.totalOverspendPhp)}</strong> over the
+        <strong className="font-medium text-[#1B1A17]">{formatPhp(overspend.totalOverspendPhp)}</strong> over the
         suggested split.{' '}
         {emerald ? (
           <>Your room on {joinLabels(absorbLabels)} can cover it — you&rsquo;re still within budget.</>
         ) : (
           <>
             {absorbLabels.length > 0 ? <>Room on {joinLabels(absorbLabels)} covers part of it; </> : null}
-            about <strong className="font-medium text-[#1E2229]">{formatPhp(overspend.netOverPhp)}</strong> isn&rsquo;t
+            about <strong className="font-medium text-[#1B1A17]">{formatPhp(overspend.netOverPhp)}</strong> isn&rsquo;t
             covered elsewhere — consider trimming or raising your budget.
           </>
         )}
@@ -268,21 +268,21 @@ function LeafRow({ leaf, label, onOpen }: { leaf: LeafAllocation; label: string;
       <button
         type="button"
         onClick={onOpen}
-        className="group flex w-full items-center gap-3 rounded-xl border border-[#1E2229]/10 bg-[#FBF8F1] p-4 text-left transition-colors hover:border-[#C5A059]/50 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C6932] focus-visible:ring-offset-1 focus-visible:ring-offset-[#FBF8F1]"
+        className="group flex w-full items-center gap-3 rounded-xl border border-[#1B1A17]/10 bg-[#FBF8F1] p-4 text-left transition-colors hover:border-[#A9834B]/50 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C6932] focus-visible:ring-offset-1 focus-visible:ring-offset-[#FBF8F1]"
         aria-label={`Adjust ${label} — suggested ${formatPhp(leaf.amountPhp)}`}
       >
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-sm font-medium text-[#1E2229]">{label}</span>
+            <span className="truncate text-sm font-medium text-[#1B1A17]">{label}</span>
             <ConfidenceChip confidence={leaf.confidence} />
             {leaf.pinned ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#C5A059]/40 bg-[#C5A059]/[0.1] px-2 py-0.5 text-[10px] font-medium text-[#8C6932]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#A9834B]/40 bg-[#A9834B]/[0.1] px-2 py-0.5 text-[10px] font-medium text-[#8C6932]">
                 <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
                 you set this
               </span>
             ) : null}
             {leaf.belowFloor ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#C5A059]/40 bg-[#FBF6EA] px-2 py-0.5 text-[10px] font-medium text-[#8C6932]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#A9834B]/40 bg-[#FBF6EA] px-2 py-0.5 text-[10px] font-medium text-[#8C6932]">
                 <Info aria-hidden className="h-3 w-3" strokeWidth={2} />
                 below typical floor
               </span>
@@ -294,7 +294,7 @@ function LeafRow({ leaf, label, onOpen }: { leaf: LeafAllocation; label: string;
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="font-serif text-xl text-[#1E2229] tabular-nums">{formatPhp(leaf.amountPhp)}</p>
+          <p className="font-serif text-xl text-[#1B1A17] tabular-nums">{formatPhp(leaf.amountPhp)}</p>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#5F5E5A]">{sharePct}% of budget</p>
         </div>
       </button>
@@ -315,13 +315,13 @@ function ConfidenceChip({ confidence }: { confidence: LeafAllocation['confidence
   }
   if (confidence === 'medium') {
     return (
-      <span className="rounded-full border border-[#1E2229]/15 bg-white px-2 py-0.5 text-[10px] font-medium text-[#5F5E5A]">
+      <span className="rounded-full border border-[#1B1A17]/15 bg-white px-2 py-0.5 text-[10px] font-medium text-[#5F5E5A]">
         good estimate
       </span>
     );
   }
   return (
-    <span className="rounded-full border border-[#1E2229]/15 bg-white px-2 py-0.5 text-[10px] font-medium text-[#5F5E5A]">
+    <span className="rounded-full border border-[#1B1A17]/15 bg-white px-2 py-0.5 text-[10px] font-medium text-[#5F5E5A]">
       rough estimate
     </span>
   );
@@ -377,28 +377,28 @@ function TiltEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-tilt-editor-headline"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E2229]/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1B1A17]/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-[#1E2229]/10 bg-[#FBF8F1] p-5 shadow-xl sm:p-6">
+      <div className="relative w-full max-w-md rounded-2xl border border-[#1B1A17]/10 bg-[#FBF8F1] p-5 shadow-xl sm:p-6">
         <button
           ref={closeBtnRef}
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-[#5F5E5A] transition-colors hover:bg-[#1E2229]/5 hover:text-[#1E2229] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8C6932]"
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-[#5F5E5A] transition-colors hover:bg-[#1B1A17]/5 hover:text-[#1B1A17] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8C6932]"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
 
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5F5E5A]">Adjust this service</p>
-        <h2 id="tour-tilt-editor-headline" className="mt-1 font-serif text-2xl tracking-tight text-[#1E2229]">
+        <h2 id="tour-tilt-editor-headline" className="mt-1 font-serif text-2xl tracking-tight text-[#1B1A17]">
           {label}
         </h2>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Suggested <strong className="font-medium text-[#1E2229]">{formatPhp(recommendedAmountPhp)}</strong> · typical
+          Suggested <strong className="font-medium text-[#1B1A17]">{formatPhp(recommendedAmountPhp)}</strong> · typical
           range {formatPhp(leaf.rangeLowPhp)}–{formatPhp(leaf.rangeHighPhp)}.
         </p>
 
@@ -454,7 +454,7 @@ function TiltEditor({
                 }
               }}
               placeholder={formatPlain(recommendedAmountPhp)}
-              className="h-12 flex-1 rounded-lg border border-[#1E2229]/15 bg-white px-3 text-xl tabular-nums text-[#1E2229] outline-none focus:border-[#8C6932] focus:ring-2 focus:ring-[#8C6932]/30"
+              className="h-12 flex-1 rounded-lg border border-[#1B1A17]/15 bg-white px-3 text-xl tabular-nums text-[#1B1A17] outline-none focus:border-[#8C6932] focus:ring-2 focus:ring-[#8C6932]/30"
             />
           </div>
           {leaf.belowFloor ? (
@@ -472,7 +472,7 @@ function TiltEditor({
               onReset();
               setDraft(formatPlain(recommendedAmountPhp));
             }}
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[#5F5E5A] transition-colors hover:text-[#1E2229]"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[#5F5E5A] transition-colors hover:text-[#1B1A17]"
           >
             <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Reset to suggested
@@ -483,7 +483,7 @@ function TiltEditor({
               commitDraft(draft);
               onClose();
             }}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#1E2229] px-5 py-2 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#1B1A17] px-5 py-2 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
           >
             Done
           </button>
@@ -511,8 +511,8 @@ function TiltButton({
       aria-pressed={active}
       className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border px-2 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8C6932] ${
         active
-          ? 'border-[#8C6932] bg-[#C5A059]/[0.12] text-[#8C6932]'
-          : 'border-[#1E2229]/15 bg-white text-[#5F5E5A] hover:border-[#C5A059]/50 hover:text-[#1E2229]'
+          ? 'border-[#8C6932] bg-[#A9834B]/[0.12] text-[#8C6932]'
+          : 'border-[#1B1A17]/15 bg-white text-[#5F5E5A] hover:border-[#A9834B]/50 hover:text-[#1B1A17]'
       }`}
     >
       <span className="text-sm font-semibold">{label}</span>

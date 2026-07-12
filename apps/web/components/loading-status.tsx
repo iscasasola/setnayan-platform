@@ -56,7 +56,7 @@ export function LoadingStatus({
  * LoadingNarration — a centred "what we're doing" strip: a small gold spinner +
  * a cycling <LoadingStatus>. The drop-in way to narrate any route's loading.tsx
  * (owner 2026-06-05) on top of its page-shaped skeleton. The spinner uses
- * `--m-orange` (Royal Champagne Gold) with a fallback, and is frozen to a static
+ * `--m-orange` (Atelier kit gold) with a fallback, and is frozen to a static
  * ring under prefers-reduced-motion by the global a11y block.
  */
 export function LoadingNarration({
@@ -70,7 +70,7 @@ export function LoadingNarration({
     <div className={`flex items-center justify-center gap-2.5 ${className}`.trim()}>
       <span
         aria-hidden
-        className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink/15 border-t-[var(--m-orange,#C5A059)]"
+        className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink/15 border-t-[var(--m-orange,#A9834B)]"
       />
       <LoadingStatus
         className="text-[13px] font-semibold text-ink/70"

@@ -1,11 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCreateCapture } from './create-event-capture';
+import { resolveCreateCapture, type AreaResolver } from './create-event-capture';
 import { BUDGET_BANDS_FALLBACK } from './budget-bands-shared';
 
 const BANDS = BUDGET_BANDS_FALLBACK;
 
-test('all-empty input → no date, no pax, no budget (name-only creation still works)', () => {
+// Stand-in for wedding-cities.resolvePick.
+const RESOLVE: AreaResolver = (k) =>
+  (({
+    tagaytay: { rk: 'calabarzon', lat: 14.106, lon: 120.962 },
+    manila: { rk: 'ncr', lat: 14.599, lon: 120.984 },
+    cebu: { rk: 'c-visayas', lat: 10.316, lon: 123.886 },
+  } as Record<string, { rk: string; lat: number; lon: number }>)[k] ?? { rk: null, lat: null, lon: null });
+
+test('all-empty input → no date, no pax, no budget, no location (name-only creation still works)', () => {
   const r = resolveCreateCapture({}, BANDS);
   assert.deepEqual(r, {
     dateMode: null,
@@ -15,7 +23,46 @@ test('all-empty input → no date, no pax, no budget (name-only creation still w
     estimatedPax: null,
     budgetBand: null,
     estimatedBudgetCentavos: null,
+    region: null,
+    venueLatitude: null,
+    venueLongitude: null,
+    searchAreas: [],
   });
+});
+
+test('location: 2 areas → primary drives region + geo, both become search_areas', () => {
+  const r = resolveCreateCapture(
+    { locationAreasRaw: ['manila', 'tagaytay'] },
+    BANDS,
+    { resolveArea: RESOLVE },
+  );
+  assert.equal(r.region, 'ncr'); // primary = manila
+  assert.equal(r.venueLatitude, 14.599);
+  assert.equal(r.venueLongitude, 120.984);
+  assert.deepEqual(r.searchAreas, ['manila', 'tagaytay']);
+});
+
+test('location: capped at 2, de-duped', () => {
+  const r = resolveCreateCapture(
+    { locationAreasRaw: ['manila', 'manila', 'tagaytay', 'cebu'] },
+    BANDS,
+    { resolveArea: RESOLVE },
+  );
+  assert.deepEqual(r.searchAreas, ['manila', 'tagaytay']); // dedup + cap 2
+  assert.equal(r.region, 'ncr');
+});
+
+test('location: an unresolvable key still counts as an area but yields null region/geo', () => {
+  const r = resolveCreateCapture({ locationAreasRaw: ['psgc:012345'] }, BANDS, { resolveArea: RESOLVE });
+  assert.deepEqual(r.searchAreas, ['psgc:012345']);
+  assert.equal(r.region, null);
+  assert.equal(r.venueLatitude, null);
+});
+
+test('location: no resolveArea injected → areas kept, no region/geo (fail-safe)', () => {
+  const r = resolveCreateCapture({ locationAreasRaw: ['manila'] }, BANDS);
+  assert.deepEqual(r.searchAreas, ['manila']);
+  assert.equal(r.region, null);
 });
 
 test('specific: candidate dates → deduped, chronological, capped at 4', () => {

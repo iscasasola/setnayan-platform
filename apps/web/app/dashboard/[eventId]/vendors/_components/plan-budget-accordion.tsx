@@ -1471,10 +1471,11 @@ function VendorCardAtom({
   // for marketplace candidates — off-platform/manual picks carry no signal,
   // and 1st-party Setnayan services are supplementary (never ranked against the
   // market). The scorer admits-unknown: distance + reviews + verification +
-  // budget-fit drive it today (budget_fit_ratio = the vendor's "starts at" vs
-  // the couple's allocated ₱ for its category, from the page fetch); refinement
-  // + date-headroom sit at a neutral baseline until per-service detail data
-  // lands, then the spread sharpens on its own.
+  // budget-fit + faith drive it today (budget_fit_ratio = the vendor's "starts
+  // at" vs the couple's allocated ₱ for its category; faith_match = the vendor
+  // explicitly serves the couple's ceremony — both from the page fetch);
+  // refinement + date-headroom sit at a neutral baseline until per-service
+  // detail data lands, then the spread sharpens on its own.
   const compatInputs = {
     distanceKm,
     avgRating: rating,
@@ -1482,6 +1483,7 @@ function VendorCardAtom({
     verified,
     budgetFitRatio:
       typeof pick.budget_fit_ratio === 'number' ? pick.budget_fit_ratio : null,
+    faithMatch: pick.faith_match === true,
   };
   // Matching is free for every couple (2026-07-12) — the % shows for any real
   // marketplace vendor, no longer only in personalized/AI mode. Still limited to
@@ -1951,6 +1953,7 @@ function CompareSheet({
             verified: pick.is_verified === true,
             budgetFitRatio:
               typeof pick.budget_fit_ratio === 'number' ? pick.budget_fit_ratio : null,
+            faithMatch: pick.faith_match === true,
           })
         : null;
     return {

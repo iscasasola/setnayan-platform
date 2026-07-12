@@ -11,6 +11,7 @@ import { EventTypePhotoPicker } from './event-type-photo-picker';
 import { CreateDatePicker } from './create-date-picker';
 import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
+import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS } from '@/lib/event-anchor';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY by default; the hidden
@@ -145,6 +146,55 @@ export function EventTypePicker({
               Just the name to start — add the details below now, or anytime later.
             </p>
           </div>
+
+          {/* Date-anchor model — the anniversary anchor question (PR-A). An
+              anniversary is any yearly memorable date: a typed origin + the
+              date it commemorates. Positive origins only (no memorial). Both
+              optional — add now or later. It recurs every year automatically. */}
+          {selected.key === 'anniversary' ? (
+            <fieldset className="space-y-4 rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
+              <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+                What are you celebrating?
+              </legend>
+              <div className="space-y-1.5">
+                <label
+                  className="block text-sm font-medium text-ink"
+                  htmlFor="anniversary_origin"
+                >
+                  What does this celebrate?
+                </label>
+                <select
+                  className="input-field"
+                  defaultValue="wedding"
+                  id="anniversary_origin"
+                  name="anniversary_origin"
+                >
+                  {ANCHOR_ORIGINS.map((o) => (
+                    <option key={o} value={o}>
+                      {ANCHOR_ORIGIN_LABELS[o]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  className="block text-sm font-medium text-ink"
+                  htmlFor="anniversary_date"
+                >
+                  What date is it?
+                </label>
+                <input
+                  className="input-field sm:max-w-[14rem]"
+                  id="anniversary_date"
+                  name="anniversary_date"
+                  type="date"
+                />
+                <p className="text-xs text-ink/50">
+                  We’ll bring it back every year — quietly, unless you throw a party for it.
+                </p>
+              </div>
+            </fieldset>
+          ) : null}
 
           {/* Optional committing-core capture (owner 2026-07-12 relaxed the
               name-only lock). All optional — seed them to light up your planning

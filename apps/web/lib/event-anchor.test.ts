@@ -11,6 +11,9 @@ import assert from 'node:assert/strict';
 import {
   anchorForType,
   ANCHOR_BY_TYPE,
+  ANCHOR_ORIGINS,
+  ANCHOR_ORIGIN_LABELS,
+  isAnchorOrigin,
   FALLBACK_ANCHOR,
   milestoneAges,
   parseISO,
@@ -60,6 +63,24 @@ test('ANCHOR_BY_TYPE covers all 14 known types', () => {
     'celebration', 'simple_event',
   ];
   assert.deepEqual(Object.keys(ANCHOR_BY_TYPE).sort(), [...expected].sort());
+});
+
+// ── anniversary typed origins (positive only) ───────────────────────────────
+
+test('isAnchorOrigin: accepts the four positive origins, rejects everything else', () => {
+  for (const o of ANCHOR_ORIGINS) assert.equal(isAnchorOrigin(o), true);
+  assert.equal(isAnchorOrigin('memorial'), false);
+  assert.equal(isAnchorOrigin('death'), false);
+  assert.equal(isAnchorOrigin('babang_luksa'), false);
+  assert.equal(isAnchorOrigin(''), false);
+  assert.equal(isAnchorOrigin(null), false);
+  assert.equal(isAnchorOrigin(undefined), false);
+});
+
+test('ANCHOR_ORIGINS: no memorial/death option exists (babang-luksa guardrail)', () => {
+  assert.equal(ANCHOR_ORIGINS.length, 4);
+  assert.ok(!ANCHOR_ORIGINS.some((o) => /memorial|death|luksa|passing/i.test(o)));
+  for (const o of ANCHOR_ORIGINS) assert.ok(ANCHOR_ORIGIN_LABELS[o]);
 });
 
 // ── the milestone ladder ────────────────────────────────────────────────────

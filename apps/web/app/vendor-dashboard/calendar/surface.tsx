@@ -58,6 +58,15 @@ export const metadata = { title: 'Calendar · Vendor' };
 
 type Props = {
   searchParams: Promise<{ m?: string; pool?: string; notice?: string }>;
+  /**
+   * 'full' (default) renders the whole page including the month-grid calendar
+   * visuals. 'manage' renders every management surface (create/edit calendar,
+   * capacity, block dates, import client, category merge, upcoming, waitlist)
+   * but SKIPS the month-grid visuals — used when this page is embedded as the
+   * "Availability & capacity" accordion under a calendar that's already drawn
+   * elsewhere (the My Customers CustomersCalendar), so the grid isn't drawn twice.
+   */
+  variant?: 'full' | 'manage';
 };
 
 const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
@@ -181,7 +190,7 @@ function poolTag(label: string): string {
   return first.slice(0, 2).toUpperCase();
 }
 
-export default async function VendorCalendarPage({ searchParams }: Props) {
+export default async function VendorCalendarPage({ searchParams, variant = 'full' }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -500,9 +509,16 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <CalendarDays aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Calendar</h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          {variant === 'manage' ? 'Availability & capacity' : 'Calendar'}
+        </h1>
         <p className="max-w-prose text-base text-ink/65">
-          {namedCalendars ? (
+          {variant === 'manage' ? (
+            <>
+              These are the tools that set capacity, block dates, import clients, and manage the
+              waitlist for the calendar shown above.
+            </>
+          ) : namedCalendars ? (
             <>
               Create calendars, name them, and pick which services each one covers — the
               calendar holds the daily limit. &ldquo;All schedules&rdquo; shows your whole
@@ -595,8 +611,8 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
           {/* Named Calendars: create a new calendar (flag on) */}
           {namedCalendars ? createCalendarForm : null}
 
-          {/* ── UNIVERSAL GRID — every schedule stacked per day ── */}
-          {isAllView ? (
+          {/* ── UNIVERSAL GRID — every schedule stacked per day ── (grid visuals only) */}
+          {isAllView && variant === 'full' ? (
             <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
               {gridNav}
               {weekdayHeader}
@@ -707,6 +723,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
           {/* ── PER-POOL GRID ── */}
           {!isAllView && activePool ? (
             <>
+              {variant === 'full' ? (
               <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
                 {gridNav}
                 {weekdayHeader}
@@ -787,6 +804,7 @@ export default async function VendorCalendarPage({ searchParams }: Props) {
                   = approve-first. Tap a day to manage it.
                 </p>
               </div>
+              ) : null}
 
               {/* Named Calendars: edit the calendar (name + limit + services).
                   Flag off: the per-pool daily-capacity editor only. */}

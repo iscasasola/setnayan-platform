@@ -1152,21 +1152,59 @@ function BranchPanel({
  * services fold-in from 2026-07-02) plus Contracts, Proposals, Earnings,
  * How clients pay you, Manpower as tabs, and a Tools tab linking the
  * long-tail surfaces that left the sidebar. Old routes redirect in. */
-import { VendorHubTabs } from '../_components/hub-tabs';
+import { Suspense } from 'react';
+import { FileSignature, FileText, Wallet, HandCoins, HardHat, Boxes } from 'lucide-react';
+import {
+  FeatureAccordion,
+  AccordionSkeleton,
+  type AccordionSection,
+} from '../_components/feature-accordion';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
 import EarningsSurface from '../earnings/surface';
 import PaymentOptionsSurface from '../payment-options/surface';
 import ManpowerSurface from '../manpower/surface';
 
-const SHOP_TABS = [
-  { key: 'home', label: 'My Shop' },
-  { key: 'contracts', label: 'Contracts' },
-  { key: 'proposals', label: 'Proposals' },
-  { key: 'earnings', label: 'Earnings' },
-  { key: 'payments', label: 'How clients pay you' },
-  { key: 'manpower', label: 'Manpower' },
-  { key: 'tools', label: 'More tools' },
+// The folded feature sections, in strategic order below the shop home. Each
+// expands in place and loads its server body on open (owner one-page IA
+// 2026-07-12). Home (profile · services · verify · website) stays above.
+const SHOP_SECTIONS: AccordionSection[] = [
+  {
+    key: 'contracts',
+    label: 'Contracts',
+    sub: 'Send, sign, and track your booking contracts',
+    icon: <FileSignature className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'proposals',
+    label: 'Proposals',
+    sub: 'Build quotes and reusable proposal templates',
+    icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'earnings',
+    label: 'Earnings',
+    sub: 'What paid bookings have rolled up this year',
+    icon: <Wallet className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'payments',
+    label: 'How clients pay you',
+    sub: 'Bank, GCash, and link methods couples can use',
+    icon: <HandCoins className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'manpower',
+    label: 'Manpower',
+    sub: 'Pick up paid crew gigs from events already booked',
+    icon: <HardHat className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'tools',
+    label: 'More tools',
+    sub: 'Reviews · Stories · Recaps · Partnerships · Attributes · Branches …',
+    icon: <Boxes className="h-4 w-4" strokeWidth={1.75} />,
+  },
 ];
 
 const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
@@ -1209,32 +1247,63 @@ function ShopTools({ isStylist }: { isStylist: boolean }) {
   );
 }
 
+/** The open section's body — async so <Suspense> streams a skeleton while its
+ *  queries run. Only the matching one renders, so folded sections cost nothing
+ *  until expanded. `tools` awaits the cheap stylist check internally so the
+ *  accordion headers paint instantly. */
+async function ShopSectionBody({
+  open,
+  sp,
+}: {
+  open: string;
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const pass = Promise.resolve(sp);
+  switch (open) {
+    case 'contracts':
+      return <ContractsSurface />;
+    case 'proposals':
+      return <ProposalsSurface searchParams={pass as never} />;
+    case 'earnings':
+      return <EarningsSurface searchParams={pass as never} />;
+    case 'payments':
+      return <PaymentOptionsSurface searchParams={pass as never} />;
+    case 'manpower':
+      return <ManpowerSurface />;
+    case 'tools':
+      return <ShopTools isStylist={await shopOwnerIsStylist()} />;
+    default:
+      return null;
+  }
+}
+
 export default async function VendorShopHub({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const tab = typeof sp.tab === 'string' ? sp.tab : 'home';
-  const pass = Promise.resolve(sp);
+  // `open` is canonical; `tab` is the legacy alias the old redirect stubs emit.
+  const openRaw =
+    (typeof sp.open === 'string' && sp.open) ||
+    (typeof sp.tab === 'string' && sp.tab) ||
+    null;
+  const open =
+    openRaw && SHOP_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+
   return (
     <>
-      <VendorHubTabs base="/vendor-dashboard/shop" active={tab} tabs={SHOP_TABS} />
-      {tab === 'contracts' ? (
-        <ContractsSurface />
-      ) : tab === 'proposals' ? (
-        <ProposalsSurface searchParams={pass as never} />
-      ) : tab === 'earnings' ? (
-        <EarningsSurface searchParams={pass as never} />
-      ) : tab === 'payments' ? (
-        <PaymentOptionsSurface searchParams={pass as never} />
-      ) : tab === 'manpower' ? (
-        <ManpowerSurface />
-      ) : tab === 'tools' ? (
-        <ShopTools isStylist={await shopOwnerIsStylist()} />
-      ) : (
-        <ShopHome searchParams={pass as never} />
-      )}
+      {/* Home stays on top: identity · stats · Manage tiles · verify · services. */}
+      <ShopHome searchParams={Promise.resolve(sp) as never} />
+
+      {/* Everything else folds in below — one open at a time, loaded on expand. */}
+      <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
+        {open ? (
+          <Suspense fallback={<AccordionSkeleton />}>
+            <ShopSectionBody open={open} sp={sp} />
+          </Suspense>
+        ) : null}
+      </FeatureAccordion>
     </>
   );
 }

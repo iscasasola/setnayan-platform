@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
+import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -100,6 +101,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // short-circuits. Idempotent (UPSERT) + never throws. The admin "Run now"
   // button is the manual fallback if no admin visits.
   after(() => maybeRecomputeSpotlightAwards().catch(() => {}));
+  // Fraud cluster sweep (fake-inquiry protection) — CRON-FREE: refresh the
+  // identity-cluster matview + raise concentration WATCH flags (shadow mode).
+  // Fired from ADMIN traffic so the heavy matview REFRESH never rides an
+  // end-user request; daily DB claim + device-fingerprint gate inside. Never throws.
+  after(() => maybeRunFraudClusterSweep().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

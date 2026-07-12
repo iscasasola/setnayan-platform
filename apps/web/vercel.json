@@ -29,14 +29,6 @@
     {
       "path": "/api/cron/papic-fullres-drop-warning",
       "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/lead-hold-sweep",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron/fraud-cluster-sweep",
-      "schedule": "0 6 * * *"
     }
   ]
 }

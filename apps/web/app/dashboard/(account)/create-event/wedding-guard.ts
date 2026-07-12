@@ -1,36 +1,91 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { manilaToday } from '@/lib/std-views';
 
 /**
- * Wedding cardinality — the "one wedding at a time" guard (owner-locked
- * 2026-07-12, HARD BLOCK: "you cannot have 2 weddings at the same time").
+ * Wedding cardinality — "one wedding IN PLANNING at a time" (owner-locked
+ * 2026-07-12, HARD BLOCK, reconciled after the flow-check 2026-07-12).
  *
- * A user may co-host at most ONE non-archived wedding. Tapping "Wedding" again
- * while one is active is blocked outright — no second wedding event is created.
- * To start a new wedding (e.g. a remarriage after the first is over), the
- * existing one must be finished/archived first, which frees the slot.
+ * A user may have at most ONE wedding that is still IN PLANNING. Tapping
+ * "Wedding" again while one is in planning is blocked — but the block is now
+ * GUIDED (the picker offers "same-marriage church ceremony / vow renewal / a
+ * new marriage") rather than a flat wall.
  *
- * Shared by the create-event PAGE (to show the block message instead of the
- * form) and the create-event SERVER ACTION (the authoritative enforcement — the
- * UI can be bypassed, the action cannot).
+ * ⚠ Flow-check fix: the slot must FREE for a SETTLED wedding, not only an
+ * archived one. A wedding is SETTLED when it is archived OR completed (its
+ * event_date has passed — the wedding happened: a widow/annulled/remarrying
+ * user). Only an IN-PLANNING wedding blocks:
  *
- * ⚠ Known edges the strict block also stops (flagged for a future exception
- * path, not handled here): the Muslim-rite concurrent unions (PD 1083, up to 4)
- * and the civil-then-church SAME marriage — the latter should be modeled as one
- * wedding with two ceremonies, never a second wedding event.
+ *     in-planning  =  NOT archived  AND  (event_date IS NULL OR event_date >= today)
+ *
+ * So a widow/annulled user can create a new wedding without archiving their
+ * past one (that was the live defect this repairs).
+ *
+ * Same-marriage civil+church is one wedding with two ceremonies (never a second
+ * event). Muslim-rite concurrency stays blocked in V1 (accepted).
+ *
+ * Shared by the create-event PAGE (guided router) + SERVER ACTION (authoritative).
  */
-export async function hasActiveWeddingForUser(
+
+export type InPlanningWedding = {
+  eventId: string;
+  displayName: string;
+  eventDate: string | null;
+};
+
+type WeddingRow = {
+  event_id: string;
+  event_type: string;
+  display_name: string;
+  event_date: string | null;
+  archived: boolean;
+};
+
+/**
+ * Pure predicate: does this event count as an IN-PLANNING wedding that blocks a
+ * new one? A wedding blocks iff it is not archived AND not completed (event_date
+ * null or still today/future). Settled (archived, or event_date strictly before
+ * `todayIso`) → does not block. Non-weddings never block.
+ */
+export function isInPlanningWedding(
+  ev: { event_type: string; event_date: string | null; archived: boolean } | null | undefined,
+  todayIso: string,
+): boolean {
+  if (ev == null || ev.event_type !== 'wedding' || ev.archived) return false;
+  if (ev.event_date != null && ev.event_date < todayIso) return false; // completed
+  return true;
+}
+
+/**
+ * The user's IN-PLANNING wedding (not archived, date unset or still upcoming),
+ * or null. A settled wedding (archived, or event_date in the past) returns null
+ * — it does NOT block a new wedding.
+ */
+export async function getInPlanningWedding(
   supabase: SupabaseClient,
   userId: string,
-): Promise<boolean> {
+): Promise<InPlanningWedding | null> {
   const { data } = await supabase
     .from('event_members')
-    .select('events:event_id(event_type, archived)')
+    .select('events:event_id(event_id, event_type, display_name, event_date, archived)')
     .eq('user_id', userId)
     .eq('member_type', 'couple');
 
-  return (data ?? []).some((row) => {
-    const e = (row as { events: { event_type: string; archived: boolean } | { event_type: string; archived: boolean }[] | null }).events;
+  const today = manilaToday();
+
+  for (const row of data ?? []) {
+    const e = (row as { events: WeddingRow | WeddingRow[] | null }).events;
     const ev = Array.isArray(e) ? e[0] : e;
-    return ev != null && ev.event_type === 'wedding' && ev.archived === false;
-  });
+    if (ev != null && isInPlanningWedding(ev, today)) {
+      return { eventId: ev.event_id, displayName: ev.display_name, eventDate: ev.event_date };
+    }
+  }
+  return null;
+}
+
+/** Authoritative boolean for the server action. */
+export async function hasInPlanningWeddingForUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  return (await getInPlanningWedding(supabase, userId)) != null;
 }

@@ -11,7 +11,7 @@ import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
 import { anchorForType, isAnchorOrigin, parseISO } from '@/lib/event-anchor';
-import { hasActiveWeddingForUser } from './wedding-guard';
+import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
@@ -196,12 +196,12 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/login');
   }
 
-  // Wedding cardinality — authoritative HARD BLOCK (owner-locked 2026-07-12:
-  // "you cannot have 2 weddings at the same time"). The picker hides the form
-  // when a wedding is already active, but the UI can be bypassed — this is the
-  // real gate. One non-archived wedding per user; archive/finish it to free the
-  // slot (remarriage). Non-wedding types are unaffected.
-  if (isWedding && (await hasActiveWeddingForUser(supabase, user.id))) {
+  // Wedding cardinality — authoritative gate (owner-locked 2026-07-12; flow-check
+  // reconciled). One wedding IN PLANNING at a time. A SETTLED wedding (archived,
+  // or completed = event_date passed) does NOT block — so a widow/annulled/
+  // remarrying user can create a new wedding without archiving their past one.
+  // The picker shows the guided router; this is the real (UI-bypass-proof) gate.
+  if (isWedding && (await hasInPlanningWeddingForUser(supabase, user.id))) {
     return redirect('/dashboard/create-event?error=wedding_exists');
   }
 

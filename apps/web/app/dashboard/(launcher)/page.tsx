@@ -829,7 +829,7 @@ function SpaceCard({
       href={href}
       className={`group flex min-h-[9rem] flex-col justify-between rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
         hero
-          ? 'border-white/10 bg-gradient-to-br from-[#3f1a2e] to-[#1E2229] text-white'
+          ? 'border-white/10 bg-gradient-to-br from-[#3f1a2e] to-[#1B1A17] text-white'
           : 'border-ink/10 bg-cream text-ink hover:border-mulberry/30'
       }`}
     >

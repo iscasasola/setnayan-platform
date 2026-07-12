@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import {
+  normalizeReligion,
+  normalizeCivilStatus,
+  consentPatch,
+} from '@/lib/profile-personalization';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -97,6 +102,13 @@ export async function updatePersonalInfo(formData: FormData) {
   const birth_date = birthDateStr || null;
   const public_greeting_opt_in = publicGreetingRaw === 'on';
 
+  // Optional, REFERENCE-ONLY sensitive-PI personalization (date-anchor model,
+  // owner 2026-07-12): religion + civil status. Unknown/empty → null (the
+  // "prefer not to say" / withdrawal state). Consent is stamped per field on
+  // the transition to a value, cleared on withdrawal (RA 10173 §3(l)).
+  const religion = normalizeReligion(formData.get('religion'));
+  const civil_status = normalizeCivilStatus(formData.get('civil_status'));
+
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
   // current opt-in state so we only STAMP marketing_consent_at on an actual
   // transition — opting in sets now(), opting out clears it to NULL, and an
@@ -104,17 +116,23 @@ export async function updatePersonalInfo(formData: FormData) {
   // timestamp untouched (unlike updated_at, which every save overwrites).
   const { data: existing } = await supabase
     .from('users')
-    .select('marketing_opt_in')
+    .select('marketing_opt_in, religion, civil_status')
     .eq('user_id', user.id)
     .maybeSingle();
   const wasOptedIn = existing?.marketing_opt_in === true;
 
-  const consentPatch: { marketing_consent_at?: string | null } = {};
+  const nowIso = new Date().toISOString();
+  const marketingConsent: { marketing_consent_at?: string | null } = {};
   if (marketing_opt_in && !wasOptedIn) {
-    consentPatch.marketing_consent_at = new Date().toISOString();
+    marketingConsent.marketing_consent_at = nowIso;
   } else if (!marketing_opt_in && wasOptedIn) {
-    consentPatch.marketing_consent_at = null;
+    marketingConsent.marketing_consent_at = null;
   }
+
+  // Per-field sensitive-PI consent transitions (stamp on first value, clear on
+  // withdrawal, untouched when unchanged).
+  const religionConsent = consentPatch(religion, existing?.religion ?? null, nowIso);
+  const civilConsent = consentPatch(civil_status, existing?.civil_status ?? null, nowIso);
 
   const { error } = await supabase
     .from('users')
@@ -123,10 +141,18 @@ export async function updatePersonalInfo(formData: FormData) {
       phone,
       profile_photo_url,
       marketing_opt_in,
-      ...consentPatch,
+      ...marketingConsent,
       birth_date,
       public_greeting_opt_in,
-      updated_at: new Date().toISOString(),
+      religion,
+      ...(religionConsent.consent_at !== undefined
+        ? { religion_consent_at: religionConsent.consent_at }
+        : {}),
+      civil_status,
+      ...(civilConsent.consent_at !== undefined
+        ? { civil_status_consent_at: civilConsent.consent_at }
+        : {}),
+      updated_at: nowIso,
     })
     .eq('user_id', user.id);
 

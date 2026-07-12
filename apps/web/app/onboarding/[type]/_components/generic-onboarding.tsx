@@ -27,6 +27,7 @@ import type { OnboardingIntro } from '@/lib/onboarding/onboarding-db';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { getSpecialtyFields } from '@/lib/onboarding/specialty-catalog';
 import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
+import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
 import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
@@ -56,6 +57,13 @@ type Props = {
    * finish shortlisting the vendor. Null = land on the dashboard as usual.
    */
   nextPath?: string | null;
+  /**
+   * Profile-derived prefill (onboarding_v2_brief). Answers the type's questions
+   * that the user's self-profile already settles (e.g. religion → christening
+   * rite) so the flow seeds them + skips/labels them. EMPTY_PREFILL (the default
+   * / flag-off) makes the flow byte-identical.
+   */
+  prefill?: OnboardingPrefill;
 };
 
 type Draft = {
@@ -89,6 +97,7 @@ export function GenericOnboarding(props: Props) {
     authed,
     resume,
     nextPath = null,
+    prefill = EMPTY_PREFILL,
   } = props;
   const router = useRouter();
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
@@ -111,7 +120,23 @@ export function GenericOnboarding(props: Props) {
   // milestone-as-data, …). Empty for a type with no catalog entry → the screen is
   // dropped and the flow is byte-identical to before.
   const specialtyFields = useMemo(() => getSpecialtyFields(eventType), [eventType]);
+  // Profile prefill (onboarding_v2_brief): split the derived answers into the
+  // rich specialty fields vs the light tq_ questions they target, so each bag is
+  // seeded, a fully-answered tq_ screen is skipped, and a prefilled specialty
+  // field is labelled "from your profile". Empty (flag off / nothing on file) →
+  // the sequence + state are byte-identical to before.
+  const { prefillDetails, prefillSpecialty } = useMemo(() => {
+    const parts = partitionOnboardingPrefill(
+      prefill,
+      questions.map((q) => q.id),
+      specialtyFields.map((f) => f.key),
+    );
+    return { prefillDetails: parts.details, prefillSpecialty: parts.specialty };
+  }, [prefill, questions, specialtyFields]);
+  const prefilledSpecialtyKeys = useMemo(() => Object.keys(prefillSpecialty), [prefillSpecialty]);
   // Per-type signature-moment screens, injected into the sequence after 'region'.
+  // A tq_ question the profile already answers is dropped (its answer is seeded
+  // into `details`, so the derived plan still counts its adds).
   const screens = useMemo<string[]>(
     () => [
       'welcome',
@@ -119,18 +144,22 @@ export function GenericOnboarding(props: Props) {
       'date',
       'pax',
       'region',
-      ...questions.map((q) => `tq_${q.id}`),
+      ...questions.filter((q) => !(q.id in prefillDetails)).map((q) => `tq_${q.id}`),
       ...(specialtyFields.length > 0 ? ['specialty'] : []),
       ...axisIds, // for_whom · feel · energy · roots · effort
       'reveal',
       'congrats',
     ],
-    [questions, axisIds, specialtyFields],
+    [questions, axisIds, specialtyFields, prefillDetails],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
   //    jump to the final screen so the visitor can finish in one tap. --
   useEffect(() => {
+    // Seed from the self-profile prefill first; a saved draft then overrides
+    // per-key so a resumed session and any user edit always win over the prefill.
+    let seededDetails: Record<string, string> = { ...prefillDetails };
+    let seededSpecialty: Record<string, unknown> = { ...prefillSpecialty };
     try {
       const raw = localStorage.getItem(draftKey);
       if (raw) {
@@ -141,8 +170,8 @@ export function GenericOnboarding(props: Props) {
           setPax(d.pax ?? '');
           setRegion(d.region ?? '');
           setAxes(d.axes ?? {});
-          setDetails(d.details ?? {});
-          setSpecialtyValues(d.specialtyValues ?? {});
+          seededDetails = { ...prefillDetails, ...(d.details ?? {}) };
+          seededSpecialty = { ...prefillSpecialty, ...(d.specialtyValues ?? {}) };
           if (resume) setStep(screens.indexOf('congrats'));
         } else {
           localStorage.removeItem(draftKey);
@@ -151,8 +180,10 @@ export function GenericOnboarding(props: Props) {
     } catch {
       /* ignore corrupt draft */
     }
+    setDetails(seededDetails);
+    setSpecialtyValues(seededSpecialty);
     setHydrated(true);
-  }, [draftKey, resume, screens]);
+  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty]);
 
   // -- Persist the draft on every change (after hydration). --
   useEffect(() => {
@@ -431,7 +462,7 @@ export function GenericOnboarding(props: Props) {
           <p className="mt-2 text-ink/55">
             Optional — the more you share, the more personal your plan. Skip anything you’re unsure of.
           </p>
-          <SpecialtyFields fields={specialtyFields} value={specialtyValues} onChange={setSpecialtyValues} />
+          <SpecialtyFields fields={specialtyFields} value={specialtyValues} onChange={setSpecialtyValues} prefilledKeys={prefilledSpecialtyKeys} />
         </div>
       );
     }

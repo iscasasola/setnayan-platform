@@ -93,3 +93,32 @@ export function deriveOnboardingPrefill(
 
   return { answers, skip, provenance };
 }
+
+export type PartitionedPrefill = {
+  /** Prefilled answers that target the type's light `tq_` questions (id → key). */
+  details: Record<string, string>;
+  /** Prefilled answers that target the type's rich specialty fields (key → value). */
+  specialty: Record<string, string>;
+};
+
+/**
+ * Route each prefilled answer to the bag the onboarding shell seeds from — a
+ * `tq_` question id → `details`, a specialty-catalog field key → `specialtyValues`
+ * — so the shell can seed both and skip any fully-answered `tq_` screen. Answers
+ * matching neither (a stale/renamed key) are dropped. Pure.
+ */
+export function partitionOnboardingPrefill(
+  prefill: OnboardingPrefill,
+  questionIds: readonly string[],
+  specialtyKeys: readonly string[],
+): PartitionedPrefill {
+  const questions = new Set(questionIds);
+  const specialtyFields = new Set(specialtyKeys);
+  const details: Record<string, string> = {};
+  const specialty: Record<string, string> = {};
+  for (const [key, value] of Object.entries(prefill.answers)) {
+    if (questions.has(key)) details[key] = value;
+    else if (specialtyFields.has(key)) specialty[key] = value;
+  }
+  return { details, specialty };
+}

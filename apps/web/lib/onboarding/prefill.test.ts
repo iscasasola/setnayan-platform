@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveOnboardingPrefill, EMPTY_PREFILL } from './prefill';
+import {
+  deriveOnboardingPrefill,
+  partitionOnboardingPrefill,
+  EMPTY_PREFILL,
+} from './prefill';
 import type { SelfPersonalization } from '../self-personalization';
 
 // A user with nothing on file — the "ask everything" baseline.
@@ -76,4 +80,37 @@ test('debut · subject facts are People-gated → no self-derived prefill', () =
 
 test('EMPTY_PREFILL is a stable empty shape', () => {
   assert.deepEqual(EMPTY_PREFILL, { answers: {}, skip: [], provenance: {} });
+});
+
+// ---- partitionOnboardingPrefill (routes answers to the right state bag) ----
+
+test('partition · specialty-field answer → specialty bag (christening rite)', () => {
+  const prefill = deriveOnboardingPrefill('christening', {
+    ...BLANK,
+    religion: 'catholic',
+  });
+  const parts = partitionOnboardingPrefill(prefill, ['after', 'scale'], [
+    'rite_type',
+    'officiant_parish',
+  ]);
+  assert.deepEqual(parts.specialty, { rite_type: 'catholic_baptism' });
+  assert.deepEqual(parts.details, {});
+});
+
+test('partition · tq_ question answer → details bag', () => {
+  const prefill = { answers: { after: 'lunch' }, skip: ['after'], provenance: {} };
+  const parts = partitionOnboardingPrefill(prefill, ['after', 'scale'], ['rite_type']);
+  assert.deepEqual(parts.details, { after: 'lunch' });
+  assert.deepEqual(parts.specialty, {});
+});
+
+test('partition · answer matching neither is dropped', () => {
+  const prefill = { answers: { ghost_field: 'x' }, skip: [], provenance: {} };
+  const parts = partitionOnboardingPrefill(prefill, ['after'], ['rite_type']);
+  assert.deepEqual(parts, { details: {}, specialty: {} });
+});
+
+test('partition · empty prefill → empty bags', () => {
+  const parts = partitionOnboardingPrefill(EMPTY_PREFILL, ['after'], ['rite_type']);
+  assert.deepEqual(parts, { details: {}, specialty: {} });
 });

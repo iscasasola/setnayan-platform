@@ -1153,7 +1153,7 @@ function BranchPanel({
  * How clients pay you, Manpower as tabs, and a Tools tab linking the
  * long-tail surfaces that left the sidebar. Old routes redirect in. */
 import { Suspense } from 'react';
-import { FileSignature, FileText, Wallet, HandCoins, HardHat, Boxes } from 'lucide-react';
+import { FileSignature, FileText, HandCoins, HardHat, Boxes } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
@@ -1180,12 +1180,6 @@ const SHOP_SECTIONS: AccordionSection[] = [
     label: 'Proposals',
     sub: 'Build quotes and reusable proposal templates',
     icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
-  },
-  {
-    key: 'earnings',
-    label: 'Earnings',
-    sub: 'What paid bookings have rolled up this year',
-    icon: <Wallet className="h-4 w-4" strokeWidth={1.75} />,
   },
   {
     key: 'payments',
@@ -1264,8 +1258,6 @@ async function ShopSectionBody({
       return <ContractsSurface />;
     case 'proposals':
       return <ProposalsSurface searchParams={pass as never} />;
-    case 'earnings':
-      return <EarningsSurface searchParams={pass as never} />;
     case 'payments':
       return <PaymentOptionsSurface searchParams={pass as never} />;
     case 'manpower':
@@ -1295,6 +1287,13 @@ export default async function VendorShopHub({
     <>
       {/* Home stays on top: identity · stats · Manage tiles · verify · services. */}
       <ShopHome searchParams={Promise.resolve(sp) as never} />
+
+      {/* Earnings promoted to always-on (owner "build it" 2026-07-12) — money
+          is the #1 glance. Tier-gated: free/below-Solo shops see a cheap gate,
+          paid shops see the ledger. */}
+      <div id="earnings">
+        <EarningsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
 
       {/* Everything else folds in below — one open at a time, loaded on expand. */}
       <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>

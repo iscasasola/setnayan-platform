@@ -165,6 +165,7 @@ import {
   Newspaper,
   Images,
   Radar,
+  Signal,
   Lightbulb,
   Film,
   Gift,
@@ -733,6 +734,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/app-performance?tab=intelligence',
         icon: Radar,
         matchPrefix: '/admin/intelligence',
+      },
+      {
+        // Demand Radar — the all-markets demand read (month heat · top regions
+        // · hot looks · event types) behind the vendor Market Intel feature
+        // (Pro-and-up, owner-locked 2026-07-11). Built with its own route but
+        // never menued; wired here by the page-layer hygiene pass 2026-07-12.
+        key: 'demand',
+        label: 'Demand Radar',
+        href: '/admin/demand',
+        icon: Signal,
+        matchPrefix: '/admin/demand',
       },
       {
         // SEO & GEO — the daily search + AI-answer-engine audit (owner Q

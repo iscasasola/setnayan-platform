@@ -22,6 +22,7 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { getSelfPersonalization } from '@/lib/self-personalization';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
@@ -121,13 +122,10 @@ export default async function OnboardingWeddingPage({
   // resumed draft.
   let religionDefault: string | null = null;
   if (user) {
-    const { data: prof } = await supabase
-      .from('users')
-      .select('religion')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const rel = prof?.religion ?? null;
-    if (rel && (activeFaiths ?? []).includes(rel)) religionDefault = rel;
+    // Shared self-profile reader (2026-07-13) — same religion value as the prior
+    // inline `users` select, now via one canonical helper reused across flows.
+    const { religion } = await getSelfPersonalization();
+    if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
   }
 
   return (

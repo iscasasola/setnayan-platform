@@ -260,16 +260,31 @@ export function SpecialtyFields({
   fields,
   value,
   onChange,
+  prefilledKeys,
 }: {
   fields: readonly SpecialtyField[];
   value: Values;
   onChange: (next: Values) => void;
+  /**
+   * Field keys pre-answered from the user's profile (onboarding_v2_brief). They
+   * render with a "From your profile" badge and a seeded value — still fully
+   * editable, we just don't ask cold for what we already know.
+   */
+  prefilledKeys?: readonly string[];
 }) {
+  const prefilled = new Set(prefilledKeys ?? []);
   return (
     <div className="mt-6 flex flex-col gap-6">
       {fields.filter((f) => isSpecialtyFieldVisible(f, value)).map((f) => (
         <div key={f.key}>
-          <label className="block text-[15px] font-semibold text-ink">{f.label}</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="block text-[15px] font-semibold text-ink">{f.label}</label>
+            {prefilled.has(f.key) && (
+              <span className="rounded-full border border-mulberry/30 bg-mulberry/5 px-2 py-0.5 text-[11px] font-medium text-mulberry">
+                From your profile
+              </span>
+            )}
+          </div>
           {f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'number' && (
             <p className="mt-0.5 text-sm text-ink/55">{f.help}</p>
           )}

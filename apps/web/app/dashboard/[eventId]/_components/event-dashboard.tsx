@@ -50,6 +50,7 @@ import {
   isSuriAssistFreeDecisionId,
 } from '@/lib/setnayan-ai-free-assist';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { ExpandCard } from './expand-card';
 import { JourneyRail } from '../progress/_components/journey-rail';
 import { FreeVenueShortlistOffer } from '../progress/_components/free-venue-shortlist-offer';
 
@@ -1213,29 +1214,34 @@ export async function EventDashboard({
              *  moved here from the account switcher (owner 2026-07-12) so the
              *  couple sees who can run their event right on the Overview;
              *  the full invite/permission surface stays at /hosts. */}
-            <article className={`${card} relative px-5 py-4`}>
-              {goldHairline}
-              <div className="mb-2 flex items-center gap-2.5">
-                <h3 className="m-serif text-[16.5px] text-ink">Hosts</h3>
+            <ExpandCard
+              cardClassName={card}
+              hairline={goldHairline}
+              title="Hosts"
+              badge={
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
                   {hostAccounts.length}{' '}
                   {hostAccounts.length === 1 ? 'account' : 'accounts'}
                 </span>
-                {/* Stretched link — the WHOLE card is a doorway to /hosts (the
-                 *  after-overlay covers the article, which is `relative`), while
-                 *  this stays the visible affordance. No accordion: depth lives
-                 *  on the real page, one tap away. */}
-                <Link
-                  href={`${base}/hosts`}
-                  aria-label="Open hosts"
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
-                >
-                  Add a host →
-                </Link>
-              </div>
-              {hostAccounts.length > 1 ? (
-                <>
-                  {hostAccounts.slice(0, 4).map((account) => (
+              }
+              fullHref={`${base}/hosts`}
+              fullLabel="Add a host"
+              preview={
+                hostAccounts.length > 1 ? (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    {hostAccounts.length} accounts can run this {eventWord} —
+                    expand to see who.
+                  </p>
+                ) : (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    It&rsquo;s just you so far — invite your partner, family, or a
+                    coordinator to plan this {eventWord} together.
+                  </p>
+                )
+              }
+            >
+              {hostAccounts.length > 1
+                ? hostAccounts.map((account) => (
                     <div
                       key={account.key}
                       className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
@@ -1256,46 +1262,45 @@ export async function EventDashboard({
                         {account.state}
                       </span>
                     </div>
-                  ))}
-                  {hostAccounts.length > 4 ? (
-                    <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
-                      +{hostAccounts.length - 4} more on the Hosts page
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  It&rsquo;s just you so far — invite your partner, family, or a
-                  coordinator to plan this {eventWord} together.
-                </p>
-              )}
-            </article>
+                  ))
+                : null}
+            </ExpandCard>
 
             {/* Your team */}
-            <article className={`${card} relative px-5 py-4`}>
-              {goldHairline}
-              <div className="mb-2 flex items-center gap-2.5">
-                <h3 className="m-serif text-[16.5px] text-ink">Your team</h3>
-                {/* Event-type-scoped: the "of 21" denominator is the wedding
+            <ExpandCard
+              cardClassName={card}
+              hairline={goldHairline}
+              title="Your team"
+              badge={
+                /* Event-type-scoped: the "of 21" denominator is the wedding
                  *  plan-group count — wrong for a debut/christening/corporate
                  *  host, so non-weddings show a plain booked count until their
-                 *  per-type category map ships. */}
+                 *  per-type category map ships. */
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
                   {eventType === 'wedding'
                     ? `${lockedVendorCount} of ${totalLockableCategories} booked`
                     : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
                 </span>
-                <Link
-                  href={`${base}/vendors`}
-                  aria-label="Manage vendors"
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
-                >
-                  Manage vendors →
-                </Link>
-              </div>
-              {teamVendors.length > 0 ? (
-                <>
-                  {teamVendors.slice(0, 4).map((v) => (
+              }
+              fullHref={`${base}/vendors`}
+              fullLabel="Manage vendors"
+              preview={
+                teamVendors.length > 0 ? (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    {teamVendors.length}{' '}
+                    {teamVendors.length === 1 ? 'vendor' : 'vendors'} booked —
+                    expand to see your team.
+                  </p>
+                ) : (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    No vendors booked yet — start with the ones that book out
+                    first: your venue and catering.
+                  </p>
+                )
+              }
+            >
+              {teamVendors.length > 0
+                ? teamVendors.map((v) => (
                     <div
                       key={v.vendor_id}
                       className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
@@ -1312,20 +1317,9 @@ export async function EventDashboard({
                         {(v.status ?? 'contracted').replace(/_/g, ' ')}
                       </span>
                     </div>
-                  ))}
-                  {teamVendors.length > 4 ? (
-                    <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
-                      +{teamVendors.length - 4} more on the Vendors tab
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  No vendors booked yet — start with the ones that book out
-                  first: your venue and catering.
-                </p>
-              )}
-            </article>
+                  ))
+                : null}
+            </ExpandCard>
 
             {/* Conversations — unread count is THIS event's vendor threads
              *  (see fetchEventUnreadCounts above), so the copy never claims
@@ -1343,7 +1337,7 @@ export async function EventDashboard({
                 <Link
                   href={`${base}/messages`}
                   aria-label="Open threads"
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
+                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
                 >
                   Open threads →
                 </Link>
@@ -1356,60 +1350,75 @@ export async function EventDashboard({
             </article>
 
             {/* Your services */}
-            <article className={`${card} relative px-5 py-4`}>
-              {goldHairline}
-              <div className="mb-2 flex items-center gap-2.5">
-                <h3 className="m-serif text-[16.5px] text-ink">Your services</h3>
+            <ExpandCard
+              cardClassName={card}
+              hairline={goldHairline}
+              title="Your services"
+              badge={
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
                   {serviceRows.length} {serviceRows.length === 1 ? 'order' : 'orders'}
                 </span>
-                <Link
-                  href={`${base}/orders`}
-                  aria-label="Open orders"
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
-                >
-                  Open orders →
-                </Link>
-              </div>
-              {serviceRows.length > 0 ? (
-                serviceRows.slice(0, 4).map((row) => (
-                  <div
-                    key={row.id}
-                    className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                  >
-                    <span className="min-w-0 flex-1 truncate font-semibold text-ink">
-                      {row.label}
-                    </span>
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${chipToneClass[row.tone]}`}
+              }
+              fullHref={`${base}/orders`}
+              fullLabel="Open orders"
+              preview={
+                serviceRows.length > 0 ? (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    {serviceRows.length}{' '}
+                    {serviceRows.length === 1 ? 'order' : 'orders'} — expand to see
+                    {serviceRows.length === 1 ? ' it.' : ' them.'}
+                  </p>
+                ) : (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    Nothing ordered yet — the Studio has everything for the day,
+                    from your monogram to save-the-dates and live streaming.
+                  </p>
+                )
+              }
+            >
+              {serviceRows.length > 0
+                ? serviceRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
                     >
-                      {row.status}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  Nothing ordered yet — the Studio has everything for the day,
-                  from your monogram to save-the-dates and live streaming.
-                </p>
-              )}
-            </article>
+                      <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+                        {row.label}
+                      </span>
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${chipToneClass[row.tone]}`}
+                      >
+                        {row.status}
+                      </span>
+                    </div>
+                  ))
+                : null}
+            </ExpandCard>
 
             {/* Schedule — the couple's OWN day-of program (event_schedule_blocks),
              *  NOT the deadline/reminder stream. So the "Schedule" title now
              *  reflects the ceremony/reception timeline the couple builds under
              *  /schedule and that the day-of grid goes live with. */}
-            <article className={`${card} relative px-5 py-4`}>
-              {goldHairline}
-              <div className="mb-2 flex items-center gap-2.5">
-                <h3 className="m-serif text-[16.5px] text-ink">Schedule</h3>
-              </div>
-              {schedulePreview.isEmpty ? (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  No program yet — map out your ceremony &amp; reception, and
-                  your guests follow the timeline live on the day.
-                </p>
-              ) : (
+            <ExpandCard
+              cardClassName={card}
+              hairline={goldHairline}
+              title="Schedule"
+              fullHref={`${base}/schedule?view=journey`}
+              fullLabel="See full schedule"
+              preview={
+                schedulePreview.isEmpty ? (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    No program yet — map out your ceremony &amp; reception, and
+                    your guests follow the timeline live on the day.
+                  </p>
+                ) : (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    Your ceremony &amp; reception timeline — expand to see it.
+                  </p>
+                )
+              }
+            >
+              {schedulePreview.isEmpty ? null : (
                 <>
                   {schedulePreview.display.map((block) => (
                     <div
@@ -1436,17 +1445,7 @@ export async function EventDashboard({
                   ) : null}
                 </>
               )}
-              {/* Full-width CTA into the whole event arc — the Journey view
-               *  (creation → the day → editorial), not just this day-of program. */}
-              <Link
-                href={`${base}/schedule?view=journey`}
-                aria-label="See full schedule"
-                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-mulberry/25 bg-mulberry/[0.04] px-3 py-2 text-xs font-bold text-mulberry transition hover:bg-mulberry/10 after:absolute after:inset-0 after:content-['']"
-              >
-                See full schedule
-                <span aria-hidden>→</span>
-              </Link>
-            </article>
+            </ExpandCard>
           </div>
           {/* Band footer — ONE global identity-masking note (replaces the
            *  per-card 'never a personal profile' legalese that used to repeat

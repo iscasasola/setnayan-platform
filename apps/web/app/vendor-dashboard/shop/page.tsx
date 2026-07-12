@@ -1178,18 +1178,22 @@ const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
   { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
-  { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Look references you curate for couples (stylist-leaning categories).' },
   { href: '/vendor-dashboard/branches', label: 'Branches', sub: 'Locations your business operates from.' },
   { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
   { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
   { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
 ];
 
-function ShopTools() {
+// Stylist-only card (owner-locked 2026-07-12: the Moodboard library is a
+// stylist's own collection — reception_decor vendors only).
+const STYLIST_TOOL = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Your own moodboard collection — recolourable sets couples match to their palette.' };
+
+function ShopTools({ isStylist }: { isStylist: boolean }) {
+  const tools = isStylist ? [STYLIST_TOOL, ...SHOP_TOOLS] : SHOP_TOOLS;
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {SHOP_TOOLS.map((t) => (
+        {tools.map((t) => (
           <li key={t.href}>
             <Link
               href={t.href}
@@ -1227,10 +1231,25 @@ export default async function VendorShopHub({
       ) : tab === 'manpower' ? (
         <ManpowerSurface />
       ) : tab === 'tools' ? (
-        <ShopTools />
+        <ShopTools isStylist={await shopOwnerIsStylist()} />
       ) : (
         <ShopHome searchParams={pass as never} />
       )}
     </>
   );
+}
+
+
+/** Stylist check for the More-tools tab (owner lock 2026-07-12): reads the
+ * caller's own vendor profile; reception_decor = the stylist/decorator tile. */
+async function shopOwnerIsStylist(): Promise<boolean> {
+  const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
+  const { fetchOwnVendorProfile: fetchShopToolsProfile } = await import('@/lib/vendor-profile');
+  const supabase = await createShopToolsClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const profile = await fetchShopToolsProfile(supabase, user.id);
+  return (profile?.services ?? []).some((s: string) => s === 'reception_decor');
 }

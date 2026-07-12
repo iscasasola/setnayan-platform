@@ -28,3 +28,10 @@ Verified: tsc + lint clean; all 10 hub/legacy routes respond without server
 errors on a local dev run.
 
 SPEC IMPACT: corpus DECISION_LOG.md 2026-07-12 row (vendor 5-page IA lock).
+
+**Addendum — Moodboard library is stylist-only (owner: "this can only be done
+by a stylist. that is a collection of their own mood boards"):** the tool's
+category gate narrows from 8 categories to `reception_decor` (the stylist/
+decorator tile) in all three places — the specialist-tool catalog, a hard
+redirect on the page itself, and the My Shop More-tools card (now renders only
+for stylist vendors, first in the list).

@@ -116,6 +116,26 @@ test('moments are sorted soonest-first and windowed to a rolling year', () => {
   assert.ok(moments.every((m) => m.daysUntil >= 0 && m.daysUntil <= 366));
 });
 
+test('a recurring generic event (travel with yearly toggle) surfaces next occurrence', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 't1', event_type: 'travel', display_name: 'Family Trip',
+    event_date: '2026-05-03', recurs: true,
+  };
+  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  assert.equal(m.kind, 'recurring');
+  assert.equal(m.dateISO, '2027-05-03'); // May 3 passed in July → next year
+  assert.equal(m.label, 'Family Trip');
+  assert.equal(m.eventId, 't1');
+});
+
+test('a NON-recurring generic event produces no moment', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 't2', event_type: 'travel', display_name: 'One-off Trip',
+    event_date: '2027-05-03', recurs: false,
+  };
+  assert.equal(buildYearMoments([ev], '2026-07-12', { includeHolidays: false }).length, 0);
+});
+
 test('archived events produce no moments', () => {
   const ev: MomentEvent = { ...base, anchor_date: '2026-01-17', anchor_origin: 'wedding', recurs: true, archived: true };
   assert.equal(buildYearMoments([ev], '2026-07-12', { includeHolidays: false }).length, 0);

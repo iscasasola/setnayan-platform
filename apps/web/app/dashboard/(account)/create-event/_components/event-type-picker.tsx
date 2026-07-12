@@ -11,7 +11,7 @@ import { EventTypePhotoPicker } from './event-type-photo-picker';
 import { CreateDatePicker } from './create-date-picker';
 import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
-import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS } from '@/lib/event-anchor';
+import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/event-anchor';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY by default; the hidden
@@ -310,6 +310,27 @@ export function EventTypePicker({
               </p>
             </div>
           </fieldset>
+
+          {/* Date-anchor model (PR-E): the "yearly?" toggle for recurring-
+              eligible types (travel/corporate/gala/celebration/reunion/tournament).
+              recurs=true → the moment returns on the couple's Year view each year;
+              never auto-creates an event. Anniversary/birthday recur by nature. */}
+          {canToggleRecur(selected.key) ? (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/10 bg-ink/[0.02] p-4 text-sm">
+              <input
+                type="checkbox"
+                name="recurs"
+                value="on"
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-gold"
+              />
+              <span>
+                <span className="block font-medium text-ink">Make it a yearly thing</span>
+                <span className="block text-xs text-ink/55">
+                  We’ll bring it back on your year every year — quietly, so you never miss it.
+                </span>
+              </span>
+            </label>
+          ) : null}
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <SubmitButton

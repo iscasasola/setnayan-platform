@@ -31,7 +31,7 @@ export type MomentEvent = {
   archived?: boolean | null;
 };
 
-export type YearMomentKind = 'anniversary' | 'wedding' | 'holiday';
+export type YearMomentKind = 'anniversary' | 'wedding' | 'holiday' | 'recurring';
 
 export type YearMoment = {
   dateISO: string;
@@ -158,6 +158,26 @@ export function buildYearMoments(
             tier: 'grand',
           });
         }
+      }
+      continue;
+    }
+
+    // Generic recurring event (travel/corporate/gala/celebration/reunion/
+    // tournament with the yearly toggle) → its next annual occurrence off the
+    // chosen event_date.
+    if (e.recurs && e.event_date) {
+      const dateISO = nextOccurrence(e.event_date, todayISO);
+      if (dateISO) {
+        out.push({
+          dateISO,
+          daysUntil: daysBetween(todayISO, dateISO),
+          label: e.display_name,
+          detail: 'Every year',
+          kind: 'recurring',
+          eventId: e.event_id,
+          isMilestone: false,
+          tier: 'light',
+        });
       }
     }
   }

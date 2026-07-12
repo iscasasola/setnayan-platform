@@ -18,8 +18,9 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { RevealList } from '@/app/_components/reveal-list';
+import { eventNoun, eventNounCap } from '@/lib/event-noun';
 
-export const metadata = { title: 'Wedding website' };
+export const metadata = { title: 'Event website' };
 
 /**
  * /dashboard/[eventId]/website — the wedding-website HUB.
@@ -67,7 +68,7 @@ export default async function WebsiteHubPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, slug')
+      .select('event_id, display_name, slug, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -115,10 +116,10 @@ export default async function WebsiteHubPage({
       <header className="space-y-2">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Your wedding website
+          Your {eventNoun(event.event_type)} website
         </p>
         <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
-          {event.display_name || 'Your wedding page'}
+          {event.display_name || `Your ${eventNounCap(event.event_type)} page`}
         </h1>
         <p className="max-w-prose text-base text-ink/70">
           One page for everything your guests need — your story, the details, and
@@ -168,7 +169,7 @@ export default async function WebsiteHubPage({
               </>
             ) : (
               <p className="text-sm text-ink/70">
-                Pick your wedding URL in the editor — it&rsquo;s how guests find
+                Pick your {eventNoun(event.event_type)} URL in the editor — it&rsquo;s how guests find
                 your page and what your QR points to.
               </p>
             )}
@@ -204,7 +205,7 @@ export default async function WebsiteHubPage({
           href={`/dashboard/${eventId}/invitation`}
           icon={<Pencil aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Invitation & URL"
-          blurb="Your monogram, how your names appear, and your public wedding URL."
+          blurb={`Your monogram, how your names appear, and your public ${eventNoun(event.event_type)} URL.`}
         />
         <QuickLink
           data-reveal-item
@@ -257,7 +258,7 @@ export default async function WebsiteHubPage({
               editHref={`/site-editor/${eventId}/event`}
               previewHref={`${publicLandingUrl}?phase=event`}
               title="Event"
-              blurb="The wedding day — the live, day-of page."
+              blurb={`The ${eventNoun(event.event_type)} day — the live, day-of page.`}
             />
             <PhasePart
               data-reveal-item

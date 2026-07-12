@@ -7,6 +7,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { uploadHeroPhoto, removeHeroPhoto } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { eventNoun } from '@/lib/event-noun';
 
 /**
  * Editor for the wedding landing page hero photo.
@@ -39,7 +40,7 @@ export default async function HeroPhotoEditorPage({
   const { data: event, error } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_hero_image_url, landing_page_hero_image_uploaded_at',
+      'event_id, display_name, slug, event_type, landing_page_hero_image_url, landing_page_hero_image_uploaded_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -73,7 +74,7 @@ export default async function HeroPhotoEditorPage({
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
           Choose a hi-res photo of the two of you. It lands as the full-bleed
-          banner on your wedding’s public page. JPG, PNG, or WebP up to 10 MB.
+          banner on your {eventNoun(event.event_type)}’s public page. JPG, PNG, or WebP up to 10 MB.
           Aspect ratio works best at 16:9 or 4:3.
         </p>
       </header>
@@ -118,7 +119,7 @@ export default async function HeroPhotoEditorPage({
                 next/image's optimizer would re-fetch on expiry. */}
             <Image
               src={currentPhotoUrl}
-              alt={`Hero photo for ${event.display_name ?? 'your wedding'}`}
+              alt={`Hero photo for ${event.display_name ?? `your ${eventNoun(event.event_type)}`}`}
               fill
               sizes="(max-width: 768px) 100vw, 768px"
               className="object-cover"

@@ -113,11 +113,29 @@ export default async function OnboardingWeddingPage({
   // authoritative pax charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   const pricing = buildOnboardingPricing(customerSkus, bundles);
+
+  // Date-anchor model: pre-select the faith on a Religious wedding from the
+  // user's OWN profile religion (reference-only, opt-in). Only when it maps to
+  // an ACTIVE ceremony faith — never pre-select an inactive/coming-soon faith.
+  // The shell applies this only on the "Religious" kind and never overrides a
+  // resumed draft.
+  let religionDefault: string | null = null;
+  if (user) {
+    const { data: prof } = await supabase
+      .from('users')
+      .select('religion')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const rel = prof?.religion ?? null;
+    if (rel && (activeFaiths ?? []).includes(rel)) religionDefault = rel;
+  }
+
   return (
     <OnboardingShell
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
+      religionDefault={religionDefault}
       pricing={pricing}
       bgMusicUrl={bgMusicUrl}
       refinements={refinements}

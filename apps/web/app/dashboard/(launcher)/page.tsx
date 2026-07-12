@@ -36,6 +36,7 @@ import { EventMonogram } from '@/app/_components/event-monogram';
 import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
+import { YearMomentsStrip } from './_components/year-moments-strip';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import {
@@ -495,6 +496,13 @@ export default async function LauncherPage({
           </p>
         ) : null}
       </section>
+
+      {/* Date-anchor model — "Your year" home strip: the couple's next few
+          derived moments (anniversaries · wedding countdowns), surfaced where
+          they land. Self-fetching; renders nothing when there are no anchors. */}
+      <Suspense fallback={null}>
+        <YearMomentsStrip userId={user.id} />
+      </Suspense>
 
       <section className="mb-10">
         <SectionLabel>Your spaces</SectionLabel>

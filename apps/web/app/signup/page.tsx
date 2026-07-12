@@ -412,7 +412,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               variant, web the server-action row; mobile/older-native = email-only
               (see showOAuth/desktopOAuth). */}
           {showOAuth ? (
-            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} />
+            // withAccountType: carry the Couple/Vendor selection into the web
+            // OAuth row so a vendor signing up via Google/Apple isn't
+            // misclassified as a customer. (Desktop-loopback OAuth threading is a
+            // separate follow-up — the Tauri flow doesn't post a form.)
+            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} withAccountType defaultAccountType={preselectVendor ? 'vendor' : 'customer'} />
           ) : null}
 
           {showOAuth ? (

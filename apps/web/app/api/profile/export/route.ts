@@ -14,10 +14,13 @@ import { displayUrlsForStoredAssets } from '@/lib/uploads';
  * `vendor_profile` / `vendor_submitted_media` as the durable record, since the
  * resolved URLs are presigned and time-limited.
  *
+ * Includes (2026-07-05 NPC/RA 10173 completeness) the subject's own order +
+ * payment records (iteration 0034) and their own face-enrollment CONSENT
+ * metadata (iteration 0012) — raw face_vector embeddings are excluded.
+ *
  * Not in scope for V1:
  *   • Audit log of past API access (no user-scoped access-log table — the
  *     0033 gateway ships api_keys only, consistent with "no public endpoints").
- *   • Payment records (waits on 0034).
  */
 export async function GET() {
   const supabase = await createClient();
@@ -28,7 +31,16 @@ export async function GET() {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const [profileRes, eventsRes, ownedEventsRes, vendorProfileRes, messagesRes] = await Promise.all([
+  const [
+    profileRes,
+    eventsRes,
+    ownedEventsRes,
+    vendorProfileRes,
+    messagesRes,
+    ordersRes,
+    paymentsRes,
+    faceEnrollmentsRes,
+  ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('event_members')
@@ -60,6 +72,41 @@ export async function GET() {
       .from('chat_messages')
       .select('message_id, thread_id, sender_role, body, created_at')
       .eq('sender_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 completeness (2026-07-05) — the subject's OWN order records
+    // (iteration 0034). Self-scoped: orders_owner_read RLS is widened to
+    // co-hosts, so we add an explicit user_id filter to keep the export to the
+    // subject's own orders only. Admin-only fields (admin_notes) are dropped.
+    supabase
+      .from('orders')
+      .select(
+        'public_id, event_id, service_key, description, requested_total_php, ' +
+          'confirmed_total_php, status, reference_code, created_at, updated_at',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // The subject's OWN payment records. payments_owner_read scopes to
+    // user_id = auth.uid(); we filter explicitly for defense in depth. Admin
+    // reconciliation fields (admin_notes, reviewed_by_user_id) are dropped.
+    supabase
+      .from('payments')
+      .select(
+        'payment_id, order_id, amount_php, channel, reference_number, ' +
+          'paid_at, status, created_at, updated_at',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // The subject's OWN biometric face-enrollment METADATA (iteration 0012).
+    // guest_reads_own_face_enrollment RLS scopes SELECT to guest rows the
+    // subject owns via event_members. We deliberately EXCLUDE face_vector (the
+    // raw embedding) — the export ships consent/provenance metadata only, per
+    // RA 10173 (disclose what biometric data we hold, not the biometric itself).
+    supabase
+      .from('guest_face_enrollments')
+      .select(
+        'enrollment_id, event_id, source, consent_at, consent_source, ' +
+          'revoked_at, quality_score, vector_model, created_at, updated_at',
+      )
       .order('created_at', { ascending: true }),
   ]);
 
@@ -140,9 +187,15 @@ export async function GET() {
     vendor_portfolio_media: vendorPortfolioMedia,
     vendor_submitted_media: vendorSubmittedMedia,
     chat_messages_authored: messagesRes.data ?? [],
+    // RA 10173 (2026-07-05) — the subject's own commerce + biometric records.
+    orders: ordersRes.data ?? [],
+    payments: paymentsRes.data ?? [],
+    // Biometric CONSENT metadata only — raw face_vector embeddings are
+    // intentionally excluded from the export.
+    face_enrollments: faceEnrollmentsRes.data ?? [],
     not_included: [
       'audit_log (API access — no user-scoped access-log table in V1)',
-      'payment records (iteration 0034)',
+      'face_vector embeddings (biometric raw data — metadata only is exported)',
     ],
   };
 

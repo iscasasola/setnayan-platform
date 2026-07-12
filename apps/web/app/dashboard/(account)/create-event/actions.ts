@@ -10,6 +10,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
+import { anchorForType } from '@/lib/event-anchor';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
@@ -214,6 +215,12 @@ export async function createWeddingEvent(formData: FormData) {
     .insert({
       event_type,
       display_name,
+      // Date-anchor model (2026-07-12): stamp the per-type default anchor_kind
+      // from the authored map (lib/event-anchor.ts). anchor_date/anchor_origin/
+      // recurs are captured later by the per-type creation flow (PR-A onward);
+      // wedding lands 'none' (it PRODUCES a union date — its own date is an
+      // output of venue discovery, never asked here).
+      anchor_kind: anchorForType(event_type).kind,
       // Optional non-wedding capture (all null for weddings + name-only creation).
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the

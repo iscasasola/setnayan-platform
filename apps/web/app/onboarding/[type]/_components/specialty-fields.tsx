@@ -12,6 +12,7 @@
  * component; every field optional (the whole screen is skippable upstream).
  */
 import type { SpecialtyField, SpecialtyItemField } from '@/lib/onboarding/specialty-catalog';
+import { isSpecialtyFieldVisible } from '@/lib/onboarding/specialty-values';
 
 type Values = Record<string, unknown>;
 type Row = Record<string, unknown>;
@@ -266,7 +267,7 @@ export function SpecialtyFields({
 }) {
   return (
     <div className="mt-6 flex flex-col gap-6">
-      {fields.map((f) => (
+      {fields.filter((f) => isSpecialtyFieldVisible(f, value)).map((f) => (
         <div key={f.key}>
           <label className="block text-[15px] font-semibold text-ink">{f.label}</label>
           {f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'number' && (

@@ -56,6 +56,11 @@ export type SpecialtyField = {
   options?: readonly string[];
   help?: string;
   item_fields?: readonly SpecialtyItemField[];
+  /** Conditional reveal (rite branching): show this field only when the field
+   *  named `field` currently holds one of `equals` (a select string OR a value
+   *  in a multiselect array). Absent = always shown. Honoured by the renderer +
+   *  normaliser (a hidden field's value is not persisted). */
+  show_when?: { field: string; equals: readonly string[] };
 };
 
 export type SpecialtySpec = {

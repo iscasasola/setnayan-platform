@@ -40,6 +40,7 @@ import {
   passesFaithFilter,
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
+import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
 import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
@@ -348,10 +349,12 @@ export async function searchCategoryVendors(input: {
     (v) => v.length > 0,
   ).length;
 
-  // Setnayan AI OFF (Manual mode) → GENERIC search: drop the per-candidate
-  // "% match" pill AND the reception-proximity sort, so the order falls back to
-  // boosted → reviews → rating. The one governing gate lives in lib/setnayan-ai
-  // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
+  // Setnayan AI matching (the "% match" pill + reception-proximity sort) is FREE
+  // for every couple as of 2026-07-12 — basic matching is table stakes (a free PH
+  // rival gives it away), so it no longer hides behind the AI paywall. `aiActive`
+  // now governs only the paid concierge perks (e.g. last-minute vendor visibility
+  // below), NOT the match score. (Supersedes owner 2026-06-08 "govern now,
+  // monetize next" for matching specifically.)
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
   const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
   const aiSubscription = aiPerUserEnabled
@@ -365,7 +368,11 @@ export async function searchCategoryVendors(input: {
       subscription: aiSubscription,
     },
   );
-  const assistOff = !aiActive;
+  // The Event Brief is the deterministic read-model the scorer reads (Rule 1,
+  // 2026-07-12). Built from the event row; admit-unknown, so a thin row is fine.
+  // We read the couple's faith list from it to feed the compat faithFit dim.
+  const brief = buildEventBrief(ev as unknown as EventBriefSource);
+  const coupleFaiths = brief.constraints.ceremony.faiths;
 
   const lat = (ev.venue_latitude as number | null) ?? null;
   const lng = (ev.venue_longitude as number | null) ?? null;
@@ -765,7 +772,11 @@ export async function searchCategoryVendors(input: {
   let livePax: number | null = null;
   let categoryBudgetPhp: number | null = null;
   const startsAtByVendor = new Map<string, number | null>();
-  if (smartSort) {
+  // Budget-fit is now part of the FREE compat score (2026-07-12), so the price +
+  // budget reads run for EVERY search, not only when smart-sort is on. Each read
+  // fails open (→ null → neutral fit) so it can never break the search; the
+  // smart-sort SOFT re-rank + "raise your budget" pressure below stay flag-gated.
+  {
     try {
       livePax = await resolveLivePax(supabase, eventId);
     } catch {
@@ -880,19 +891,49 @@ export async function searchCategoryVendors(input: {
       activityByVendor.get(r.vendor_profile_id),
       firstLook.slaHours,
     );
-    const compat = assistOff
-      ? null
-      : computeCompatScore({
-          distanceKm: dKm,
-          avgRating: r.avg_rating_overall ?? null,
-          reviewCount: r.review_count ?? null,
-          verified: r.public_visibility === 'verified',
-          boosted: adRank > 0,
-          respondsFast,
-          boostWeight: firstLook.boostWeight,
-        });
-    const compatScore: number | null = compat ? compat.score : null;
-    const compatTier: 'strong' | 'good' | 'fair' | null = compat ? compat.tier : null;
+    // Budget fit: the vendor's pax-adjusted floor vs the couple's per-category
+    // budget. Null when either is unknown → neutral (admit-unknown).
+    const vendorStartsAt = startsAtByVendor.get(r.vendor_profile_id) ?? null;
+    const budgetFitRatio =
+      vendorStartsAt != null && categoryBudgetPhp != null
+        ? priceFitScore(vendorStartsAt, categoryBudgetPhp)
+        : null;
+    // Faith fit: does the vendor explicitly declare one of the couple's faiths?
+    // compatible_ceremony_types NULL → "serves all" → undefined (neutral, never a
+    // penalty — the gate already guaranteed compatibility).
+    const vendorFaiths = r.compatible_ceremony_types ?? null;
+    const faithMatch =
+      coupleFaiths.length > 0 && Array.isArray(vendorFaiths)
+        ? vendorFaiths.some((t) => coupleFaiths.includes(t))
+        : undefined;
+    // Refinement fit: concrete music song-overlap first, else the general
+    // preference-facet match — both already computed by the recommender (used
+    // only for badges until now), now feeding the displayed %.
+    const songOverlapRatio =
+      r.song_pick_total && r.song_pick_total > 0
+        ? (r.song_overlap_count ?? 0) / r.song_pick_total
+        : null;
+    const preferenceMatchRatio =
+      r.preference_matched === true
+        ? Math.min(1, 0.7 + 0.1 * Math.max(0, (r.preference_matched_dimensions ?? 1) - 1))
+        : null;
+    // Setnayan AI matching is FREE for every couple (2026-07-12) — always compute
+    // the % match; the paid layer is the concierge, not the score.
+    const compat = computeCompatScore({
+      distanceKm: dKm,
+      avgRating: r.avg_rating_overall ?? null,
+      reviewCount: r.review_count ?? null,
+      verified: r.public_visibility === 'verified',
+      boosted: adRank > 0,
+      songOverlapRatio,
+      preferenceMatchRatio,
+      budgetFitRatio,
+      faithMatch,
+      respondsFast,
+      boostWeight: firstLook.boostWeight,
+    });
+    const compatScore: number | null = compat.score;
+    const compatTier: 'strong' | 'good' | 'fair' | null = compat.tier;
     const lm = lmByVendor.get(r.vendor_profile_id) ?? {
       zone: 'normal' as LastMinuteZone,
       surchargePct: null,
@@ -1008,10 +1049,10 @@ export async function searchCategoryVendors(input: {
     if (smartSort && b._priceFit !== a._priceFit) {
       return b._priceFit - a._priceFit;
     }
-    // Reception-proximity sort is a Setnayan AI feature — gate on `aiActive`.
-    // AI off → keep review/rating order (generic), the same fallback used when
-    // the event has no reception coords.
-    if (hasCoords && aiActive) {
+    // Reception-proximity sort is now FREE for every couple (2026-07-12) — it's
+    // part of match-based sort, no longer gated on `aiActive`. Falls back to
+    // review/rating order only when the event has no reception coords.
+    if (hasCoords) {
       const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
       const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
       if (da !== db) return da - db;

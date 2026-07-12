@@ -100,9 +100,11 @@ export const WEDDING_PROFILE: EventTypeProfile = {
 
 /**
  * The neutral default for any type without a profile row. Dashboard tools only
- * (seating / budget / schedule / day_of / gallery) — the public website,
- * Save-the-Date, RSVP and monogram stay OFF until a type gets its own content
- * pack. This is the Phase-1 target default; it is NOT consumed in Phase 0.
+ * (seating / budget / schedule / day_of / gallery) PLUS the guest-facing website,
+ * Save-the-Date and RSVP — unlocked for all event types 2026-07-12 ("unlock all
+ * now"). Only `monogram` stays OFF (couple-initials-shaped; a later call). Kept
+ * in lockstep with the DB seed (migration 20270802000000) so a rowless/fallback
+ * type and a seeded type expose the same surfaces.
  */
 export const GENERIC_PROFILE: EventTypeProfile = {
   eventType: 'generic',
@@ -114,7 +116,16 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     eventWord: 'event',
     vipTierLabel: 'Guests of honor',
   },
-  enabledSurfaces: ['seating', 'budget', 'schedule', 'day_of', 'gallery'],
+  enabledSurfaces: [
+    'website',
+    'save_the_date',
+    'rsvp',
+    'seating',
+    'budget',
+    'schedule',
+    'day_of',
+    'gallery',
+  ],
   marketplaceEnabled: true,
   onboardingFlowKey: null,
   roleSetKey: null,

@@ -16,6 +16,9 @@ const ENABLED_TYPES = [
   'tournament',
   'travel',
   'celebration',
+  'anniversary',
+  'graduation',
+  'reunion',
 ] as const;
 
 test('every enabled type has at least one well-formed question', () => {
@@ -37,14 +40,14 @@ test('every enabled type has at least one well-formed question', () => {
   }
 });
 
-test('only the 8 enabled types are keyed (no stray packs)', () => {
+test('only the enabled types are keyed (no stray packs)', () => {
   for (const key of Object.keys(PER_TYPE_QUESTIONS)) {
     assert.ok(ENABLED_TYPES.includes(key as (typeof ENABLED_TYPES)[number]), `unexpected key ${key}`);
   }
 });
 
 test('getTypeQuestions returns [] for unknown / null / wedding', () => {
-  assert.deepEqual(getTypeQuestions('anniversary'), []);
+  assert.deepEqual(getTypeQuestions('gala_night'), []);
   assert.deepEqual(getTypeQuestions('wedding'), []);
   assert.deepEqual(getTypeQuestions(null), []);
   assert.deepEqual(getTypeQuestions(undefined), []);

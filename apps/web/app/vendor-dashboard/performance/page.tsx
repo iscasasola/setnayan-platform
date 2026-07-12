@@ -141,7 +141,7 @@ function SectionEyebrow({ label }: { label: string }) {
  * ownership-gated to current_vendor_profile_ids(); the market-intel readers are
  * de-identified + min-N floored. No card ever exposes another business's rows.
  */
-export default async function VendorPerformancePage({
+async function PerformanceHome({
   searchParams,
 }: {
   searchParams: Promise<{ momentum?: string; service?: string }>;
@@ -645,5 +645,41 @@ export default async function VendorPerformancePage({
         </div>
       )}
     </section>
+  );
+}
+
+
+/* ── My Performance hub (owner 5-page IA, 2026-07-12) — Demand Radar folds in
+ * as a tab (Market Intel, Pro-and-up). /vendor-dashboard/demand redirects. */
+import { EagerDisclosure } from '../_components/eager-disclosure';
+import DemandSurface from '../demand/surface';
+
+export default async function VendorPerformanceHub({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  // Demand auto-expands when arrived at via the old /demand deep-link
+  // (?open=demand or the legacy ?tab=demand redirect).
+  const demandOpen = sp.open === 'demand' || sp.tab === 'demand';
+  return (
+    <>
+      {/* The performance dashboard IS the page — health · growth · funnel ·
+          ROI · momentum · reputation, all already integrated. */}
+      <PerformanceHome searchParams={Promise.resolve(sp) as never} />
+
+      {/* One folded section: Demand Radar (Pro-and-up). Rendered eagerly and
+          toggled client-side — re-navigating to lazy-load it would re-run the
+          ~25-query overview above, so eager (≈3 cheap queries) is cheaper. */}
+      <EagerDisclosure
+        label="Demand Radar"
+        sub="All-markets demand — month heat, top regions, hot looks (Pro-and-up)"
+        icon={<Radar className="h-4 w-4" strokeWidth={1.75} />}
+        defaultOpen={demandOpen}
+      >
+        <DemandSurface />
+      </EagerDisclosure>
+    </>
   );
 }

@@ -2,10 +2,18 @@ import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
+import { DependentsSection } from './_components/dependents-section';
 
 export const metadata = {
   title: 'People',
+};
+
+const FENCE_ERROR: Record<string, string> = {
+  fence: 'You can only add a child (under 18) or an elder (over 50). For anyone else, invite them to Setnayan instead.',
+  name: 'Please add a name.',
+  birthdate: 'Please add a valid birthday.',
 };
 
 /**
@@ -19,12 +27,23 @@ export const metadata = {
  * shipped propose/confirm/decline actions. The preview + functional modes share
  * this one route so nothing repaints on the flip.
  */
-export default async function PeoplePage() {
-  if (!peopleConnectionsEnabled()) {
+export default async function PeoplePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; saved?: string; removed?: string }>;
+}) {
+  const showConnections = peopleConnectionsEnabled();
+  const showDependents = dependentPeopleEnabled();
+
+  // Both flags off (production today) → the honest coming-soon preview.
+  if (!showConnections && !showDependents) {
     return <PeoplePreview />;
   }
 
-  const user = await getCurrentUser();
+  const sp = await searchParams;
+  const errorMsg = sp.error ? (FENCE_ERROR[sp.error] ?? sp.error) : null;
+
+  const user = showConnections ? await getCurrentUser() : null;
   const { incoming, outgoing, confirmed } = user
     ? await fetchMyConnections(user.id)
     : { incoming: [], outgoing: [], confirmed: [] };
@@ -35,7 +54,18 @@ export default async function PeoplePage() {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
         <p className="text-base text-ink/60">Your family, godparents, and friends.</p>
       </header>
-      <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+      {errorMsg ? (
+        <p
+          role="alert"
+          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          {errorMsg}
+        </p>
+      ) : null}
+      {showConnections ? (
+        <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+      ) : null}
+      {showDependents ? <DependentsSection /> : null}
     </div>
   );
 }

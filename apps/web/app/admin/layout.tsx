@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
+import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
+import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
+import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
+import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -100,6 +104,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // short-circuits. Idempotent (UPSERT) + never throws. The admin "Run now"
   // button is the manual fallback if no admin visits.
   after(() => maybeRecomputeSpotlightAwards().catch(() => {}));
+  // Fraud cluster sweep (fake-inquiry protection) — CRON-FREE: refresh the
+  // identity-cluster matview + raise concentration WATCH flags (shadow mode).
+  // Fired from ADMIN traffic so the heavy matview REFRESH never rides an
+  // end-user request; daily DB claim + device-fingerprint gate inside. Never throws.
+  after(() => maybeRunFraudClusterSweep().catch(() => {}));
+  // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
+  // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
+  // feed /admin/seo; a skipped day only leaves the dashboard a day stale.
+  after(() => runSeoPeriodicJobs().catch(() => {}));
+  // Weekly destructive ops sweeps (data-retention chat purge + Papic full-res
+  // drop) — CRON-FREE: admin traffic + a WEEKLY DB claim (replaces the last two
+  // Vercel crons). Both keep their own safety (legal-hold exclusion / kill-switch
+  // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
+  after(() => maybeRunRetentionSweep().catch(() => {}));
+  after(() => maybeRunPapicFullResDrop().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

@@ -8,6 +8,7 @@
  * columns. The wedding commit is NOT touched.
  */
 import type { GenericOnboardingPayload } from './types';
+import { anchorForType } from '../event-anchor';
 
 export type GenericInsertOpts = {
   slug: string;
@@ -41,6 +42,9 @@ export function buildGenericEventInsert(
   return {
     event_type: payload.eventType,
     display_name: payload.displayName,
+    // Date-anchor model (2026-07-12): per-type default anchor_kind from the
+    // authored map. Keeps the generic path consistent with createWeddingEvent.
+    anchor_kind: anchorForType(payload.eventType).kind,
     event_date: null,
     venue_name: null,
     venue_address: null,
@@ -82,6 +86,13 @@ export function buildGenericEventInsert(
     story_language: null,
     special_message: null,
     together_since: null,
+    // Per-type signature answers (the generalised love_story). NULL when nothing
+    // was captured, so the Brief's specialty richness gate reads "not
+    // personalised yet" rather than "answered with {}".
+    signature_details:
+      payload.signatureDetails && Object.keys(payload.signatureDetails).length > 0
+        ? payload.signatureDetails
+        : null,
     // Experience-persona intent — flag-guarded (absent before the migration lands).
     ...(opts.experienceEnabled
       ? {

@@ -18,8 +18,8 @@
 // This is the stop's client-only interactive moment: local React state (tiles)
 // updates the on-screen wall, calls NO server, and resets on reload. The merge
 // reuses the wall's own pure mergeTiles so tiles never re-animate once present.
-// Palette retuned to the tour's tokens (serif headings, #1E2229 ink, #5F5E5A
-// body, #8C6932 / #C5A059 gold, #1E2229 mulberry, #FBF8F1 / #FBF6EA creams).
+// Palette retuned to the tour's tokens (serif headings, #1B1A17 ink, #5F5E5A
+// body, #8C6932 / #A9834B gold, #1B1A17 mulberry, #FBF8F1 / #FBF6EA creams).
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -81,11 +81,11 @@ export function TourLiveWall({
   return (
     <section
       aria-label="Live photo wall"
-      className="rounded-2xl border border-[#C5A059]/40 bg-[#FBF8F1] p-5 shadow-sm sm:p-6"
+      className="rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-5 shadow-sm sm:p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[#8C6932]">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1E2229]" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1B1A17]" />
           Live from the celebration
         </p>
         {count > 0 ? (
@@ -104,7 +104,7 @@ export function TourLiveWall({
           {display.map((tile) => (
             <figure
               key={tile.feedId}
-              className={`relative aspect-square overflow-hidden rounded-lg bg-[#1E2229]/5 ${
+              className={`relative aspect-square overflow-hidden rounded-lg bg-[#1B1A17]/5 ${
                 seededIds.current.has(tile.feedId) ? '' : 'animate-wall-enter'
               }`}
             >
@@ -118,7 +118,7 @@ export function TourLiveWall({
       )}
 
       {initialCaption ? (
-        <p className="mt-4 border-t border-[#1E2229]/10 pt-3 text-center font-serif text-sm italic text-[#1E2229]/75">
+        <p className="mt-4 border-t border-[#1B1A17]/10 pt-3 text-center font-serif text-sm italic text-[#1B1A17]/75">
           &ldquo;{initialCaption.text}&rdquo;
           <span className="ml-1.5 font-sans text-xs not-italic text-[#5F5E5A]">&mdash; {initialCaption.author}</span>
         </p>
@@ -130,7 +130,7 @@ export function TourLiveWall({
             type="button"
             onClick={() => setPlaying(true)}
             disabled={playing}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1E2229] px-5 py-2.5 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1B1A17] px-5 py-2.5 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <Play aria-hidden className="h-4 w-4" strokeWidth={2} />
             {playing ? 'Photos arriving…' : 'Bring the wall to life'}

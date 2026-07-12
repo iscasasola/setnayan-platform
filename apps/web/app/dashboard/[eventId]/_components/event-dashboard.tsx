@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
-import { countUnread } from '@/lib/notifications';
+import { fetchEventUnreadCounts } from '@/lib/event-decisions';
 import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import {
@@ -27,6 +27,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -129,6 +130,16 @@ type DecisionGroupView = {
   items: DecisionItemView[];
 };
 
+// One row of the Hosts doorstep card — an account that manages this event:
+// the owning couple row(s), accepted event_moderators hosts, or a still-
+// pending invitation.
+type HostAccountView = {
+  key: string;
+  name: string;
+  roleLabel: string;
+  state: 'active' | 'invited';
+};
+
 export async function EventDashboard({
   eventId,
   suriPreviewParam,
@@ -156,6 +167,7 @@ export async function EventDashboard({
     unreadCount,
     seatAssignmentsRes,
     scheduleBlocks,
+    hostAccounts,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -305,15 +317,22 @@ export async function EventDashboard({
         return { data: [], error: null } as never;
       }
     })(),
-    countUnread(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'EventDashboard (countUnread threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return 0;
-    }),
+    // Conversations tile — THIS event's unread vendor threads only, via the
+    // grouped `unread_message_threads_by_event()` RPC. NOT the account-wide
+    // notification count: that flat number surfaced onboarding/system noise
+    // from every surface as "32 unread" on a couple with zero vendors, which
+    // read as false vendor urgency. Event-scoped keeps the doorstep honest.
+    fetchEventUnreadCounts(supabase)
+      .then((m) => m.get(eventId) ?? 0)
+      .catch((err: unknown) => {
+        logQueryError(
+          'EventDashboard (fetchEventUnreadCounts threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return 0;
+      }),
     // Seat-plan assignment count — one cheap head query for the Finalizing stage.
     (async () => {
       try {
@@ -344,6 +363,107 @@ export async function EventDashboard({
       );
       return [] as ScheduleBlockRow[];
     }),
+    // Hosts — every account managing this event (owner couple rows +
+    // event_moderators hosts and pending invites) for the Hosts doorstep
+    // card. Admin client on purpose: co-hosts' names live in `users`, which
+    // RLS scopes to self, and event_moderators mirrors the hosts page's
+    // admin-read pattern. Fail-soft to [] like every other card feed.
+    (async (): Promise<HostAccountView[]> => {
+      try {
+        const [membersRes, modsRes] = await Promise.all([
+          adminClient
+            .from('event_members')
+            .select('user_id')
+            .eq('event_id', eventId)
+            .eq('member_type', 'couple'),
+          adminClient
+            .from('event_moderators')
+            .select(
+              'moderator_id, user_id, role_subtype, display_label, invitation_email, accepted_at, invitation_token',
+            )
+            .eq('event_id', eventId)
+            .is('removed_at', null)
+            .order('accepted_at', { ascending: true }),
+        ]);
+        const members = (membersRes.data ?? []) as Array<{ user_id: string }>;
+        const mods = (modsRes.data ?? []) as Array<{
+          moderator_id: string;
+          user_id: string | null;
+          role_subtype: string;
+          display_label: string | null;
+          invitation_email: string | null;
+          accepted_at: string | null;
+          invitation_token: string | null;
+        }>;
+        const acceptedMods = mods.filter((m) => m.accepted_at);
+        const pendingMods = mods.filter((m) => !m.accepted_at && m.invitation_token);
+        // An accepted host may also hold an event_members row — keep the
+        // richer moderator row (it carries the role) and drop the duplicate.
+        const acceptedIds = new Set(acceptedMods.map((m) => m.user_id).filter(Boolean));
+        const owners = members.filter((m) => !acceptedIds.has(m.user_id));
+        const userIds = [
+          ...owners.map((m) => m.user_id),
+          ...acceptedMods
+            .map((m) => m.user_id)
+            .filter((id): id is string => !!id),
+        ];
+        let usersById: Record<string, { display_name: string | null; email: string | null }> = {};
+        if (userIds.length > 0) {
+          const { data: userRows } = await adminClient
+            .from('users')
+            .select('user_id, display_name, email')
+            .in('user_id', userIds);
+          usersById = Object.fromEntries(
+            (
+              (userRows ?? []) as Array<{
+                user_id: string;
+                display_name: string | null;
+                email: string | null;
+              }>
+            ).map((u) => [u.user_id, { display_name: u.display_name, email: u.email }]),
+          );
+        }
+        const modRoleLabel = (m: { role_subtype: string; display_label: string | null }) =>
+          m.display_label ??
+          (isRoleSubtype(m.role_subtype) ? ROLE_SUBTYPE_LABEL[m.role_subtype] : 'Host');
+        return [
+          ...owners.map((m) => ({
+            key: `member-${m.user_id}`,
+            name:
+              usersById[m.user_id]?.display_name ??
+              usersById[m.user_id]?.email ??
+              'Event owner',
+            roleLabel: 'Owner',
+            state: 'active' as const,
+          })),
+          ...acceptedMods.map((m) => ({
+            key: m.moderator_id,
+            name:
+              (m.user_id
+                ? (usersById[m.user_id]?.display_name ?? usersById[m.user_id]?.email)
+                : null) ??
+              m.invitation_email ??
+              'Host',
+            roleLabel: modRoleLabel(m),
+            state: 'active' as const,
+          })),
+          ...pendingMods.map((m) => ({
+            key: m.moderator_id,
+            name: m.invitation_email ?? 'Invitation sent',
+            roleLabel: modRoleLabel(m),
+            state: 'invited' as const,
+          })),
+        ];
+      } catch (caught) {
+        logQueryError(
+          'EventDashboard (host accounts fetch threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as HostAccountView[];
+      }
+    })(),
   ]);
 
   const event = eventRes.data;
@@ -673,18 +793,22 @@ export async function EventDashboard({
   const teamVendors = eventVendors.filter((v) =>
     CONFIRMED_VENDOR_SET.has(v.status ?? ''),
   );
+  // Urgent-float: pending-payment orders (warm/amber) lead so they land in the
+  // visible slice(0, 4); the paid/fulfilled roster follows. The couple always
+  // sees what still needs settling without expanding the tile. The pay CTA
+  // itself lives once, in the Decisions board (inbox/roster ≠ decision).
   const serviceRows = [
-    ...paidOrders.map((o) => ({
-      id: o.order_id,
-      label: serviceLabel(o.service_key),
-      status: o.status === 'fulfilled' ? 'delivered' : 'active',
-      tone: 'ok' as const,
-    })),
     ...pendingOrders.map((o) => ({
       id: o.order_id,
       label: serviceLabel(o.service_key),
       status: 'payment pending',
       tone: 'warm' as const,
+    })),
+    ...paidOrders.map((o) => ({
+      id: o.order_id,
+      label: serviceLabel(o.service_key),
+      status: o.status === 'fulfilled' ? 'delivered' : 'active',
+      tone: 'ok' as const,
     })),
   ];
 
@@ -850,7 +974,13 @@ export async function EventDashboard({
                 </p>
               </div>
             </div>
-            <div className={`${card} flex items-center gap-3.5 px-4 py-4`}>
+            {/* Gauge + jump-anchor (not a second decisions list): tapping the
+             *  ring scrolls to the Decisions board below, which owns the items. */}
+            <a
+              href="#decisions"
+              aria-label="Jump to decisions waiting on you"
+              className={`${card} flex items-center gap-3.5 px-4 py-4`}
+            >
               {goldHairline}
               <ProgressRing pct={cockpitModel.briefing.lockedPct} size={60} stroke={7}>
                 <span className="m-serif text-lg leading-none text-ink">
@@ -864,7 +994,7 @@ export async function EventDashboard({
                 <p className="m-serif text-2xl leading-none text-ink">{openDecisionCount}</p>
                 <p className="mt-0.5 truncate text-xs text-ink/55">waiting on you</p>
               </div>
-            </div>
+            </a>
             <div className={`${card} flex items-center gap-3.5 px-4 py-4`}>
               {goldHairline}
               <ProgressRing
@@ -922,24 +1052,14 @@ export async function EventDashboard({
           <div className="space-y-4 !mt-6">{slotAfterBento}</div>
         ) : null}
 
-        {/* ── Journey rail ─────────────────────────────────────────────── */}
-        <section aria-label="Event progress">
-          <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="m-serif text-2xl text-ink">{spark}Read your progress</h2>
-            <p className="text-sm text-ink/55">
-              Tap a stage — or use ← → — to walk through your {eventWord}, start to
-              finish.
-            </p>
-          </div>
-          <JourneyRail
-            stages={stageModel.stages}
-            currentKey={stageModel.currentKey}
-            aiActive={aiActive}
-          />
-        </section>
-
-        {/* ── Decisions board ──────────────────────────────────────────── */}
-        <section aria-label="Decisions">
+        {/* ── Decisions board ──────────────────────────────────────────────
+         *  Reordered above the Journey rail (owner-approved 2026-07-12 council
+         *  verdict): the doorstep now leads with the daily JOB — status
+         *  (bento) → act (decisions) → navigate (the band) — and the narrative
+         *  Journey rail moves BELOW the band as reassurance, not the top task.
+         *  The hero line still greets ("you're in the {stage} stage") so no
+         *  emotional pacing is lost. */}
+        <section id="decisions" aria-label="Decisions" className="scroll-mt-20">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="m-serif text-2xl text-ink">{spark}Decisions waiting on you</h2>
             <span
@@ -1084,85 +1204,159 @@ export async function EventDashboard({
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="m-serif text-2xl text-ink">{spark}Around your event</h2>
             <p className="text-sm text-ink/55">
-              Your team, threads, services, and schedule — this is the doorstep.
+              Your hosts, team, threads, services, and schedule — this is the
+              doorstep.
             </p>
           </div>
           <div className="grid gap-3.5 sm:grid-cols-2">
+            {/* Hosts — every account managing this event. The add-host entry
+             *  moved here from the account switcher (owner 2026-07-12) so the
+             *  couple sees who can run their event right on the Overview;
+             *  the full invite/permission surface stays at /hosts. */}
+            <article className={`${card} relative px-5 py-4`}>
+              {goldHairline}
+              <div className="mb-2 flex items-center gap-2.5">
+                <h3 className="m-serif text-[16.5px] text-ink">Hosts</h3>
+                <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
+                  {hostAccounts.length}{' '}
+                  {hostAccounts.length === 1 ? 'account' : 'accounts'}
+                </span>
+                {/* Stretched link — the WHOLE card is a doorway to /hosts (the
+                 *  after-overlay covers the article, which is `relative`), while
+                 *  this stays the visible affordance. No accordion: depth lives
+                 *  on the real page, one tap away. */}
+                <Link
+                  href={`${base}/hosts`}
+                  aria-label="Open hosts"
+                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
+                >
+                  Add a host →
+                </Link>
+              </div>
+              {hostAccounts.length > 1 ? (
+                <>
+                  {hostAccounts.slice(0, 4).map((account) => (
+                    <div
+                      key={account.key}
+                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                    >
+                      <span className="min-w-0 truncate font-semibold text-ink">
+                        {account.name}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-ink/50">
+                        {account.roleLabel}
+                      </span>
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          account.state === 'invited'
+                            ? chipToneClass.warm
+                            : chipToneClass.ok
+                        }`}
+                      >
+                        {account.state}
+                      </span>
+                    </div>
+                  ))}
+                  {hostAccounts.length > 4 ? (
+                    <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
+                      +{hostAccounts.length - 4} more on the Hosts page
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                  It&rsquo;s just you so far — invite your partner, family, or a
+                  coordinator to plan this {eventWord} together.
+                </p>
+              )}
+            </article>
+
             {/* Your team */}
-            <article className={`${card} px-5 py-4`}>
+            <article className={`${card} relative px-5 py-4`}>
               {goldHairline}
               <div className="mb-2 flex items-center gap-2.5">
                 <h3 className="m-serif text-[16.5px] text-ink">Your team</h3>
+                {/* Event-type-scoped: the "of 21" denominator is the wedding
+                 *  plan-group count — wrong for a debut/christening/corporate
+                 *  host, so non-weddings show a plain booked count until their
+                 *  per-type category map ships. */}
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
-                  {lockedVendorCount} of {totalLockableCategories} booked
+                  {eventType === 'wedding'
+                    ? `${lockedVendorCount} of ${totalLockableCategories} booked`
+                    : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
                 </span>
                 <Link
                   href={`${base}/vendors`}
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
+                  aria-label="Manage vendors"
+                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
                 >
                   Manage vendors →
                 </Link>
               </div>
               {teamVendors.length > 0 ? (
-                teamVendors.slice(0, 4).map((v) => (
-                  <div
-                    key={v.vendor_id}
-                    className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                  >
-                    <span className="min-w-0 truncate font-semibold text-ink">
-                      {v.vendor_name}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-ink/50">
-                      {String(v.category).replace(/_/g, ' ')}
-                    </span>
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${chipToneClass.ok}`}
+                <>
+                  {teamVendors.slice(0, 4).map((v) => (
+                    <div
+                      key={v.vendor_id}
+                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
                     >
-                      {(v.status ?? 'contracted').replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                ))
+                      <span className="min-w-0 truncate font-semibold text-ink">
+                        {v.vendor_name}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-ink/50">
+                        {String(v.category).replace(/_/g, ' ')}
+                      </span>
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${chipToneClass.ok}`}
+                      >
+                        {(v.status ?? 'contracted').replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  ))}
+                  {teamVendors.length > 4 ? (
+                    <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
+                      +{teamVendors.length - 4} more on the Vendors tab
+                    </p>
+                  ) : null}
+                </>
               ) : (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/50">
-                  No vendors locked yet — your booked team appears here.
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                  No vendors booked yet — start with the ones that book out
+                  first: your venue and catering.
                 </p>
               )}
-              {teamVendors.length > 4 ? (
-                <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
-                  +{teamVendors.length - 4} more on the Vendors tab
-                </p>
-              ) : null}
             </article>
 
-            {/* Conversations */}
-            <article className={`${card} px-5 py-4`}>
+            {/* Conversations — unread count is THIS event's vendor threads
+             *  (see fetchEventUnreadCounts above), so the copy never claims
+             *  false urgency on a fresh, vendor-less couple. The identity-
+             *  masking note moved to one global footnote below the grid. */}
+            <article className={`${card} relative px-5 py-4`}>
               {goldHairline}
               <div className="mb-2 flex items-center gap-2.5">
                 <h3 className="m-serif text-[16.5px] text-ink">Conversations</h3>
                 {unreadCount > 0 ? (
-                  <span className="rounded-full bg-mulberry/10 px-2 py-0.5 text-[11.5px] font-bold text-mulberry">
+                  <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[11.5px] font-bold text-warn-700 dark:bg-warn-900/40 dark:text-warn-300">
                     {unreadCount} unread
                   </span>
                 ) : null}
                 <Link
                   href={`${base}/messages`}
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
+                  aria-label="Open threads"
+                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
                 >
                   Open threads →
                 </Link>
               </div>
               <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                 {unreadCount > 0
-                  ? `${unreadCount} ${unreadCount === 1 ? 'message needs' : 'messages need'} a look — vendors reply fastest when you do too.`
-                  : 'All caught up — no unread messages right now.'}
-              </p>
-              <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
-                Vendors always appear by company — never a personal profile.
+                  ? `${unreadCount} ${unreadCount === 1 ? 'thread has' : 'threads have'} unread messages — open to catch up.`
+                  : 'All caught up — when a vendor replies, it lands right here.'}
               </p>
             </article>
 
             {/* Your services */}
-            <article className={`${card} px-5 py-4`}>
+            <article className={`${card} relative px-5 py-4`}>
               {goldHairline}
               <div className="mb-2 flex items-center gap-2.5">
                 <h3 className="m-serif text-[16.5px] text-ink">Your services</h3>
@@ -1171,7 +1365,8 @@ export async function EventDashboard({
                 </span>
                 <Link
                   href={`${base}/orders`}
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
+                  aria-label="Open orders"
+                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry after:absolute after:inset-0 after:content-['']"
                 >
                   Open orders →
                 </Link>
@@ -1193,8 +1388,9 @@ export async function EventDashboard({
                   </div>
                 ))
               ) : (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/50">
-                  Nothing ordered yet — the Studio has everything for the day.
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                  Nothing ordered yet — the Studio has everything for the day,
+                  from your monogram to save-the-dates and live streaming.
                 </p>
               )}
             </article>
@@ -1203,15 +1399,15 @@ export async function EventDashboard({
              *  NOT the deadline/reminder stream. So the "Schedule" title now
              *  reflects the ceremony/reception timeline the couple builds under
              *  /schedule and that the day-of grid goes live with. */}
-            <article className={`${card} px-5 py-4`}>
+            <article className={`${card} relative px-5 py-4`}>
               {goldHairline}
               <div className="mb-2 flex items-center gap-2.5">
                 <h3 className="m-serif text-[16.5px] text-ink">Schedule</h3>
               </div>
               {schedulePreview.isEmpty ? (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/50">
-                  No program yet — map out your ceremony &amp; reception and your
-                  guests see the timeline on the day.
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                  No program yet — map out your ceremony &amp; reception, and
+                  your guests follow the timeline live on the day.
                 </p>
               ) : (
                 <>
@@ -1244,24 +1440,49 @@ export async function EventDashboard({
                *  (creation → the day → editorial), not just this day-of program. */}
               <Link
                 href={`${base}/schedule?view=journey`}
-                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-mulberry/25 bg-mulberry/[0.04] px-3 py-2 text-xs font-bold text-mulberry transition hover:bg-mulberry/10"
+                aria-label="See full schedule"
+                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-mulberry/25 bg-mulberry/[0.04] px-3 py-2 text-xs font-bold text-mulberry transition hover:bg-mulberry/10 after:absolute after:inset-0 after:content-['']"
               >
                 See full schedule
                 <span aria-hidden>→</span>
               </Link>
             </article>
           </div>
-          {/* Recent activity — the sole couple-UI entry to the full /activity
-           *  feed after the top-level Budget nav (whose `activity` child linked
-           *  here) was removed in #3055. Keeps /dashboard/[id]/activity reachable. */}
-          <div className="mt-3 flex justify-end">
+          {/* Band footer — ONE global identity-masking note (replaces the
+           *  per-card 'never a personal profile' legalese that used to repeat
+           *  on the Conversations card) + the sole couple-UI entry to the full
+           *  /activity feed (kept reachable after the Budget nav's `activity`
+           *  child was removed in #3055). */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink/5 pt-3 text-[11.5px] text-ink/45">
+            <span>
+              Vendors always appear by company — never a personal profile.
+            </span>
             <Link
               href={`${base}/activity`}
-              className="whitespace-nowrap text-xs font-bold text-mulberry"
+              className="ml-auto whitespace-nowrap font-bold text-mulberry"
             >
               See all recent activity →
             </Link>
           </div>
+        </section>
+
+        {/* ── Journey rail — moved BELOW the band per the council verdict.
+         *  Narrative reassurance ("Read your progress"), endowed so a fresh
+         *  event never reads 0%, but no longer occupies the daily-job slot
+         *  above the Decisions board. */}
+        <section aria-label="Event progress">
+          <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="m-serif text-2xl text-ink">{spark}Read your progress</h2>
+            <p className="text-sm text-ink/55">
+              Tap a stage — or use ← → — to walk through your {eventWord}, start to
+              finish.
+            </p>
+          </div>
+          <JourneyRail
+            stages={stageModel.stages}
+            currentKey={stageModel.currentKey}
+            aiActive={aiActive}
+          />
         </section>
 
         {/* ── Suri on watch (AI · render-only) ─────────────────────────── */}

@@ -89,7 +89,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   const primaryHref =
     item.relation === 'owned' ? editorHref : publicHref ?? editorHref;
 
-  const monogram = (item.monogramColor ?? '#C5A059').trim();
+  const monogram = (item.monogramColor ?? '#A9834B').trim();
   const initials = deriveInitials(item.displayName);
 
   return (

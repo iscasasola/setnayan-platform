@@ -8,6 +8,7 @@ import {
   resolveOriginalRef,
   type DropCandidate,
 } from '@/lib/papic-fullres-drop-core';
+import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 
 // ============================================================================
 // 3-month full-res drop (owner 2026-07-11 · Pricing.md § 2.1 retention model).
@@ -172,4 +173,22 @@ export async function runFullResDropSweep(
     failed,
     bytesReclaimed,
   };
+}
+
+/**
+ * CRON-FREE weekly full-res drop — replaces the Vercel Cron schedule (the route
+ * stays as a manual/curl trigger, incl. its `?dry=1` preview). Fired from
+ * admin-layout after(); a WEEKLY DB claim guarantees ~once/week across the fleet
+ * and survives deploys. runFullResDropSweep keeps its own kill-switch
+ * (PAPIC_FULLRES_DROP_ENABLED) + per-run limit (default 500), so this is bounded
+ * and safe-by-default. Best-effort, never throws.
+ */
+export async function maybeRunPapicFullResDrop(): Promise<void> {
+  try {
+    if (await claimPeriodicJob('papic-fullres-drop', WEEKLY_GAP_MS)) {
+      await runFullResDropSweep();
+    }
+  } catch {
+    /* best-effort — a missed week retries on the next eligible admin request */
+  }
 }

@@ -3,6 +3,9 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { deletePublicAsset } from '@/lib/storage';
+import { r2Delete } from '@/lib/r2';
+import { parseStoredAsset } from '@/lib/uploads';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
@@ -157,6 +160,11 @@ export async function submitRsvp(
   // failure must NEVER roll back the RSVP that already succeeded above.
   const selfieRef = clean(formData.get('selfie_ref'));
   const biometricConsent = clean(formData.get('biometric_consent')) === '1';
+  // Adults-only gate (RA 10173 · NPC — minors scoped OUT of biometric
+  // enrollment for V1). The client blocks capture until both boxes are ticked;
+  // this is the server-side backstop so a crafted POST can't enroll without the
+  // 18+ affirmation. No age is stored — this is a boolean attestation only.
+  const ageAffirmed = clean(formData.get('age_affirmation')) === '1';
   // Minor safeguard (DPIA BV-8, 2026-07-05): a host can mark a guest excluded
   // from face recognition (typically a minor). Never enrol an excluded guest,
   // regardless of the consent checkbox.
@@ -167,7 +175,7 @@ export async function submitRsvp(
     .eq('event_id', eventId)
     .maybeSingle();
   const faceExcluded = (fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true;
-  if (selfieRef && biometricConsent && !faceExcluded) {
+  if (selfieRef && biometricConsent && ageAffirmed && !faceExcluded) {
     try {
       // Selfie is the highest-priority display photo — it always wins over a
       // Gmail avatar / couple upload.
@@ -295,8 +303,12 @@ export async function submitRsvp(
 
 /**
  * Guest withdraws face-recognition consent (RA 10173 — the data subject's
- * right to withdraw). Revokes the live enrollment and clears the selfie
- * display photo (reverting to initials); a Gmail avatar, being display-only
+ * right to withdraw / erasure). This is a real erasure, not just a revoke:
+ * we (1) null the biometric `face_vector`, (2) delete the enrolled selfie
+ * object from R2, and (3) tombstone the enrollment via `revoked_at`, so the
+ * privacy policy's promise that withdrawal "permanently deletes your face
+ * vector and enrolled selfie" is literally true. The selfie display photo is
+ * also cleared (reverting to initials); a Gmail avatar, being display-only
  * and non-biometric, is left intact. Admin-client + guest-session authorized,
  * the same trust model as submitRsvp.
  */
@@ -311,12 +323,71 @@ export async function withdrawFaceConsent(
   }
   const admin = createAdminClient();
   const now = new Date().toISOString();
-  await admin
+
+  // Grab the live enrollment rows FIRST so we can erase the R2 selfie objects
+  // they point at. (Read before we tombstone — after revoke we still could
+  // read them, but this keeps the asset list crisp.)
+  const { data: liveEnrollments } = await admin
     .from('guest_face_enrollments')
-    .update({ revoked_at: now })
+    .select('id, asset_url')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .is('revoked_at', null);
+
+  // Erase the biometric: null the face vector AND tombstone the row. Nulling
+  // face_vector is the actual biometric deletion; revoked_at keeps the matcher
+  // excluding it and preserves an audit trail of the withdrawal.
+  await admin
+    .from('guest_face_enrollments')
+    .update({ revoked_at: now, face_vector: null, vector_model: null })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('revoked_at', null);
+
+  // Best-effort R2 delete of each enrolled selfie. asset_url is stored as an
+  // `r2://bucket/key` ref (see /api/guest-selfie → encodeR2Ref) — parse it and
+  // hand the (bucket, key) to r2Delete. A legacy plain-URL row (pre-r2:// era)
+  // routes through deletePublicAsset instead. Both are wrapped: a stale/absent
+  // object (or unconfigured R2) must never abort the rest of the withdrawal.
+  for (const row of liveEnrollments ?? []) {
+    const assetUrl = (row as { asset_url: string | null }).asset_url;
+    if (!assetUrl) continue;
+    const parsed = parseStoredAsset(assetUrl);
+    try {
+      if (parsed?.kind === 'r2') {
+        await r2Delete({ bucket: parsed.bucket, key: parsed.key });
+      } else if (parsed?.kind === 'legacy_url') {
+        await deletePublicAsset({ publicUrl: parsed.url });
+      }
+    } catch (err) {
+      // Idempotent + non-fatal: log and continue. An orphaned object is
+      // reaped later by the R2 lifecycle rule; the withdrawal still completes.
+      console.warn('[withdrawFaceConsent] selfie R2 delete failed (continuing)', {
+        eventId,
+        guestId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // If this guest is linked to a real Setnayan account, null the dormant
+  // account-level face vector too (feature ships DORMANT, but erase what
+  // exists). The guest→account bridge is event_members.guest_id → user_id.
+  const { data: linkedMember } = await admin
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .not('user_id', 'is', null)
+    .maybeSingle();
+  const linkedUserId = (linkedMember as { user_id: string | null } | null)?.user_id;
+  if (linkedUserId) {
+    await admin
+      .from('user_face_profiles')
+      .update({ face_vector: null, vectors: null, revoked_at: now })
+      .eq('user_id', linkedUserId);
+  }
+
   await admin
     .from('guests')
     .update({

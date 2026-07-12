@@ -9,9 +9,10 @@ import { R2_BUCKETS, r2SignedGet } from '@/lib/r2';
  * The owner uploads a short video in /admin/hero-video; the admin's browser
  * extracts it into an ordered list of JPEG frames (Vercel can't run ffmpeg),
  * uploads them to R2, and stores the frame R2 KEYS in the single
- * `homepage_hero_config` row. The public homepage reads the published row and
- * renders <HeroVideoScrub> (a frame-by-frame scroll-scrub) in place of the
- * default hero — see app/_components/marketing/_sections.tsx Hero().
+ * `homepage_hero_config` row. (History: the public homepage used to render
+ * these frames via a scroll-scrub hero; since the ELN reskin the homepage
+ * hero runs on lib/background-videos.ts instead, and this pipeline's frames
+ * now surface as the /login left-panel still image — frameUrls[0].)
  *
  * # Display URLs are built from KEYS at read time (not stored)
  *

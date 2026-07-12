@@ -36,6 +36,7 @@ import { EventMonogram } from '@/app/_components/event-monogram';
 import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
+import { YearMomentsStrip } from './_components/year-moments-strip';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import {
@@ -59,7 +60,7 @@ export const metadata = {
  * chrome-less: a slim top bar (brand · notifications · account menu, from
  * `(launcher)/layout.tsx`) over three tile groups —
  *   • YOUR EVENTS — upcoming events as rich cards (badge · monogram · place/date ·
- *     a wine progress ring · N-days) + a "New event" tile. FINISHED (past +
+ *     a gold progress ring · N-days) + a "New event" tile. FINISHED (past +
  *     archived) events are hidden behind a "Show all events" toggle (`?show=all`).
  *   • YOUR SPACES — the doorways into surfaces with their OWN dashboards:
  *     Life Story · Your shop (vendor console, gated) · HQ (admin console, gated).
@@ -496,6 +497,13 @@ export default async function LauncherPage({
         ) : null}
       </section>
 
+      {/* Date-anchor model — "Your year" home strip: the couple's next few
+          derived moments (anniversaries · wedding countdowns), surfaced where
+          they land. Self-fetching; renders nothing when there are no anchors. */}
+      <Suspense fallback={null}>
+        <YearMomentsStrip userId={user.id} />
+      </Suspense>
+
       <section className="mb-10">
         <SectionLabel>Your spaces</SectionLabel>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -758,7 +766,7 @@ function EventCard({
 }
 
 /**
- * The "needs a decision now" line — a champagne-gold pill naming the top pending
+ * The "needs a decision now" line — a gold pill naming the top pending
  * action (+ "· N more" when other kinds are also waiting). Named, not a bare
  * count badge, so the couple knows WHAT before they click (owner 2026-07-10).
  * Reused on the vendor shop + admin HQ cards.
@@ -806,7 +814,7 @@ type SpaceCardProps = {
   logoUrl?: string | null;
   title: string;
   subtitle: string;
-  /** hero = obsidian Life-Story card · admin = violet accent · default = wine. */
+  /** hero = gold-to-ink Life-Story card · admin = violet accent · default = gold. */
   tone: 'hero' | 'admin' | 'default';
   /** "Needs a decision" line (e.g. "3 new inquiries" · "5 awaiting review"). */
   attention?: string;
@@ -829,7 +837,7 @@ function SpaceCard({
       href={href}
       className={`group flex min-h-[9rem] flex-col justify-between rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
         hero
-          ? 'border-white/10 bg-gradient-to-br from-[#3f1a2e] to-[#1E2229] text-white'
+          ? 'border-white/10 bg-gradient-to-br from-[#8a6b39] to-[#1B1A17] text-white'
           : 'border-ink/10 bg-cream text-ink hover:border-mulberry/30'
       }`}
     >

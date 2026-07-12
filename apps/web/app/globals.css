@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ── Atelier + macOS glass typography aliases (owner-locked 2026-07-12) ──
+ * Hanken Grotesk (--font-hanken) + Space Mono (--font-space-mono) are loaded
+ * in app/layout.tsx and are the ONLY chrome families going forward. The
+ * variables below keep every shipped consumer working without churn:
+ *   - --font-app          was Source Sans 3 (retired) — dashboards inherit
+ *     it through `.app-surface`, which now resolves to Hanken.
+ *   - --font-*-marketing / --font-condensed  were the retired v2.1 quartet
+ *     (Saira Condensed / Geist / Instrument Serif / JetBrains Mono).
+ * Root --font-sans / --font-display / --font-mono deliberately KEEP their
+ * Cormorant / Manrope / DM Mono faces: the /[slug] guest invitation surfaces
+ * are owner-excluded from the reskin and inherit those root vars. Chrome
+ * scopes (.app-surface below · marketing pages as they restyle in Phase 3)
+ * opt in to the Atelier faces instead.
+ */
+:root {
+  /* Chrome typography = Atelier everywhere (2026-07-12 consistency pass).
+   * The editorial Cormorant/Manrope/DM Mono faces now load under
+   * --font-editorial-* (app/layout.tsx) and reach pages ONLY through the
+   * .sn-editorial scope below — applied at the /[slug] guest-tree root, the
+   * one surface family owner-excluded from the reskin. Everything else
+   * (marketing + dashboards + tools) reads the Atelier faces. */
+  --font-display: var(--font-hanken);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-space-mono);
+  --font-app: var(--font-hanken);
+  --font-condensed: var(--font-hanken);
+  --font-sans-marketing: var(--font-hanken);
+  --font-serif-marketing: var(--font-hanken);
+  --font-mono-marketing: var(--font-space-mono);
+}
+
 @layer base {
   /*
    * A11Y-1 (Responsive_and_Mobile_UI_Ruleset_2026-06-21) — one global keyboard
@@ -56,7 +88,7 @@
    * MODES:
    *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
    *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
-   *            Mulberry CTAs (#5C2542). The ONLY mode (see LIGHT-LOCKED below).
+   *            Atelier gold CTAs (#A9834B). The ONLY mode (see LIGHT-LOCKED below).
    *   Dark   → DISABLED 2026-06-04. The `html.dark` overrides below are kept
    *            dormant (now unreachable) so re-enabling is a small revert.
    *
@@ -83,14 +115,14 @@
    */
   :root {
     /* Light mode — Clean Editorial (DEFAULT) */
-    --color-cream: 251 251 250;        /* page bg → Warm Alabaster #FBFBFA */
-    --color-ink: 30 34 41;             /* primary text → Deep Obsidian #1E2229 */
-    --color-terracotta: 197 160 89;    /* accent → Royal Champagne Gold #C5A059 */
+    --color-cream: 255 255 255;        /* page bg → white (owner 2026-07-13; was Atelier paper #FBFAF7) */
+    --color-ink: 27 26 23;             /* primary text → Atelier warm ink #1B1A17 */
+    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 92 37 66;        /* CTA → Rich Mulberry wine #5C2542 ("Energy, not skin" reskin 2026-07-09; reverses the 2026-05-29 Clean-Editorial obsidian lock, owner-authorized) */
-    --color-mulberry-600: 122 49 87;   /* CTA hover (lifted wine) → #7A3157 */
-    --color-mulberry-700: 63 26 46;    /* CTA deepest → wine-deep #3F1A2E */
+    --color-mulberry: 169 131 75;        /* CTA → Atelier gold #A9834B (design finalization 2026-07-12: gold supersedes the 2026-07-09 wine; token NAME kept to avoid component churn) */
+    --color-mulberry-600: 149 113 61;   /* CTA hover → gold-600 #95713D */
+    --color-mulberry-700: 138 107 57;    /* CTA deepest → gold-700 #8A6B39 */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -101,14 +133,14 @@
 
   html.dark {
     /* Dark mode — Clean Editorial coherent variant */
-    --color-cream: 30 34 41;           /* page bg → Deep Obsidian #1E2229 */
-    --color-ink: 251 251 250;          /* primary text → Warm Alabaster #FBFBFA */
-    --color-terracotta: 224 204 160;   /* accent → brighter champagne #E0CCA0 */
+    --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
+    --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
+    --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 143 44 84;       /* CTA → wine-bright #8F2C54 (reads on the dark obsidian bg) */
-    --color-mulberry-600: 165 66 106;  /* CTA hover lighter → #A5426A */
-    --color-mulberry-700: 92 37 66;    /* CTA deepest → Rich Mulberry wine #5C2542 */
+    --color-mulberry: 203 167 102;       /* CTA → gold-300 #CBA766 (reads on the dark bg) */
+    --color-mulberry-600: 216 185 121;  /* CTA hover lighter → #D8B979 */
+    --color-mulberry-700: 169 131 75;    /* CTA deepest → gold-500 #A9834B */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -729,33 +761,30 @@ html.subnav-docked [data-shell-main] {
  */
 :root {
   /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
-  --m-paper:      #FBFBFA;
+  --m-paper:      #FBFAF7;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
-  --m-line:       #E2DED4;
-  --m-line-soft:  #ECE8DC;
+  --m-line:       #E1DCD1;
+  --m-line-soft:  #EDE8DE;
 
   /* Ink — Deep Obsidian (Clean Editorial · was slate #2D3038) */
-  --m-ink:        #1E2229;
-  --m-slate:      #4F535B;
-  --m-slate-2:    #6A6E76;
-  --m-slate-3:    #898D94;
-  --m-slate-4:    #B6B9BE;
+  --m-ink:        #1B1A17;
+  --m-slate:      #3A382F;
+  --m-slate-2:    #6E6A62;
+  --m-slate-3:    #8A857B;
+  --m-slate-4:    #B5AF9E;
 
   /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
-  --m-orange:     #C5A059;
-  --m-orange-2:   #A88340;
-  --m-orange-3:   #E0CCA0;
-  --m-orange-4:   #F4ECD8;
+  --m-orange:     #A9834B;
+  --m-orange-2:   #8A6B39;
+  --m-orange-3:   #CBA766;
+  --m-orange-4:   #F3ECDF;
 
-  /* Chrome nav active-state — Rich Mulberry WINE (NOT the champagne gold accent).
-   * "Energy, not skin" reskin 2026-07-09: the sidebar / bottom-nav active row +
-   * focus ring read in wine (= --color-mulberry #5C2542) so the app chrome
-   * matches the wine content behind it — the gold rail was the first seam users
-   * noticed (wine content behind a gold rail). Gold (--m-orange) STAYS the
-   * secondary accent (eyebrows · filter chips · "new" badges); only the nav
-   * active-state moves to wine. Owner-flagged open reskin item. */
-  --m-nav-active:      #5C2542;   /* = --color-mulberry (light) — active bar · icon · focus ring */
+  /* Chrome nav active-state — Atelier GOLD (owner-locked 2026-07-12 design
+   * finalization: gold supersedes wine; kit gold-700 for text/active contrast).
+   * The 2026-07-09 wine treatment is retired — chrome and content now share
+   * the one gold decorative family, so the old rail/content seam is gone. */
+  --m-nav-active:      #8A6B39;   /* = --color-mulberry (light) — active bar · icon · focus ring */
   --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
 
   /* Admin doorway accent — VIOLET ("Energy, not skin" 2026-07-09: couple =
@@ -798,9 +827,9 @@ html.subnav-docked [data-shell-main] {
   --m-r-full: 999px;
 
   /* Shadows (Obsidian-tinted · paper-friendly · was rgba(45,48,56,…) for v2.1 ink) */
-  --m-shadow-sm: 0 1px 2px rgba(30,34,41,.05), 0 1px 1px rgba(30,34,41,.04);
-  --m-shadow-md: 0 8px 24px -10px rgba(30,34,41,.18), 0 2px 6px -2px rgba(30,34,41,.08);
-  --m-shadow-lg: 0 40px 80px -30px rgba(30,34,41,.28), 0 10px 30px -8px rgba(30,34,41,.10);
+  --m-shadow-sm: 0 1px 2px rgba(30,26,18,.05), 0 1px 1px rgba(30,26,18,.04);
+  --m-shadow-md: 0 8px 24px -10px rgba(30,26,18,.18), 0 2px 6px -2px rgba(30,26,18,.08);
+  --m-shadow-lg: 0 40px 80px -30px rgba(30,26,18,.28), 0 10px 30px -8px rgba(30,26,18,.10);
 
   /*
    * Desktop sidebar rail width (DESK-1 · Responsive_and_Mobile_UI_Ruleset).
@@ -811,14 +840,15 @@ html.subnav-docked [data-shell-main] {
   --sidebar-width: 16rem;
 
   /*
-   * ── Dark sidebar chrome ──────────────────────────────────────────────────
+   * ── Sidebar chrome — Atelier frosted glass (2026-07-12; was the dark
+   *    obsidian island of the 2026-07-09 "Energy" reskin) ─────────────────
    * "Energy, not skin" reskin (2026-07-09 prototypes · setnayan-{overview,
    * vendor,admin}-energy.html): the DESKTOP sidebar is a permanently-dark
    * obsidian island — dark in BOTH app themes (the app is light-locked today,
    * but these live at :root so the panel stays dark regardless of any future
    * theme flip; the content area still follows the app theme). Values reuse the
    * prototype's obsidian panel scale; the accent reuses the wine/violet doorway
-   * family (brightened for legibility ON dark — the light --m-nav-active #5C2542
+   * family (brightened for legibility ON dark — the light --m-nav-active gold #8A6B39
    * / --a-violet #6D28D9 are too dark against the panel).
    *
    * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
@@ -828,22 +858,23 @@ html.subnav-docked [data-shell-main] {
    * shared AccountSwitcher TRIGGER consumes (it renders here but its panel is
    * portaled to <body>, outside this scope, so the panel stays light).
    */
-  --m-sidebar-bg:        #1A1E25;  /* obsidian panel */
-  --m-sidebar-bg-2:      #22262E;  /* elevated tiles — switcher · identity · footer chips */
-  --m-sidebar-fg:        #F1EFEA;  /* near-white — active label · wordmark · primary text */
-  --m-sidebar-fg-soft:   #C8C6C1;  /* inactive nav labels · icons */
-  --m-sidebar-fg-muted:  #9AA0A8;  /* section labels · chevrons · sub-text (contrast-checked ≥5:1) */
-  --m-sidebar-line:      #2B2F38;  /* borders / dividers */
-  --m-sidebar-hover:     #262B34;  /* hover-row wash */
+  --m-sidebar-bg:        rgba(255,255,255,.45);  /* Atelier frosted panel (kit glass, 2026-07-12) */
+  --m-sidebar-bg-2:      rgba(255,255,255,.62);  /* elevated tiles — switcher · identity · footer chips */
+  --m-sidebar-fg:        #1B1A17;  /* warm ink — active label · wordmark · primary text */
+  --m-sidebar-fg-soft:   #3A382F;  /* inactive nav labels · icons */
+  --m-sidebar-fg-muted:  #6E6A62;  /* section labels · chevrons · sub-text */
+  --m-sidebar-line:      rgba(30,26,18,.08);  /* hairline dividers on glass */
+  --m-sidebar-hover:     rgba(255,255,255,.6);  /* hover-row wash */
 
-  /* Per-doorway ACTIVE accent — default WINE (couple + vendor); admin flips to
-   * violet via `.sn-sidebar--violet`. `-fg` is the lighter tint used for the
-   * active icon + the wordmark "YAN" span; `-soft` is the active-row wash. */
-  --m-sidebar-accent:      #B23E67;  /* wine-bright on dark */
-  --m-sidebar-accent-fg:   #F2B9CC;  /* active icon · wordmark accent */
-  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 28%, transparent);
-  --m-sidebar-accent-violet:    #A78BFA;  /* admin active bar/ring — violet-bright on dark */
-  --m-sidebar-accent-violet-fg: #CBB1EC;  /* admin active icon · wordmark accent */
+  /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
+   * only decorative color; the wine/violet doorway accents retired with the
+   * 2026-07-12 finalization). `.sn-sidebar--violet` still exists as a hook
+   * but resolves to the same gold. */
+  --m-sidebar-accent:      #8A6B39;  /* gold-700 — active bar/ring on the light panel */
+  --m-sidebar-accent-fg:   #A9834B;  /* active icon · wordmark accent */
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 16%, transparent);
+  --m-sidebar-accent-violet:    #8A6B39;  /* admin — same gold (violet retired) */
+  --m-sidebar-accent-violet-fg: #A9834B;
 }
 
 /*
@@ -856,6 +887,9 @@ html.subnav-docked [data-shell-main] {
  */
 .sn-sidebar {
   background: var(--m-sidebar-bg);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 20px 50px -30px rgba(30,26,18,.4);
   color: var(--m-sidebar-fg);
   --m-paper:   var(--m-sidebar-hover);
   --m-paper-2: var(--m-sidebar-bg-2);
@@ -866,11 +900,8 @@ html.subnav-docked [data-shell-main] {
   --m-slate-3: var(--m-sidebar-fg-muted);
   --m-nav-active:      var(--m-sidebar-accent);
   --m-nav-active-soft: var(--m-sidebar-accent-soft);
-  /* Lift the gold text token used by the AccountSwitcher avatar-initials span to
-   * the lighter champagne. The base #A88340 lands ~3.98:1 on the obsidian panel
-   * (below WCAG 4.5:1); #E0CCA0 clears ~8.9:1 on the same terracotta-tinted
-   * backdrop. Scoped to .sn-sidebar so only the dark panel is affected. */
-  --m-orange-2: var(--m-orange-3);
+  /* (The dark-panel contrast lift for the AccountSwitcher gold initials is
+   * gone with the obsidian panel — base gold-700 reads ≥4.5:1 on glass.) */
 }
 .sn-sidebar--violet {
   --m-sidebar-accent:    var(--m-sidebar-accent-violet);
@@ -886,20 +917,22 @@ html.subnav-docked [data-shell-main] {
 
 /*
  * Backend dashboard surface — opt-in. Applied to the root element of the
- * couple / vendor / admin dashboard layouts so the whole operational backend
- * renders in Source Sans, one simple minimalist family for body AND headings
- * (owner-locked 2026-06-10 — "easy to read" backend). Overriding the --font-*
- * vars here makes every `font-sans`/`font-display`/`font-serif` utility inside
- * a dashboard resolve to Source Sans without touching the 200+ components; the
- * direct font-family covers inherited text. --font-mono is left as DM Mono so
- * IDs / reference codes keep their monospace alignment. The editorial
- * Cormorant/Manrope stack stays on the public marketing site + guest-facing
+ * couple / vendor / admin dashboard layouts. Since the Atelier finalization
+ * (owner-locked 2026-07-12, superseding the 2026-06-10 Source Sans lock)
+ * --font-app resolves to Hanken Grotesk, so the whole operational backend
+ * renders in the one Atelier UI family. Overriding the --font-* vars here
+ * makes every `font-sans`/`font-display`/`font-serif` utility inside a
+ * dashboard resolve to Hanken without touching the 200+ components; the
+ * direct font-family covers inherited text. --font-mono flips to Space Mono
+ * (the Atelier data face) so IDs / reference codes / prices / dates read in
+ * the kit's mono. The editorial Cormorant/Manrope stack stays on guest-facing
  * pages, which live outside these layouts. Mirrors `.m-surface` below.
  */
 @layer components {
   .app-surface {
     --font-sans: var(--font-app);
     --font-display: var(--font-app);
+    --font-mono: var(--font-space-mono);
     font-family: var(--font-app), system-ui, sans-serif;
   }
 }
@@ -2780,3 +2813,214 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 .gl-adding {
   animation: gl-adding 0.9s ease-in-out infinite;
 }
+
+/* ============================================================
+   SETNAYAN DESIGN TOKENS · Atelier + macOS glass
+   Owner-locked 2026-07-12 (Design_Reskin_Atelier_Glass_2026-07-12).
+   Ported from the kit's setnayan-tokens.css + setnayan-animations.css.
+   ONE adaptation vs the kit: --sn-font / --sn-mono resolve through the
+   next/font variables (--font-hanken / --font-space-mono) because
+   next/font self-hosts under hashed family names — the literal
+   "Hanken Grotesk" family string would not resolve.
+   Rules of the skin:
+     1. Frame ONLY what is interactive (buttons, inputs, tappable tiles,
+        chips). Plain text, headings, stats, captions sit directly on the
+        backdrop unframed.
+     2. One gold primary action per view. Gold is jewelry, not paint.
+     3. Icons: Lucide line set, 1.75px stroke. Never emoji, never filled.
+     4. Shadows warm (rgba(30,26,18,·)), never grey/blue.
+     5. Skin only — structure, copy, routes, hero videos, demos untouched.
+   ============================================================ */
+:root {
+  /* paper & ink */
+  --sn-paper:      #FBFAF7;
+  --sn-surface:    #FFFFFF;
+  --sn-hairline:   #EDE8DE;
+  --sn-line:       #E1DCD1;
+  --sn-ink-300:    #A09A8E;
+  --sn-ink-500:    #6E6A62;
+  --sn-ink-700:    #3A382F;
+  --sn-ink-900:    #1B1A17;
+  --sn-ink-black:  #17160F;
+
+  /* gold accent — the only decorative color */
+  --sn-gold-100:   #F3ECDF;
+  --sn-gold-300:   #CBA766;
+  --sn-gold-500:   #A9834B;
+  --sn-gold-600:   #95713D;
+  --sn-gold-700:   #8A6B39;
+
+  /* semantic (warm-tuned, never neon) */
+  --sn-success:    #5E7C52;  --sn-success-soft: #E9EEE3;
+  --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
+  --sn-danger:     #A6483B;  --sn-danger-soft:  #F3E1DC;
+  --sn-info:       #4E6C82;  --sn-info-soft:    #E2EAEF;
+
+  /* type — via next/font variables (see header note) */
+  --sn-font: var(--font-hanken), system-ui, sans-serif;
+  --sn-mono: var(--font-space-mono), ui-monospace, monospace;
+
+  /* radius */
+  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: 14px;
+  --sn-r-xl: 18px; --sn-r-pill: 999px;
+
+  /* elevation (warm, never grey) */
+  --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
+  --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
+  --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
+
+  /* glass (macOS vibrancy) */
+  --sn-glass-bg:   rgba(255,255,255,.55);
+  --sn-glass-line: rgba(255,255,255,.75);
+  --sn-glass-blur: blur(18px) saturate(1.4);
+  --sn-glass-dark-bg:   rgba(23,22,15,.82);
+  --sn-glass-dark-line: rgba(255,255,255,.18);
+
+  /* motion */
+  --sn-ease:     cubic-bezier(.2,.7,.2,1);
+  --sn-ease-out: cubic-bezier(.16,1,.3,1);
+  --sn-dur-micro:   120ms;
+  --sn-dur-control: 200ms;
+  --sn-dur-elem:    320ms;
+  --sn-dur-enter:   640ms;
+}
+
+
+/* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
+ * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so
+ * couples' guest-facing pages keep the wedding-editorial register (Cormorant
+ * display · Manrope body · DM Mono labels) exactly as before the Atelier
+ * chrome flip. Do NOT apply to chrome surfaces. */
+.sn-editorial {
+  --font-display: var(--font-editorial-display);
+  --font-sans: var(--font-editorial-sans);
+  --font-mono: var(--font-editorial-mono);
+}
+
+/* ---------- ambient backdrop (dashboard shell page background) ----------
+ * Owner directive 2026-07-13: the main page background is plain WHITE. This
+ * class is applied by SidebarShell to every dashboard doorway (vendor /
+ * couple / admin), so it IS the visible page canvas there. Previously a warm
+ * #F2EFE8 base + gold/green/blue radial glows; flattened to solid white. */
+.sn-ambient {
+  background: #ffffff;
+}
+
+/* ---------- glass surfaces ---------- */
+.sn-glass {
+  background: var(--sn-glass-bg);
+  border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  box-shadow: 0 8px 32px rgba(30,26,18,.07);
+}
+.sn-glass-dark {
+  background: var(--sn-glass-dark-bg);
+  border: 1px solid var(--sn-glass-dark-line);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  color: var(--sn-gold-100);
+}
+
+/* ---------- buttons ---------- */
+.sn-btn {
+  font-family: var(--sn-font); font-weight: 700; font-size: 14.5px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 22px; border-radius: var(--sn-r-md); border: none; cursor: pointer;
+  transition: transform var(--sn-dur-control) var(--sn-ease),
+              box-shadow var(--sn-dur-control), background var(--sn-dur-control);
+}
+.sn-btn-primary { background: var(--sn-gold-500); color: #FFFDF8; }
+.sn-btn-primary:hover { background: var(--sn-gold-600); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+.sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
+.sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
+.sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }
+.sn-btn-ghost:hover { background: var(--sn-gold-100); color: var(--sn-gold-700); }
+.sn-btn:disabled { background: var(--sn-hairline); color: var(--sn-ink-300); cursor: not-allowed; transform: none; box-shadow: none; }
+/* on ink / over video */
+.sn-btn-on-ink { background: var(--sn-gold-300); color: var(--sn-ink-black); }
+.sn-btn-on-ink:hover { background: #D8B979; transform: translateY(-2px); }
+
+/* ---------- inputs ---------- */
+.sn-input {
+  font-family: var(--sn-font); font-size: 14px; color: var(--sn-ink-900);
+  background: var(--sn-paper); border: 1.5px solid var(--sn-line);
+  border-radius: var(--sn-r-md); padding: 12px 14px; outline: none;
+  transition: border-color var(--sn-dur-control), box-shadow var(--sn-dur-control);
+}
+.sn-input:hover  { border-color: var(--sn-gold-500); }
+.sn-input:focus  { border-color: var(--sn-gold-500); box-shadow: 0 0 0 3px var(--sn-gold-100); }
+.sn-input-error  { background: #FBF3F1; border-color: var(--sn-danger); color: #8F3D31; }
+
+/* ---------- cards ---------- */
+.sn-card {
+  background: var(--sn-glass-bg); border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur); -webkit-backdrop-filter: var(--sn-glass-blur);
+  border-radius: var(--sn-r-xl); box-shadow: var(--sn-sh-sm);
+  transition: transform var(--sn-dur-elem) var(--sn-ease), box-shadow var(--sn-dur-elem);
+}
+.sn-card:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-md); }
+
+/* ---------- chips & badges ---------- */
+.sn-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--sn-r-pill);
+  font: 600 13px var(--sn-font); cursor: pointer;
+  background: var(--sn-surface); border: 1px solid var(--sn-line); color: var(--sn-ink-700);
+  transition: border-color var(--sn-dur-control), color var(--sn-dur-control);
+}
+.sn-chip:hover { border-color: var(--sn-gold-500); color: var(--sn-gold-700); }
+.sn-chip.selected { background: var(--sn-gold-100); border-color: transparent; color: var(--sn-gold-700); font-weight: 700; }
+.sn-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--sn-r-pill); font: 700 12px var(--sn-font); }
+.sn-badge-verified { background: var(--sn-gold-100); color: var(--sn-gold-700); }
+.sn-badge-going    { background: var(--sn-success-soft); color: var(--sn-success); }
+.sn-badge-flag     { background: var(--sn-danger-soft); color: var(--sn-danger); }
+
+/* ============================================================
+   SETNAYAN MOTION LIBRARY (kit setnayan-animations.css)
+   Prefer transform+opacity only.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .sn-reveal, .sn-skeleton, .sn-bar > i, .sn-scrim, .sn-modal { animation: none !important; }
+  .sn-acc, .sn-btn, .sn-card, .sn-chip, .sn-input { transition: none !important; }
+}
+
+/* ---------- entrances ---------- */
+@keyframes sn-rise     { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
+@keyframes sn-fade     { from { opacity:0; } to { opacity:1; } }
+@keyframes sn-scale-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
+@keyframes sn-blur-in  { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
+.sn-reveal { animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out); }
+.sn-reveal:nth-child(2) { animation-delay:.08s } .sn-reveal:nth-child(3) { animation-delay:.16s }
+.sn-reveal:nth-child(4) { animation-delay:.24s } .sn-reveal:nth-child(5) { animation-delay:.32s }
+/* scroll-gate: start paused; flip to running with IntersectionObserver */
+[data-reveal] .sn-reveal { animation-play-state: paused; }
+
+/* ---------- loaders ---------- */
+@keyframes sn-spin  { to { transform:rotate(360deg); } }
+@keyframes sn-dots  { 0%,80%,100% { transform:none; opacity:.45; } 40% { transform:translateY(-7px); opacity:1; } }
+@keyframes sn-sheen { from { background-position:-200% 0; } to { background-position:200% 0; } }
+@keyframes sn-indet { from { left:-35%; } to { left:105%; } }
+.sn-skeleton { background:linear-gradient(90deg,#EDE8DE 25%,#F5F0E6 50%,#EDE8DE 75%); background-size:200% 100%; animation:sn-sheen 1.4s linear infinite; }
+
+/* ---------- data viz ---------- */
+@keyframes sn-grow    { from { width:0; } }                 /* horizontal bars */
+@keyframes sn-grow-y  { from { transform:scaleY(0); } }     /* bar charts: transform-origin:bottom */
+@keyframes sn-donut   { from { stroke-dashoffset:251.2; } } /* r=40 circle; dasharray = pct * 2.512 */
+@keyframes sn-shimmer { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
+.sn-bar > i { display:block; height:100%; border-radius:inherit; animation: sn-grow var(--sn-dur-enter) var(--sn-ease-out) both; }
+
+/* ---------- live signatures (pulse ONLY on genuinely live states) ---------- */
+@keyframes sn-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.7); } }
+@keyframes sn-ring  { 0% { box-shadow:0 0 0 0 rgba(169,131,75,.45); } 100% { box-shadow:0 0 0 14px rgba(169,131,75,0); } }
+@keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
+
+/* ---------- expand / collapse (no height measuring) ---------- */
+.sn-acc { display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc.open { grid-template-rows:1fr; }
+.sn-acc > * { overflow:hidden; min-height:0; }
+
+/* ---------- overlays ---------- */
+.sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
+.sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
+/* route change: main { animation:sn-fade .32s both; } */

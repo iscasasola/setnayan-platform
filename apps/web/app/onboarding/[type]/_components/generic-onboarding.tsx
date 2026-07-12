@@ -25,6 +25,9 @@ import { extraPicksFrom, type TypeQuestion } from '@/lib/onboarding/type-questio
 import type { GenericPersonaReveal } from '@/lib/onboarding/generic-content';
 import type { OnboardingIntro } from '@/lib/onboarding/onboarding-db';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
+import { getSpecialtyFields } from '@/lib/onboarding/specialty-catalog';
+import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
+import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
   eventType: string;
@@ -65,6 +68,8 @@ type Draft = {
   axes: Record<string, string>;
   /** Per-type signature-moment answers (questionId → optionKey). */
   details: Record<string, string>;
+  /** Rich per-type specialty field answers (catalog signature_fields → values). */
+  specialtyValues: Record<string, unknown>;
 };
 
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -95,12 +100,17 @@ export function GenericOnboarding(props: Props) {
   const [region, setRegion] = useState('');
   const [axes, setAxes] = useState<Record<string, string>>({});
   const [details, setDetails] = useState<Record<string, string>>({});
+  const [specialtyValues, setSpecialtyValues] = useState<Record<string, unknown>>({});
   const [hydrated, setHydrated] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // The experience-quiz axis ids, in order (keys are locked; copy is editable).
   const axisIds = useMemo<string[]>(() => quizAxes.map((a) => a.id), [quizAxes]);
+  // Rich per-type "signature fields" from the specialty catalog (the 18s, godparents,
+  // milestone-as-data, …). Empty for a type with no catalog entry → the screen is
+  // dropped and the flow is byte-identical to before.
+  const specialtyFields = useMemo(() => getSpecialtyFields(eventType), [eventType]);
   // Per-type signature-moment screens, injected into the sequence after 'region'.
   const screens = useMemo<string[]>(
     () => [
@@ -110,11 +120,12 @@ export function GenericOnboarding(props: Props) {
       'pax',
       'region',
       ...questions.map((q) => `tq_${q.id}`),
+      ...(specialtyFields.length > 0 ? ['specialty'] : []),
       ...axisIds, // for_whom · feel · energy · roots · effort
       'reveal',
       'congrats',
     ],
-    [questions, axisIds],
+    [questions, axisIds, specialtyFields],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
@@ -131,6 +142,7 @@ export function GenericOnboarding(props: Props) {
           setRegion(d.region ?? '');
           setAxes(d.axes ?? {});
           setDetails(d.details ?? {});
+          setSpecialtyValues(d.specialtyValues ?? {});
           if (resume) setStep(screens.indexOf('congrats'));
         } else {
           localStorage.removeItem(draftKey);
@@ -146,12 +158,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, dateValue, pax, region, axes, details };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, dateValue, pax, region, axes, details, specialtyValues };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, dateValue, pax, region, axes, details]);
+  }, [hydrated, draftKey, displayName, dateValue, pax, region, axes, details, specialtyValues]);
 
   const screen = screens[step]!;
   const axisIndex = axisIds.indexOf(screen);
@@ -256,6 +268,12 @@ export function GenericOnboarding(props: Props) {
       sendTopInquiries: false,
       inquiriesPerCategory: 3,
       role: 'host',
+      // Per-type signature answers: the light tq_ picks + the rich catalog fields
+      // (the 18s, godparents, milestone-as-data…). Both land in
+      // events.signature_details — the Brief's specialty layer reads the bag.
+      // Rich fields are normalised on the way out: numbers → numbers, roster
+      // cells coerced, empties + show_when-hidden fields dropped (specialty-values).
+      signatureDetails: { ...details, ...normalizeSpecialtyValues(specialtyFields, specialtyValues) },
     };
     // Anon-draft commit mints a Supabase anonymous session that global captcha
     // gates — mint a Turnstile token (no-op/undefined when unconfigured).
@@ -403,6 +421,17 @@ export function GenericOnboarding(props: Props) {
               );
             })}
           </div>
+        </div>
+      );
+    }
+    if (screen === 'specialty') {
+      return (
+        <div>
+          <Title>A few details that make it yours</Title>
+          <p className="mt-2 text-ink/55">
+            Optional — the more you share, the more personal your plan. Skip anything you’re unsure of.
+          </p>
+          <SpecialtyFields fields={specialtyFields} value={specialtyValues} onChange={setSpecialtyValues} />
         </div>
       );
     }

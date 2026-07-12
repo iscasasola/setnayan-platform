@@ -661,7 +661,7 @@ function SetnayanAiOverlay({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
           <span style={{ flex: '0 0 152px', whiteSpace: 'nowrap', fontSize: 11, color: '#6c675e' }}>{compare.themLabel}</span>
           <div style={{ flex: 1, height: 9, background: 'rgba(42,43,46,.1)', borderRadius: 'var(--m-r-full)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${compare.themPct}%`, background: '#c5a059', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
+            <div style={{ height: '100%', width: `${compare.themPct}%`, background: '#a9834b', borderRadius: 'var(--m-r-full)', transition: 'width .35s ease' }} />
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>

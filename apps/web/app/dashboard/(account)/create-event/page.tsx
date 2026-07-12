@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { getInPlanningWedding } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -16,6 +19,8 @@ const ERROR_COPY: Record<string, string> = {
     'Pick a wedding type so we can match vendors compatible with your ceremony.',
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
+  wedding_exists:
+    'You already have a wedding in planning — you can only plan one wedding at a time. Finish or archive it first to start a new one.',
 };
 
 type SearchParams = Promise<{ error?: string; next?: string; event_type?: string }>;
@@ -28,6 +33,10 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // DB-driven roster (2026-06-13): status='active' AND enabled=TRUE vocab
   // rows, ordered. Falls back to the pre-cutover constant on DB hiccups.
   const eventTypes = await getCreatableEventTypes();
+  // Budget feel-bands for the optional budget picker on the non-wedding inline
+  // form (DB-backed, falls back to the seed constant). Fetched here so the
+  // client picker stays server-data-driven, same source as onboarding.
+  const budgetBands = await getBudgetBands();
   // QR fast-lane (owner 2026-07): a Locked/Shortlist QR already carries the
   // event type, so pre-select it and let the picker auto-advance — the couple
   // never re-picks the type they already agreed to with the vendor.
@@ -37,6 +46,17 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       : undefined;
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+
+  // Wedding cardinality (owner-locked 2026-07-12 · flow-check reconciled): if the
+  // user has a wedding still IN PLANNING, the picker shows a guided router (edit
+  // the same-marriage wedding / vow renewal → Anniversary / a new marriage) instead
+  // of the form. A SETTLED wedding (archived, or completed) does NOT block — so
+  // remarriage works. The server action re-checks authoritatively.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -66,8 +86,10 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
 
       <EventTypePicker
         types={eventTypes}
+        budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
         preselect={preselect}
+        inPlanningWedding={inPlanningWedding}
       />
     </div>
   );

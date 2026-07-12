@@ -41,6 +41,14 @@ import {
 } from './actions';
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import {
+  CIVIL_STATUSES,
+  CIVIL_STATUS_LABELS,
+  RELIGIONS,
+  RELIGION_LABELS,
+  SEXES,
+  SEX_LABELS,
+} from '@/lib/profile-personalization';
+import {
   setAccountFaceProfileConsent,
   forgetMyFaceEverywhere,
 } from './face-profile-actions';
@@ -92,7 +100,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -331,6 +339,77 @@ export default async function ProfilePage({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+
+          {/* Optional, reference-only personalization (date-anchor model). Both
+              fields are sensitive PI (RA 10173 §3(l)) — opt-in, never required,
+              never shared. Leaving them blank changes nothing. */}
+          <fieldset className="space-y-3 rounded-md border border-ink/10 bg-cream p-4">
+            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+              Personalize your events — optional
+            </legend>
+            <p className="text-xs leading-relaxed text-ink/55">
+              Add these to tailor your events — your wedding ceremony, your milestones.
+              Optional and used only to personalize; never required, never shared.{' '}
+              <span className="font-medium text-ink/70">We store your events, not your documents.</span>
+            </p>
+            <Field
+              label="Civil status"
+              htmlFor="civil_status"
+              help="Helps tailor wedding &amp; anniversary suggestions"
+            >
+              <select
+                id="civil_status"
+                name="civil_status"
+                defaultValue={profile?.civil_status ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {CIVIL_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {CIVIL_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Religion"
+              htmlFor="religion"
+              help="Pre-selects your ceremony &amp; faith milestones"
+            >
+              <select
+                id="religion"
+                name="religion"
+                defaultValue={profile?.religion ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {RELIGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RELIGION_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Gender"
+              htmlFor="sex"
+              help="Personalizes your own milestones — e.g. your debut (18th / 21st)"
+            >
+              <select
+                id="sex"
+                name="sex"
+                defaultValue={profile?.sex ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {SEXES.map((s) => (
+                  <option key={s} value={s}>
+                    {SEX_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </fieldset>
           <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
             <input
               type="checkbox"

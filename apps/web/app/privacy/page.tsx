@@ -54,11 +54,11 @@ export default function PrivacyPage() {
 
         <Section title="Regulatory posture">
           <p>
-            Setnayan is operated by <strong>ICASA</strong>, a sole
+            Setnayan is operated by{' '}
+            <strong>SETNAYAN SOFTWARE DEVELOPMENT SERVICE</strong>, a sole
             proprietorship registered with the Department of Trade and Industry
-            under the trade name{' '}
-            <strong>&ldquo;SETNAYAN SOFTWARE DEVELOPMENT SERVICE&rdquo;</strong>{' '}
-            (registered 2026-06-25, national scope). Because a sole
+            under that business name (registered 2026-06-25, national scope).
+            Because a sole
             proprietorship has no legal personality separate from its
             proprietor, the Personal Information Controller under RA 10173 is the
             proprietor, who also holds the Data Protection Officer function
@@ -72,10 +72,14 @@ export default function PrivacyPage() {
           <p className="pt-2">
             Cross-border data transfers — Singapore (Supabase), United States
             (Cloudflare R2 PH-region buckets), United States (Anthropic Console
-            for Setnayan AI), United States (Persona for vendor verification),
-            and United States (Google LLC, when you connect the optional Google
-            Drive or YouTube integrations) — are subject to RA 10173 § 21 and
-            the provider&rsquo;s adequacy commitments.
+            for Setnayan AI), and United States (Google LLC, when you connect
+            the optional Google Drive or YouTube integrations) — are subject to
+            RA 10173 § 21 and the provider&rsquo;s adequacy commitments.
+            Third-party identity-verification providers (such as Persona,
+            Veriff, or Onfido) are <strong>not currently active</strong> — the
+            integration is a stub with no personal data flowing to them; we will
+            update this policy before any such provider begins processing your
+            data.
           </p>
         </Section>
 
@@ -91,9 +95,65 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
+        <Section title="Device identifier (fraud prevention)">
+          <p>
+            To keep our marketplace safe from fake accounts and coordinated
+            abuse, we record a{' '}
+            <strong>hashed identifier for the device you sign in from</strong> —
+            a random value stored in your browser, one-way hashed on our servers
+            (we never store the raw value). We use it <strong>only</strong> to
+            detect fraud and duplicate/sock-puppet accounts.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              It is <strong>not</strong> a behavioral or biometric fingerprint
+              and uses no third-party tracking service — it identifies a
+              browser, not your activity.
+            </li>
+            <li>
+              We never use it for advertising, personalization, or tracking you
+              across other websites, and we never sell or share it.
+            </li>
+            <li>
+              Legal basis: our legitimate interest in preventing fraud and
+              protecting our vendors (RA 10173 &sect; 12). The hash is
+              pseudonymous, included in your data export, and deleted when you
+              delete your account.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="Biometric data (facial recognition)">
+          <p>
+            Certain optional features — such as automatically matching you to
+            event photos — can process facial-geometry data derived from a
+            selfie you choose to provide (a &ldquo;face vector&rdquo;, a
+            mathematical representation of facial features). We process this
+            sensitive personal information only:
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              with your explicit, opt-in consent, recorded with a timestamp when
+              you enroll;
+            </li>
+            <li>
+              for adults 18 and older only (enrollment is not offered to
+              minors); and
+            </li>
+            <li>
+              scoped to a single event — your face vector is never reused across
+              events and never sold or shared for advertising.
+            </li>
+          </ul>
+          <p className="pt-2">
+            You may withdraw consent at any time, which permanently deletes your
+            face vector and enrolled selfie. If you never enroll a selfie, we
+            collect no biometric data about you.
+          </p>
+        </Section>
+
         <Section title="What we do not collect">
           <ul className="ml-5 list-disc space-y-1">
-            <li>Face biometrics or any other biometric data</li>
             <li>Location beyond the city-level information vendors choose to share</li>
             <li>Advertising identifiers, third-party cookies, or cross-site tracking signals</li>
           </ul>
@@ -165,9 +225,19 @@ export default function PrivacyPage() {
               from <Link href="/dashboard/profile" className="text-terracotta hover:underline">your profile</Link>.
             </li>
             <li>
-              <strong>Right to erasure:</strong> the same profile page has a soft-delete
-              action (type DELETE to confirm). Soft-deleted accounts are retained for 30
-              days for restoration by you, then become irreversibly deleted.
+              <strong>Right to erasure:</strong> the same profile page has an
+              account-deletion action (type DELETE to confirm). When you request
+              account deletion, our team reviews and permanently erases your
+              personal data within one business day of the request. Because
+              deletion is permanent and immediate upon processing, it cannot be
+              undone once completed — please contact{' '}
+              <a
+                href="mailto:dpo@setnayan.com"
+                className="text-terracotta hover:underline"
+              >
+                dpo@setnayan.com
+              </a>{' '}
+              before requesting if you are unsure.
             </li>
             <li>
               <strong>Right to rectification:</strong> edit your personal info on the

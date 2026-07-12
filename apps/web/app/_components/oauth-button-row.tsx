@@ -4,6 +4,7 @@ import {
 } from '@/app/auth/oauth-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
+import { OAuthAccountTypeMirror } from '@/app/_components/oauth-account-type-mirror';
 
 /**
  * OAuth provider button row — Google + Apple.
@@ -68,6 +69,22 @@ type Props = {
    * surface. Default keeps every existing call site unchanged.
    */
   variant?: 'light' | 'dark';
+  /**
+   * /signup only: carry the Couple/Vendor selection into the OAuth forms so a
+   * vendor signing up via Google/Apple isn't misclassified as a customer. Each
+   * form gets a hidden `account_type` input mirrored from the radio by
+   * <OAuthAccountTypeMirror>. Omitted on /login (existing users — no selector),
+   * keeping that surface byte-identical.
+   */
+  withAccountType?: boolean;
+  /**
+   * SSR default for the hidden OAuth `account_type` (only when withAccountType).
+   * Pass the URL-derived intent (e.g. /signup?as=vendor → 'vendor') so a
+   * deep-linked vendor's OAuth submit carries the right value BEFORE the mirror
+   * hydrates — and even with JS off. The mirror then only tracks runtime radio
+   * toggles. Defaults to 'customer'.
+   */
+  defaultAccountType?: 'customer' | 'vendor';
 };
 
 // Button chrome per variant. Light = alabaster/obsidian (unchanged). Dark =
@@ -100,18 +117,35 @@ const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
  */
 export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || APPLE_ENABLED;
 
-export function OAuthButtonRow({ next, variant = 'light' }: Props) {
+export function OAuthButtonRow({
+  next,
+  variant = 'light',
+  withAccountType = false,
+  defaultAccountType = 'customer',
+}: Props) {
   // Both providers off → render nothing. /login + /signup also use
   // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
   if (!GOOGLE_ENABLED && !APPLE_ENABLED) return null;
   const btn = variant === 'dark' ? BTN_DARK : BTN_LIGHT;
   // White Apple glyph on the dark rail (the black default is invisible there).
   const appleFill = variant === 'dark' ? '#FFFFFF' : '#000000';
+  // /signup: a hidden account_type input per OAuth form, SSR'd to the URL-derived
+  // intent (so a deep-linked vendor is correct pre-hydration / no-JS) and kept in
+  // sync with the Couple/Vendor radio at runtime by <OAuthAccountTypeMirror>.
+  const accountTypeField = withAccountType ? (
+    <input
+      type="hidden"
+      name="account_type"
+      defaultValue={defaultAccountType}
+      data-oauth-account-type
+    />
+  ) : null;
   return (
     <div className="space-y-2.5">
       {GOOGLE_ENABLED ? (
         <form action={signInWithGoogle}>
           <input type="hidden" name="next" value={next} />
+          {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Google…">
             <GoogleGIcon />
             Continue with Google
@@ -121,12 +155,14 @@ export function OAuthButtonRow({ next, variant = 'light' }: Props) {
       {APPLE_ENABLED ? (
         <form action={signInWithApple}>
           <input type="hidden" name="next" value={next} />
+          {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Apple…">
             <AppleIcon fill={appleFill} />
             Continue with Apple
           </SubmitButton>
         </form>
       ) : null}
+      {withAccountType ? <OAuthAccountTypeMirror /> : null}
     </div>
   );
 }

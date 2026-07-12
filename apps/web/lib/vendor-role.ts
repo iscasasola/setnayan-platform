@@ -80,8 +80,10 @@ export const resolveVendorRole = cache(async (
  */
 export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
   'overview',
-  'bookings',
-  'messages',
+  // 5-page IA (2026-07-12): the booking pipeline + message threads both live
+  // inside the My Customers hub now, so staff scope to that one destination
+  // (its tabs carry Bookings + Messages; the hub's surfaces re-check role).
+  'customers',
 ]);
 
 /**

@@ -21,7 +21,7 @@
  * AccountSidebar and any Server Component can import + call this.
  */
 
-import { CalendarHeart, LayoutGrid, Bell, Settings, Store, Plus, Sparkles, Users } from 'lucide-react';
+import { CalendarHeart, CalendarRange, LayoutGrid, Bell, Settings, Store, Plus, Sparkles, Users } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
 export function buildAccountNavGroups(): NavGroup[] {
@@ -39,6 +39,16 @@ export function buildAccountNavGroups(): NavGroup[] {
           href: '/dashboard',
           icon: CalendarHeart,
           matchPrefix: '__home__',
+        },
+        {
+          // Your year — the account-level MOMENTS calendar (date-anchor model,
+          // PR-F). Derives upcoming anniversaries + holidays from the couple's
+          // anchors at read time; nothing stored, nothing auto-created.
+          key: 'year',
+          label: 'Your year',
+          href: '/dashboard/year',
+          icon: CalendarRange,
+          matchPrefix: '/dashboard/year',
         },
         {
           // People — the person-spine connections home (family · godparents ·

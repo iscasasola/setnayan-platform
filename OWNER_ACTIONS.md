@@ -58,6 +58,36 @@
 
 ---
 
+## 2026-07-13 · Date-anchor family graph — flag flips (all DPO-gated) 🟡 no code, needs your review first
+
+The whole **family graph** (dependents, their milestones, faith rites, godparents,
+godchild birthday reminders, married household) is **built and merged, shipping
+DARK** behind `dependentPeopleEnabled()`. The `dependents`/`godparents` tables are
+**empty in production** and nothing surfaces until you deliberately flip the flag —
+because this is the most sensitive data on the platform (a **minor's** birthdate +
+religion + sex). Steps, in order:
+
+1. **[REQUIRED before flipping] Batched DPO / counsel review — G1.** ONE review
+   covering: dependents' data (minors' birthdate/religion/gender), faith rites for
+   children, godparent links + third-party birthday reminders, gender-reveal due
+   dates, and the married-household consent model. You are the DPO; external counsel
+   for the flagged items. Turnkey list + the two household consent sign-offs
+   (joint-children auto-share · co-parenting access persists after a marriage is
+   archived) are in the corpus **`Family_Graph_Owner_Actions_2026-07-12.md`**.
+2. **[After G1] Flip the graph on.** Vercel → **Settings → Environment Variables**
+   → add `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1` (Production) → **Redeploy**. This one
+   act turns the whole graph live; a code merge never does it.
+3. **[Independent · e-gifts = Pabuya] Flip the public gift page on.** E-gifts are
+   the **existing Pabuya** feature (per-event QR-display; couples can already add
+   their GCash/Maya/bank QR in `dashboard/[eventId]/pabuya`). Only the *guest*
+   page `[slug]/pabuya` ships dark. To launch it: set `PABUYA_PUBLIC_ROUTE_ENABLED`
+   = `1` (Production) → Redeploy. No transaction ever flows through Setnayan (the
+   couple's own QR; money goes straight to them), so there is no BSP gate — just
+   your go-ahead.
+
+> Same rule as always: **do NOT bulk-enable the other flags.** These three are
+> the only new ones, and #2 stays off until counsel clears G1.
+
 ## 2026-07-09 · Smart Seat-Plan — what's next 🟢 config + testing, no code
 
 The guest ↔ pax ↔ seating "smart seat plan" (9 PRs) is **built, deployed, and

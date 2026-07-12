@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { updateBand } from '@/app/admin/token-bands/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { TOKEN_PRICE_PHP } from '@/lib/v2/region-token-burn';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 
@@ -14,9 +15,11 @@ import { requireAdmin } from '@/lib/admin/require-admin';
  *
  * Owner-locked token economy (2026-06-05): when a vendor ANSWERS an inquiry
  * (accepts it) they burn ONE idempotent unlock per (vendor, event), banded by
- * the WEDDING's region — ₱100/200/300 = 1/2/3 tokens (flat ₱100/token). That
- * single unlock covers ALL of the vendor's services for the event. The band
- * map must be admin-editable because minimum wages drift via wage orders.
+ * the WEDDING's region. Post 2026-07-12 PRICING LOCK the band data is FLAT 1 for
+ * every region (constant 1-token burn) at ₱200/token, so the effective cost is a
+ * uniform ₱200; the band map stays admin-editable (1/2/3 = ₱200/400/600) should
+ * minimum-wage drift ever justify re-banding. That single unlock covers ALL of
+ * the vendor's services for the event.
  *
  * RECONCILED 2026-07-01 (burn-band single source · migration
  * 20270331100000_burn_band_single_source.sql): this editor now reads/writes
@@ -28,7 +31,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
  * nir). Switching to public.regions fixes that AND surfaces all 19 regions as
  * editable rows (the old table was missing eight). token_burn_bands is retired
  * (dropped in a follow-up migration). The economy is flat 1:1 band:token at
- * ₱100/token, so tokens = band (shown read-only); decoupling them is a future
+ * ₱200/token, so tokens = band (shown read-only); decoupling them is a future
  * column on regions, not built here.
  *
  * Auth enforced at the admin layout level.
@@ -62,8 +65,9 @@ export async function TokenBandsSurface() {
         <p className="text-sm text-ink/65">
           What a vendor pays to <strong>answer</strong> an inquiry, banded by the
           wedding&rsquo;s region. One answer = one unlock per (vendor, event) and
-          covers all of that vendor&rsquo;s services for the event. ₱100 per token,
-          so 1 / 2 / 3 tokens = ₱100 / ₱200 / ₱300.
+          covers all of that vendor&rsquo;s services for the event. ₱200 per token,
+          so 1 / 2 / 3 tokens = ₱200 / ₱400 / ₱600 — currently flat 1 token (₱200)
+          for every region.
         </p>
         <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Pending owner ratification.</span> The
@@ -80,7 +84,7 @@ export async function TokenBandsSurface() {
               <th className="px-3 py-3 font-medium">Region</th>
               <th className="hidden px-3 py-3 font-medium sm:table-cell">Min wage (₱)</th>
               <th className="px-3 py-3 font-medium">Band</th>
-              <th className="px-3 py-3 font-medium">Tokens (= ₱{'×'}100)</th>
+              <th className="px-3 py-3 font-medium">Tokens (= ₱{'×'}200)</th>
               <th className="px-3 py-3 font-medium">Save</th>
             </tr>
           </thead>
@@ -114,7 +118,7 @@ export async function TokenBandsSurface() {
                     </select>
                     <span className="text-xs text-ink/55">
                       {r.burn_band} {r.burn_band === 1 ? 'token' : 'tokens'} = ₱
-                      {(r.burn_band * 100).toLocaleString('en-PH')}
+                      {(r.burn_band * TOKEN_PRICE_PHP).toLocaleString('en-PH')}
                     </span>
                     <SubmitButton className="button-secondary text-xs" pendingLabel="Saving…">
                       Save

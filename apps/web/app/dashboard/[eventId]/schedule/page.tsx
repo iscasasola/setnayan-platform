@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { seedNonWeddingRunOfShow } from './actions';
 import {
   SCHEDULE_BLOCK_LABEL,
   SCHEDULE_BLOCK_TYPES,
@@ -101,6 +102,21 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     | null;
   const eventDate = eventRow?.event_date ?? null;
   const ceremonyType = eventRow?.ceremony_type ?? null;
+
+  // Run-of-Show first-open seed (owner 2026-07-12: Run-of-Show is FREE). A
+  // NON-WEDDING event that opens its schedule with zero blocks gets a per-type
+  // Filipino program authored from its captured onboarding signals; weddings keep
+  // their own (separate) spine and are untouched. Only pays the seed cost on the
+  // first open — once any block exists this branch is skipped, so steady-state
+  // schedule loads are unchanged.
+  let scheduleBlocks = blocks;
+  if (
+    scheduleBlocks.length === 0 &&
+    (eventRow?.event_type ?? 'wedding') !== 'wedding'
+  ) {
+    const seeded = await seedNonWeddingRunOfShow(eventId);
+    if (seeded > 0) scheduleBlocks = await fetchScheduleBlocks(supabase, eventId);
+  }
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
@@ -152,7 +168,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   // Run-of-show header rows (now/next/±N) off the shared run-state. Top-level
   // blocks only — the header tracks the headline timeline, not sub-parts.
-  const runOfShowBlocks: RunOfShowBlock[] = blocks
+  const runOfShowBlocks: RunOfShowBlock[] = scheduleBlocks
     .filter((b) => b.parent_block_id === null)
     .map((b) => ({
       block_id: b.block_id,
@@ -220,12 +236,12 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           <VendorSuggestionsQueue
             eventId={eventId}
             suggestions={openSuggestions}
-            blocks={blocks}
+            blocks={scheduleBlocks}
           />
           {/* Emcee script — compiles this timeline + the wedding-party names
            *  into a clean host script (copy / download). Read-only over the
            *  saved program; pure compiler in lib/emcee-script. */}
-          {blocks.length > 0 ? (
+          {scheduleBlocks.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3">
               <p className="text-sm text-ink/65">
                 Turn this timeline into a ready-to-read emcee / host script.
@@ -233,7 +249,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               <EmceeScriptButton eventId={eventId} />
             </div>
           ) : null}
-          <EventDayView eventId={eventId} blocks={blocks} />
+          <EventDayView eventId={eventId} blocks={scheduleBlocks} />
         </>
       )}
     </section>

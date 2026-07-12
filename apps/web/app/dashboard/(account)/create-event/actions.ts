@@ -8,6 +8,8 @@ import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { safeNext } from '@/lib/auth';
+import { getBudgetBands } from '@/lib/budget-bands';
+import { resolveCreateCapture } from '@/lib/create-event-capture';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -177,8 +179,27 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/login');
   }
 
-  // Single-field event setup per iteration 0000 § 2.5 (locked 2026-05-14):
-  // event_name only — date + venue are deferred to Setnayan AI wizard or Profile.
+  // Owner 2026-07-12: the iteration-0000 §2.5 "single-field, name-only" lock is
+  // RELAXED for the non-wedding inline path — the couple can optionally seed a
+  // date + guest count + budget at creation, which lights up the checklist's
+  // date-anchored deadlines + budget-health and enriches the Event Brief. All
+  // three are OPTIONAL (name-only creation still works). Weddings keep the
+  // wizard's candidate/window date model, so capture stays empty for them.
+  const capture = isWedding
+    ? resolveCreateCapture({}, [])
+    : resolveCreateCapture(
+        {
+          dateModeRaw: formData.get('date_mode'),
+          dateCandidatesRaw: formData.getAll('date_candidate'),
+          windowStartRaw: formData.get('date_window_start'),
+          windowEndRaw: formData.get('date_window_end'),
+          paxRaw: formData.get('estimated_pax'),
+          budgetBandRaw: formData.get('budget_band'),
+        },
+        await getBudgetBands(),
+        { today: new Date().toISOString().slice(0, 10) },
+      );
+
   // Both writes go through the admin client because the user-scoped JWT can
   // be stale or the role can resolve to anon at the edge — RLS would then
   // reject the insert even though the action already authenticated the user.
@@ -191,7 +212,18 @@ export async function createWeddingEvent(formData: FormData) {
     .insert({
       event_type,
       display_name,
+      // Optional non-wedding capture (all null for weddings + name-only creation).
+      // event_date stays NULL — the LOCKED single date is chosen later (date-as-
+      // output; the date-selection lock ceremony). What's captured here is the
+      // couple's tentative timing: up to 4 candidate dates OR a range.
       event_date: null,
+      date_mode: capture.dateMode,
+      date_candidates: capture.dateCandidates.length ? capture.dateCandidates : null,
+      date_window_start: capture.dateWindowStart,
+      date_window_end: capture.dateWindowEnd,
+      estimated_pax: capture.estimatedPax,
+      budget_band: capture.budgetBand,
+      estimated_budget_centavos: capture.estimatedBudgetCentavos,
       venue_name: null,
       venue_address: null,
       slug,

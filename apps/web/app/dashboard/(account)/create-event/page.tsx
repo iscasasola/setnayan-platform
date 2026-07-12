@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
@@ -28,6 +29,10 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // DB-driven roster (2026-06-13): status='active' AND enabled=TRUE vocab
   // rows, ordered. Falls back to the pre-cutover constant on DB hiccups.
   const eventTypes = await getCreatableEventTypes();
+  // Budget feel-bands for the optional budget picker on the non-wedding inline
+  // form (DB-backed, falls back to the seed constant). Fetched here so the
+  // client picker stays server-data-driven, same source as onboarding.
+  const budgetBands = await getBudgetBands();
   // QR fast-lane (owner 2026-07): a Locked/Shortlist QR already carries the
   // event type, so pre-select it and let the picker auto-advance — the couple
   // never re-picks the type they already agreed to with the vendor.
@@ -66,6 +71,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
 
       <EventTypePicker
         types={eventTypes}
+        budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
         preselect={preselect}
       />

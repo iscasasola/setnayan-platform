@@ -20,6 +20,9 @@ const lastCheckMs = new Map<string, number>();
 /** ~once per day (the first eligible request after this gap wins the day). */
 export const DAILY_GAP_MS = 20 * 60 * 60 * 1000;
 
+/** ~once per week (slightly under 7d so it reliably fires each week). */
+export const WEEKLY_GAP_MS = 6 * 24 * 60 * 60 * 1000;
+
 export async function claimPeriodicJob(jobKey: string, minGapMs: number): Promise<boolean> {
   const nowMs = Date.now();
   if (nowMs - (lastCheckMs.get(jobKey) ?? 0) < CHECK_THROTTLE_MS) return false;

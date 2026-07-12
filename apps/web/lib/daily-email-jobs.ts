@@ -10,6 +10,11 @@ import {
   buildRenewalReminderEmail,
   renewalUnsubscribeHeaders,
 } from '@/lib/subscription-renewal-emails';
+import {
+  buildGodchildReminderEmail,
+  godchildReminderUnsubscribeHeaders,
+} from '@/lib/godchild-reminder-emails';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { eventSkuActive } from '@/lib/entitlements';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { addDaysToIso } from '@/lib/anniversary-dates';
@@ -164,6 +169,102 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
       }
     } catch (e) {
       console.error('[anniversary-headsup] candidate failed:', c.event_id, e);
+    }
+  }
+  return { scanned: candidates.length, sent };
+}
+
+// ── Godchild birthday reminders (family graph, counsel-gated, flag-off) ──────
+// A ninong/ninang with reminders on gets a heads-up ~2 weeks before their
+// godchild's birthday. Reads a THIRD PARTY email + a MINOR's birthday — so the
+// whole job is gated behind dependentPeopleEnabled() (the godparents/dependents
+// tables are empty in prod until the DPO clears counsel + flips the flag). The
+// RPC does the next-birthday math (Feb-29 safe); this pairs the email + locks.
+const GODCHILD_WITHIN_DAYS = 14;
+const GODCHILD_MAX_BATCH = 200;
+
+const GODCHILD_BD_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+
+type GodchildReminderCandidate = {
+  godparent_id: string;
+  godparent_name: string;
+  godparent_email: string;
+  role: string | null;
+  godchild_name: string;
+  next_birthday: string; // YYYY-MM-DD
+  turning_age: number;
+};
+
+/** Whole days from `fromIso` to `toIso` (both YYYY-MM-DD, UTC-anchored — TZ-safe). */
+function daysBetweenIso(fromIso: string, toIso: string): number {
+  const from = Date.parse(`${fromIso}T00:00:00Z`);
+  const to = Date.parse(`${toIso}T00:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to)) return 0;
+  return Math.round((to - from) / 86400000);
+}
+
+export async function runGodchildBirthdayReminders(): Promise<{ scanned: number; sent: number }> {
+  // Flag-off in prod: the underlying tables are empty, but short-circuit anyway
+  // so we never even issue the RPC until the deliberate DPO flag flip.
+  if (!dependentPeopleEnabled()) return { scanned: 0, sent: 0 };
+
+  const today = manilaTodayIso();
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc('godchildren_with_birthday_soon', {
+    p_today: today,
+    p_within: GODCHILD_WITHIN_DAYS,
+  });
+  if (error) {
+    console.error('[godchild-birthday] rpc failed:', error.message);
+    return { scanned: 0, sent: 0 };
+  }
+  const candidates = ((data ?? []) as GodchildReminderCandidate[]).slice(0, GODCHILD_MAX_BATCH);
+
+  let sent = 0;
+  for (const c of candidates) {
+    try {
+      const reminderYear = Number(c.next_birthday.slice(0, 4));
+      const { error: lockErr } = await admin
+        .from('godchild_reminder_log')
+        .insert({ godparent_id: c.godparent_id, reminder_year: reminderYear });
+      if (lockErr) continue; // 23505 → already reminded for this birthday
+
+      const to = (c.godparent_email ?? '').trim();
+      if (!to) continue;
+
+      const { subject, text, html } = buildGodchildReminderEmail({
+        godparentName: (c.godparent_name ?? '').trim(),
+        role: c.role,
+        godchildName: (c.godchild_name ?? '').trim(),
+        turningAge: c.turning_age,
+        birthdayLabel: GODCHILD_BD_FMT.format(new Date(`${c.next_birthday}T12:00:00+08:00`)),
+        daysAway: daysBetweenIso(today, c.next_birthday),
+        ctaHref: APP_URL,
+      });
+
+      const result = await sendEmail({ to, subject, text, html, headers: godchildReminderUnsubscribeHeaders() });
+      if (result.ok) {
+        sent += 1;
+        await admin
+          .from('godchild_reminder_log')
+          .update({ resend_id: result.id })
+          .eq('godparent_id', c.godparent_id)
+          .eq('reminder_year', reminderYear);
+      } else {
+        await admin
+          .from('godchild_reminder_log')
+          .delete()
+          .eq('godparent_id', c.godparent_id)
+          .eq('reminder_year', reminderYear);
+      }
+    } catch (e) {
+      console.error('[godchild-birthday] candidate failed:', c.godparent_id, e);
     }
   }
   return { scanned: candidates.length, sent };
@@ -339,6 +440,12 @@ export async function runDailyEmailJobs(): Promise<void> {
   }
   try {
     if (await claimPeriodicJob('anniversary-headsup', DAILY_GAP_MS)) await runAnniversaryHeadsup();
+  } catch {
+    /* best-effort */
+  }
+  try {
+    if (await claimPeriodicJob('godchild-birthday-reminder', DAILY_GAP_MS))
+      await runGodchildBirthdayReminders();
   } catch {
     /* best-effort */
   }

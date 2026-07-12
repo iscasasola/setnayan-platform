@@ -229,7 +229,7 @@ export function HeroUploader({ initialPublished, initialFrameCount }: { initialP
           <div className="text-[13px] text-[var(--m-slate,#4f535b)] mt-0.5">
             {frameCount > 0
               ? `${frameCount} frames stored · ${published ? 'LIVE on the homepage' : 'draft (not live)'}`
-              : 'No video yet — upload one to replace the homepage hero.'}
+              : 'No video yet — upload one to set the sign-in page hero still.'}
           </div>
         </div>
         <span

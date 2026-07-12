@@ -2627,20 +2627,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 1,
   },
   {
-    // Marketing tab (6-menu respine 2026-07-03) — social queue + featuring +
-    // growth incentives; lands on the /admin/marketing card grid.
-    key: "admin.bottom-nav.marketing",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/marketing",
-    label: "Marketing",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Megaphone",
-    customRef: null,
-    sortOrder: 2,
-  },
-  {
     // Performance tab (6-menu respine 2026-07-03) — lands directly on the App
     // Performance cockpit.
     key: "admin.bottom-nav.performance",

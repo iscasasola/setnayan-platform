@@ -58,35 +58,28 @@
 
 ---
 
-## 2026-07-13 · Date-anchor family graph — flag flips (all DPO-gated) 🟡 no code, needs your review first
+## 2026-07-13 · Date-anchor family graph — ✅ ALL GATES CLEARED, LIVE
 
 The whole **family graph** (dependents, their milestones, faith rites, godparents,
-godchild birthday reminders, married household) is **built and merged, shipping
-DARK** behind `dependentPeopleEnabled()`. The `dependents`/`godparents` tables are
-**empty in production** and nothing surfaces until you deliberately flip the flag —
-because this is the most sensitive data on the platform (a **minor's** birthdate +
-religion + sex). Steps, in order:
+godchild birthday reminders, married household) is **built, merged, and LIVE**.
+Owner confirmed 2026-07-13:
 
-1. **[REQUIRED before flipping] Batched DPO / counsel review — G1.** ONE review
-   covering: dependents' data (minors' birthdate/religion/gender), faith rites for
-   children, godparent links + third-party birthday reminders, gender-reveal due
-   dates, and the married-household consent model. You are the DPO; external counsel
-   for the flagged items. Turnkey list + the two household consent sign-offs
-   (joint-children auto-share · co-parenting access persists after a marriage is
-   archived) are in the corpus **`Family_Graph_Owner_Actions_2026-07-12.md`**.
-2. **[After G1] Flip the graph on.** Vercel → **Settings → Environment Variables**
-   → add `NEXT_PUBLIC_DEPENDENT_PEOPLE` = `1` (Production) → **Redeploy**. This one
-   act turns the whole graph live; a code merge never does it.
-3. **[Independent · e-gifts = Pabuya] Flip the public gift page on.** E-gifts are
-   the **existing Pabuya** feature (per-event QR-display; couples can already add
-   their GCash/Maya/bank QR in `dashboard/[eventId]/pabuya`). Only the *guest*
-   page `[slug]/pabuya` ships dark. To launch it: set `PABUYA_PUBLIC_ROUTE_ENABLED`
-   = `1` (Production) → Redeploy. No transaction ever flows through Setnayan (the
-   couple's own QR; money goes straight to them), so there is no BSP gate — just
-   your go-ahead.
+1. ✅ **DONE (long done)** — batched DPO / counsel review (G1) complete +
+   `NEXT_PUBLIC_DEPENDENT_PEOPLE=1` set in Vercel. The graph is on.
+2. ✅ **DONE (long done)** — `PABUYA_PUBLIC_ROUTE_ENABLED=1` set; the guest gift
+   page `[slug]/pabuya` is live (e-gifts = the existing Pabuya; no transaction ever
+   flows through Setnayan, so there was never a BSP gate).
+3. ✅ **CONSENTED** — the married-household consent model (joint-children
+   auto-share · co-parenting access persists after a marriage is archived). Details
+   in the corpus **`Family_Graph_Owner_Actions_2026-07-12.md`** §2b.
 
-> Same rule as always: **do NOT bulk-enable the other flags.** These three are
-> the only new ones, and #2 stays off until counsel clears G1.
+> ⚠ **Because the dependent flag was already on**, the 2026-07-13 #3202 merge
+> (godparents · cron-free godchild reminders · married-household RLS widening) is
+> **not staged** — it goes live on the next production deploy, including **real
+> godchild-birthday reminder emails** to godparents who have an address + reminders
+> enabled. That is intended and covered by the completed review.
+>
+> Still the standing rule: **do NOT bulk-enable the other flags.**
 
 ## 2026-07-09 · Smart Seat-Plan — what's next 🟢 config + testing, no code
 

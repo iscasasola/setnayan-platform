@@ -21,7 +21,9 @@
  * Spec: 02_Specifications/Adaptive_Checklist_Event_Type_Definitions_2026-07-08.md (§5)
  *       02_Specifications/Adaptive_Checklist_Build_Plan_2026-07-08.md (lane C)
  *
- * Inert until PR-2/PR-3 wire it — this module has no importers on landing.
+ * Wired into checklist seeding via `checklistDefForEventType` (per-type template)
+ * and `GENERIC_EVENT_CHECKLIST_DEF` (the fallback for typeless non-wedding types)
+ * in app/dashboard/[eventId]/checklist-actions.ts.
  */
 import type { ChecklistTemplateItem } from './checklist';
 
@@ -184,6 +186,18 @@ export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeCheckli
   travel: { eventType: 'travel', dateModel: 'input', anchorCategory: 'accommodation', tier2Core: ['transport', 'accommodation', 'activities'], template: TRAVEL_TEMPLATE },
   celebration: { eventType: 'celebration', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'photo_video', 'host'], template: CELEBRATION_TEMPLATE },
 };
+
+/**
+ * Generic fallback checklist for any ENABLED non-wedding type that has no
+ * dedicated def above — anniversary · graduation · reunion · gala_night ·
+ * simple_event, plus any future admin-created type. Reuses the generic
+ * `CELEBRATION_TEMPLATE` (purpose · budget · guests · venue · catering · photo ·
+ * host · program · headcount) so those events open a REAL planning surface
+ * instead of a blank checklist. (Enabling all 14 event types outran the per-type
+ * defs — this closes that gap.) Only `.template` is consumed by the seeder.
+ */
+export const GENERIC_EVENT_CHECKLIST_DEF: EventTypeChecklistDef =
+  EVENT_TYPE_CHECKLIST_DEFS.celebration;
 
 /**
  * The checklist definition for an event type, or `null` for wedding / unset —

@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildChecklistSeed, buildSeedRows, isWeddingEvent } from '@/lib/checklist';
-import { checklistDefForEventType } from '@/lib/checklist-event-type-defs';
+import { checklistDefForEventType, GENERIC_EVENT_CHECKLIST_DEF } from '@/lib/checklist-event-type-defs';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   computeSatisfiedChecklistKeys,
@@ -82,15 +82,19 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   // Resolve the template for this event type:
   //  - wedding / unset  → the canonical wedding CHECKLIST_TEMPLATE (unchanged,
   //    with ceremony_type tailoring). `checklistDefForEventType` returns null.
-  //  - enabled non-wedding type (birthday, debut, christening, …) → its own
-  //    per-type performable-task template.
-  //  - unknown non-wedding type → seed NOTHING (return 0) rather than a
-  //    confidently-wrong wedding checklist.
-  const perTypeDef = checklistDefForEventType(eventType);
-  if (perTypeDef == null && !isWeddingEvent(eventType)) return 0;
+  //  - enabled non-wedding type with its own def (birthday, debut, christening, …)
+  //    → its per-type performable-task template.
+  //  - any OTHER non-wedding type with no dedicated def (anniversary, graduation,
+  //    reunion, gala_night, simple_event, future admin types) → the GENERIC
+  //    celebration checklist. Previously these `return 0`'d → a BLANK checklist,
+  //    which shipped live to couples when all 14 event types were enabled. A real
+  //    generic planning surface is always better than an empty one.
+  const perTypeDef =
+    checklistDefForEventType(eventType) ??
+    (isWeddingEvent(eventType) ? null : GENERIC_EVENT_CHECKLIST_DEF);
   const seed = perTypeDef
     ? buildSeedRows(eventId, perTypeDef.template, null) // per-type: no ceremony tailoring
-    : buildChecklistSeed(eventId, ceremonyType); // wedding path, unchanged
+    : buildChecklistSeed(eventId, ceremonyType); // wedding / unset path, unchanged
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];
   const existingKeys = new Set(

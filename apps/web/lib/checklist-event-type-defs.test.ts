@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 
 import {
   EVENT_TYPE_CHECKLIST_DEFS,
+  GENERIC_EVENT_CHECKLIST_DEF,
   checklistDefForEventType,
   type EventTypeChecklistDef,
 } from './checklist-event-type-defs';
@@ -65,4 +66,19 @@ test('christening is date_model=output (parish-scheduled); most types are input'
   assert.equal(EVENT_TYPE_CHECKLIST_DEFS.christening!.dateModel, 'output');
   assert.equal(EVENT_TYPE_CHECKLIST_DEFS.birthday!.dateModel, 'input');
   assert.equal(EVENT_TYPE_CHECKLIST_DEFS.debut!.dateModel, 'input');
+});
+
+test('GENERIC_EVENT_CHECKLIST_DEF: a valid generic fallback for typeless non-wedding types', () => {
+  // The fallback the seeder uses instead of a blank checklist. Reuses celebration.
+  assert.ok(GENERIC_EVENT_CHECKLIST_DEF.template.length > 0);
+  assert.equal(GENERIC_EVENT_CHECKLIST_DEF, EVENT_TYPE_CHECKLIST_DEFS.celebration);
+  for (const item of GENERIC_EVENT_CHECKLIST_DEF.template) {
+    assert.ok(VALID_CATEGORIES.has(item.category), `generic/${item.key} category valid`);
+  }
+  // These enabled types have NO dedicated def → the caller falls back to the
+  // generic def rather than seeding a blank checklist. (checklistDefForEventType
+  // itself still returns null here; the fallback lives at the call site.)
+  for (const t of ['anniversary', 'graduation', 'reunion', 'gala_night', 'simple_event']) {
+    assert.equal(checklistDefForEventType(t), null, `${t} has no dedicated def`);
+  }
 });

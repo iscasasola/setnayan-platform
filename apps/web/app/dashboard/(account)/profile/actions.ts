@@ -9,6 +9,7 @@ import {
   normalizeCivilStatus,
   consentPatch,
 } from '@/lib/profile-personalization';
+import { egiftEnabled } from '@/lib/egift-flag';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -348,4 +349,34 @@ export async function updateRemindersEnabled(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/dashboard', 'layout');
+}
+
+/**
+ * Save (or clear) the user's OWN e-gift receive-QR (Pabuya). QR-DISPLAY ONLY —
+ * we store an image ref + a short label and never touch funds. The `<FileUpload>`
+ * emits the r2:// ref in `egift_qr_ref`; when the user clears the QR the field is
+ * absent, so we null both columns (same clear-by-omission pattern as the profile
+ * photo). Flag-gated behind egiftEnabled().
+ */
+export async function updateEgiftQr(formData: FormData) {
+  if (!egiftEnabled()) redirect('/dashboard/profile');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const refRaw = formData.get('egift_qr_ref');
+  const egift_qr_ref = typeof refRaw === 'string' && refRaw.startsWith('r2://') ? refRaw : null;
+  const labelRaw = String(formData.get('egift_qr_label') ?? '').trim().slice(0, 40);
+  const egift_qr_label = egift_qr_ref ? labelRaw || 'My gift QR' : null;
+
+  const { error } = await supabase
+    .from('users')
+    .update({ egift_qr_ref, egift_qr_label, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard/profile');
 }

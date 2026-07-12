@@ -38,7 +38,9 @@ import {
   updatePersonalInfo,
   updatePlannerMode,
   updateRemindersEnabled,
+  updateEgiftQr,
 } from './actions';
+import { egiftEnabled } from '@/lib/egift-flag';
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import {
   CIVIL_STATUSES,
@@ -98,7 +100,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, reminders_enabled, egift_qr_ref, egift_qr_label, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -139,6 +141,14 @@ export default async function ProfilePage({ searchParams }: Props) {
       () => null,
     );
     if (url) photoDisplayMap[profile.profile_photo_url] = url;
+  }
+
+  // Same presigned-thumbnail treatment for the e-gift receive-QR (flag-off).
+  const showEgift = egiftEnabled();
+  const egiftDisplayMap: Record<string, string> = {};
+  if (showEgift && profile?.egift_qr_ref?.startsWith('r2://')) {
+    const url = await displayUrlForStoredAsset(profile.egift_qr_ref).catch(() => null);
+    if (url) egiftDisplayMap[profile.egift_qr_ref] = url;
   }
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
@@ -433,6 +443,63 @@ export default async function ProfilePage({ searchParams }: Props) {
           </SubmitButton>
         </form>
       </section>
+
+      {/* E-gifts (Pabuya) — QR-DISPLAY ONLY (owner 2026-07-13: "we do not offer
+          transaction on e-gifts; they just share their own QR codes"). We store
+          + show the user's OWN receive-QR; the money never touches Setnayan.
+          Flag-gated (egiftEnabled, default OFF). */}
+      {showEgift ? (
+        <section className="mb-10 space-y-4">
+          <div className="space-y-1">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Your gift QR · Pabuya
+            </h2>
+            <p className="text-sm text-ink/60">
+              Upload your own GCash, Maya, or bank QR. People scan it with their own app to send
+              you a gift straight to your account —{' '}
+              <span className="font-medium text-ink">Setnayan never touches the money</span>.
+            </p>
+          </div>
+          <form
+            action={updateEgiftQr}
+            className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
+          >
+            <Field
+              label="Gift QR image"
+              htmlFor="egift_qr_ref"
+              help="A screenshot of your own receive-QR. PNG / JPG / WebP, up to 2 MB."
+            >
+              <FileUpload
+                bucket="media"
+                pathPrefix={`egift-qr/${user.id}`}
+                name="egift_qr_ref"
+                currentValue={profile?.egift_qr_ref ?? null}
+                initialDisplayUrls={egiftDisplayMap}
+                maxSizeMB={2}
+                acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                variant="square"
+              />
+            </Field>
+            <Field
+              label="Label"
+              htmlFor="egift_qr_label"
+              help="What it is — e.g. “GCash” or “Maya”."
+            >
+              <input
+                id="egift_qr_label"
+                name="egift_qr_label"
+                defaultValue={profile?.egift_qr_label ?? ''}
+                maxLength={40}
+                placeholder="GCash"
+                className="input-field sm:max-w-[16rem]"
+              />
+            </Field>
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
+              Save gift QR
+            </SubmitButton>
+          </form>
+        </section>
+      ) : null}
 
       {isAnon ? null : (
       <>

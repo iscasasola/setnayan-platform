@@ -42,6 +42,7 @@ export function EventTypePicker({
   budgetBands,
   next,
   preselect,
+  hasActiveWedding = false,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -51,6 +52,10 @@ export function EventTypePicker({
   /** A QR-provided event type (Locked/Shortlist fast-lane): auto-advance past
    *  the type carousel so the couple never re-picks what the QR already knows. */
   preselect?: string;
+  /** Wedding cardinality (owner-locked HARD BLOCK 2026-07-12): TRUE = the user
+   *  already co-hosts a non-archived wedding, so selecting Wedding shows the
+   *  block message instead of the create form. */
+  hasActiveWedding?: boolean;
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -123,7 +128,30 @@ export function EventTypePicker({
         <EventTypePhotoPicker types={types} onSelect={handleSelect} />
       </section>
 
-      {selected ? (
+      {selected && selected.key === 'wedding' && hasActiveWedding ? (
+        <div className="mt-10 max-w-lg rounded-2xl border border-terracotta/30 bg-terracotta/[0.06] p-5 sm:p-6">
+          <p className="font-serif text-xl text-ink">One wedding at a time</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink/70">
+            You already have a wedding in planning — you can only plan one wedding at a time.
+            Finish or archive it first to start a new one.
+          </p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <Link
+              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-mulberry/90"
+              href="/dashboard"
+            >
+              Go to my wedding
+            </Link>
+            <button
+              className="inline-flex items-center justify-center rounded-lg border border-ink/15 px-5 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/[0.04]"
+              onClick={() => setSelectedKey(null)}
+              type="button"
+            >
+              Pick a different type
+            </button>
+          </div>
+        </div>
+      ) : selected ? (
         <form ref={formRef} action={createWeddingEvent} className="mt-10 max-w-lg space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { hasActiveWeddingForUser } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -17,6 +19,8 @@ const ERROR_COPY: Record<string, string> = {
     'Pick a wedding type so we can match vendors compatible with your ceremony.',
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
+  wedding_exists:
+    'You already have a wedding in planning — you can only plan one wedding at a time. Finish or archive it first to start a new one.',
 };
 
 type SearchParams = Promise<{ error?: string; next?: string; event_type?: string }>;
@@ -42,6 +46,15 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       : undefined;
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+
+  // Wedding cardinality (owner-locked HARD BLOCK 2026-07-12): if the user
+  // already co-hosts a non-archived wedding, the picker shows the block message
+  // instead of the wedding form. The server action re-checks authoritatively.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const hasActiveWedding = user ? await hasActiveWeddingForUser(supabase, user.id) : false;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -74,6 +87,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
         preselect={preselect}
+        hasActiveWedding={hasActiveWedding}
       />
     </div>
   );

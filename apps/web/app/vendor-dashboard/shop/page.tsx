@@ -572,7 +572,7 @@ const IG_ERROR_COPY: Record<string, string> = {
   persist_failed: 'Could not save your Instagram connection. Try again.',
 };
 
-export default async function VendorShopPage({
+async function ShopHome({
   searchParams,
 }: {
   searchParams: Promise<
@@ -1142,5 +1142,95 @@ function BranchPanel({
         </p>
       )}
     </div>
+  );
+}
+
+
+/* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
+ * One menu item, the whole business integrated: the shop home (profile ·
+ * services · verify · website — this file's original body, incl. the
+ * services fold-in from 2026-07-02) plus Contracts, Proposals, Earnings,
+ * How clients pay you, Manpower as tabs, and a Tools tab linking the
+ * long-tail surfaces that left the sidebar. Old routes redirect in. */
+import { VendorHubTabs } from '../_components/hub-tabs';
+import ContractsSurface from '../contracts/surface';
+import ProposalsSurface from '../proposals/surface';
+import EarningsSurface from '../earnings/surface';
+import PaymentOptionsSurface from '../payment-options/surface';
+import ManpowerSurface from '../manpower/surface';
+
+const SHOP_TABS = [
+  { key: 'home', label: 'My Shop' },
+  { key: 'contracts', label: 'Contracts' },
+  { key: 'proposals', label: 'Proposals' },
+  { key: 'earnings', label: 'Earnings' },
+  { key: 'payments', label: 'How clients pay you' },
+  { key: 'manpower', label: 'Manpower' },
+  { key: 'tools', label: 'More tools' },
+];
+
+const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
+  { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
+  { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
+  { href: '/vendor-dashboard/real-stories', label: 'Real Stories', sub: 'Editorial features starring your work.' },
+  { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
+  { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
+  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
+  { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
+  { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
+  { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Look references you curate for couples (stylist-leaning categories).' },
+  { href: '/vendor-dashboard/branches', label: 'Branches', sub: 'Locations your business operates from.' },
+  { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
+  { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
+  { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
+];
+
+function ShopTools() {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {SHOP_TOOLS.map((t) => (
+          <li key={t.href}>
+            <Link
+              href={t.href}
+              className="block rounded-2xl border border-ink/10 bg-white/70 p-4 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-terracotta/40 hover:shadow-md"
+            >
+              <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
+              <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export default async function VendorShopHub({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const tab = typeof sp.tab === 'string' ? sp.tab : 'home';
+  const pass = Promise.resolve(sp);
+  return (
+    <>
+      <VendorHubTabs base="/vendor-dashboard/shop" active={tab} tabs={SHOP_TABS} />
+      {tab === 'contracts' ? (
+        <ContractsSurface />
+      ) : tab === 'proposals' ? (
+        <ProposalsSurface searchParams={pass as never} />
+      ) : tab === 'earnings' ? (
+        <EarningsSurface searchParams={pass as never} />
+      ) : tab === 'payments' ? (
+        <PaymentOptionsSurface searchParams={pass as never} />
+      ) : tab === 'manpower' ? (
+        <ManpowerSurface />
+      ) : tab === 'tools' ? (
+        <ShopTools />
+      ) : (
+        <ShopHome searchParams={pass as never} />
+      )}
+    </>
   );
 }

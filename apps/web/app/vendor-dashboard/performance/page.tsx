@@ -141,7 +141,7 @@ function SectionEyebrow({ label }: { label: string }) {
  * ownership-gated to current_vendor_profile_ids(); the market-intel readers are
  * de-identified + min-N floored. No card ever exposes another business's rows.
  */
-export default async function VendorPerformancePage({
+async function PerformanceHome({
   searchParams,
 }: {
   searchParams: Promise<{ momentum?: string; service?: string }>;
@@ -645,5 +645,35 @@ export default async function VendorPerformancePage({
         </div>
       )}
     </section>
+  );
+}
+
+
+/* ── My Performance hub (owner 5-page IA, 2026-07-12) — Demand Radar folds in
+ * as a tab (Market Intel, Pro-and-up). /vendor-dashboard/demand redirects. */
+import { VendorHubTabs } from '../_components/hub-tabs';
+import DemandSurface from '../demand/surface';
+
+const PERF_TABS = [
+  { key: 'overview', label: 'My Performance' },
+  { key: 'demand', label: 'Demand Radar' },
+];
+
+export default async function VendorPerformanceHub({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const tab = typeof sp.tab === 'string' ? sp.tab : 'overview';
+  return (
+    <>
+      <VendorHubTabs base="/vendor-dashboard/performance" active={tab} tabs={PERF_TABS} />
+      {tab === 'demand' ? (
+        <DemandSurface />
+      ) : (
+        <PerformanceHome searchParams={Promise.resolve(sp) as never} />
+      )}
+    </>
   );
 }

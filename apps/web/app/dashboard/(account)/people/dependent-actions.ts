@@ -1,0 +1,84 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { manilaToday } from '@/lib/std-views';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import {
+  isFenceEligible,
+  isDependentSex,
+  isDependentRelationship,
+  isReligion,
+} from '@/lib/dependent-people';
+
+/**
+ * Add a guardian-held dependent (COUNSEL-GATED · flag-off). Enforces the age
+ * fence AUTHORITATIVELY here (18–50 refused — invite, never register) since a DB
+ * CHECK can't reference now(). Birthdate is required (a dependent is defined by
+ * the milestones its birthdate derives). Consent is stamped per sensitive field.
+ * Writes under the user's own session → RLS (dependents_owner_all) scopes it to
+ * this guardian.
+ */
+export async function addDependent(formData: FormData): Promise<void> {
+  // Hard gate: inert until the DPO clears the counsel review + flips the flag.
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const name = String(formData.get('name') ?? '').trim().slice(0, 128);
+  const birth = String(formData.get('birth_date') ?? '').trim();
+  const relationship = isDependentRelationship(formData.get('relationship'))
+    ? String(formData.get('relationship'))
+    : null;
+  const sex = isDependentSex(formData.get('sex')) ? String(formData.get('sex')) : null;
+  const religion = isReligion(formData.get('religion')) ? String(formData.get('religion')) : null;
+
+  if (!name) redirect('/dashboard/people?error=name');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) redirect('/dashboard/people?error=birthdate');
+
+  // AGE FENCE (owner rule) — the authoritative gate. 18–50 → they own their own
+  // dates; guardians invite, never register.
+  if (!isFenceEligible(birth, manilaToday())) {
+    redirect('/dashboard/people?error=fence');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('dependents').insert({
+    owner_user_id: user.id,
+    name,
+    birth_date: birth,
+    sex,
+    religion,
+    relationship,
+    // Guardian-consented on the dependent's behalf (RA 10173 durable proof).
+    birth_date_consent_at: now,
+    religion_consent_at: religion ? now : null,
+  });
+  if (error) redirect(`/dashboard/people?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
+}
+
+/** Remove a dependent record (RA 10173 erasure). Owner-scoped via RLS. */
+export async function deleteDependent(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  if (!dependentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS restricts the delete to the owner's own rows; the eq is defense-in-depth.
+  await supabase.from('dependents').delete().eq('dependent_id', dependentId).eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?removed=1');
+}

@@ -6,6 +6,7 @@ import { manilaToday } from '@/lib/std-views';
 import { buildYearMoments, type MomentEvent, type YearMoment } from '@/lib/year-moments';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { buildDependentMoments, type DependentForMoments } from '@/lib/dependent-moments';
+import { buildDependentRiteMoments, type DependentForRites } from '@/lib/faith-rites';
 
 export const metadata = { title: 'Your year' };
 
@@ -84,8 +85,12 @@ export default async function YearPage() {
   if (dependentPeopleEnabled()) {
     const { data: deps } = await supabase
       .from('dependents')
-      .select('dependent_id, name, birth_date, sex');
-    dependentMoments = buildDependentMoments((deps ?? []) as DependentForMoments[], today);
+      .select('dependent_id, name, birth_date, sex, religion');
+    const rows = (deps ?? []) as (DependentForMoments & { religion: string | null })[];
+    dependentMoments = [
+      ...buildDependentMoments(rows as DependentForMoments[], today),
+      ...buildDependentRiteMoments(rows as DependentForRites[], today),
+    ];
   }
 
   const moments = [...buildYearMoments(events, today), ...dependentMoments].sort(

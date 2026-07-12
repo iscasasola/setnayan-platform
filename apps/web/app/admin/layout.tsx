@@ -6,6 +6,8 @@ import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
 import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
+import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
+import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -111,6 +113,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
   // feed /admin/seo; a skipped day only leaves the dashboard a day stale.
   after(() => runSeoPeriodicJobs().catch(() => {}));
+  // Weekly destructive ops sweeps (data-retention chat purge + Papic full-res
+  // drop) — CRON-FREE: admin traffic + a WEEKLY DB claim (replaces the last two
+  // Vercel crons). Both keep their own safety (legal-hold exclusion / kill-switch
+  // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
+  after(() => maybeRunRetentionSweep().catch(() => {}));
+  after(() => maybeRunPapicFullResDrop().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -1256,6 +1257,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // client), so the cookies()-ordering constraint that pins runSocialFlush
   // below doesn't apply. Throttled + single-claim + OFF by default internally.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
+  // fired here too (before the catalog-mode early return) so the marketplace's
+  // main public entry drives them daily. Per-job daily DB claim; never throws.
+  after(() => runDailyEmailJobs().catch(() => {}));
 
   if (isCatalogMode) {
     return (

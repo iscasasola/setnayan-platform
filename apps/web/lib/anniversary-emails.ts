@@ -3,7 +3,8 @@ import { renderBrandedEmail } from '@/lib/email-template';
 
 // Anniversary "on this day" re-engagement email (PR-G).
 //
-// A daily cron (app/api/cron/anniversary-digest) resolves the couples whose
+// A daily CRON-FREE job (runAnniversaryDigest in lib/daily-email-jobs.ts, fired
+// from public-page after() traffic) resolves the couples whose
 // wedding anniversary is TODAY (via the couples_with_anniversary_today RPC) and
 // sends each this warm "N years ago today — relive your day" recap. This module
 // only SHAPES the email; the cron does the DB read, the idempotency lock, and

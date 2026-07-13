@@ -66,10 +66,12 @@ export const metadata = {
  * `(launcher)` group (NOT the `(account)` sidebar group), so it renders
  * chrome-less: a slim top bar (brand · notifications · account menu, from
  * `(launcher)/layout.tsx`) over four groups —
- *   • YOUR EVENTS — a chronological TIMELINE (owner 2026-07-13): a vertical spine
+ *   • YOUR EVENTS — a Facebook-style TIMELINE (owner 2026-07-13): a vertical spine
  *     with a date-stamped node per event (badge · monogram · place/date · a gold
  *     progress ring · countdown · attention line), ending in a "New event" node.
- *     FINISHED (past + archived) events are hidden behind "Show all" (`?show=all`).
+ *     Ordered date DESCENDING — newest on top, OLDER as you scroll down. By default
+ *     only UPCOMING + ongoing (today) events show; COMPLETED (past) + archived are
+ *     hidden behind "Show all" (`?show=all`) and continue oldest-toward-the-bottom.
  *     Each event node jumps into its dashboard — an allowed navigation.
  *   • YOUR YEAR — derived moments; expands the rest INLINE (no /dashboard/year jump).
  *   • YOUR SPACES — the vendor shop(s) + admin HQ still NAVIGATE (their own
@@ -224,9 +226,12 @@ export default async function LauncherPage({
   });
   const isPast = (e: EventWithRole) =>
     !!e.event_date && e.event_date.slice(0, 10) < todayISO;
-  // Timeline order (owner 2026-07-13): upcoming reads as a chronological spine —
-  // soonest date first, undated ("Date to be set") events at the tail. Finished
-  // events read newest-first (most recent celebration on top).
+  // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the top,
+  // OLDER as you scroll down. So the spine runs date DESCENDING: furthest-future
+  // upcoming event on top, the most imminent one near the bottom, then (only when
+  // "Show all" reveals them) completed events continue oldest-toward-the-bottom —
+  // a smooth "older as you scroll down" across the upcoming→completed boundary.
+  // Undated ("Date to be set") events sit at the tail of the upcoming block.
   const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
   const upcoming = active
     .filter((e) => !isPast(e))
@@ -236,7 +241,7 @@ export default async function LauncherPage({
       if (!da && !db) return 0;
       if (!da) return 1; // undated → tail
       if (!db) return -1;
-      return da < db ? -1 : da > db ? 1 : 0;
+      return da < db ? 1 : da > db ? -1 : 0; // latest date first
     });
   const finished = [
     ...active.filter(isPast),
@@ -244,7 +249,7 @@ export default async function LauncherPage({
   ].sort((a, b) => {
     const da = dateKey(a);
     const db = dateKey(b);
-    return da < db ? 1 : da > db ? -1 : 0; // newest first
+    return da < db ? 1 : da > db ? -1 : 0; // most recent past first → oldest last
   });
 
   const profile = profileRes.data;

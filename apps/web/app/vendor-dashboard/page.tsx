@@ -21,6 +21,7 @@ import {
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
 import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
+import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
 
 /**
@@ -193,11 +194,17 @@ export default async function VendorOverviewPage() {
 
   // BUSINESS MILESTONE (owner 2026-07-13) — a monthsary while the shop is new
   // (its first year) and a yearly anniversary after: "a reason to celebrate and
-  // create events". Anchored to the shop's open date + recorded founding year.
+  // create events". Prefers the precise founding date (guarded read, so a
+  // not-yet-applied migration degrades to the open-date + year fallback).
+  const businessStartDate = await fetchVendorBusinessStartDate(
+    supabase,
+    profile.vendor_profile_id,
+  );
   const milestone = businessMilestone(
     profile.created_at,
     manilaToday(),
     profile.in_business_since_year,
+    businessStartDate,
   );
 
   timer.flush();

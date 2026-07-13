@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
+  fetchVendorBusinessStartDate,
   businessProfileChecklist,
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
@@ -83,6 +84,7 @@ import { VerifySection, type VerifySummary } from './_components/verify-section'
 import { readContactStamps } from './inline-docs-actions';
 import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
+import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
 
 /**
@@ -163,6 +165,7 @@ type ShopData = {
   verify: VerifySummary;
   checklist: BusinessProfileItem[];
   profileFields: ProfileFieldData;
+  businessStartDate: string | null;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -419,6 +422,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // decoupled from the shared profile select so a not-yet-applied migration
   // never blanks My Shop.
   const microsite = await fetchVendorMicrosite(supabase, vendorId);
+  // Precise founding date (optional) — guarded, so a not-yet-applied migration
+  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
+  const businessStartDate = await fetchVendorBusinessStartDate(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
   const canPersonalize = micrositeCan(tier).canPersonalize;
   const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
@@ -521,6 +527,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify,
     checklist: completion.items,
     profileFields,
+    businessStartDate,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -704,11 +711,52 @@ async function ShopHome({
         branchLabel={nf.format(data.branchLocations)}
         branchSub={data.branchSub}
         profilePanel={
-          <ProfileChecklistEditor
-            items={data.checklist}
-            data={data.profileFields}
-            isVerified={data.isVerified}
-          />
+          <>
+            <ProfileChecklistEditor
+              items={data.checklist}
+              data={data.profileFields}
+              isVerified={data.isVerified}
+            />
+            {/* Precise founding DATE (optional) — powers the EXACT business
+                anniversary/monthsary day on your Overview. Plain server-action
+                form; blank clears it and we fall back to the year (EST). */}
+            <form
+              action={updateBusinessStartDate}
+              className="mt-3 rounded-xl border p-4"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+            >
+              <label
+                htmlFor="in_business_since_date"
+                className="block text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                Business start date{' '}
+                <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
+                  (optional)
+                </span>
+              </label>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                The exact day you started — powers your business anniversary. Leave
+                blank to use the year (EST) above.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  id="in_business_since_date"
+                  name="in_business_since_date"
+                  type="date"
+                  defaultValue={data.businessStartDate ?? ''}
+                  className="input-field max-w-[12rem]"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--m-accent-deep)' }}
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </>
         }
         websitePanel={
           <WebsiteEditor

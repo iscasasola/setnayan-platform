@@ -45,6 +45,24 @@ test('a shop past its first year (no founding year) graduates to the anniversary
   assert.equal(m.label, '3rd year in business');
 });
 
+test('a precise founding date drives the EXACT anniversary day (overrides created_at)', () => {
+  // Founded Jun 30 2015; next exact anniversary is Jun 30 2027 → 12 years —
+  // not the created_at (Mar 1) day.
+  const m = businessMilestone('2024-03-01', '2026-07-13', 2015, '2015-06-30');
+  assert.ok(m);
+  assert.equal(m.kind, 'anniversary');
+  assert.equal(m.label, '12th year in business');
+  assert.equal(m.dateISO, '2027-06-30');
+});
+
+test('a precise founding date in the first year gives a monthsary', () => {
+  const m = businessMilestone('2026-01-01', '2026-07-13', null, '2026-02-14');
+  assert.ok(m);
+  assert.equal(m.kind, 'monthsary');
+  assert.equal(m.label, '5th month in business');
+  assert.equal(m.dateISO, '2026-07-14');
+});
+
 test('a bad date returns null', () => {
   assert.equal(businessMilestone('not-a-date', '2026-07-13', null), null);
   assert.equal(businessMilestone('2026-04-10', 'nope', null), null);

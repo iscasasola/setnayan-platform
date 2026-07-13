@@ -51,10 +51,40 @@ export function businessMilestone(
   createdAtISO: string,
   todayISO: string,
   sinceYear?: number | null,
+  startDateISO?: string | null,
 ): BusinessMilestone | null {
   const today = parseISO(todayISO);
+  if (!today) return null;
+
+  // PRECISE founding date recorded → anchor the day AND the count to it, so the
+  // milestone lands on the real day (not the Setnayan-join day). First year →
+  // monthsary; after → the exact-day anniversary.
+  if (startDateISO && parseISO(startDateISO)) {
+    const pms = nextMonthsary(startDateISO, todayISO);
+    if (pms && pms.n >= 1 && pms.n <= 11) {
+      return {
+        kind: 'monthsary',
+        label: `${ordinal(pms.n)} month in business`,
+        dateISO: pms.dateISO,
+        daysUntil: dayCount(todayISO, pms.dateISO),
+      };
+    }
+    const pann = nextAnniversary(startDateISO, todayISO);
+    if (pann && pann.n >= 1) {
+      return {
+        kind: 'anniversary',
+        label: `${ordinal(pann.n)} year in business`,
+        dateISO: pann.dateISO,
+        daysUntil: dayCount(todayISO, pann.dateISO),
+      };
+    }
+    return null;
+  }
+
+  // Fallback: no precise date → the shop's Setnayan open-date day + the recorded
+  // founding year for the true count.
   const created = parseISO(createdAtISO);
-  if (!today || !created) return null;
+  if (!created) return null;
   const currentYear = today.getUTCFullYear();
 
   // FIRST YEAR → a monthsary. New-ness comes from the recorded founding year

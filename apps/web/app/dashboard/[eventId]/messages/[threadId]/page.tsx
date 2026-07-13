@@ -12,6 +12,7 @@ import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -34,6 +35,10 @@ export default async function CoupleThreadPage({ params }: Props) {
 
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
   const blockState = await getThreadBlockState(thread, user.id, 'couple');
+
+  // Is voice/video calling unlocked for this vendor's tier? (paid capability,
+  // gate-dark by default). The couple sees the call UI only when it's on.
+  const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   // Mark this thread read for the couple viewer so the Messages-icon unread
   // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
@@ -168,6 +173,8 @@ export default async function CoupleThreadPage({ params }: Props) {
               threadId={threadId}
               currentUserId={user.id}
               counterpartyLabel={vendorLabel}
+              callsEnabled={callsEnabled}
+              viewerRole="couple"
             />
           ) : null}
           {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (

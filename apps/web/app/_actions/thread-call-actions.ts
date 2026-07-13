@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { resolveCounterpartyUserIds } from '@/lib/chat-block';
 import { emitNotification } from '@/lib/notification-emit';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 
 /**
  * Free 1:1 voice/video CALL inside an accepted vendor↔couple thread
@@ -93,6 +94,22 @@ export async function startThreadCall(
   // gate as the message composer). Defense-in-depth on top of the UI gate.
   if (thread.inquiry_status !== 'accepted') {
     return { ok: false, error: 'Calls open once the inquiry is accepted.' };
+  }
+
+  // Calls are a PAID-vendor capability (owner 2026-07-13: "a service for the
+  // paid"). This is the AUTHORITATIVE chokepoint — both the "Call" tab
+  // (ThreadCallLauncher) and the appointment video/voice join call this action,
+  // so gating here covers every call-start regardless of the UI. Flag-dark by
+  // default (resolveThreadCallsEnabled returns true until the owner flips
+  // VENDOR_TIER_FEATURE_GATE), so today's free P2P calling is unchanged.
+  if (!(await resolveThreadCallsEnabled(thread.vendor_profile_id))) {
+    return {
+      ok: false,
+      error:
+        role === 'vendor'
+          ? 'Calling clients is a paid feature — upgrade your plan to start voice & video calls.'
+          : 'This vendor hasn’t enabled in-app calling yet.',
+    };
   }
 
   // Insert under the caller's own session — the thread_calls member-insert RLS

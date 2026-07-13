@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { startThreadCall } from '@/app/_actions/thread-call-actions';
 import { ThreadCallRoom } from './thread-call-room';
@@ -35,10 +37,23 @@ export function ThreadCallLauncher({
   threadId,
   currentUserId,
   counterpartyLabel = 'them',
+  callsEnabled = true,
+  viewerRole = 'couple',
+  upgradeHref,
 }: {
   threadId: string;
   currentUserId: string;
   counterpartyLabel?: string;
+  /**
+   * Whether calling is unlocked for this thread's vendor (paid tier + gate on).
+   * Server-computed via resolveThreadCallsEnabled(). Defaults to true so the
+   * launcher is unchanged wherever the prop isn't passed (gate-dark behaviour).
+   */
+  callsEnabled?: boolean;
+  /** Who's viewing — tailors the locked-state copy (vendor sees an upgrade CTA). */
+  viewerRole?: 'couple' | 'vendor';
+  /** Vendor upsell target for the locked-state CTA (vendor viewer only). */
+  upgradeHref?: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState<OpenCall | null>(null);
@@ -154,6 +169,34 @@ export function ThreadCallLauncher({
         counterpartyLabel={counterpartyLabel}
         onLeave={() => setOpen(null)}
       />
+    );
+  }
+
+  // Calling is a paid-vendor capability. When it isn't unlocked for this
+  // thread's vendor, the couple sees no call UI at all; the vendor sees a
+  // locked pill pointing at the upgrade. The server action is the real gate —
+  // this is just the matching UX so a live button can never mislead.
+  if (!callsEnabled) {
+    if (viewerRole !== 'vendor') return null;
+    const nudge = (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-3 py-1.5 text-xs font-medium text-ink/55">
+        <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Upgrade your plan to call clients
+      </span>
+    );
+    return (
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+          Call {counterpartyLabel}
+        </span>
+        {upgradeHref ? (
+          <Link href={upgradeHref} className="rounded-full transition hover:opacity-80">
+            {nudge}
+          </Link>
+        ) : (
+          nudge
+        )}
+      </div>
     );
   }
 

@@ -28,6 +28,9 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
 
 type Props = {
   children: React.ReactNode;
+  /** `@drawer` parallel slot — renders an in-place sheet for intercepted
+   *  soft-navigations (Studio detail · Orders · Activity); null otherwise. */
+  drawer: React.ReactNode;
   params: Promise<{ eventId: string }>;
 };
 
@@ -79,7 +82,7 @@ type Props = {
  * all defensive wrapping. Nav Phase 1 is purely a chrome refactor; no
  * server-side semantics changed.
  */
-export default async function EventLayout({ children, params }: Props) {
+export default async function EventLayout({ children, drawer, params }: Props) {
   const { eventId } = await params;
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath(`/dashboard/${eventId}`));
@@ -401,6 +404,11 @@ export default async function EventLayout({ children, params }: Props) {
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
       <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} slug={(event.slug as string | null) ?? null} />
+      {/* In-place drawer — the `@drawer` parallel slot. Renders null via its
+          default.tsx unless a soft navigation is intercepted (Studio detail ·
+          Orders · Activity), in which case the destination slides in over this
+          page instead of a full-screen route swap. */}
+      {drawer}
     </>
   );
 }

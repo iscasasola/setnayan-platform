@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, PartyPopper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -20,6 +20,8 @@ import {
 } from './_components/overview-sections';
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
 import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
+import { nextBusinessMonthsary } from '@/lib/vendor-milestone';
+import { manilaToday } from '@/lib/std-views';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -189,6 +191,16 @@ export default async function VendorOverviewPage() {
 
   const { whatsNew, ongoing, upcoming } = data;
 
+  // NEW BUSINESS monthsary — a newly-opened shop's monthly celebration through
+  // year one (owner 2026-07-13: "monthsary for … new business"), anchored to the
+  // shop's open date. One quiet line; null past year one or for an established
+  // shop that just joined.
+  const businessMonthsary = nextBusinessMonthsary(
+    profile.created_at,
+    manilaToday(),
+    profile.in_business_since_year,
+  );
+
   timer.flush();
 
   return (
@@ -204,6 +216,25 @@ export default async function VendorOverviewPage() {
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           What needs you today — {todayLabel()}.
         </p>
+        {businessMonthsary ? (
+          <p
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+            style={{
+              background: 'var(--m-orange-4)',
+              color: 'var(--m-ink)',
+            }}
+          >
+            <PartyPopper aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--m-orange-2)' }} />
+            {profile.business_name} — your {businessMonthsary.label}
+            <span style={{ color: 'var(--m-slate)' }}>
+              · {businessMonthsary.daysUntil === 0
+                ? 'today'
+                : businessMonthsary.daysUntil === 1
+                  ? 'tomorrow'
+                  : `in ${businessMonthsary.daysUntil} days`}
+            </span>
+          </p>
+        ) : null}
       </header>
 
       {/* 0 · Energy stats — the databerry stat bento (real feed-derived counts

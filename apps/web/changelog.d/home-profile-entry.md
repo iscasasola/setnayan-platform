@@ -29,3 +29,32 @@ page is unchanged.
 
 SPEC IMPACT: None (navigation/discoverability fix; the profile surface itself is
 already specced in 0025_profile_settings and unchanged).
+
+## 2026-07-13 · fix(account-chrome): retire the old `(account)` sidebar for the launcher paradigm
+
+Owner follow-up: tapping the new Profile tile "goes to a user-home with a side
+bar. again. an old menu … not [designed for] the … user home." The launcher at
+`/dashboard` is the home (owner 2026-07-09 "we do not want side bar and menu bars
+here"), but every account SPOKE still wrapped itself in the old universal
+`SidebarShell` (owner 2026-06-20), resurrecting the retired user-home left rail
+each time you opened Profile / People / Memories Hub / etc.
+
+- `app/dashboard/(account)/layout.tsx` — rewritten to render the SAME slim
+  chrome-less top bar as `(launcher)/layout.tsx` (Wordmark → home · notifications
+  bell · account menu) instead of `SidebarShell` + `AccountSidebar` +
+  `DoorwaySidebarHeader` + `AccountMobileNav`. Removes the sidebar from ALL
+  account surfaces at once. Every spoke page already carries its own `mx-auto
+  max-w-* px-*` container, so content self-centers under the top bar.
+- `app/dashboard/(account)/people/page.tsx` + `.../setnayan-ai/page.tsx` — added
+  a "Back to home" link (matching the pattern the other spokes already had), the
+  only two account pages that lacked one, so hub-and-spoke return nav is
+  self-contained without the sidebar.
+- `app/dashboard/(launcher)/layout.tsx` — corrected the now-stale docstring that
+  claimed account surfaces "keep the `(account)` sidebar".
+
+The account nav cluster (`account-sidebar.tsx` · `account-mobile-nav.tsx` ·
+`account-nav-config.ts`) is now orphaned but LEFT IN PLACE — `scripts/
+lint-nav-icon-source.mjs` scans it, so its deletion is a separate follow-up.
+Presentational/navigation only — no schema, route, or data change. Typecheck clean.
+
+SPEC IMPACT: None (chrome/navigation consistency; no SKU, schema, or pricing change).

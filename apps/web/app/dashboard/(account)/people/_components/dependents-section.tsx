@@ -3,11 +3,14 @@ import { manilaToday } from '@/lib/std-views';
 import {
   DEPENDENT_RELATIONSHIPS,
   DEPENDENT_RELATIONSHIP_LABELS,
+  DEPENDENT_KINDS,
+  DEPENDENT_KIND_LABELS,
   DEPENDENT_SEXES,
   RELIGIONS,
   fenceBand,
   dependentNextMilestone,
   type DependentSex,
+  type DependentKind,
 } from '@/lib/dependent-people';
 import { RELIGION_LABELS } from '@/lib/profile-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -21,14 +24,16 @@ import {
 } from '../dependent-actions';
 
 /**
- * "The people you care for" — the guardian-held dependent capture (Phase 3
- * family graph · COUNSEL-GATED). Rendered only when dependentPeopleEnabled().
- * A dependent is a child (<18) or elder (>50); the age fence blocks 18–50
- * (invite, never register). Milestones derive from the birthdate.
+ * "The ones you care for" — the dependent capture (Phase 3 family graph ·
+ * flag-gated). Rendered only when dependentPeopleEnabled(). A dependent is a
+ * person, a pet, or anything else. Only a PERSON carries a birthdate/religion +
+ * the age fence (child <18 / elder >50); pets/other are just a name (+ optional
+ * birthday). Milestones + godparents apply to the person case only.
  */
 
 type DependentRow = {
   dependent_id: string;
+  dependent_kind: DependentKind | null;
   name: string;
   birth_date: string | null;
   sex: DependentSex | null;
@@ -65,7 +70,7 @@ export async function DependentsSection() {
   // RLS now returns MY dependents + any my spouse marked shared (PR-G household).
   const { data } = await supabase
     .from('dependents')
-    .select('dependent_id, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse')
+    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse')
     .order('created_at', { ascending: true });
   const dependents = (data ?? []) as DependentRow[];
   const today = manilaToday();
@@ -91,19 +96,22 @@ export async function DependentsSection() {
     <section className="mt-10">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          The people you care for
+          The ones you care for
         </h2>
         <p className="mt-1 text-sm text-ink/55">
-          A child or an elder you plan milestones for. We store the people, dates, and events that
-          matter — not documents.
+          A person, a pet, or anyone else. We store the names, dates, and events that matter — not
+          documents. Milestones and rites apply to a person you plan for (a child or an elder).
         </p>
       </header>
 
       {dependents.length > 0 ? (
         <ul className="mb-6 space-y-2.5">
           {dependents.map((d) => {
-            const band = d.birth_date ? fenceBand(d.birth_date, today) : null;
-            const next = d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
+            // Fence band, milestones + godparents are the PERSON case only — a
+            // pet's birthday is never a "debut". Legacy rows (null kind) = person.
+            const isPersonRow = (d.dependent_kind ?? 'person') === 'person';
+            const band = isPersonRow && d.birth_date ? fenceBand(d.birth_date, today) : null;
+            const next = isPersonRow && d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
             const mine = d.owner_user_id === myUserId;
             const gps = godparentsByDependent.get(d.dependent_id) ?? [];
             return (
@@ -115,7 +123,11 @@ export async function DependentsSection() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink">{d.name}</p>
                     <p className="truncate text-xs text-ink/55">
-                      {d.relationship ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS] : 'Someone I care for'}
+                      {d.dependent_kind && d.dependent_kind !== 'person'
+                        ? DEPENDENT_KIND_LABELS[d.dependent_kind]
+                        : d.relationship
+                          ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
+                          : 'Someone I care for'}
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
@@ -244,21 +256,36 @@ export async function DependentsSection() {
         action={addDependent}
         className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
       >
-        <p className="text-sm font-medium text-ink">Add someone</p>
+        <p className="text-sm font-medium text-ink">Add someone (or a pet)</p>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="dep_kind">
+            What is this?
+          </label>
+          <select id="dep_kind" name="dependent_kind" defaultValue="person" className="input-field sm:max-w-[14rem]">
+            {DEPENDENT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {DEPENDENT_KIND_LABELS[k]}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-ink/50">
+            A pet or “something else” is just a name and, if you like, a birthday — no other details.
+          </p>
+        </div>
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="dep_name">
             Name <span className="text-terracotta">*</span>
           </label>
-          <input id="dep_name" name="name" className="input-field" placeholder="e.g. Amara" required />
+          <input id="dep_name" name="name" className="input-field" placeholder="e.g. Amara, or Bantay" required />
         </div>
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="dep_birth">
-            Birthday <span className="text-terracotta">*</span>
+            Birthday <span className="text-ink/40">(optional)</span>
           </label>
-          <input id="dep_birth" name="birth_date" type="date" className="input-field sm:max-w-[14rem]" required />
+          <input id="dep_birth" name="birth_date" type="date" className="input-field sm:max-w-[14rem]" />
           <p className="text-xs text-ink/50">
-            Only for a child (under 18) or an elder (over 50). Adults keep their own — invite them
-            instead.
+            For a person, a stored birthday is only for a child (under 18) or an elder (over 50) —
+            adults keep their own, so invite them instead. A pet can have any birthday, or none.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

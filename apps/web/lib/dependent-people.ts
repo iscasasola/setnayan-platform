@@ -1,26 +1,49 @@
 /**
- * dependent-people.ts — the pure logic of the guardian-held dependent layer
- * (date-anchor model · Phase 3 · Family graph · COUNSEL-GATED, flag-off).
+ * dependent-people.ts — the pure logic of the dependent layer (date-anchor
+ * model · Phase 3 · Family graph · flag-off).
  *
- * ⚠ This module holds NO data and does NO I/O — it is the pure age-fence +
- * milestone + validation logic behind the dependent records. The records
- * themselves (a child's birthdate + religion + sex) are the most sensitive data
- * the platform holds and are gated by `dependentPeopleEnabled()` (default OFF)
- * until the DPO/counsel review clears them.
+ * A dependent is "someone (or something) you care for" — a person, a pet, or
+ * anything else (owner 2026-07-13: it is NOT defined as a child). The kind
+ * discriminator (`dependent_kind`) decides which rules apply:
+ *  - kind = 'person' → the human case, and the ONLY case that can carry
+ *    sensitive PI (birthdate + religion + sex, guardian-consented). The age
+ *    fence + milestones below apply here.
+ *  - kind = 'pet' | 'other' → no fence, no milestones, no religion — just a name
+ *    and (optionally) a birthday. No sensitive personal data.
  *
- * Owner-locked rules encoded here:
- *  - AGE FENCE: a dependent's birthdate is storable ONLY when the person is
+ * ⚠ This module holds NO data and does NO I/O — pure age-fence + milestone +
+ * validation logic. The person-case records (a child's birthdate/religion/sex)
+ * are sensitive PI and, together with the whole surface, are gated by
+ * `dependentPeopleEnabled()` (default OFF) until the DPO/counsel review clears.
+ *
+ * Owner-locked rules encoded here (person-case only):
+ *  - AGE FENCE: a PERSON dependent's birthdate is storable ONLY when they are
  *    UNDER 18 (a child a guardian plans for) or OVER 50 (an elder being
- *    honored). 18–50 adults own their own dates — invite, never register.
- *    (A DB CHECK can't reference now(); this is the authoritative check.)
- *  - AGE-OUT: a <18 record hands over to the person's own account at their LAST
- *    debut milestone — 18 for female, 21 for male (owner reconciliation: persist
- *    a son's record to 21, not a flat 18).
+ *    honored). 18–50 adults own their own dates — invite, never register. Pets /
+ *    other are exempt (any birthday, or none). A DB CHECK can't reference now(),
+ *    so the fence is enforced app-side for person records.
+ *  - AGE-OUT: a <18 person record hands over to the person's own account at their
+ *    LAST debut milestone — 18 for female, 21 for male (owner reconciliation:
+ *    persist a son's record to 21, not a flat 18).
  */
 import { yearsBetween, parseISO, nextMilestone, type Sex } from './event-anchor';
 import { RELIGIONS, isReligion, type Religion } from './profile-personalization';
 
 export { RELIGIONS, isReligion, type Religion };
+
+/** What a dependent record is — a person, a pet, or anything else you care for. */
+export const DEPENDENT_KINDS = ['person', 'pet', 'other'] as const;
+export type DependentKind = (typeof DEPENDENT_KINDS)[number];
+
+export const DEPENDENT_KIND_LABELS: Record<DependentKind, string> = {
+  person: 'A person',
+  pet: 'A pet',
+  other: 'Something else',
+};
+
+export function isDependentKind(v: unknown): v is DependentKind {
+  return typeof v === 'string' && (DEPENDENT_KINDS as readonly string[]).includes(v);
+}
 
 /** Optional sex — only for the 18F/21M debut derivation. */
 export const DEPENDENT_SEXES = ['female', 'male'] as const;

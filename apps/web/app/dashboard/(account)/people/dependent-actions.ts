@@ -9,16 +9,20 @@ import {
   isFenceEligible,
   isDependentSex,
   isDependentRelationship,
+  isDependentKind,
   isReligion,
 } from '@/lib/dependent-people';
 
 /**
- * Add a guardian-held dependent (COUNSEL-GATED · flag-off). Enforces the age
- * fence AUTHORITATIVELY here (18–50 refused — invite, never register) since a DB
- * CHECK can't reference now(). Birthdate is required (a dependent is defined by
- * the milestones its birthdate derives). Consent is stamped per sensitive field.
+ * Add a dependent — a person, a pet, or anything you care for (COUNSEL-GATED ·
+ * flag-off). Only the PERSON case carries sensitive PI + the age fence:
+ *  - kind = 'person': birthdate optional; when given it is fence-checked (18–50
+ *    refused — invite, never register) since a DB CHECK can't reference now();
+ *    sex/religion + guardian-consent stamps apply.
+ *  - kind = 'pet' | 'other': no fence, any/no birthday, no sex/religion — a pet
+ *    has none. Sensitive human fields are dropped even if posted.
  * Writes under the user's own session → RLS (dependents_owner_all) scopes it to
- * this guardian.
+ * this owner.
  */
 export async function addDependent(formData: FormData): Promise<void> {
   // Hard gate: inert until the DPO clears the counsel review + flips the flag.
@@ -30,26 +34,36 @@ export async function addDependent(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  const kind = isDependentKind(formData.get('dependent_kind'))
+    ? String(formData.get('dependent_kind'))
+    : 'person';
+  const isPerson = kind === 'person';
+
   const name = String(formData.get('name') ?? '').trim().slice(0, 128);
-  const birth = String(formData.get('birth_date') ?? '').trim();
+  const birthRaw = String(formData.get('birth_date') ?? '').trim();
+  const hasBirth = /^\d{4}-\d{2}-\d{2}$/.test(birthRaw);
+  const birth = hasBirth ? birthRaw : null;
   const relationship = isDependentRelationship(formData.get('relationship'))
     ? String(formData.get('relationship'))
     : null;
-  const sex = isDependentSex(formData.get('sex')) ? String(formData.get('sex')) : null;
-  const religion = isReligion(formData.get('religion')) ? String(formData.get('religion')) : null;
+  // Sensitive human-only fields — kept for a person, dropped for a pet/other.
+  const sex = isPerson && isDependentSex(formData.get('sex')) ? String(formData.get('sex')) : null;
+  const religion = isPerson && isReligion(formData.get('religion')) ? String(formData.get('religion')) : null;
 
   if (!name) redirect('/dashboard/people?error=name');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) redirect('/dashboard/people?error=birthdate');
 
-  // AGE FENCE (owner rule) — the authoritative gate. 18–50 → they own their own
-  // dates; guardians invite, never register.
-  if (!isFenceEligible(birth, manilaToday())) {
+  // AGE FENCE (owner rule) — the authoritative gate, PERSON records only. A
+  // person's stored birthdate must be <18 (a child a guardian plans for) or >50
+  // (an elder). 18–50 → they own their own dates; invite, never register. Pets /
+  // other have no fence and may have any birthday, or none.
+  if (isPerson && birth && !isFenceEligible(birth, manilaToday())) {
     redirect('/dashboard/people?error=fence');
   }
 
   const now = new Date().toISOString();
   const { error } = await supabase.from('dependents').insert({
     owner_user_id: user.id,
+    dependent_kind: kind,
     name,
     birth_date: birth,
     sex,
@@ -57,9 +71,10 @@ export async function addDependent(formData: FormData): Promise<void> {
     relationship,
     // Household consent asymmetry (B6): a JOINT child is shared with the spouse by
     // default; every other relation stays private until the guardian opts in.
-    shared_with_spouse: relationship === 'child',
-    // Guardian-consented on the dependent's behalf (RA 10173 durable proof).
-    birth_date_consent_at: now,
+    shared_with_spouse: isPerson && relationship === 'child',
+    // Guardian-consented on the dependent's behalf (RA 10173 durable proof) —
+    // stamped only when the corresponding sensitive field is actually stored.
+    birth_date_consent_at: isPerson && birth ? now : null,
     religion_consent_at: religion ? now : null,
   });
   if (error) redirect(`/dashboard/people?error=${encodeURIComponent(error.message)}`);

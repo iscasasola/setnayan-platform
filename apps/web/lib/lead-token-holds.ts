@@ -68,6 +68,55 @@ export async function consumeLeadHoldOnCoupleReply(
 }
 
 /**
+ * Settle-on-VIEW (Vendor_Token_Settlement_and_Lifecycle §2.1). The couple OPENING
+ * a delivered quotation is value consumed — reply or not, off-app comparison or
+ * not — so it settles the vendor's held token, just like a genuine reply. This
+ * closes the free-quote-extraction hole (take the price, ghost, cost the vendor
+ * nothing).
+ *
+ * Two steps, both on the admin client so they run cleanly from `after()` off the
+ * request path: (1) `mark_proposal_viewed` transitions the proposal sent→viewed
+ * IFF the passed viewer is a customer-side member of the event (couple/coordinator,
+ * never the vendor); (2) if it actually transitioned AND the hold feature is live,
+ * consume the outstanding hold with reason 'proposal_viewed'. Idempotent + best
+ * effort — a re-open no-ops (already 'viewed'), and a missing hold no-ops. The
+ * marking always runs (a legit proposal status); only the CONSUME is flag-gated,
+ * mirroring settle-on-reply's app-side gate.
+ */
+export async function markProposalViewedAndSettle(
+  publicId: string,
+  viewerUserId: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.rpc('mark_proposal_viewed' as never, {
+      p_public_id: publicId,
+      p_viewer_user_id: viewerUserId,
+    } as never);
+    const result = data as {
+      transitioned?: boolean;
+      vendor_profile_id?: string;
+      event_id?: string;
+    } | null;
+    if (
+      result?.transitioned &&
+      result.vendor_profile_id &&
+      result.event_id &&
+      leadTokenHoldEnabled()
+    ) {
+      await admin.rpc('consume_lead_token_hold_for' as never, {
+        p_vendor_profile_id: result.vendor_profile_id,
+        p_event_id: result.event_id,
+        p_reason: 'proposal_viewed',
+      } as never);
+    }
+  } catch (e) {
+    // Best-effort — the couple already saw the quote; the sweep is the backstop.
+    console.warn('[lead-token-holds] settle-on-view failed:', e);
+  }
+}
+
+/**
  * Phase C — a VENDOR reported a couple. Wire that report into the token economy:
  * refund the reporting vendor's held token if the lead never replied (a dead /
  * fake lead), and if ≥ threshold distinct users have reported this couple, refund

@@ -14,6 +14,7 @@
  */
 import {
   nextAnniversary,
+  nextMonthsary,
   nextOccurrence,
   parseISO,
   leadTimeFor,
@@ -31,7 +32,13 @@ export type MomentEvent = {
   archived?: boolean | null;
 };
 
-export type YearMomentKind = 'anniversary' | 'wedding' | 'holiday' | 'recurring' | 'milestone';
+export type YearMomentKind =
+  | 'anniversary'
+  | 'monthsary'
+  | 'wedding'
+  | 'holiday'
+  | 'recurring'
+  | 'milestone';
 
 export type YearMoment = {
   dateISO: string;
@@ -140,6 +147,27 @@ export function buildYearMoments(
           isMilestone: anniversaryIsMilestone(ann.n),
           tier: anniversaryIsMilestone(ann.n) ? lead.tier : 'light',
         });
+      }
+
+      // Relationship MONTHSARY — the SINGLE next monthsary as a quiet line
+      // (owner 2026-07-13; Filipino couples celebrate monthly). Only for a
+      // "together since" anchor, and we SKIP the year marks (n % 12 === 0) —
+      // those land on the same date as the yearly anniversary above, so the
+      // anniversary label wins and the monthsary doesn't double it up.
+      if (e.anchor_origin === 'relationship') {
+        const ms = nextMonthsary(e.anchor_date, todayISO);
+        if (ms && ms.n >= 1 && ms.n % 12 !== 0) {
+          out.push({
+            dateISO: ms.dateISO,
+            daysUntil: daysBetween(todayISO, ms.dateISO),
+            label: `Your ${ordinal(ms.n)} monthsary`,
+            detail: 'Every month',
+            kind: 'monthsary',
+            eventId: e.event_id,
+            isMilestone: false,
+            tier: 'light',
+          });
+        }
       }
       continue;
     }

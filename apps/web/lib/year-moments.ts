@@ -92,6 +92,21 @@ function anniversaryIsMilestone(n: number): boolean {
 }
 
 /**
+ * A recurring event's line names its KIND when the event's own title doesn't
+ * already say it — so a yearly birthday reads "Lolo Ramon — birthday" (identify
+ * the milestone, not a bare name), while a named trip / gala / reunion keeps its
+ * own title. The ordinal AGE of a person's milestone birthday (e.g. "70th") is a
+ * birthdate-derived value that belongs to the counsel-gated dependent People
+ * layer (PR-D) — deliberately not computed here.
+ */
+function recurringLabel(eventType: string, displayName: string): string {
+  if (eventType === 'birthday' && !/\bbirthday\b|\bbday\b/i.test(displayName)) {
+    return `${displayName} — birthday`;
+  }
+  return displayName;
+}
+
+/**
  * Build the upcoming moments for the Year view, within `withinDays` of `todayISO`
  * (default a rolling year). Sorted soonest-first.
  */
@@ -171,7 +186,7 @@ export function buildYearMoments(
         out.push({
           dateISO,
           daysUntil: daysBetween(todayISO, dateISO),
-          label: e.display_name,
+          label: recurringLabel(e.event_type, e.display_name),
           detail: 'Every year',
           kind: 'recurring',
           eventId: e.event_id,

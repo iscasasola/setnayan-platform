@@ -128,6 +128,25 @@ test('a recurring generic event (travel with yearly toggle) surfaces next occurr
   assert.equal(m.eventId, 't1');
 });
 
+test('a recurring birthday names its kind ("— birthday") when the title omits it', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 'b1', event_type: 'birthday', display_name: 'Lolo Ramon',
+    event_date: '2026-02-03', recurs: true,
+  };
+  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  assert.equal(m.kind, 'recurring');
+  assert.equal(m.label, 'Lolo Ramon — birthday');
+});
+
+test('a recurring birthday keeps its title when it already says "birthday"', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 'b2', event_type: 'birthday', display_name: "Ana's 18th Birthday",
+    event_date: '2026-02-03', recurs: true,
+  };
+  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  assert.equal(m.label, "Ana's 18th Birthday");
+});
+
 test('a NON-recurring generic event produces no moment', () => {
   const ev: MomentEvent = {
     ...base, event_id: 't2', event_type: 'travel', display_name: 'One-off Trip',

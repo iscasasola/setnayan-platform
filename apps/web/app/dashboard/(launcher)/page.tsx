@@ -10,6 +10,7 @@ import {
   Users,
   LayoutGrid,
   Wand2,
+  UserRound,
   Check,
   AlertCircle,
 } from 'lucide-react';
@@ -64,9 +65,10 @@ export const metadata = {
  *     archived) events are hidden behind a "Show all events" toggle (`?show=all`).
  *   • YOUR SPACES — the doorways into surfaces with their OWN dashboards:
  *     Life Story · Your shop (vendor console, gated) · HQ (admin console, gated).
- *   • YOUR ACCOUNT — the remaining account features as tiles: People · Memories
- *     Hub · Setnayan AI. (Notifications = the top-bar bell; Settings + sign-out =
- *     the top-bar account menu.)
+ *   • YOUR ACCOUNT — the remaining account features as tiles: Profile & account
+ *     (→ /dashboard/profile: personal info · security · notifications · privacy) ·
+ *     People · Memories Hub · Setnayan AI. (Notifications = the top-bar bell;
+ *     sign-out = the top-bar account menu, which also links back to the profile.)
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
  * in-event surface (`/explore` from an event), not an account-level destination.
@@ -515,7 +517,17 @@ export default async function LauncherPage({
 
       <section>
         <SectionLabel>Your account</SectionLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Your account identity — personal profile / settings, NOT tied to any
+              one event. Was previously reachable only from the top-bar account
+              menu (whose link was dropped 2026-07-10) and buried in-page; surfaced
+              here so account info has a visible home on the launcher. */}
+          <AccountTile
+            href="/dashboard/profile"
+            icon={UserRound}
+            title="Profile & account"
+            subtitle="Personal info · security · privacy"
+          />
           <AccountTile
             href="/dashboard/people"
             icon={Users}

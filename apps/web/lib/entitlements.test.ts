@@ -183,6 +183,7 @@ function makeOwnedSupabase(
   owned: Set<string>,
   status = 'paid',
   comp?: { forSku?: Set<string> | 'all'; activeSkus?: string[] },
+  internalHost = false,
 ) {
   // The ownership query now filters service_key via .in([canonical, ...aliases]).
   // Capture that key list and resolve "owned" when ANY of the queried keys is in
@@ -227,6 +228,9 @@ function makeOwnedSupabase(
       }
       if (fn === 'event_comp_active_skus') {
         return Promise.resolve({ data: comp?.activeSkus ?? [], error: null });
+      }
+      if (fn === 'event_host_is_internal') {
+        return Promise.resolve({ data: internalHost, error: null });
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -455,6 +459,21 @@ test('eventSkuActive: GUIDED_PACK (paid) activates a member but not a media-only
 
 test('eventSkuActive: nothing owned → not active', async () => {
   const supabase = makeOwnedSupabase(new Set(), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+test('eventSkuActive: a §10a internal-hosted event owns any SKU (no order/comp)', async () => {
+  // No orders, no comp grant — but an internal (§10a) account hosts the event,
+  // so every SKU resolves active on the render (migration 20270806100000).
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'ANY_FUTURE_SKU'), true);
+});
+
+test('eventSkuActive: a NON-internal-hosted event with nothing owned stays inactive', async () => {
+  // Guard the inverse: the internal-host OR must not leak to external couples.
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false);
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
 });
 

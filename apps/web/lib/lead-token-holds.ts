@@ -117,6 +117,39 @@ export async function markProposalViewedAndSettle(
 }
 
 /**
+ * Event cancel/delete token reconciliation (Vendor_Token_Settlement_and_Lifecycle
+ * §6). Explicitly RELEASE every outstanding HELD lead-token hold for an event
+ * (refund — the reservation was never debited) while leaving CONSUMED holds alone
+ * (already settled). A hard-delete frees held reservations implicitly via cascade,
+ * but calling this FIRST makes the release intentional + auditable (release_reason)
+ * and hands back the affected vendors so the caller can notify them. It is also
+ * the primitive a future couple-facing SOFT-cancel will reuse.
+ *
+ * Returns the released vendors (for notification). No-op — returns [] — when the
+ * hold feature is off (nothing is held) or nothing was held. Best-effort; never
+ * throws (a delete must not fail because reconciliation hiccuped).
+ */
+export async function reconcileEventLeadHoldsOnDelete(
+  eventId: string,
+  reason = 'event_cancelled',
+): Promise<Array<{ vendor_profile_id: string; tokens: number }>> {
+  if (!leadTokenHoldEnabled()) return [];
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.rpc('release_event_lead_holds' as never, {
+      p_event_id: eventId,
+      p_reason: reason,
+    } as never);
+    const rows = (data as Array<{ vendor_profile_id: string; tokens: number }> | null) ?? [];
+    return rows;
+  } catch (e) {
+    // Best-effort — cascade still frees held reservations; never block the delete.
+    console.warn('[lead-token-holds] event-delete reconcile failed:', e);
+    return [];
+  }
+}
+
+/**
  * Phase C — a VENDOR reported a couple. Wire that report into the token economy:
  * refund the reporting vendor's held token if the lead never replied (a dead /
  * fake lead), and if ≥ threshold distinct users have reported this couple, refund

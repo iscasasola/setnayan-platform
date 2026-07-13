@@ -117,6 +117,35 @@ function birthdayLabel(displayName: string, age: number | null): string {
 }
 
 /**
+ * FIRST-YEAR MONTHSARY (owner 2026-07-13: "monthsary for everything on the first
+ * year — new born, new marriage, new relationship"). Any new beginning is
+ * celebrated MONTHLY through year one; from month 12 on it graduates to the
+ * yearly anniversary / birthday instead. Returns the single NEXT monthsary as a
+ * quiet, non-milestone line — but ONLY while the anchor is still in its first
+ * year (ordinal 1..11). Returns null past year one, at the year mark (12 = the
+ * anniversary's date), or on a bad date. `label` receives the ordinal N.
+ */
+function firstYearMonthsary(
+  anchorISO: string,
+  todayISO: string,
+  label: (n: number) => string,
+  eventId: string,
+): YearMoment | null {
+  const ms = nextMonthsary(anchorISO, todayISO);
+  if (!ms || ms.n < 1 || ms.n > 11) return null;
+  return {
+    dateISO: ms.dateISO,
+    daysUntil: daysBetween(todayISO, ms.dateISO),
+    label: label(ms.n),
+    detail: 'Every month · first year',
+    kind: 'monthsary',
+    eventId,
+    isMilestone: false,
+    tier: 'light',
+  };
+}
+
+/**
  * Build the upcoming moments for the Year view, within `withinDays` of `todayISO`
  * (default a rolling year). Sorted soonest-first.
  */
@@ -149,25 +178,17 @@ export function buildYearMoments(
         });
       }
 
-      // Relationship MONTHSARY — the SINGLE next monthsary as a quiet line
-      // (owner 2026-07-13; Filipino couples celebrate monthly). Only for a
-      // "together since" anchor, and we SKIP the year marks (n % 12 === 0) —
-      // those land on the same date as the yearly anniversary above, so the
-      // anniversary label wins and the monthsary doesn't double it up.
+      // NEW RELATIONSHIP monthsary — the couple's monthly "together since" line
+      // through year one (owner 2026-07-13). One quiet line; graduates to the
+      // yearly "anniversary together" at month 12.
       if (e.anchor_origin === 'relationship') {
-        const ms = nextMonthsary(e.anchor_date, todayISO);
-        if (ms && ms.n >= 1 && ms.n % 12 !== 0) {
-          out.push({
-            dateISO: ms.dateISO,
-            daysUntil: daysBetween(todayISO, ms.dateISO),
-            label: `Your ${ordinal(ms.n)} monthsary`,
-            detail: 'Every month',
-            kind: 'monthsary',
-            eventId: e.event_id,
-            isMilestone: false,
-            tier: 'light',
-          });
-        }
+        const ms = firstYearMonthsary(
+          e.anchor_date,
+          todayISO,
+          (n) => `Your ${ordinal(n)} monthsary`,
+          e.event_id,
+        );
+        if (ms) out.push(ms);
       }
       continue;
     }
@@ -192,6 +213,16 @@ export function buildYearMoments(
               tier: anniversaryIsMilestone(ann.n) ? leadTimeFor('anniversary', ann.n).tier : 'light',
             });
           }
+          // NEW MARRIAGE monthsary — a newlywed's monthly line through year one
+          // (owner 2026-07-13); graduates to the 1st wedding anniversary at
+          // month 12.
+          const ms = firstYearMonthsary(
+            e.event_date,
+            todayISO,
+            (n) => `Your ${ordinal(n)} wedding monthsary`,
+            e.event_id,
+          );
+          if (ms) out.push(ms);
         } else {
           out.push({
             dateISO: e.event_date,
@@ -229,6 +260,19 @@ export function buildYearMoments(
           isMilestone: false,
           tier: 'light',
         });
+      }
+      // NEW BORN monthsary — a baby's monthly milestones through year one (owner
+      // 2026-07-13). Only when a birth anchor is present AND the child is still
+      // in its first year (firstYearMonthsary caps at month 11); it graduates to
+      // the 1st birthday at month 12.
+      if (e.anchor_date) {
+        const ms = firstYearMonthsary(
+          e.anchor_date,
+          todayISO,
+          (n) => `${e.display_name} — ${ordinal(n)} month`,
+          e.event_id,
+        );
+        if (ms) out.push(ms);
       }
       continue;
     }

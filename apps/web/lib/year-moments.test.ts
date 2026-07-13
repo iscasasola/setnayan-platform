@@ -63,29 +63,64 @@ test('relationship-origin anniversary reads "together"', () => {
   assert.equal(m.isMilestone, false); // 9th is an ordinary year
 });
 
-test('a relationship anchor surfaces the next MONTHSARY as a quiet line', () => {
-  const ev: MomentEvent = { ...base, anchor_date: '2024-02-14', anchor_origin: 'relationship', recurs: true };
-  const moments = buildYearMoments([ev], '2026-07-13', { includeHolidays: false });
-  const ms = moments.find((x) => x.kind === 'monthsary');
+test('a NEW relationship surfaces its next monthsary through year one', () => {
+  // Together since Feb 14 2026; on Jul 13 the next monthsary is the 5th (Jul 14).
+  const ev: MomentEvent = { ...base, anchor_date: '2026-02-14', anchor_origin: 'relationship', recurs: true };
+  const ms = buildYearMoments([ev], '2026-07-13', { includeHolidays: false }).find((x) => x.kind === 'monthsary');
   assert.ok(ms, 'expected a monthsary moment');
-  assert.equal(ms.label, 'Your 29th monthsary');
+  assert.equal(ms.label, 'Your 5th monthsary');
   assert.equal(ms.dateISO, '2026-07-14');
   assert.equal(ms.isMilestone, false); // stays a quiet line, never a nudge
 });
 
-test('the monthsary SKIPS the year marks (12/24 → the anniversary owns that date)', () => {
-  // On 2026-02-01 the next monthsary would be the 24th (= the 2nd anniversary,
-  // same date) → skipped; only the yearly anniversary line remains.
-  const ev: MomentEvent = { ...base, anchor_date: '2024-02-14', anchor_origin: 'relationship', recurs: true };
-  const moments = buildYearMoments([ev], '2026-02-01', { includeHolidays: false });
-  assert.equal(moments.find((x) => x.kind === 'monthsary'), undefined);
-  assert.ok(moments.some((x) => x.kind === 'anniversary' && x.label === 'Your 2nd anniversary together'));
+test('monthsaries STOP after the first year (month 12 = the anniversary)', () => {
+  // Together since 2+ years ago → no monthsary; only the yearly anniversary.
+  const past: MomentEvent = { ...base, anchor_date: '2024-02-14', anchor_origin: 'relationship', recurs: true };
+  const m1 = buildYearMoments([past], '2026-07-13', { includeHolidays: false });
+  assert.equal(m1.find((x) => x.kind === 'monthsary'), undefined);
+  assert.ok(m1.some((x) => x.kind === 'anniversary'));
+  // On the exact 12th month, the monthsary is skipped (that date IS the 1st anniversary).
+  const twelve: MomentEvent = { ...base, anchor_date: '2025-07-14', anchor_origin: 'relationship', recurs: true };
+  const m2 = buildYearMoments([twelve], '2026-07-01', { includeHolidays: false });
+  assert.equal(m2.find((x) => x.kind === 'monthsary'), undefined);
 });
 
-test('a WEDDING-origin anchor gets no monthsary (monthsaries are relationship-only)', () => {
-  const ev: MomentEvent = { ...base, anchor_date: '2020-06-30', anchor_origin: 'wedding', recurs: true };
+test('a NEW marriage surfaces a wedding monthsary through year one', () => {
+  // Married Mar 1 2026; on Jul 13 the next wedding monthsary is the 5th (Aug 1),
+  // alongside the upcoming 1st anniversary.
+  const ev: MomentEvent = {
+    ...base, event_id: 'w3', event_type: 'wedding', display_name: 'Carlo & Bianca',
+    event_date: '2026-03-01', recurs: false,
+  };
+  const moments = buildYearMoments([ev], '2026-07-13', { includeHolidays: false });
+  const ms = moments.find((x) => x.kind === 'monthsary');
+  assert.ok(ms, 'expected a wedding monthsary');
+  assert.equal(ms.label, 'Your 5th wedding monthsary');
+  assert.equal(ms.dateISO, '2026-08-01');
+  assert.ok(moments.some((x) => x.kind === 'anniversary' && x.label === 'Your 1st wedding anniversary'));
+});
+
+test('an OLD marriage gets no monthsary (only the yearly anniversary)', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 'w4', event_type: 'wedding', display_name: 'Old Pair',
+    event_date: '2020-06-30', recurs: false,
+  };
   const moments = buildYearMoments([ev], '2026-07-12', { includeHolidays: false });
   assert.equal(moments.some((x) => x.kind === 'monthsary'), false);
+});
+
+test('a NEW born surfaces monthly milestones through year one', () => {
+  // Baby Mateo born Feb 14 2026 → on Jul 13 he is in his 5th month (Jul 14),
+  // alongside the upcoming 1st birthday.
+  const ev: MomentEvent = {
+    ...base, event_id: 'bb1', event_type: 'birthday', display_name: 'Baby Mateo',
+    event_date: '2026-02-14', anchor_date: '2026-02-14', anchor_origin: 'birthday', recurs: true,
+  };
+  const moments = buildYearMoments([ev], '2026-07-13', { includeHolidays: false });
+  const ms = moments.find((x) => x.kind === 'monthsary');
+  assert.ok(ms, 'expected a newborn monthsary');
+  assert.equal(ms.label, 'Baby Mateo — 5th month');
+  assert.equal(ms.dateISO, '2026-07-14');
 });
 
 test('silver anniversary (25th) is a milestone', () => {
@@ -100,7 +135,9 @@ test('an on-platform wedding in the PAST surfaces its own anniversary', () => {
     ...base, event_id: 'w1', event_type: 'wedding', display_name: 'Carlo & Bianca',
     event_date: '2026-01-17', recurs: false,
   };
-  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  // A <1yr wedding also emits its wedding monthsary (nearer, sorts first) — pick
+  // the anniversary out by kind.
+  const m = buildYearMoments([ev], '2026-07-12', { includeHolidays: false }).find((x) => x.kind === 'anniversary')!;
   assert.equal(m.kind, 'anniversary');
   assert.equal(m.label, 'Your 1st wedding anniversary');
   assert.equal(m.dateISO, '2027-01-17');
@@ -139,9 +176,10 @@ test('moments are sorted soonest-first and windowed to a rolling year', () => {
     { ...base, event_id: 'b', anchor_date: '2020-08-30', anchor_origin: 'relationship', recurs: true }, // Aug 30 2026
   ];
   const moments = buildYearMoments(evs, '2026-07-12', { includeHolidays: false });
-  // event 'b' (relationship) now also emits its next monthsary (2026-07-30),
-  // which sorts ahead of the two anniversaries.
-  assert.deepEqual(moments.map((m) => m.dateISO), ['2026-07-30', '2026-08-30', '2027-01-17']);
+  // Both anchors are past their first year, so no monthsary — just the two
+  // anniversaries (event 'a' is a wedding-origin ANNIVERSARY record, not a
+  // wedding event, so it never emits a marriage monthsary either).
+  assert.deepEqual(moments.map((m) => m.dateISO), ['2026-08-30', '2027-01-17']);
   // all within a year
   assert.ok(moments.every((m) => m.daysUntil >= 0 && m.daysUntil <= 366));
 });

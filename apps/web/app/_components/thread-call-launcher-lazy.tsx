@@ -35,6 +35,9 @@ export function ThreadCallLauncherLazy(props: {
   threadId: string;
   currentUserId: string;
   counterpartyLabel?: string;
+  callsEnabled?: boolean;
+  viewerRole?: 'couple' | 'vendor';
+  upgradeHref?: string;
 }) {
   return <ThreadCallLauncher {...props} />;
 }

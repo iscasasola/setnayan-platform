@@ -17,6 +17,7 @@ import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -98,6 +99,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // Voice/video calling is a paid-vendor capability (gate-dark by default).
+  // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
+  const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
   // Every read below the ownership gate is independent — only paxProposals needs
@@ -496,6 +501,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             threadId={threadId}
             currentUserId={user.id}
             counterpartyLabel={coupleLabel}
+            callsEnabled={callsEnabled}
+            viewerRole="vendor"
+            upgradeHref="/vendor-dashboard/subscription"
           />
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>

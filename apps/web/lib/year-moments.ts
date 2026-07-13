@@ -92,18 +92,21 @@ function anniversaryIsMilestone(n: number): boolean {
 }
 
 /**
- * A recurring event's line names its KIND when the event's own title doesn't
- * already say it — so a yearly birthday reads "Lolo Ramon — birthday" (identify
- * the milestone, not a bare name), while a named trip / gala / reunion keeps its
- * own title. The ordinal AGE of a person's milestone birthday (e.g. "70th") is a
- * birthdate-derived value that belongs to the counsel-gated dependent People
- * layer (PR-D) — deliberately not computed here.
+ * A recurring BIRTHDAY's line. A stored date is only a time-gap measure, and a
+ * dependent can be a pet, a sentimental item, or an elder like Lolo Ramon — so
+ * the derived COUNT is safe to show (owner 2026-07-13: "dates only help to
+ * measure time gaps … is safe to count"). With a birth anchor we count the age →
+ * "Lolo Ramon — 70th birthday"; without one it degrades to a plain "— birthday"
+ * (added only when the title doesn't already say it).
+ *
+ * The age here is a pure COUNT off a date the user already chose to store — it
+ * does NOT relax the separate birthdate-STORAGE fence / minor-consent gate in
+ * lib/dependent-people.ts (that stays owner-locked + counsel-pending).
  */
-function recurringLabel(eventType: string, displayName: string): string {
-  if (eventType === 'birthday' && !/\bbirthday\b|\bbday\b/i.test(displayName)) {
-    return `${displayName} — birthday`;
-  }
-  return displayName;
+function birthdayLabel(displayName: string, age: number | null): string {
+  if (age != null && age >= 1) return `${displayName} — ${ordinal(age)} birthday`;
+  if (/\bbirthday\b|\bbday\b/i.test(displayName)) return displayName;
+  return `${displayName} — birthday`;
 }
 
 /**
@@ -177,6 +180,31 @@ export function buildYearMoments(
       continue;
     }
 
+    // Recurring birthday → COUNT the age off the birth anchor when present (a
+    // date is only a time-gap measure; the count is safe to show for any
+    // dependent kind — a pet, a sentimental item, or an elder like Lolo Ramon —
+    // owner 2026-07-13). With a birth anchor the line reads "Lolo Ramon — 70th
+    // birthday"; without one it degrades to a plain "— birthday" off the next
+    // occurrence. The count does NOT relax the birthdate-storage fence.
+    if (e.event_type === 'birthday' && e.recurs) {
+      const occ = e.anchor_date ? nextAnniversary(e.anchor_date, todayISO) : null;
+      const dateISO =
+        occ?.dateISO ?? (e.event_date ? nextOccurrence(e.event_date, todayISO) : null);
+      if (dateISO) {
+        out.push({
+          dateISO,
+          daysUntil: daysBetween(todayISO, dateISO),
+          label: birthdayLabel(e.display_name, occ?.n ?? null),
+          detail: 'Every year',
+          kind: 'recurring',
+          eventId: e.event_id,
+          isMilestone: false,
+          tier: 'light',
+        });
+      }
+      continue;
+    }
+
     // Generic recurring event (travel/corporate/gala/celebration/reunion/
     // tournament with the yearly toggle) → its next annual occurrence off the
     // chosen event_date.
@@ -186,7 +214,7 @@ export function buildYearMoments(
         out.push({
           dateISO,
           daysUntil: daysBetween(todayISO, dateISO),
-          label: recurringLabel(e.event_type, e.display_name),
+          label: e.display_name,
           detail: 'Every year',
           kind: 'recurring',
           eventId: e.event_id,

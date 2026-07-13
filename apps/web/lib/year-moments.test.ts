@@ -147,6 +147,27 @@ test('a recurring birthday keeps its title when it already says "birthday"', () 
   assert.equal(m.label, "Ana's 18th Birthday");
 });
 
+test('a recurring birthday with a birth anchor COUNTS the age ("Nth birthday")', () => {
+  // A date is only a time-gap measure — the count is safe to show (owner
+  // 2026-07-13). Lolo Ramon, born 1957-02-03, turns 70 on his next birthday.
+  const ev: MomentEvent = {
+    ...base, event_id: 'b3', event_type: 'birthday', display_name: 'Lolo Ramon',
+    event_date: '2026-02-03', anchor_date: '1957-02-03', anchor_origin: 'birthday', recurs: true,
+  };
+  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  assert.equal(m.dateISO, '2027-02-03');
+  assert.equal(m.label, 'Lolo Ramon — 70th birthday');
+});
+
+test('a recurring pet birthday counts its age the same way', () => {
+  const ev: MomentEvent = {
+    ...base, event_id: 'p1', event_type: 'birthday', display_name: 'Rocky',
+    event_date: '2026-09-01', anchor_date: '2021-09-01', anchor_origin: 'birthday', recurs: true,
+  };
+  const m = first([ev], '2026-07-12', { includeHolidays: false });
+  assert.equal(m.label, 'Rocky — 5th birthday');
+});
+
 test('a NON-recurring generic event produces no moment', () => {
   const ev: MomentEvent = {
     ...base, event_id: 't2', event_type: 'travel', display_name: 'One-off Trip',

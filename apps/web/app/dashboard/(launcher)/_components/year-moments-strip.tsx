@@ -1,18 +1,21 @@
-import Link from 'next/link';
-import { ArrowUpRight, CalendarHeart, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
-import { buildYearMoments, type MomentEvent, type YearMoment } from '@/lib/year-moments';
+import { buildYearMoments, type MomentEvent } from '@/lib/year-moments';
+import { YearMomentsList, type YearMomentView } from './year-moments-list';
 
 /**
  * "Your year" home strip (date-anchor model). A compact, self-fetching preview
- * of the couple's next few DERIVED moments (anniversaries · wedding countdowns),
- * surfaced on the launcher home so the lifecycle model is felt where users land
- * — the design's "Year view ≈ the Membership home surface".
+ * of the couple's DERIVED moments (anniversaries · wedding countdowns), surfaced
+ * on the launcher home so the lifecycle model is felt where users land — the
+ * design's "Year view ≈ the Membership home surface".
  *
  * Holidays are intentionally excluded here (they live in the full /dashboard/year
  * view) so the home strip stays PERSONAL. Renders nothing when the user has no
  * anchors yet — zero home clutter, zero PII (no birthdate path; that's PR-D).
+ *
+ * Per the owner rule (2026-07-13) the strip no longer links out to
+ * /dashboard/year: it shows the first few moments and expands the rest INLINE
+ * via <YearMomentsList>. Event moments still deep-link into their dashboards.
  */
 
 const HOME_LIMIT = 3;
@@ -58,63 +61,24 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
   const moments = buildYearMoments(events, manilaToday(), { includeHolidays: false });
   if (moments.length === 0) return null;
 
-  const shown = moments.slice(0, HOME_LIMIT);
+  // Precompute display strings server-side (Asia/Manila) so the client list
+  // never re-derives dates or timezones.
+  const views: YearMomentView[] = moments.map((m) => ({
+    key: `${m.kind}-${m.dateISO}-${m.label}`,
+    isWedding: m.kind === 'wedding',
+    label: m.label,
+    dateLabel: fmt(m.dateISO),
+    countdownLabel: countdown(m.daysUntil),
+    isMilestone: m.isMilestone,
+    eventId: m.eventId ?? null,
+  }));
 
   return (
     <section className="mb-10">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">Your year</h2>
-        <Link
-          className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
-          href="/dashboard/year"
-        >
-          See your year <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-        </Link>
       </div>
-      <ul className="space-y-2.5">
-        {shown.map((m) => (
-          <li key={`${m.kind}-${m.dateISO}-${m.label}`}>
-            <MomentRow moment={m} />
-          </li>
-        ))}
-      </ul>
+      <YearMomentsList moments={views} initial={HOME_LIMIT} />
     </section>
-  );
-}
-
-function MomentRow({ moment: m }: { moment: YearMoment }) {
-  const Icon = m.kind === 'wedding' ? Sparkles : CalendarHeart;
-  const href = m.eventId ? `/dashboard/${m.eventId}` : '/dashboard/year';
-  return (
-    <Link
-      className={[
-        'flex items-center gap-3.5 rounded-xl border px-4 py-3 transition-colors',
-        m.isMilestone
-          ? 'border-gold/40 bg-gold/[0.06] hover:bg-gold/[0.1]'
-          : 'border-ink/10 bg-ink/[0.015] hover:bg-ink/[0.04]',
-      ].join(' ')}
-      href={href}
-    >
-      <span
-        className={[
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-          m.isMilestone ? 'bg-gold/15 text-gold-deep' : 'bg-ink/[0.06] text-ink/55',
-        ].join(' ')}
-      >
-        <Icon aria-hidden className="h-4.5 w-4.5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-ink">{m.label}</p>
-        <p className="truncate text-xs text-ink/50">{fmt(m.dateISO)}</p>
-      </div>
-      <span
-        className={[
-          'shrink-0 whitespace-nowrap text-xs font-medium',
-          m.isMilestone ? 'text-gold-deep' : 'text-ink/45',
-        ].join(' ')}
-      >
-        {countdown(m.daysUntil)}
-      </span>
-    </Link>
   );
 }

@@ -1,0 +1,17 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-13 · feat(launcher): events timeline + expand/collapse home (no more shuttling off-page)
+
+Owner directive (2026-07-13): on the account launcher (`/dashboard`), "everything on the home page … must expand and collapse on the page" and "not open a new page" — EXCEPT the three role-routed dashboards (event, vendor, admin), which still navigate. Plus: "your events should make it look like a timeline."
+
+- **Your events → a chronological TIMELINE.** The horizontal card scroll is replaced by a vertical spine (`<ol>`): one date-stamped node per event (colored dot on a connecting line), soonest-first with undated ("Date to be set") events at the tail and finished events newest-first, ending in a terminal "New event" node. Each node is a compact horizontal card carrying the same signals as the old card (badge · real monogram · place/date · gold progress ring · countdown · attention line) and still deep-links into the event dashboard (an allowed jump). New components: `TimelineRow` + `TimelineNewEvent` (replacing `EventCard`/`NewEventCard`).
+- **Your account → expand/collapse rows.** People · Memories Hub · Setnayan AI are no longer link tiles; each is an `<Expandable>` accordion that opens its content INLINE. People and Setnayan AI render prod-accurate inline bodies (coming-soon previews mirroring their pages); Memories Hub streams the real cross-event `PhotosTab` behind `<Suspense>`. New reusable client component `_components/expandable.tsx` (grid-rows height animation, `inert`/`aria-hidden` while collapsed) + server bodies in `_components/account-inline.tsx`. `AccountTile` removed.
+- **Your spaces.** The vendor shop(s) + admin HQ cards still NAVIGATE (their own dashboards — the only allowed jumps). The flag-off "Life Story" doorway (which used to link to `/dashboard/library`) now expands INLINE via `<Expandable>` + `LifeStoryInline`. The section hides entirely when it would be empty.
+- **Your year.** The strip no longer links out to `/dashboard/year`: it shows the first 3 derived moments and expands the rest INLINE via a new client `_components/year-moments-list.tsx` ("See your year · N more" ↔ "Show less"). Event-anchored moments still deep-link into their dashboards; derived/undated moments are plain non-navigating rows. `year-moments-strip.tsx` now precomputes Asia/Manila display strings server-side and hands them to the client list.
+- "New event" stays a navigation (create-event is a flow, not a page of content to preview) and sits as the end-of-spine node.
+
+Verified: `tsc --noEmit` clean, `next lint` clean, `next build` green (`/dashboard` compiles), and the timeline + both expand/collapse interactions confirmed in a browser preview (incl. a date-vs-node-dot collision fix on the timeline rail).
+
+Follow-ups (noted, not in this PR): the Memories Hub inline currently embeds only the Photos view (Saved Vendors / Editorials tabs are not inlined yet) and its album query runs eagerly-but-streamed on every launcher load — a lazy-on-expand fetch is a possible optimization. When the People connections/dependents flags flip on, the inline People body should surface the live suggest→confirm summary.
+
+SPEC IMPACT: None — a launcher interaction/layout redesign; no SKU, pricing, schema, branding, or locked-decision change. Owner design directive logged at the bottom of `DECISION_LOG.md`.

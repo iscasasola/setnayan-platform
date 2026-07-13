@@ -48,6 +48,13 @@ import {
   LifeStorySection,
   type LifeStoryGroup,
 } from '../(account)/_components/life-story-section';
+import { PhotosTab } from '../(account)/library/_components/photos-tab';
+import { Expandable } from './_components/expandable';
+import {
+  PeopleInline,
+  SetnayanAiInline,
+  LifeStoryInline,
+} from './_components/account-inline';
 
 export const metadata = {
   title: 'Your events',
@@ -58,15 +65,20 @@ export const metadata = {
  * "splash screen to control where they want to go"). This route lives in its own
  * `(launcher)` group (NOT the `(account)` sidebar group), so it renders
  * chrome-less: a slim top bar (brand · notifications · account menu, from
- * `(launcher)/layout.tsx`) over three tile groups —
- *   • YOUR EVENTS — upcoming events as rich cards (badge · monogram · place/date ·
- *     a gold progress ring · N-days) + a "New event" tile. FINISHED (past +
- *     archived) events are hidden behind a "Show all events" toggle (`?show=all`).
- *   • YOUR SPACES — the doorways into surfaces with their OWN dashboards:
- *     Life Story · Your shop (vendor console, gated) · HQ (admin console, gated).
- *   • YOUR ACCOUNT — the remaining account features as tiles: People · Memories
- *     Hub · Setnayan AI. (Notifications = the top-bar bell; Settings + sign-out =
- *     the top-bar account menu.)
+ * `(launcher)/layout.tsx`) over four groups —
+ *   • YOUR EVENTS — a chronological TIMELINE (owner 2026-07-13): a vertical spine
+ *     with a date-stamped node per event (badge · monogram · place/date · a gold
+ *     progress ring · countdown · attention line), ending in a "New event" node.
+ *     FINISHED (past + archived) events are hidden behind "Show all" (`?show=all`).
+ *     Each event node jumps into its dashboard — an allowed navigation.
+ *   • YOUR YEAR — derived moments; expands the rest INLINE (no /dashboard/year jump).
+ *   • YOUR SPACES — the vendor shop(s) + admin HQ still NAVIGATE (their own
+ *     dashboards are the only allowed jumps); the Life Story doorway expands INLINE.
+ *   • YOUR ACCOUNT — People · Memories Hub · Setnayan AI, each an EXPAND/COLLAPSE
+ *     row that opens its content on the page (owner 2026-07-13: "everything on the
+ *     home page … must expand and collapse … not open a new page", except the three
+ *     role-routed dashboards). (Notifications = the top-bar bell; Settings +
+ *     sign-out = the top-bar account menu.)
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
  * in-event surface (`/explore` from an event), not an account-level destination.
@@ -212,8 +224,28 @@ export default async function LauncherPage({
   });
   const isPast = (e: EventWithRole) =>
     !!e.event_date && e.event_date.slice(0, 10) < todayISO;
-  const upcoming = active.filter((e) => !isPast(e));
-  const finished = [...active.filter(isPast), ...events.filter((e) => e.archived)];
+  // Timeline order (owner 2026-07-13): upcoming reads as a chronological spine —
+  // soonest date first, undated ("Date to be set") events at the tail. Finished
+  // events read newest-first (most recent celebration on top).
+  const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
+  const upcoming = active
+    .filter((e) => !isPast(e))
+    .sort((a, b) => {
+      const da = dateKey(a);
+      const db = dateKey(b);
+      if (!da && !db) return 0;
+      if (!da) return 1; // undated → tail
+      if (!db) return -1;
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+  const finished = [
+    ...active.filter(isPast),
+    ...events.filter((e) => e.archived),
+  ].sort((a, b) => {
+    const da = dateKey(a);
+    const db = dateKey(b);
+    return da < db ? 1 : da > db ? -1 : 0; // newest first
+  });
 
   const profile = profileRes.data;
   const greeting =
@@ -441,6 +473,11 @@ export default async function LauncherPage({
     });
   }
 
+  // Split "Your spaces": the Life Story hero doorway expands inline; the vendor
+  // shop(s) + admin HQ keep their real dashboard navigations (allowed jumps).
+  const heroSpace = spaces.find((s) => s.tone === 'hero') ?? null;
+  const consoleSpaces = spaces.filter((s) => s.tone !== 'hero');
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <header className="mb-8 space-y-2">
@@ -468,9 +505,12 @@ export default async function LauncherPage({
         >
           Your events
         </SectionLabel>
-        <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:thin] sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
+        {/* A chronological TIMELINE (owner 2026-07-13): a vertical spine with a
+            date-stamped node per event, ending in a "New event" node. Each event
+            node still jumps into its dashboard — an allowed navigation. */}
+        <ol className="relative">
           {upcoming.map((event) => (
-            <EventCard
+            <TimelineRow
               key={event.event_id}
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
@@ -479,7 +519,7 @@ export default async function LauncherPage({
           ))}
           {showAll
             ? finished.map((event) => (
-                <EventCard
+                <TimelineRow
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
@@ -488,8 +528,8 @@ export default async function LauncherPage({
                 />
               ))
             : null}
-          <NewEventCard />
-        </div>
+          <TimelineNewEvent />
+        </ol>
         {!showAll && finished.length > 0 ? (
           <p className="mt-3 text-xs text-ink/40">
             {finished.length} finished event{finished.length > 1 ? 's' : ''} hidden
@@ -504,36 +544,62 @@ export default async function LauncherPage({
         <YearMomentsStrip userId={user.id} />
       </Suspense>
 
-      <section className="mb-10">
-        <SectionLabel>Your spaces</SectionLabel>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {spaces.map((space) => (
-            <SpaceCard key={space.id ?? space.href + space.title} {...space} />
-          ))}
-        </div>
-      </section>
+      {/* YOUR SPACES — vendor + admin cards still NAVIGATE (their own dashboards,
+          the only allowed jumps). The Life Story doorway is a non-dashboard
+          surface, so per the owner rule it expands INLINE instead. */}
+      {heroSpace || consoleSpaces.length > 0 ? (
+        <section className="mb-10">
+          <SectionLabel>Your spaces</SectionLabel>
+          <div className="space-y-4">
+            {heroSpace ? (
+              <Expandable
+                icon={Sparkles}
+                title={heroSpace.title}
+                subtitle={heroSpace.subtitle}
+              >
+                <LifeStoryInline />
+              </Expandable>
+            ) : null}
+            {consoleSpaces.length > 0 ? (
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {consoleSpaces.map((space) => (
+                  <SpaceCard key={space.id ?? space.href + space.title} {...space} />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
+      {/* YOUR ACCOUNT — account-level features open INLINE (owner 2026-07-13):
+          each row expands its content on the page rather than opening a new
+          page. Nothing here jumps to a dashboard. */}
       <section>
         <SectionLabel>Your account</SectionLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <AccountTile
-            href="/dashboard/people"
+        <div className="space-y-3">
+          <Expandable
             icon={Users}
             title="People"
             subtitle="Everyone across your events"
-          />
-          <AccountTile
-            href="/dashboard/library"
+          >
+            <PeopleInline />
+          </Expandable>
+          <Expandable
             icon={LayoutGrid}
             title="Memories Hub"
             subtitle="Photos · videos · saved vendors"
-          />
-          <AccountTile
-            href="/dashboard/setnayan-ai"
+          >
+            <Suspense fallback={<InlinePanelSkeleton />}>
+              <PhotosTab userId={user.id} />
+            </Suspense>
+          </Expandable>
+          <Expandable
             icon={Wand2}
             title="Setnayan AI"
             subtitle="Your planning copilot"
-          />
+          >
+            <SetnayanAiInline />
+          </Expandable>
         </div>
       </section>
 
@@ -663,9 +729,13 @@ function ShowAllToggle({ showAll }: { showAll: boolean }) {
   );
 }
 
-/** A rich event card — badge · monogram · title · place/date · progress ring ·
- *  a "needs a decision" line when something is waiting on the couple. */
-function EventCard({
+/**
+ * One node on the "Your events" TIMELINE (owner 2026-07-13): a date-stamped dot
+ * on the vertical spine + a compact horizontal event card. The card still jumps
+ * into the event dashboard — an allowed navigation. Carries the same signals as
+ * the old card (monogram · badge · place/date · progress ring · attention line).
+ */
+function TimelineRow({
   event,
   pct,
   decision,
@@ -684,8 +754,8 @@ function EventCard({
   // event with neither reads "Date to be set" so the card is self-explanatory.
   const dateMeta =
     [dateLabel, place].filter(Boolean).join(' · ') || 'Date to be set';
-  // WHAT'S NEXT — a plain-language countdown, not the ambiguous "Planned" of the
-  // old caption. Past dates fall through to the finished / status branches.
+  // WHAT'S NEXT — a plain-language countdown. Past dates fall through to the
+  // finished / status branches.
   const countdown =
     days == null
       ? null
@@ -699,24 +769,45 @@ function EventCard({
   const status = finished
     ? 'Celebrated'
     : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
-  // The ring already draws the number; this line just tells you what it means.
   const plannedLabel = pct != null ? `${pct}% planned` : null;
 
   return (
-    <Link
-      href={`/dashboard/${event.event_id}`}
-      className={`group flex min-h-[11rem] min-w-[15rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-ink/10 bg-cream transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg sm:min-w-0 ${
-        finished ? 'opacity-70 hover:opacity-100' : ''
-      }`}
-    >
-      <div className="relative h-20 bg-gradient-to-br from-mulberry/12 via-mulberry/5 to-transparent">
-        <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry shadow-sm">
-          {badge}
-        </span>
+    <li className="relative flex gap-3 sm:gap-5">
+      {/* Spine rail — date marker · connecting line · node dot. The date is
+          padded clear of the spine so the node dot never overlaps it. */}
+      <div className="relative flex w-16 shrink-0 flex-col items-end sm:w-[4.5rem]">
+        <time className="pr-3 pt-3 text-right text-[11px] font-semibold leading-tight text-ink/55">
+          {dateLabel ?? <span className="text-ink/35">TBD</span>}
+        </time>
+        {/* The continuous spine — runs the full height and past the row so it
+            joins the next node (the last row before "New event" still connects). */}
+        <span
+          aria-hidden
+          className="absolute right-0 top-4 bottom-[-1.5rem] w-px bg-ink/10"
+        />
+        {/* Node dot, centered on the spine. */}
+        <span
+          aria-hidden
+          className={`absolute right-0 top-[0.9rem] h-2.5 w-2.5 translate-x-1/2 rounded-full ring-4 ring-cream ${
+            event.is_primary
+              ? 'bg-terracotta'
+              : finished
+                ? 'bg-ink/25'
+                : 'bg-mulberry'
+          }`}
+        />
+      </div>
+
+      {/* The event card — jumps to the event dashboard. */}
+      <Link
+        href={`/dashboard/${event.event_id}`}
+        className={`group mb-5 flex flex-1 gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-cream p-3 transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg sm:p-4 ${
+          finished ? 'opacity-75 hover:opacity-100' : ''
+        }`}
+      >
         {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
-            lettered), not a faint decorative initial. Uploaded outranks custom
-            per the app-wide precedence; EventMonogram only reads
-            monogram_custom_svg, so resolve it here. */}
+            lettered). Uploaded outranks custom per app-wide precedence;
+            EventMonogram only reads monogram_custom_svg, so resolve it here. */}
         <EventMonogram
           event={{
             ...event,
@@ -724,44 +815,45 @@ function EventCard({
               event.monogram_uploaded_svg ?? event.monogram_custom_svg,
           }}
           size="lg"
-          className="absolute bottom-3 right-3 shadow-md ring-1 ring-black/5"
+          className="shrink-0 shadow-sm ring-1 ring-black/5"
         />
-      </div>
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
-          {event.is_primary ? (
-            <span aria-hidden className="shrink-0 text-terracotta">
-              ★
-            </span>
-          ) : null}
-          <span className="truncate">{event.display_name}</span>
-        </p>
-        <p className="truncate text-sm text-ink/55">{dateMeta}</p>
-        <div className="mt-auto space-y-2 pt-3">
-          <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="inline-flex w-fit rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry">
+            {badge}
+          </span>
+          <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
+            {event.is_primary ? (
+              <span aria-hidden className="shrink-0 text-terracotta">
+                ★
+              </span>
+            ) : null}
+            <span className="truncate">{event.display_name}</span>
+          </p>
+          <p className="truncate text-sm text-ink/55">{dateMeta}</p>
+          <div className="mt-1 flex items-center gap-2.5">
             {pct != null ? (
-              <ProgressRing pct={pct} size={42} stroke={4}>
-                <span className="text-[9px] font-semibold text-ink">{pct}%</span>
+              <ProgressRing pct={pct} size={38} stroke={4}>
+                <span className="text-[8px] font-semibold text-ink">{pct}%</span>
               </ProgressRing>
             ) : null}
             <div className="min-w-0">
               <p className="truncate text-xs font-medium text-ink">{status}</p>
               {plannedLabel ? (
-                <p className="truncate text-[11px] text-ink/45">
-                  {plannedLabel}
-                </p>
+                <p className="truncate text-[11px] text-ink/45">{plannedLabel}</p>
               ) : null}
             </div>
           </div>
           {decision?.top ? (
-            <AttentionPill
-              label={decision.top.label}
-              more={decision.total - decision.top.count}
-            />
+            <div className="mt-1">
+              <AttentionPill
+                label={decision.top.label}
+                more={decision.total - decision.top.count}
+              />
+            </div>
           ) : null}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </li>
   );
 }
 
@@ -785,23 +877,47 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
   );
 }
 
-/** Dashed "New event" tile — same footprint as an event card. */
-function NewEventCard() {
+/**
+ * The terminal timeline node — "New event". Creating an event is a distinct
+ * flow (not a page of content to preview), so this stays a navigation. It sits
+ * at the end of the spine with no line below it.
+ */
+function TimelineNewEvent() {
   return (
-    <Link
-      href="/dashboard/create-event"
-      className="group flex min-h-[11rem] min-w-[15rem] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/20 bg-cream/40 p-4 text-center transition-colors hover:border-mulberry/40 hover:bg-mulberry/5 sm:min-w-0"
-    >
-      <span
-        aria-hidden
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition-colors group-hover:border-mulberry/40 group-hover:text-mulberry"
+    <li className="relative flex gap-3 sm:gap-5">
+      <div className="relative flex w-16 shrink-0 flex-col items-end sm:w-[4.5rem]">
+        <span
+          aria-hidden
+          className="absolute right-0 top-[0.9rem] h-2.5 w-2.5 translate-x-1/2 rounded-full bg-ink/20 ring-4 ring-cream"
+        />
+      </div>
+      <Link
+        href="/dashboard/create-event"
+        className="group flex flex-1 items-center gap-2.5 rounded-2xl border border-dashed border-ink/20 bg-cream/40 p-3 text-sm font-medium text-ink/60 transition-colors hover:border-mulberry/40 hover:bg-mulberry/5 hover:text-ink sm:p-4"
       >
-        <Plus className="h-5 w-5" />
-      </span>
-      <span className="text-sm font-medium text-ink/70 group-hover:text-ink">
+        <span
+          aria-hidden
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition-colors group-hover:border-mulberry/40 group-hover:text-mulberry"
+        >
+          <Plus className="h-4 w-4" />
+        </span>
         New event
-      </span>
-    </Link>
+      </Link>
+    </li>
+  );
+}
+
+/** Streaming skeleton for an inline account panel (e.g. Memories Hub photos). */
+function InlinePanelSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-28 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.04]"
+        />
+      ))}
+    </div>
   );
 }
 
@@ -882,30 +998,3 @@ function SpaceCard({
   );
 }
 
-/** A compact "YOUR ACCOUNT" tile — icon chip + title + subtitle, horizontal. */
-function AccountTile({
-  href,
-  icon: Icon,
-  title,
-  subtitle,
-}: {
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-ink">{title}</span>
-        <span className="block truncate text-xs text-ink/55">{subtitle}</span>
-      </span>
-    </Link>
-  );
-}

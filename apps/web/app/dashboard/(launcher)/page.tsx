@@ -10,6 +10,7 @@ import {
   Users,
   LayoutGrid,
   Wand2,
+  UserRound,
   Check,
   AlertCircle,
 } from 'lucide-react';
@@ -76,11 +77,14 @@ export const metadata = {
  *   • YOUR YEAR — derived moments; expands the rest INLINE (no /dashboard/year jump).
  *   • YOUR SPACES — the vendor shop(s) + admin HQ still NAVIGATE (their own
  *     dashboards are the only allowed jumps); the Life Story doorway expands INLINE.
- *   • YOUR ACCOUNT — People · Memories Hub · Setnayan AI, each an EXPAND/COLLAPSE
- *     row that opens its content on the page (owner 2026-07-13: "everything on the
- *     home page … must expand and collapse … not open a new page", except the three
- *     role-routed dashboards). (Notifications = the top-bar bell; Settings +
- *     sign-out = the top-bar account menu.)
+ *   • YOUR ACCOUNT — People · Memories Hub · Setnayan AI each EXPAND/COLLAPSE inline
+ *     (owner 2026-07-13: "everything on the home page … must expand … not open a new
+ *     page", except the three role-routed dashboards). Profile & account is the one
+ *     exception — a NAVIGATION to /dashboard/profile (personal info · security ·
+ *     notifications · privacy · deletion): a settings surface that needs its own
+ *     page and, since the top-bar profile link was dropped 2026-07-10, the sole path
+ *     to it from the launcher. (Notifications = the top-bar bell; sign-out = the
+ *     top-bar account menu.)
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
  * in-event surface (`/explore` from an event), not an account-level destination.
@@ -582,6 +586,17 @@ export default async function LauncherPage({
       <section>
         <SectionLabel>Your account</SectionLabel>
         <div className="space-y-3">
+          {/* Profile & account — the personal settings surface (personal info ·
+              security · notifications · privacy · deletion). A deliberate
+              NAVIGATION exception to the expand-inline rule: its forms need a full
+              page, and it's the sole path to profile from the launcher since the
+              top-bar link was dropped 2026-07-10. */}
+          <AccountLinkRow
+            href="/dashboard/profile"
+            icon={UserRound}
+            title="Profile & account"
+            subtitle="Personal info · security · privacy"
+          />
           <Expandable
             icon={Users}
             title="People"
@@ -940,6 +955,43 @@ type SpaceCardProps = {
   /** "Needs a decision" line (e.g. "3 new inquiries" · "5 awaiting review"). */
   attention?: string;
 };
+
+/**
+ * A "YOUR ACCOUNT" NAVIGATION row — the same shape as an Expandable header, but
+ * it jumps to a full page (an ArrowUpRight, not a chevron). Used only for
+ * Profile & account: a settings surface (security · privacy · deletion) that
+ * needs its own page, and the sole path to it from the launcher.
+ */
+function AccountLinkRow({
+  href,
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-mulberry/30 hover:bg-mulberry/[0.03]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-ink">{title}</span>
+        <span className="block truncate text-xs text-ink/55">{subtitle}</span>
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="h-5 w-5 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+      />
+    </Link>
+  );
+}
 
 /** One "YOUR SPACES" doorway card. */
 function SpaceCard({

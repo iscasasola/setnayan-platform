@@ -1,4 +1,5 @@
-import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -50,6 +51,13 @@ export default async function PeoplePage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <Link
+        href="/dashboard"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to home
+      </Link>
       <header className="mb-6 space-y-1">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
         <p className="text-base text-ink/60">Your family, godparents, and friends.</p>
@@ -156,6 +164,13 @@ async function fetchMyConnections(userId: string): Promise<{
 function PeoplePreview() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <Link
+        href="/dashboard"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to home
+      </Link>
       <header className="mb-6 space-y-1">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
         <p className="text-base text-ink/60">

@@ -9,6 +9,7 @@ import {
   Store,
   ShieldCheck,
   Home,
+  UserRound,
   ChevronDown,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
@@ -34,7 +35,7 @@ type Props = {
  *       – [User | Shop] for vendor accounts
  *       – [User | HQ] for admin-only accounts
  *       – [User | Shop | HQ] for admin + vendor accounts
- *   3. Slim footer: Profile · Settings · Sign out
+ *   3. Slim footer: Profile & settings · Sign out
  *
  * Motion:
  *   – Mobile: bottom sheet slides up (translateY 100% → 0) + backdrop fades in
@@ -52,8 +53,9 @@ type Props = {
  *   1. Home — jumps to /dashboard (the home hub: events, add-event, Collection).
  *   2. Console rail (conditional) — vendor / Setnayan-team only. Home already
  *      covers the User console, so the rail only offers Shop / HQ.
- *   3. Footer — Secure-your-plan (anonymous) · Sign out. (The Hosts link moved
- *      to the event Overview's Hosts card, owner 2026-07-12.)
+ *   3. Footer — Profile & settings (→ /dashboard/profile) · Secure-your-plan
+ *      (anonymous) / Sign out. (The Hosts link moved to the event Overview's
+ *      Hosts card, owner 2026-07-12.)
  */
 function SwitcherPanelBody({
   data,
@@ -120,9 +122,20 @@ function SwitcherPanelBody({
         </div>
       ) : null}
 
-      {/* ── Footer — Secure-your-plan (anon) · Sign out (set apart) ── */}
+      {/* ── Footer — Profile & settings (left) · Secure-your-plan (anon) /
+          Sign out (pushed right, set apart) ── */}
       <div className="border-t border-ink/10 px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {/* Profile & settings — the account-level personal profile
+              (/dashboard/profile). Restored here 2026-07-13 after the panel was
+              slimmed to a home-hub jump on 2026-07-10 and lost it. */}
+          <Link
+            href="/dashboard/profile"
+            className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+            onClick={close}
+          >
+            <UserRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile &amp; settings
+          </Link>
           {data.isAnonymous ? (
             <Link
               href="/signup"

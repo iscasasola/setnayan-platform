@@ -20,8 +20,10 @@ import { Wordmark } from '@/app/_components/brand-marks';
  * renders only a slim top bar: the brand mark (→ /dashboard), the notifications
  * bell, and the account menu (Profile & Settings · sign out · switch
  * account/console live inside the AccountSwitcher panel). Every other account
- * surface (People · Memories Hub · Settings · Notifications · Setnayan AI) keeps
- * the `(account)` sidebar; the launcher links into them as tiles.
+ * surface (People · Memories Hub · Settings · Notifications · Setnayan AI) now
+ * renders this SAME chrome-less top bar (owner 2026-07-13 — the old `(account)`
+ * sidebar was retired for the launcher paradigm); the launcher links into them
+ * as tiles and each spoke backs out via its own "Back to home" link.
  *
  * Auth/profile/deleted/vendor gating + the welcome tour stay in the parent
  * `dashboard/layout.tsx` (which renders the chrome-free `app-surface`). This

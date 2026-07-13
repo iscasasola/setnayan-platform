@@ -75,6 +75,34 @@ export async function eventHasCompGrant(
 }
 
 /**
+ * Does an internal (§10a) account HOST this event?
+ *
+ * Internal accounts are the Setnayan team/owner accounts; their showcase & demo
+ * events (e.g. "Cale & Ice") are meant to display fully. The admin comp form even
+ * BLOCKS per-SKU comps on internal accounts because they "already carry a
+ * permanent grant" — but nothing conferred that grant on the RENDER, so an
+ * internal host who never placed an order rendered as owning nothing (the
+ * Save-the-Date film stripped its own music/video/gallery on the owner's own
+ * wedding). eventSkuActive() ORs this in so an internal-hosted event owns any SKU.
+ *
+ * Host-scoped server-side in the SECURITY DEFINER fn event_host_is_internal()
+ * (migration 20270806100000), mirroring event_has_comp_for_sku so a service-role
+ * admin-client call never leaks internal status across accounts. Graceful-degrade
+ * to false on ANY RPC error (pre-migration PGRST202), matching the
+ * eventHasCompGrant contract so a missing function never throws at a gate.
+ */
+export async function eventHostIsInternal(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('event_host_is_internal', {
+    p_event_id: eventId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
  * Batch companion to eventHasCompGrant — every SKU the event's host comp grants
  * cover. all_services → the full live catalog; specific_skus → just those codes.
  * Empty array on no comp / any error. See migration 20270322000000.
@@ -488,6 +516,14 @@ export async function eventSkuActive(
   // Admin comp grant — bypass the handshake gate too (a gifted feature is
   // unlocked immediately; there's no payment to verify). Host-scoped server-side.
   if (await eventHasCompGrant(supabase, eventId, serviceKey)) return true;
+
+  // §10a internal-hosted events own EVERY SKU on the render — the Setnayan
+  // team/owner's showcase & demo events display fully without a per-event order
+  // or comp (the intended "internal carries a permanent grant"; the comp form
+  // blocks per-SKU comps on internal accounts for this exact reason). See
+  // migration 20270806100000. Checked LAST so the common external-couple path
+  // pays for one extra RPC only when nothing else already granted the SKU.
+  if (await eventHostIsInternal(supabase, eventId)) return true;
 
   return false;
 }

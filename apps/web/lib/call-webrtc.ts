@@ -13,9 +13,13 @@
  *     recorded or stored. Zero bandwidth/egress cost per call.
  *   • Signaling rides an ephemeral Supabase Realtime broadcast channel
  *     (`call:{room}`) — same convention family as `demo-rtc:{sessionId}`.
- *   • ICE is public STUN only — NO TURN in V1 (owner-locked, matches the demo).
- *     On networks STUN can't punch through (both-sides symmetric NAT) the
- *     connection fails cleanly and the UI shows a hint — identical to the demo.
+ *   • ICE: public STUN always, plus an optional short-lived Cloudflare TURN
+ *     relay passed in by the caller (from `getCallIceServers`, minted
+ *     server-side). STUN alone can't traverse symmetric NAT / CGNAT — the norm
+ *     when a couple (or coordinator) is on mobile data — so a TURN relay is what
+ *     lets those calls connect at all. Without it (or before the env is set)
+ *     this falls back to STUN-only and a hard-NAT pair fails cleanly, as the
+ *     demo did. (Same pattern proved in lib/demo-webrtc.ts / lib/panood-webrtc.ts.)
  *
  * Voice vs video is purely which tracks the caller adds to `localStream`
  * (audio-only = a voice call); a mid-call camera toggle just flips the video
@@ -25,7 +29,8 @@
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-const ICE_SERVERS: RTCIceServer[] = [
+/** STUN-only fallback when a caller passes no `iceServers` (or TURN is unconfigured). */
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
@@ -63,8 +68,17 @@ export function joinCall(opts: {
   localStream: MediaStream;
   onRemoteStream: (stream: MediaStream | null) => void;
   onState: (state: CallState) => void;
+  /** STUN + (ideally) a minted TURN relay from `getCallIceServers`; STUN-only if omitted. */
+  iceServers?: RTCIceServer[];
 }): CallHandle {
-  const { room, clientId, localStream, onRemoteStream, onState } = opts;
+  const {
+    room,
+    clientId,
+    localStream,
+    onRemoteStream,
+    onState,
+    iceServers = DEFAULT_ICE_SERVERS,
+  } = opts;
   const supabase = createClient();
 
   let pc: RTCPeerConnection | null = null;
@@ -104,7 +118,7 @@ export function joinCall(opts: {
   // polite peer rolls back on glare (perfect negotiation), so it always settles.
   function ensurePeer() {
     if (pc || closed) return;
-    const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const peer = new RTCPeerConnection({ iceServers });
     pc = peer;
     armConnectTimeout();
 

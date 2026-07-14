@@ -5,6 +5,7 @@ import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { resolveCounterpartyUserIds } from '@/lib/chat-block';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
+import { mintTurnIceServers } from '@/lib/turn';
 
 /**
  * Free 1:1 voice/video CALL inside an accepted vendor↔couple thread
@@ -180,4 +181,40 @@ export async function endThreadCall(callId: string): Promise<void> {
   if (error) {
     console.error('[thread-call] endThreadCall update failed:', error.message);
   }
+}
+
+export type CallIceServersResult = { iceServers: RTCIceServer[] };
+
+/**
+ * ICE servers for the vendor↔couple call transport (lib/call-webrtc.ts): public
+ * STUN always, PLUS a short-lived Cloudflare TURN relay for callers who can't go
+ * peer-to-peer. STUN alone can't traverse symmetric NAT / CGNAT — the norm when
+ * a couple (or coordinator) is on mobile data — so a hard-NAT pair has no relay
+ * to meet at and the call silently fails. Both parties call this and feed the
+ * result into their RTCPeerConnection.
+ *
+ * Gated to a real THREAD MEMBER: the fetch rides the caller's RLS-scoped session,
+ * so `fetchThreadById` returns null for a non-member — that both proves the
+ * thread exists AND that the caller belongs to it, so this isn't an open
+ * TURN-credential faucet. STUN-only fallback when the caller isn't a member, TURN
+ * is unconfigured, or Cloudflare errors (mintTurnIceServers returns []).
+ */
+export async function getCallIceServers(threadId: string): Promise<CallIceServersResult> {
+  const stun: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+  ];
+  const clean = typeof threadId === 'string' ? threadId.trim() : '';
+  let turn: RTCIceServer[] = [];
+  if (clean) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    // RLS-scoped fetch — a non-member resolves to null, so this is existence +
+    // membership in one check, no admin client needed.
+    const thread = user ? await fetchThreadById(supabase, clean) : null;
+    if (thread) turn = await mintTurnIceServers();
+  }
+  return { iceServers: [...stun, ...turn] };
 }

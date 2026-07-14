@@ -68,17 +68,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. It leads with weddings; as event types unlock (debut, birthday, christening, anniversary, and more), the same tools carry across them. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings; and everything a couple creates gathers into one living memory (Alaala) they keep.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a per-cycle subscription that stays active until your wedding day, then ends. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a per-cycle subscription active until your wedding day), the Event Website, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a one-time purchase with access through your wedding day), the Event Website, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -88,7 +88,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier — a per-28-day-cycle subscription that runs until your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',

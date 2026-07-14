@@ -73,12 +73,15 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
     eventId: m.eventId ?? null,
   }));
 
+  // "This year" sub-heading — the strip renders INSIDE the Alaala section
+  // (owner-approved final home design 2026-07-15); its old standalone
+  // "Your year" section merged into Alaala, killing the events/year dupe.
   return (
-    <section className="mb-10">
-      <div className="mb-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">Your year</h2>
-      </div>
+    <div>
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
+        This year
+      </h3>
       <YearMomentsList moments={views} initial={HOME_LIMIT} />
-    </section>
+    </div>
   );
 }

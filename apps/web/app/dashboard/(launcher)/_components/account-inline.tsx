@@ -3,10 +3,6 @@ import {
   Users,
   HeartHandshake,
   UserPlus,
-  CalendarClock,
-  Wallet,
-  Compass,
-  Sparkles,
   Images,
   Trophy,
   Infinity as InfinityIcon,
@@ -87,47 +83,6 @@ export function PeopleInline() {
           Connections are coming soon — there’s nothing to manage here yet.
         </ComingSoonNote>
       ) : null}
-    </div>
-  );
-}
-
-/**
- * Setnayan AI — mirrors /dashboard/setnayan-ai, which is dormant (per-user flag
- * off) and shows a "coming soon" state in production. This inline peek describes
- * the planning copilot and carries the same coming-soon note.
- */
-export function SetnayanAiInline() {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-ink/65">
-        Your always-on planning copilot — one assistant across every event. It keeps
-        your plan moving:
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Facet
-          icon={CalendarClock}
-          title="Never miss a step"
-          body="Nudges the next task before it slips overdue."
-        />
-        <Facet
-          icon={Wallet}
-          title="Budget guard"
-          body="Flags where you’re drifting over, early."
-        />
-        <Facet
-          icon={Compass}
-          title="Right vendors"
-          body="Suggests vendors that fit your date and area."
-        />
-        <Facet
-          icon={Sparkles}
-          title="Weekly digest"
-          body="A short read of exactly what needs you."
-        />
-      </div>
-      <ComingSoonNote>
-        Setnayan AI is on the way — we’ll let you know the moment it opens.
-      </ComingSoonNote>
     </div>
   );
 }

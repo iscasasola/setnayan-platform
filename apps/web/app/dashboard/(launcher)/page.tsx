@@ -9,8 +9,6 @@ import {
   ArrowUpRight,
   Users,
   LayoutGrid,
-  Wand2,
-  UserRound,
   Check,
   AlertCircle,
 } from 'lucide-react';
@@ -51,40 +49,42 @@ import {
 } from '../(account)/_components/life-story-section';
 import { PhotosTab } from '../(account)/library/_components/photos-tab';
 import { Expandable } from './_components/expandable';
+import { PeopleInline, LifeStoryInline } from './_components/account-inline';
 import {
-  PeopleInline,
-  SetnayanAiInline,
-  LifeStoryInline,
-} from './_components/account-inline';
+  HomeCommandBar,
+  type HomeCommandItem,
+} from './_components/home-command-bar';
 
 export const metadata = {
   title: 'Your events',
 };
 
 /**
- * "Where to?" — the full-screen account LAUNCHER (owner design 2026-07-09,
- * "splash screen to control where they want to go"). This route lives in its own
- * `(launcher)` group (NOT the `(account)` sidebar group), so it renders
- * chrome-less: a slim top bar (brand · notifications · account menu, from
- * `(launcher)/layout.tsx`) over four groups —
- *   • YOUR EVENTS — a Facebook-style TIMELINE (owner 2026-07-13): a vertical spine
- *     with a date-stamped node per event (badge · monogram · place/date · a gold
- *     progress ring · countdown · attention line), ending in a "New event" node.
- *     Ordered date DESCENDING — newest on top, OLDER as you scroll down. By default
- *     only UPCOMING + ongoing (today) events show; COMPLETED (past) + archived are
- *     hidden behind "Show all" (`?show=all`) and continue oldest-toward-the-bottom.
- *     Each event node jumps into its dashboard — an allowed navigation.
- *   • YOUR YEAR — derived moments; expands the rest INLINE (no /dashboard/year jump).
- *   • YOUR SPACES — the vendor shop(s) + admin HQ still NAVIGATE (their own
- *     dashboards are the only allowed jumps); the Life Story doorway expands INLINE.
- *   • YOUR ACCOUNT — People · Memories Hub · Setnayan AI each EXPAND/COLLAPSE inline
- *     (owner 2026-07-13: "everything on the home page … must expand … not open a new
- *     page", except the three role-routed dashboards). Profile & account is the one
- *     exception — a NAVIGATION to /dashboard/profile (personal info · security ·
- *     notifications · privacy · deletion): a settings surface that needs its own
- *     page and, since the top-bar profile link was dropped 2026-07-10, the sole path
- *     to it from the launcher. (Notifications = the top-bar bell; sign-out = the
- *     top-bar account menu.)
+ * "Where to?" — the full-screen account LAUNCHER, remodeled to the FOUR-SURFACE
+ * home (owner-approved final design 2026-07-15, "build it"; council verdict
+ * `User_Home_Redesign_Council_Verdict_2026-07-14.md` in the spec corpus). Every
+ * block has exactly ONE home — no duplicated surfaces:
+ *   • EVENTS — ongoing + upcoming events as glass cards (badge · monogram ·
+ *     place/date · gold progress ring · countdown · attention line), date
+ *     DESCENDING (newest on top, per the 2026-07-13 timeline ordering rule),
+ *     ending in a "New event" card. COMPLETED (past) + archived stay hidden
+ *     behind "Show all" (`?show=all`) and read "Celebrated". Each card jumps
+ *     into its event dashboard — an allowed navigation.
+ *   • ALAALA — the single memory dimension (owner-confirmed name 2026-07-14). It
+ *     absorbs what used to be four sibling zones: the Life Story doorway ·
+ *     "This year" derived moments (YearMomentsStrip, embedded) · Memories Hub ·
+ *     People — each still EXPANDS INLINE per the owner 2026-07-13 rule
+ *     ("everything on the home page must expand … not open a new page", except
+ *     the role-routed dashboards). Flag-gated blocks (LifeFlashHomeCard, the
+ *     person-spine "Your story") render inside Alaala when their flags turn on.
+ *   • SPACES — the vendor shop(s) + admin HQ doorways; still the only allowed
+ *     jumps besides events. Capability-gated: absent for a plain couple.
+ *   • YOU — behind the top-bar avatar only (AccountSwitcher: Profile & settings ·
+ *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
+ *     rows moved into Alaala (People · Memories Hub) and the avatar menu
+ *     (Profile · Setnayan AI), killing the old zone overlap.
+ * Plus the deterministic SEARCH bar (HomeCommandBar, ⌘K): client-side jump-to
+ * over the user's own events/spaces/destinations — no LLM (Setnayan AI Rule 1).
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
  * in-event surface (`/explore` from an event), not an account-level destination.
@@ -335,14 +335,11 @@ export default async function LauncherPage({
     ? await buildLifeStoryGroups(supabase)
     : null;
 
-  // YOUR SPACES — doorways into surfaces with their own dashboards. Marketplace
+  // SPACES — doorways into surfaces with their own dashboards. Marketplace
   // is intentionally excluded (it's an in-event vendor-discovery surface).
-  //
-  // Life Story dedup (owner default, reversible via `lifeStoryEnabled`): when the
-  // flag is ON, the richer <LifeFlashHomeCard/> below is the SOLE Life-Story
-  // doorway, so we DROP this flat hero SpaceCard to avoid rendering the surface
-  // twice. When the flag is OFF (prod today), the flat hero card stays as the
-  // fallback into the Memories Hub (/dashboard/library) — prod is unchanged.
+  // (The Life Story doorway is NOT a space — it renders inside ALAALA, as an
+  // Expandable when `lifeStoryEnabled()` is off or the richer LifeFlashHomeCard
+  // when on; exactly one doorway either way.)
   // Vendor shop "needs a reply" signal — pending client inquiries per shop
   // (chat_threads.inquiry_status = 'pending' = a couple messaged and the vendor
   // hasn't accepted yet). One batched query across all the user's shops.
@@ -395,16 +392,7 @@ export default async function LauncherPage({
 
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
-  if (!lifeOn) {
-    spaces.push({
-      href: '/dashboard/library',
-      icon: Sparkles,
-      title: 'Life Story',
-      subtitle: 'Your whole life, from every celebration.',
-      tone: 'hero',
-    });
-  }
-  // YOUR SPACES → the vendor's actual shop(s), by name. One card per shop the
+  // SPACES → the vendor's actual shop(s), by name. One card per shop the
   // user owns or is on the team of (owner: "show what shop we have"), so a
   // multi-shop vendor sees each business by name instead of a single generic
   // "Your shop" tile. Logo when set; the store glyph otherwise.
@@ -482,10 +470,84 @@ export default async function LauncherPage({
     });
   }
 
-  // Split "Your spaces": the Life Story hero doorway expands inline; the vendor
-  // shop(s) + admin HQ keep their real dashboard navigations (allowed jumps).
-  const heroSpace = spaces.find((s) => s.tone === 'hero') ?? null;
-  const consoleSpaces = spaces.filter((s) => s.tone !== 'hero');
+  // The deterministic search index — the user's OWN events, spaces and account
+  // destinations, serialized for the HomeCommandBar client island (no functions
+  // across the RSC boundary; icons resolve from string keys client-side).
+  const commandItems: HomeCommandItem[] = [
+    ...[...upcoming, ...finished].map((e): HomeCommandItem => {
+      const dateLabel = shortDate(e.event_date);
+      const place = placeLabel(e);
+      return {
+        id: `event-${e.event_id}`,
+        label: e.display_name,
+        sublabel:
+          [eventTypeBadge(e.event_type), dateLabel ?? 'Date to be set', place]
+            .filter(Boolean)
+            .join(' · '),
+        href: `/dashboard/${e.event_id}`,
+        kind: 'event',
+        icon: 'calendar',
+      };
+    }),
+    ...spaces.map(
+      (s): HomeCommandItem => ({
+        id: `space-${s.id ?? s.title}`,
+        label: s.title,
+        sublabel: s.subtitle,
+        href: s.href,
+        kind: 'space',
+        icon: s.href === '/admin' ? 'shield' : 'store',
+      }),
+    ),
+    {
+      id: 'action-new-event',
+      label: 'New event',
+      sublabel: 'Start planning a new celebration',
+      href: '/dashboard/create-event',
+      kind: 'action',
+      icon: 'plus',
+    },
+    {
+      id: 'action-library',
+      label: 'Memories Hub',
+      sublabel: 'Photos · videos · saved vendors',
+      href: '/dashboard/library',
+      kind: 'action',
+      icon: 'grid',
+    },
+    {
+      id: 'action-people',
+      label: 'People',
+      sublabel: 'Everyone across your events',
+      href: '/dashboard/people',
+      kind: 'action',
+      icon: 'users',
+    },
+    {
+      id: 'action-profile',
+      label: 'Profile & account',
+      sublabel: 'Personal info · security · privacy',
+      href: '/dashboard/profile',
+      kind: 'action',
+      icon: 'user',
+    },
+    {
+      id: 'action-setnayan-ai',
+      label: 'Setnayan AI',
+      sublabel: 'Your planning copilot',
+      href: '/dashboard/setnayan-ai',
+      kind: 'action',
+      icon: 'wand',
+    },
+    {
+      id: 'action-notifications',
+      label: 'Notifications',
+      sublabel: 'Everything waiting for you',
+      href: '/dashboard/notifications',
+      kind: 'action',
+      icon: 'bell',
+    },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -504,6 +566,15 @@ export default async function LauncherPage({
         </h1>
       </header>
 
+      {/* The deterministic search & jump bar (⌘K) — client-side filtering over
+          the user's own events/spaces/destinations. No LLM (Setnayan AI Rule 1). */}
+      <div className="mb-10">
+        <HomeCommandBar items={commandItems} />
+      </div>
+
+      {/* EVENTS — ongoing + upcoming as glass cards, date descending (newest on
+          top, owner 2026-07-13 ordering). Completed stay behind "Show all".
+          Each card jumps into its event dashboard — an allowed navigation. */}
       <section className="mb-10">
         <SectionLabel
           action={
@@ -512,14 +583,11 @@ export default async function LauncherPage({
             ) : null
           }
         >
-          Your events
+          Events
         </SectionLabel>
-        {/* A chronological TIMELINE (owner 2026-07-13): a vertical spine with a
-            date-stamped node per event, ending in a "New event" node. Each event
-            node still jumps into its dashboard — an allowed navigation. */}
-        <ol className="relative">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {upcoming.map((event) => (
-            <TimelineRow
+            <GlassEventCard
               key={event.event_id}
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
@@ -528,7 +596,7 @@ export default async function LauncherPage({
           ))}
           {showAll
             ? finished.map((event) => (
-                <TimelineRow
+                <GlassEventCard
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
@@ -537,8 +605,8 @@ export default async function LauncherPage({
                 />
               ))
             : null}
-          <TimelineNewEvent />
-        </ol>
+          <NewEventCard />
+        </div>
         {!showAll && finished.length > 0 ? (
           <p className="mt-3 text-xs text-ink/40">
             {finished.length} finished event{finished.length > 1 ? 's' : ''} hidden
@@ -546,64 +614,49 @@ export default async function LauncherPage({
         ) : null}
       </section>
 
-      {/* Date-anchor model — "Your year" home strip: the couple's next few
-          derived moments (anniversaries · wedding countdowns), surfaced where
-          they land. Self-fetching; renders nothing when there are no anchors. */}
-      <Suspense fallback={null}>
-        <YearMomentsStrip userId={user.id} />
-      </Suspense>
-
-      {/* YOUR SPACES — vendor + admin cards still NAVIGATE (their own dashboards,
-          the only allowed jumps). The Life Story doorway is a non-dashboard
-          surface, so per the owner rule it expands INLINE instead. */}
-      {heroSpace || consoleSpaces.length > 0 ? (
-        <section className="mb-10">
-          <SectionLabel>Your spaces</SectionLabel>
-          <div className="space-y-4">
-            {heroSpace ? (
-              <Expandable
-                icon={<Sparkles className="h-[18px] w-[18px]" />}
-                title={heroSpace.title}
-                subtitle={heroSpace.subtitle}
-              >
-                <LifeStoryInline />
-              </Expandable>
-            ) : null}
-            {consoleSpaces.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {consoleSpaces.map((space) => (
-                  <SpaceCard key={space.id ?? space.href + space.title} {...space} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </section>
+      {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
+          Flag-gated so there is ZERO extra query while FEATURE_ACCOUNT_AUTOSURFACE
+          is off (the default). Lives with EVENTS — it surfaces events. */}
+      {accountAutosurfaceEnabled() ? (
+        <div className="mb-10">
+          <AutoSurfacedEvents userId={user.id} />
+        </div>
       ) : null}
 
-      {/* YOUR ACCOUNT — account-level features open INLINE (owner 2026-07-13):
-          each row expands its content on the page rather than opening a new
-          page. Nothing here jumps to a dashboard. */}
-      <section>
-        <SectionLabel>Your account</SectionLabel>
-        <div className="space-y-3">
-          {/* Profile & account — the personal settings surface (personal info ·
-              security · notifications · privacy · deletion). A deliberate
-              NAVIGATION exception to the expand-inline rule: its forms need a full
-              page, and it's the sole path to profile from the launcher since the
-              top-bar link was dropped 2026-07-10. */}
-          <AccountLinkRow
-            href="/dashboard/profile"
-            icon={UserRound}
-            title="Profile & account"
-            subtitle="Personal info · security · privacy"
-          />
-          <Expandable
-            icon={<Users className="h-[18px] w-[18px]" />}
-            title="People"
-            subtitle="Everyone across your events"
-          >
-            <PeopleInline />
-          </Expandable>
+      {/* ALAALA — the single memory dimension (owner-confirmed 2026-07-14): the
+          Life Story doorway · "This year" derived moments · Memories Hub ·
+          People, each expanding INLINE (owner 2026-07-13 rule). What used to be
+          four sibling zones is one surface with one job. */}
+      <section className="mb-10">
+        <SectionLabel>Alaala</SectionLabel>
+        <p className="-mt-1 mb-3 text-xs text-ink/45">
+          Every event you hold and attend — kept for life.
+        </p>
+        <div className="space-y-4">
+          {lifeOn ? (
+            /* Flag ON: the richer Life-Flash card is the SOLE Life-Story
+               doorway (dedup rule preserved from the `spaces` construction). */
+            <Suspense fallback={<LifeFlashHomeCardSkeleton />}>
+              <LifeFlashHomeCard userId={user.id} />
+            </Suspense>
+          ) : (
+            <Expandable
+              icon={<Sparkles className="h-[18px] w-[18px]" />}
+              title="Life Story"
+              subtitle="Your whole life, from every celebration."
+            >
+              <LifeStoryInline />
+            </Expandable>
+          )}
+
+          {/* Date-anchor model — the couple's next few derived moments
+              (anniversaries · wedding countdowns). Self-fetching; renders
+              nothing when there are no anchors. Embedded = "This year" heading
+              inside Alaala instead of its old standalone "Your year" section. */}
+          <Suspense fallback={null}>
+            <YearMomentsStrip userId={user.id} />
+          </Suspense>
+
           <Expandable
             icon={<LayoutGrid className="h-[18px] w-[18px]" />}
             title="Memories Hub"
@@ -614,45 +667,43 @@ export default async function LauncherPage({
             </Suspense>
           </Expandable>
           <Expandable
-            icon={<Wand2 className="h-[18px] w-[18px]" />}
-            title="Setnayan AI"
-            subtitle="Your planning copilot"
+            icon={<Users className="h-[18px] w-[18px]" />}
+            title="People"
+            subtitle="Everyone across your events"
           >
-            <SetnayanAiInline />
+            <PeopleInline />
           </Expandable>
+
+          {/* Person-spine "Your story" (flag-gated, counsel-gated) — the
+              "with me" lens of Alaala once the flag turns on. */}
+          {lifeStoryGroups ? (
+            <div>
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
+                Your story
+              </h3>
+              {lifeStoryGroups.length === 0 ? (
+                <p className="rounded-2xl border border-ink/10 bg-cream/50 px-4 py-6 text-sm text-ink/60">
+                  Photos and clips you appear in will gather here.
+                </p>
+              ) : (
+                <LifeStorySection groups={lifeStoryGroups} />
+              )}
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {/* Flag-gated (default OFF in prod). LIFE-FLASH home card — the SOLE
-          Life-Story doorway when the flag is on (the flat hero SpaceCard above
-          is dropped in that case; see the `spaces` construction). */}
-      {lifeOn ? (
-        <div className="mt-10">
-          <Suspense fallback={<LifeFlashHomeCardSkeleton />}>
-            <LifeFlashHomeCard userId={user.id} />
-          </Suspense>
-        </div>
-      ) : null}
-
-      {/* #7b (gap G5): events auto-surfaced to this account + a one-tap Leave.
-          Flag-gated so there is ZERO extra query while FEATURE_ACCOUNT_AUTOSURFACE
-          is off (the default). */}
-      {accountAutosurfaceEnabled() ? (
-        <div className="mt-10">
-          <AutoSurfacedEvents userId={user.id} />
-        </div>
-      ) : null}
-
-      {lifeStoryGroups ? (
-        <section className="mt-10">
-          <SectionLabel>Your story</SectionLabel>
-          {lifeStoryGroups.length === 0 ? (
-            <p className="rounded-2xl border border-ink/10 bg-cream/50 px-4 py-6 text-sm text-ink/60">
-              Photos and clips you appear in will gather here.
-            </p>
-          ) : (
-            <LifeStorySection groups={lifeStoryGroups} />
-          )}
+      {/* SPACES — the vendor shop(s) + admin HQ doorways. Capability-gated:
+          this section simply does not exist for a plain couple. These still
+          NAVIGATE (their own dashboards are allowed jumps). */}
+      {spaces.length > 0 ? (
+        <section>
+          <SectionLabel>Spaces</SectionLabel>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {spaces.map((space) => (
+              <SpaceCard key={space.id ?? space.href + space.title} {...space} />
+            ))}
+          </div>
         </section>
       ) : null}
     </div>
@@ -750,12 +801,13 @@ function ShowAllToggle({ showAll }: { showAll: boolean }) {
 }
 
 /**
- * One node on the "Your events" TIMELINE (owner 2026-07-13): a date-stamped dot
- * on the vertical spine + a compact horizontal event card. The card still jumps
- * into the event dashboard — an allowed navigation. Carries the same signals as
- * the old card (monogram · badge · place/date · progress ring · attention line).
+ * One EVENTS glass card (owner-approved final design 2026-07-15). A frosted
+ * panel over the warm paper — the Atelier + macOS-glass language (owner-locked
+ * 2026-07-12) — carrying the same signals as the old timeline node: badge ·
+ * monogram · place/date · gold progress ring · countdown · attention line.
+ * The card jumps into the event dashboard — an allowed navigation.
  */
-function TimelineRow({
+function GlassEventCard({
   event,
   pct,
   decision,
@@ -792,39 +844,16 @@ function TimelineRow({
   const plannedLabel = pct != null ? `${pct}% planned` : null;
 
   return (
-    <li className="relative flex gap-3 sm:gap-5">
-      {/* Spine rail — date marker · connecting line · node dot. The date is
-          padded clear of the spine so the node dot never overlaps it. */}
-      <div className="relative flex w-16 shrink-0 flex-col items-end sm:w-[4.5rem]">
-        <time className="pr-3 pt-3 text-right text-[11px] font-semibold leading-tight text-ink/55">
-          {dateLabel ?? <span className="text-ink/35">TBD</span>}
-        </time>
-        {/* The continuous spine — runs the full height and past the row so it
-            joins the next node (the last row before "New event" still connects). */}
-        <span
-          aria-hidden
-          className="absolute right-0 top-4 bottom-[-1.5rem] w-px bg-ink/10"
-        />
-        {/* Node dot, centered on the spine. */}
-        <span
-          aria-hidden
-          className={`absolute right-0 top-[0.9rem] h-2.5 w-2.5 translate-x-1/2 rounded-full ring-4 ring-cream ${
-            event.is_primary
-              ? 'bg-terracotta'
-              : finished
-                ? 'bg-ink/25'
-                : 'bg-mulberry'
-          }`}
-        />
-      </div>
-
-      {/* The event card — jumps to the event dashboard. */}
-      <Link
-        href={`/dashboard/${event.event_id}`}
-        className={`group mb-5 flex flex-1 gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-cream p-3 transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg sm:p-4 ${
-          finished ? 'opacity-75 hover:opacity-100' : ''
-        }`}
-      >
+    <Link
+      href={`/dashboard/${event.event_id}`}
+      className={`group flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/60 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg ${
+        finished ? 'opacity-75 hover:opacity-100' : ''
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="inline-flex w-fit rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry">
+          {badge}
+        </span>
         {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
             lettered). Uploaded outranks custom per app-wide precedence;
             EventMonogram only reads monogram_custom_svg, so resolve it here. */}
@@ -837,43 +866,38 @@ function TimelineRow({
           size="lg"
           className="shrink-0 shadow-sm ring-1 ring-black/5"
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="inline-flex w-fit rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry">
-            {badge}
-          </span>
-          <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
-            {event.is_primary ? (
-              <span aria-hidden className="shrink-0 text-terracotta">
-                ★
-              </span>
-            ) : null}
-            <span className="truncate">{event.display_name}</span>
-          </p>
-          <p className="truncate text-sm text-ink/55">{dateMeta}</p>
-          <div className="mt-1 flex items-center gap-2.5">
-            {pct != null ? (
-              <ProgressRing pct={pct} size={38} stroke={4}>
-                <span className="text-[8px] font-semibold text-ink">{pct}%</span>
-              </ProgressRing>
-            ) : null}
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-ink">{status}</p>
-              {plannedLabel ? (
-                <p className="truncate text-[11px] text-ink/45">{plannedLabel}</p>
-              ) : null}
-            </div>
-          </div>
-          {decision?.top ? (
-            <div className="mt-1">
-              <AttentionPill
-                label={decision.top.label}
-                more={decision.total - decision.top.count}
-              />
-            </div>
+      </div>
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
+          {event.is_primary ? (
+            <span aria-hidden className="shrink-0 text-terracotta">
+              ★
+            </span>
+          ) : null}
+          <span className="truncate">{event.display_name}</span>
+        </p>
+        <p className="truncate text-sm text-ink/55">{dateMeta}</p>
+      </div>
+      <div className="mt-auto flex items-center gap-2.5 pt-1">
+        {pct != null ? (
+          <ProgressRing pct={pct} size={38} stroke={4}>
+            <span className="text-[8px] font-semibold text-ink">{pct}%</span>
+          </ProgressRing>
+        ) : null}
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium text-ink">{status}</p>
+          {plannedLabel ? (
+            <p className="truncate text-[11px] text-ink/45">{plannedLabel}</p>
           ) : null}
         </div>
-      </Link>
-    </li>
+      </div>
+      {decision?.top ? (
+        <AttentionPill
+          label={decision.top.label}
+          more={decision.total - decision.top.count}
+        />
+      ) : null}
+    </Link>
   );
 }
 
@@ -898,32 +922,24 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
 }
 
 /**
- * The terminal timeline node — "New event". Creating an event is a distinct
- * flow (not a page of content to preview), so this stays a navigation. It sits
- * at the end of the spine with no line below it.
+ * The terminal EVENTS card — "New event". Creating an event is a distinct flow
+ * (not a page of content to preview), so this stays a navigation. Dashed ghost
+ * card with the same footprint as an event card.
  */
-function TimelineNewEvent() {
+function NewEventCard() {
   return (
-    <li className="relative flex gap-3 sm:gap-5">
-      <div className="relative flex w-16 shrink-0 flex-col items-end sm:w-[4.5rem]">
-        <span
-          aria-hidden
-          className="absolute right-0 top-[0.9rem] h-2.5 w-2.5 translate-x-1/2 rounded-full bg-ink/20 ring-4 ring-cream"
-        />
-      </div>
-      <Link
-        href="/dashboard/create-event"
-        className="group flex flex-1 items-center gap-2.5 rounded-2xl border border-dashed border-ink/20 bg-cream/40 p-3 text-sm font-medium text-ink/60 transition-colors hover:border-mulberry/40 hover:bg-mulberry/5 hover:text-ink sm:p-4"
+    <Link
+      href="/dashboard/create-event"
+      className="group flex min-h-[10rem] flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed border-ink/20 bg-white/40 p-4 text-sm font-medium text-ink/60 transition-colors hover:border-mulberry/40 hover:bg-mulberry/5 hover:text-ink"
+    >
+      <span
+        aria-hidden
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition-colors group-hover:border-mulberry/40 group-hover:text-mulberry"
       >
-        <span
-          aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition-colors group-hover:border-mulberry/40 group-hover:text-mulberry"
-        >
-          <Plus className="h-4 w-4" />
-        </span>
-        New event
-      </Link>
-    </li>
+        <Plus className="h-5 w-5" />
+      </span>
+      New event
+    </Link>
   );
 }
 
@@ -950,50 +966,14 @@ type SpaceCardProps = {
   logoUrl?: string | null;
   title: string;
   subtitle: string;
-  /** hero = gold-to-ink Life-Story card · admin = violet accent · default = gold. */
-  tone: 'hero' | 'admin' | 'default';
+  /** admin = violet accent · default = gold. (The old 'hero' Life-Story tone is
+   *  gone — that doorway lives inside ALAALA as an Expandable now.) */
+  tone: 'admin' | 'default';
   /** "Needs a decision" line (e.g. "3 new inquiries" · "5 awaiting review"). */
   attention?: string;
 };
 
-/**
- * A "YOUR ACCOUNT" NAVIGATION row — the same shape as an Expandable header, but
- * it jumps to a full page (an ArrowUpRight, not a chevron). Used only for
- * Profile & account: a settings surface (security · privacy · deletion) that
- * needs its own page, and the sole path to it from the launcher.
- */
-function AccountLinkRow({
-  href,
-  icon: Icon,
-  title,
-  subtitle,
-}: {
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-mulberry/30 hover:bg-mulberry/[0.03]"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-ink">{title}</span>
-        <span className="block truncate text-xs text-ink/55">{subtitle}</span>
-      </span>
-      <ArrowUpRight
-        aria-hidden
-        className="h-5 w-5 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-      />
-    </Link>
-  );
-}
-
-/** One "YOUR SPACES" doorway card. */
+/** One SPACES doorway card — a frosted glass panel per the Atelier language. */
 function SpaceCard({
   href,
   icon: Icon,
@@ -1003,25 +983,16 @@ function SpaceCard({
   tone,
   attention,
 }: SpaceCardProps) {
-  const hero = tone === 'hero';
   const admin = tone === 'admin';
   return (
     <Link
       href={href}
-      className={`group flex min-h-[9rem] flex-col justify-between rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
-        hero
-          ? 'border-white/10 bg-gradient-to-br from-[#8a6b39] to-[#1B1A17] text-white'
-          : 'border-ink/10 bg-cream text-ink hover:border-mulberry/30'
-      }`}
+      className="group flex min-h-[9rem] flex-col justify-between rounded-2xl border border-white/70 bg-white/60 p-4 text-ink shadow-sm transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg"
     >
       <div className="flex items-start justify-between">
         <span
           className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ${
-            hero
-              ? 'bg-white/10 text-white'
-              : admin
-                ? 'bg-violet-100 text-violet-700'
-                : 'bg-mulberry/10 text-mulberry'
+            admin ? 'bg-violet-100 text-violet-700' : 'bg-mulberry/10 text-mulberry'
           }`}
         >
           {logoUrl ? (
@@ -1035,19 +1006,13 @@ function SpaceCard({
         </span>
         <ArrowUpRight
           aria-hidden
-          className={`h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ${
-            hero ? 'text-white/40' : 'text-ink/30'
-          }`}
+          className="h-4 w-4 text-ink/30 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
         />
       </div>
       <div className="space-y-1.5">
         <div className="space-y-0.5">
-          <p className={`m-serif text-lg ${hero ? 'text-white' : 'text-ink'}`}>
-            {title}
-          </p>
-          <p className={`text-xs ${hero ? 'text-white/60' : 'text-ink/55'}`}>
-            {subtitle}
-          </p>
+          <p className="m-serif text-lg text-ink">{title}</p>
+          <p className="text-xs text-ink/55">{subtitle}</p>
         </div>
         {attention ? <AttentionPill label={attention} /> : null}
       </div>

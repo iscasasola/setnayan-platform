@@ -7,7 +7,7 @@ Additive, behavior-neutral scaffolding for the composable-event build (reservati
 - `event_type_profiles.multi_day` — "one event, several days" switch. Seeded TRUE: wedding · travel · reunion · corporate.
 - `service_categories.service_nature` (`reservation` | `service` | `goods` | `in_app`, default `service`) — the 4-class spine of the composable stack.
 - `events.event_end_date DATE` (nullable) + `events_end_date_after_start` CHECK — the multi-day hook `lib/payouts.ts` already anticipates by name.
-- `lib/event-type-profile.ts` reads the trio via the deploy-order-safe optional-column retry; hard-coded fallback profiles carry matching values.
+- `lib/event-type-profile.ts` reads the trio via the deploy-order-safe optional-column retry. Hard-coded fallbacks match the seeds exactly for wedding + simple_event; every other type's rowless fallback (GENERIC_PROFILE) deliberately degrades RESTRICTIVE — personal / anchored / single-day, the column defaults — which is the safe direction under the communities-can-never-own-personal-types lock (a degrade can never open community ownership that the DB row wouldn't).
 
 Verified against prod schema in a rolled-back transaction (all 13 profile rows seed correctly; idempotent on double-run).
 

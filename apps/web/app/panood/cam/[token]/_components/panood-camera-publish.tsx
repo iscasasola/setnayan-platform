@@ -56,7 +56,16 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
       const stream = await navigator.mediaDevices.getUserMedia({
         // Rear camera (corpus: Papic/Panood capture is rear-only). `ideal` so a
         // single-camera device still gets a stream instead of an OverconstrainedError.
-        video: { facingMode: { ideal: 'environment' } },
+        // 1080p @ 30fps target for the Live Studio livestream (owner 2026-07-14) —
+        // sharper than the browser default for a broadcast; `ideal`+`max` caps at
+        // 1080p (never 4K, which would be too heavy to encode/relay) and degrades
+        // gracefully on weaker cameras. WebRTC still adapts down on poor networks.
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+          frameRate: { ideal: 30, max: 30 },
+        },
         audio: false,
       });
       streamRef.current = stream;

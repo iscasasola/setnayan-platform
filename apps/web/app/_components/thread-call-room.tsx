@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { joinCall, type CallHandle, type CallState } from '@/lib/call-webrtc';
+import { getCallIceServers } from '@/app/_actions/thread-call-actions';
 import { endThreadCall } from '@/app/_actions/thread-call-actions';
 
 /**
@@ -81,10 +82,21 @@ export function ThreadCallRoom({
         }
         stream = s;
         if (localVideoRef.current) localVideoRef.current.srcObject = s;
+        // Fetch ICE servers (STUN + a minted TURN relay when configured) before
+        // joining, so a couple/coordinator on mobile data / an isolated venue
+        // Wi-Fi can still connect. Falls back to the transport's STUN-only default.
+        const { iceServers } = await getCallIceServers(threadId).catch(() => ({
+          iceServers: undefined as RTCIceServer[] | undefined,
+        }));
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
         handle = joinCall({
           room: `call:${threadId}`,
           clientId: crypto.randomUUID(),
           localStream: s,
+          iceServers,
           onRemoteStream: (r) => {
             setHasRemote(Boolean(r));
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = r;

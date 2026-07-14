@@ -562,7 +562,7 @@ export default async function LauncherPage({
           <div className="space-y-4">
             {heroSpace ? (
               <Expandable
-                icon={Sparkles}
+                icon={<Sparkles className="h-[18px] w-[18px]" />}
                 title={heroSpace.title}
                 subtitle={heroSpace.subtitle}
               >
@@ -598,14 +598,14 @@ export default async function LauncherPage({
             subtitle="Personal info · security · privacy"
           />
           <Expandable
-            icon={Users}
+            icon={<Users className="h-[18px] w-[18px]" />}
             title="People"
             subtitle="Everyone across your events"
           >
             <PeopleInline />
           </Expandable>
           <Expandable
-            icon={LayoutGrid}
+            icon={<LayoutGrid className="h-[18px] w-[18px]" />}
             title="Memories Hub"
             subtitle="Photos · videos · saved vendors"
           >
@@ -614,7 +614,7 @@ export default async function LauncherPage({
             </Suspense>
           </Expandable>
           <Expandable
-            icon={Wand2}
+            icon={<Wand2 className="h-[18px] w-[18px]" />}
             title="Setnayan AI"
             subtitle="Your planning copilot"
           >

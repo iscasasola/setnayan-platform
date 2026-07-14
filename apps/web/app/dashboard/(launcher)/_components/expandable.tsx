@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type ComponentType, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 /**
@@ -18,13 +18,21 @@ import { ChevronDown } from 'lucide-react';
  * `inert` + `aria-hidden` so its links/controls stay out of the tab order.
  */
 export function Expandable({
-  icon: Icon,
+  icon,
   title,
   subtitle,
   defaultOpen = false,
   children,
 }: {
-  icon: ComponentType<{ className?: string }>;
+  /**
+   * A RENDERED icon ELEMENT (e.g. `<Users className="h-[18px] w-[18px]" />`),
+   * NOT a component type. This is a Client Component, so a bare component
+   * function passed from a Server Component parent can't be serialized across
+   * the RSC boundary ("Functions cannot be passed directly to Client
+   * Components" — the crash this fixed). A rendered element is plain
+   * serializable RSC payload, so the parent renders the icon and passes it in.
+   */
+  icon: ReactNode;
   title: string;
   subtitle: string;
   /** Open on first paint (rare — most rows start collapsed). */
@@ -48,7 +56,7 @@ export function Expandable({
         className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-mulberry/[0.03]"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-          <Icon className="h-[18px] w-[18px]" />
+          {icon}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-ink">{title}</span>

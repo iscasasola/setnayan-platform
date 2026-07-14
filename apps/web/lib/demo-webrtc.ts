@@ -33,6 +33,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { reportConnectionType } from '@/lib/webrtc-telemetry';
 
 export type CamSlot = 'a' | 'b';
 
@@ -135,6 +136,7 @@ export function publishDemoCamera({
     unwatch?.();
     pc = new RTCPeerConnection({ iceServers });
     unwatch = watchConnectionState(pc, onState);
+    reportConnectionType(pc, 'demo'); // relay-vs-direct telemetry (best-effort)
     for (const track of stream.getTracks()) pc.addTrack(track, stream);
     pc.onicecandidate = (e) => {
       if (e.candidate) send('rtc-ice', { slot, side: 'cam', candidate: e.candidate.toJSON() });
@@ -222,6 +224,7 @@ export function watchDemoCameras({
     unwatchers[slot]?.();
     const pc = new RTCPeerConnection({ iceServers });
     pcs[slot] = pc;
+    reportConnectionType(pc, 'demo'); // relay-vs-direct telemetry (best-effort)
     unwatchers[slot] = watchConnectionState(pc, (state) => onSlotState(slot, state));
     pc.onicecandidate = (e) => {
       if (e.candidate) send('rtc-ice', { slot, side: 'viewer', candidate: e.candidate.toJSON() });

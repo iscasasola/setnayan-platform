@@ -53,6 +53,21 @@ export type EventTypeProfile = {
    *  enabledSurfaces allow-list entry) so pre-existing profile rows — which
    *  predate it — keep Explore exactly as today. (Owner 2026-06-27.) */
   marketplaceEnabled: boolean;
+  /** Composable-event foundation (owner 2026-07-15, migration 20270807254184).
+   *  'personal' = only a person may own events of this type; 'community_eligible'
+   *  = a community (Samahan) may also own them. Owner-locked: communities can
+   *  NEVER own personal-milestone types (wedding · debut · christening ·
+   *  gender reveal · birthday · graduation). Nothing consumes this yet — it is
+   *  the create-flow gate the community build reads next. */
+  eventClass: 'personal' | 'community_eligible';
+  /** 'anchored' = a venue is fed (catering — food comes TO the event);
+   *  'roaming' = travel/lifestyle (timed dining reservations — people go OUT to
+   *  eat). Routes the food layer of the composable-event stack. */
+  layerMode: 'anchored' | 'roaming';
+  /** TRUE = this type may span several days (events.event_end_date + day-aware
+   *  schedule). Segments (rehearsal dinner, send-off brunch) are schedule
+   *  blocks on the ONE event, never separate events; lodging is never an event. */
+  multiDay: boolean;
   onboardingFlowKey: string | null;
   roleSetKey: string | null;
   templatePackKey: string | null;
@@ -88,6 +103,9 @@ export const WEDDING_PROFILE: EventTypeProfile = {
   },
   enabledSurfaces: ALL_SURFACES,
   marketplaceEnabled: true,
+  eventClass: 'personal',
+  layerMode: 'anchored',
+  multiDay: true, // wedding WEEKEND — rehearsal dinner/brunch are days on ONE event
   onboardingFlowKey: 'wedding',
   roleSetKey: 'wedding',
   templatePackKey: 'wedding',
@@ -129,6 +147,9 @@ export const GENERIC_PROFILE: EventTypeProfile = {
     'gallery',
   ],
   marketplaceEnabled: true,
+  eventClass: 'personal', // conservative default: unknown types stay personal-only
+  layerMode: 'anchored',
+  multiDay: false,
   onboardingFlowKey: null,
   roleSetKey: null,
   templatePackKey: null,
@@ -160,6 +181,9 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
   },
   enabledSurfaces: ['seating', 'schedule', 'day_of', 'gallery'],
   marketplaceEnabled: false,
+  eventClass: 'community_eligible', // a Samahan may host a simple event
+  layerMode: 'anchored',
+  multiDay: false,
   onboardingFlowKey: 'simple',
   roleSetKey: 'simple',
   templatePackKey: null,
@@ -181,6 +205,9 @@ type ProfileRow = {
   terminology: Record<string, unknown> | null;
   enabled_surfaces: string[] | null;
   marketplace_enabled: boolean | null;
+  event_class: string | null;
+  layer_mode: string | null;
+  multi_day: boolean | null;
   onboarding_flow_key: string | null;
   role_set_key: string | null;
   template_pack_key: string | null;
@@ -218,6 +245,15 @@ function toProfile(row: ProfileRow): EventTypeProfile {
       typeof row.marketplace_enabled === 'boolean'
         ? row.marketplace_enabled
         : fb.marketplaceEnabled,
+    eventClass:
+      row.event_class === 'personal' || row.event_class === 'community_eligible'
+        ? row.event_class
+        : fb.eventClass,
+    layerMode:
+      row.layer_mode === 'anchored' || row.layer_mode === 'roaming'
+        ? row.layer_mode
+        : fb.layerMode,
+    multiDay: typeof row.multi_day === 'boolean' ? row.multi_day : fb.multiDay,
     onboardingFlowKey: row.onboarding_flow_key ?? fb.onboardingFlowKey,
     roleSetKey: row.role_set_key ?? fb.roleSetKey,
     templatePackKey: row.template_pack_key ?? fb.templatePackKey,
@@ -233,27 +269,31 @@ function toProfile(row: ProfileRow): EventTypeProfile {
  * The Event-Type Profile for a given type. Cached per request. Falls back to the
  * hard-coded WEDDING_PROFILE / GENERIC_PROFILE on any error or missing row.
  */
-// The profile columns, split so `marketplace_enabled` (added by a LATER migration
-// than the table) can be dropped when reading a not-yet-migrated prod without
-// losing the rest of the row. See the deploy-order note in resolveProfile.
+// The profile columns, split so columns added by LATER migrations than the
+// table (`marketplace_enabled`, and the 20270807254184 composable-event trio
+// `event_class` / `layer_mode` / `multi_day`) can be dropped when reading a
+// not-yet-migrated prod without losing the rest of the row. See the
+// deploy-order note in resolveProfile.
 const PROFILE_BASE_COLUMNS =
   'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key';
+const PROFILE_OPTIONAL_COLUMNS =
+  'marketplace_enabled, event_class, layer_mode, multi_day';
 
 export const resolveProfile = cache(
   async (eventType: string): Promise<EventTypeProfile> => {
     try {
       const sb = await createClient();
-      // Try the full row (incl. marketplace_enabled). If that column does not
-      // exist yet — i.e. the code deployed before its migration applied — the
-      // whole select errors, which would degrade EVERY type to its hard-coded
-      // fallback and so strip the 8 seeded non-wedding types of their per-type
-      // terminology. So on error we retry WITHOUT the new column: the row's
-      // terminology/surfaces/packs are preserved and marketplace_enabled falls
-      // back to the code default (TRUE for all but Simple Event). Once the
-      // migration is applied the first select succeeds and the column is read.
+      // Try the full row (incl. the later-migration optional columns). If any
+      // of those columns does not exist yet — i.e. the code deployed before its
+      // migration applied — the whole select errors, which would degrade EVERY
+      // type to its hard-coded fallback and so strip the seeded non-wedding
+      // types of their per-type terminology. So on error we retry WITHOUT the
+      // optional columns: the row's terminology/surfaces/packs are preserved
+      // and each optional field falls back to its code default. Once the
+      // migrations are applied the first select succeeds and the columns read.
       const full = await sb
         .from('event_type_profiles')
-        .select(`${PROFILE_BASE_COLUMNS}, marketplace_enabled`)
+        .select(`${PROFILE_BASE_COLUMNS}, ${PROFILE_OPTIONAL_COLUMNS}`)
         .eq('event_type', eventType)
         .maybeSingle();
       if (!full.error) {
@@ -265,7 +305,13 @@ export const resolveProfile = cache(
         .eq('event_type', eventType)
         .maybeSingle();
       if (base.error || !base.data) return fallbackFor(eventType);
-      return toProfile({ ...(base.data as object), marketplace_enabled: null } as ProfileRow);
+      return toProfile({
+        ...(base.data as object),
+        marketplace_enabled: null,
+        event_class: null,
+        layer_mode: null,
+        multi_day: null,
+      } as ProfileRow);
     } catch {
       return fallbackFor(eventType);
     }

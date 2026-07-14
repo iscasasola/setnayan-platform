@@ -7,6 +7,7 @@ import {
   type CameraPublisher,
   type PeerConnectionState,
 } from '@/lib/panood-webrtc';
+import { getPanoodIceServers } from '@/app/panood/actions';
 
 // Panood · camera-operator local preview (PR5 — join + local preview only).
 //
@@ -68,12 +69,19 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
       // room over WebRTC — P2P, STUN-only, nothing stored. When the flag is OFF
       // this is skipped and the view stays local-preview-only (the honest default).
       if (streamingEnabled) {
+        // Fetch ICE servers (STUN + a minted TURN relay when configured) so a
+        // phone on mobile data / an isolated venue Wi-Fi can still reach the
+        // control room. Falls back to the transport's STUN-only default on error.
+        const { iceServers } = await getPanoodIceServers(eventId).catch(() => ({
+          iceServers: undefined as RTCIceServer[] | undefined,
+        }));
         publisherRef.current?.close();
         publisherRef.current = publishPanoodCamera({
           eventId,
           slot: `cam${cameraIndex}`,
           stream,
           onState: setLink,
+          iceServers,
         });
       }
     } catch (err) {

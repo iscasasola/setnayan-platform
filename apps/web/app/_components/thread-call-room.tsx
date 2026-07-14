@@ -59,7 +59,21 @@ export function ThreadCallRoom({
       try {
         const s = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: kind === 'video',
+          // 720p @ 30fps ceiling for the CALL (owner 2026-07-14) — clean for
+          // talking-heads, ~half the bytes of 1080p (lighter on mobile battery +
+          // less TURN relay data). `ideal` + `max` firmly caps it while still
+          // returning a stream on cameras that can't hit exactly 720p (downscales
+          // to fit; no OverconstrainedError). Deliberately CALL-ONLY — Live Studio
+          // (panood-camera-publish) and Papic (use-papic-camera) keep their own
+          // capture settings, untouched.
+          video:
+            kind === 'video'
+              ? {
+                  width: { ideal: 1280, max: 1280 },
+                  height: { ideal: 720, max: 720 },
+                  frameRate: { ideal: 30, max: 30 },
+                }
+              : false,
         });
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());

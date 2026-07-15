@@ -24,6 +24,7 @@ import {
   setGuestPrimaryRole,
 } from '../quick-add-actions';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
+import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 
 /* ------------------------------------------------------------------ */
 /* Cross-component opener — one sheet, two triggers (desktop header    */
@@ -63,12 +64,10 @@ export type ExistingGuest = {
 // to today's 24-role list, incl. bride/groom (quick-add offers them, unlike the
 // filtered full form).
 
-/* the Side picker carries its team colour on the control border */
-const SIDE_BORDER: Record<GuestSide, string> = {
-  bride: 'border-danger-400',
-  groom: 'border-sky-500',
-  both: 'border-violet-400',
-};
+/* the Side picker carries its team colour on the control border — canonical
+   side-colour map (lib/side-colors.ts · SIDE_CONTROL_BORDER): gold / info-slate
+   / lighter gold */
+const SIDE_BORDER = SIDE_CONTROL_BORDER;
 const SIDE_SHORT: Record<GuestSide, string> = {
   bride: 'Bride',
   groom: 'Groom',
@@ -575,7 +574,7 @@ export function QuickAddSheet({
                             kind === 'exact'
                               ? 'bg-danger-100 text-danger-700'
                               : kind === 'nick'
-                                ? 'bg-violet-100 text-violet-700'
+                                ? 'bg-info-100 text-info-800'
                                 : 'bg-warn-200/70 text-warn-800'
                           }`}
                         >

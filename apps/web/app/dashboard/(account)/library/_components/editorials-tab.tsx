@@ -112,7 +112,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
               aria-hidden
             >
               <span
-                className="font-serif text-3xl tracking-wide"
+                className="font-sans text-3xl tracking-wide"
                 style={{ color: monogram }}
               >
                 {initials}

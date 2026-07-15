@@ -140,7 +140,7 @@ export default async function SamahanSpacePage({
             {initial}
           </span>
           <div className="min-w-0">
-            <h1 className="truncate font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            <h1 className="truncate font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
               {community.name}
             </h1>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em]">

@@ -32,6 +32,7 @@ import {
   roleImportanceRank,
 } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
@@ -1152,8 +1153,8 @@ function SummaryFacetBar({
     dot?: string;
   }[] = [
     { key: 'all', label: 'Everyone', count: teamCounts.all },
-    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-danger-500' },
-    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: 'bg-sky-600' },
+    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: SIDE_DOT.bride },
+    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: SIDE_DOT.groom },
   ];
 
   // RSVP facet — toggle pills (tap an active one to clear), preserved from the

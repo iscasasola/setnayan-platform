@@ -148,7 +148,7 @@ export function EventTypePicker({
       {selected && selected.key === 'wedding' && inPlanningWedding ? (
         <div className="mt-10 max-w-lg space-y-4">
           <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-5 sm:p-6">
-            <p className="font-serif text-xl text-ink">You’re already planning a wedding</p>
+            <p className="font-sans text-xl text-ink">You’re already planning a wedding</p>
             <p className="mt-2 text-sm leading-relaxed text-ink/70">
               You have <span className="font-medium text-ink">{inPlanningWedding.displayName}</span> in
               planning. What is this one?

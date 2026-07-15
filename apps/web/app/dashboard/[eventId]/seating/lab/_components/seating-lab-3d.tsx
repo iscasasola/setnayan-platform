@@ -116,8 +116,27 @@ import {
   setGhostBoothsEnabled,
   dismissGhostBooth,
 } from '@/app/dashboard/[eventId]/seating/actions';
-import { TABLE_TYPE_CATALOG, ROLE_TIER_LABELS, computeAutoLayout } from '@/lib/seating';
-import type { KeepApartRule, PriorityOrder, EventTableRow } from '@/lib/seating';
+import {
+  TABLE_TYPE_CATALOG,
+  ROLE_TIER_LABELS,
+  computeAutoLayout,
+  // The ONE placement oracle (lib/seating.ts · council verdict 2026-07-16). The
+  // 3D move/rotate paths validate through these SAME pure helpers as the 2D
+  // editor — no 3D-specific geometry. Aliased so they don't collide with the
+  // seating-3d disc helpers (which the walk/crowd still use).
+  TABLE_FOOTPRINT_M,
+  tableGeometry,
+  checkPlacement as oracleCheckPlacement,
+  penetrationDepth as oraclePenetrationDepth,
+} from '@/lib/seating';
+import type {
+  KeepApartRule,
+  PriorityOrder,
+  EventTableRow,
+  TableType,
+  WorldPose as OracleWorldPose,
+  OracleZone,
+} from '@/lib/seating';
 
 // Cinematic Tier B (Fable §3.5) — the program's ONLY new dependency
 // (postprocessing + @react-three/postprocessing) lives behind THIS dynamic
@@ -164,7 +183,6 @@ import {
   rotateLocalRad,
   tableDims,
   serpentineChainSnapWorld,
-  checkPlacement,
   serpentineBand,
   seatWorld,
   approachPoint,
@@ -194,6 +212,7 @@ import {
   SIDE_COLOR,
   TENTATIVE_COLOR,
   PLUS_ONE_COLOR,
+  BOOTH_FOOTPRINT_M,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
@@ -641,9 +660,90 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   // Live world-space drag target (avoids a React re-render every pointer move).
   const dragRef = useRef<{ id: string; x: number; z: number } | null>(null);
+  // Live legality of the current drag pose — read INSIDE the dragged TableMesh's
+  // useFrame to tint its ground ring (gold = valid, warm-red = escaping) with
+  // zero React churn, exactly like dragRef itself.
+  const dragValidRef = useRef(true);
   // `commitDrag` (defined below) auto-links a serpentine into its chain on snap,
   // but `doLink` is defined further down — a ref bridges the forward reference.
   const doLinkRef = useRef<((aId: string, bId: string) => void) | null>(null);
+
+  // ── Placement-oracle bridge (directive 2026-07-16 · "manipulation parity") ──
+  // 3D move + rotate validate through the SAME pure oracle as the 2D editor
+  // (checkPlacement / penetrationDepth in lib/seating.ts). The oracle is scale-
+  // homogeneous, so running it in METRES here yields a valid/invalid verdict
+  // identical to the 2D editor's pixel-space verdict (every length there is this
+  // one × pxPerMeter, and the oracle only compares lengths) — parity by
+  // construction, no forked geometry. Only a sized (walled) room runs it; the
+  // free auto-grow board is place-anywhere in both projections.
+  const venueScaled = !!(
+    floor.venueWidthM &&
+    floor.venueLengthM &&
+    floor.venueWidthM > 0 &&
+    floor.venueLengthM > 0
+  );
+  // Default walkway = the 2D editor's default aisle (0.6 m). aisleM is 2D
+  // session-state (unpersisted); the lab keeps the same default so the two agree.
+  const WALKWAY_M = 0.6;
+  // Metre-space pose builder — mirrors the 2D editor's poseAt/scaleOf, with
+  // pxPerMeter folded out to 1 (metres). tableGeometry owns the local geometry.
+  const scaleOfTable = useCallback((t: LiveTable): number => {
+    const footM = TABLE_FOOTPRINT_M[t.type as TableType] ?? TABLE_FOOTPRINT_M.round_10;
+    const geo = tableGeometry(t.shape, Math.max(1, t.capacity));
+    return footM / geo.box.w;
+  }, []);
+  const oraclePose = useCallback(
+    (t: LiveTable, xPct: number, yPct: number): OracleWorldPose => ({
+      tableId: t.id,
+      shape: t.shape,
+      capacity: t.capacity,
+      x: (xPct / 100) * room.w,
+      y: (yPct / 100) * room.d,
+      rot: t.rotationDeg,
+      scale: scaleOfTable(t),
+      linkGroupId: t.linkGroupId,
+    }),
+    [room, scaleOfTable],
+  );
+  // No-go zones — dance floor + cocktail room + vendor booths, exactly the set
+  // the 2D editor's zonesFor collects (the STAGE is NOT a table obstacle in 2D,
+  // so it isn't one here either — parity supersedes the old 3D sweetheart-only
+  // stage rule). Centre-anchored, full extents, metres.
+  const oracleZones = useCallback((): OracleZone[] => {
+    const out: OracleZone[] = [];
+    const toX = (p: number) => (p / 100) * room.w;
+    const toY = (p: number) => (p / 100) * room.d;
+    if (floor.dance.enabled)
+      out.push({ id: 'dance', x: toX(floor.dance.xPct), y: toY(floor.dance.yPct), w: toX(floor.dance.wPct), h: toY(floor.dance.hPct) });
+    if (floorExtras.cocktailEnabled)
+      out.push({ id: 'cocktail', x: toX(floorExtras.cocktailX), y: toY(floorExtras.cocktailY), w: toX(floorExtras.cocktailW), h: toY(floorExtras.cocktailH) });
+    for (let i = 0; i < booths.length; i++) {
+      const b = booths[i]!;
+      out.push({ id: `booth${i}`, x: toX(b.xPct), y: toY(b.yPct), w: BOOTH_FOOTPRINT_M.w, h: BOOTH_FOOTPRINT_M.d });
+    }
+    return out;
+  }, [room, floor.dance, floorExtras, booths]);
+  // World px ↔ percent for the ground-plane raycast (centre-origin, matches
+  // pctToWorld). Kept local so the drag maths reads cleanly.
+  const worldToPct = useCallback(
+    (wx: number, wz: number) => ({ x: (wx / room.w + 0.5) * 100, y: (wz / room.d + 0.5) * 100 }),
+    [room],
+  );
+  // Would rotating `t` (at its stored spot) to `deg` collide with a non-groupmate
+  // or a zone? The 2D editor's rotationBlocked, same oracle. Same-link_group_id
+  // members are exempt inside checkPlacement (the weld model), so a chain member
+  // never trips on its own siblings.
+  const rotationBlocked = useCallback(
+    (t: LiveTable, deg: number): boolean => {
+      const world = {
+        others: tables.filter((o) => o.id !== t.id).map((o) => oraclePose(o, o.xPct, o.yPct)),
+        zones: oracleZones(),
+      };
+      const pose: OracleWorldPose = { ...oraclePose(t, t.xPct, t.yPct), rot: deg };
+      return !oracleCheckPlacement(pose, world, { gapPx: WALKWAY_M }).valid;
+    },
+    [tables, oraclePose, oracleZones],
+  );
 
   const entranceWorld = useMemo<Vec2>(() => {
     const e = floor.entrance.enabled ? floor.entrance : { xPct: 50, yPct: 96 };
@@ -862,56 +962,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     const xPct = clampPct((dropX / room.w + 0.5) * 100);
     const yPct = clampPct((dropZ / room.d + 0.5) * 100);
 
-    // Placement rules (owner 2026-06-26): no overlap · no tables on the dance
-    // floor · stage = sweetheart only. If the drop breaks one, revert (skip the
-    // commit) — the mesh eases back to its stored spot — and say why.
-    if (dragged) {
-      const draggedGroupId = dragged.linkGroupId ?? null;
-      const isSnapped = snappedRotDeg !== null;
-      const radiusOf = (t: LiveTable) => {
-        const dim = tableDims(t.shape, t.capacity);
-        return Math.max(dim.w, dim.round ? dim.w : dim.d) / 2;
-      };
-      // Exclude from the OVERLAP test (zones are always enforced): (a) the dragged
-      // table; (b) its own linked siblings — a rigid unit is SUPPOSED to touch, so
-      // testing a member against its siblings would always reject and make the
-      // chain unmovable; (c) when this drop snapped to a serpentine tip, other
-      // serpentines — a tip-to-tip snap is an intentional touch the coarse
-      // bounding circles would otherwise reject. Non-serpentine overlap and the
-      // stage/dance zones stay enforced even for a snapped chain, so it can't land
-      // on the dance floor, on the stage, or over a round table.
-      const others = tables
-        .filter(
-          (t) =>
-            t.id !== d.id &&
-            !(draggedGroupId && t.linkGroupId === draggedGroupId) &&
-            !(isSnapped && t.shape === 'serpentine'),
-        )
-        .map((t) => {
-          const p = pctToWorld(t.xPct, t.yPct, room);
-          return { x: p.x, z: p.z, r: radiusOf(t) };
-        });
-      const zone = (xP: number, yP: number, wP: number, hP: number, minW: number, minH: number) => {
-        const c = pctToWorld(xP, yP, room);
-        return { cx: c.x, cz: c.z, hw: Math.max(minW, (wP / 100) * room.w) / 2, hd: Math.max(minH, (hP / 100) * room.d) / 2 };
-      };
-      const stageZone = zone(floor.stage.xPct, floor.stage.yPct, floor.stage.wPct, floor.stage.hPct, 1.5, 1);
-      const danceZone = floor.dance.enabled
-        ? zone(floor.dance.xPct, floor.dance.yPct, floor.dance.wPct, floor.dance.hPct, 1.5, 1.5)
-        : null;
-      const verdict = checkPlacement(
-        // Test the SNAPPED position (dropX/dropZ) — identical to the raw drop when
-        // not snapped, but the real resting spot when it is.
-        { x: dropX, z: dropZ, r: radiusOf(dragged), isTable: true, isSweetheart: dragged.shape === 'sweetheart' },
-        others,
-        stageZone,
-        danceZone,
-      );
-      if (!verdict.ok) {
-        setNotice(verdict.reason);
-        return;
-      }
-    }
+    // Validity is the shared oracle's job now (directive 2026-07-16): a single
+    // table's drop is ALREADY oracle-valid — the monotone-escape drag can't leave
+    // it overlapping or blocking the walkway — so it needs no re-check here. A
+    // SNAPPED serpentine is a sanctioned join (it links on drop). Only the linked-
+    // UNIT move, which translates as a rigid body without a per-frame oracle pass,
+    // is validated below against the same oracle before it commits. The old disc-
+    // based checkPlacement fork (bounding circles, stage-sweetheart rule) is gone.
 
     // Linked unit → translate every member by the same delta (move as one).
     const groupId = dragged?.linkGroupId ?? null;
@@ -925,6 +982,26 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const ys = members.map((m) => m.yPct);
       const ddx = Math.max(lo - Math.min(...xs), Math.min(hi - Math.max(...xs), xPct - dragged.xPct));
       const ddy = Math.max(lo - Math.min(...ys), Math.min(hi - Math.max(...ys), yPct - dragged.yPct));
+      // Same oracle as the 2D editor: reject the unit move if any member would
+      // BODY-overlap a NON-member table or a zone at the shared delta (siblings are
+      // exempt via link_group_id — a rigid unit is meant to touch). Sized room
+      // only; the free board is place-anywhere. Body overlap (gap 0) is the bar —
+      // a parked unit may rest tighter than the walkway, but never through another
+      // table or the dance floor.
+      if (venueScaled) {
+        const memberIds = new Set(members.map((m) => m.id));
+        const others = tables.filter((t) => !memberIds.has(t.id)).map((t) => oraclePose(t, t.xPct, t.yPct));
+        const zones = oracleZones();
+        const world = { others, zones };
+        const hits = members.some((m) => {
+          const pose = oraclePose(m, m.xPct + ddx, m.yPct + ddy);
+          return oracleCheckPlacement(pose, world, { gapPx: 0 }).violations.some((v) => v.kind === 'overlap');
+        });
+        if (hits) {
+          setNotice('No room there — the linked group would overlap another table or a zone.');
+          return;
+        }
+      }
       setTables((prev) =>
         prev.map((t) => (t.linkGroupId === groupId ? { ...t, xPct: t.xPct + ddx, yPct: t.yPct + ddy } : t)),
       );
@@ -972,7 +1049,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     // more segments extend the same group. doLink merges into an existing group
     // if the neighbour is already chained.
     if (snapNeighbourId) doLinkRef.current?.(d.id, snapNeighbourId);
-  }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById]);
+  }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById, venueScaled, oraclePose, oracleZones]);
 
   useEffect(() => {
     // Commit on pointerup AND on interruptions (pointercancel / window blur):
@@ -1090,11 +1167,74 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   const onFloorMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
-      if (!dragRef.current) return;
-      dragRef.current.x = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
-      dragRef.current.z = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
+      const d = dragRef.current;
+      if (!d) return;
+      const rawX = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
+      const rawZ = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
+      const dragged = tablesById.get(d.id);
+      // Free board OR a rigid linked unit → follow the finger 1:1 (the 2D
+      // editor's free path; the unit's shared-delta clamp + any snap resolve at
+      // commit). A missing table can't be validated either — follow raw.
+      if (!venueScaled || !dragged || dragged.linkGroupId) {
+        d.x = rawX;
+        d.z = rawZ;
+        dragValidRef.current = true;
+        return;
+      }
+      // Serpentine tip-snap pre-check — a tip-to-tip join is a SANCTIONED touch
+      // (it links into one chain on drop), so it's allowed to reach the joint the
+      // walkway oracle would otherwise hold it out of. Mirrors the 2D editor's
+      // weld-first ordering: snap wins, else the monotone escape governs.
+      if (dragged.shape === 'serpentine') {
+        const neighbours = tables
+          .filter((t) => t.id !== d.id && t.shape === 'serpentine')
+          .map((t) => {
+            const p = pctToWorld(t.xPct, t.yPct, room);
+            return { x: p.x, z: p.z, rotDeg: t.rotationDeg, id: t.id };
+          });
+        const serpW = tableDims('serpentine', dragged.capacity).w;
+        const snap = serpentineChainSnapWorld({ x: rawX, z: rawZ }, neighbours, Math.max(0.6, serpW * 0.4));
+        if (snap) {
+          d.x = snap.x;
+          d.z = snap.z;
+          dragValidRef.current = true;
+          return;
+        }
+      }
+      // MONOTONE ESCAPE (2D editor § 4, same oracle). A CLEAN table stays fully
+      // legal — an axis-separated slide glides it along an obstacle to the next
+      // gap. A table that STARTS violating (a legacy overlap, or the walkway grew)
+      // may move only to a valid pose OR one whose max body penetration doesn't
+      // grow past ε = 2 cm — always out, never deeper. Never seeds a new overlap.
+      const world = {
+        others: tables.filter((t) => t.id !== d.id).map((t) => oraclePose(t, t.xPct, t.yPct)),
+        zones: oracleZones(),
+      };
+      const params = { gapPx: WALKWAY_M };
+      const desired = worldToPct(rawX, rawZ);
+      const cur = worldToPct(d.x, d.z);
+      const curPose = oraclePose(dragged, cur.x, cur.y);
+      const curValid = oracleCheckPlacement(curPose, world, params).valid;
+      const curDepth = curValid ? 0 : oraclePenetrationDepth(curPose, world);
+      const epsM = 0.02;
+      const accept = (xPct: number, yPct: number): boolean => {
+        const p = oraclePose(dragged, xPct, yPct);
+        if (oracleCheckPlacement(p, world, params).valid) return true;
+        if (curValid) return false; // a clean table must keep the walkway
+        return oraclePenetrationDepth(p, world) <= curDepth + epsM; // stuck → non-worsening
+      };
+      const apply = (xPct: number, yPct: number) => {
+        const w = pctToWorld(xPct, yPct, room);
+        d.x = w.x;
+        d.z = w.z;
+        dragValidRef.current = oracleCheckPlacement(oraclePose(dragged, xPct, yPct), world, params).valid;
+      };
+      if (accept(desired.x, desired.y)) apply(desired.x, desired.y);
+      else if (accept(desired.x, cur.y)) apply(desired.x, cur.y); // slide along X
+      else if (accept(cur.x, desired.y)) apply(cur.x, desired.y); // slide along Z
+      // else fully boxed in → hold at the last accepted pose (apply nothing).
     },
-    [room],
+    [room, venueScaled, tablesById, tables, oraclePose, oracleZones, worldToPct],
   );
 
   // Tap-the-dance-floor (Play): send the nearest seated guest out to dance. They
@@ -1235,6 +1375,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const cur = tablesById.get(selectedId);
       if (!cur) return;
       const next = (((Math.round((cur.rotationDeg + delta) / 15) * 15) % 360) + 360) % 360;
+      // Rotate validates through the SAME oracle (preview → check → commit): a
+      // twist that would drive the table into a non-groupmate or a zone is refused
+      // (parity with the 2D editor's commitRotation). Sized room only.
+      if (venueScaled && rotationBlocked(cur, next)) {
+        setNotice('No room to rotate that table there — move it to more open space first.');
+        return;
+      }
       setTables((prev) => prev.map((t) => (t.id === selectedId ? { ...t, rotationDeg: next } : t)));
       const fd = new FormData();
       fd.set('event_id', eventId);
@@ -1243,7 +1390,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       fd.set('rotation_deg', String(next));
       void persist(() => updateTableRotation(fd));
     },
-    [selectedId, canEdit, tablesById, eventId, lock.lockId, persist],
+    [selectedId, canEdit, tablesById, eventId, lock.lockId, persist, venueScaled, rotationBlocked],
   );
 
   const deleteSelected = useCallback(() => {
@@ -2118,6 +2265,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             selected={selectedId === t.id}
             dragging={draggingId === t.id}
             dragRef={dragRef}
+            dragValidRef={dragValidRef}
             interactive={mode === 'build' && canEdit}
             onDown={onTableDown}
             removable={mode === 'build' && canEdit && selectedId === t.id}
@@ -2869,6 +3017,7 @@ function TableMesh({
   selected,
   dragging,
   dragRef,
+  dragValidRef,
   interactive,
   onDown,
   removable,
@@ -2885,6 +3034,8 @@ function TableMesh({
   selected: boolean;
   dragging: boolean;
   dragRef: React.MutableRefObject<{ id: string; x: number; z: number } | null>;
+  /** Live legality of the current drag (gold ✓ / warm-red ✗ ground ring). */
+  dragValidRef: React.MutableRefObject<boolean>;
   interactive: boolean;
   onDown: (id: string) => void;
   removable: boolean;
@@ -2986,6 +3137,16 @@ function TableMesh({
     () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.6, transparent: true, opacity: 0.16 }),
     [palette.wall],
   );
+  // Drag-feedback ground ring (directive 2026-07-16): a subtle GOLD ring while
+  // the pose is oracle-valid, a warm-RED ring while it's escaping an overlap (the
+  // table also refuses to settle — monotone-escape holds it). Colour is driven
+  // from dragValidRef inside useFrame so there's zero React churn per frame.
+  const ringMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  const ringColors = useMemo(
+    () => ({ ok: new THREE.Color('#d8b45a'), bad: new THREE.Color('#d9534f') }),
+    [],
+  );
+  const ringR = (dims.round ? dims.w / 2 : Math.max(dims.w, dims.d) / 2) + 0.18;
   const tokenMats = useRef<Map<string, THREE.MeshStandardMaterial>>(new Map());
   const tokenMat = (color: string, opacity: number) => {
     const key = `${color}|${opacity}`;
@@ -3011,6 +3172,11 @@ function TableMesh({
     }
     const targetX = dragging && dragRef.current ? dragRef.current.x : home.x;
     const targetZ = dragging && dragRef.current ? dragRef.current.z : home.z;
+    // Tint the drag ring live (both motion branches) — gold when the oracle says
+    // the pose is legal, warm-red while it's escaping.
+    if (dragging && ringMatRef.current) {
+      ringMatRef.current.color.copy(dragValidRef.current ? ringColors.ok : ringColors.bad);
+    }
     if (reduced) {
       // Reduced motion: no slide-lag, no scale pop. Position tracks the target
       // directly (drag still works — it just follows the finger 1:1), scale
@@ -3046,6 +3212,22 @@ function TableMesh({
 
   return (
     <group ref={ref} position={[home.x, 0, home.z]} onPointerDown={handleDown}>
+      {/* Drag-feedback ground ring — gold (valid) / warm-red (escaping). Only
+          while this table is being dragged; never raycasts (drags pass through
+          to the floor plane). */}
+      {dragging ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]} raycast={() => null}>
+          <ringGeometry args={[Math.max(0.05, ringR - 0.07), ringR, 56]} />
+          <meshBasicMaterial
+            ref={ringMatRef}
+            color="#d8b45a"
+            transparent
+            opacity={0.9}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ) : null}
       {/* Table: a draped tablecloth (skirt to the floor + top) when cloth is on,
           else a bare top + pedestal. Serpentine renders its curved ribbon. */}
       {serpGeo ? (

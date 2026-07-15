@@ -118,8 +118,8 @@ function getExperienceTier(count: number): ExperienceTier {
       label: 'Expert',
       nextTierLabel: 'Elite',
       nextTierCount: 200 - count,
-      color: 'text-violet-800',
-      bg: 'bg-violet-100',
+      color: 'text-info-800',
+      bg: 'bg-info-100',
     };
   }
   if (count >= 11) {

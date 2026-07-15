@@ -10,7 +10,7 @@
  * through the sidebar's Accounts group directly.
  */
 
-import { ADMIN_NAV_GROUPS } from '../_components/admin-sidebar';
+import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
 import { MobileLandingGrid } from '../_components/mobile-landing-grid';
 import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
 

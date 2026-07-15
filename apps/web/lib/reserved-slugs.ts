@@ -52,7 +52,6 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'acceptable-use',
   'alaala',
   'blog',
-  'camera-move-preview',
   'cookies',
   'download',
   'explore',

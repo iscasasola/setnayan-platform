@@ -41,11 +41,22 @@ test('generateScreenPairingCode is a 6-char uppercase Crockford code (no I/L/O/U
   }
 });
 
-test('generateScreenPairingCode is unique across calls', () => {
+test('generateScreenPairingCode is effectively unique across calls (high entropy)', () => {
+  const N = 5000;
   const seen = new Set<string>();
-  for (let i = 0; i < 5000; i += 1) seen.add(generateScreenPairingCode());
-  // 5000 draws from a 32^6 (~1.07e9) space — collisions are vanishingly unlikely.
-  assert.equal(seen.size, 5000, 'pairing code collision detected');
+  for (let i = 0; i < N; i += 1) seen.add(generateScreenPairingCode());
+  // Birthday paradox: N=5000 draws from a 32^6 (~1.07e9) space EXPECTS ~0.012
+  // collisions, so asserting EXACT uniqueness flakes on ~1.2% of runs even with a
+  // perfect RNG (this test was the sole failing check blocking otherwise-green
+  // PRs). A broken generator instead collides in the hundreds/thousands (constant
+  // → 4999, 4-char/32^4 space → ~12). Allow the handful of statistically-expected
+  // collisions while still catching gross entropy loss. P(≥5 collisions) ≈ 2e-12
+  // (Poisson, λ≈0.012) — effectively never flakes.
+  const collisions = N - seen.size;
+  assert.ok(
+    collisions <= 5,
+    `expected near-perfect uniqueness, got ${collisions} collisions in ${N} draws (entropy regression?)`,
+  );
 });
 
 // ── 2. Provisioning (pure missing-index logic) ───────────────────────────────

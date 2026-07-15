@@ -105,6 +105,7 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
 import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -1079,6 +1080,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
       const initialMessages = await fetchMessages(supabase, threadId);
       const declineReason = fullThread.decline_reason?.trim() || null;
+      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
+      // locked here shows the vendor an upgrade nudge instead of the call button.
+      const callsEnabled = await resolveThreadCallsEnabled(profile.vendor_profile_id);
 
       callTabNode =
         fullThread.inquiry_status === 'accepted' ? (
@@ -1086,6 +1090,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             threadId={threadId}
             currentUserId={user.id}
             counterpartyLabel={eventName}
+            callsEnabled={callsEnabled}
+            viewerRole="vendor"
+            upgradeHref="/vendor-dashboard/subscription"
           />
         ) : (
           <p className="text-xs text-ink/55">

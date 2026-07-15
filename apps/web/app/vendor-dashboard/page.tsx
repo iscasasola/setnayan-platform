@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, PartyPopper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -20,6 +20,9 @@ import {
 } from './_components/overview-sections';
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
 import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
+import { businessMilestone } from '@/lib/vendor-milestone';
+import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
+import { manilaToday } from '@/lib/std-views';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -30,7 +33,7 @@ import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
  * sample numbers), assembled in `fetchVendorOverviewData`:
  *
  *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries with
- *      the region-banded ◎ token cost to Accept · lock requests · new 5-star
+ *      the flat 1-token (₱200) cost to Accept · lock requests · new 5-star
  *      reviews awaiting a reply · flagged delivery delays). Centrepiece.
  *   2. Amber note    — the token-cost-follows-event-location explainer.
  *   3. "Ongoing"     — the vendor's open tasks with due chips.
@@ -189,6 +192,21 @@ export default async function VendorOverviewPage() {
 
   const { whatsNew, ongoing, upcoming } = data;
 
+  // BUSINESS MILESTONE (owner 2026-07-13) — a monthsary while the shop is new
+  // (its first year) and a yearly anniversary after: "a reason to celebrate and
+  // create events". Prefers the precise founding date (guarded read, so a
+  // not-yet-applied migration degrades to the open-date + year fallback).
+  const businessStartDate = await fetchVendorBusinessStartDate(
+    supabase,
+    profile.vendor_profile_id,
+  );
+  const milestone = businessMilestone(
+    profile.created_at,
+    manilaToday(),
+    profile.in_business_since_year,
+    businessStartDate,
+  );
+
   timer.flush();
 
   return (
@@ -204,6 +222,36 @@ export default async function VendorOverviewPage() {
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           What needs you today — {todayLabel()}.
         </p>
+        {milestone ? (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-ink)' }}
+            >
+              <PartyPopper aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--m-orange-2)' }} />
+              {profile.business_name} — your {milestone.label}
+              {/* A countdown only when it's near; a far-off anniversary reads as
+                  a proud badge, not an early countdown. */}
+              {milestone.daysUntil <= 92 ? (
+                <span style={{ color: 'var(--m-slate)' }}>
+                  ·{' '}
+                  {milestone.daysUntil <= 0
+                    ? 'today'
+                    : milestone.daysUntil === 1
+                      ? 'tomorrow'
+                      : `in ${milestone.daysUntil} days`}
+                </span>
+              ) : null}
+            </span>
+            <Link
+              href="/dashboard/create-event"
+              className="text-xs font-medium underline-offset-2 hover:underline"
+              style={{ color: 'var(--m-accent-deep)' }}
+            >
+              Plan a celebration →
+            </Link>
+          </div>
+        ) : null}
       </header>
 
       {/* 0 · Energy stats — the databerry stat bento (real feed-derived counts
@@ -243,9 +291,8 @@ export default async function VendorOverviewPage() {
           style={{ color: 'var(--m-orange-2)' }}
         />
         <p>
-          Token cost per lead follows the customer&rsquo;s event location — nearer
-          bands cost less (◎2 Batangas), NCR more (◎3). You only spend when you
-          Accept.
+          Answering a lead costs a flat 1 token (₱200), anywhere in the
+          Philippines. You only spend when you Accept.
         </p>
       </div>
 

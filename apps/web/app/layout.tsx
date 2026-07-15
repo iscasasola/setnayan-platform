@@ -3,11 +3,8 @@ import {
   Cormorant_Garamond,
   Manrope,
   DM_Mono,
-  Source_Sans_3,
-  Saira_Condensed,
-  Geist,
-  Instrument_Serif,
-  JetBrains_Mono,
+  Hanken_Grotesk,
+  Space_Mono,
   Cinzel,
   Playfair_Display,
   Great_Vibes,
@@ -85,36 +82,44 @@ const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
-  variable: '--font-display',
+  variable: '--font-editorial-display',
 });
 
 const manrope = Manrope({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
+  variable: '--font-editorial-sans',
 });
 
 const dmMono = DM_Mono({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500'],
-  variable: '--font-mono',
+  variable: '--font-editorial-mono',
 });
 
-// Backend (operational dashboards) typeface. Owner-locked 2026-06-10: the
-// couple / vendor / admin dashboards run on Source Sans for maximum
-// readability — one simple, minimalist family for body AND headings. The
-// editorial Cormorant/Manrope stack stays on the public marketing site +
-// guest-facing pages (landing / save-the-date / event pages). Scoped via the
-// `.app-surface` class in globals.css (opt-in, mirrors `.m-surface`), which
-// remaps --font-sans/--font-display to --font-app inside dashboards so the
-// 200+ shipped components don't churn. DM Mono is kept for IDs/ref codes.
-const sourceSans = Source_Sans_3({
+// Atelier + macOS glass typography — owner-locked 2026-07-12 (design
+// finalization; supersedes the 2026-06-10 Source Sans dashboard lock and the
+// 0015 Cormorant/Manrope chrome roles). Hanken Grotesk is THE UI family for
+// all chrome (marketing site + couple/vendor/admin dashboards); Space Mono
+// carries data/prices/dates. The swap cascades through globals.css variable
+// aliases (--font-app / --font-*-marketing / .app-surface remaps) so the
+// shipped components don't churn. Cormorant/Manrope/DM Mono above stay LOADED
+// but are now guest-content faces only: the /[slug] invitation surfaces are
+// owner-excluded from the reskin and keep inheriting the root vars.
+const hanken = Hanken_Grotesk({
   subsets: ['latin'],
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-app',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-hanken',
+});
+
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '700'],
+  variable: '--font-space-mono',
 });
 
 // Monogram display faces — the couple's onboarding monogram renders in its
@@ -188,47 +193,13 @@ const vidaloka = Vidaloka({
   preload: false,
 });
 
-// v2.1 marketing typography (Setnayan Vendor Keynote template package · CLAUDE.md
-// 2026-05-28 11th row "v2.1 template package adoption"). Loaded alongside the
-// existing editorial stack — marketing surfaces opt-in via `var(--font-condensed)`
-// / `var(--font-sans-marketing)` / `var(--font-serif-marketing)` / `var(--font-mono-marketing)`
-// inline styles or arbitrary Tailwind classes. Dashboard chrome keeps existing
-// Cormorant / Manrope / DM Mono so the 200+ shipped components don't churn.
-//
-//   - Saira Condensed  → display headlines (WWDC keynote register · Setnayan
-//     v2 brand mark "SET NA 'YAN" wordmark). Weights 400/600/700/800.
-//   - Geist            → marketing body sans (more geometric than Manrope).
-//   - Instrument Serif → editorial accent serif (italic supported).
-//   - JetBrains Mono   → marketing mono (eyebrows, label chips, /sɛt na jan/
-//     phonetic spelling).
-const sairaCondensed = Saira_Condensed({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '600', '700', '800'],
-  variable: '--font-condensed',
-});
-
-const geist = Geist({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-sans-marketing',
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400'],
-  style: ['normal', 'italic'],
-  variable: '--font-serif-marketing',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '500'],
-  variable: '--font-mono-marketing',
-});
+// (RETIRED 2026-07-12 · Atelier finalization) The v2.1 marketing quartet —
+// Saira Condensed / Geist / Instrument Serif / JetBrains Mono — is no longer
+// loaded. Their CSS variables (--font-condensed / --font-sans-marketing /
+// --font-serif-marketing / --font-mono-marketing) are still consumed by a
+// handful of shipped chrome files, so globals.css now aliases those vars to
+// Hanken Grotesk / Space Mono. Removing four families also drops their font
+// preloads from the first-paint path site-wide.
 
 // Static metadata baseline. `icons` is intentionally NOT here — it's resolved
 // per-request in generateMetadata() below so the admin-controlled brand icon
@@ -240,7 +211,7 @@ const baseMetadata: Metadata = {
     template: '%s · Setnayan',
   },
   description:
-    "Set na 'yan. Setnayan is the Philippines-first wedding planning platform — free baseline tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Set na 'yan. Setnayan is the Philippines-first wedding platform — plan your whole wedding free, book verified Filipino vendors at 0% commission across Metro Manila, Cebu, Davao, Tagaytay, and nationwide, and keep every photo, video, and memory in one place for life. The wedding is where it starts; every celebration after it lives here too.",
   applicationName: 'Setnayan',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -264,7 +235,7 @@ const baseMetadata: Metadata = {
     url: 'https://www.setnayan.com',
     title: "Setnayan · Filipino wedding planning + verified vendors",
     description:
-      "Set na 'yan. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers nationwide.",
+      "Set na 'yan. Plan your whole Filipino wedding free, book verified vendors at 0% commission, and keep every photo and memory in one place for life — the wedding is just where it starts.",
     images: [
       {
         url: '/brand/og-card.webp',
@@ -279,7 +250,7 @@ const baseMetadata: Metadata = {
     card: 'summary_large_image',
     title: "Setnayan · Filipino wedding planning + verified vendors",
     description:
-      "Set na 'yan. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers nationwide.",
+      "Set na 'yan. Plan your whole Filipino wedding free, book verified vendors at 0% commission, and keep every photo and memory in one place for life — the wedding is just where it starts.",
     images: ['/brand/og-card.webp'],
   },
   // Robots-meta default to index,follow (we're shipping public marketing).
@@ -386,7 +357,7 @@ const organizationJsonLd = {
   },
   image: 'https://www.setnayan.com/brand/og-card.webp',
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding and life-events software platform. Couples plan free — guest list, RSVP, seating, budget, and a personal event website — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. Couples plan their wedding free — guest list, RSVP, seating, budget, and a personal event website — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. Everything a couple creates gathers into one living memory (Alaala) they keep, and the wedding becomes its own recurring anniversary — so a one-time wedding grows into the home for every celebration that follows. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -484,7 +455,7 @@ export default async function RootLayout({
       lang="en-PH"
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sourceSans.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
         {/*

@@ -226,6 +226,63 @@ export const PERSONA_PACKS: Record<string, TypePersonaPack> = {
       rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
     },
   },
+  anniversary: {
+    essentials: ['reception', 'catering', 'photo_video', 'host_mc'],
+    byPersona: {
+      keepsake: ['editorial', 'photo_video', 'florist', 'stylist_decorator'],
+      big_celebration: ['live_band', 'dj', 'lights_sound', 'mobile_bar', 'dance_floor'],
+      best_of_both: ['photo_video', 'stylist_decorator', 'live_band', 'florist'],
+      intimate_romance: ['florist', 'stylist_decorator', 'dessert', 'coffee_espresso'],
+      modern_statement: ['led_wall', 'lights_sound', 'photo_video', 'dj'],
+      rooted_tradition: ['choir', 'performers', 'live_band', 'souvenir_giveaways'],
+    },
+    servicesByPersona: {
+      keepsake: ['animated_monogram', 'advanced_website', 'papic_seats'],
+      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'pabati'],
+      best_of_both: ['papic_seats', 'advanced_website', 'panood'],
+      intimate_romance: ['advanced_website', 'animated_monogram'],
+      modern_statement: ['live_background', 'animated_monogram', 'advanced_website'],
+      rooted_tradition: ['panood', 'papic_seats', 'pabati'],
+    },
+  },
+  graduation: {
+    essentials: ['catering', 'cake', 'host_mc', 'photo_video'],
+    byPersona: {
+      keepsake: ['photo_video', 'editorial', 'photo_booth', 'souvenir_giveaways'],
+      big_celebration: ['dj', 'live_band', 'lights_sound', 'mobile_bar', 'food_cart'],
+      best_of_both: ['photo_video', 'dj', 'photo_booth', 'stylist_decorator'],
+      intimate_romance: ['florist', 'dessert', 'coffee_espresso', 'stylist_decorator'],
+      modern_statement: ['led_wall', 'dj', 'photo_video', 'lights_sound'],
+      rooted_tradition: ['food_cart', 'souvenir_giveaways', 'live_band', 'choir'],
+    },
+    servicesByPersona: {
+      keepsake: ['papic_seats', 'advanced_website', 'animated_monogram'],
+      big_celebration: ['papic_seats', 'live_photowall', 'papic_guest', 'pabati'],
+      best_of_both: ['papic_seats', 'advanced_website', 'pabati'],
+      intimate_romance: ['advanced_website', 'animated_monogram'],
+      modern_statement: ['live_background', 'animated_monogram', 'advanced_website'],
+      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+    },
+  },
+  reunion: {
+    essentials: ['catering', 'host_mc', 'photo_video', 'souvenir_giveaways'],
+    byPersona: {
+      keepsake: ['photo_video', 'photo_booth', 'editorial', 'souvenir_giveaways'],
+      big_celebration: ['live_band', 'dj', 'lights_sound', 'mobile_bar', 'food_cart'],
+      best_of_both: ['photo_video', 'host_mc', 'photo_booth', 'food_cart'],
+      intimate_romance: ['florist', 'dessert', 'coffee_espresso', 'stylist_decorator'],
+      modern_statement: ['led_wall', 'dj', 'photo_video', 'lights_sound'],
+      rooted_tradition: ['food_cart', 'live_band', 'choir', 'souvenir_giveaways'],
+    },
+    servicesByPersona: {
+      keepsake: ['papic_seats', 'advanced_website', 'papic_guest'],
+      big_celebration: ['papic_seats', 'live_photowall', 'panood', 'pabati'],
+      best_of_both: ['papic_seats', 'live_photowall', 'advanced_website'],
+      intimate_romance: ['advanced_website', 'papic_seats'],
+      modern_statement: ['live_background', 'live_photowall', 'advanced_website'],
+      rooted_tradition: ['papic_seats', 'pabati', 'live_photowall'],
+    },
+  },
 };
 
 function isPersonaKey(k: string | null | undefined): k is PersonaKey {

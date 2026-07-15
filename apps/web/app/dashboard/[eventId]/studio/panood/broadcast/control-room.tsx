@@ -25,6 +25,7 @@ import {
 import type { PanoodMomentRow } from '@/lib/panood-moments';
 import type { PanoodControlState } from '@/lib/panood-control';
 import { watchPanoodCameras } from '@/lib/panood-webrtc';
+import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 
 // Client-safe row shapes. The server page (broadcast/page.tsx) STRIPS server-only
@@ -133,13 +134,28 @@ export function PanoodControlRoom({
   const [camStreams, setCamStreams] = useState<Record<string, MediaStream>>({});
   useEffect(() => {
     if (!streamingOn) return;
-    const viewer = watchPanoodCameras({
-      eventId,
-      onTrack: (slot, stream) =>
-        setCamStreams((prev) => (prev[slot] === stream ? prev : { ...prev, [slot]: stream })),
-      onSlotState: () => {},
-    });
-    return () => viewer.close();
+    let viewer: ReturnType<typeof watchPanoodCameras> | null = null;
+    let cancelled = false;
+    // Fetch ICE servers (STUN + a minted TURN relay when configured) before
+    // opening any peer connection, so the control room and the operator phones
+    // meet on the SAME relay — the phones a mobile-data operator can't otherwise
+    // reach. Falls back to STUN-only if the action fails.
+    void getPanoodIceServers(eventId)
+      .catch(() => ({ iceServers: undefined as RTCIceServer[] | undefined }))
+      .then(({ iceServers }) => {
+        if (cancelled) return;
+        viewer = watchPanoodCameras({
+          eventId,
+          iceServers,
+          onTrack: (slot, stream) =>
+            setCamStreams((prev) => (prev[slot] === stream ? prev : { ...prev, [slot]: stream })),
+          onSlotState: () => {},
+        });
+      });
+    return () => {
+      cancelled = true;
+      viewer?.close();
+    };
   }, [eventId, streamingOn]);
   const programStream = program ? camStreams[program] ?? null : null;
 

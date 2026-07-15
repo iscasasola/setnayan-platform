@@ -174,19 +174,18 @@ const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_ba
 // services are still STORED (style_preferences.interested_services) for the dashboard to
 // surface — they're just not sold here.
 const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'bundle', 'services', 'summary']);
-// Owner 2026-06-22 ("the steps like this, the information only, can we remove them for now" +
-// "trim it" — also drop the love-story arc; a fuller replan is pending): screens filtered OUT of
-// the flow so it runs question→question. REVERSIBLE — empty this set to restore every screen.
-// Two groups:
-//   • pure no-input interstitials: welcome · alaala_promise · team_intro · team_payoff · exp_reveal
-//   • the love-story sub-flow: love_intro (the "tell it / add it later" fork) + its 5 questions +
-//     love_preview. ⚠ love_story seeds the website editorial + the Pakanta song — it's removed from
-//     ONBOARDING for now; collect it elsewhere (dashboard) or restore here when we replan.
+// Screens filtered OUT of the flow. REVERSIBLE — empty this set to restore every screen.
+//   • Owner 2026-06-22: pure no-input interstitials removed to run question→question —
+//     welcome · alaala_promise · team_intro · team_payoff · exp_reveal.
+//   • Owner 2026-07-12: the LOVE-STORY arc is RESTORED (it was removed 2026-06-22). It feeds the
+//     richer Event Brief (the taste/story signals behind the now-free budget/faith matching) plus
+//     the website editorial + the Pakanta song. It stays OPT-IN — `love_intro` is the "tell it /
+//     add it later" fork and its 5 questions are LOVE_SKIPPABLE — so it never forces a longer flow
+//     ("easier, not more complex").
 // The persona derive that used to run on `exp_reveal` now fires when the 5 quiz answers complete
 // (see the derive effect). JSX sections stay in place (just never become active).
 const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
   'welcome', 'alaala_promise', 'team_intro', 'team_payoff', 'exp_reveal',
-  'love_intro', 'love_spark', 'love_almost', 'love_proposal', 'love_milestones', 'love_tone', 'love_preview',
 ]);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
@@ -1423,6 +1422,7 @@ export function OnboardingShell({
   authed,
   resume,
   activeFaiths = null,
+  religionDefault = null,
   pricing,
   bgMusicUrl = null,
   refinements = REFINEMENTS_DATA,
@@ -1433,6 +1433,10 @@ export function OnboardingShell({
 }: {
   authed: boolean;
   resume: boolean;
+  /** Date-anchor model: the user's profile religion (already validated against
+   *  activeFaiths by the page). Pre-selects the faith when they choose a
+   *  Religious wedding; null = no pre-select. Never overrides a resumed draft. */
+  religionDefault?: string | null;
   /** Picker EXTRAS cats to hide (no live marketplace supply) — spec §0 available-only. */
   hiddenCats?: string[];
   /**
@@ -2194,7 +2198,14 @@ export function OnboardingShell({
 
   // No faith is pre-selected — the couple picks their tradition on the faith screen
   // (owner 2026-06-05: no prefilled onboarding values).
-  const selectKind = (k: OnboardingKind) => patch({ kind: k, faith: [] });
+  const selectKind = (k: OnboardingKind) =>
+    patch({
+      kind: k,
+      // Date-anchor pre-select: a Religious wedding pre-fills the faith from the
+      // user's profile religion (page-validated as an active faith). Civil/Mixed
+      // reset to empty as before. They can still change it on the faith screen.
+      faith: k === 'religious' && religionDefault ? [religionDefault as OnboardingFaith] : [],
+    });
 
   /* Experience-quiz axis pick (0016) — store the answer; the persona resolves on the reveal.
      setState (not patch) so the nested experienceAxes object merges instead of replacing. */

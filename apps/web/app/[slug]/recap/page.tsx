@@ -61,7 +61,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
-  const description = `The day, in their words. ${event.display_name}'s wedding recap on Setnayan.`;
+  const recapNoun = event.event_type && event.event_type !== 'wedding' ? 'event' : 'wedding';
+  const description = `The day, in their words. ${event.display_name}'s ${recapNoun} recap on Setnayan.`;
   return {
     title,
     description,

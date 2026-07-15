@@ -226,7 +226,7 @@ const UPROF_CSS = `
   .uprof {
     min-height: 100dvh;
     background: var(--m-paper, #FBFBFA);
-    color: var(--m-ink, #1E2229);
+    color: var(--m-ink, #1B1A17);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -239,14 +239,14 @@ const UPROF_CSS = `
     font-size: clamp(2.4rem, 7vw, 4rem);
     line-height: 1.04;
     margin: 0;
-    color: var(--m-ink, #1E2229);
+    color: var(--m-ink, #1B1A17);
   }
   .uprof-rule {
     display: block;
     width: 44px;
     height: 1px;
     margin: 1.25rem auto 0;
-    background: var(--m-orange, #C5A059);
+    background: var(--m-orange, #A9834B);
   }
   .uprof-sub {
     margin: 1rem 0 0;
@@ -275,15 +275,15 @@ const UPROF_CSS = `
     background: #fff;
     border: 1px solid var(--m-line, #E2DED4);
     border-radius: var(--m-r-lg, 22px);
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,34,41,.05));
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
     text-decoration: none;
     color: inherit;
     transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
   }
   .uprof-card:hover {
     transform: translateY(-2px);
-    border-color: var(--m-orange, #C5A059);
-    box-shadow: 0 10px 30px -12px rgba(30,34,41,.18);
+    border-color: var(--m-orange, #A9834B);
+    box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
   }
 
   .uprof-cover {
@@ -301,7 +301,7 @@ const UPROF_CSS = `
   .uprof-title {
     font-size: 1.3rem;
     line-height: 1.15;
-    color: var(--m-ink, #1E2229);
+    color: var(--m-ink, #1B1A17);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -322,7 +322,7 @@ const UPROF_CSS = `
   }
   .uprof-card:hover .uprof-chev {
     transform: translateX(3px);
-    color: var(--m-orange, #C5A059);
+    color: var(--m-orange, #A9834B);
     opacity: 1;
   }
 
@@ -333,7 +333,7 @@ const UPROF_CSS = `
     padding: 2.75rem 1.5rem;
     background: #fff;
   }
-  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1E2229); }
+  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
 
   .uprof-foot { margin-top: clamp(2.5rem, 7vw, 4rem); text-align: center; }
@@ -345,5 +345,5 @@ const UPROF_CSS = `
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uprof-foot-link:hover { color: var(--m-ink, #1E2229); border-color: var(--m-orange, #C5A059); }
+  .uprof-foot-link:hover { color: var(--m-ink, #1B1A17); border-color: var(--m-orange, #A9834B); }
 `;

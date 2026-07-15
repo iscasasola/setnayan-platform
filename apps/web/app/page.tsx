@@ -32,13 +32,14 @@ import { getHomePricingData } from './_components/home/pricing-data';
 import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
 // brand + price + 0% commission signals.
 const HOME_TITLE = 'Setnayan · Plan your Filipino wedding free — keep it forever';
 const HOME_DESCRIPTION =
-  'Plan your whole Filipino wedding free — then keep every photo, video, and memory in one place, for life. Verified vendor marketplace, 0% commission.';
+  'Plan your whole Filipino wedding free — then keep every photo, video, and memory in one place, for life. Verified vendor marketplace at 0% commission. Your wedding is just where your life-events collection starts.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -53,6 +54,9 @@ export const metadata = {
     'verified Filipino vendors',
     "Set na 'yan",
     'Filipino wedding software',
+    'wedding photo gallery app',
+    'keep wedding photos forever',
+    'Filipino life events app',
   ],
   openGraph: {
     title: HOME_TITLE,
@@ -120,7 +124,7 @@ const softwareAppJsonLd = {
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
   isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
   description:
-    "The Philippines-first wedding platform. Couples plan free, then add optional paid upgrades that set the day apart — Papic guest photo-and-video capture with QR-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. 0% commission on verified vendor bookings.",
+    "The Philippines-first wedding platform — plan your wedding free, then keep it for life. Couples plan free, then add optional paid upgrades that set the day apart — Papic guest photo-and-video capture with QR-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Alaala) the couple keeps, and the wedding becomes its own recurring anniversary — so Setnayan grows from a wedding into the home for every celebration that follows. 0% commission on verified vendor bookings.",
   featureList: [
     // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU —
     // the "Free" prefix stays only on tools the ₱0 tier actually includes.
@@ -134,6 +138,8 @@ const softwareAppJsonLd = {
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors (paid add-on)',
     'Pakanta — a custom Filipino-style wedding song produced for the couple (paid add-on)',
     'Animated Monogram — a bespoke monogram + animation across invites, website, and signage (paid add-on)',
+    'Alaala living memory — every photo, video, and milestone from the day gathered into one place the couple keeps, for life',
+    'Grows beyond the wedding — your event becomes its own recurring anniversary with a yearly reminder, and the same tools carry across debuts, birthdays, christenings, and anniversaries as those event types unlock',
     'Verified Filipino wedding vendor marketplace with 0% commission on every booking',
   ],
   offers: {
@@ -176,6 +182,10 @@ export default async function HomePage() {
   // default internally; uses the service-role client (no cookies → safe in
   // after()). See lib/admin/digest-flush.ts.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary digest · renewal reminders · Papic drop
+  // warning) — CRON-FREE: public traffic + a per-job daily DB claim, so they
+  // run even when no admin/vendor is online (replaces the retired crons).
+  after(() => runDailyEmailJobs().catch(() => {}));
 
   return (
     <>

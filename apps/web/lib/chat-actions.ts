@@ -317,7 +317,7 @@ export async function acceptInquiry(formData: FormData) {
     // Burn-on-answer (owner-locked token economy 2026-06-05). Accepting an
     // inquiry IS the vendor's "answer" (a vendor can't even reply before
     // accepting). It costs ONE idempotent unlock per (vendor, event), banded
-    // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
+    // by the wedding's region (₱200/400/600 = 1/2/3 tokens), and that single
     // unlock covers ALL of this vendor's services for the event. The RPC
     // (unlock_vendor_event) is atomic + idempotent + TIER-GATED. Per the LIVE
     // body (migration 20270307985604, verified retune 2026-06-25): FREE can't

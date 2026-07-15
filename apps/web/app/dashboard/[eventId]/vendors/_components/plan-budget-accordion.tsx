@@ -130,10 +130,10 @@ const DIGITAL_SVCS: ReadonlyArray<AddOnEntry> = ADD_ONS.filter(
  */
 const PBA_CSS = `
 .pbacc{
-  --paper:var(--m-paper,#FBFBFA); --ink:var(--m-ink,#1E2229); --ink-soft:#4F535B;
-  --gold:var(--m-orange,#C5A059); --gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#1E2229); --mulberry-deep:var(--m-mulberry-2,#343A44);
-  --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
+  --paper:var(--m-paper,#FBFBFA); --ink:var(--m-ink,#1B1A17); --ink-soft:#4F535B;
+  --gold:var(--m-orange,#A9834B); --gold-deep:var(--m-orange-2,#8C6932);
+  --mulberry:var(--m-mulberry,#1B1A17); --mulberry-deep:var(--m-mulberry-2,#343A44);
+  --line:rgba(30,26,18,.12); --line-soft:rgba(30,26,18,.07);
   --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
   /* --topbar-h was the dark P0 budget bar height; that bar is removed (owner
      2026-06-09) so the sticky parent-folder heads now pile from the very top of
@@ -180,7 +180,7 @@ const PBA_CSS = `
 .pbacc .topbar .status.ok{color:#7fd49a}
 .pbacc .topbar .status.near{color:var(--gold)}
 .pbacc .topbar .status.over{color:#ef9a9a}
-.pbacc .meter{position:relative;height:3px;background:rgba(30,34,41,.1);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
+.pbacc .meter{position:relative;height:3px;background:rgba(30,26,18,.1);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
 .pbacc .meter .fill{height:100%;width:0;background:var(--gold);transition:width .55s var(--ease),background .4s var(--ease)}
 .pbacc .meter .fill.ok{background:#7fd49a}
 .pbacc .meter .fill.near{background:var(--gold)}
@@ -242,7 +242,7 @@ const PBA_CSS = `
 .pbacc .intro-lead{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink-soft)}
 .pbacc .intro-steps{display:flex;flex-direction:column;gap:12px;margin-top:4px}
 .pbacc .istep{display:flex;align-items:center;gap:12px}
-.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius: var(--m-r-full);background:rgba(30, 34, 41,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
+.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius: var(--m-r-full);background:rgba(30, 26, 18,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
 .pbacc .istep-h{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.15}
 .pbacc .istep-d{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:1px}
 /* Cover — populated state: a budget progress bar (owner 2026-06-01). Tracks
@@ -254,7 +254,7 @@ const PBA_CSS = `
 .pbacc .intro-meter .pm-v.ok{color:#2e7d4f}
 .pbacc .intro-meter .pm-v.near{color:var(--gold-deep)}
 .pbacc .intro-meter .pm-v.over{color:#b23b34}
-.pbacc .intro-meter .pm-track{height:7px;border-radius: var(--m-r-full);background:rgba(30,34,41,.07);overflow:hidden}
+.pbacc .intro-meter .pm-track{height:7px;border-radius: var(--m-r-full);background:rgba(30,26,18,.07);overflow:hidden}
 .pbacc .intro-meter .pm-fill{height:100%;border-radius: var(--m-r-full);background:var(--gold);transition:width .6s var(--ease)}
 .pbacc .intro-meter .pm-fill.ok{background:#7fd49a}
 .pbacc .intro-meter .pm-fill.near{background:var(--gold)}
@@ -262,7 +262,7 @@ const PBA_CSS = `
 
 /* ---- Category sticky stacking head + body ---- */
 .pbacc .cat{margin:0 0 10px;background:var(--card);border:0.5px solid var(--line);border-radius: var(--m-r-md);position:relative;transition:box-shadow .35s var(--ease),border-color .35s var(--ease)}
-.pbacc .cat.open{box-shadow:0 8px 22px -12px rgba(30,34,41,.42);border-color:rgba(30,34,41,.18)}
+.pbacc .cat.open{box-shadow:0 8px 22px -12px rgba(30,26,18,.42);border-color:rgba(30,26,18,.18)}
 /* Separated cards (owner 2026-06-10): each folder renders as its OWN .cat card
    (full-width, vertical gap between them) — not a flush pile. Only the OPEN
    card's head is sticky (it pins below the app header while its children scroll);
@@ -284,7 +284,7 @@ const PBA_CSS = `
 .pbacc .cat-head.active .nm{color:var(--mulberry)}
 .pbacc .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
 .pbacc .cat-body{position:relative;padding:6px 0 12px;background:var(--card);border-radius:0 0 14px 14px}
-.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(30, 34, 41,.18);border-radius: var(--m-r-xs);pointer-events:none}
+.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(30, 26, 18,.18);border-radius: var(--m-r-xs);pointer-events:none}
 .pbacc .cat-body .leaf-head{padding-left:30px}
 .pbacc .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
 
@@ -295,7 +295,7 @@ const PBA_CSS = `
    from onboarding's .exhead/.exname/.excount/.exchev (scoped here under .pbacc). */
 .pbacc .leaf{position:relative}
 .pbacc .leaf-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;border-bottom:1px solid var(--line-soft);cursor:pointer;padding:11px 20px;font:inherit;text-align:left;-webkit-tap-highlight-color:transparent;transition:background .2s var(--ease)}
-.pbacc .leaf-head:hover{background:rgba(197,160,89,.05)}
+.pbacc .leaf-head:hover{background:rgba(169,131,75,.05)}
 .pbacc .leaf.open > .leaf-head{border-bottom-color:transparent}
 .pbacc .leaf-head .lh-nm{font-family:var(--serif);font-style:italic;font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pbacc .leaf.open > .leaf-head .lh-nm{color:var(--mulberry)}
@@ -321,18 +321,18 @@ const PBA_CSS = `
 /* dependency nudge (Setnayan AI §4B) — soft sequencing hint per category */
 .pbacc .dep-nudge{display:flex;align-items:flex-start;gap:7px;margin:0 20px 9px;padding:8px 11px;border-radius: var(--m-r-md);border:1px solid;font-family:var(--sans,system-ui);font-size:11.5px;line-height:1.32}
 .pbacc .dep-nudge .di{flex:0 0 auto;font-size:12px;line-height:1.3}
-.pbacc .dep-nudge.blocked{color:var(--gold-deep);background:rgba(197,160,89,.08);border-color:rgba(197,160,89,.32)}
-.pbacc .dep-nudge.blocked.soft{color:var(--ink-soft);background:rgba(30,34,41,.035);border-color:rgba(30,34,41,.1)}
-.pbacc .dep-nudge.ready{color:var(--mulberry);background:rgba(30, 34, 41,.055);border-color:rgba(30, 34, 41,.22)}
+.pbacc .dep-nudge.blocked{color:var(--gold-deep);background:rgba(169,131,75,.08);border-color:rgba(169,131,75,.32)}
+.pbacc .dep-nudge.blocked.soft{color:var(--ink-soft);background:rgba(30,26,18,.035);border-color:rgba(30,26,18,.1)}
+.pbacc .dep-nudge.ready{color:var(--mulberry);background:rgba(30, 26, 18,.055);border-color:rgba(30, 26, 18,.22)}
 .pbacc .dep-nudge strong{font-weight:600}
 
 /* deadline chip */
 .pbacc .chip{display:inline-flex;align-items:center;gap:4px;border-radius: var(--m-r-full);padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
-.pbacc .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pbacc .chip.locked{color:var(--gold-deep);background:rgba(169,131,75,.16)}
 .pbacc .chip.over{color:#b23b34;background:rgba(178,59,52,.1)}
-.pbacc .chip.soon{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.pbacc .chip.start{color:var(--gold-deep);background:rgba(197,160,89,.1);box-shadow:inset 0 0 0 1px rgba(197,160,89,.4)}
-.pbacc .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
+.pbacc .chip.soon{color:var(--gold-deep);background:rgba(169,131,75,.16)}
+.pbacc .chip.start{color:var(--gold-deep);background:rgba(169,131,75,.1);box-shadow:inset 0 0 0 1px rgba(169,131,75,.4)}
+.pbacc .chip.next{color:var(--ink-soft);background:rgba(30,26,18,.06)}
 
 /* ---- Carousel rail + peek cards ----
    Card width = min(300px, calc(100vw - 96px)). On phones the card is the
@@ -379,32 +379,32 @@ const PBA_CSS = `
 .pbacc .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
 .pbacc .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
 .pbacc .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.pbacc .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
+.pbacc .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft);white-space:nowrap}
 .pbacc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 34, 41,.1)}
-.pbacc .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
+.pbacc .bdg.rec{color:var(--gold-deep);background:rgba(169,131,75,.16)}
 .pbacc .bdg.match{font-weight:700}
 .pbacc .bdg.match.strong{color:#2e7d4f;background:rgba(46,125,79,.16)}
-.pbacc .bdg.match.good{color:var(--gold-deep);background:rgba(197,160,89,.2)}
-.pbacc .bdg.match.fair{color:var(--ink-soft);background:rgba(30,34,41,.08)}
+.pbacc .bdg.match.good{color:var(--gold-deep);background:rgba(169,131,75,.2)}
+.pbacc .bdg.match.fair{color:var(--ink-soft);background:rgba(30,26,18,.08)}
 .pbacc .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
 .pbacc .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
 /* "👀 N also eyeing your date" — an interest/in-demand cue, NOT an error. Gentle
    gold (not the overdue/danger red it used to share) so it reads as gentle
    social proof, never alarming. Aggregate-only + never fabricated (model §6a). */
-.pbacc .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius: var(--m-r-sm);padding:3px 7px;display:inline-block}
+.pbacc .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(169,131,75,.12);border-radius: var(--m-r-sm);padding:3px 7px;display:inline-block}
 /* "+₱X for Y guests over the Z-guest package" — the pax surcharge already
    baked into the price, surfaced so the couple isn't blindsided later in
    Costing. Quiet mono footnote (no alarm tint), shown only when a surcharge
    actually applies. */
 .pbacc .v .paxnote{margin-top:7px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--ink-soft);line-height:1.4}
 /* chosen state — gold border + glow + corner badge */
-.pbacc .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
+.pbacc .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(169,131,75,.32)}
 .pbacc .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
 /* remove × (top-left), hidden once chosen */
-.pbacc .vx{position:absolute;top:10px;left:10px;z-index:4;min-width:26px;height:26px;padding:0 8px;border:0;border-radius: var(--m-r-full);display:inline-flex;align-items:center;justify-content:center;background:rgba(30,34,41,.5);color:#fff;font-family:var(--sans);font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:background .2s var(--ease)}
+.pbacc .vx{position:absolute;top:10px;left:10px;z-index:4;min-width:26px;height:26px;padding:0 8px;border:0;border-radius: var(--m-r-full);display:inline-flex;align-items:center;justify-content:center;background:rgba(30,26,18,.5);color:#fff;font-family:var(--sans);font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:background .2s var(--ease)}
 .pbacc .vx.armed{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;background:var(--mulberry)}
-.pbacc .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius: var(--m-r-full);background:rgba(30,34,41,.5);color:#fff;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.pbacc .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius: var(--m-r-full);background:rgba(30,26,18,.5);color:#fff;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 /* lock CTA */
 .pbacc .lockbar{margin-top:10px;padding:0 1px}
 .pbacc .lockbtn{width:100%;border:0;border-radius: var(--m-r-md);background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
@@ -415,12 +415,12 @@ const PBA_CSS = `
 .pbacc .changebtn:disabled{opacity:.6;cursor:default}
 /* dashed find-more card */
 .pbacc .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
-.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(30, 34, 41,.05);border:1.5px dashed rgba(30, 34, 41,.4);border-radius: var(--m-r-lg);color:var(--mulberry)}
+.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(30, 26, 18,.05);border:1.5px dashed rgba(30, 26, 18,.4);border-radius: var(--m-r-lg);color:var(--mulberry)}
 .pbacc .add .plus{font-size:26px;line-height:1;font-weight:300}
 .pbacc .add.add-manual .plus{font-size:19px;font-weight:400}
 .pbacc .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
 /* empty child — slim one-line row */
-.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(30, 34, 41,.3);border-radius: var(--m-r-md);background:rgba(30, 34, 41,.03);text-decoration:none;color:inherit}
+.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(30, 26, 18,.3);border-radius: var(--m-r-md);background:rgba(30, 26, 18,.03);text-decoration:none;color:inherit}
 .pbacc .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300;line-height:1}
 .pbacc .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
 .pbacc .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
@@ -444,8 +444,8 @@ const PBA_CSS = `
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
 .pbacc .cn-right{display:flex;align-items:center;gap:8px}
-.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(30, 34, 41,.4);background:rgba(30, 34, 41,.06);color:var(--mulberry);border-radius: var(--m-r-full);padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
-.pbacc .cmpbtn:active{background:rgba(30, 34, 41,.14)}
+.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(30, 26, 18,.4);background:rgba(30, 26, 18,.06);color:var(--mulberry);border-radius: var(--m-r-full);padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
+.pbacc .cmpbtn:active{background:rgba(30, 26, 18,.14)}
 .pbacc .cmpsheet{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;animation:cmpup .3s var(--ease)}
 @keyframes cmpup{from{transform:translateY(100%)}to{transform:none}}
 .pbacc .cmpwrap{width:100%;max-width:620px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0}
@@ -453,7 +453,7 @@ const PBA_CSS = `
 .pbacc .cmptitle{display:flex;flex-direction:column;gap:3px;min-width:0}
 .pbacc .cmpcat{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);line-height:1}
 .pbacc .cmpsub{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
-.pbacc .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:32px;height:32px;border-radius: var(--m-r-full);font-size:15px;cursor:pointer;flex:0 0 auto}
+.pbacc .cmpclose{border:none;background:rgba(30,26,18,.06);color:var(--ink);width:32px;height:32px;border-radius: var(--m-r-full);font-size:15px;cursor:pointer;flex:0 0 auto}
 .pbacc .cmpbody{flex:1;overflow:auto}
 .pbacc .cmptable{width:100%;border-collapse:collapse;font-family:var(--sans)}
 .pbacc .cmptable tr{border-bottom:1px solid var(--line-soft)}
@@ -463,7 +463,7 @@ const PBA_CSS = `
 .pbacc .cmprow-name td{font-weight:700;font-size:13.5px}
 .pbacc .cmprow-price td{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--mulberry)}
 .pbacc .cmpwin{color:var(--gold-deep);font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:3px}
-.pbacc .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(197,160,89,.06)}
+.pbacc .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(169,131,75,.06)}
 
 /* ---- Press feedback (owner 2026-05-31: taps must feel responsive). The
    tap-highlight is killed globally, so the link-cards (.v/.add/.empty-child,
@@ -488,7 +488,7 @@ const PBA_CSS = `
    empty-state cover (no picks). Owner 2026-06-02: keep the Vendors page to the
    categories the couple is shopping; this is the door to add the rest. */
 .pbacc .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius: var(--m-r-md);border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
-.pbacc .catunlock:hover{background:rgba(197,160,89,0.12);border-color:var(--gold-deep)}
+.pbacc .catunlock:hover{background:rgba(169,131,75,0.12);border-color:var(--gold-deep)}
 .pbacc .catunlock .cu-ico{font-size:17px;line-height:1;color:var(--gold-deep)}
 .pbacc .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius: var(--m-r-lg);padding:24px 22px 22px}
 .pbacc .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
@@ -523,15 +523,15 @@ const PBA_CSS = `
    flips it (and the sheet) automatically; the rest are the hardcoded
    light/white values that don't ride a token. ───────── */
 html.dark .pbacc{
-  --paper:#1E2229; --ink:#FBFBFA; --ink-soft:#B6B9BE;
+  --paper:#1B1A17; --ink:#FBFBFA; --ink-soft:#B6B9BE;
   --line:rgba(251,251,250,.16); --line-soft:rgba(251,251,250,.1);
-  --card:#2A2E36; --gold:#E0CCA0; --gold-deep:#C5A059;
+  --card:#2A2E36; --gold:#CBA766; --gold-deep:#A9834B;
 }
 /* bar is now a light surface → flip its muted white text + hairline + accents */
-html.dark .pbacc .topbar{border-bottom-color:rgba(30,34,41,.1)}
-html.dark .pbacc .topbar .figk{color:rgba(30,34,41,.5)}
-html.dark .pbacc .topbar .rangev{color:rgba(30,34,41,.6)}
-html.dark .pbacc .topbar .status{color:rgba(30,34,41,.5)}
+html.dark .pbacc .topbar{border-bottom-color:rgba(30,26,18,.1)}
+html.dark .pbacc .topbar .figk{color:rgba(30,26,18,.5)}
+html.dark .pbacc .topbar .rangev{color:rgba(30,26,18,.6)}
+html.dark .pbacc .topbar .status{color:rgba(30,26,18,.5)}
 html.dark .pbacc .topbar .status.ok{color:#2e7d4f}
 html.dark .pbacc .topbar .status.near{color:#8C6932}
 html.dark .pbacc .topbar .status.over{color:#b23b34}
@@ -539,7 +539,7 @@ html.dark .pbacc .topbar .status.over{color:#b23b34}
 html.dark .pbacc .meter{background:rgba(251,251,250,.12)}
 html.dark .pbacc .intro-meter .pm-track{background:rgba(251,251,250,.1)}
 html.dark .pbacc .chip.next{background:rgba(251,251,250,.08)}
-html.dark .pbacc .chip.start{background:rgba(197,160,89,.14)}
+html.dark .pbacc .chip.start{background:rgba(169,131,75,.14)}
 html.dark .pbacc .cmpclose{background:rgba(251,251,250,.1)}
 html.dark .pbacc .cat-head.active{box-shadow:0 6px 16px -10px rgba(0,0,0,.7)}
 /* --mulberry stays dark as a FILL (recap card + CTAs keep white text); but
@@ -557,10 +557,10 @@ html.dark .pbacc .cmprow-price td{color:#C99DB0}
    vanishes after the first pick; (3) .pba-coach + .lockhint = one-time first-run
    coachmark + point-of-action Lock helper, shown only while the couple has
    shortlisted but locked nothing, dismissible (localStorage 'pba_coach_v1'). */
-.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius: var(--m-r-md);background:rgba(30, 34, 41,.06);border:1px solid rgba(30, 34, 41,.22);text-decoration:none;color:inherit}
+.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius: var(--m-r-md);background:rgba(30, 26, 18,.06);border:1px solid rgba(30, 26, 18,.22);text-decoration:none;color:inherit}
 .pbacc .intro-next.calm{background:var(--card);border-color:var(--line)}
 .pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius: var(--m-r-full);background:var(--mulberry);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
-.pbacc .intro-next.calm .nx-ico{background:rgba(30, 34, 41,.12);color:var(--mulberry)}
+.pbacc .intro-next.calm .nx-ico{background:rgba(30, 26, 18,.12);color:var(--mulberry)}
 .pbacc .intro-next .nx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .pbacc .intro-next .nx-k{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--mulberry)}
 .pbacc .intro-next.calm .nx-k{color:var(--ink-soft)}
@@ -570,24 +570,24 @@ html.dark .pbacc .cmprow-price td{color:#C99DB0}
 .pbacc .intro-next.calm .nx-go{display:none}
 .pbacc .intro-loop{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 4px}
 .pbacc .intro-loop .lp{display:flex;align-items:center;gap:6px;min-width:0}
-.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius: var(--m-r-full);background:rgba(30, 34, 41,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius: var(--m-r-full);background:rgba(30, 26, 18,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
 .pbacc .intro-loop .lp-t{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
 .pbacc .intro-loop .lp-sep{flex:0 0 auto;color:var(--ink-soft);opacity:.45;font-size:11px}
-.pbacc .pba-coach{position:relative;margin:14px 18px 2px;padding:14px 42px 14px 15px;border-radius: var(--m-r-md);background:rgba(197,160,89,.1);border:1px solid rgba(197,160,89,.4);animation:pba-rise .5s var(--ease) both}
+.pbacc .pba-coach{position:relative;margin:14px 18px 2px;padding:14px 42px 14px 15px;border-radius: var(--m-r-md);background:rgba(169,131,75,.1);border:1px solid rgba(169,131,75,.4);animation:pba-rise .5s var(--ease) both}
 .pbacc .pba-coach .pc-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep)}
 .pbacc .pba-coach .pc-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:var(--ink);margin:2px 0 9px;line-height:1.2}
 .pbacc .pba-coach .pc-list{display:flex;flex-direction:column;gap:7px}
 .pbacc .pba-coach .pc-row{display:flex;gap:8px;font-family:var(--sans);font-size:12.5px;line-height:1.42;color:var(--ink-soft)}
 .pbacc .pba-coach .pc-b{flex:0 0 auto;font-weight:700;color:var(--mulberry)}
-.pbacc .pba-coach .pc-x{position:absolute;top:9px;right:9px;width:25px;height:25px;border:0;border-radius: var(--m-r-full);background:rgba(30,34,41,.07);color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.pbacc .lockhint{margin-top:7px;font-family:var(--mono);font-size:8.5px;line-height:1.5;letter-spacing:.015em;color:var(--gold-deep);background:rgba(197,160,89,.1);border-radius: var(--m-r-sm);padding:7px 9px}
+.pbacc .pba-coach .pc-x{position:absolute;top:9px;right:9px;width:25px;height:25px;border:0;border-radius: var(--m-r-full);background:rgba(30,26,18,.07);color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pbacc .lockhint{margin-top:7px;font-family:var(--mono);font-size:8.5px;line-height:1.5;letter-spacing:.015em;color:var(--gold-deep);background:rgba(169,131,75,.1);border-radius: var(--m-r-sm);padding:7px 9px}
 html.dark .pbacc .intro-next .nx-k,
 html.dark .pbacc .intro-next.calm .nx-ico,
 html.dark .pbacc .intro-next .nx-go,
 html.dark .pbacc .intro-loop .lp-n,
 html.dark .pbacc .pba-coach .pc-b{color:#C99DB0}
-html.dark .pbacc .pba-coach{background:rgba(197,160,89,.14);border-color:rgba(197,160,89,.45)}
-html.dark .pbacc .lockhint{background:rgba(197,160,89,.14)}
+html.dark .pbacc .pba-coach{background:rgba(169,131,75,.14);border-color:rgba(169,131,75,.45)}
+html.dark .pbacc .lockhint{background:rgba(169,131,75,.14)}
 .pbacc .review-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--mulberry);background:rgba(149,53,83,.08);border-radius: var(--m-r-sm);padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
 .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,53,83,.15)}
 .pbacc .review-done{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:#2f6f4e;background:rgba(47,111,78,.08);border-radius: var(--m-r-sm);padding:7px 9px}
@@ -608,7 +608,7 @@ html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,
 .pbacc .svc-motion{mix-blend-mode:screen}
 .pbacc .svc-scrim{background:linear-gradient(to top,rgba(18,16,14,.92) 4%,rgba(18,16,14,.5) 44%,rgba(18,16,14,.08) 80%)}
 .pbacc .svc-top{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(30, 34, 41,.62);border:1px solid rgba(255,255,255,.22);border-radius: var(--m-r-full);padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(30, 26, 18,.62);border:1px solid rgba(255,255,255,.22);border-radius: var(--m-r-full);padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .pbacc .svc-pill{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);border-radius: var(--m-r-full);padding:4px 8px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .pbacc .svc-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:14px 16px 16px}
 .pbacc .svc-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;line-height:1.08;color:#fff}
@@ -629,13 +629,13 @@ html.dark .pbacc .ds-tag{color:#C99DB0}
 .pbacc .tools-row{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .pbacc .tools-row::-webkit-scrollbar{display:none}
 .pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius: var(--m-r-md);border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
-.pbacc .tool:hover{border-color:rgba(30, 34, 41,.35)}
-.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(30, 34, 41,.08);color:var(--mulberry)}
+.pbacc .tool:hover{border-color:rgba(30, 26, 18,.35)}
+.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(30, 26, 18,.08);color:var(--mulberry)}
 html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
 .pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
 .pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 .pbacc .tool-cta{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
-.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(30, 34, 41,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(30, 26, 18,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 html.dark .pbacc .tools-all{color:#C99DB0}
 .pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
 .pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}
@@ -652,7 +652,7 @@ html.dark .pbacc .tools-all{color:#C99DB0}
 .pbacc .card.opening .v{transform:scale(1.06);border-color:var(--gold);box-shadow:0 26px 60px -22px rgba(0,0,0,.5);transition:transform .24s var(--spring),box-shadow .24s var(--ease),border-color .24s var(--ease)}
 .pbacc .pbopen{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:0 28px;background:color-mix(in srgb,var(--paper) 86%,transparent);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:pba-openfade .22s var(--ease) both}
 @keyframes pba-openfade{from{opacity:0}to{opacity:1}}
-.pbacc .pbopen-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(197,160,89,.28);border-top-color:var(--gold);animation:pba-openrot .7s linear infinite}
+.pbacc .pbopen-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(169,131,75,.28);border-top-color:var(--gold);animation:pba-openrot .7s linear infinite}
 @keyframes pba-openrot{to{transform:rotate(360deg)}}
 .pbacc .pbopen-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
 .pbacc .pbopen-nm{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.2;color:var(--ink);text-align:center;max-width:340px}
@@ -1248,7 +1248,6 @@ function ChildRail({
               groupLabel={child.label}
               onOpen={onOpen}
               lockHintKey={lockHintKey}
-              personalizationEnabled={child.personalizationEnabled}
               reviewStatus={reviewStatusByVendorId?.get(pick.vendor_id) ?? null}
               existingBuildPick={
                 buildPickRow && buildPickRow.vendor_id !== pick.vendor_id
@@ -1388,7 +1387,6 @@ function VendorCardAtom({
   groupLabel,
   onOpen,
   lockHintKey,
-  personalizationEnabled,
   existingBuildPick,
   reviewStatus = null,
 }: {
@@ -1398,8 +1396,6 @@ function VendorCardAtom({
   groupLabel: string;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
-  /** Setnayan Assist on? When false (Manual mode) the "% match" pill is hidden. */
-  personalizationEnabled: boolean;
   /** The category's current build pick when it's a DIFFERENT vendor than this
    *  card (→ the "Add to build" Replace/Add-both popup). null otherwise. */
   existingBuildPick: { name: string; pricePhp: number | null } | null;
@@ -1474,17 +1470,27 @@ function VendorCardAtom({
   // Per-candidate compatibility % (Architecture §2 · GATE+SCORE). Shown only
   // for marketplace candidates — off-platform/manual picks carry no signal,
   // and 1st-party Setnayan services are supplementary (never ranked against the
-  // market). The scorer admits-unknown: distance + reviews + verification drive
-  // it today; refinement + date-headroom sit at a neutral baseline until 0044
-  // per-service detail data lands, then the spread sharpens on its own.
+  // market). The scorer admits-unknown: distance + reviews + verification +
+  // budget-fit + faith drive it today (budget_fit_ratio = the vendor's "starts
+  // at" vs the couple's allocated ₱ for its category; faith_match = the vendor
+  // explicitly serves the couple's ceremony — both from the page fetch);
+  // refinement + date-headroom sit at a neutral baseline until per-service
+  // detail data lands, then the spread sharpens on its own.
   const compatInputs = {
     distanceKm,
     avgRating: rating,
     reviewCount,
     verified,
+    budgetFitRatio:
+      typeof pick.budget_fit_ratio === 'number' ? pick.budget_fit_ratio : null,
+    faithMatch: pick.faith_match === true,
   };
+  // Matching is free for every couple (2026-07-12) — the % shows for any real
+  // marketplace vendor, no longer only in personalized/AI mode. Still limited to
+  // marketplace candidates (off-platform/manual + 1st-party Setnayan carry no
+  // comparable signal).
   const match =
-    personalizationEnabled && pick.marketplace_business_name && !setnayan
+    pick.marketplace_business_name && !setnayan
       ? computeCompatScore(compatInputs)
       : null;
   // Plain-English "why this %" — the same inputs, only the dimensions that are a
@@ -1517,7 +1523,7 @@ function VendorCardAtom({
       : pick.inquiry_status === 'accepted'
         ? { label: '✓ Vendor accepted · chat open', color: '#2f6f4e', bg: 'rgba(47,111,78,.12)' }
         : pick.inquiry_status === 'declined'
-          ? { label: 'Not available — see similar', color: 'rgba(30,34,41,.6)', bg: 'rgba(30,34,41,.08)' }
+          ? { label: 'Not available — see similar', color: 'rgba(30,26,18,.6)', bg: 'rgba(30,26,18,.08)' }
           : null;
 
   const stars = rating !== null ? '★★★★★'.slice(0, Math.round(rating)) : null;
@@ -1587,7 +1593,7 @@ function VendorCardAtom({
           {stars && (
             <div className="stars" aria-label={`${rating} stars`}>
               {stars}
-              <span style={{ color: 'rgba(30,34,41,.18)' }}>{starsEmpty}</span>
+              <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
               {reviewCount !== null && (
                 <span className="rcount">{reviewCount}</span>
               )}
@@ -1937,16 +1943,17 @@ function CompareSheet({
       badges.push(pick.recommended_reason);
     }
     // Same per-candidate compatibility % the cards show (Architecture §2).
-    // Hidden in Manual mode (child.personalizationEnabled === false).
+    // Free for every couple (2026-07-12) — shown for any real marketplace vendor.
     const match =
-      child.personalizationEnabled &&
-      pick.marketplace_business_name &&
-      pick.is_setnayan_service !== true
+      pick.marketplace_business_name && pick.is_setnayan_service !== true
         ? computeCompatScore({
             distanceKm,
             avgRating: rating,
             reviewCount,
             verified: pick.is_verified === true,
+            budgetFitRatio:
+              typeof pick.budget_fit_ratio === 'number' ? pick.budget_fit_ratio : null,
+            faithMatch: pick.faith_match === true,
           })
         : null;
     return {

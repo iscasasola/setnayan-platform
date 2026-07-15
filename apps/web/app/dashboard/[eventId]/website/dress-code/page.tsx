@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Shirt } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { eventNoun } from '@/lib/event-noun';
 import { updateDressCode, type DressCodeConfig } from './actions';
 import { ListField } from './_components/list-field';
 import { PaletteField } from './_components/palette-field';
@@ -41,7 +42,7 @@ export default async function DressCodeEditorPage({
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, dress_code_config, ceremony_type')
+    .select('event_id, display_name, slug, event_type, dress_code_config, ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -88,7 +89,7 @@ export default async function DressCodeEditorPage({
             Tell your guests what to wear
           </h1>
           <p className="mt-2 max-w-prose text-sm text-ink/65">
-            Add a palette so guests can match the mood of your wedding. Share the look
+            Add a palette so guests can match the mood of your {eventNoun(event.event_type)}. Share the look
             you&rsquo;re going for — and the few things you&rsquo;d rather they skip.
           </p>
         </div>
@@ -99,7 +100,7 @@ export default async function DressCodeEditorPage({
             className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your guests will see this on the wedding website.
+            Saved — your guests will see this on the {eventNoun(event.event_type)} website.
           </div>
         ) : null}
         {error ? (
@@ -115,7 +116,7 @@ export default async function DressCodeEditorPage({
             role="note"
             className="rounded-md border border-terracotta/30 bg-terracotta-50/60 px-3 py-2 text-sm text-ink/75"
           >
-            We&rsquo;ve started you off with the modest, formal guidance INC weddings
+            We&rsquo;ve started you off with the modest, formal guidance INC {eventNoun(event.event_type)}s
             ask of guests (no sleeveless or short attire). Make it your own, then
             <strong className="font-medium"> Save</strong> to share it with your guests.
           </div>
@@ -173,7 +174,7 @@ export default async function DressCodeEditorPage({
             </p>
             <p className="text-xs text-ink/55">
               Up to six swatches. Guests use these to dress in colors that
-              match your wedding&rsquo;s mood.
+              match your {eventNoun(event.event_type)}&rsquo;s mood.
             </p>
             <PaletteField initial={config.palette} />
           </div>
@@ -225,10 +226,10 @@ export default async function DressCodeEditorPage({
                 rel="noreferrer"
                 className="font-medium text-terracotta underline-offset-2 hover:underline"
               >
-                your wedding website
+                your {eventNoun(event.event_type)} website
               </Link>
             ) : (
-              'your wedding website'
+              `your ${eventNoun(event.event_type)} website`
             )}
             . Save changes to see them live.
           </p>

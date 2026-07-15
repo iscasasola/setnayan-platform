@@ -11,8 +11,9 @@
  * reconciling public /pricing). While off, the page renders a "coming soon"
  * state and the buy UI is not shown — so this page is inert today.
  */
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -59,6 +60,13 @@ export default async function SetnayanAiSubscriptionPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
+      <Link
+        href="/dashboard"
+        className="-mb-2 inline-flex w-fit items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to home
+      </Link>
       <header className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
           <Sparkles className="h-5 w-5" aria-hidden />

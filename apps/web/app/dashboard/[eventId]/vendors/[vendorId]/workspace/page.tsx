@@ -147,6 +147,7 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
 import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
@@ -2121,6 +2122,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       ).length;
       const canFollowUpWhilePending = coupleMsgCount <= 1;
       const declineReason = thread.decline_reason?.trim() || null;
+      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
+      // the couple sees the call UI only when this vendor's tier unlocks it.
+      const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
       callTabNode =
         thread.inquiry_status === 'accepted' ? (
@@ -2128,6 +2132,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             threadId={thread.thread_id}
             currentUserId={user.id}
             counterpartyLabel={displayName}
+            callsEnabled={callsEnabled}
+            viewerRole="couple"
           />
         ) : (
           <p className="text-xs text-ink/55">

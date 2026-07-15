@@ -7,7 +7,13 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { safeNext } from '@/lib/auth';
+import { getBudgetBands } from '@/lib/budget-bands';
+import { resolveCreateCapture } from '@/lib/create-event-capture';
+import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
+import { hasInPlanningWeddingForUser } from './wedding-guard';
+import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -101,6 +107,27 @@ export async function createWeddingEvent(formData: FormData) {
   }
   const isWedding = event_type === 'wedding';
 
+  // Date-anchor model — anniversary capture (PR-A · 2026-07-12). An anniversary
+  // is any yearly memorable date: read the celebrated date + typed origin from
+  // the form (both optional — the couple can add them later). recurs=true by
+  // definition. anchor_date drives the annual reminder (couples_with_anniversary_
+  // today reads it) and the Year view's derived next occurrence. anchor_origin is
+  // CHECK-constrained to POSITIVE origins only (no memorial — babang-luksa stays
+  // out). event_date stays NULL: the anchor is the commemorated date, the "next
+  // occurrence" is derived, never a fixed forward event_date.
+  const isAnniversary = event_type === 'anniversary';
+  const rawAnnivDate = String(formData.get('anniversary_date') ?? '').trim();
+  const rawAnnivOrigin = String(formData.get('anniversary_origin') ?? '').trim();
+  const anniversaryDate = isAnniversary && parseISO(rawAnnivDate) ? rawAnnivDate : null;
+  const anniversaryOrigin = isAnniversary && isAnchorOrigin(rawAnnivOrigin) ? rawAnnivOrigin : null;
+
+  // Date-anchor model (PR-E): the "yearly?" toggle. Anniversary recurs by nature;
+  // recur-eligible types (travel/corporate/gala/celebration/reunion/tournament)
+  // set recurs from the checkbox. Everything else is one-time.
+  const recurs =
+    isAnniversary ||
+    (canToggleRecur(event_type) && String(formData.get('recurs') ?? '') === 'on');
+
   // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
   // from the form only when the event_type is wedding; non-wedding
   // event_types (debut, future gender_reveal etc.) never render the picker
@@ -177,12 +204,80 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/login');
   }
 
-  // Single-field event setup per iteration 0000 § 2.5 (locked 2026-05-14):
-  // event_name only — date + venue are deferred to Setnayan AI wizard or Profile.
+  // Wedding cardinality — authoritative gate (owner-locked 2026-07-12; flow-check
+  // reconciled). One wedding IN PLANNING at a time. A SETTLED wedding (archived,
+  // or completed = event_date passed) does NOT block — so a widow/annulled/
+  // remarrying user can create a new wedding without archiving their past one.
+  // The picker shows the guided router; this is the real (UI-bypass-proof) gate.
+  if (isWedding && (await hasInPlanningWeddingForUser(supabase, user.id))) {
+    return redirect('/dashboard/create-event?error=wedding_exists');
+  }
+
+  // Owner 2026-07-12: the iteration-0000 §2.5 "single-field, name-only" lock is
+  // RELAXED for the non-wedding inline path — the couple can optionally seed a
+  // date + guest count + budget at creation, which lights up the checklist's
+  // date-anchored deadlines + budget-health and enriches the Event Brief. All
+  // three are OPTIONAL (name-only creation still works). Weddings keep the
+  // wizard's candidate/window date model, so capture stays empty for them.
+  const capture = isWedding
+    ? resolveCreateCapture({}, [])
+    : resolveCreateCapture(
+        {
+          dateModeRaw: formData.get('date_mode'),
+          dateCandidatesRaw: formData.getAll('date_candidate'),
+          windowStartRaw: formData.get('date_window_start'),
+          windowEndRaw: formData.get('date_window_end'),
+          paxRaw: formData.get('estimated_pax'),
+          budgetBandRaw: formData.get('budget_band'),
+          locationAreasRaw: formData.getAll('location_area'),
+        },
+        await getBudgetBands(),
+        { today: new Date().toISOString().slice(0, 10), resolveArea: resolvePick },
+      );
+
   // Both writes go through the admin client because the user-scoped JWT can
   // be stale or the role can resolve to anon at the edge — RLS would then
   // reject the insert even though the action already authenticated the user.
   const admin = createAdminClient();
+
+  // Samahan context (plan §7 · PR-3) — a community-owned event. UI-bypass-
+  // proof re-verification (the hidden field can be forged):
+  //   (a) the event type's class must be community_eligible — a Samahan can
+  //       NEVER own a personal milestone (wedding is 'personal', so wedding +
+  //       samahan can't combine by construction); the DB CHECK
+  //       events_community_class_consistency is the final backstop.
+  //   (b) the caller must be an ORGANIZER of that community, checked via the
+  //       admin client (same stale-JWT posture as the writes below), and the
+  //       community must be live (not archived).
+  const community_id_raw = String(formData.get('community_id') ?? '').trim();
+  let community_id: string | null = null;
+  if (community_id_raw) {
+    const profile = await resolveProfile(event_type);
+    if (profile.eventClass !== 'community_eligible') {
+      return redirect('/dashboard/create-event?error=samahan_invalid_type');
+    }
+    const [{ data: membership }, { data: communityRow }] = await Promise.all([
+      admin
+        .from('community_members')
+        .select('role')
+        .eq('community_id', community_id_raw)
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      admin
+        .from('communities')
+        .select('archived')
+        .eq('community_id', community_id_raw)
+        .maybeSingle(),
+    ]);
+    const isLive = (communityRow as { archived?: boolean } | null)?.archived === false;
+    const isOrganizer =
+      (membership as { role?: string } | null)?.role === 'organizer';
+    if (!isLive || !isOrganizer) {
+      return redirect('/dashboard/create-event?error=samahan_not_organizer');
+    }
+    community_id = community_id_raw;
+  }
+
   const slug = await generateUniqueSlug(admin, display_name);
 
   // Insert the event. The on_event_created trigger mints the join token row.
@@ -191,7 +286,42 @@ export async function createWeddingEvent(formData: FormData) {
     .insert({
       event_type,
       display_name,
+      // Samahan (PR-3): the owning community for community-class events.
+      // NULL = personal event (default, unchanged). Validated above; the
+      // events_community_class_consistency CHECK is the DB backstop.
+      community_id,
+      // Date-anchor model (2026-07-12): stamp the per-type default anchor_kind
+      // from the authored map (lib/event-anchor.ts). anchor_date/anchor_origin/
+      // recurs are captured later by the per-type creation flow (PR-A onward);
+      // wedding lands 'none' (it PRODUCES a union date — its own date is an
+      // output of venue discovery, never asked here).
+      anchor_kind: anchorForType(event_type).kind,
+      // Anniversary capture (PR-A): the commemorated date + typed origin, and
+      // recurs=true (anniversaries return every year). NULL for every other type.
+      anchor_date: anniversaryDate,
+      anchor_origin: anniversaryOrigin,
+      recurs,
+      // Optional non-wedding capture (all null for weddings + name-only creation).
+      // event_date stays NULL — the LOCKED single date is chosen later (date-as-
+      // output; the date-selection lock ceremony). What's captured here is the
+      // couple's tentative timing: up to 4 candidate dates OR a range.
       event_date: null,
+      date_mode: capture.dateMode,
+      date_candidates: capture.dateCandidates.length ? capture.dateCandidates : null,
+      date_window_start: capture.dateWindowStart,
+      date_window_end: capture.dateWindowEnd,
+      estimated_pax: capture.estimatedPax,
+      budget_band: capture.budgetBand,
+      estimated_budget_centavos: capture.estimatedBudgetCentavos,
+      // Location — up to 2 candidate areas (owner 2026-07-12: "location can be in
+      // 2 places"): primary → region + venue centroid, all → search_areas.
+      // Matches the wedding onboarding's screen-6 model.
+      region: capture.region,
+      venue_latitude: capture.venueLatitude,
+      venue_longitude: capture.venueLongitude,
+      ...(capture.searchAreas.length
+        ? { style_preferences: { search_areas: capture.searchAreas } }
+        : {}),
       venue_name: null,
       venue_address: null,
       slug,

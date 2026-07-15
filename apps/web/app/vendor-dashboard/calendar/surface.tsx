@@ -1,0 +1,1066 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { CalendarDays, CalendarPlus, CheckCircle2, Lock, UserPlus, Users, X } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  fetchVendorBlocks,
+  fetchVendorDayStates,
+  fetchVendorPoolBookings,
+  fetchVendorPools,
+  fetchVendorServicesForPicker,
+  type CalendarBlockEntry,
+  type CalendarServiceOption,
+  type PoolBookingEntry,
+  type SchedulePool,
+  type VendorCalendarDayState,
+} from '@/lib/vendor-schedule';
+import {
+  addManualBlock,
+  createCalendar,
+  editCalendar,
+  importExternalClient,
+  notifyWaitlistSlot,
+  pickWaitlistCouple,
+  removeBlock,
+  reassignCategoryPool,
+  updatePoolCapacity,
+  updateWaitlistSettings,
+} from './actions';
+import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitlist';
+import { BellRing } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import type { ReactNode } from 'react';
+
+export const metadata = { title: 'Calendar · Vendor' };
+
+/**
+ * Vendor Calendar — one calendar with a UNIVERSAL "All schedules" view plus
+ * one tab per schedule pool (owner lock 2026-06-12: same category = one
+ * shared schedule; a new category = a new, independent schedule; merged
+ * categories share a tab).
+ *
+ * Universal view (default when the vendor runs >1 schedule): every pool's
+ * day state stacked per day — only exceptions render (booked counts, full,
+ * closed), open days stay visually quiet. Per-pool tabs keep the detailed
+ * grid + that pool's capacity editor.
+ *
+ * Day states, in precedence order:
+ *   closed   — a manual/org-wide block covers the date (date closed outright)
+ *   full     — consuming entries (booked + external clients) ≥ capacity
+ *   partial  — some capacity consumed
+ *   open     — free
+ *
+ * Couples never see any of this detail — their side only ever renders
+ * "unavailable" (privacy lock). This page is the vendor's own book.
+ */
+
+type Props = {
+  searchParams: Promise<{ m?: string; pool?: string; notice?: string }>;
+  /**
+   * 'full' (default) renders the whole page including the month-grid calendar
+   * visuals. 'manage' renders every management surface (create/edit calendar,
+   * capacity, block dates, import client, category merge, upcoming, waitlist)
+   * but SKIPS the month-grid visuals — used when this page is embedded as the
+   * "Availability & capacity" accordion under a calendar that's already drawn
+   * elsewhere (the My Customers CustomersCalendar), so the grid isn't drawn twice.
+   */
+  variant?: 'full' | 'manage';
+};
+
+const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
+  block_added: { tone: 'ok', text: 'Date block added.' },
+  block_removed: { tone: 'ok', text: 'Entry removed.' },
+  client_imported: { tone: 'ok', text: 'Client imported — free. They now hold a slot on this schedule.' },
+  capacity_saved: { tone: 'ok', text: 'Daily capacity saved.' },
+  capacity_clamped: { tone: 'warn', text: 'Saved at your plan’s maximum bookings-per-day. Upgrade to raise the ceiling.' },
+  pool_saved: { tone: 'ok', text: 'Schedule assignment saved.' },
+  waitlist_notified: { tone: 'ok', text: 'Waitlisted couples emailed — they know the date is open again.' },
+  waitlist_settings_saved: { tone: 'ok', text: 'Waitlist settings saved.' },
+  waitlist_picked: { tone: 'ok', text: 'Couple picked for the waitlist.' },
+  waitlist_full: { tone: 'warn', text: 'Waitlist is full for that date — raise your cap to pick more.' },
+  waitlist_none: { tone: 'warn', text: 'No one is waiting on that date yet.' },
+  day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
+  day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
+  calendar_created: { tone: 'ok', text: 'Calendar created. Assign services + set its limit any time.' },
+  calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
+  bad_dates: { tone: 'warn', text: 'Those dates don’t work — check the start and end date.' },
+  bad_name: { tone: 'warn', text: 'Give it a name first.' },
+  bad_pool: { tone: 'warn', text: 'Pick which schedule this belongs to.' },
+  bad_capacity: { tone: 'warn', text: 'Capacity must be a whole number of at least 1.' },
+  save_failed: { tone: 'warn', text: 'That didn’t save — try again.' },
+};
+
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y ?? 2026, (m ?? 1) - 1, 1).toLocaleDateString('en-PH', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function shiftMonth(ym: string, delta: number): string {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y ?? 2026, (m ?? 1) - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function fmtDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+type DayState = {
+  booked: number;
+  external: number;
+  closed: boolean;
+  /** PHASE 5 vendor-set day states (locked = hard hold, whitelist = approve-first). */
+  locked: boolean;
+  whitelist: boolean;
+};
+
+/** Per-pool day-state maps for one month. */
+function buildDayStates(
+  pools: SchedulePool[],
+  bookings: PoolBookingEntry[],
+  blocks: CalendarBlockEntry[],
+  dayStates: VendorCalendarDayState[],
+  month: string,
+  daysInMonth: number,
+): Map<string, Map<string, DayState>> {
+  const dateOf = (day: number) => `${month}-${String(day).padStart(2, '0')}`;
+  const byPool = new Map<string, Map<string, DayState>>();
+  for (const pool of pools) {
+    const states = new Map<string, DayState>();
+    for (let d = 1; d <= daysInMonth; d++) {
+      states.set(dateOf(d), {
+        booked: 0,
+        external: 0,
+        closed: false,
+        locked: false,
+        whitelist: false,
+      });
+    }
+    byPool.set(pool.poolId, states);
+  }
+  for (const b of bookings) {
+    const st = byPool.get(b.poolId)?.get(b.bookedDate);
+    if (st) st.booked += 1;
+  }
+  for (const blk of blocks) {
+    const targets = blk.poolId === null ? pools.map((p) => p.poolId) : [blk.poolId];
+    for (const poolId of targets) {
+      const states = byPool.get(poolId);
+      if (!states) continue;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = dateOf(d);
+        if (date < blk.startDate || date > blk.endDate) continue;
+        const st = states.get(date);
+        if (!st) continue;
+        if (blk.source === 'external_client') {
+          if (blk.poolId === poolId) st.external += 1;
+        } else {
+          st.closed = true;
+        }
+      }
+    }
+  }
+  // PHASE 5: fold explicit locked / whitelist states. A NULL pool_id is org-wide
+  // (applies to every schedule); a set pool_id scopes to that one pool.
+  for (const ds of dayStates) {
+    const targets = ds.poolId === null ? pools.map((p) => p.poolId) : [ds.poolId];
+    for (const poolId of targets) {
+      const st = byPool.get(poolId)?.get(ds.stateDate);
+      if (!st) continue;
+      if (ds.dayState === 'locked') st.locked = true;
+      else if (ds.dayState === 'whitelist') st.whitelist = true;
+    }
+  }
+  return byPool;
+}
+
+/** Short tag for a pool in the universal grid ("Photo Video" → "PH"). */
+function poolTag(label: string): string {
+  const words = label.replace(/·/g, ' ').trim().split(/\s+/);
+  const first = words[0] ?? 'S';
+  return first.slice(0, 2).toUpperCase();
+}
+
+export default async function VendorCalendarPage({ searchParams, variant = 'full' }: Props) {
+  const search = await searchParams;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Named Calendars: vendor names calendars + picks which services each covers.
+  // LIVE by default (2026-06-21); kill-switch NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false
+  // reverts to today's auto per-category schedules.
+  const namedCalendars =
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
+
+  const now = new Date();
+  const todayIso = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
+
+  const [pools, bookings, blocks, services, waitlist, dayStates] = await Promise.all([
+    fetchVendorPools(supabase, profile.vendor_profile_id),
+    fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
+    fetchVendorBlocks(supabase, profile.vendor_profile_id),
+    namedCalendars
+      ? fetchVendorServicesForPicker(supabase, profile.vendor_profile_id)
+      : Promise.resolve([] as CalendarServiceOption[]),
+    fetchVendorWaitlist(supabase, profile.vendor_profile_id, todayIso),
+    // PHASE 5 — explicit locked / whitelist day states for the visible month.
+    fetchVendorDayStates(
+      supabase,
+      profile.vendor_profile_id,
+      `${month}-01`,
+      `${month}-31`,
+    ),
+  ]);
+
+  // Waitlist settings + per-date picked counts (owner 2026-07). Soft-probed so a
+  // pre-migration DB degrades to "disabled" rather than throwing.
+  let waitlistEnabled = false;
+  let waitlistCap = 1;
+  const pickedByDate = new Map<string, number>();
+  try {
+    const { data: ws } = await supabase
+      .from('vendor_profiles')
+      .select('waitlist_enabled, max_waitlist_acceptances')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    waitlistEnabled = Boolean((ws as { waitlist_enabled?: boolean } | null)?.waitlist_enabled);
+    waitlistCap =
+      Number((ws as { max_waitlist_acceptances?: number } | null)?.max_waitlist_acceptances) || 1;
+    const { data: picked } = await supabase
+      .from('vendor_date_waitlist')
+      .select('requested_date')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .gte('requested_date', todayIso)
+      .not('accepted_at', 'is', null);
+    for (const r of (picked ?? []) as { requested_date: string }[]) {
+      pickedByDate.set(r.requested_date, (pickedByDate.get(r.requested_date) ?? 0) + 1);
+    }
+  } catch {
+    /* columns predate the migration — safe defaults */
+  }
+
+  // Universal "All schedules" is the default view for multi-schedule vendors;
+  // single-schedule vendors land straight on their one pool.
+  const requestedPool = search.pool ?? (pools.length > 1 ? 'all' : pools[0]?.poolId);
+  const isAllView = requestedPool === 'all' && pools.length > 0;
+  const activePool: SchedulePool | null = isAllView
+    ? null
+    : (pools.find((p) => p.poolId === requestedPool) ?? pools[0] ?? null);
+  const notice = search.notice ? NOTICES[search.notice] : undefined;
+
+  const [yearNum = 2026, monthNum = 1] = month.split('-').map(Number);
+  const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+  const firstWeekday = new Date(yearNum, monthNum - 1, 1).getDay();
+  const dateOf = (day: number) => `${month}-${String(day).padStart(2, '0')}`;
+  const statesByPool = buildDayStates(pools, bookings, blocks, dayStates, month, daysInMonth);
+
+  const today = todayIso;
+  const visiblePools = isAllView ? pools : activePool ? [activePool] : [];
+  const visiblePoolIds = new Set(visiblePools.map((p) => p.poolId));
+  const poolById = new Map(pools.map((p) => [p.poolId, p]));
+
+  const upcomingBookings: PoolBookingEntry[] = bookings.filter(
+    (b) => visiblePoolIds.has(b.poolId) && b.bookedDate >= today,
+  );
+  const upcomingBlocks: CalendarBlockEntry[] = blocks.filter(
+    (b) =>
+      (b.poolId === null || visiblePoolIds.has(b.poolId))
+      && b.endDate >= today
+      && b.source !== 'setnayan_booking',
+  );
+
+  const viewParam = isAllView ? 'all' : (activePool?.poolId ?? '');
+  const returnFields = (
+    <>
+      <input type="hidden" name="return_month" value={month} />
+      <input type="hidden" name="return_pool" value={viewParam} />
+    </>
+  );
+
+  // ── Named Calendars render helpers (flag on) ──────────────────────────────
+  const servicePicker = (preselected: Set<string>) =>
+    services.length > 0 ? (
+      <fieldset className="grid gap-1.5 sm:grid-cols-2">
+        <legend className="mb-1 text-sm font-medium">Services on this calendar</legend>
+        {services.map((s) => (
+          <label
+            key={s.serviceId}
+            className="flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-sm"
+          >
+            <input
+              type="checkbox"
+              name="service_ids"
+              value={s.serviceId}
+              defaultChecked={preselected.has(s.serviceId)}
+              className="h-4 w-4 accent-terracotta"
+            />
+            <span className="min-w-0 flex-1 truncate">{s.label}</span>
+            {s.poolId && !preselected.has(s.serviceId) ? (
+              <span className="shrink-0 text-[10px] text-ink/45">on another calendar</span>
+            ) : null}
+          </label>
+        ))}
+      </fieldset>
+    ) : (
+      <p className="text-sm text-ink/55">
+        Post a service first — then you can assign it to a calendar here.
+      </p>
+    );
+
+  const createCalendarForm = (
+    <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <summary className="cursor-pointer text-base font-semibold">
+        <CalendarPlus aria-hidden className="mr-1 inline h-4 w-4" /> Create a calendar
+      </summary>
+      <p className="mt-2 text-sm text-ink/65">
+        Name a calendar (e.g. &ldquo;Main Team&rdquo;), set how many bookings it can take per
+        day, and pick which of your services it covers. A service lives on one calendar
+        at a time — the calendar holds the limit, not the service.
+      </p>
+      <form action={createCalendar} className="mt-3 grid gap-3">
+        <input type="hidden" name="return_month" value={month} />
+        <input
+          type="text"
+          name="calendar_name"
+          required
+          maxLength={80}
+          placeholder="Calendar name (e.g. Main Team)"
+          className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+        />
+        <label className="flex items-center gap-2 text-sm text-ink/75">
+          Bookings per day
+          <input
+            type="number"
+            name="capacity"
+            min={1}
+            max={50}
+            defaultValue={1}
+            className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+          />
+        </label>
+        {servicePicker(new Set())}
+        <SubmitButton
+          pendingLabel="Creating…"
+          className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
+        >
+          Create calendar
+        </SubmitButton>
+      </form>
+    </details>
+  );
+
+  const gridNav = (
+    <div className="mb-4 flex items-center justify-between">
+      <Link
+        href={`/vendor-dashboard/calendar?pool=${viewParam}&m=${shiftMonth(month, -1)}`}
+        className="rounded-lg border border-ink/15 px-3 py-1 text-sm hover:border-ink/30"
+      >
+        ← {monthLabel(shiftMonth(month, -1)).split(' ')[0]}
+      </Link>
+      <h2 className="text-lg font-semibold">{monthLabel(month)}</h2>
+      <Link
+        href={`/vendor-dashboard/calendar?pool=${viewParam}&m=${shiftMonth(month, 1)}`}
+        className="rounded-lg border border-ink/15 px-3 py-1 text-sm hover:border-ink/30"
+      >
+        {monthLabel(shiftMonth(month, 1)).split(' ')[0]} →
+      </Link>
+      <a
+        href="#block-dates"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink/90"
+      >
+        <Lock aria-hidden className="h-4 w-4" /> Block dates
+      </a>
+    </div>
+  );
+
+  const weekdayHeader = (
+    <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-ink/50">
+      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+        <div key={d} className="py-1">
+          {d}
+        </div>
+      ))}
+    </div>
+  );
+
+  // Booked-Out Waitlist queue (Wave 4 vendor benefit). Vendor-wide (not pool-
+  // scoped) — couples waitlist a *date*, not a service. Each date with pending
+  // waiters gets a one-click "a slot opened — notify them" button that emails
+  // everyone waiting + flips them to notified. Auto-fires too when the vendor
+  // removes a block (see removeBlock), so this is the manual escape hatch +
+  // visibility surface.
+  const waitlistSection: WaitlistDateGroup[] = waitlist;
+  const waitlistQueue = (
+    <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <h3 className="flex items-center gap-2 text-base font-semibold">
+        <BellRing aria-hidden className="h-4 w-4 text-terracotta" /> Booked-Out Waitlist
+      </h3>
+      <p className="mt-1 text-sm text-ink/65">
+        Couples who wanted a date you were full on. When a slot frees up, let them know — a
+        notify emails everyone waiting on that day. (Removing a block does this automatically.)
+      </p>
+
+      {/* Waitlist settings (owner 2026-07): switch the waitlist on + pick how many
+          couples you'll hold per booked date (1-3). Off = booked dates read simply
+          "unavailable" to couples. */}
+      <form
+        action={updateWaitlistSettings}
+        className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink/10 bg-white/60 p-3"
+      >
+        {returnFields}
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="waitlist_enabled"
+            defaultChecked={waitlistEnabled}
+            className="h-4 w-4 accent-terracotta"
+          />
+          Accept a waitlist on booked dates
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink/70">
+          Hold up to
+          <select
+            name="max_waitlist_acceptances"
+            defaultValue={String(waitlistCap)}
+            className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm"
+          >
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+          per date
+        </label>
+        <SubmitButton
+          pendingLabel="Saving…"
+          className="rounded-lg border border-ink/20 px-3 py-1.5 text-sm font-medium hover:bg-ink/5"
+        >
+          Save
+        </SubmitButton>
+      </form>
+
+      {waitlistSection.length === 0 ? (
+        <p className="mt-3 text-sm text-ink/55">No one is waiting on a date right now.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-ink/10">
+          {waitlistSection.map((w) => (
+            <li
+              key={w.requestedDate}
+              className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+            >
+              <div>
+                <p className="text-sm font-medium">{fmtDate(w.requestedDate)}</p>
+                <p className="text-xs text-ink/55">
+                  {w.pendingCount === 1
+                    ? '1 couple waiting'
+                    : `${w.pendingCount} couples waiting`}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5">
+                {waitlistEnabled ? (
+                  <form action={pickWaitlistCouple}>
+                    {returnFields}
+                    <input type="hidden" name="requested_date" value={w.requestedDate} />
+                    <SubmitButton
+                      pendingLabel="Picking…"
+                      className="rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink/90"
+                    >
+                      Pick for waitlist ({pickedByDate.get(w.requestedDate) ?? 0}/{waitlistCap})
+                    </SubmitButton>
+                  </form>
+                ) : null}
+                <form action={notifyWaitlistSlot}>
+                  {returnFields}
+                  <input type="hidden" name="requested_date" value={w.requestedDate} />
+                  <SubmitButton
+                    pendingLabel="Notifying…"
+                    className="rounded-lg border border-terracotta/40 px-3 py-1.5 text-sm font-medium text-terracotta hover:bg-terracotta/5"
+                  >
+                    A slot opened — notify them
+                  </SubmitButton>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  return (
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <header className="space-y-3">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+          <CalendarDays aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        </span>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          {variant === 'manage' ? 'Availability & capacity' : 'Calendar'}
+        </h1>
+        <p className="max-w-prose text-base text-ink/65">
+          {variant === 'manage' ? (
+            <>
+              These are the tools that set capacity, block dates, import clients, and manage the
+              waitlist for the calendar shown above.
+            </>
+          ) : namedCalendars ? (
+            <>
+              Create calendars, name them, and pick which services each one covers — the
+              calendar holds the daily limit. &ldquo;All schedules&rdquo; shows your whole
+              business on one calendar. Couples only ever see &ldquo;unavailable&rdquo; — never
+              who or why.
+            </>
+          ) : (
+            <>
+              One schedule per service category — services in the same category share a
+              schedule; a new category gets its own. &ldquo;All schedules&rdquo; shows your whole
+              business on one calendar. Couples only ever see &ldquo;unavailable&rdquo; — never
+              who or why.
+            </>
+          )}
+        </p>
+      </header>
+
+      {notice ? (
+        <p
+          role="status"
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            notice.tone === 'ok'
+              ? 'border-success-200 bg-success-50 text-success-900'
+              : 'border-warn-200 bg-warn-50 text-warn-900'
+          }`}
+        >
+          {notice.text}
+        </p>
+      ) : null}
+
+      {pools.length === 0 ? (
+        namedCalendars ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center">
+              <p className="text-ink/70">
+                No calendars yet. Create one below — name it, set its daily limit, and
+                pick which services it covers.
+              </p>
+            </div>
+            {createCalendarForm}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+            <p className="text-ink/70">
+              Post a service first — each service category you offer gets its own
+              schedule here automatically.
+            </p>
+            <Link
+              href="/vendor-dashboard/services"
+              className="mt-3 inline-block font-medium text-terracotta underline"
+            >
+              Go to Services
+            </Link>
+          </div>
+        )
+      ) : (
+        <>
+          {/* View tabs — universal first, then one per independent schedule */}
+          <nav aria-label="Schedules" className="flex flex-wrap items-center gap-2">
+            {pools.length > 1 ? (
+              <Link
+                href={`/vendor-dashboard/calendar?pool=all&m=${month}`}
+                className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
+                  isAllView
+                    ? 'border-terracotta bg-terracotta text-cream'
+                    : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
+                }`}
+              >
+                All schedules
+              </Link>
+            ) : null}
+            {pools.map((p) => {
+              const active = !isAllView && p.poolId === activePool?.poolId;
+              return (
+                <Link
+                  key={p.poolId}
+                  href={`/vendor-dashboard/calendar?pool=${p.poolId}&m=${month}`}
+                  className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
+                    active
+                      ? 'border-terracotta bg-terracotta text-cream'
+                      : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
+                  }`}
+                >
+                  {p.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Named Calendars: create a new calendar (flag on) */}
+          {namedCalendars ? createCalendarForm : null}
+
+          {/* ── UNIVERSAL GRID — every schedule stacked per day ── (grid visuals only) */}
+          {isAllView && variant === 'full' ? (
+            <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+              {gridNav}
+              {weekdayHeader}
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: firstWeekday }).map((_, i) => (
+                  <div key={`pad-${i}`} />
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const date = dateOf(day);
+                  const past = date < today;
+                  const chips = pools
+                    .map((p) => {
+                      const st = statesByPool.get(p.poolId)?.get(date);
+                      if (!st) return null;
+                      const consumed = st.booked + st.external;
+                      // Precedence: closed > locked > whitelist > full > partial.
+                      if (st.closed) return { pool: p, kind: 'closed' as const, consumed };
+                      if (st.locked) return { pool: p, kind: 'locked' as const, consumed };
+                      if (st.whitelist) return { pool: p, kind: 'whitelist' as const, consumed };
+                      if (consumed >= p.capacity) return { pool: p, kind: 'full' as const, consumed };
+                      if (consumed > 0) return { pool: p, kind: 'partial' as const, consumed };
+                      return null; // open days stay quiet
+                    })
+                    .filter(Boolean) as {
+                      pool: SchedulePool;
+                      kind: 'closed' | 'locked' | 'whitelist' | 'full' | 'partial';
+                      consumed: number;
+                    }[];
+                  const allClosed =
+                    pools.length > 0
+                    && chips.length === pools.length
+                    && chips.every((c) => c.kind === 'closed');
+                  return (
+                    <Link
+                      key={date}
+                      href={`/vendor-dashboard/calendar/${date}?pool=${viewParam}`}
+                      className={`block min-h-16 rounded-lg border border-ink/10 bg-white/40 p-1 text-left hover:border-ink/30 ${past ? 'opacity-50' : ''}`}
+                    >
+                      <span className="text-xs font-medium">{day}</span>
+                      {allClosed ? (
+                        <span className="mt-0.5 block rounded bg-ink/10 px-1 text-[11px] font-semibold text-ink/55">
+                          Closed
+                        </span>
+                      ) : (
+                        chips.map((c) => (
+                          <span
+                            key={c.pool.poolId}
+                            title={`${c.pool.label}: ${
+                              c.kind === 'closed'
+                                ? 'closed'
+                                : c.kind === 'locked'
+                                  ? 'locked (hold)'
+                                  : c.kind === 'whitelist'
+                                    ? 'approve-first'
+                                    : `${c.consumed}/${c.pool.capacity} booked`
+                            }`}
+                            className={`mt-0.5 block truncate rounded px-1 text-[11px] font-semibold leading-tight ${
+                              c.kind === 'closed' || c.kind === 'locked'
+                                ? 'bg-ink/10 text-ink/55'
+                                : c.kind === 'whitelist'
+                                  ? 'bg-success-100 text-success-900'
+                                  : c.kind === 'full'
+                                    ? 'bg-terracotta/20 text-terracotta'
+                                    : 'bg-warn-100 text-warn-900'
+                            }`}
+                          >
+                            <span className="inline-flex items-center gap-0.5">
+                              {poolTag(c.pool.label)}{' '}
+                              {c.kind === 'closed' ? (
+                                <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                              ) : c.kind === 'locked' ? (
+                                <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                              ) : c.kind === 'whitelist' ? (
+                                <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                              ) : (
+                                <span>{`${c.consumed}/${c.pool.capacity}`}</span>
+                              )}
+                            </span>
+                          </span>
+                        ))
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/55">
+                {pools.map((p) => (
+                  <span key={p.poolId}>
+                    <span className="font-semibold">{poolTag(p.label)}</span> = {p.label}
+                  </span>
+                ))}
+                <span><span className="font-semibold">n/cap</span> = booked + imported</span>
+                <span className="inline-flex items-center gap-1">
+                  <X className="h-3 w-3" strokeWidth={2.5} aria-hidden /> = closed
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden /> = locked hold
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden /> = approve-first
+                </span>
+                <span>Tap a day to manage it · Quiet day = every schedule open</span>
+              </div>
+            </div>
+          ) : null}
+
+          {/* ── PER-POOL GRID ── */}
+          {!isAllView && activePool ? (
+            <>
+              {variant === 'full' ? (
+              <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                {gridNav}
+                {weekdayHeader}
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: firstWeekday }).map((_, i) => (
+                    <div key={`pad-${i}`} />
+                  ))}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const date = dateOf(day);
+                    const st = statesByPool.get(activePool.poolId)?.get(date) ?? {
+                      booked: 0,
+                      external: 0,
+                      closed: false,
+                      locked: false,
+                      whitelist: false,
+                    };
+                    const consumed = st.booked + st.external;
+                    const full = consumed >= activePool.capacity;
+                    const past = date < today;
+                    let cls = 'border-ink/10 bg-white/40';
+                    let badge: ReactNode = null;
+                    // Precedence: closed > locked > whitelist > booked/full.
+                    if (st.closed) {
+                      cls = 'border-ink/20 bg-ink/10 text-ink/50';
+                      badge = (
+                        <span className="inline-flex items-center gap-0.5">
+                          <X className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Closed
+                        </span>
+                      );
+                    } else if (st.locked) {
+                      cls = 'border-ink/20 bg-ink/10 text-ink/50';
+                      badge = (
+                        <span className="inline-flex items-center gap-0.5">
+                          <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Locked
+                        </span>
+                      );
+                    } else if (st.whitelist) {
+                      cls = 'border-success-300 bg-success-50 text-success-900';
+                      badge = (
+                        <span className="inline-flex items-center gap-0.5">
+                          <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Approve
+                        </span>
+                      );
+                    } else if (consumed > 0) {
+                      cls = full
+                        ? 'border-terracotta/40 bg-terracotta/15'
+                        : 'border-warn-300 bg-warn-50';
+                      badge = `${consumed}/${activePool.capacity}`;
+                    }
+                    return (
+                      <Link
+                        key={date}
+                        href={`/vendor-dashboard/calendar/${date}?pool=${activePool.poolId}`}
+                        className={`block min-h-14 rounded-lg border p-1 text-left hover:border-ink/40 ${cls} ${past ? 'opacity-50' : ''}`}
+                      >
+                        <span className="text-xs font-medium">{day}</span>
+                        {badge ? (
+                          <span className="mt-0.5 block truncate text-[11px] font-semibold leading-tight">
+                            {badge}
+                          </span>
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-ink/55">
+                  <span className="font-semibold">n/{activePool.capacity}</span> = booked
+                  + imported clients vs daily capacity · <span className="font-semibold">Closed</span> = your
+                  block ·{' '}
+                  <span className="inline-flex items-center gap-0.5 font-semibold">
+                    <Lock className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Locked
+                  </span>{' '}
+                  = hard hold ·{' '}
+                  <span className="inline-flex items-center gap-0.5 font-semibold">
+                    <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} aria-hidden /> Approve
+                  </span>{' '}
+                  = approve-first. Tap a day to manage it.
+                </p>
+              </div>
+              ) : null}
+
+              {/* Named Calendars: edit the calendar (name + limit + services).
+                  Flag off: the per-pool daily-capacity editor only. */}
+              {namedCalendars ? (
+                <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                  <h3 className="text-base font-semibold">Edit {activePool.label}</h3>
+                  <p className="mt-1 text-sm text-ink/65">
+                    Rename this calendar, set its daily limit, and choose which services it
+                    covers. Unchecking a service moves it back to its category schedule.
+                  </p>
+                  <form action={editCalendar} className="mt-3 grid gap-3">
+                    <input type="hidden" name="return_month" value={month} />
+                    <input type="hidden" name="pool_id" value={activePool.poolId} />
+                    <input
+                      type="text"
+                      name="calendar_name"
+                      required
+                      maxLength={80}
+                      defaultValue={activePool.calendarName ?? activePool.label}
+                      className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                    />
+                    <label className="flex items-center gap-2 text-sm text-ink/75">
+                      Bookings per day
+                      <input
+                        type="number"
+                        name="capacity"
+                        min={1}
+                        max={50}
+                        defaultValue={activePool.capacity}
+                        className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      />
+                    </label>
+                    {servicePicker(new Set(activePool.serviceIds))}
+                    <SubmitButton
+                      pendingLabel="Saving…"
+                      className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
+                    >
+                      Save calendar
+                    </SubmitButton>
+                  </form>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                  <h3 className="text-base font-semibold">Daily capacity — {activePool.label}</h3>
+                  <p className="mt-1 text-sm text-ink/65">
+                    How many bookings this team can serve on one date. Unlimited
+                    inquiries stay open until a date is fully booked.
+                  </p>
+                  <form action={updatePoolCapacity} className="mt-3 flex items-center gap-2">
+                    {returnFields}
+                    <input type="hidden" name="pool_id" value={activePool.poolId} />
+                    <input
+                      type="number"
+                      name="capacity"
+                      min={1}
+                      max={50}
+                      defaultValue={activePool.capacity}
+                      className="w-24 rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                    />
+                    <SubmitButton
+                      pendingLabel="Saving…"
+                      className="rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream"
+                    >
+                      Save
+                    </SubmitButton>
+                  </form>
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {/* Add block + import client — pool select adapts to the view */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <details id="block-dates" className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+              <summary className="cursor-pointer text-base font-semibold">
+                <Lock aria-hidden className="mr-1 inline h-4 w-4" /> Block dates
+              </summary>
+              <p className="mt-2 text-sm text-ink/65">
+                Close dates on one schedule — or business-wide (every schedule) for
+                holidays and rest days. Couples see only &ldquo;unavailable&rdquo;.
+              </p>
+              <form action={addManualBlock} className="mt-3 grid gap-2">
+                {returnFields}
+                <input
+                  type="text"
+                  name="label"
+                  placeholder="Label (only you see this)"
+                  maxLength={120}
+                  className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input type="date" name="start_date" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <span className="text-sm text-ink/50">to</span>
+                  <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                </div>
+                <select
+                  name="scope"
+                  defaultValue={isAllView ? 'org' : activePool?.poolId}
+                  className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                >
+                  <option value="org">Business-wide (every schedule)</option>
+                  {pools.map((p) => (
+                    <option key={p.poolId} value={p.poolId}>
+                      Only {p.label}
+                    </option>
+                  ))}
+                </select>
+                <SubmitButton pendingLabel="Adding…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
+                  Add block
+                </SubmitButton>
+              </form>
+            </details>
+
+            <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+              <summary className="cursor-pointer text-base font-semibold">
+                <UserPlus aria-hidden className="mr-1 inline h-4 w-4" /> Import an outside client
+              </summary>
+              <p className="mt-2 text-sm text-ink/65">
+                A booking you took outside Setnayan. It holds a slot on its schedule
+                so the app never double-books you. <strong>Free</strong>.
+                Outside clients aren&rsquo;t app clients — no chat thread, no stats,
+                no reviews.
+              </p>
+              <form action={importExternalClient} className="mt-3 grid gap-2">
+                {returnFields}
+                {isAllView ? (
+                  <select name="pool_id" required defaultValue={pools[0]?.poolId} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm">
+                    {pools.map((p) => (
+                      <option key={p.poolId} value={p.poolId}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input type="hidden" name="pool_id" value={activePool?.poolId ?? ''} />
+                )}
+                <input type="text" name="client_name" required placeholder="Client name" maxLength={120} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="text" name="client_contact" placeholder="Contact (optional)" maxLength={160} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <input type="text" name="client_note" placeholder="Note (optional)" maxLength={500} className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input type="date" name="start_date" required className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                  <span className="text-sm text-ink/50">to</span>
+                  <input type="date" name="end_date" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+                </div>
+                <SubmitButton pendingLabel="Importing…" className="justify-self-start rounded-lg bg-ink px-4 py-1.5 text-sm font-medium text-cream">
+                  Import · free
+                </SubmitButton>
+              </form>
+            </details>
+          </div>
+
+          {/* Upcoming list — scoped to the view */}
+          <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <h3 className="text-base font-semibold">
+              Upcoming {isAllView ? 'across every schedule' : 'on this schedule'}
+            </h3>
+            {upcomingBookings.length === 0 && upcomingBlocks.length === 0 ? (
+              <p className="mt-2 text-sm text-ink/55">Nothing upcoming yet.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-ink/10">
+                {upcomingBookings.map((b) => (
+                  <li key={b.poolBookingId} className="flex items-center justify-between gap-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium">{b.eventName}</p>
+                      <p className="text-xs text-ink/55">
+                        {fmtDate(b.bookedDate)} · Booked via Setnayan
+                        {isAllView ? ` · ${poolById.get(b.poolId)?.label ?? ''}` : ''}
+                      </p>
+                    </div>
+                    {b.threadId ? (
+                      <Link href={`/vendor-dashboard/messages/${b.threadId}`} className="text-sm font-medium text-terracotta underline">
+                        Open chat
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+                {upcomingBlocks.map((blk) => (
+                  <li key={blk.blockId} className="flex items-center justify-between gap-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {blk.source === 'external_client'
+                          ? `${blk.clientName ?? blk.label} (outside client)`
+                          : `${blk.label}${blk.poolId === null ? ' · business-wide' : ''}`}
+                      </p>
+                      <p className="text-xs text-ink/55">
+                        {blk.startDate === blk.endDate
+                          ? fmtDate(blk.startDate)
+                          : `${fmtDate(blk.startDate)} – ${fmtDate(blk.endDate)}`}
+                        {isAllView && blk.poolId ? ` · ${poolById.get(blk.poolId)?.label ?? ''}` : ''}
+                        {blk.source === 'external_client' && blk.clientContact ? ` · ${blk.clientContact}` : ''}
+                      </p>
+                    </div>
+                    <ConfirmForm
+                      action={removeBlock}
+                      title="Remove this block?"
+                      confirmLabel="Remove"
+                      message="Their date opens back up — that day becomes bookable on Setnayan again."
+                    >
+                      {returnFields}
+                      <input type="hidden" name="block_id" value={blk.blockId} />
+                      <SubmitButton pendingLabel="Removing…" className="text-sm text-ink/55 underline hover:text-ink">
+                        Remove
+                      </SubmitButton>
+                    </ConfirmForm>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Merge / split categories — legacy model. Under Named Calendars this
+              is replaced by the per-calendar service picker (createCalendar /
+              editCalendar above), so it's hidden when the flag is on. */}
+          {!namedCalendars ? (
+          <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <summary className="cursor-pointer text-base font-semibold">
+              <Users aria-hidden className="mr-1 inline h-4 w-4" /> Which categories share this team?
+            </summary>
+            <p className="mt-2 text-sm text-ink/65">
+              By default every category runs its own schedule (different materials,
+              different crew). If the <em>same team</em> serves two categories — say
+              photo and video — point both at one schedule so a booking on either
+              holds the date on both.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {pools.flatMap((p) =>
+                p.categories.map((cat) => (
+                  <li key={cat} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="min-w-32 font-medium">
+                      {cat.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </span>
+                    <form action={reassignCategoryPool} className="flex items-center gap-2">
+                      {returnFields}
+                      <input type="hidden" name="category_key" value={cat} />
+                      <select name="target_pool" defaultValue={p.poolId} className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-sm">
+                        {pools.map((opt) => (
+                          <option key={opt.poolId} value={opt.poolId}>
+                            {opt.label}
+                          </option>
+                        ))}
+                        <option value="new">Its own new schedule</option>
+                      </select>
+                      <SubmitButton pendingLabel="Moving…" className="rounded-lg border border-ink/20 px-3 py-1 text-sm hover:border-ink/40">
+                        Move
+                      </SubmitButton>
+                    </form>
+                  </li>
+                )),
+              )}
+            </ul>
+          </details>
+          ) : null}
+        </>
+      )}
+
+      {waitlistQueue}
+    </section>
+  );
+}

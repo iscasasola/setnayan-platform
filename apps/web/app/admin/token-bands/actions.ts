@@ -9,14 +9,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * /admin/token-bands — edit the region → burn-band map (owner-locked
  * "admin-editable" requirement of the token economy, 2026-06-05). Each region
  * maps to a band (1/2/3); a vendor answering an inquiry for a wedding in that
- * region burns `band` tokens (₱100/token → 1/2/3 = ₱100/200/300).
+ * region burns `band` tokens (₱200/token → 1/2/3 = ₱200/400/600).
  *
  * RECONCILED 2026-07-01 (burn-band single source · migration 20270331100000):
  * this writes public.regions.burn_band — the canonical map the RPC
  * (unlock_vendor_event) resolves events.region against and lib/region-source.ts
  * reads. It previously wrote a parallel token_burn_bands table whose keys
  * mis-matched events.region (6 regions under-charged); that table is retired.
- * The economy is flat 1:1 band:token at ₱100/token, so tokens = band — there is
+ * The economy is flat 1:1 band:token at ₱200/token, so tokens = band — there is
  * no longer a separate editable `tokens` value (decoupling them is a future
  * column on regions, not built here).
  */
@@ -50,7 +50,7 @@ export async function updateBand(formData: FormData) {
     throw new Error('Band must be 1, 2, or 3');
   }
 
-  // tokens = band (flat 1:1 at ₱100/token); the regions_set_updated_at trigger
+  // tokens = band (flat 1:1 at ₱200/token); the regions_set_updated_at trigger
   // bumps updated_at on write. Match on the canonical slug (regions PK is the id,
   // slug is UNIQUE and the value the page sends).
   const admin = createAdminClient();

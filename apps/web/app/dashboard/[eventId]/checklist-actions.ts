@@ -6,8 +6,9 @@ import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { buildChecklistSeed, buildSeedRows, isWeddingEvent } from '@/lib/checklist';
+import { buildChecklistSeed, buildSeedRows, isWeddingEvent, type ChecklistTemplateItem } from '@/lib/checklist';
 import { checklistDefForEventType } from '@/lib/checklist-event-type-defs';
+import { specialtyRecommendations } from '@/lib/onboarding/specialty-recommendations';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   computeSatisfiedChecklistKeys,
@@ -73,11 +74,13 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   // gates whether the (wedding-shaped) template applies at all.
   const { data: eventRow } = await supabase
     .from('events')
-    .select('ceremony_type, event_type')
+    .select('ceremony_type, event_type, signature_details')
     .eq('event_id', eventId)
     .maybeSingle();
   const ceremonyType = (eventRow?.ceremony_type as string | null | undefined) ?? null;
   const eventType = (eventRow?.event_type as string | null | undefined) ?? null;
+  const signatureDetails =
+    (eventRow?.signature_details as Record<string, unknown> | null | undefined) ?? null;
 
   // Resolve the template for this event type:
   //  - wedding / unset  → the canonical wedding CHECKLIST_TEMPLATE (unchanged,
@@ -88,8 +91,22 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   //    confidently-wrong wedding checklist.
   const perTypeDef = checklistDefForEventType(eventType);
   if (perTypeDef == null && !isWeddingEvent(eventType)) return 0;
+  // Per-type SUGGESTED tasks derived from the captured signature signals — the
+  // first consumer of the Brief's specialty layer (deterministic, Rule 1). A
+  // suggestion only exists when a real signal backs it (a captured cotillion,
+  // named 18 Candles, a godparent roster…). Non-wedding path only; appended to the
+  // static template so they de-dupe by template_key and keep a sequential
+  // sort_order. Empty → the seed is byte-identical to before.
+  const specialtySuggestions: ChecklistTemplateItem[] = perTypeDef
+    ? specialtyRecommendations(eventType, signatureDetails).map((r) => ({
+        key: r.key,
+        title: r.title,
+        category: r.category,
+        dueOffsetDays: r.dueOffsetDays,
+      }))
+    : [];
   const seed = perTypeDef
-    ? buildSeedRows(eventId, perTypeDef.template, null) // per-type: no ceremony tailoring
+    ? buildSeedRows(eventId, [...perTypeDef.template, ...specialtySuggestions], null) // per-type + captured-signal suggestions
     : buildChecklistSeed(eventId, ceremonyType); // wedding path, unchanged
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];

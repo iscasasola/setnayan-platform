@@ -1,6 +1,12 @@
 import Link from 'next/link';
+import { Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { fetchCommunity } from '@/lib/communities';
+import { getInPlanningWedding } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -16,9 +22,20 @@ const ERROR_COPY: Record<string, string> = {
     'Pick a wedding type so we can match vendors compatible with your ceremony.',
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
+  wedding_exists:
+    'You already have a wedding in planning — you can only plan one wedding at a time. Finish or archive it first to start a new one.',
+  samahan_invalid_type:
+    'That event type belongs to a person, not a samahan — pick a community event type.',
+  samahan_not_organizer:
+    'Only an organizer of that samahan can plan its events.',
 };
 
-type SearchParams = Promise<{ error?: string; next?: string; event_type?: string }>;
+type SearchParams = Promise<{
+  error?: string;
+  next?: string;
+  event_type?: string;
+  samahan?: string;
+}>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
@@ -28,6 +45,10 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // DB-driven roster (2026-06-13): status='active' AND enabled=TRUE vocab
   // rows, ordered. Falls back to the pre-cutover constant on DB hiccups.
   const eventTypes = await getCreatableEventTypes();
+  // Budget feel-bands for the optional budget picker on the non-wedding inline
+  // form (DB-backed, falls back to the seed constant). Fetched here so the
+  // client picker stays server-data-driven, same source as onboarding.
+  const budgetBands = await getBudgetBands();
   // QR fast-lane (owner 2026-07): a Locked/Shortlist QR already carries the
   // event type, so pre-select it and let the picker auto-advance — the couple
   // never re-picks the type they already agreed to with the vendor.
@@ -38,14 +59,52 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
 
+  // Wedding cardinality (owner-locked 2026-07-12 · flow-check reconciled): if the
+  // user has a wedding still IN PLANNING, the picker shows a guided router (edit
+  // the same-marriage wedding / vow renewal → Anniversary / a new marriage) instead
+  // of the form. A SETTLED wedding (archived, or completed) does NOT block — so
+  // remarriage works. The server action re-checks authoritatively.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
+
+  // Samahan context (plan §7): `?samahan=<communityId>` turns this into
+  // COMMUNITY event creation — organizer-gated. A non-organizer, a plain
+  // member, a bad id, or an archived samahan all silently DROP the param and
+  // get the normal personal page (the server action re-verifies regardless).
+  let samahan: { communityId: string; name: string } | null = null;
+  if (params.samahan && user) {
+    const community = await fetchCommunity(supabase, params.samahan, user.id);
+    if (community && !community.archived && community.role === 'organizer') {
+      samahan = { communityId: community.community_id, name: community.name };
+    }
+  }
+
+  // Community events are class-gated (owner lock 2026-07-15): the picker only
+  // shows event types whose profile is community_eligible — a Samahan can
+  // never own a personal milestone. resolveProfile is request-cached per type.
+  const typesForContext = samahan
+    ? (
+        await Promise.all(
+          eventTypes.map(async (t) =>
+            (await resolveProfile(t.key)).eventClass === 'community_eligible'
+              ? t
+              : null,
+          ),
+        )
+      ).filter((t): t is (typeof eventTypes)[number] => t !== null)
+    : eventTypes;
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
         <Link
-          href="/dashboard"
+          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard'}
           className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
         >
-          ‹ Back to events
+          ‹ {samahan ? `Back to ${samahan.name}` : 'Back to events'}
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           What kind of event are you planning?
@@ -54,6 +113,18 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           Tap a type to begin.
         </p>
       </header>
+
+      {samahan ? (
+        <p className="mb-6 flex items-center gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/75">
+          <Users aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
+          <span>
+            Planning for <span className="font-medium text-ink">{samahan.name}</span>
+          </span>
+          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+            Samahan
+          </span>
+        </p>
+      ) : null}
 
       {errorMessage ? (
         <p
@@ -65,9 +136,12 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       ) : null}
 
       <EventTypePicker
-        types={eventTypes}
+        types={typesForContext}
+        budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
         preselect={preselect}
+        inPlanningWedding={inPlanningWedding}
+        samahanCommunityId={samahan?.communityId}
       />
     </div>
   );

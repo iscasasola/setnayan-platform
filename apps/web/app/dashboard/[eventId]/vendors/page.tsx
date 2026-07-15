@@ -27,6 +27,10 @@ import {
 } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
+import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -231,7 +235,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
-          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services',
+          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services, compatible_ceremony_types',
         )
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
@@ -262,6 +266,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       is_setnayan_service: boolean | null;
       public_visibility: string | null;
       services: string[] | null;
+      compatible_ceremony_types: string[] | null;
     };
     type ProfRow = {
       vendor_profile_id: string;
@@ -295,6 +300,44 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
     const venueLat = ev?.venue_latitude ?? null;
     const venueLng = ev?.venue_longitude ?? null;
+
+    // Budget-fit for the per-candidate compat % (compat-score `budgetFit` dim,
+    // 0.20). Allocate the couple's budget across categories with the SAME
+    // median-anchored engine the Budget tab + the category-search overlay use,
+    // then score each vendor's "starts at" against its category's share — so the
+    // budget planner's own % finally reflects budget fit (it fed only distance/
+    // reviews/verified before, leaving budgetFit frozen at neutral). One extra
+    // allocation read, skipped entirely when no budget is set (→ every
+    // budget_fit stays neutral anyway), and fail-open: any error → empty map →
+    // neutral, never blocks the vendors page.
+    const budgetByPlanGroup = new Map<string, number>();
+    if (ev?.estimated_budget_centavos != null) {
+      try {
+        const alloc = await resolveAllocationInputs(supabase, eventId);
+        if (alloc.budgetPhp != null) {
+          const allocResult = computeBudgetAllocation({
+            budgetPhp: alloc.budgetPhp,
+            leaves: alloc.leaves,
+            config: alloc.config,
+          });
+          for (const l of allocResult.leaves) budgetByPlanGroup.set(l.canonicalService, l.amountPhp);
+        }
+      } catch {
+        // budget-fit stays neutral — never blocks the vendors page.
+      }
+    }
+
+    // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
+    // 0.07). Read the couple's faith list from the Event Brief — the SAME source
+    // + representation the category-search overlay uses: raw lowercase ceremony
+    // ids (`catholic`, `civil`, …), so it intersects `compatible_ceremony_types`
+    // (also lowercase) directly. (A title-case WeddingFaithKey set would never
+    // match — the namespaces differ.) Empty when the event has no ceremony →
+    // faith stays neutral. A vendor matches when it EXPLICITLY lists one of the
+    // couple's faiths; NULL = "serves all" → neutral (never a penalty — the gate
+    // already guaranteed compatibility).
+    const coupleFaiths = buildEventBrief(ev as unknown as EventBriefSource).constraints.ceremony
+      .faiths;
 
     for (const v of vendors) {
       const pid = v.marketplace_vendor_id;
@@ -356,6 +399,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ? null
           : distanceKm <= radiusKm;
 
+      // Positive faith match only (true) — a non-match / serves-all / non-wedding
+      // stays null so the scorer applies its neutral (never a penalty).
+      const faithMatch =
+        coupleFaiths.length > 0 && Array.isArray(s.compatible_ceremony_types)
+          ? s.compatible_ceremony_types.some((t) => coupleFaiths.includes(t))
+          : false;
+
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
@@ -365,6 +415,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         within_radius: withinRadius,
         service_radius_km: hasFiniteRadius ? radiusKm : null,
         starting_price_php: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
+        budget_fit_ratio: vendorBudgetFitRatio({
+          vendorCategory: v.category ?? null,
+          startingPricePhp: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
+          budgetByPlanGroup,
+        }),
+        faith_match: faithMatch ? true : null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });

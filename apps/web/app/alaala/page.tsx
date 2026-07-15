@@ -38,7 +38,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
 const PAGE_DESCRIPTION =
-  'Alaala brings together everything you create on Setnayan — Papic, Panood, your event website, your 3D plan, and your monogram — into one living memory you can open any time. A new way to remember, for every event you’ll ever hold.';
+  'Alaala brings together everything you create on Setnayan — Papic, Panood, your event website, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {

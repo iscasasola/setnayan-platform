@@ -145,3 +145,54 @@ test('numeric coercion tolerates string columns from the driver', () => {
   assert.equal(b.constraints.budget.perHeadCentavos, 500_000); // 750,000 / 150
   assert.equal(b.constraints.location.hasPin, true);
 });
+
+// ── specialty layer ──────────────────────────────────────────────────────────
+
+test('wedding love_story surfaces as its specialty', () => {
+  const b = buildEventBrief(WEDDING); // fixture has love_story populated
+  assert.equal(b.specialty.kind, 'love_story');
+  assert.equal(b.specialty.applicable, true);
+  assert.equal(b.specialty.present, true);
+  assert.equal((b.specialty.fields as { spark?: string }).spark, 'met at work');
+  assert.equal(b.richness, 1); // gate still full
+});
+
+test('wedding with empty love_story: specialty applicable but absent → richness bites', () => {
+  const b = buildEventBrief({ ...WEDDING, love_story: {} });
+  assert.equal(b.specialty.kind, 'love_story');
+  assert.equal(b.specialty.applicable, true);
+  assert.equal(b.specialty.present, false);
+  assert.ok(b.richness < 1, `expected specialty gate to drop richness, got ${b.richness}`);
+});
+
+test('generic type reads signature_details as its specialty', () => {
+  const b = buildEventBrief({
+    event_type: 'birthday',
+    signature_details: { who: 'milestone', highlight: 'booth' },
+  });
+  assert.equal(b.specialty.kind, 'birthday');
+  assert.equal(b.specialty.applicable, true);
+  assert.equal(b.specialty.present, true);
+  assert.equal((b.specialty.fields as { who?: string }).who, 'milestone');
+});
+
+test('signature_details accepts a raw JSON string (driver variance)', () => {
+  const b = buildEventBrief({ event_type: 'debut', signature_details: '{"court":"classic"}' });
+  assert.equal(b.specialty.present, true);
+  assert.equal((b.specialty.fields as { court?: string }).court, 'classic');
+});
+
+test('simple_event declares no specialty and is not penalised', () => {
+  const b = buildEventBrief({ event_type: 'simple_event', event_date: '2027-03-01' });
+  assert.equal(b.specialty.kind, null);
+  assert.equal(b.specialty.applicable, false);
+  // date satisfied, specialty excluded from the denominator → 0.1 / 0.9
+  assert.ok(b.richness > 0.1, `simple_event should not be dinged for lacking a specialty, got ${b.richness}`);
+});
+
+test('birthday with no signature_details: applicable, absent, thin stays small', () => {
+  const b = buildEventBrief({ event_type: 'birthday', event_date: '2027-03-01' });
+  assert.equal(b.specialty.applicable, true);
+  assert.equal(b.specialty.present, false);
+  assert.ok(b.richness < 0.25);
+});

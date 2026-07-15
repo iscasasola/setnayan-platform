@@ -1,0 +1,190 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { manilaToday } from '@/lib/std-views';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import {
+  isFenceEligible,
+  isDependentSex,
+  isDependentRelationship,
+  isDependentKind,
+  isReligion,
+} from '@/lib/dependent-people';
+
+/**
+ * Add a dependent — a person, a pet, or anything you care for (COUNSEL-GATED ·
+ * flag-off). Only the PERSON case carries sensitive PI + the age fence:
+ *  - kind = 'person': birthdate optional; when given it is fence-checked (18–50
+ *    refused — invite, never register) since a DB CHECK can't reference now();
+ *    sex/religion + guardian-consent stamps apply.
+ *  - kind = 'pet' | 'other': no fence, any/no birthday, no sex/religion — a pet
+ *    has none. Sensitive human fields are dropped even if posted.
+ * Writes under the user's own session → RLS (dependents_owner_all) scopes it to
+ * this owner.
+ */
+export async function addDependent(formData: FormData): Promise<void> {
+  // Hard gate: inert until the DPO clears the counsel review + flips the flag.
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const kind = isDependentKind(formData.get('dependent_kind'))
+    ? String(formData.get('dependent_kind'))
+    : 'person';
+  const isPerson = kind === 'person';
+
+  const name = String(formData.get('name') ?? '').trim().slice(0, 128);
+  const birthRaw = String(formData.get('birth_date') ?? '').trim();
+  const hasBirth = /^\d{4}-\d{2}-\d{2}$/.test(birthRaw);
+  const birth = hasBirth ? birthRaw : null;
+  const relationship = isDependentRelationship(formData.get('relationship'))
+    ? String(formData.get('relationship'))
+    : null;
+  // Sensitive human-only fields — kept for a person, dropped for a pet/other.
+  const sex = isPerson && isDependentSex(formData.get('sex')) ? String(formData.get('sex')) : null;
+  const religion = isPerson && isReligion(formData.get('religion')) ? String(formData.get('religion')) : null;
+
+  if (!name) redirect('/dashboard/people?error=name');
+
+  // AGE FENCE (owner rule) — the authoritative gate, PERSON records only. A
+  // person's stored birthdate must be <18 (a child a guardian plans for) or >50
+  // (an elder). 18–50 → they own their own dates; invite, never register. Pets /
+  // other have no fence and may have any birthday, or none.
+  if (isPerson && birth && !isFenceEligible(birth, manilaToday())) {
+    redirect('/dashboard/people?error=fence');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('dependents').insert({
+    owner_user_id: user.id,
+    dependent_kind: kind,
+    name,
+    birth_date: birth,
+    sex,
+    religion,
+    relationship,
+    // Household consent asymmetry (B6): a JOINT child is shared with the spouse by
+    // default; every other relation stays private until the guardian opts in.
+    shared_with_spouse: isPerson && relationship === 'child',
+    // Guardian-consented on the dependent's behalf (RA 10173 durable proof) —
+    // stamped only when the corresponding sensitive field is actually stored.
+    birth_date_consent_at: isPerson && birth ? now : null,
+    religion_consent_at: religion ? now : null,
+  });
+  if (error) redirect(`/dashboard/people?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
+}
+
+/** Remove a dependent record (RA 10173 erasure). Owner-scoped via RLS. */
+export async function deleteDependent(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  if (!dependentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS restricts the delete to the owner's own rows; the eq is defense-in-depth.
+  await supabase.from('dependents').delete().eq('dependent_id', dependentId).eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?removed=1');
+}
+
+/**
+ * Toggle whether a dependent is shared with the guardian's spouse (household
+ * consent asymmetry, B6). Owner-only: the `.eq('owner_user_id')` + RLS ensure a
+ * spouse (who can READ shared rows) can never flip another person's sharing.
+ */
+export async function setDependentSharing(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  const share = String(formData.get('share') ?? '') === '1';
+  if (!dependentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await supabase
+    .from('dependents')
+    .update({ shared_with_spouse: share })
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
+}
+
+// ── Godparents (ninong / ninang) ─────────────────────────────────────────────
+
+/**
+ * Add a godparent to a dependent. Verifies the dependent is the caller's own
+ * (belt-and-suspenders beyond RLS, since a crafted dependent_id could otherwise
+ * reference another guardian's child). Flag-gated.
+ */
+export async function addGodparent(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  const name = String(formData.get('godparent_name') ?? '').trim().slice(0, 128);
+  const email = String(formData.get('godparent_email') ?? '').trim().slice(0, 254) || null;
+  const roleRaw = String(formData.get('role') ?? '').trim();
+  const role = roleRaw === 'ninong' || roleRaw === 'ninang' ? roleRaw : null;
+
+  if (!dependentId || !name) redirect('/dashboard/people?error=name');
+
+  const { data: dep } = await supabase
+    .from('dependents')
+    .select('dependent_id')
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id)
+    .maybeSingle();
+  if (!dep) redirect('/dashboard/people');
+
+  const { error } = await supabase.from('godparents').insert({
+    dependent_id: dependentId,
+    owner_user_id: user.id,
+    godparent_name: name,
+    godparent_email: email,
+    role,
+  });
+  if (error) redirect(`/dashboard/people?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
+}
+
+/** Remove a godparent edge. Owner-scoped via RLS. */
+export async function deleteGodparent(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const godparentId = String(formData.get('godparent_id') ?? '').trim();
+  if (!godparentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await supabase.from('godparents').delete().eq('godparent_id', godparentId).eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?removed=1');
+}

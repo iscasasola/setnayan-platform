@@ -338,6 +338,32 @@ export async function fetchReturningClientFlags(
   }
 }
 
+/**
+ * Phase D — lead trust flag for the masked lead ("informed accept"). Returns
+ * whether the couple on this event is an "active planner" (already has ≥1
+ * accepted vendor thread = real engagement). Non-PII, positive-only. Mirrors
+ * fetchReturningClientFlags' graceful-degrade contract: any error (incl. the RPC
+ * not being in prod yet) resolves to false so the masked lead still renders.
+ */
+export async function fetchLeadTrustActivePlanner(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<boolean> {
+  if (!eventId) return false;
+  try {
+    const { data, error } = await supabase.rpc('get_lead_trust_flags' as never, {
+      p_vendor_profile_id: vendorProfileId,
+      p_event_ids: [eventId],
+    } as never);
+    if (error || !Array.isArray(data)) return false;
+    const row = (data as { event_id: string; active_planner: boolean }[])[0];
+    return row?.active_planner === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchThreadById(
   supabase: SupabaseClient,
   threadId: string,

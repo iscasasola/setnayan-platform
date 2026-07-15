@@ -60,7 +60,7 @@ const MANUAL_WATCHLIST: { label: string; todo: string }[] = [
   { label: 'Resend & Sentry quotas', todo: 'Email sends + error events vs monthly plan.' },
   { label: 'Secrets rotation', todo: 'R2 token · service-role key · API keys on a rotation calendar.' },
   { label: 'Domains & certs', todo: 'setnayan.com · setnayan.ph · app-signing certificates.' },
-  { label: 'Vendor token bands', todo: 'Mint/adjust packs from Token bands when campaigns need them.' },
+  { label: 'Vendor token packs', todo: 'Mint/adjust token packs in Pricing when campaigns need them.' },
 ];
 
 const STATE_STYLE: Record<

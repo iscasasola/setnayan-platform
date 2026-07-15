@@ -798,11 +798,11 @@ html.subnav-docked [data-shell-main] {
   --m-nav-active:      #8A6B39;   /* = --color-mulberry (light) — active bar · icon · focus ring */
   --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
 
-  /* Admin doorway accent — VIOLET ("Energy, not skin" 2026-07-09: couple =
-   * wine, vendor = wine+blue, admin = wine+violet). Used for the Setnayan HQ
-   * sidebar-header dot + the Internal role-badge dot; the wine nav-active
-   * chrome above is shared by all three doorways. */
-  --a-violet: #6D28D9;
+  /* Admin doorway accent — RETIRED (Glass PR-1, 2026-07-15). Violet is gone:
+   * admin's identity is the ShieldCheck + "HQ" label, not a colour fork (kit
+   * rule: gold is the only decorative colour). The Internal role badge now uses
+   * the warm info-slate semantic; the sidebar-header dot uses --m-sidebar-accent
+   * (gold). */
 
   /* Vendor doorway accent — PHOTOGRAPHY BLUE ("Energy, not skin" 2026-07-09:
    * couple = wine, vendor = wine+blue, admin = wine+violet). SECONDARY accent
@@ -858,9 +858,9 @@ html.subnav-docked [data-shell-main] {
    * obsidian island — dark in BOTH app themes (the app is light-locked today,
    * but these live at :root so the panel stays dark regardless of any future
    * theme flip; the content area still follows the app theme). Values reuse the
-   * prototype's obsidian panel scale; the accent reuses the wine/violet doorway
-   * family (brightened for legibility ON dark — the light --m-nav-active gold #8A6B39
-   * / --a-violet #6D28D9 are too dark against the panel).
+   * prototype's obsidian panel scale; every doorway shares the Atelier gold
+   * active accent (the wine/violet/blue doorway forks were retired — Glass PR-1,
+   * 2026-07-15).
    *
    * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
    * sidebar-section · admin-sidebar-menu) + the sidebar-owned chrome
@@ -879,13 +879,11 @@ html.subnav-docked [data-shell-main] {
 
   /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
    * only decorative color; the wine/violet doorway accents retired with the
-   * 2026-07-12 finalization). `.sn-sidebar--violet` still exists as a hook
-   * but resolves to the same gold. */
+   * 2026-07-12 finalization, and the `.sn-sidebar--violet` hook + `--a-violet`
+   * token were removed entirely in Glass PR-1, 2026-07-15). */
   --m-sidebar-accent:      #8A6B39;  /* gold-700 — active bar/ring on the light panel */
   --m-sidebar-accent-fg:   #A9834B;  /* active icon · wordmark accent */
   --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 16%, transparent);
-  --m-sidebar-accent-violet:    #8A6B39;  /* admin — same gold (violet retired) */
-  --m-sidebar-accent-violet-fg: #A9834B;
 }
 
 /*
@@ -894,7 +892,8 @@ html.subnav-docked [data-shell-main] {
  * shared descendant we don't restyle by hand — the AccountSwitcher trigger row
  * — reads from, so the whole panel goes dark from a single place. The portaled
  * switcher PANEL renders in <body> (outside this subtree) and inherits :root, so
- * it stays light. `--violet` swaps the doorway accent for the admin doorway.
+ * it stays light. (The former `--violet` admin-accent fork was retired in
+ * Glass PR-1, 2026-07-15 — every doorway now shares the gold accent.)
  */
 .sn-sidebar {
   background: var(--m-sidebar-bg);
@@ -913,17 +912,6 @@ html.subnav-docked [data-shell-main] {
   --m-nav-active-soft: var(--m-sidebar-accent-soft);
   /* (The dark-panel contrast lift for the AccountSwitcher gold initials is
    * gone with the obsidian panel — base gold-700 reads ≥4.5:1 on glass.) */
-}
-.sn-sidebar--violet {
-  --m-sidebar-accent:    var(--m-sidebar-accent-violet);
-  --m-sidebar-accent-fg: var(--m-sidebar-accent-violet-fg);
-  /* Re-derive the active-row wash from violet. The :root `-soft` bakes its
-   * var(--m-sidebar-accent) at :root computed-value time (= wine), and that
-   * resolved value inherits down unchanged — overriding --m-sidebar-accent here
-   * does NOT retroactively recolour it. Redeclaring `-soft` in this scope (off
-   * the raw violet token, same 28% as :root) is what makes the admin active-row
-   * wash actually read violet instead of wine. */
-  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent-violet) 28%, transparent);
 }
 
 /*
@@ -2889,10 +2877,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-sh-tile: 0 18px 40px -26px rgba(30,26,18,.4);
   --sn-sh-hi:   0 28px 54px -30px rgba(30,26,18,.5);
 
-  /* glass (macOS vibrancy) */
-  --sn-glass-bg:   rgba(255,255,255,.55);
-  --sn-glass-line: rgba(255,255,255,.75);
-  --sn-glass-blur: blur(18px) saturate(1.4);
+  /* glass (macOS vibrancy) — canon values (Glass PR-1, 2026-07-15): the
+     fidelity-spec tuning the frosted home tiles ship at, promoted here so
+     .sn-glass / .sn-card / .sn-tile all share one source of truth. */
+  --sn-glass-bg:   rgba(255,255,255,.5);
+  --sn-glass-line: rgba(255,255,255,.72);
+  --sn-glass-blur: blur(22px) saturate(1.5);
   --sn-glass-dark-bg:   rgba(23,22,15,.82);
   --sn-glass-dark-line: rgba(255,255,255,.18);
 
@@ -2918,12 +2908,20 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 }
 
 /* ---------- ambient backdrop (dashboard shell page background) ----------
- * Owner directive 2026-07-13: the main page background is plain WHITE. This
- * class is applied by SidebarShell to every dashboard doorway (vendor /
- * couple / admin), so it IS the visible page canvas there. Previously a warm
- * #F2EFE8 base + gold/green/blue radial glows; flattened to solid white. */
+ * The canonical Atelier warm wash — ONE canvas under every glass shell (event /
+ * vendor / admin via SidebarShell, launcher, and the account spokes). Glass
+ * `rgba(255,255,255,.5)` panels are invisible on white; the tinted backdrop is
+ * a precondition of the language, so this reverses the 2026-07-13 white-flatten
+ * (owner-directed 2026-07-15 via the glass-rollout go-ahead — see the rollout
+ * plan § 6 R1 + DECISION_LOG). Verbatim fidelity-spec canon: warm paper base +
+ * gold / green / slate radial glows, fixed attachment (no drift animation). */
 .sn-ambient {
-  background: #ffffff;
+  background:
+    radial-gradient(45% 55% at 18% 6%,  rgba(203,167,102,.32), transparent 60%),
+    radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.10),  transparent 62%),
+    radial-gradient(45% 60% at 86% 92%, rgba(78,108,130,.20), transparent 60%),
+    linear-gradient(135deg, #EFEAE0, #E3DDCF 55%, #DDD6C6);
+  background-attachment: fixed;
 }
 
 /* ---------- glass surfaces ---------- */
@@ -2948,14 +2946,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * @layer components so Tailwind hover/state utilities on the same element
  * (e.g. hover:border-mulberry/30) still win the cascade. */
 @layer components {
-  /* The launcher's ambient Atelier wash — warm paper gradient + gold/slate
-   * glows (proto .win + .winwash; slate 78,108,130 = --sn-info). */
-  .sn-wash-home {
-    background:
-      radial-gradient(45% 55% at 18% 6%, rgba(203, 167, 102, 0.32), transparent 60%),
-      radial-gradient(45% 60% at 86% 92%, rgba(78, 108, 130, 0.2), transparent 60%),
-      linear-gradient(135deg, #efeae0, #e3ddcf 55%, #ddd6c6);
-  }
+  /* (The launcher-only `.sn-wash-home` splash was promoted to the canonical
+   * app-wide `.sn-ambient` in Glass PR-1, 2026-07-15 — one wash source of
+   * truth; the launcher layout now consumes `.sn-ambient` directly.) */
 
   /* Frosted glass tile (proto .glass/.tile/.ev/.cmd): white .5 + 22px blur +
    * 1.5 saturation + white .72 hairline + the warm tile shadow. */
@@ -2986,6 +2979,140 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
       rgba(255, 255, 255, 0.5) 0 12px,
       rgba(240, 232, 215, 0.62) 12px 24px
     );
+  }
+}
+
+/* ---------- Atelier-Glass SHELL KIT (Glass PR-1, 2026-07-15) ----------
+ * The shared surface + type primitives every dashboard view consumes (rollout
+ * plan § 1.2). Defined once here; page bodies reference by class. In
+ * @layer components so page-level Tailwind state utilities still win the
+ * cascade. Blur budget (§ 1.6): .sn-tile / .sn-card / .sn-tile-dark are the
+ * ONLY page-level blurred surfaces — repeated rows use the flat .sn-row. */
+@layer components {
+  /* Non-navigating glass panel — Watch/Spaces/stat panels/form sections. */
+  .sn-tile {
+    background: var(--sn-glass-bg);
+    border: 1px solid var(--sn-glass-line);
+    backdrop-filter: var(--sn-glass-blur);
+    -webkit-backdrop-filter: var(--sn-glass-blur);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: var(--sn-sh-tile);
+    transition:
+      transform var(--sn-dur-elem) var(--sn-ease),
+      box-shadow var(--sn-dur-elem) var(--sn-ease);
+  }
+  .sn-tile:hover { transform: translateY(-3px); box-shadow: var(--sn-sh-hi); }
+
+  /* The obsidian focal — max ONE per view (§ 1.3). Canonical named class the
+   * recomposition PRs consume; the launcher's .sn-tile-obsidian is the same
+   * recipe under its proto name. */
+  .sn-tile-dark {
+    background:
+      radial-gradient(70% 60% at 85% -10%, rgba(203, 167, 102, 0.16), transparent 60%),
+      var(--sn-glass-dark-bg);
+    border: 1px solid var(--sn-glass-dark-line);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    border-radius: 20px;
+    padding: 18px;
+    color: var(--sn-gold-100);
+    box-shadow: 0 26px 50px -28px rgba(23, 22, 15, 0.7);
+  }
+
+  /* Repeated list / table rows — the blur-budget fallback (§ 1.6): opaque
+   * tint, NO blur, so hundreds of rows stay cheap. */
+  .sn-row {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 14px;
+  }
+
+  /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
+   * glass, gold-300 on the obsidian focal; 14px icon. */
+  .sn-eye {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sn-font);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sn-gold-700);
+  }
+  .sn-eye svg { width: 14px; height: 14px; }
+  .sn-tile-dark .sn-eye,
+  .sn-eye-on-dark { color: var(--sn-gold-300); }
+
+  /* Page hero — Hanken w800; m-serif is retired from dashboards. Optional soft
+   * tail via a child `.sn-h1-tail`. */
+  .sn-h1 {
+    font-family: var(--sn-font);
+    font-weight: 800;
+    font-size: 36px;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    color: var(--sn-ink-900);
+  }
+  .sn-h1-tail { color: var(--sn-ink-400); font-weight: 700; }
+
+  /* Section head — replaces mono ALL-CAPS labels with sentence-case ink;
+   * optional 12px sub via a sibling `.sn-sec-sub`. */
+  .sn-sec {
+    font-family: var(--sn-font);
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.015em;
+    color: var(--sn-ink-900);
+  }
+  .sn-sec-sub {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sn-ink-400);
+  }
+
+  /* Shared modal chrome all useModalA11y consumers migrate to. */
+  .sn-modal-panel {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(30px) saturate(1.5);
+    -webkit-backdrop-filter: blur(30px) saturate(1.5);
+    border-radius: 18px;
+    box-shadow: 0 60px 100px -60px rgba(30, 26, 18, 0.6);
+  }
+
+  /* ---- Live-primitive re-point, SCOPED to dashboards (§ 6 R5) ----
+   * .button-primary (~100 files) / .button-secondary / .input-field are shared
+   * with guest (app/[slug], .sn-editorial) + marketing surfaces, which MUST
+   * render byte-identical. Scoping the recipe under `.app-surface` (dashboard
+   * root only) re-points every dashboard CTA/input to the kit's gold recipe
+   * while leaving excluded scopes on their existing base rule. */
+  .app-surface .button-primary {
+    background: var(--sn-gold-500);
+    color: #fffdf8;
+  }
+  .app-surface .button-primary:hover {
+    background: var(--sn-gold-600);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 26px -12px var(--sn-gold-500);
+  }
+  .app-surface .button-secondary {
+    background: transparent;
+    color: var(--sn-ink-900);
+    border-color: var(--sn-ink-900);
+    border-width: 1.5px;
+  }
+  .app-surface .button-secondary:hover {
+    background: var(--sn-ink-900);
+    color: var(--sn-paper);
+    border-color: var(--sn-ink-900);
+    transform: translateY(-2px);
+  }
+  .app-surface .input-field:hover { border-color: var(--sn-gold-500); }
+  .app-surface .input-field:focus {
+    border-color: var(--sn-gold-500);
+    box-shadow: 0 0 0 3px var(--sn-gold-100);
   }
 }
 
@@ -3047,7 +3174,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   border-radius: var(--sn-r-xl); box-shadow: var(--sn-sh-sm);
   transition: transform var(--sn-dur-elem) var(--sn-ease), box-shadow var(--sn-dur-elem);
 }
-.sn-card:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-md); }
+.sn-card:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-hi); }
 
 /* ---------- chips & badges ---------- */
 .sn-chip {
@@ -3146,6 +3273,23 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 /* Progress-ring entrance sweep — generalizes sn-donut: the circle sets its own
  * circumference via --sn-ring-circ (keyframes may read custom properties). */
 @keyframes sn-ring-sweep { from { stroke-dashoffset: var(--sn-ring-circ); } }
+
+/* Route-transition rise — one per shell via a template.tsx wrapping {children}
+ * in `.sn-page-enter` (App Router remounts templates on pathname change, so
+ * every in-shell nav gets a soft rise; search-param changes don't remount).
+ * The template.tsx files land per-surface in PR-2/5/6/8; the CSS lands here. */
+@keyframes sn-rise-soft { from { opacity: 0; transform: translateY(8px); } }
+.sn-page-enter { animation: sn-rise-soft 400ms both var(--sn-ease-out); }
+
+/* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
+ * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
+.sn-live-dot { animation: sn-pulse 1.9s infinite; }
+
+/* Reduced motion: snap the route rise to its end state and stop the live pulse
+ * (belt-and-braces beyond the global freeze blocks). */
+@media (prefers-reduced-motion: reduce) {
+  .sn-page-enter, .sn-live-dot { animation: none !important; }
+}
 
 /* Life-Flash veil lift + capiz shimmer sweep — the Alaala tile's signature
  * flourish (proto .veil/.capiz). Decorative spans, pointer-events none. */

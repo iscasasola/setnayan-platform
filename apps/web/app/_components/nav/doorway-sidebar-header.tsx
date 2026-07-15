@@ -27,21 +27,21 @@ export function DoorwaySidebarHeader({
   label: string;
   switcherData: SwitcherData;
   /**
-   * Optional doorway accent — a small leading dot before the eyebrow label
-   * ("Energy, not skin" 2026-07-09: couple = wine, vendor = wine+blue, admin =
-   * wine+violet). Pass a CSS color (e.g. `var(--a-violet)`); omitted = no dot,
-   * zero visual change for doorways that haven't adopted an accent yet.
+   * Optional doorway accent — a small leading dot before the eyebrow label.
+   * Pass a CSS color (e.g. `var(--m-sidebar-accent)` = Atelier gold); omitted =
+   * no dot. The former per-doorway colour forks (wine/blue/violet) were retired
+   * in Glass PR-1 (2026-07-15) — every doorway shares the gold accent.
    */
   accentColor?: string;
 }) {
   return (
     <>
       <header className="px-4 py-3">
-        {/* Dark-panel wordmark — the gold mark glyph (reads on obsidian) + the
-            white "SETNA" with the doorway-accent "YAN" span (wine for couple +
-            vendor, violet for admin — driven by `--m-sidebar-accent-fg`, which
-            `.sn-sidebar--violet` flips). Full "SETNAYAN" spelling preserved
-            (brand lock); only the last three letters carry the accent. */}
+        {/* Dark-panel wordmark — the gold mark glyph + the white "SETNA" with
+            the gold-accent "YAN" span (`--m-sidebar-accent-fg`, shared by every
+            doorway since the Glass PR-1 violet retirement). Full "SETNAYAN"
+            spelling preserved (brand lock); only the last three letters carry
+            the accent. */}
         <span className="inline-flex items-center" style={{ gap: '9px', lineHeight: 1 }}>
           <LogoMark size={28} />
           <span

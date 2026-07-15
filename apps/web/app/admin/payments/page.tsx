@@ -635,7 +635,7 @@ function RefundForm({
 }) {
   return (
     <details className="border-t border-ink/10 pt-3">
-      <summary className="cursor-pointer text-xs font-medium text-violet-800 hover:text-violet-900">
+      <summary className="cursor-pointer text-xs font-medium text-ink/70 hover:text-ink">
         Record a refund for order {orderPublicId}
       </summary>
       <ConfirmForm
@@ -689,7 +689,7 @@ function RefundForm({
           />
         </label>
         <SubmitButton
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-violet-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-violet-800 disabled:opacity-70"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sn-gold-500)] focus-visible:ring-offset-2 disabled:opacity-70"
           pendingLabel="Recording refund…"
         >
           Record refund · notify couple

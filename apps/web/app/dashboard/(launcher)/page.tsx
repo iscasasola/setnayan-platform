@@ -43,7 +43,7 @@ import {
 } from '../(account)/_components/life-story-section';
 import { PhotosTab } from '../(account)/library/_components/photos-tab';
 import { Expandable } from './_components/expandable';
-import { CountUp } from './_components/count-up';
+import { CountUp } from '@/app/_components/count-up';
 import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
 import {
   HomeCommandBar,

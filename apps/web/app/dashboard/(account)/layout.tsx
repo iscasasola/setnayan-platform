@@ -61,7 +61,10 @@ export default async function AccountDashboardLayout({
   ]);
 
   return (
-    <div className="min-h-dvh">
+    // `sn-ambient` = the canonical Atelier warm wash (Glass PR-1, 2026-07-15):
+    // the account spokes now sit on the SAME canvas as the launcher home they're
+    // one click from, instead of the old plain-white background.
+    <div className="sn-ambient min-h-dvh">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/dashboard" aria-label="Setnayan — home">
           <Wordmark />

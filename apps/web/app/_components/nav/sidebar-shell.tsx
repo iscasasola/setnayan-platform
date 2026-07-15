@@ -60,18 +60,11 @@ type Props = {
   sidebarFooter?: ReactNode;
   /** Optional sticky top bar slot rendered above main content. */
   topBar?: ReactNode;
-  /**
-   * Per-doorway ACTIVE accent for the dark sidebar panel ("Energy, not skin"):
-   * couple + vendor = 'wine' (default), admin = 'violet'. Flips
-   * `--m-sidebar-accent` on the <aside> via `.sn-sidebar--violet`; the rest of
-   * the dark-panel treatment is shared. The content area is unaffected.
-   */
-  accent?: 'wine' | 'violet';
   /** Main content area — scrollable. */
   children: ReactNode;
 };
 
-export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, accent = 'wine', children }: Props) {
+export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, children }: Props) {
   // Default expanded. Hydrate from localStorage on mount so SSR + initial
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
@@ -121,9 +114,9 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ac
         aria-label="Primary navigation"
         // `sn-sidebar` paints the Atelier frosted-glass panel + remaps the
         // base --m-* tokens the shared AccountSwitcher trigger reads (its panel
-        // portals to <body> and stays light). `--violet` flips the active accent
-        // for the admin doorway.
-        className={`sn-sidebar${accent === 'violet' ? ' sn-sidebar--violet' : ''} hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r`}
+        // portals to <body> and stays light). Every doorway shares the gold
+        // active accent (the admin violet fork was retired in Glass PR-1).
+        className="sn-sidebar hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r"
         style={{
           borderColor: 'var(--m-sidebar-line)',
           width: collapsed ? '4rem' : 'var(--sidebar-width, 16rem)',

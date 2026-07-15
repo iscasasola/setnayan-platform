@@ -81,7 +81,7 @@ export default async function VendorBranchesPage() {
 
 function EnterpriseGate() {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+    <div className="sn-tile p-8 text-center">
       <span className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-ink/5 text-ink/50">
         <Lock aria-hidden className="h-6 w-6" strokeWidth={1.5} />
       </span>

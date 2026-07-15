@@ -115,7 +115,7 @@ export default async function VendorLockedQrListPage() {
       </header>
 
       {tokens.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="mt-6 rounded-2xl border border-dashed border-ink/20 p-8 text-center">
           <Lock className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/70">
             No Locked QRs yet. Create one to lock in a customer who already paid a

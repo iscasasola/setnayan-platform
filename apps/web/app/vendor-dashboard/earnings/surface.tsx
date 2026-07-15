@@ -147,7 +147,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         tab.
       </p>
 
-      <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
+      <article className="sn-tile flex items-start gap-3 p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         <div className="space-y-1">
           <p className="font-medium text-ink">How earnings work now</p>
@@ -203,10 +203,8 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         />
       </section>
 
-      <section className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Last 12 months
-        </h2>
+      <section className="sn-tile space-y-2 p-5">
+        <h2 className="sn-sec">Last 12 months</h2>
         {months.every((m) => m.total_php === 0) ? (
           <p className="py-4 text-sm text-ink/55">
             No earnings yet. Add services on the Services tab — paid orders posted to
@@ -283,10 +281,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
               const stage: PayoutStage = (row.payout_stage ??
                 legacyStageToPayoutStage(row.stage)) as PayoutStage;
               return (
-                <li
-                  key={row.payout_id}
-                  className="rounded-xl border border-ink/10 bg-cream p-4"
-                >
+                <li key={row.payout_id} className="sn-row p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -341,7 +336,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             })}
           </ul>
         ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink/55">
             No legacy payout records on file. Direct-booking ledger below.
           </p>
         )}
@@ -357,7 +352,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         </div>
 
         {earnings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
             <Wallet
               aria-hidden
               className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -385,10 +380,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                   r.requested_total_php,
               );
               return (
-                <li
-                  key={r.order_id}
-                  className="rounded-xl border border-ink/10 bg-cream p-4"
-                >
+                <li key={r.order_id} className="sn-row p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1 space-y-1">
                       <p className="truncate text-sm font-semibold text-ink">
@@ -420,7 +412,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             <Link
               href={`/vendor-dashboard/earnings?page=${Math.max(1, page - 1)}`}
               aria-disabled={page <= 1}
-              className={`inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-4 text-xs font-medium text-ink hover:border-ink/40 ${
+              className={`inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-4 text-xs font-medium text-ink hover:border-ink/40 ${
                 page <= 1 ? 'pointer-events-none opacity-50' : ''
               }`}
             >
@@ -429,7 +421,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             <Link
               href={`/vendor-dashboard/earnings?page=${Math.min(totalPages, page + 1)}`}
               aria-disabled={page >= totalPages}
-              className={`inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-4 text-xs font-medium text-ink hover:border-ink/40 ${
+              className={`inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-4 text-xs font-medium text-ink hover:border-ink/40 ${
                 page >= totalPages ? 'pointer-events-none opacity-50' : ''
               }`}
             >
@@ -452,11 +444,9 @@ function Stat({
   help?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">{value}</p>
+    <div className="sn-tile">
+      <p className="sn-eye">{label}</p>
+      <p className="mt-2 font-mono text-2xl font-bold tracking-tight text-ink">{value}</p>
       {help ? <p className="mt-1 text-xs text-ink/55">{help}</p> : null}
     </div>
   );
@@ -476,16 +466,14 @@ function PayoutKpi({
   help: string;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-row p-4">
       <div className="flex items-center gap-2">
         <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${tone}`}>
           {icon}
         </span>
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          {label}
-        </p>
+        <p className="sn-eye">{label}</p>
       </div>
-      <p className="mt-2 text-xl font-semibold tracking-tight text-ink">{value}</p>
+      <p className="mt-2 font-mono text-xl font-bold tracking-tight text-ink">{value}</p>
       <p className="mt-0.5 text-xs text-ink/55">{help}</p>
     </div>
   );

@@ -60,7 +60,7 @@ function CompositeRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-semibold tabular-nums text-white">
+        <span className="font-mono text-4xl font-bold text-white">
           {composite === null ? '—' : composite}
         </span>
         <span
@@ -128,16 +128,27 @@ export function HealthCompositeCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+    // Glass PR-7: the My Performance focal, retuned from solid --m-ink to the
+    // `.sn-tile-dark` obsidian-glass recipe (§ 1.3 · the one sanctioned dark tile
+    // on this view). Padding stays on the inner button/tray, so we apply the
+    // recipe's surface here rather than the padded utility class.
   return (
     <section
-      className="rounded-2xl"
-      style={{ background: 'var(--m-ink)', boxShadow: 'var(--m-shadow-lg)' }}
+      className="rounded-tile"
+      style={{
+        background:
+          'radial-gradient(70% 60% at 85% -10%, rgba(203,167,102,.16), transparent 60%), var(--sn-glass-dark-bg)',
+        border: '1px solid var(--sn-glass-dark-line)',
+        backdropFilter: 'blur(22px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
+        boxShadow: '0 26px 50px -28px rgba(23,22,15,.7)',
+      }}
     >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="w-full rounded-2xl p-6 text-left sm:p-8"
+        className="w-full rounded-tile p-6 text-left sm:p-8"
       >
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <CompositeRing composite={health.composite} label={health.bandLabel} />

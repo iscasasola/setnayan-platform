@@ -65,7 +65,7 @@ export function AttributeFieldRenderer({
   if (def.type === 'boolean') {
     const checked = initial === true;
     return (
-      <label className="flex items-start gap-3 rounded-lg border border-ink/10 bg-cream px-3 py-2.5">
+      <label className="flex items-start gap-3 rounded-lg border border-ink/10 bg-white/70 px-3 py-2.5">
         <input
           type="checkbox"
           name={inputName}
@@ -189,7 +189,7 @@ export function AttributeFieldRenderer({
             return (
               <label
                 key={opt}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
               >
                 <input
                   type="checkbox"

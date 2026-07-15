@@ -115,21 +115,15 @@ export default async function VendorManpowerPage() {
   ) as ManpowerGigRow[];
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
-    >
+    // Glass PR-7: the opaque `--m-paper` page wrapper is dropped — the wash
+    // shows through; eyebrows/headings move to the kit (`.sn-eye`/`.sn-sec`).
+    <div className="min-h-screen" style={{ color: 'var(--m-ink)' }}>
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <header>
-          <p
-            className="m-label-mono uppercase text-slate-500"
-            style={{ letterSpacing: '0.2em', fontSize: '11px' }}
-          >
-            Phase F · ₱15K OFFLINE
-          </p>
+          <p className="sn-eye">Phase F · ₱15K OFFLINE</p>
           <h1
-            className="m-display-tight mt-2"
-            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)' }}
+            className="mt-2 font-extrabold tracking-[-0.03em]"
+            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', lineHeight: 1.02 }}
           >
             Manpower gigs
           </h1>
@@ -140,10 +134,7 @@ export default async function VendorManpowerPage() {
         </header>
 
         {/* Token-balance reassurance — pulls actual wallet state */}
-        <div
-          className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200/60 bg-white px-4 py-3"
-          style={{ boxShadow: 'var(--m-shadow-sm)' }}
-        >
+        <div className="sn-tile mt-6 flex flex-wrap items-center gap-3 px-4 py-3">
           <Wallet className="h-4 w-4 text-slate-500" strokeWidth={1.75} />
           <span className="text-sm text-slate-700">
             <span className="font-medium">{totalTokens}</span> tokens available
@@ -161,16 +152,8 @@ export default async function VendorManpowerPage() {
         </div>
 
         {/* BIR-exempt note · surfaced prominently per spec */}
-        <aside
-          className="mt-4 rounded-lg border border-slate-200/60 bg-white p-4"
-          style={{ boxShadow: 'var(--m-shadow-sm)' }}
-        >
-          <p
-            className="m-eyebrow uppercase text-slate-500"
-            style={{ letterSpacing: '0.2em', fontSize: '11px' }}
-          >
-            Setnayan note
-          </p>
+        <aside className="sn-tile mt-4 p-4">
+          <p className="sn-eye">Setnayan note</p>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
             Setnayan doesn&apos;t touch the ₱15,000 — it flows direct from the
             host to your crew. You handle your own Form 2307 on this. The
@@ -259,7 +242,7 @@ function Group({
 }) {
   return (
     <div>
-      <h2 className="m-display-tight flex items-center gap-2 text-xl">
+      <h2 className="flex items-center gap-2 text-xl font-extrabold tracking-[-0.015em]">
         {icon}
         {title}
       </h2>

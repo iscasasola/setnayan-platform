@@ -64,7 +64,7 @@ export default async function VendorRecapsPage() {
       </header>
 
       {recaps.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center sm:p-10">
+        <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center sm:p-10">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Coming soon
           </p>
@@ -85,7 +85,7 @@ export default async function VendorRecapsPage() {
             return (
               <li
                 key={r.eventId}
-                className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5"
+                className="sn-row flex flex-col gap-3 p-5"
               >
                 <div>
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">

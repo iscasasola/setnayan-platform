@@ -183,7 +183,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
             ['ceiling', 'Ceiling', 'if every pending shows'],
           ] as const
         ).map(([key, label, hint]) => (
-          <div key={key} className="rounded-2xl border border-ink/10 bg-cream p-4 text-center">
+          <div key={key} className="sn-row p-4 text-center">
             <p className="text-3xl font-semibold tabular-nums">
               {metrics.headcount_scenarios[key]}
             </p>
@@ -195,7 +195,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
 
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Meal mix */}
-        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        <div className="sn-tile p-4 sm:p-6">
           <h2 className="text-lg font-semibold">Meal mix (confirmed)</h2>
           {mealEntries.length === 0 ? (
             <p className="mt-2 text-sm text-ink/55">No confirmed guests yet.</p>
@@ -219,7 +219,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         </div>
 
         {/* Per-block pax */}
-        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        <div className="sn-tile p-4 sm:p-6">
           <h2 className="text-lg font-semibold">Headcount per part of the day</h2>
           <p className="mt-1 text-xs text-ink/50">
             Not everyone is invited to every part — cocktail pax ≠ dinner pax.
@@ -243,7 +243,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
       </div>
 
       {/* Portion rules × live counts */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Ingredient totals</h2>
         <p className="mt-1 text-xs text-ink/50">
           Your per-head rules × today&rsquo;s counts. Rules are saved to your business and

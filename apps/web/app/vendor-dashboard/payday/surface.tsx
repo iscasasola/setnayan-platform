@@ -45,7 +45,7 @@ export default async function VendorPaydayPage() {
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
+      <article className="sn-tile flex items-start gap-3 p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         <div className="space-y-1">
           <p className="font-medium text-ink">How Payday works</p>
@@ -61,12 +61,12 @@ export default async function VendorPaydayPage() {
       </article>
 
       {error ? (
-        <p className="rounded-2xl border border-ink/10 bg-white p-6 text-sm text-ink/65">
+        <p className="sn-row p-6 text-sm text-ink/65">
           We couldn&rsquo;t load your Payday timeline right now. Please try again
           shortly.
         </p>
       ) : timeline.totals.installmentCount === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
           <CalendarClock
             aria-hidden
             className="mx-auto h-8 w-8 text-ink/30"
@@ -87,7 +87,7 @@ export default async function VendorPaydayPage() {
           <PaydaySummary totals={timeline.totals} />
 
           {timeline.totals.unresolvedCount > 0 ? (
-            <p className="rounded-xl border border-ink/10 bg-white px-4 py-3 text-xs text-ink/55">
+            <p className="sn-row px-4 py-3 text-xs text-ink/55">
               {timeline.totals.unresolvedCount} installment
               {timeline.totals.unresolvedCount === 1 ? '' : 's'} couldn&rsquo;t
               show an amount — these are percentage-based installments on a
@@ -97,17 +97,33 @@ export default async function VendorPaydayPage() {
           ) : null}
 
           {timeline.overdue.length > 0 ? (
-            <section className="overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/[0.03]">
-              <header className="flex items-center justify-between gap-2 border-b border-rose-500/15 px-4 py-3">
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-rose-700">
+            // Warm-semantic danger (contract § 7) — the rose-* one-offs are retired.
+            <section
+              className="overflow-hidden rounded-2xl border"
+              style={{
+                borderColor: 'color-mix(in srgb, var(--sn-danger) 22%, transparent)',
+                background: 'color-mix(in srgb, var(--sn-danger) 3%, rgba(255,255,255,.72))',
+              }}
+            >
+              <header
+                className="flex items-center justify-between gap-2 border-b px-4 py-3"
+                style={{ borderColor: 'color-mix(in srgb, var(--sn-danger) 15%, transparent)' }}
+              >
+                <span
+                  className="inline-flex items-center gap-2 text-sm font-semibold"
+                  style={{ color: 'var(--sn-danger)' }}
+                >
                   <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Overdue · {timeline.overdue.length}
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-rose-700">
+                <span className="font-mono text-sm font-semibold" style={{ color: 'var(--sn-danger)' }}>
                   {formatPhp(timeline.totals.overduePhp)}
                 </span>
               </header>
-              <ul className="divide-y divide-rose-500/10">
+              <ul
+                className="divide-y"
+                style={{ borderColor: 'color-mix(in srgb, var(--sn-danger) 10%, transparent)' }}
+              >
                 {timeline.overdue.map((inst) => (
                   <PaydayRow key={inst.key} inst={inst} />
                 ))}
@@ -117,14 +133,16 @@ export default async function VendorPaydayPage() {
 
           <div className="space-y-5">
             {timeline.months.map((group) => (
+              // Month groups can be many — flat `.sn-row`-tint wrappers, not
+              // blurred tiles (blur budget § 1.6). Installment rows stay opaque.
               <section
                 key={group.key}
-                className="overflow-hidden rounded-2xl border border-ink/10 bg-white"
+                className="sn-row overflow-hidden !rounded-2xl"
               >
                 <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
                   <h2 className="text-sm font-semibold text-ink">{group.label}</h2>
                   <span className="text-xs text-ink/55">
-                    <span className="font-semibold text-ink/75 tabular-nums">
+                    <span className="font-mono font-semibold text-ink/75">
                       {formatPhp(group.expectedPhp)}
                     </span>{' '}
                     expected · {formatPhp(group.confirmedPhp)} received

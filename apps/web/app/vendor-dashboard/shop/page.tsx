@@ -991,17 +991,14 @@ function CompletenessRing({ pct }: { pct: number }) {
           style={{ width: '3.75rem', height: '3.75rem', background: 'var(--m-orange-4)' }}
         >
           <span
-            className="text-base font-semibold tabular-nums"
+            className="font-mono text-base font-bold"
             style={{ color: 'var(--m-ink)' }}
           >
             {clamped}%
           </span>
         </div>
       </div>
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.18em]"
-        style={{ color: 'var(--m-orange-2)' }}
-      >
+      <span className="sn-eye">
         {/* Scoped to "Profile" (not a bare "Complete"): the ring measures only
             the 8 business-profile fields — NOT the public address, which is a
             separate Pro/Website step. Keeps the ring honest against the header's
@@ -1035,7 +1032,7 @@ function StatTile({
         </span>
         {label}
       </span>
-      <p className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-1 font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -1295,9 +1292,11 @@ function ShopTools({ isStylist }: { isStylist: boolean }) {
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((t) => (
           <li key={t.href}>
+            {/* Flat `.sn-row` cards — 12+ in this grid, so blur is banned here
+                (blur budget § 1.6: no blur in >10-item collections). */}
             <Link
               href={t.href}
-              className="block rounded-2xl border border-ink/10 bg-white/70 p-4 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-terracotta/40 hover:shadow-md"
+              className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
               <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>

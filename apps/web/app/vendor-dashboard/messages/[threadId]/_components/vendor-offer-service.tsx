@@ -71,7 +71,7 @@ export function VendorOfferService({
           if (state.kind !== 'idle') setState({ kind: 'idle' });
         }}
         disabled={pending}
-        className="min-w-[10rem] rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+        className="min-w-[10rem] rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
       >
         <option value="">Pick a service…</option>
         {options.map((o) => (

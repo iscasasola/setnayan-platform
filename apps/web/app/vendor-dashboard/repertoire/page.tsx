@@ -99,7 +99,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── Add songs ── */}
-        <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-4">
+        <div className="space-y-4 sn-tile p-4">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Add from the song library
           </h2>
@@ -179,7 +179,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
         </div>
 
         {/* ── Your set list ── */}
-        <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4">
+        <div className="space-y-3 sn-tile p-4">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Your set list ({repertoire.length})
           </h2>

@@ -77,7 +77,7 @@ export default async function VendorQrGeneratorPage({
         </h1>
         {/* Shortlist ↔ Locked toggle */}
         <div
-          className="inline-flex rounded-full border border-ink/15 bg-cream p-0.5"
+          className="inline-flex rounded-full border border-ink/15 bg-white/70 p-0.5"
           role="tablist"
           aria-label="QR type"
         >
@@ -110,7 +110,7 @@ export default async function VendorQrGeneratorPage({
       </header>
 
       {!canShare ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-ink/20 bg-cream p-6 text-center">
+        <div className="mt-6 rounded-2xl border border-dashed border-ink/20 p-6 text-center">
           <Users className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/70">
             Publish your business profile first — your QR is built from your public
@@ -173,7 +173,7 @@ async function LockedMode({
       const lockUrl = buildVendorLockUrl(tok.token as string);
       const qrSvg = await renderUrlQrSvg(lockUrl, 220);
       return (
-        <div className="mt-6 rounded-3xl border border-ink/10 bg-cream p-6">
+        <div className="mt-6 sn-tile p-6">
           <div className="flex justify-center">
             <div
               className="rounded-2xl bg-white p-4 shadow-sm [&_svg]:h-[220px] [&_svg]:w-[220px]"
@@ -360,7 +360,7 @@ async function ShortlistMode({
         </SubmitButton>
       </form>
 
-      <div className="mt-6 rounded-3xl border border-ink/10 bg-cream p-6">
+      <div className="mt-6 sn-tile p-6">
         <div className="flex justify-center">
           <div
             className="rounded-2xl bg-white p-4 shadow-sm [&_svg]:h-[220px] [&_svg]:w-[220px]"

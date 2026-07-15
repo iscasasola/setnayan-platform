@@ -311,7 +311,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             <Plus className="h-4 w-4" /> Add booth
           </button>
           {adding ? (
-            <div className="absolute z-20 mt-1 w-52 rounded-xl border border-ink/15 bg-cream p-1.5 shadow-lg">
+            <div className="absolute z-20 mt-1 w-52 rounded-xl border border-ink/15 bg-white/70 p-1.5 shadow-lg">
               {BOOTH_CATALOG.map((c) => (
                 <button
                   key={c.type}
@@ -347,7 +347,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="relative w-full touch-none overflow-hidden rounded-2xl border border-ink/15 bg-cream"
+        className="relative w-full touch-none overflow-hidden rounded-2xl border border-ink/15 bg-white/70"
         style={{ aspectRatio: `${aspect}` }}
       >
         {/* read-only doorway connector — only when the couple has docked this room
@@ -439,7 +439,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/50 bg-terracotta/[0.05]" />
           <span
             onPointerDown={startRoom}
-            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-cream px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta shadow-sm ${
+            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta shadow-sm ${
               canArrange ? 'cursor-grab' : ''
             }`}
           >
@@ -451,7 +451,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               type="button"
               onPointerDown={startResize}
               aria-label="Resize cocktail area"
-              className="pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+              className="pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-white/70 text-terracotta shadow-sm"
             >
               <Maximize2 className="h-3 w-3 rotate-90" />
             </button>
@@ -487,7 +487,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => openOfferings(b)}
                     aria-label={`Edit what ${b.label} serves`}
-                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
@@ -496,7 +496,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => removeBooth(b)}
                     aria-label={`Remove ${b.label}`}
-                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -520,7 +520,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                     role="dialog"
                     aria-label={`What does ${b.label} serve?`}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="absolute left-1/2 top-full z-50 mt-2 w-60 -translate-x-1/2 rounded-xl border border-ink/10 bg-cream p-2.5 shadow-lg"
+                    className="absolute left-1/2 top-full z-50 mt-2 w-60 -translate-x-1/2 sn-row p-2.5 shadow-lg"
                   >
                     <label
                       htmlFor={`v-booth-offerings-${b.booth_id}`}
@@ -580,7 +580,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               onPointerDown={canArrange ? startSign(s) : undefined}
               onDoubleClick={canArrange ? () => relabelSign(s) : undefined}
               title={canArrange ? `${s.label} · double-click to rename` : s.label}
-              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-cream px-2 py-1 text-[10px] font-semibold text-terracotta shadow-sm ${
+              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[10px] font-semibold text-terracotta shadow-sm ${
                 canArrange ? 'cursor-grab' : ''
               }`}
             >
@@ -597,7 +597,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => rotateSign(s)}
                   aria-label={`Rotate ${s.label}`}
-                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
                 >
                   <RotateCw className="h-3 w-3" />
                 </button>
@@ -606,7 +606,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeSign(s)}
                   aria-label={`Remove ${s.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

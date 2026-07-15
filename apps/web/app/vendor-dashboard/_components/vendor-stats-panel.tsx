@@ -218,7 +218,7 @@ function StatCard({
   empty?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="mb-2 flex items-center gap-1.5 text-ink/55">
         {icon}
         <span
@@ -252,7 +252,7 @@ function QualityScoreBar({ score }: { score: number }) {
         : 'bg-terracotta';
 
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="mb-2 flex items-center gap-1.5 text-ink/55">
         <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         <span
@@ -285,7 +285,7 @@ function QualityScoreBar({ score }: { score: number }) {
 function ExperienceBadge({ count }: { count: number }) {
   const tier = getExperienceTier(count);
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="mb-2 flex items-center gap-1.5 text-ink/55">
         <Award className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         <span
@@ -330,7 +330,7 @@ function ReviewScoreCard({
 }) {
   const hasData = reviewCount > 0 && reviewAvgRaw !== null;
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="mb-2 flex items-center gap-1.5 text-ink/55">
         <Star className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         <span
@@ -440,7 +440,7 @@ function BenchmarkMetricRow({ metric }: { metric: MetricBenchmark }) {
   const median = formatBandMedian(metric);
   const style = metric.tier ? BENCH_TIER_STYLE[metric.tier] : null;
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span
           className="font-mono text-[10px] uppercase tracking-[0.18em]"
@@ -580,7 +580,7 @@ function EmptyStatsPanel() {
           Performance
         </h2>
       </div>
-      <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-6 text-center">
+      <div className="rounded-2xl border border-dashed border-ink/15 p-6 text-center">
         <Activity
           className="mx-auto mb-2 h-6 w-6 text-ink/30"
           strokeWidth={1.5}

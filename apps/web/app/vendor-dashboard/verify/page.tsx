@@ -280,7 +280,7 @@ function StartApplicationCard({
     feeByType[recommended],
   );
   return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-4 sn-tile p-5">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Start a new application
@@ -339,7 +339,7 @@ function TypeOption({
 }) {
   return (
     <label
-      className="flex cursor-pointer flex-col gap-1 rounded-xl border border-ink/15 bg-cream p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5"
+      className="flex cursor-pointer flex-col gap-1 rounded-xl border border-ink/15 bg-white/70 p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5"
       htmlFor={`type-${value}`}
     >
       <span className="flex items-center gap-2">
@@ -484,7 +484,7 @@ function SlotInputForm({
           inputMode="url"
           placeholder="https://instagram.com/your-brand"
           defaultValue={currentUrl}
-          className="block w-full rounded-md border border-ink/20 bg-cream px-3 py-2 text-sm text-ink"
+          className="block w-full rounded-md border border-ink/20 bg-white/70 px-3 py-2 text-sm text-ink"
         />
         <SubmitButton
           className="button-secondary h-9 px-3 text-xs"
@@ -579,7 +579,7 @@ function SubmitCard({
   const REQUIRED_TO_SUBMIT = totalSlots;
   const eligible = completeCount >= REQUIRED_TO_SUBMIT;
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-3 sn-tile p-5">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Submit for review
@@ -699,7 +699,7 @@ function RejectedCard({
         Setnayan couldn&rsquo;t approve this application
       </h2>
       {application.decision_reason ? (
-        <p className="rounded-md border border-terracotta/30 bg-cream/60 px-3 py-2 text-sm">
+        <p className="rounded-md border border-terracotta/30 bg-white/60 px-3 py-2 text-sm">
           <span className="font-medium">Reason:</span>{' '}
           {application.decision_reason}
         </p>

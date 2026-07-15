@@ -7,7 +7,10 @@
  * nav surfaces (the left sidebar + the mobile docked sub-nav) can never drift
  * apart. (The desktop lifecycle-ribbon strip that also consumed this was retired
  * in the Living Roster P0 reskin, 2026-07-11 — its steps live in the left nav +
- * the roster's own affordances now.) Neutral module (no `'use client'`) so a Server Component
+ * the roster's own affordances now: the Seat stage's desktop in-page door is the
+ * Guests header "Arrange the room" button, restored 2026-07-15 after the reskin
+ * left /seating reachable only from the mobile carousel's journey pill.) Neutral
+ * module (no `'use client'`) so a Server Component
  * AND a Client Component can both import it — same pattern as customer-nav-config.ts
  * (lucide icon refs render in both contexts; the boundary issue was only ever the
  * `'use client'` file wrapping, not the icons).

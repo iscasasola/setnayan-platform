@@ -11,6 +11,14 @@
  * SVG deterministically seeded from the guest's REAL `qr_token`), contact (moved
  * off the row), groups, plus-one, tier. Inline editing of these lands in P2.
  *
+ * QR doorway (2026-07-15): the decorative SVG stays as the aesthetic preview, but
+ * the section is now ACTIONABLE — every guest's REAL scannable QR is one tap away.
+ * When the paid CUSTOM_QR_GUEST upgrade is active the drawer downloads the branded
+ * PNG straight from the same gated /api/website/qr/guest/[guestId] route the
+ * Invitation + Custom-QR surfaces use; otherwise it routes to the Invitation page,
+ * where every guest's free default QR always renders. A quiet link reaches the
+ * Custom-QR studio (default QR is always free; branding is the SKU).
+ *
  * State is a module-level store (mirrors guest-selection-store.ts) so a row can
  * open the drawer without threading a context up to the page. ONE host is
  * mounted in page.tsx.
@@ -18,7 +26,7 @@
 
 import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
-import { Eye, X } from 'lucide-react';
+import { ArrowRight, Download, Eye, QrCode, X } from 'lucide-react';
 import { Drawer } from './overlay-primitives';
 import {
   guestDisplayName,
@@ -93,10 +101,11 @@ export function QuickViewButton({
 
 // ── decorative QR (seeded from the real qr_token) ──────────────────────────
 
-/** Stable 32-bit hash of the guest's real qr_token → the QR pattern seed. The
- *  QR is illustrative in P1; the real branded PNG endpoint is wired in a later
- *  phase. Seeding from the token keeps each guest's decorative code distinct
- *  and stable. */
+/** Stable 32-bit hash of the guest's real qr_token → the QR pattern seed. This
+ *  code is an aesthetic PREVIEW only (never scannable) — the guest's REAL QR is
+ *  reached via the section's actions (branded PNG download when the upgrade is
+ *  active, else the Invitation page). Seeding from the token keeps each guest's
+ *  decorative code distinct and stable. */
 function hashToken(token: string): number {
   let h = 2166136261;
   for (let i = 0; i < token.length; i += 1) {
@@ -162,12 +171,22 @@ function MiniChip({ children }: { children: React.ReactNode }) {
 
 // ── host ──────────────────────────────────────────────────────────────────
 
-export function GuestDrawerHost({ eventId }: { eventId: string }) {
+export function GuestDrawerHost({
+  eventId,
+  brandedQrActive = false,
+}: {
+  eventId: string;
+  /** Paid CUSTOM_QR_GUEST upgrade admin-approved for this event → offer the
+   *  branded PNG download directly (the gated route 403s otherwise, so a
+   *  non-owner is routed to the Invitation page instead). */
+  brandedQrActive?: boolean;
+}) {
   const payload = useGuestDrawer();
   if (!payload) return null;
   const { guest, groupLabels } = payload;
   const name = guestDisplayName(guest);
   const contact = guest.email ?? guest.mobile ?? null;
+  const qrFileName = `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
 
   return (
     <Drawer onClose={guestDrawer.close} labelledById={TITLE_ID}>
@@ -201,17 +220,51 @@ export function GuestDrawerHost({ eventId }: { eventId: string }) {
         </div>
       </div>
 
-      {/* Personal QR */}
-      <div className="mb-4 flex items-start gap-3 rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5">
-        <DecorativeQr token={guest.qr_token} />
-        <div className="min-w-0">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">
-            Personal QR
-          </p>
-          <p className="mt-1.5 text-[13px] leading-snug text-ink/70">
-            Opens {guest.first_name}&rsquo;s own page — invitation &amp; RSVP,
-            their tagged gallery, and find-my-seat.
-          </p>
+      {/* Personal QR — decorative preview + the real-QR doorway (2026-07-15). */}
+      <div className="mb-4 rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5">
+        <div className="flex items-start gap-3">
+          <DecorativeQr token={guest.qr_token} />
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">
+              Personal QR
+            </p>
+            <p className="mt-1.5 text-[13px] leading-snug text-ink/70">
+              Opens {guest.first_name}&rsquo;s own page — invitation &amp; RSVP,
+              their tagged gallery, and find-my-seat.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/[0.06] pt-3">
+          {brandedQrActive ? (
+            // Owner of the branded upgrade: one-click download of the REAL
+            // palette-tinted PNG — same gated route the Invitation surface uses.
+            <a
+              href={`/api/website/qr/guest/${guest.guest_id}`}
+              download={qrFileName}
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"
+            >
+              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Download QR
+            </a>
+          ) : (
+            // No branded upgrade — the gated PNG would 403. Route to the
+            // Invitation page, where every guest's free default scannable QR
+            // renders (and can be re-issued / printed).
+            <Link
+              href={`/dashboard/${eventId}/invitation`}
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"
+            >
+              <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              View scannable QR
+            </Link>
+          )}
+          <Link
+            href={`/dashboard/${eventId}/studio/custom-qr-guest`}
+            className="inline-flex items-center gap-1 text-[13px] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+          >
+            Customize guest QRs
+            <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </Link>
         </div>
       </div>
 
@@ -268,7 +321,8 @@ export function GuestDrawerHost({ eventId }: { eventId: string }) {
         Open full details
       </Link>
       <p className="mt-3 text-[11px] text-ink/40">
-        QR is illustrative in this quick view.
+        The code above is a preview. Every guest&rsquo;s default QR is free —
+        branding it with your colors is an upgrade.
       </p>
     </Drawer>
   );

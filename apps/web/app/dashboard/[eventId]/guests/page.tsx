@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight, Send } from 'lucide-react';
+import { Link2, ArrowRight, Send, LayoutGrid } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
@@ -34,6 +34,7 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
+import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
@@ -175,7 +176,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan] =
+  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
       fetchGuestsByEvent(supabase, eventId),
       supabase
@@ -239,6 +240,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // never the slowest read) and is guarded like the other seat reads: a blip
       // degrades to the default anchor rather than taking down the Guests tab.
       fetchFloorPlan(supabase, eventId).catch(() => null),
+      // Living Roster QR doorway (2026-07-15) — is the paid CUSTOM_QR_GUEST
+      // upgrade admin-APPROVED for this event? Drives the guest drawer's QR
+      // section: when active it offers the real branded PNG download (the same
+      // gated /api/website/qr/guest/[guestId] route the Invitation surface uses);
+      // when not, the drawer routes to the Invitation page (where every guest's
+      // free default scannable QR always renders) + the Custom-QR studio. Read
+      // with the admin client because ownership is an EVENT fact while orders RLS
+      // is purchaser-scoped (a co-host who didn't place the order would be
+      // mis-gated) — exactly like the Invitation page + the PNG endpoint. Folds
+      // into this parallel fan-out; eventSkuActive throws on a non-graceful DB
+      // error, so degrade to the default (no branded download) rather than
+      // taking down the whole Guests tab.
+      eventSkuActive(createAdminClient(), eventId, 'CUSTOM_QR_GUEST').catch(
+        () => false,
+      ),
     ]);
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
@@ -531,6 +547,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Invite guests
           </Link>
+          {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
+              (/seating: the "Arrange the room" editor, authoring truth for the
+              3D plan) was reachable ONLY from the mobile carousel's journey pill;
+              the desktop Guests page had no door to it. Same disease the Invite
+              door (beside) just cured. Same button-secondary weight — the proto's
+              `.gseat` glass pill. */}
+          <Link
+            href={`/dashboard/${eventId}/seating`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Arrange the room
+          </Link>
           {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
         </div>
       </header>
@@ -759,7 +788,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           slide-in quick-view a roster row opens. Both are portal-rendered
           client islands that sit idle until acted on. */}
       <UndoToastHost />
-      <GuestDrawerHost eventId={eventId} />
+      <GuestDrawerHost eventId={eventId} brandedQrActive={brandedQrActive} />
     </section>
   );
 }

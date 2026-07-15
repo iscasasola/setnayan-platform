@@ -43,6 +43,7 @@ export function EventTypePicker({
   next,
   preselect,
   inPlanningWedding = null,
+  samahanCommunityId,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -58,6 +59,13 @@ export function EventTypePicker({
    *  instead of the form. A settled wedding (archived/completed) is null → no
    *  block, so remarriage works. */
   inPlanningWedding?: { eventId: string; displayName: string; eventDate: string | null } | null;
+  /** Samahan context (plan §7 · PR-3): set = the event is being planned FOR a
+   *  community (the page already verified the viewer is an organizer and
+   *  filtered `types` to community_eligible). The pick always lands on the
+   *  inline form (never the tailored-onboarding routes — they don't carry the
+   *  community context; context flows one way, from the community's Events
+   *  tab), and the form posts a hidden `community_id`. */
+  samahanCommunityId?: string;
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -93,6 +101,13 @@ export function EventTypePicker({
 
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
+    // Samahan context: community events ALWAYS use the inline form below —
+    // it carries the hidden community_id; the tailored onboarding routes
+    // don't know about communities (plan §7).
+    if (samahanCommunityId) {
+      setSelectedKey(type.key);
+      return;
+    }
     if (type.onboardingHref) {
       // REPLACE (not push) so this legacy event-type picker never lingers in history
       // as a Back target behind the tailored onboarding — backing out of onboarding at
@@ -193,6 +208,9 @@ export function EventTypePicker({
         <form ref={formRef} action={createWeddingEvent} className="mt-10 max-w-lg space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />
+          {samahanCommunityId ? (
+            <input type="hidden" name="community_id" value={samahanCommunityId} />
+          ) : null}
           {next ? <input type="hidden" name="next" value={next} /> : null}
 
           <div className="space-y-1.5">

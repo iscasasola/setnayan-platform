@@ -6,6 +6,7 @@ import {
   Archive,
   CalendarDays,
   MessageCircle,
+  Plus,
   RefreshCw,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -219,7 +220,12 @@ export default async function SamahanSpacePage({
           roster={roster}
         />
       ) : (
-        <EventsTab events={events} viewerEventIds={viewerEventIds} />
+        <EventsTab
+          communityId={community.community_id}
+          events={events}
+          isOrganizer={isOrganizer}
+          viewerEventIds={viewerEventIds}
+        />
       )}
     </div>
   );
@@ -492,12 +498,20 @@ function shortDate(iso: string | null): string | null {
 }
 
 function EventsTab({
+  communityId,
   events,
+  isOrganizer,
   viewerEventIds,
 }: {
+  communityId: string;
   events: CommunityEventRow[];
+  isOrganizer: boolean;
   viewerEventIds: Set<string>;
 }) {
+  // Community event creation (plan §7 · PR-3): organizers only — the
+  // create-event page and the server action both re-verify.
+  const planHref = `/dashboard/create-event?samahan=${communityId}`;
+
   if (events.length === 0) {
     return (
       <div className="rounded-2xl border border-white/70 bg-white/60 p-8 text-center shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
@@ -510,12 +524,32 @@ function EventsTab({
         <p className="mx-auto mt-2 max-w-sm text-sm text-ink/60">
           When an organizer plans a reunion or outing, it shows up here.
         </p>
+        {isOrganizer ? (
+          <Link
+            href={planHref}
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Plan an event
+          </Link>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+      {isOrganizer ? (
+        <div className="mb-2 flex justify-end">
+          <Link
+            href={planHref}
+            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5"
+          >
+            <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Plan an event
+          </Link>
+        </div>
+      ) : null}
       <div className="divide-y divide-ink/5">
         {events.map((e) => {
           const isMember = viewerEventIds.has(e.event_id);

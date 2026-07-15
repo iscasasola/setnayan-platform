@@ -1,8 +1,11 @@
 import Link from 'next/link';
+import { Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { fetchCommunity } from '@/lib/communities';
 import { getInPlanningWedding } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
@@ -21,9 +24,18 @@ const ERROR_COPY: Record<string, string> = {
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
   wedding_exists:
     'You already have a wedding in planning — you can only plan one wedding at a time. Finish or archive it first to start a new one.',
+  samahan_invalid_type:
+    'That event type belongs to a person, not a samahan — pick a community event type.',
+  samahan_not_organizer:
+    'Only an organizer of that samahan can plan its events.',
 };
 
-type SearchParams = Promise<{ error?: string; next?: string; event_type?: string }>;
+type SearchParams = Promise<{
+  error?: string;
+  next?: string;
+  event_type?: string;
+  samahan?: string;
+}>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
@@ -58,14 +70,41 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   } = await supabase.auth.getUser();
   const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
 
+  // Samahan context (plan §7): `?samahan=<communityId>` turns this into
+  // COMMUNITY event creation — organizer-gated. A non-organizer, a plain
+  // member, a bad id, or an archived samahan all silently DROP the param and
+  // get the normal personal page (the server action re-verifies regardless).
+  let samahan: { communityId: string; name: string } | null = null;
+  if (params.samahan && user) {
+    const community = await fetchCommunity(supabase, params.samahan, user.id);
+    if (community && !community.archived && community.role === 'organizer') {
+      samahan = { communityId: community.community_id, name: community.name };
+    }
+  }
+
+  // Community events are class-gated (owner lock 2026-07-15): the picker only
+  // shows event types whose profile is community_eligible — a Samahan can
+  // never own a personal milestone. resolveProfile is request-cached per type.
+  const typesForContext = samahan
+    ? (
+        await Promise.all(
+          eventTypes.map(async (t) =>
+            (await resolveProfile(t.key)).eventClass === 'community_eligible'
+              ? t
+              : null,
+          ),
+        )
+      ).filter((t): t is (typeof eventTypes)[number] => t !== null)
+    : eventTypes;
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
         <Link
-          href="/dashboard"
+          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard'}
           className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
         >
-          ‹ Back to events
+          ‹ {samahan ? `Back to ${samahan.name}` : 'Back to events'}
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           What kind of event are you planning?
@@ -74,6 +113,18 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           Tap a type to begin.
         </p>
       </header>
+
+      {samahan ? (
+        <p className="mb-6 flex items-center gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/75">
+          <Users aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
+          <span>
+            Planning for <span className="font-medium text-ink">{samahan.name}</span>
+          </span>
+          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+            Samahan
+          </span>
+        </p>
+      ) : null}
 
       {errorMessage ? (
         <p
@@ -85,11 +136,12 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       ) : null}
 
       <EventTypePicker
-        types={eventTypes}
+        types={typesForContext}
         budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
         preselect={preselect}
         inPlanningWedding={inPlanningWedding}
+        samahanCommunityId={samahan?.communityId}
       />
     </div>
   );

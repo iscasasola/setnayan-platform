@@ -311,8 +311,9 @@ export default async function MoodBoardPage({ params }: Props) {
         ‹ Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Palette</p>
+        <h1 className="sn-h1">
           Mood Board
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -405,7 +406,7 @@ export default async function MoodBoardPage({ params }: Props) {
         <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+      <section className="sn-tile space-y-4 p-5">
         <header className="space-y-1">
           <h2 className="text-2xl font-semibold text-ink">Keep a copy</h2>
           <p className="max-w-prose text-sm text-ink/65">

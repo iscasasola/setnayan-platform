@@ -177,9 +177,10 @@ export default async function AlaalaPage({ params }: Props) {
   return (
     <section className="space-y-10">
       {/* ── Header — name the pillar + the promise + the guardrail ── */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Alaala</p>
         <h1
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
+          className="sn-h1"
           style={{ color: 'var(--m-ink)' }}
         >
           Your wedding, kept alive.
@@ -198,7 +199,7 @@ export default async function AlaalaPage({ params }: Props) {
       {densityCards.length > 0 ? (
         <div className="space-y-3">
           <p
-            className="font-mono text-[11px] uppercase tracking-[0.2em]"
+            className="sn-eye"
             style={{ color: 'var(--m-orange-2)' }}
           >
             Most storied moments
@@ -311,7 +312,7 @@ export default async function AlaalaPage({ params }: Props) {
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
             <p
-              className="font-mono text-[11px] uppercase tracking-[0.2em]"
+              className="sn-eye"
               style={{ color: 'var(--m-orange-2)' }}
             >
               Mga Boses · what your guests are saying
@@ -355,7 +356,7 @@ export default async function AlaalaPage({ params }: Props) {
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
       >
         <p
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
+          className="sn-eye"
           style={{ color: 'var(--m-orange-2)' }}
         >
           Story Assignments

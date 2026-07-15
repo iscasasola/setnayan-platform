@@ -85,11 +85,12 @@ export default async function CoupleRecapPage({
         Back to Papic
       </Link>
 
-      <header className="space-y-2">
+      <header className="sn-reveal space-y-2">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <h1 className="text-2xl font-semibold tracking-tight">Your Recap</h1>
+        <p className="sn-eye">Recap</p>
+        <h1 className="sn-h1">Your Recap</h1>
         <p className="max-w-prose text-sm text-ink/65">
           A living recap of your day — your love story, your photos, and the messages your guests
           left — assembled automatically. Free, and yours to share.

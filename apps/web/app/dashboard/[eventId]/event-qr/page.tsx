@@ -76,12 +76,12 @@ export default async function EventQrPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-ink/50">
+      <header className="sn-reveal space-y-2">
+        <div className="sn-eye">
           <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           <span>Event QR</span>
         </div>
-        <h1 className="m-display-tight text-3xl text-ink sm:text-4xl">
+        <h1 className="sn-h1">
           For your photography + livestream crew
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-ink/70">

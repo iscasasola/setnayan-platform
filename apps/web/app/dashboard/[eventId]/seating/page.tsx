@@ -231,8 +231,8 @@ export default async function SeatingPage({ params }: Props) {
       <DayOfEditingBanner eventDate={eventDate} />
 
       {genderSeparationNote ? (
-        <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3 text-sm text-ink/80">
-          <span className="font-medium text-emerald-800">Walima seating:</span>{' '}
+        <div className="rounded-xl border border-success-200/70 bg-success-50/40 px-4 py-3 text-sm text-ink/80">
+          <span className="font-medium text-success-800">Walima seating:</span>{' '}
           {genderSeparationNote}
         </div>
       ) : null}
@@ -240,8 +240,8 @@ export default async function SeatingPage({ params }: Props) {
       {/* Smart Seat-Plan Phase 5/6: capacity shortfall — reconcile can only seat
           guests it has chairs for, so nudge the couple to add tables. */}
       {seatShortfall > 0 ? (
-        <div className="rounded-xl border border-amber-200/70 bg-amber-50/50 px-4 py-3 text-sm text-ink/80">
-          <span className="font-medium text-amber-800">Not enough seats:</span>{' '}
+        <div className="rounded-xl border border-warn-200/70 bg-warn-50/50 px-4 py-3 text-sm text-ink/80">
+          <span className="font-medium text-warn-800">Not enough seats:</span>{' '}
           {nonDeclinedCount} guests but only {totalSeats} {totalSeats === 1 ? 'seat' : 'seats'} — add{' '}
           more tables to seat everyone
           {autoplaceEnabled ? ' (auto-seating fills them as you add tables)' : ''}.
@@ -289,7 +289,7 @@ function SeatStat({
 }) {
   return (
     <div className="flex-1 px-4 py-3 text-center">
-      <p className={`text-2xl font-semibold ${highlight ? 'text-terracotta' : 'text-ink'}`}>
+      <p className={`font-mono text-2xl font-semibold ${highlight ? 'text-terracotta' : 'text-ink'}`}>
         {value}
       </p>
       <p className="text-xs font-medium uppercase tracking-wide text-ink/55">{label}</p>

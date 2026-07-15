@@ -388,10 +388,9 @@ export default async function StudioPage({ params }: Props) {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-          Your Studio
-        </h1>
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">In-app services</p>
+        <h1 className="sn-h1 mt-1.5">Your Studio</h1>
         <p className="max-w-prose text-base text-ink/65">
           Everything you can add to your day. Start with what we suggest for
           where you are — or browse it all below.
@@ -399,10 +398,8 @@ export default async function StudioPage({ params }: Props) {
       </header>
 
       {coupleSuggestions.length > 0 ? (
-        <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-            Your coordinator suggests
-          </p>
+        <div className="sn-tile sn-reveal p-5 sm:p-6">
+          <p className="sn-eye">Your coordinator suggests</p>
           <ul className="mt-3 space-y-3">
             {coupleSuggestions.map(({ entry, note }) => {
               const Icon = entry.Icon;
@@ -447,10 +444,8 @@ export default async function StudioPage({ params }: Props) {
       ) : null}
 
       {vendorSuggestions.length > 0 ? (
-        <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-            Suggested by your vendors
-          </p>
+        <div className="sn-tile sn-reveal p-5 sm:p-6">
+          <p className="sn-eye">Suggested by your vendors</p>
           <ul className="mt-3 space-y-3">
             {vendorSuggestions.map(({ entry, note, vendorProfileId, vendorName }) => {
               const Icon = entry.Icon;
@@ -504,14 +499,12 @@ export default async function StudioPage({ params }: Props) {
       {recommendedEntries.length > 0 ? (
         <section aria-label="Recommended for you now" className="space-y-3">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-              Recommended for you now
-            </p>
+            <p className="sn-eye">Recommended for you now</p>
             <p className="mt-1 text-sm text-ink/60">{recommendLede}</p>
           </div>
           <RevealList
             as="ul"
-            className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-terracotta/25 bg-cream shadow-[0_1px_3px_rgba(92,37,66,0.06)]"
+            className="sn-tile divide-y divide-ink/10 overflow-hidden p-0"
           >
             {recommendedEntries.map((addon) => (
               <StudioAppRow
@@ -530,10 +523,8 @@ export default async function StudioPage({ params }: Props) {
 
       {/* Alaala — the pillar framing. The memory features (capture · website &
           story · music) are the pieces of the couple's living memory. */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-          Alaala · the memory you keep
-        </p>
+      <div className="sn-tile p-5 sm:p-6">
+        <p className="sn-eye">Alaala · the memory you keep</p>
         <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink">
           The pieces below become your <span className="italic">Alaala</span> — the living memory of
           your day. The moments you’ll be too busy to see, the people who can’t be there, the stories
@@ -551,16 +542,14 @@ export default async function StudioPage({ params }: Props) {
       {manageSurfaces.length > 0 ? (
         <section aria-label="Set up and manage your event" className="space-y-3">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
-              Set up &amp; manage
-            </p>
+            <p className="sn-eye">Set up &amp; manage</p>
             <p className="mt-1 text-sm text-ink/60">
               Your event&rsquo;s own surfaces — set them up and run them from here.
             </p>
           </div>
           <RevealList
             as="ul"
-            className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream"
+            className="sn-tile divide-y divide-ink/10 overflow-hidden p-0"
           >
             {manageSurfaces.map((s) => (
               <li key={s.key}>
@@ -593,9 +582,7 @@ export default async function StudioPage({ params }: Props) {
       ) : null}
 
       <div className="border-t border-ink/10 pt-6">
-        <h2 className="text-xl font-semibold tracking-tight text-ink">
-          Browse everything
-        </h2>
+        <h2 className="sn-sec text-xl">Browse everything</h2>
         <p className="mt-1 max-w-prose text-sm text-ink/60">
           The full library, grouped by what it&rsquo;s for. New ones light up as
           they ship.
@@ -630,7 +617,7 @@ export default async function StudioPage({ params }: Props) {
 
         return (
           <div key={group} id={anchor} className="scroll-mt-24 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-ink">{label}</h2>
+            <h2 className="sn-sec text-2xl">{label}</h2>
 
             {heroEntry ? (
               <div className="space-y-2">
@@ -652,7 +639,7 @@ export default async function StudioPage({ params }: Props) {
             {rows.length > 0 ? (
               <RevealList
                 as="ul"
-                className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream"
+                className="sn-tile divide-y divide-ink/10 overflow-hidden p-0"
               >
                 {rows.map((addon) => {
                   const comingSoon = addon.status === 'coming_soon';

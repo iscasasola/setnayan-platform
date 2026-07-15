@@ -102,8 +102,9 @@ export default async function PaperworkPage({ params }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <BackLink eventId={eventId} />
         </div>
-        <header className="space-y-3">
-          <h1 className="font-display text-3xl italic tracking-tight text-ink sm:text-4xl">
+        <header className="sn-reveal space-y-3">
+          <p className="sn-eye">Paperwork</p>
+          <h1 className="sn-h1">
             Paperwork
           </h1>
           <p className="max-w-prose text-sm text-ink/65 sm:text-base">
@@ -201,8 +202,9 @@ export default async function PaperworkPage({ params }: Props) {
           See all documents <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
         </Link>
       </div>
-      <header className="space-y-3">
-        <h1 className="font-display text-3xl italic tracking-tight text-ink sm:text-4xl">
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Paperwork</p>
+        <h1 className="sn-h1">
           Your wedding paperwork
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
@@ -333,7 +335,7 @@ function TraditionsGuide({
   return (
     <section className="space-y-4 rounded-xl border border-terracotta/20 bg-terracotta/[0.03] p-5">
       <div className="space-y-1">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+        <h2 className="sn-eye">
           What to expect
         </h2>
         <p className="text-lg font-semibold tracking-tight text-ink">
@@ -345,7 +347,7 @@ function TraditionsGuide({
         {display.map((item) => (
           <li
             key={`${item.dimension}-${item.label}`}
-            className="rounded-lg border border-ink/10 bg-cream p-3"
+            className="sn-row p-3"
           >
             <span className="inline-block rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
               {DIMENSION_LABEL[item.dimension]}
@@ -447,7 +449,7 @@ function SeedPrompt({
       className="rounded-xl border border-terracotta/30 bg-terracotta/[0.04] p-5"
     >
       <input type="hidden" name="event_id" value={eventId} />
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+      <h2 className="sn-eye">
         Start your checklist
       </h2>
       <p className="mt-2 text-sm text-ink/75">
@@ -467,7 +469,7 @@ function SeedPrompt({
 
 function UnknownCeremonyPrompt({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-ink/15 bg-cream p-5 text-sm text-ink/70">
+    <div className="sn-tile p-5 text-sm text-ink/70">
       <p>
         Pick a ceremony type on your event so we can show the document set that
         applies. Catholic, Civil, INC, and Muslim each carry distinct paperwork.
@@ -515,10 +517,10 @@ function SummaryTile({
   tone?: 'default' | 'warn' | 'good' | 'bad';
 }) {
   return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
+    <li className="sn-row p-4">
+      <p className="sn-eye">{label}</p>
       <p
-        className={`mt-1 text-xl font-semibold tracking-tight ${
+        className={`mt-1 font-mono text-xl font-semibold tracking-tight ${
           tone === 'bad'
             ? 'text-danger-700'
             : tone === 'warn'
@@ -616,7 +618,7 @@ function DocumentCard({
       ) : null}
 
       <div className="border-t border-ink/10 bg-cream/40 px-5 py-4">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye">
           Where to go
         </p>
         <p className="mt-1 text-sm text-ink/75">{meta.whereToGo}</p>
@@ -673,7 +675,7 @@ function Field({
 
   return (
     <div className="space-y-1">
-      <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="sn-eye">
         {icon === 'deadline' ? (
           <Clock className="h-3 w-3" strokeWidth={1.75} aria-hidden />
         ) : icon === 'clock' ? (
@@ -864,7 +866,7 @@ function TrackingReferenceForm({
       <input type="hidden" name="paperwork_id" value={paperworkId} />
       <label
         htmlFor={`tracking-${paperworkId}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+        className="sn-eye"
       >
         Tracking reference
       </label>
@@ -950,7 +952,7 @@ function NotesForm({
       <input type="hidden" name="paperwork_id" value={paperworkId} />
       <label
         htmlFor={`notes-${paperworkId}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+        className="sn-eye"
       >
         Notes (private)
       </label>
@@ -994,7 +996,7 @@ function ExtraRowsSection({
 
   return (
     <section className="space-y-3 pt-4">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <h2 className="sn-eye">
         Also tracking
       </h2>
       <p className="text-xs text-ink/65">

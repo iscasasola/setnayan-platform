@@ -557,11 +557,11 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         Back to {(event as { display_name: string }).display_name}
       </a>
 
-      <header className="space-y-2 text-center sm:text-left">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2 text-center sm:text-left">
+        <p className="sn-eye">
           Setnayan · Phase 0
         </p>
-        <h1 className="font-display text-3xl italic leading-tight text-ink sm:text-4xl">
+        <h1 className="sn-h1">
           Congratulations. Let&apos;s start with your date.
         </h1>
         <p className="text-base text-ink/70">
@@ -612,13 +612,13 @@ function PathCard({
 }) {
   const accentClasses =
     accent === 'terracotta'
-      ? 'border-ink/10 bg-cream hover:border-terracotta/45 hover:bg-terracotta/[0.04]'
-      : 'border-ink/10 bg-cream hover:border-ink/25 hover:bg-ink/[0.02]';
+      ? 'hover:border-terracotta/45 hover:bg-terracotta/[0.04]'
+      : 'hover:border-ink/25 hover:bg-ink/[0.02]';
   const iconClasses = accent === 'terracotta' ? 'text-terracotta' : 'text-ink/55';
   return (
     <a
       href={href}
-      className={`flex items-start gap-4 rounded-2xl border p-5 transition-colors sm:p-6 ${accentClasses}`}
+      className={`sn-row flex items-start gap-4 p-5 transition-colors sm:p-6 ${accentClasses}`}
     >
       <span
         className={`mt-0.5 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cream ring-1 ring-ink/10 ${iconClasses}`}
@@ -639,7 +639,7 @@ function NotReadyForm({ eventId }: { eventId: string }) {
       <input type="hidden" name="event_id" value={eventId} />
       <button
         type="submit"
-        className="flex w-full items-start gap-4 rounded-2xl border border-ink/10 bg-cream p-5 text-left transition-colors hover:border-ink/25 hover:bg-ink/[0.02] sm:p-6"
+        className="sn-row flex w-full items-start gap-4 p-5 text-left transition-colors hover:border-ink/25 hover:bg-ink/[0.02] sm:p-6"
       >
         <span className="mt-0.5 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cream text-ink/55 ring-1 ring-ink/10">
           <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} />

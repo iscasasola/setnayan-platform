@@ -105,7 +105,7 @@ export default async function PrivacyEditorPage({
   return (
     <section className="space-y-8">
       {/* Header strip — back link + title */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
@@ -114,11 +114,11 @@ export default async function PrivacyEditorPage({
           Back to your {eventNoun(event.event_type)} website
         </Link>
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Who can view
           </p>
-          <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             Set who can see your {eventNoun(event.event_type)} page
           </h1>
           <p className="max-w-prose text-base text-ink/70">
@@ -147,7 +147,7 @@ export default async function PrivacyEditorPage({
       {/* Launch status — read-only mirror of the Save-the-Date studio control
           (owner 2026-06-28). Tells the host whether their page is live, scheduled,
           or private, and links to where they actually launch / schedule it. */}
-      <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sn-tile p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           {launched ? (
             <Globe aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-success-700" strokeWidth={1.75} />
@@ -228,15 +228,15 @@ export default async function PrivacyEditorPage({
       </form>
 
       {/* Footnote — light context so the host knows what changes immediately */}
-      <footer className="rounded-xl border border-ink/10 bg-cream/60 p-5 text-sm text-ink/65">
+      <footer className="sn-tile p-5 text-sm text-ink/65">
         Changes apply right away. Anyone with your URL who already opened the page
         may see the previous view for up to a minute while their browser refreshes.
       </footer>
 
       {/* Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
-      <div className="space-y-4 rounded-xl border border-ink/10 bg-cream/60 p-5 sm:p-6">
+      <div className="space-y-4 sn-tile p-5 sm:p-6">
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Real Weddings
           </p>
@@ -305,10 +305,10 @@ function VisibilityCard({
   const selected = value === currentValue;
   return (
     <label
-      className={`group flex cursor-pointer items-start gap-4 rounded-xl border p-5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
+      className={`group sn-row flex cursor-pointer items-start gap-4 p-5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
         selected
           ? 'border-terracotta bg-white/80 ring-2 ring-terracotta ring-offset-2 ring-offset-cream'
-          : 'border-ink/10 bg-cream hover:border-terracotta/40 hover:bg-white/60'
+          : 'hover:border-terracotta/40 hover:bg-white/60'
       }`}
     >
       <input

@@ -322,8 +322,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       </Link>
 
       {/* Header — short. */}
-      <header className="space-y-2">
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Capture</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Wedding photo capture
         </h1>
@@ -388,7 +389,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           keep every full-resolution original for this event, undegraded.
         </section>
       ) : keepFullResPricePhp ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-cream/40 p-5">
+        <section className="flex flex-wrap items-center justify-between gap-3 sn-tile p-5">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
@@ -450,7 +451,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         />
 
         {/* Unlimited extras — the only off-list path. */}
-        <div className="rounded-xl border border-ink/10 bg-cream/70 p-4 sm:p-5">
+        <div className="sn-tile p-4 sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm font-semibold text-ink">
@@ -535,7 +536,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <RecapCard eventId={eventId} />
 
       {/* Setup & help — folded away. */}
-      <details className="group rounded-2xl border border-ink/10 bg-cream">
+      <details className="group sn-tile">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-ink/80 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <CircleHelp aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
@@ -591,7 +592,7 @@ function LimitedCard({
   const tierLabel = currentTier === 'unlimited' ? 'Unlimited' : 'Limited';
 
   return (
-    <div className="rounded-xl border border-terracotta/30 bg-cream/80 p-4 sm:p-5">
+    <div className="sn-tile border border-terracotta/30 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -645,7 +646,7 @@ function LimitedCard({
       ) : null}
 
       {!live && guestCount < PAPIC_MIN_PAID_CAMERAS ? (
-        <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-cream/60 p-4 text-center">
+        <div className="mt-4 sn-row p-4 text-center">
           <p className="text-sm text-ink/65">
             {guestCount < 1
               ? 'Add your guests first — Limited cameras come from your guest list.'
@@ -906,7 +907,7 @@ function StorageChoiceCard({
   return (
     <article
       id="papic-storage"
-      className="scroll-mt-20 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="scroll-mt-20 space-y-4 sn-tile p-5 sm:p-6"
     >
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -1286,7 +1287,7 @@ async function GalleryPreviewCard({
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
 
   return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+    <article className="space-y-4 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold tracking-tight">
           {hasPhotos ? 'Your gallery' : 'What your gallery looks like'}
@@ -1300,7 +1301,7 @@ async function GalleryPreviewCard({
       {hasPhotos ? (
         <PapicGalleryGrid photos={photos} eventId={eventId} kwentoDensity={kwentoDensity} />
       ) : (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
+        <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/65">
             Your gallery fills up as your crew shoots — the first photos land here
             in real time.

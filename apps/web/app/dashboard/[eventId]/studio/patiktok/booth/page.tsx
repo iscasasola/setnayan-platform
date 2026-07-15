@@ -130,8 +130,9 @@ export default async function PatiktokBoothDashboard({
         Back to Patiktok gallery
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Patiktok Booth</p>
+        <h1 className="sn-h1">
           {event?.display_name ?? 'Your event'}
           {event?.event_date ? (
             <span className="ml-2 font-mono text-base text-ink/55">
@@ -182,15 +183,15 @@ function CapacityStrip({
 }) {
   return (
     <section
-      className={`space-y-3 rounded-2xl border p-5 ${
+      className={`space-y-3 p-5 ${
         overCap
-          ? 'border-warn-300/70 bg-warn-50/80'
-          : 'border-ink/10 bg-cream'
+          ? 'rounded-2xl border border-warn-300/70 bg-warn-50/80'
+          : 'sn-tile'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Day&rsquo;s capture count (last 24 h)
           </p>
           <p className="mt-1 inline-flex items-baseline gap-2">
@@ -278,18 +279,14 @@ function TemplateSlot({
   const browseHref = `/dashboard/${eventId}/studio/patiktok?role=${role}&other=${otherSlug}`;
   return (
     <article
-      className={`flex flex-col gap-2 rounded-2xl border p-4 ${
+      className={`flex flex-col gap-2 p-4 ${
         role === 'primary'
-          ? 'border-terracotta/40 bg-terracotta/5'
-          : 'border-ink/10 bg-cream'
+          ? 'rounded-2xl border border-terracotta/40 bg-terracotta/5'
+          : 'sn-tile'
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">
-        <p
-          className={`font-mono text-[10px] uppercase tracking-[0.2em] ${
-            role === 'primary' ? 'text-terracotta-700' : 'text-ink/55'
-          }`}
-        >
+        <p className="sn-eye">
           {role === 'primary' ? 'Primary template' : 'Backup template'}
         </p>
         <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">

@@ -93,7 +93,7 @@ export default async function PlaylistPage({ params }: Props) {
         Back to {eventRow.data.event_name ?? 'event home'}
       </Link>
 
-      <header className="mb-6 space-y-2">
+      <header className="sn-reveal mb-6 space-y-2">
         <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1">
           <MusicIcon
             aria-hidden
@@ -104,7 +104,7 @@ export default async function PlaylistPage({ params }: Props) {
             Playlist
           </span>
         </div>
-        <h1 className="font-display text-3xl italic leading-tight text-ink sm:text-4xl">
+        <h1 className="sn-h1">
           Your wedding playlist
         </h1>
         <p className="text-sm leading-relaxed text-ink/75 sm:text-base">
@@ -132,7 +132,7 @@ export default async function PlaylistPage({ params }: Props) {
           </p>
         </div>
       ) : (
-        <div className="mb-6 rounded-xl border border-ink/15 bg-cream/50 p-4">
+        <div className="mb-6 sn-row p-4">
           <p className="text-sm leading-relaxed text-ink/75">
             Build the lineup whenever you&apos;re ready. The moment you lock
             your DJ or band, this playlist syncs to their workspace

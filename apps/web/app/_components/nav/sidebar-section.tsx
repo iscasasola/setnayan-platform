@@ -42,9 +42,22 @@ type Props = {
   pathname: string;
   /** Caller renders <SidebarItem>s — keeps server/client split flexible. */
   children: ReactNode;
+  /**
+   * Atelier-Glass eyebrow treatment (Glass PR-2 · rollout plan § 3.1 shell
+   * polish): render the section label as a `.sn-eye` gold eyebrow instead of
+   * the legacy `.m-label-mono` slate. OPT-IN per doorway — the customer
+   * sidebar passes it now; vendor/admin adopt it in their own recomposition
+   * PRs (PR-6/PR-8), so this never flips the other doorways' chrome early.
+   */
+  eyebrow?: boolean;
 };
 
-export function SidebarSection({ group, pathname: _pathname, children }: Props) {
+export function SidebarSection({
+  group,
+  pathname: _pathname,
+  children,
+  eyebrow = false,
+}: Props) {
   // Hooks must be called unconditionally (Rules of Hooks) — the header-less
   // branch (group.label === '') returns after these calls, not before.
   // owner 2026-06-17: header-less used by customer unified 5-tab sidebar.
@@ -102,8 +115,10 @@ export function SidebarSection({ group, pathname: _pathname, children }: Props) 
         onClick={toggle}
         aria-expanded={open}
         aria-controls={`nav-section-${group.key}-items`}
-        className="m-label-mono flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--m-sidebar-hover)] [[data-sidebar-collapsed='1']_&]:hidden"
-        style={{ color: 'var(--m-sidebar-fg-muted)' }}
+        className={`${
+          eyebrow ? 'sn-eye' : 'm-label-mono'
+        } flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--m-sidebar-hover)] [[data-sidebar-collapsed='1']_&]:hidden`}
+        style={eyebrow ? undefined : { color: 'var(--m-sidebar-fg-muted)' }}
       >
         <span>{group.label}</span>
         <ChevronIcon aria-hidden className="h-3 w-3" strokeWidth={2} />

@@ -301,7 +301,7 @@ export default async function EventLayout({ children, params }: Props) {
       {phase === 'dayof' ? (
         <Link
           href={`/dashboard/${eventId}/more`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/60 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-white/80 hover:text-ink lg:hidden"
         >
           <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Planning

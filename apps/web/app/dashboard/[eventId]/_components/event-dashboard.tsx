@@ -1,5 +1,14 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import {
+  Sparkles,
+  CalendarClock,
+  Wallet,
+  Users,
+  Store,
+  MessageSquare,
+  ListChecks,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -50,6 +59,7 @@ import {
   isSuriAssistFreeDecisionId,
 } from '@/lib/setnayan-ai-free-assist';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { CountUp } from '@/app/_components/count-up';
 import { ExpandCard } from './expand-card';
 import { JourneyRail } from '../progress/_components/journey-rail';
 import { FreeVenueShortlistOffer } from '../progress/_components/free-venue-shortlist-offer';
@@ -67,9 +77,11 @@ import { FreeVenueShortlistOffer } from '../progress/_components/free-venue-shor
  * is fixture-driven.
  *
  * Dual state: when Setnayan AI is active for the viewer (per-event flag +
- * per-user subscription fan-out), the surface adds the Suri briefing strip,
- * Today's one thing, priority-ranked decisions, the What's-next deadline rail,
- * the render-only "Suri on watch" section, and the wine/champagne premium skin.
+ * per-user subscription fan-out), the Suri briefing sentence + chips render
+ * INSIDE the "Big Day" obsidian focal (Glass PR-2 — this retired both the
+ * mulberry-gradient briefing strip and the separate premium veil; the tile IS
+ * the premium presence), plus Today's one thing, priority-ranked decisions,
+ * the What's-next deadline rail, and the render-only "Suri on watch" section.
  * Internal accounts can preview the AI state on any event via `?suri=preview`
  * (render-only override — it flips no flags and charges nothing); the Home page
  * forwards its own `?suri` param through `suriPreviewParam`.
@@ -145,10 +157,18 @@ export async function EventDashboard({
   eventId,
   suriPreviewParam,
   slotAfterBento,
+  dayOfActive = false,
 }: {
   eventId: string;
   suriPreviewParam?: string;
   slotAfterBento?: ReactNode;
+  /**
+   * True inside the T-1h..T+8h day-of window (resolved by the Home page). When
+   * set, the page's DayOfModeGrid renders its "happening now" obsidian focal
+   * ABOVE this surface, so the "Big Day" focal here steps down to a glass tile
+   * — the one-obsidian-per-view rule (rollout plan § 1.3) stays satisfied.
+   */
+  dayOfActive?: boolean;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -818,26 +838,29 @@ export async function EventDashboard({
   // the card never reads empty while blocks exist (see selectSchedulePreviewBlocks).
   const schedulePreview = selectSchedulePreviewBlocks(scheduleBlocks, now);
 
-  // Presentation helpers for the premium skin (page-scoped; tokens only).
-  const card = aiActive
-    ? 'm-card relative overflow-hidden border-terracotta/40 shadow-[0_2px_6px_rgba(92,37,66,0.07),0_16px_40px_rgba(92,37,66,0.11)]'
-    : 'm-card';
-  const chipToneClass = {
-    hot: 'bg-mulberry/10 text-mulberry',
-    warm: 'bg-warn-100 text-warn-700 dark:bg-warn-900/40 dark:text-warn-300',
-    calm: 'bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300',
-    ok: 'bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300',
-  } as const;
+  // ── Presentation — the Atelier-Glass kit (rollout plan § 1.2). The old
+  //    m-card + retired-wine `mulberry` gradient skin (R7 — half-broken since
+  //    mulberry re-pointed to gold) is gone; panels are `.sn-tile`, the focal is
+  //    `.sn-tile-dark`, rows are `.sn-row`. Warm-semantic chip tones are inline
+  //    styles so they map to the sn semantic vars, not the mulberry remap. ─────
+  const chipToneStyle: Record<
+    'hot' | 'warm' | 'calm' | 'ok',
+    { color: string; background: string }
+  > = {
+    hot: { color: 'var(--sn-warning)', background: 'var(--sn-warning-soft)' },
+    warm: { color: 'var(--sn-gold-700)', background: 'var(--sn-gold-100)' },
+    calm: { color: 'var(--sn-info)', background: 'var(--sn-info-soft)' },
+    ok: { color: 'var(--sn-success)', background: 'var(--sn-success-soft)' },
+  };
+  // Gold ✦ prefixing the AI-state section heads — jewelry, not paint.
   const spark = aiActive ? (
-    <span aria-hidden className="mr-1.5 align-[0.18em] text-[0.62em] text-terracotta">
-      ✦
-    </span>
-  ) : null;
-  const goldHairline = aiActive ? (
     <span
       aria-hidden
-      className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-terracotta to-transparent"
-    />
+      className="mr-1.5 align-[0.18em] text-[0.72em]"
+      style={{ color: 'var(--sn-gold-500)' }}
+    >
+      ✦
+    </span>
   ) : null;
 
   const countdownPct =
@@ -848,121 +871,291 @@ export async function EventDashboard({
       : 0;
   const guestPct = stats.total > 0 ? (stats.attending / stats.total) * 100 : 0;
 
+  // The focal's "% planned" gold bar = vendor-categories-locked share (the same
+  // real aggregate the cockpit briefing reports). Clamped for the bar width.
+  const plannedPct = Math.max(0, Math.min(100, cockpitModel.briefing.lockedPct));
+  // One obsidian per view (§ 1.3): the "Big Day" focal is dark EXCEPT on the day
+  // itself, where the DayOfModeGrid's "happening now" card owns the obsidian and
+  // this focal steps down to a glass tile.
+  const focalDark = !dayOfActive;
+  // The focal's date line — the emotional anchor. Real event data or a muted
+  // "to be set" (a no-date event still gets the SetDateNudge in slotAfterBento).
+  const focalDateLabel = event.event_date
+    ? new Intl.DateTimeFormat('en-PH', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }).format(new Date(`${event.event_date}T00:00:00`))
+    : eventType === 'wedding'
+      ? 'Your date, once it’s set'
+      : 'Date to be set';
+  const focalVenue = (event as { venue_name?: string | null }).venue_name ?? null;
+  // Chip pills inside the focal (AI briefing) — glass-on-dark vs gold-on-glass.
+  const focalChipStyle = focalDark
+    ? {
+        border: '1px solid rgba(255,255,255,.2)',
+        background: 'rgba(255,255,255,.1)',
+        color: '#F3ECDF',
+      }
+    : {
+        border: '1px solid var(--sn-gold-500)',
+        background: 'var(--sn-gold-100)',
+        color: 'var(--sn-gold-700)',
+      };
+  const focalHeadColor = focalDark ? '#F3ECDF' : 'var(--sn-ink-900)';
+  const focalSubColor = focalDark ? 'rgba(243,236,223,.65)' : 'var(--sn-ink-500)';
+
   return (
     <div className="relative">
-      {/* Premium veil — page-scoped radial wash, AI state only. */}
-      {aiActive ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-x-4 -inset-y-6 -z-10 sm:-inset-x-6 lg:-inset-x-8"
-          style={{
-            background:
-              'radial-gradient(1000px 560px at 10% -4%, rgb(var(--color-mulberry) / 0.07) 0%, transparent 62%), radial-gradient(760px 460px at 96% 6%, rgb(var(--color-terracotta) / 0.10) 0%, transparent 58%), radial-gradient(1100px 760px at 50% 104%, rgb(var(--color-mulberry) / 0.05) 0%, transparent 62%)',
-          }}
-        />
-      ) : null}
-
       <div className="space-y-10">
         {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <header className="pt-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-terracotta">
-            Hello {displayName}
+        <header className="sn-reveal pt-1">
+          <p className="text-[13px] text-ink/55">
+            Kumusta, {displayName} · welcome back
           </p>
-          <h1 className="m-serif mt-2 text-3xl leading-tight text-ink sm:text-4xl">
+          <h1 className="sn-h1 mt-1.5">
             {daysOut === 0
               ? `It's your ${eventWord} day.`
               : daysOut !== null && daysOut < 0
                 ? `Your ${eventWord} is complete.`
-                : `Your ${eventWord} is taking shape.`}
+                : `Your ${eventWord} is taking shape.`}{' '}
+            {daysOut === null || daysOut > 0 ? (
+              <span className="sn-h1-tail">Here&rsquo;s today.</span>
+            ) : null}
           </h1>
-          <p className="mt-2 max-w-[56ch] text-ink/60">
+          <p className="mt-2.5 max-w-[56ch] text-[12.5px] text-ink/55">
             {daysOut !== null && daysOut > 0 ? (
               <>
-                <b className="font-semibold text-ink">{daysOut}</b>{' '}
+                <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
+                  {daysOut}
+                </b>{' '}
                 {daysOut === 1 ? 'day' : 'days'} to go ·{' '}
               </>
             ) : null}
-            <b className="font-semibold text-ink">{openDecisionCount}</b>{' '}
+            <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
+              {openDecisionCount}
+            </b>{' '}
             {openDecisionCount === 1 ? 'decision' : 'decisions'} waiting on you ·
             you&rsquo;re in the{' '}
             <b className="font-semibold text-ink">{currentStageLabel}</b> stage.
           </p>
         </header>
 
-        {/* ── Suri briefing strip (AI) ─────────────────────────────────── */}
-        {aiActive ? (
-          <section aria-label="Suri briefing" className="!mt-6">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-mulberry-700 via-mulberry to-mulberry-600 px-6 py-5 text-white shadow-[0_14px_36px_rgba(92,37,66,0.32)]">
+        {/* ── The Big Day — the obsidian focal (§ 1.3). Countdown · date ·
+         *  venue · % planned gold bar; when Setnayan AI is active the Suri
+         *  briefing sentence + chips render INSIDE it — retiring BOTH the
+         *  retired-wine `from-mulberry-700` gradient strip (R7 bug) AND the
+         *  separate premium veil (the tile IS the premium presence). On the
+         *  day itself it steps down to glass so the DayOfModeGrid's "happening
+         *  now" card owns the single obsidian (§ 1.3). Blooms last (sn-bloom). */}
+        <section aria-label={`The ${eventWord} day`} className="!mt-6">
+          <div
+            className={`relative overflow-hidden sn-bloom ${
+              focalDark ? 'sn-tile-dark' : 'sn-tile'
+            }`}
+          >
+            {focalDark ? (
+              <>
+                <span className="sn-veil" aria-hidden />
+                <span className="sn-capiz" aria-hidden />
+              </>
+            ) : null}
+            <p className="sn-eye">
+              <CalendarClock aria-hidden strokeWidth={1.75} />
+              The {eventWord} day
+            </p>
+            <div className="mt-3 min-w-0">
+              <h2
+                className="text-[22px] font-extrabold leading-tight tracking-[-0.015em]"
+                style={{ color: focalHeadColor }}
+              >
+                {focalDateLabel}
+              </h2>
+              <p className="mt-1 truncate font-mono text-xs" style={{ color: focalSubColor }}>
+                {focalVenue
+                  ? focalVenue
+                  : event.event_date
+                    ? 'The date is locked'
+                    : 'No firm date yet'}
+              </p>
+            </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <b
+                className="font-mono text-[46px] font-bold leading-none tracking-[-0.02em]"
+                style={{ color: focalHeadColor }}
+              >
+                {daysOut === null
+                  ? '—'
+                  : daysOut === 0
+                    ? 'Today'
+                    : daysOut < 0
+                      ? Math.abs(daysOut)
+                      : <CountUp value={daysOut} delayMs={700} />}
+              </b>
+              <span
+                className="text-[13px] font-semibold"
+                style={{ color: focalDark ? 'rgba(243,236,223,.7)' : 'var(--sn-ink-500)' }}
+              >
+                {daysOut === null
+                  ? 'days to go'
+                  : daysOut === 0
+                    ? 'it all happens now'
+                    : daysOut < 0
+                      ? Math.abs(daysOut) === 1
+                        ? 'day ago'
+                        : 'days ago'
+                      : 'days to go'}
+              </span>
+            </div>
+            {/* % planned — gold bar with a single shimmer pass. */}
+            <div
+              className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
+              style={{
+                background: focalDark ? 'rgba(255,255,255,.14)' : 'rgba(30,26,18,.08)',
+              }}
+            >
+              <i
+                className="relative block h-full overflow-hidden rounded-full"
+                style={{ width: `${plannedPct}%`, background: 'var(--sn-gold-300)' }}
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 w-2/5"
+                  style={{
+                    background:
+                      'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)',
+                    animation: 'sn-shimmer 2.8s var(--sn-ease-out) 1.6s 1 both',
+                  }}
+                />
+              </i>
+            </div>
+            <p
+              className="mt-2 font-mono text-[10px]"
+              style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
+            >
+              <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
+                {Math.round(plannedPct)}%
+              </b>{' '}
+              planned
+            </p>
+
+            {/* AI-active: the Suri briefing sentence + chips, INSIDE the focal. */}
+            {aiActive ? (
+              <>
+                <div
+                  className="my-4 h-px"
+                  style={{
+                    background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
+                  }}
+                />
+                {/* .sn-eye cascades gold-300 inside .sn-tile-dark and gold-700
+                 *  on the day-of glass fallback — no inline color override. */}
+                <p className="sn-eye">
+                  <Sparkles aria-hidden strokeWidth={1.75} />
+                  Suri · your briefing
+                </p>
+                <p
+                  className="mt-2 max-w-[60ch] text-[15px] font-semibold leading-snug"
+                  style={{ color: focalHeadColor }}
+                >
+                  {cockpitModel.briefing.sentence}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {daysOut !== null && daysOut >= 0 ? (
+                    <span
+                      className="rounded-full px-3 py-1 text-xs font-semibold"
+                      style={focalChipStyle}
+                    >
+                      {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
+                    </span>
+                  ) : null}
+                  <span
+                    className="rounded-full px-3 py-1 text-xs font-semibold"
+                    style={focalChipStyle}
+                  >
+                    {lockedVendorCount} of {totalLockableCategories} categories locked
+                  </span>
+                  {topPriorityTask ? (
+                    <span
+                      className="rounded-full px-3 py-1 text-xs font-semibold"
+                      style={focalChipStyle}
+                    >
+                      Most urgent: {topPriorityTask.title.toLowerCase()}
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
+           *  glass tile right below the focal. */}
+          {aiActive && topPriorityTask ? (
+            <div className="sn-tile relative mt-3 flex flex-wrap items-center gap-4 overflow-hidden">
               <span
                 aria-hidden
-                className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-terracotta/20"
+                className="pointer-events-none absolute inset-x-4 top-0 h-px"
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent, var(--sn-gold-500), transparent)',
+                }}
               />
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-terracotta-200">
-                ✦ Suri · your planning briefing
-              </p>
-              <p className="m-serif mt-2 max-w-[60ch] text-lg leading-snug sm:text-xl">
-                {cockpitModel.briefing.sentence}
-              </p>
-              <div className="mt-3.5 flex flex-wrap gap-2">
-                {daysOut !== null && daysOut >= 0 ? (
-                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold">
-                    {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
-                  </span>
-                ) : null}
-                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold">
-                  {lockedVendorCount} of {totalLockableCategories} categories locked
-                </span>
-                {topPriorityTask ? (
-                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold">
-                    Most urgent: {topPriorityTask.title.toLowerCase()}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            {/* Today's one thing — the resolver's #1, single-focus. */}
-            {topPriorityTask ? (
-              <div
-                className={`${card} mt-3 flex flex-wrap items-center gap-4 border-terracotta/50 px-5 py-4`}
+              <span
+                className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-mono text-lg font-bold"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
               >
-                {goldHairline}
-                <span className="m-serif flex h-11 w-11 flex-none items-center justify-center rounded-full bg-terracotta/15 text-lg text-terracotta-700 dark:text-terracotta-300">
-                  1
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-terracotta">
-                    Today&rsquo;s one thing
-                  </p>
-                  <p className="m-serif text-lg leading-snug text-ink">
-                    {topPriorityTask.title}
-                  </p>
-                  <p className="mt-0.5 text-[13px] text-ink/60">
-                    {topPriorityTask.whyItMatters}
-                  </p>
-                </div>
-                <Link
-                  href={topPriorityTask.ctaHref}
-                  className="flex-none rounded-full bg-gradient-to-r from-mulberry-700 to-mulberry px-4 py-2 text-[13px] font-bold text-white"
-                >
-                  {topPriorityTask.ctaLabel}
-                </Link>
+                1
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="sn-eye">Today&rsquo;s one thing</p>
+                <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">
+                  {topPriorityTask.title}
+                </p>
+                <p className="mt-0.5 text-[13px] text-ink/60">
+                  {topPriorityTask.whyItMatters}
+                </p>
               </div>
-            ) : null}
-          </section>
-        ) : null}
+              <Link
+                href={topPriorityTask.ctaHref}
+                className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
+                style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
+              >
+                {topPriorityTask.ctaLabel}
+              </Link>
+            </div>
+          ) : null}
+        </section>
 
         {/* ── At-a-glance bento ────────────────────────────────────────── */}
+        {/* Entrance cascade § 2(b): header (0s) → these four tiles stagger via
+         *  .sn-reveal's nth-child delays (+.08s each) → the focal blooms LAST
+         *  at ~1.05s. Header + 4 tiles + focal = the 6-element stagger cap;
+         *  everything below the fold paints static. */}
         <section aria-label="At a glance" className={aiActive ? '!mt-5' : '!mt-6'}>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className={`${card} flex items-center gap-3.5 px-4 py-4`}>
-              {goldHairline}
-              <ProgressRing pct={countdownPct} size={60} stroke={7} />
+            <div className="sn-tile sn-reveal flex items-center gap-3.5">
+              <ProgressRing
+                pct={countdownPct}
+                size={60}
+                stroke={7}
+                color="var(--sn-gold-500)"
+                sweep={{ delayMs: 300 }}
+              />
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+                <p className="sn-eye">
+                  <CalendarClock aria-hidden strokeWidth={1.75} />
                   Countdown
                 </p>
-                <p className="m-serif text-2xl leading-none text-ink">
-                  {daysOut === null ? '—' : daysOut === 0 ? 'Today' : daysOut}
+                <p className="mt-1 font-mono text-2xl font-bold leading-none text-ink">
+                  {daysOut === null ? (
+                    '—'
+                  ) : daysOut === 0 ? (
+                    'Today'
+                  ) : daysOut < 0 ? (
+                    Math.abs(daysOut)
+                  ) : (
+                    <CountUp value={daysOut} delayMs={300} />
+                  )}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-ink/55">
                   {daysOut === null
@@ -980,62 +1173,83 @@ export async function EventDashboard({
             <a
               href="#decisions"
               aria-label="Jump to decisions waiting on you"
-              className={`${card} flex items-center gap-3.5 px-4 py-4`}
+              className="sn-tile sn-reveal sn-press flex items-center gap-3.5"
             >
-              {goldHairline}
-              <ProgressRing pct={cockpitModel.briefing.lockedPct} size={60} stroke={7}>
-                <span className="m-serif text-lg leading-none text-ink">
+              <ProgressRing
+                pct={cockpitModel.briefing.lockedPct}
+                size={60}
+                stroke={7}
+                color="var(--sn-gold-500)"
+                sweep={{ delayMs: 380 }}
+              >
+                <span className="font-mono text-lg font-bold leading-none text-ink">
                   {openDecisionCount}
                 </span>
               </ProgressRing>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+                <p className="sn-eye">
+                  <ListChecks aria-hidden strokeWidth={1.75} />
                   Decisions
                 </p>
-                <p className="m-serif text-2xl leading-none text-ink">{openDecisionCount}</p>
+                <p className="mt-1 font-mono text-2xl font-bold leading-none text-ink">
+                  <CountUp value={openDecisionCount} delayMs={380} />
+                </p>
                 <p className="mt-0.5 truncate text-xs text-ink/55">waiting on you</p>
               </div>
             </a>
-            <div className={`${card} flex items-center gap-3.5 px-4 py-4`}>
-              {goldHairline}
+            <div className="sn-tile sn-reveal flex items-center gap-3.5">
               <ProgressRing
                 pct={budgetPct}
                 size={60}
                 stroke={7}
-                color="rgb(var(--color-terracotta))"
+                color="var(--sn-gold-500)"
+                sweep={{ delayMs: 460 }}
               >
-                <span className="m-serif text-sm leading-none text-ink">
+                <span className="font-mono text-sm font-bold leading-none text-ink">
                   {budgetTargetCentavos && budgetTargetCentavos > 0
                     ? `${Math.round(Math.min(999, budgetPct))}%`
                     : '—'}
                 </span>
               </ProgressRing>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+                <p className="sn-eye">
+                  <Wallet aria-hidden strokeWidth={1.75} />
                   Budget
                 </p>
-                <p className="m-serif text-xl leading-none text-ink">
+                <p className="mt-1 font-mono text-xl font-bold leading-none text-ink">
                   {formatPeso(committedCentavos)}
                 </p>
+                {/* Owner screenshot fix (2026-07-15): the old "of ₱X committed"
+                 *  sub read as if the BUDGET were the committed amount. The
+                 *  mono value above is what's committed; the sub names the
+                 *  budget it counts against, and the ring carries %-of-budget. */}
                 <p className="mt-0.5 truncate text-xs text-ink/55">
                   {budgetTargetCentavos && budgetTargetCentavos > 0
-                    ? `of ${formatPeso(budgetTargetCentavos)} committed`
+                    ? `committed · of ${formatPeso(budgetTargetCentavos)} budget`
                     : 'committed · no target set'}
                 </p>
               </div>
             </div>
-            <div className={`${card} flex items-center gap-3.5 px-4 py-4`}>
-              {goldHairline}
-              <ProgressRing pct={guestPct} size={60} stroke={7}>
-                <span className="m-serif text-lg leading-none text-ink">
+            <div className="sn-tile sn-reveal flex items-center gap-3.5">
+              <ProgressRing
+                pct={guestPct}
+                size={60}
+                stroke={7}
+                color="var(--sn-gold-500)"
+                sweep={{ delayMs: 540 }}
+              >
+                <span className="font-mono text-lg font-bold leading-none text-ink">
                   {stats.attending}
                 </span>
               </ProgressRing>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+                <p className="sn-eye">
+                  <Users aria-hidden strokeWidth={1.75} />
                   Guests
                 </p>
-                <p className="m-serif text-2xl leading-none text-ink">{stats.attending}</p>
+                <p className="mt-1 font-mono text-2xl font-bold leading-none text-ink">
+                  <CountUp value={stats.attending} delayMs={540} />
+                </p>
                 <p className="mt-0.5 truncate text-xs text-ink/55">
                   attending of {stats.total}
                 </p>
@@ -1062,17 +1276,14 @@ export async function EventDashboard({
          *  emotional pacing is lost. */}
         <section id="decisions" aria-label="Decisions" className="scroll-mt-20">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="m-serif text-2xl text-ink">{spark}Decisions waiting on you</h2>
+            <h2 className="sn-sec">{spark}Decisions waiting on you</h2>
             <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                aiActive
-                  ? 'bg-gradient-to-r from-mulberry-700 to-mulberry text-white'
-                  : 'bg-mulberry/10 text-mulberry'
-              }`}
+              className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
+              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
             >
               {openDecisionCount} open
             </span>
-            <p className="text-sm text-ink/55">
+            <p className="sn-sec-sub">
               {aiActive
                 ? 'Ranked by what closes soonest — each one links to its room.'
                 : 'Choices only you can make — everything else keeps moving without you.'}
@@ -1085,58 +1296,85 @@ export async function EventDashboard({
           ) : null}
           {decisionGroups.length > 0 ? (
             <div className="grid gap-3.5 lg:grid-cols-2">
-              {decisionGroups.map((group, gi) => (
-                <article key={group.id} className={`${card} px-5 py-4`}>
-                  {goldHairline}
-                  <div className="mb-1 flex items-center gap-2.5">
-                    <div className="min-w-0">
-                      <h3 className="m-serif text-[17px] text-ink">{group.title}</h3>
-                      <p className="text-xs text-ink/45">{group.sub}</p>
-                    </div>
-                    {aiActive ? (
-                      <span className="ml-auto rounded-full bg-gradient-to-r from-mulberry-700 to-mulberry px-2.5 py-0.5 text-[11px] font-extrabold tracking-wide text-white">
-                        PRIORITY {gi + 1}
-                      </span>
-                    ) : (
-                      <span className="ml-auto rounded-full border border-ink/10 px-2.5 py-0.5 text-xs font-bold text-ink/60">
-                        {group.items.length}
-                      </span>
-                    )}
-                  </div>
-                  {group.items.map((item) => (
-                    <div key={item.id} className="border-t border-ink/5 py-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <b className="min-w-0 truncate text-sm font-semibold text-ink">
-                          {item.label}
-                        </b>
-                        <span
-                          className={`ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${chipToneClass[item.chipTone]}`}
-                        >
-                          {item.chip}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
-                      <Link
-                        href={item.href}
-                        className={`mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
-                          aiActive
-                            ? 'bg-gradient-to-r from-mulberry-700 to-mulberry text-white'
-                            : 'border border-mulberry/30 text-mulberry hover:bg-mulberry/10'
-                        }`}
+              {decisionGroups.map((group, gi) => {
+                const GroupIcon =
+                  group.id === 'book'
+                    ? Store
+                    : group.id === 'pay'
+                      ? Wallet
+                      : group.id === 'role'
+                        ? Users
+                        : Sparkles;
+                return (
+                  <article key={group.id} className="sn-tile">
+                    <div className="mb-2 flex items-center gap-2.5">
+                      <span
+                        aria-hidden
+                        className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
                       >
-                        {item.ctaLabel}
-                      </Link>
-                      {venueOfferInline && isSuriAssistFreeDecisionId(item.id) ? (
-                        <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
-                      ) : null}
+                        <GroupIcon className="h-4 w-4" strokeWidth={1.75} />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-[16px] font-extrabold tracking-[-0.015em] text-ink">
+                          {group.title}
+                        </h3>
+                        <p className="text-xs text-ink/45">{group.sub}</p>
+                      </div>
+                      {aiActive ? (
+                        <span
+                          className="ml-auto rounded-full px-2.5 py-0.5 font-mono text-[11px] font-extrabold tracking-wide"
+                          style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
+                        >
+                          PRIORITY {gi + 1}
+                        </span>
+                      ) : (
+                        <span
+                          className="ml-auto rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold text-ink/60"
+                          style={{ borderColor: 'rgba(30,26,18,.12)' }}
+                        >
+                          {group.items.length}
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </article>
-              ))}
+                    <div className="space-y-2">
+                      {group.items.map((item, ii) => (
+                        <div key={item.id} className="sn-row px-3.5 py-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <b className="min-w-0 truncate text-sm font-semibold text-ink">
+                              {item.label}
+                            </b>
+                            <span
+                              className="ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
+                              style={chipToneStyle[item.chipTone]}
+                            >
+                              {item.chip}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
+                          <Link
+                            href={item.href}
+                            className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-transform hover:-translate-y-0.5"
+                            style={
+                              ii === 0
+                                ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
+                                : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
+                            }
+                          >
+                            {item.ctaLabel}
+                          </Link>
+                          {venueOfferInline && isSuriAssistFreeDecisionId(item.id) ? (
+                            <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : (
-            <div className={`${card} px-5 py-6 text-sm text-ink/55`}>
-              {goldHairline}
+            <div className="sn-tile text-sm text-ink/55">
               Nothing needs a decision right now — your plan keeps moving on its own.
             </div>
           )}
@@ -1145,7 +1383,8 @@ export async function EventDashboard({
           <div className="mt-3.5 text-sm">
             <Link
               href={`${base}/checklist`}
-              className="font-semibold text-mulberry hover:underline"
+              className="font-semibold hover:underline"
+              style={{ color: 'var(--sn-gold-700)' }}
             >
               View your full checklist →
             </Link>
@@ -1156,46 +1395,53 @@ export async function EventDashboard({
         {aiActive && upcoming.items.length > 0 ? (
           <section aria-label="What's next">
             <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="m-serif text-2xl text-ink">{spark}What&rsquo;s next</h2>
-              <p className="text-sm text-ink/55">
+              <h2 className="sn-sec">{spark}What&rsquo;s next</h2>
+              <p className="sn-sec-sub">
                 Your deadlines, in the order Suri would take them.
               </p>
             </div>
             <div className="-mx-1 flex gap-0 overflow-x-auto px-1 pb-2 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {upcoming.items.map((item) => (
-                <div key={item.id} className="relative min-w-[150px] flex-1 pr-3">
-                  <span
-                    aria-hidden
-                    className="absolute left-0 right-0 top-[5px] h-0.5 bg-mulberry/20"
-                  />
-                  <span
-                    aria-hidden
-                    className={`relative z-[2] mb-2.5 block h-3 w-3 rounded-full ring-4 ${
-                      item.category === 'payment' || item.category === 'renewal'
-                        ? 'bg-mulberry ring-mulberry/15'
-                        : item.category === 'document'
-                          ? 'bg-warn-500 ring-warn-500/20'
-                          : 'bg-success-500 ring-success-500/20'
-                    }`}
-                  />
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-mulberry">
-                    {shortDate.format(item.date)}
-                  </p>
-                  {item.href ? (
-                    <Link
-                      href={item.href}
-                      className="mt-0.5 block text-[13.5px] font-semibold leading-snug text-ink hover:text-mulberry"
+              {upcoming.items.map((item) => {
+                const dotColor =
+                  item.category === 'payment' || item.category === 'renewal'
+                    ? 'var(--sn-warning)'
+                    : item.category === 'document'
+                      ? 'var(--sn-info)'
+                      : 'var(--sn-success)';
+                return (
+                  <div key={item.id} className="relative min-w-[150px] flex-1 pr-3">
+                    <span
+                      aria-hidden
+                      className="absolute left-0 right-0 top-[5px] h-0.5"
+                      style={{ background: 'rgba(169,131,75,.25)' }}
+                    />
+                    <span
+                      aria-hidden
+                      className="relative z-[2] mb-2.5 block h-3 w-3 rounded-full"
+                      style={{ background: dotColor, boxShadow: `0 0 0 4px ${dotColor}22` }}
+                    />
+                    <p
+                      className="font-mono text-[11px] font-bold uppercase tracking-wide"
+                      style={{ color: 'var(--sn-gold-700)' }}
                     >
-                      {item.title}
-                    </Link>
-                  ) : (
-                    <p className="mt-0.5 text-[13.5px] font-semibold leading-snug text-ink">
-                      {item.title}
+                      {shortDate.format(item.date)}
                     </p>
-                  )}
-                  <p className="text-xs text-ink/55">{item.subtitle}</p>
-                </div>
-              ))}
+                    {item.href ? (
+                      <Link
+                        href={item.href}
+                        className="mt-0.5 block text-[13.5px] font-semibold leading-snug text-ink hover:text-ink/70"
+                      >
+                        {item.title}
+                      </Link>
+                    ) : (
+                      <p className="mt-0.5 text-[13.5px] font-semibold leading-snug text-ink">
+                        {item.title}
+                      </p>
+                    )}
+                    <p className="text-xs text-ink/55">{item.subtitle}</p>
+                  </div>
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -1203,8 +1449,8 @@ export async function EventDashboard({
         {/* ── Around your event ────────────────────────────────────────── */}
         <section aria-label="Around your event">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="m-serif text-2xl text-ink">{spark}Around your event</h2>
-            <p className="text-sm text-ink/55">
+            <h2 className="sn-sec">{spark}Around your event</h2>
+            <p className="sn-sec-sub">
               Your hosts, team, threads, services, and schedule — this is the
               doorstep.
             </p>
@@ -1215,8 +1461,7 @@ export async function EventDashboard({
              *  couple sees who can run their event right on the Overview;
              *  the full invite/permission surface stays at /hosts. */}
             <ExpandCard
-              cardClassName={card}
-              hairline={goldHairline}
+              cardClassName="sn-tile"
               title="Hosts"
               badge={
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
@@ -1253,11 +1498,12 @@ export async function EventDashboard({
                         {account.roleLabel}
                       </span>
                       <span
-                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                        style={
                           account.state === 'invited'
-                            ? chipToneClass.warm
-                            : chipToneClass.ok
-                        }`}
+                            ? chipToneStyle.warm
+                            : chipToneStyle.ok
+                        }
                       >
                         {account.state}
                       </span>
@@ -1268,8 +1514,7 @@ export async function EventDashboard({
 
             {/* Your team */}
             <ExpandCard
-              cardClassName={card}
-              hairline={goldHairline}
+              cardClassName="sn-tile"
               title="Your team"
               badge={
                 /* Event-type-scoped: the "of 21" denominator is the wedding
@@ -1312,7 +1557,8 @@ export async function EventDashboard({
                         {String(v.category).replace(/_/g, ' ')}
                       </span>
                       <span
-                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${chipToneClass.ok}`}
+                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                        style={chipToneStyle.ok}
                       >
                         {(v.status ?? 'contracted').replace(/_/g, ' ')}
                       </span>
@@ -1325,19 +1571,30 @@ export async function EventDashboard({
              *  (see fetchEventUnreadCounts above), so the copy never claims
              *  false urgency on a fresh, vendor-less couple. The identity-
              *  masking note moved to one global footnote below the grid. */}
-            <article className={`${card} relative px-5 py-4`}>
-              {goldHairline}
+            <article className="sn-tile relative">
               <div className="mb-2 flex items-center gap-2.5">
-                <h3 className="m-serif text-[16.5px] text-ink">Conversations</h3>
+                <MessageSquare
+                  aria-hidden
+                  className="h-4 w-4 flex-none"
+                  strokeWidth={1.75}
+                  style={{ color: 'var(--sn-gold-600)' }}
+                />
+                <h3 className="text-[16.5px] font-extrabold tracking-[-0.015em] text-ink">
+                  Conversations
+                </h3>
                 {unreadCount > 0 ? (
-                  <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[11.5px] font-bold text-warn-700 dark:bg-warn-900/40 dark:text-warn-300">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[11.5px] font-bold"
+                    style={chipToneStyle.warm}
+                  >
                     {unreadCount} unread
                   </span>
                 ) : null}
                 <Link
                   href={`${base}/messages`}
                   aria-label="Open threads"
-                  className="ml-auto whitespace-nowrap text-xs font-bold text-mulberry"
+                  className="ml-auto whitespace-nowrap text-xs font-bold"
+                  style={{ color: 'var(--sn-gold-700)' }}
                 >
                   Open threads →
                 </Link>
@@ -1351,8 +1608,7 @@ export async function EventDashboard({
 
             {/* Your services */}
             <ExpandCard
-              cardClassName={card}
-              hairline={goldHairline}
+              cardClassName="sn-tile"
               title="Your services"
               badge={
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
@@ -1386,7 +1642,8 @@ export async function EventDashboard({
                         {row.label}
                       </span>
                       <span
-                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${chipToneClass[row.tone]}`}
+                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                        style={chipToneStyle[row.tone]}
                       >
                         {row.status}
                       </span>
@@ -1400,8 +1657,7 @@ export async function EventDashboard({
              *  reflects the ceremony/reception timeline the couple builds under
              *  /schedule and that the day-of grid goes live with. */}
             <ExpandCard
-              cardClassName={card}
-              hairline={goldHairline}
+              cardClassName="sn-tile"
               title="Schedule"
               fullHref={`${base}/schedule?view=journey`}
               fullLabel="See full schedule"
@@ -1425,7 +1681,10 @@ export async function EventDashboard({
                       key={block.block_id}
                       className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
                     >
-                      <span className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full bg-mulberry/10 px-1 text-[10.5px] font-bold text-mulberry">
+                      <span
+                        className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full px-1 font-mono text-[10.5px] font-bold"
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                      >
                         {shortDate.format(new Date(block.start_at))}
                       </span>
                       <span className="min-w-0 flex-1 truncate font-semibold text-ink">
@@ -1458,7 +1717,8 @@ export async function EventDashboard({
             </span>
             <Link
               href={`${base}/activity`}
-              className="ml-auto whitespace-nowrap font-bold text-mulberry"
+              className="ml-auto whitespace-nowrap font-bold"
+              style={{ color: 'var(--sn-gold-700)' }}
             >
               See all recent activity →
             </Link>
@@ -1471,8 +1731,8 @@ export async function EventDashboard({
          *  above the Decisions board. */}
         <section aria-label="Event progress">
           <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="m-serif text-2xl text-ink">{spark}Read your progress</h2>
-            <p className="text-sm text-ink/55">
+            <h2 className="sn-sec">{spark}Read your progress</h2>
+            <p className="sn-sec-sub">
               Tap a stage — or use ← → — to walk through your {eventWord}, start to
               finish.
             </p>
@@ -1488,43 +1748,42 @@ export async function EventDashboard({
         {aiActive && watchItems.length > 0 ? (
           <section aria-label="Suri on watch">
             <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="m-serif text-2xl text-ink">{spark}Suri on watch</h2>
-              <p className="text-sm text-ink/55">
+              <h2 className="sn-sec">{spark}Suri on watch</h2>
+              <p className="sn-sec-sub">
                 Guards run in the background — they only speak up when something changes.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {watchItems.map(({ intervention, copy }) => (
-                <div key={intervention.dedupeKey} className={`${card} flex gap-3 px-4 py-3.5`}>
-                  {goldHairline}
-                  <span
-                    aria-hidden
-                    className={`mt-1.5 h-2.5 w-2.5 flex-none rounded-full ${
-                      intervention.category === 'guard'
-                        ? 'bg-mulberry ring-4 ring-mulberry/15'
-                        : 'bg-terracotta ring-4 ring-terracotta/20'
-                    }`}
-                  />
-                  <div className="min-w-0">
-                    <p
-                      className={`text-[10.5px] font-bold uppercase tracking-[0.13em] ${
-                        intervention.category === 'guard'
-                          ? 'text-mulberry'
-                          : 'text-terracotta-700 dark:text-terracotta-300'
-                      }`}
-                    >
-                      {intervention.category === 'guard' ? 'Guard' : 'Secretary'} ·{' '}
-                      {intervention.templateId}
-                    </p>
-                    <p className="mt-0.5 whitespace-pre-line text-[13.5px] leading-relaxed text-ink/80">
-                      {copy}
-                    </p>
+              {watchItems.map(({ intervention, copy }) => {
+                const watchColor =
+                  intervention.category === 'guard'
+                    ? 'var(--sn-info)'
+                    : 'var(--sn-gold-600)';
+                return (
+                  <div key={intervention.dedupeKey} className="sn-tile flex gap-3">
+                    <span
+                      aria-hidden
+                      className="mt-1.5 h-2.5 w-2.5 flex-none rounded-full"
+                      style={{ background: watchColor, boxShadow: `0 0 0 4px ${watchColor}22` }}
+                    />
+                    <div className="min-w-0">
+                      <p
+                        className="text-[10.5px] font-bold uppercase tracking-[0.13em]"
+                        style={{ color: watchColor }}
+                      >
+                        {intervention.category === 'guard' ? 'Guard' : 'Secretary'} ·{' '}
+                        {intervention.templateId}
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-line text-[13.5px] leading-relaxed text-ink/80">
+                        {copy}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <p className="mt-3 flex items-center gap-2 text-xs text-ink/45">
-              <span aria-hidden className="text-terracotta">
+              <span aria-hidden style={{ color: 'var(--sn-gold-500)' }}>
                 ✦
               </span>
               Suri fires a few alerts a week at most — deduped, cooled down, most-urgent

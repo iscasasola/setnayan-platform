@@ -40,8 +40,7 @@ export function ExpandCard({
   fullHref,
   fullLabel = 'Open the full page',
   defaultOpen = false,
-  cardClassName = 'm-card',
-  hairline,
+  cardClassName = 'sn-tile',
 }: {
   /** Card heading, e.g. "Your team". */
   title: string;
@@ -62,10 +61,9 @@ export function ExpandCard({
   fullLabel?: string;
   /** Start expanded (auto-density for content-rich cards). */
   defaultOpen?: boolean;
-  /** The parent's computed card class (plain `m-card` or the AI-accent variant). */
+  /** Surface class — defaults to the Atelier-Glass `.sn-tile` panel (Glass
+   *  PR-2; the old `m-card` + AI-hairline skin is retired). */
   cardClassName?: string;
-  /** Optional premium gold hairline node from the parent (AI state). */
-  hairline?: ReactNode;
 }) {
   const expandable = children != null && children !== false;
   const [open, setOpen] = useState(defaultOpen && expandable);
@@ -73,7 +71,6 @@ export function ExpandCard({
 
   return (
     <article className={`${cardClassName} relative px-5 py-4`}>
-      {hairline}
       {/* WAI-ARIA accordion pattern: the heading wraps the toggle button, so
        *  the control's accessible name is the card title (+ its count badge).
        *  Empty cards render a plain heading — no button, no chevron. */}
@@ -86,7 +83,9 @@ export function ExpandCard({
             onClick={() => setOpen((o) => !o)}
             className="flex w-full items-center gap-2.5 text-left"
           >
-            <span className="m-serif text-[16.5px] text-ink">{title}</span>
+            <span className="text-[16.5px] font-extrabold tracking-[-0.015em] text-ink">
+              {title}
+            </span>
             {badge}
             <ChevronDown
               aria-hidden
@@ -98,7 +97,9 @@ export function ExpandCard({
           </button>
         ) : (
           <span className="flex w-full items-center gap-2.5">
-            <span className="m-serif text-[16.5px] text-ink">{title}</span>
+            <span className="text-[16.5px] font-extrabold tracking-[-0.015em] text-ink">
+              {title}
+            </span>
             {badge}
           </span>
         )}
@@ -109,7 +110,8 @@ export function ExpandCard({
       {fullHref ? (
         <Link
           href={fullHref}
-          className="mt-2.5 inline-flex items-center gap-1 border-t border-ink/5 pt-2 text-xs font-bold text-mulberry transition-colors hover:text-mulberry-700"
+          className="mt-2.5 inline-flex items-center gap-1 border-t border-ink/5 pt-2 text-xs font-bold transition-colors hover:opacity-80"
+          style={{ color: 'var(--sn-gold-700)' }}
         >
           {fullLabel}
           <span aria-hidden>→</span>

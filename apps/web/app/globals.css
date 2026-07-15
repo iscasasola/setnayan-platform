@@ -3281,6 +3281,15 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 @keyframes sn-rise-soft { from { opacity: 0; transform: translateY(8px); } }
 .sn-page-enter { animation: sn-rise-soft 400ms both var(--sn-ease-out); }
 
+/* R8 — mobile bottom-nav View-Transition interplay (rollout plan § 2a + § 6):
+ * during the directional VT slide the incoming pane is a LIVE capture, so the
+ * template rise would play inside it — the slide's first frames would carry a
+ * near-transparent pane (the rise starts at opacity 0), visibly fighting the
+ * 320ms slide. While a view transition is active, the slide IS the entrance:
+ * suppress the rise. Browsers without :active-view-transition also lack
+ * startViewTransition, so the plain rise is all they ever run. */
+html:active-view-transition .sn-page-enter { animation: none; }
+
 /* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
  * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
 .sn-live-dot { animation: sn-pulse 1.9s infinite; }

@@ -7,6 +7,7 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
@@ -238,6 +239,45 @@ export async function createWeddingEvent(formData: FormData) {
   // be stale or the role can resolve to anon at the edge — RLS would then
   // reject the insert even though the action already authenticated the user.
   const admin = createAdminClient();
+
+  // Samahan context (plan §7 · PR-3) — a community-owned event. UI-bypass-
+  // proof re-verification (the hidden field can be forged):
+  //   (a) the event type's class must be community_eligible — a Samahan can
+  //       NEVER own a personal milestone (wedding is 'personal', so wedding +
+  //       samahan can't combine by construction); the DB CHECK
+  //       events_community_class_consistency is the final backstop.
+  //   (b) the caller must be an ORGANIZER of that community, checked via the
+  //       admin client (same stale-JWT posture as the writes below), and the
+  //       community must be live (not archived).
+  const community_id_raw = String(formData.get('community_id') ?? '').trim();
+  let community_id: string | null = null;
+  if (community_id_raw) {
+    const profile = await resolveProfile(event_type);
+    if (profile.eventClass !== 'community_eligible') {
+      return redirect('/dashboard/create-event?error=samahan_invalid_type');
+    }
+    const [{ data: membership }, { data: communityRow }] = await Promise.all([
+      admin
+        .from('community_members')
+        .select('role')
+        .eq('community_id', community_id_raw)
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      admin
+        .from('communities')
+        .select('archived')
+        .eq('community_id', community_id_raw)
+        .maybeSingle(),
+    ]);
+    const isLive = (communityRow as { archived?: boolean } | null)?.archived === false;
+    const isOrganizer =
+      (membership as { role?: string } | null)?.role === 'organizer';
+    if (!isLive || !isOrganizer) {
+      return redirect('/dashboard/create-event?error=samahan_not_organizer');
+    }
+    community_id = community_id_raw;
+  }
+
   const slug = await generateUniqueSlug(admin, display_name);
 
   // Insert the event. The on_event_created trigger mints the join token row.
@@ -246,6 +286,10 @@ export async function createWeddingEvent(formData: FormData) {
     .insert({
       event_type,
       display_name,
+      // Samahan (PR-3): the owning community for community-class events.
+      // NULL = personal event (default, unchanged). Validated above; the
+      // events_community_class_consistency CHECK is the DB backstop.
+      community_id,
       // Date-anchor model (2026-07-12): stamp the per-type default anchor_kind
       // from the authored map (lib/event-anchor.ts). anchor_date/anchor_origin/
       // recurs are captured later by the per-type creation flow (PR-A onward);

@@ -3137,6 +3137,106 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 /* (Press feedback for Link cards is the `.sn-press` opt-in on the base-layer
  * universal press rule near the top of this file.) */
 
+/* ---------- Inspector column (Finder-style master ▸ detail, ≥xl) ----------
+ * Shared primitive: app/_components/inspector/inspector-column.tsx. Below xl the
+ * rail is hidden and the triggers navigate normally (mobile unchanged). At ≥xl
+ * the shell is a flex row; selecting a row animates the rail open (flex-basis)
+ * and the master reflows to the remaining width — one --sn-ease 320ms transition.
+ * Blur budget (§ 1.6): the panel is the ONLY blurred surface the inspector adds
+ * (one `.sn-tile`); its body sections stay opaque. */
+.sn-inspector-rail { display: none; }
+@media (min-width: 1280px) {
+  .sn-inspector-shell { display: flex; align-items: flex-start; }
+  .sn-inspector-master { flex: 1 1 0%; min-width: 0; }
+  .sn-inspector-rail {
+    display: block;
+    flex: 0 0 0px;
+    align-self: stretch;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+      flex-basis var(--sn-dur-elem) var(--sn-ease),
+      margin-left var(--sn-dur-elem) var(--sn-ease),
+      opacity var(--sn-dur-elem) var(--sn-ease);
+  }
+  .sn-inspector-shell[data-open='true'] .sn-inspector-rail {
+    flex-basis: clamp(340px, 30vw, 420px);
+    margin-left: 24px;
+    opacity: 1;
+  }
+}
+/* The panel itself: sticky, own scroll, viewport-minus-chrome height. Its width
+ * is fixed to the open rail width so the body does NOT reflow while the rail
+ * animates — it wipes in cleanly under the rail's overflow clip. */
+.sn-inspector-panel {
+  position: sticky;
+  top: 1.25rem;
+  width: clamp(340px, 30vw, 420px);
+  max-height: calc(100vh - 2.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  padding: 20px;
+}
+.sn-inspector-head { display: flex; align-items: flex-start; gap: 12px; }
+.sn-inspector-title {
+  font-family: var(--sn-font);
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--sn-ink-900);
+}
+.sn-inspector-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--sn-ink-500);
+  background: rgba(30, 26, 18, 0.05);
+  transition: background var(--sn-dur-control), color var(--sn-dur-control);
+}
+.sn-inspector-close:hover { background: rgba(30, 26, 18, 0.1); color: var(--sn-ink-900); }
+.sn-inspector-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--sn-gold-100);
+}
+.sn-inspector-fulllink {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sn-font);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sn-gold-700);
+}
+.sn-inspector-fulllink:hover { text-decoration: underline; }
+.sn-inspector-body { margin-top: 14px; border-top: 1px solid var(--sn-hairline); padding-top: 16px; }
+
+/* Keyed body remount animation (`.sn-lens-swap`) — a gentle rise+fade as the
+ * selection swaps, keyed by the selection id in InspectorColumn. */
+@keyframes sn-lens-swap {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) both; }
+
+/* Selected-row affordance — the master row that owns the open inspector. */
+[data-inspector-selected='true'] {
+  background: var(--sn-gold-100);
+  box-shadow: inset 0 0 0 1.5px var(--sn-gold-500);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-inspector-rail { transition: none !important; }
+  .sn-lens-swap { animation: none !important; }
+}
+
 /* ---------- buttons ---------- */
 .sn-btn {
   font-family: var(--sn-font); font-weight: 700; font-size: 14.5px;

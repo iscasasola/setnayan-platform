@@ -55,6 +55,14 @@ import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
+  InspectorLayout,
+  InspectorTrigger,
+} from '@/app/_components/inspector/inspector-column';
+import {
+  OverviewDecisionInspector,
+  OverviewWatchInspector,
+} from './overview-inspector-body';
+import {
   isFirstVenueShortlistOfferAvailable,
   isSuriAssistFreeDecisionId,
 } from '@/lib/setnayan-ai-free-assist';
@@ -156,11 +164,15 @@ type HostAccountView = {
 export async function EventDashboard({
   eventId,
   suriPreviewParam,
+  inspectId,
   slotAfterBento,
   dayOfActive = false,
 }: {
   eventId: string;
   suriPreviewParam?: string;
+  /** `?inspect=` value forwarded from the Home URL — selects a decision
+   *  (`d:<id>`) or a Suri-on-watch (`w:<key>`) row into the inspector column. */
+  inspectId?: string;
   slotAfterBento?: ReactNode;
   /**
    * True inside the T-1h..T+8h day-of window (resolved by the Home page). When
@@ -905,7 +917,51 @@ export async function EventDashboard({
   const focalHeadColor = focalDark ? '#F3ECDF' : 'var(--sn-ink-900)';
   const focalSubColor = focalDark ? 'rgba(243,236,223,.65)' : 'var(--sn-ink-500)';
 
-  return (
+  // ── Inspector column selection (desktop, ≥xl) ───────────────────────────
+  // Resolve `?inspect=` to a decision (`d:<id>`) or a Suri-on-watch (`w:<key>`)
+  // row already on this page. An unknown/stale id resolves to nothing → the
+  // inspector renders closed (hasSelection=false). The body is a new
+  // presentation of the SAME facts + the SAME action (a decision's own CTA);
+  // watch rows carry no action today, so their inspector carries none either.
+  let inspectorBody: ReactNode = null;
+  if (inspectId) {
+    if (inspectId.startsWith('d:')) {
+      for (const g of decisionGroups) {
+        const item = g.items.find((it) => `d:${it.id}` === inspectId);
+        if (item) {
+          inspectorBody = (
+            <OverviewDecisionInspector
+              swapKey={inspectId}
+              groupTitle={g.title}
+              groupSub={g.sub}
+              label={item.label}
+              sub={item.sub}
+              chip={item.chip}
+              chipStyle={chipToneStyle[item.chipTone]}
+              ctaLabel={item.ctaLabel}
+              href={item.href}
+            />
+          );
+          break;
+        }
+      }
+    } else if (inspectId.startsWith('w:')) {
+      const watch = watchItems.find(
+        (w) => `w:${w.intervention.dedupeKey}` === inspectId,
+      );
+      if (watch) {
+        inspectorBody = (
+          <OverviewWatchInspector
+            swapKey={inspectId}
+            category={watch.intervention.category}
+            templateId={watch.intervention.templateId}
+            copy={watch.copy}
+          />
+        );
+      }
+    }
+  }
+  const inspectorMaster = (
     <div className="relative">
       <div className="space-y-10">
         {/* ── Hero ─────────────────────────────────────────────────────── */}
@@ -1340,29 +1396,39 @@ export async function EventDashboard({
                     <div className="space-y-2">
                       {group.items.map((item, ii) => (
                         <div key={item.id} className="sn-row px-3.5 py-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <b className="min-w-0 truncate text-sm font-semibold text-ink">
-                              {item.label}
-                            </b>
-                            <span
-                              className="ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
-                              style={chipToneStyle[item.chipTone]}
-                            >
-                              {item.chip}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
-                          <Link
+                          {/* The whole row is one desktop inspector trigger; on
+                           *  mobile / modified clicks it navigates to the same
+                           *  room the CTA below always pointed to. The CTA renders
+                           *  as a styled span inside the anchor (no nested link);
+                           *  the free-venue offer stays a live sibling below. */}
+                          <InspectorTrigger
+                            inspectId={`d:${item.id}`}
                             href={item.href}
-                            className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-transform hover:-translate-y-0.5"
-                            style={
-                              ii === 0
-                                ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
-                                : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
-                            }
+                            className="-mx-3.5 -my-2.5 block rounded-[14px] px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
                           >
-                            {item.ctaLabel}
-                          </Link>
+                            <div className="flex items-center gap-2.5">
+                              <b className="min-w-0 truncate text-sm font-semibold text-ink">
+                                {item.label}
+                              </b>
+                              <span
+                                className="ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
+                                style={chipToneStyle[item.chipTone]}
+                              >
+                                {item.chip}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
+                            <span
+                              className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
+                              style={
+                                ii === 0
+                                  ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
+                                  : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
+                              }
+                            >
+                              {item.ctaLabel}
+                            </span>
+                          </InspectorTrigger>
                           {venueOfferInline && isSuriAssistFreeDecisionId(item.id) ? (
                             <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
                           ) : null}
@@ -1760,7 +1826,14 @@ export async function EventDashboard({
                     ? 'var(--sn-info)'
                     : 'var(--sn-gold-600)';
                 return (
-                  <div key={intervention.dedupeKey} className="sn-tile flex gap-3">
+                  // Render-only rows (no action today): the whole tile opens the
+                  // inspector on desktop to show the alert in full; below xl it is
+                  // inert (href="" → no navigation, matching today's no-action row).
+                  <InspectorTrigger
+                    key={intervention.dedupeKey}
+                    inspectId={`w:${intervention.dedupeKey}`}
+                    className="sn-tile flex w-full gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                  >
                     <span
                       aria-hidden
                       className="mt-1.5 h-2.5 w-2.5 flex-none rounded-full"
@@ -1778,7 +1851,7 @@ export async function EventDashboard({
                         {copy}
                       </p>
                     </div>
-                  </div>
+                  </InspectorTrigger>
                 );
               })}
             </div>
@@ -1793,5 +1866,14 @@ export async function EventDashboard({
         ) : null}
       </div>
     </div>
+  );
+
+  return (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={Boolean(inspectorBody)}
+      master={inspectorMaster}
+      inspector={inspectorBody}
+    />
   );
 }

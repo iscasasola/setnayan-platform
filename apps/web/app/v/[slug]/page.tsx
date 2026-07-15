@@ -451,6 +451,8 @@ const DETAIL_SKIP_KEYS = new Set<string>([
   'typical_range_max_centavos',
   'price_model',
   'show_prices_publicly',
+  // Opt-in-to-hide privacy toggle (Option A) — a control, never a Detail fact.
+  'hide_prices_publicly',
 ]);
 
 function humanizeAttrLabel(key: string): string {
@@ -522,6 +524,35 @@ async function fetchVendorAttributeDetails(
     return groups;
   } catch {
     return [];
+  }
+}
+
+/**
+ * Public "hide my prices" preference (Social_Share_Settings_Council_Verdict
+ * 2026-07-16 #6, Option A). Reads the opt-in-to-hide `hide_prices_publicly`
+ * key from the vendor's pricing_signal attribute payload(s). A vendor is a
+ * single business, so hiding is treated business-wide: TRUE if the vendor
+ * checked it on ANY of their service pricing sections. Default (absent /
+ * false) === show, which is today's public behavior for every existing
+ * vendor — so nothing is blacked out. Fails OPEN (returns false → show) on
+ * any read error so a transient failure can never mass-hide prices.
+ */
+async function fetchVendorHidesPricesPublicly(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+): Promise<boolean> {
+  try {
+    const rows = await fetchVendorServiceAttributes(admin, vendorProfileId);
+    return rows.some((row) => {
+      const payload = (row.attribute_payload ?? {}) as Record<string, unknown>;
+      return payload.hide_prices_publicly === true;
+    });
+  } catch (err) {
+    console.warn(
+      '[v/[slug]] hide_prices_publicly read failed — defaulting to show',
+      err instanceof Error ? err.message : String(err),
+    );
+    return false;
   }
 }
 
@@ -681,7 +712,7 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents] = await Promise.all([
+  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
@@ -724,6 +755,9 @@ export async function renderVendorBySlug({
     // exclusions as the public completed-events count. Best-effort: a missing
     // view (stale deploy) returns [] and the Track Record section is omitted.
     fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }),
+    // Public "hide my prices" preference (Option A · council #6). Gates every
+    // peso figure on this page when the vendor opted in; default false = show.
+    fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id),
   ]);
 
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
@@ -850,7 +884,7 @@ export async function renderVendorBySlug({
         ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
         : s.category)) as string;
   const servicePriceLabel = (s: VendorServiceRow): string =>
-    s.starting_price_php !== null && s.starting_price_php > 0
+    !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0
       ? `from ${formatPhp(s.starting_price_php)}`
       : 'Inquire';
   const composerInitial = activeServices[0] ?? null;
@@ -1273,9 +1307,15 @@ export async function renderVendorBySlug({
   // makesOffer — one Offer per vendor_package with a price. Pesos as the
   // major currency unit per schema.org (NOT centavos). Skips packages
   // missing a price so AI engines don't see ₱0 phantom offers.
-  const offerPackages = vendorPackages.filter(
-    (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
-  );
+  // Council #6: when the vendor opted to hide prices, the structured data must
+  // not leak a peso figure the visible page hides — so makesOffer + priceRange
+  // are omitted entirely (the OfferCatalog of service NAMES below stays, as it
+  // carries no prices).
+  const offerPackages = hidePricesPublicly
+    ? []
+    : vendorPackages.filter(
+        (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
+      );
   if (offerPackages.length > 0) {
     vendorJsonLd.makesOffer = offerPackages.map((pkg) => ({
       '@type': 'Offer',
@@ -2015,6 +2055,7 @@ export async function renderVendorBySlug({
             discountsByService={discountsByService}
             servesByService={servesByService}
             showcaseByService={showcaseByService}
+            hidePrices={hidePricesPublicly}
           />
         ) : null}
 
@@ -2028,6 +2069,7 @@ export async function renderVendorBySlug({
             packages={vendorPackages}
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
+            hidePrices={hidePricesPublicly}
           />
         ) : null}
 
@@ -2404,6 +2446,7 @@ function ServicesPricingSection({
   discountsByService,
   servesByService,
   showcaseByService,
+  hidePrices,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2413,6 +2456,8 @@ function ServicesPricingSection({
   servesByService: Map<string, string>;
   /** Resolved showcase display URLs per service id (photos ≤5 + optional clip). */
   showcaseByService: Map<string, ServiceShowcaseMedia>;
+  /** Council #6: vendor opted to hide public prices → strip every peso amount. */
+  hidePrices: boolean;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2441,6 +2486,7 @@ function ServicesPricingSection({
           discountsByService.get(row.vendor_service_id),
           servesByService.get(row.vendor_service_id),
           showcaseByService.get(row.vendor_service_id),
+          hidePrices,
         ),
       ),
     });
@@ -2476,12 +2522,15 @@ function toServiceCard(
   discounts: VendorServiceDiscount[] | undefined,
   serves: string | undefined,
   showcase: ServiceShowcaseMedia | undefined,
+  /** Council #6: when true the vendor opted to hide public prices — every peso
+   *  amount below is suppressed (labels/inclusions still show; only figures go). */
+  hidePrices: boolean,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
   const priceLabel =
-    row.starting_price_php !== null && row.starting_price_php > 0
+    !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`
       : 'Inquire';
 
@@ -2493,7 +2542,10 @@ function toServiceCard(
   const isCrewMeals = row.category === 'crew_meals';
   const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   let priceDetail: string | null = null;
-  if (
+  if (hidePrices) {
+    // Vendor hid prices — no per-pax/per-hour rate breakdown.
+    priceDetail = null;
+  } else if (
     row.pricing_basis === 'per_pax' &&
     row.per_pax_price_php !== null &&
     row.per_pax_price_php > 0
@@ -2518,13 +2570,15 @@ function toServiceCard(
   }
 
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
-  // savings on the anchor, dropping expired offers).
-  const best = pickBestDiscount(discounts, row.starting_price_php);
+  // savings on the anchor, dropping expired offers). Suppressed when the vendor
+  // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
+  const best = hidePrices ? null : pickBestDiscount(discounts, row.starting_price_php);
 
   // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank). Trim to a few; the overflow surfaces as "+N more".
+  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
+  // peso worth). Trim to a few; the overflow surfaces as "+N more".
   const allInclusions = (inclusions ?? []).map((inc) =>
-    inc.worth_php !== null && inc.worth_php > 0
+    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
       ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
       : inc.label,
   );
@@ -2546,7 +2600,7 @@ function toServiceCard(
   if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
   if (!row.transport_included) {
     notIncluded.push(
-      row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
+      !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
         ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
         : 'Transport not included',
     );
@@ -3084,10 +3138,13 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  hidePrices,
 }: {
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
+  hidePrices: boolean;
 }) {
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -3122,7 +3179,7 @@ function VendorPackagesSection({
               </Link>
             );
           }
-          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} />;
+          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} hidePrice={hidePrices} />;
         })}
       </div>
     </section>

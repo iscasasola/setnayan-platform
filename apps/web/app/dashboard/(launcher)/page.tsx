@@ -390,6 +390,12 @@ export default async function LauncherPage({
     }
   }
 
+  // Hero "Watch" stat — everything currently waiting on the user across all
+  // active events (pay + approve + message + overdue), straight from the
+  // per-event decision summaries above. Real data only.
+  let needsTotal = 0;
+  for (const summary of decisionByEvent.values()) needsTotal += summary.total;
+
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
@@ -564,6 +570,19 @@ export default async function LauncherPage({
               : 'Pick up where you left off.'}
           </span>
         </h1>
+        {/* The Watch line (prototype hero stat) — REAL aggregates only: active
+            event count + the summed "needs a decision" total. Hidden when
+            nothing is waiting so it never fabricates urgency. */}
+        {active.length > 0 && needsTotal > 0 ? (
+          <p className="pt-1 text-sm text-ink/55">
+            <span className="font-mono">{active.length}</span>{' '}
+            {active.length === 1 ? 'event' : 'events'} in motion ·{' '}
+            <span className="font-mono font-bold text-mulberry">
+              {needsTotal}
+            </span>{' '}
+            {needsTotal === 1 ? 'thing needs' : 'things need'} you
+          </p>
+        ) : null}
       </header>
 
       {/* The deterministic search & jump bar (⌘K) — client-side filtering over
@@ -632,7 +651,9 @@ export default async function LauncherPage({
         <p className="-mt-1 mb-3 text-xs text-ink/45">
           Every event you hold and attend — kept for life.
         </p>
-        <div className="space-y-4">
+        {/* The band itself is a frosted glass panel over the ambient wash
+            (prototype composition) — its rows sit ON the glass. */}
+        <div className="space-y-4 rounded-2xl border border-white/70 bg-white/45 p-3 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.3)] sm:p-4">
           {lifeOn ? (
             /* Flag ON: the richer Life-Flash card is the SOLE Life-Story
                doorway (dedup rule preserved from the `spaces` construction). */
@@ -767,7 +788,7 @@ function SectionLabel({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">
+      <h2 className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">
         {children}
       </h2>
       {action}
@@ -846,12 +867,21 @@ function GlassEventCard({
   return (
     <Link
       href={`/dashboard/${event.event_id}`}
-      className={`group flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/60 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg ${
+      className={`group flex flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)] transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-[0_24px_48px_-24px_rgba(30,26,18,0.45)] ${
         finished ? 'opacity-75 hover:opacity-100' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex w-fit rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-mulberry">
+      {/* Editorial texture band (the prototype's card top) — warm paper stripes
+          with the type badge overlaid and the event's monogram floating over
+          the band's edge. */}
+      <div
+        className="relative h-16 shrink-0"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(135deg, rgba(255,255,255,.55) 0 12px, rgba(240,232,215,.65) 12px 24px)',
+        }}
+      >
+        <span className="absolute left-3 top-3 inline-flex rounded-full bg-white/90 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-mulberry shadow-sm">
           {badge}
         </span>
         {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
@@ -864,39 +894,47 @@ function GlassEventCard({
               event.monogram_uploaded_svg ?? event.monogram_custom_svg,
           }}
           size="lg"
-          className="shrink-0 shadow-sm ring-1 ring-black/5"
+          className="absolute -bottom-4 right-3 shadow-md ring-1 ring-black/5"
         />
       </div>
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
-          {event.is_primary ? (
-            <span aria-hidden className="shrink-0 text-terracotta">
-              ★
-            </span>
-          ) : null}
-          <span className="truncate">{event.display_name}</span>
-        </p>
-        <p className="truncate text-sm text-ink/55">{dateMeta}</p>
-      </div>
-      <div className="mt-auto flex items-center gap-2.5 pt-1">
-        {pct != null ? (
-          <ProgressRing pct={pct} size={38} stroke={4}>
-            <span className="text-[8px] font-semibold text-ink">{pct}%</span>
-          </ProgressRing>
-        ) : null}
+      <div className="flex flex-1 flex-col gap-2 p-4 pt-5">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-ink">{status}</p>
-          {plannedLabel ? (
-            <p className="truncate text-[11px] text-ink/45">{plannedLabel}</p>
-          ) : null}
+          <p className="flex items-center gap-1.5 text-base font-semibold text-ink">
+            {event.is_primary ? (
+              <span aria-hidden className="shrink-0 text-terracotta">
+                ★
+              </span>
+            ) : null}
+            <span className="truncate">{event.display_name}</span>
+          </p>
+          <p className="truncate font-mono text-xs text-ink/55">{dateMeta}</p>
         </div>
+        <div className="mt-auto flex items-center gap-2.5 pt-1">
+          {pct != null ? (
+            <ProgressRing pct={pct} size={38} stroke={4}>
+              <span className="font-mono text-[8px] font-semibold text-ink">
+                {pct}%
+              </span>
+            </ProgressRing>
+          ) : null}
+          <div className="min-w-0">
+            <p className="truncate font-mono text-xs font-medium text-ink">
+              {status}
+            </p>
+            {plannedLabel ? (
+              <p className="truncate font-mono text-[11px] text-ink/45">
+                {plannedLabel}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        {decision?.top ? (
+          <AttentionPill
+            label={decision.top.label}
+            more={decision.total - decision.top.count}
+          />
+        ) : null}
       </div>
-      {decision?.top ? (
-        <AttentionPill
-          label={decision.top.label}
-          more={decision.total - decision.top.count}
-        />
-      ) : null}
     </Link>
   );
 }
@@ -987,12 +1025,14 @@ function SpaceCard({
   return (
     <Link
       href={href}
-      className="group flex min-h-[9rem] flex-col justify-between rounded-2xl border border-white/70 bg-white/60 p-4 text-ink shadow-sm transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-lg"
+      className="group flex min-h-[9rem] flex-col justify-between rounded-2xl border border-white/70 bg-white/60 p-4 text-ink shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)] transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-[0_24px_48px_-24px_rgba(30,26,18,0.45)]"
     >
       <div className="flex items-start justify-between">
         <span
           className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ${
-            admin ? 'bg-violet-100 text-violet-700' : 'bg-mulberry/10 text-mulberry'
+            /* HQ = slate (--sn-info) per the prototype — violet retired by the
+               2026-07-12 atelier reskin. */
+            admin ? 'bg-[#E2EAEF] text-[#4E6C82]' : 'bg-mulberry/10 text-mulberry'
           }`}
         >
           {logoUrl ? (

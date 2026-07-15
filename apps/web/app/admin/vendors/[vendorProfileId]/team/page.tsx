@@ -116,7 +116,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
 
       <section className="space-y-2">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Members</h2>
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+        <ul className="divide-y divide-ink/10 overflow-hidden sn-tile">
           {members.map((m) => (
             <li key={m.vendor_team_member_id} className="flex items-center justify-between gap-3 p-4">
               <div className="min-w-0">

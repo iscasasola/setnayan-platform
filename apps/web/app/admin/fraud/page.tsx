@@ -170,10 +170,10 @@ export default async function AdminFraudQueuePage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan · Internal ops · Trust &amp; integrity
         </p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+        <h1 className="sn-h1">
           Fraud queue
         </h1>
         <p className="max-w-3xl text-base text-ink/65">
@@ -198,7 +198,7 @@ export default async function AdminFraudQueuePage() {
       </div>
 
       {scores.length === 0 ? (
-        <div className="m-card flex flex-col items-center gap-2 p-10 text-center">
+        <div className="sn-row flex flex-col items-center gap-2 p-10 text-center">
           <ShieldCheck className="h-8 w-8 text-success-600" aria-hidden="true" />
           <p className="text-sm font-semibold text-ink">No open fraud signals.</p>
           <p className="text-xs text-ink/55">
@@ -214,7 +214,7 @@ export default async function AdminFraudQueuePage() {
             const sigs = signalsByVendor.get(s.vendor_profile_id) ?? [];
             const overAutoBar = s.sum_open_score >= FRAUD_AUTOSUSPEND_THRESHOLD;
             return (
-              <li key={s.vendor_profile_id} className="m-card overflow-hidden p-0">
+              <li key={s.vendor_profile_id} className="sn-tile overflow-hidden !p-0">
                 {/* Header row */}
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
                   <div className="min-w-0">
@@ -327,10 +327,10 @@ export default async function AdminFraudQueuePage() {
       {/* Recent enforcement trail */}
       {audit.length > 0 ? (
         <section className="mt-10">
-          <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="mb-3 sn-eye">
             Recent enforcement
           </h2>
-          <div className="m-card overflow-hidden p-0">
+          <div className="sn-tile overflow-hidden !p-0">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">

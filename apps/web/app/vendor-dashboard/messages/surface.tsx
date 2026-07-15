@@ -2,11 +2,17 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchReturningClientFlags,
   fetchVendorThreads,
   formatChatTimestamp,
 } from '@/lib/chat';
+import {
+  fetchInquiryMaskMeta,
+  inquiryPlaceholderLabel,
+  isInquiryRevealed,
+} from '@/lib/inquiry-mask.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { RevealList } from '@/app/_components/reveal-list';
@@ -46,6 +52,15 @@ export default async function VendorMessagesPage() {
     profile.vendor_profile_id,
   );
 
+  // Anonymization-until-accept (Glass PR-6b): PRE-accept threads have had the
+  // couple's identity stripped from the DTO by fetchVendorThreads. Batch-read
+  // ONLY event_type + city-level region (never name/venue) so each unrevealed
+  // row can show the neutral placeholder instead of a bare "Event".
+  const inquiryMaskMeta = await fetchInquiryMaskMeta(
+    createAdminClient(),
+    threads.filter((t) => !isInquiryRevealed(t)).map((t) => t.event_id),
+  );
+
   // Viber-style archive split (Data Retention Schedule 2026-07-11) — archiving
   // deletes nothing; it moves a thread into the collapsible Archived section
   // until a new message auto-un-archives it.
@@ -66,7 +81,11 @@ export default async function VendorMessagesPage() {
         <div className="min-w-0 flex-1">
           <ThreadListCard
             href={`/vendor-dashboard/messages/${t.thread_id}`}
-            title={t.event?.display_name ?? 'Event'}
+            title={
+              isInquiryRevealed(t)
+                ? (t.event?.display_name ?? 'Event')
+                : inquiryPlaceholderLabel(inquiryMaskMeta.get(t.event_id) ?? {})
+            }
             badge={
               t.inquiry_status === 'pending' ? (
                 <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">

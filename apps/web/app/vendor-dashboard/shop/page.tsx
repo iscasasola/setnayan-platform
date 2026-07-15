@@ -926,7 +926,8 @@ function HeroCard({
           </div>
         ) : (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            No public address yet — set one in Profile.
+            No public address yet — a custom address is a Pro feature you set in
+            Website.
           </p>
         )}
       </div>
@@ -945,14 +946,29 @@ function HeroCard({
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </a>
       ) : (
-        <a
-          href="#manage-shop"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          Finish profile
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </a>
+        (() => {
+          // The primary CTA must track the vendor's REAL next step, never
+          // contradict a 100% ring. Only an actually-unfinished profile says
+          // "Finish profile"; a complete-but-unverified shop points at the
+          // verification stage; a complete-and-verified shop (public address is
+          // a separate Pro/Website step) points back into the manage tiles.
+          const cta =
+            data.completionPct < 100
+              ? { href: '#manage-shop', label: 'Finish profile' }
+              : data.isVerified
+                ? { href: '#manage-shop', label: 'Manage shop' }
+                : { href: '#get-verified', label: 'Get verified' };
+          return (
+            <a
+              href={cta.href}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+              style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+            >
+              {cta.label}
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </a>
+          );
+        })()
       )}
     </div>
   );
@@ -986,7 +1002,11 @@ function CompletenessRing({ pct }: { pct: number }) {
         className="font-mono text-[10px] uppercase tracking-[0.18em]"
         style={{ color: 'var(--m-orange-2)' }}
       >
-        Complete
+        {/* Scoped to "Profile" (not a bare "Complete"): the ring measures only
+            the 8 business-profile fields — NOT the public address, which is a
+            separate Pro/Website step. Keeps the ring honest against the header's
+            "no public address yet" and matches the Profile KPI tile's number. */}
+        Profile
       </span>
     </div>
   );

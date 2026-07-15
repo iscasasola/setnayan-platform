@@ -388,17 +388,38 @@ function DocsStep({
 }) {
   const [payload, setPayload] = useState<InlineDocsPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  // Distinct from "not loaded yet": only a REAL fetch rejection flips this. A
+  // fresh vendor with zero docs resolves to an empty editable payload (the
+  // upload state), never an error — the retry copy is reserved for a genuine
+  // failure. (Bug: the never-loaded state used to render the error text.)
+  const [failed, setFailed] = useState(false);
 
   const reload = () => {
     setLoading(true);
+    setFailed(false);
     loadInlineDocs()
-      .then(setPayload)
-      .catch(() => setPayload(null))
+      .then((p) => {
+        setPayload(p);
+        setFailed(false);
+      })
+      .catch(() => {
+        setPayload(null);
+        setFailed(true);
+      })
       .finally(() => setLoading(false));
   };
-  // Lazy: the per-ref R2 presigns run only when the step first opens.
+
+  // Lazy load whenever the step is OPEN without a payload yet — this covers both
+  // the click-to-open path AND the parent's auto-open paths (initial mount when
+  // profile-complete + no docs, and the live in-session unlock) that set `open`
+  // directly on the parent without routing through handleToggle. The per-ref R2
+  // presigns still run only once the step actually opens, preserving laziness.
+  useEffect(() => {
+    if (open && !payload && !loading && !failed) reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, payload, loading, failed]);
+
   const handleToggle = () => {
-    if (!open && !payload && !loading) reload();
     onToggle();
   };
 
@@ -413,20 +434,22 @@ function DocsStep({
       open={open}
       onToggle={handleToggle}
     >
-      {loading && !payload ? (
-        <p className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
-          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
-          Loading your documents…
-        </p>
-      ) : payload ? (
+      {payload ? (
         <DocsBody payload={payload} vendorProfileId={vendorProfileId} onSaved={reload} />
-      ) : (
+      ) : failed ? (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           Couldn&rsquo;t load your documents.{' '}
           <button type="button" onClick={reload} className="font-medium text-terracotta hover:underline">
             Try again
           </button>
           .
+        </p>
+      ) : (
+        // No payload + no failure = still loading (or the open-triggered fetch is
+        // about to fire). Show the spinner, never the error.
+        <p className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
+          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
+          Loading your documents…
         </p>
       )}
     </StepShell>

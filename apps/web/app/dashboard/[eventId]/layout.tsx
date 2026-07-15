@@ -21,8 +21,12 @@ import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
+import { eventInitials } from '@/lib/event-initials';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -288,10 +292,11 @@ export default async function EventLayout({ children, params }: Props) {
 
   const tr = makeT(locale);
 
-  // Event identity plaque meta line — "{Type} · {short date}" for the sidebar
-  // plaque (customer-sidebar.tsx). Formatted server-side so the mono date never
-  // hydration-splits on timezone. Date omitted when unset. (The plaque's own
-  // countdown lives in the dashboard body; this is just the switcher label.)
+  // Event identity plaque meta line — "{Type} · {short date}" for the rail's
+  // SwitcherPlaqueTrigger (DoorwaySidebarHeader identity slot). Formatted
+  // server-side so the mono date never hydration-splits on timezone. Date
+  // omitted when unset. (The plaque's own countdown lives in the dashboard
+  // body; this is just the plaque label.)
   const plaqueTypeLabel = ((event.event_type as string | null) ?? 'wedding')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -304,6 +309,15 @@ export default async function EventLayout({ children, params }: Props) {
   const eventPlaqueMeta = plaqueDateShort
     ? `${plaqueTypeLabel} · ${plaqueDateShort}`
     : plaqueTypeLabel;
+
+  // Plaque title MUST always resolve (council acceptance criterion,
+  // 2026-07-16): the plaque trigger is the couple desktop's ONLY path to
+  // sign-out / profile / Setnayan AI (this top bar has no sign-out and its
+  // AccountSwitcher pill is lg:hidden). An unnamed draft event falls back to
+  // the type label — never render no trigger.
+  const plaqueName =
+    ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
+  const homeLabel = 'Home · all your events';
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
   // scoped utilities cluster — AccountSwitcher (left), Marketplace + role-
@@ -337,9 +351,10 @@ export default async function EventLayout({ children, params }: Props) {
         ariaUnreadSuffix="unread"
       />
       {/* AccountSwitcher — mobile only, rightmost corner of the top bar.
-          Desktop uses AccountSwitcherStandalone at the top of the sidebar. */}
+          Desktop opens the same panel from the SwitcherPlaqueTrigger event
+          plaque in the sidebar header (Plaque-as-Menu, council 2026-07-16). */}
       <div className="lg:hidden">
-        <AccountSwitcher data={switcherData} />
+        <AccountSwitcher data={switcherData} homeLabel={homeLabel} />
       </div>
     </div>
   );
@@ -363,7 +378,19 @@ export default async function EventLayout({ children, params }: Props) {
           <DoorwaySidebarHeader
             label="Planning"
             accentColor="var(--m-sidebar-accent)"
-            switcherData={switcherData}
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={eventInitials(
+                  plaqueName,
+                  (event.monogram_text as string | null) ?? null,
+                )}
+                title={plaqueName}
+                metaLine={eventPlaqueMeta}
+                ariaLabel={`${plaqueName} — account menu`}
+                homeLabel={homeLabel}
+              />
+            }
           />
         }
         sidebar={
@@ -377,9 +404,6 @@ export default async function EventLayout({ children, params }: Props) {
             slug={(event.slug as string | null) ?? null}
             guestCount={guestCount}
             unreadMessages={unreadMessages}
-            eventName={(event.display_name as string | null) ?? null}
-            monogramText={(event.monogram_text as string | null) ?? null}
-            eventMetaLine={eventPlaqueMeta}
           />
         }
         topBar={topBar}

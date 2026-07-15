@@ -15,14 +15,17 @@ import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-head
 import { VendorSidebar, VendorSidebarFooter } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
+import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { VendorNavFab } from './_components/vendor-nav-fab';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ServerTimer } from '@/lib/server-timing';
@@ -32,14 +35,15 @@ import { ServerTimer } from '@/lib/server-timing';
  *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
  * main content area with offset). The sidebarHeader carries the brand
- * wordmark + Vendor eyebrow + AccountSwitcherStandalone (matching the
- * customer and admin doorway patterns — owner directive 2026-06-18). The
- * topBar is right-aligned: unread bell · display name · sign-out ·
- * AccountSwitcher (mobile-only pill; desktop uses the sidebar standalone).
+ * wordmark HOME-LINK + Vendor eyebrow + the business identity plaque
+ * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
+ * verdict 2026-07-16, matching the customer and admin doorway patterns).
+ * The topBar is right-aligned: unread bell · display name · sign-out ·
+ * AccountSwitcher (mobile-only pill; desktop uses the sidebar plaque).
  *
  * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
- * AccountSwitcher owns identity + event switching + cross-console hopping
- * on all three doorways, consistent with the customer doorway.
+ * account panel owns identity + cross-console hopping on all three doorways,
+ * consistent with the customer doorway; going HOME is the wordmark's job.
  */
 export default async function VendorDashboardLayout({
   children,
@@ -274,8 +278,9 @@ export default async function VendorDashboardLayout({
   const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
-  // mobile-only (lg:hidden); desktop users open the switcher from the
-  // AccountSwitcherStandalone row in the sidebar header.
+  // mobile-only (lg:hidden); desktop users open the same panel from the
+  // SwitcherPlaqueTrigger business plaque in the sidebar header
+  // (Plaque-as-Menu, council 2026-07-16).
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
       {/* Mobile-only "More" overflow — the 6-tab bottom bar covers the primary
@@ -318,7 +323,21 @@ export default async function VendorDashboardLayout({
           <DoorwaySidebarHeader
             label="Vendor"
             accentColor="var(--m-sidebar-accent)"
-            switcherData={switcherData}
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={
+                  <VendorAvatar
+                    logoUrl={vendorLogoUrl}
+                    initials={vendorInitials}
+                    className="flex h-full w-full items-center justify-center rounded-lg text-[11px] font-semibold tracking-wide"
+                  />
+                }
+                title={vendorSidebarName}
+                metaLine={vendorIsVerified ? 'Verified vendor' : 'Unverified'}
+                ariaLabel={`${vendorSidebarName} — account menu`}
+              />
+            }
           />
         }
         sidebar={
@@ -326,10 +345,6 @@ export default async function VendorDashboardLayout({
             role={vendorRole}
             showRepertoire={showRepertoire}
             navSlots={navSlots}
-            displayName={vendorSidebarName}
-            initials={vendorInitials}
-            logoUrl={vendorLogoUrl}
-            isVerified={vendorIsVerified}
             bookingsBadge={bookingsPending}
             threadsBadge={threadsUnread}
           />

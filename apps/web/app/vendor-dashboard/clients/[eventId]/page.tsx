@@ -918,7 +918,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </Link>
       {threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href={`/vendor-dashboard/messages/${threadId}#pending-payments`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
@@ -1559,7 +1559,7 @@ function ReturningMarkerAndActions({
         ) : null}
         {threadId ? (
           <Link
-            href={`/vendor-dashboard/messages/${threadId}`}
+            href={`/vendor-dashboard/messages/${threadId}#thread-call`}
             className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
           >
             <Phone aria-hidden className="h-3.5 w-3.5" /> Call

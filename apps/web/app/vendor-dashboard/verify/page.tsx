@@ -155,18 +155,11 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         </span>.
       </p>
 
-      <article className="flex items-start gap-3 rounded-2xl border border-success-300 bg-success-50 p-4 text-sm text-success-900">
-        <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <div className="space-y-1">
-          <p className="font-medium">Verification is free during launch</p>
-          <p>
-            Every vendor the Setnayan team verifies gets the verified
-            marketplace badge, eligibility for{' '}
-            <span className="font-semibold">Pro Vendor and Enterprise</span>, and
-            full visibility in couple searches — no listing fee, no badge fee.
-          </p>
-        </div>
-      </article>
+      {/* The old "Verification is free during launch" banner was removed
+          2026-07-16 — it restated the badge + Pro/Enterprise benefits and the
+          fee, all of which the intro paragraph above already states from the
+          DB-driven fee source (and the banner's hardcoded "free" would go stale
+          the moment a fee is set). */}
 
       {search.error ? (
         <p
@@ -589,10 +582,9 @@ function SubmitCard({
         </h2>
         <p className="mt-1 text-sm text-ink/65">
           Submit once all <span className="font-medium">{totalSlots}</span> of
-          your items are uploaded. The four admin-run slots — ID liveness, the
-          video call, SMS/email confirmation, and AMLC screening — complete on
-          our side after you submit. Setnayan SLA is{' '}
-          <span className="font-medium">3–5 business days</span>.
+          your items are uploaded. The admin-run checks complete on our side
+          afterward (listed under &ldquo;We handle this&rdquo; above). Setnayan
+          SLA is <span className="font-medium">3–5 business days</span>.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">

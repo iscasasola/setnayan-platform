@@ -510,15 +510,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active
               inquiry. Self-reported; "Won" is off-platform, not a payment. */}
           {outcomeCapture}
-          {/* Free 1:1 voice/video call — accepted threads only (PR 10). */}
-          <ThreadCallLauncher
-            threadId={threadId}
-            currentUserId={user.id}
-            counterpartyLabel={coupleLabel}
-            callsEnabled={callsEnabled}
-            viewerRole="vendor"
-            upgradeHref="/vendor-dashboard/subscription"
-          />
+          {/* Free 1:1 voice/video call — accepted threads only (PR 10). Anchor
+              target for the customer card's "Call" quick action. */}
+          <div id="thread-call" className="scroll-mt-24">
+            <ThreadCallLauncher
+              threadId={threadId}
+              currentUserId={user.id}
+              counterpartyLabel={coupleLabel}
+              callsEnabled={callsEnabled}
+              viewerRole="vendor"
+              upgradeHref="/vendor-dashboard/subscription"
+            />
+          </div>
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>
       ) : thread.inquiry_status === 'pending' ? (

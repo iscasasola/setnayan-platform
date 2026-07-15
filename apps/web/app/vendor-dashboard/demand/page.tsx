@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
 
 /**
- * /vendor-dashboard/demand — folded into the My Performance hub (owner 5-page IA,
- * 2026-07-12: "overview, my shop, my customers, my performance, BEO are all
- * 1-page each with the different features integrated"). The surface lives on
- * in ./surface.tsx, rendered by the hub's ?tab=demand. This stub keeps every
- * old deep-link working and forwards its params (pattern: /vendor-dashboard/
- * services → My Shop, owner 2026-07-02).
+ * /vendor-dashboard/demand — folded into the My Performance page (owner 5-page IA,
+ * 2026-07-12). The Demand Radar now renders inline in My Performance's
+ * "Looking ahead & the market" section (Pro-and-up), so this stub just forwards
+ * every old deep-link there (pattern: /vendor-dashboard/services → My Shop,
+ * owner 2026-07-02). The old ?tab=demand fold was retired 2026-07-16 when the
+ * radar was consolidated to a single inline surface.
  */
 export default async function RedirectDemand({
   searchParams,
@@ -15,9 +15,9 @@ export default async function RedirectDemand({
 }) {
   const sp = await searchParams;
   const qs = new URLSearchParams();
-  qs.set('tab', 'demand');
   for (const [k, v] of Object.entries(sp)) {
     if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
   }
-  redirect(`/vendor-dashboard/performance?${qs.toString()}`);
+  const query = qs.toString();
+  redirect(`/vendor-dashboard/performance${query ? `?${query}` : ''}`);
 }

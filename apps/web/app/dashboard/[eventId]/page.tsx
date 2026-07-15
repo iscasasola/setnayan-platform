@@ -361,6 +361,7 @@ export default async function EventHomePage({
         eventId={eventId}
         suriPreviewParam={search.suri}
         slotAfterBento={hasOverlays ? overlays : undefined}
+        dayOfActive={dayOfActive}
       />
     </>
   );

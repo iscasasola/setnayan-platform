@@ -92,7 +92,6 @@ import {
   Home,
   ShoppingBag,
   BarChart2,
-  ChevronRight,
   Zap,
   Briefcase,
   CalendarCheck,
@@ -413,7 +412,9 @@ export function VendorSidebarFooter({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Plan chip — whole row links to the Plan & tokens hub */}
+      {/* ONE Plan & tokens row (deduped 2026-07-16 — was two adjacent rows both
+          linking to /subscription): tier pill + label on the left, the live
+          token balance right-aligned. */}
       <Link
         href="/vendor-dashboard/subscription"
         className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-sidebar-hover)]"
@@ -439,23 +440,12 @@ export function VendorSidebarFooter({
         <span className="text-xs" style={{ color: 'var(--m-sidebar-fg-soft)' }}>
           Plan &amp; tokens
         </span>
-        <ChevronRight
-          aria-hidden
-          className="ml-auto h-3.5 w-3.5 shrink-0"
-          strokeWidth={2}
+        <span
+          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold"
           style={{ color: 'var(--m-sidebar-fg)' }}
-        />
-      </Link>
-
-      {/* Token balance row — also lands on the unified Plan & tokens hub */}
-      <Link
-        href="/vendor-dashboard/subscription"
-        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-sidebar-hover)]"
-        style={{ background: 'var(--m-sidebar-bg-2)', borderColor: 'var(--m-sidebar-line)', color: 'var(--m-sidebar-fg-soft)' }}
-      >
-        <Coins aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
-        <span>Your tokens</span>
-        <span className="ml-auto font-semibold" style={{ color: 'var(--m-sidebar-fg)' }}>
+          title={`${numberFormat.format(tokenBalance)} tokens`}
+        >
+          <Coins aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
           {numberFormat.format(tokenBalance)}
         </span>
       </Link>

@@ -1275,7 +1275,10 @@ const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
   { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
-  { href: '/vendor-dashboard/branches', label: 'Branches', sub: 'Locations your business operates from.' },
+  // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
+  // BranchManager) is the canonical branch surface; the standalone /branches
+  // route now redirects here. Team stays: /team hosts the extra-seat purchase
+  // flow the inline Team tile doesn't.
   { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
   { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
   { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },

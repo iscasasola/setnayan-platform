@@ -194,41 +194,12 @@ export default async function VendorOverviewPage() {
 
   timer.flush();
 
-  // Hero stat line — real aggregates, mono numerals, hidden-when-zero (§ 1.4).
+  // Hero metrics feed the focal tile below (the designed home for the
+  // inquiries / next-booking / earned trio). The hero itself no longer restates
+  // them as text — that was the same three numbers a few lines above the focal
+  // (deduped 2026-07-16); the hero subline is now a plain orienting lead-in.
   const heroInquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
-  const heroBookings = upcoming.length;
   const heroEarnedPhp = earnings?.earnedThisYearPhp ?? null;
-  const heroStats: React.ReactNode[] = [];
-  if (heroInquiries > 0) {
-    heroStats.push(
-      <>
-        <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
-          {heroInquiries}
-        </b>{' '}
-        {heroInquiries === 1 ? 'inquiry' : 'inquiries'} waiting
-      </>,
-    );
-  }
-  if (heroBookings > 0) {
-    heroStats.push(
-      <>
-        <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
-          {heroBookings}
-        </b>{' '}
-        {heroBookings === 1 ? 'booking' : 'bookings'} upcoming
-      </>,
-    );
-  }
-  if (heroEarnedPhp !== null && heroEarnedPhp > 0) {
-    heroStats.push(
-      <>
-        <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
-          {formatPhp(heroEarnedPhp)}
-        </b>{' '}
-        earned this year
-      </>,
-    );
-  }
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -241,13 +212,8 @@ export default async function VendorOverviewPage() {
           Your shop, today.
         </h1>
         <p className="max-w-[56ch] pt-0.5 text-[12.5px] text-ink/55">
-          {heroStats.length > 0
-            ? heroStats.map((s, i) => (
-                <span key={i}>
-                  {i > 0 ? ' · ' : ''}
-                  {s}
-                </span>
-              ))
+          {heroInquiries > 0
+            ? 'Here’s what needs you today.'
             : "You're all caught up — new leads land here the moment a couple unlocks you."}
         </p>
         {milestone ? (

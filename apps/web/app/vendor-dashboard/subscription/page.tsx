@@ -188,6 +188,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   let orderedSummary:
     | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
     | null = null;
+  // A standalone token top-up (TKN-) already gets its full apply-then-pay panel
+  // from <PendingPurchases> inside <TokenWalletSection>; flag it so we DON'T also
+  // render the plan-level "How to pay" tile below (that was two BDO+GCash QR
+  // blocks on one page after a token order).
+  let orderedIsToken = false;
   if (search.ordered) {
     const { data: subRow } = await supabase
       .from('vendor_subscriptions')
@@ -210,6 +215,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         .eq('reference_code', search.ordered)
         .maybeSingle();
       if (tknRow) {
+        orderedIsToken = true;
         orderedSummary = {
           amount: Number(tknRow.amount_php ?? 0),
           planAmount: 0,
@@ -357,8 +363,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </span>
       </Link>
 
-      {/* Apply-then-pay payment instructions when an order was just started */}
-      {search.ordered && (
+      {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
+          started. Token-only (TKN-) top-ups are intentionally excluded — their
+          instructions render once inside <TokenWalletSection> below, so showing
+          this tile too would double the BDO+GCash QR blocks. */}
+      {search.ordered && !orderedIsToken && (
         <div className="sn-tile mt-6 p-6">
           <p className="sn-eye">How to pay</p>
           {orderedSummary && orderedSummary.amount > 0 && (

@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { Menu } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
@@ -283,18 +282,9 @@ export default async function VendorDashboardLayout({
   // (Plaque-as-Menu, council 2026-07-16).
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Mobile-only "More" overflow — the 6-tab bottom bar covers the primary
-          menus; every deeper surface (profile · verify · earnings · …) stays
-          one tap away via the /more landing. Hidden on desktop, where the
-          sidebar already lists every destination. */}
-      <Link
-        href="/vendor-dashboard/more"
-        aria-label="More vendor surfaces"
-        className="button-secondary inline-flex h-9 items-center gap-1.5 px-3 text-xs lg:hidden"
-      >
-        <Menu aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        More
-      </Link>
+      {/* The mobile "More" overflow link was removed 2026-07-16 with the /more
+          landing it opened — under the 5-page IA the bottom nav already covers
+          every hub, and every deeper surface lives as a tab inside its hub. */}
       <UnreadBellBadge
         userId={user.id}
         initialUnread={unreadCount}

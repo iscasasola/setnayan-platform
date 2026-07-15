@@ -69,9 +69,16 @@ import {
   removedSeatSet,
   roleTier,
   rectChainSnap,
+  rectRunsJoined,
   rotatePoint,
   roundKissSnap,
+  boxesOverlap,
+  boxOverlapsRect,
+  nextTableName,
   serpentineChainSnap,
+  serpentinesJoined,
+  RECT_JOIN_TOL_PX,
+  SERP_JOIN_TOL_PX,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -1541,6 +1548,51 @@ export function SeatingEditor({
     const s = pxPerMeter ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w : 1;
     return { w: geo.box.w * s, h: geo.box.h * s };
   };
+  // Half the TABLETOP length (px) of a rectangular run — hub only, chairs hang
+  // past it. Used to test whether two runs are joined flush (rectRunsJoined).
+  const halfLenOf = (t: EventTableRow) => {
+    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    return (g.hub.w / 2) * (footprintPx(t).w / g.box.w);
+  };
+  const rectish = (s: TableShapeHint) => s === 'long_banquet' || s === 'family_head';
+  // Are `moving` (at mx%,my%) and `other` (at op%) in a SANCTIONED chain contact
+  // — the one overlap that isn't a collision? Serpentine tips meeting, or
+  // banquet/family-head run ends joined flush. Poses are built in the same px
+  // space serpentineChainSnap / rectChainSnap use, so a snapped join (tips
+  // coincident) reads as joined here too and survives the collision pass.
+  const chainJoined = (
+    moving: EventTableRow,
+    mx: number,
+    my: number,
+    other: EventTableRow,
+    op: LocalPos,
+    rect: { width: number; height: number },
+  ): boolean => {
+    const shape = shapeHintFor(moving.table_type);
+    if (shapeHintFor(other.table_type) !== shape) return false; // only same-family joins
+    // An explicit linked unit (same link_group_id) is always a legal contact —
+    // the couple joined them on purpose; never let the resolver tear it apart.
+    if (moving.link_group_id != null && moving.link_group_id === other.link_group_id) return true;
+    const a = { x: (mx / 100) * rect.width, y: (my / 100) * rect.height };
+    const b = { x: (op.x / 100) * rect.width, y: (op.y / 100) * rect.height };
+    if (shape === 'serpentine') {
+      const boxWa = tableGeometry('serpentine', moving.capacity).box.w;
+      const boxWb = tableGeometry('serpentine', other.capacity).box.w;
+      return serpentinesJoined(
+        { ...a, rot: rotationOf(moving), scale: footprintPx(moving).w / boxWa },
+        { ...b, rot: rotationOf(other), scale: footprintPx(other).w / boxWb },
+        SERP_JOIN_TOL_PX,
+      );
+    }
+    if (rectish(shape)) {
+      return rectRunsJoined(
+        { ...a, rot: rotationOf(moving), halfLen: halfLenOf(moving) },
+        { ...b, rot: rotationOf(other), halfLen: halfLenOf(other) },
+        RECT_JOIN_TOL_PX,
+      );
+    }
+    return false;
+  };
   // Breathing gap (px) kept between any two tables.
   const COLLIDE_GAP = 10;
   // Would `moving` sitting at (x%,y%) overlap any OTHER table? AABB test in px.
@@ -1554,26 +1606,44 @@ export function SeatingEditor({
     posFor: (o: EventTableRow, i: number) => LocalPos | null,
   ) => {
     const m = footprintPx(moving);
+    const mx = (x / 100) * rect.width;
+    const my = (y / 100) * rect.height;
+    const toPx = (p: number, axis: 'w' | 'h') => (p / 100) * (axis === 'w' ? rect.width : rect.height);
     // Walkable aisle: ~0.6 m of clear space kept between a table and any
     // obstacle in a to-scale room (falls back to the 10 px breathing gap on the
     // free board, where there is no metre scale). Owner rule 2026-07-11.
     const gap = pxPerMeter ? 0.6 * pxPerMeter : COLLIDE_GAP;
     // The dance floor is a no-table zone: a table can't be dropped inside it
     // (drags slide around it via nearestFree, same as around other tables).
-    if (dance.enabled) {
-      const dzw = (dance.w / 100) * rect.width;
-      const dzh = (dance.h / 100) * rect.height;
-      const ddx = Math.abs(((x - dance.x) / 100) * rect.width);
-      const ddy = Math.abs(((y - dance.y) / 100) * rect.height);
-      if (ddx < (m.w + dzw) / 2 + gap && ddy < (m.h + dzh) / 2 + gap) return true;
+    if (
+      dance.enabled &&
+      boxOverlapsRect(
+        mx,
+        my,
+        m,
+        { x: toPx(dance.x, 'w'), y: toPx(dance.y, 'h'), w: toPx(dance.w, 'w'), h: toPx(dance.h, 'h') },
+        gap,
+      )
+    ) {
+      return true;
     }
     // The cocktail / waiting-area room is also a no-table zone (booths only).
-    if (cocktail.enabled) {
-      const czw = (cocktail.w / 100) * rect.width;
-      const czh = (cocktail.h / 100) * rect.height;
-      const cdx = Math.abs(((x - cocktail.x) / 100) * rect.width);
-      const cdy = Math.abs(((y - cocktail.y) / 100) * rect.height);
-      if (cdx < (m.w + czw) / 2 + gap && cdy < (m.h + czh) / 2 + gap) return true;
+    if (
+      cocktail.enabled &&
+      boxOverlapsRect(
+        mx,
+        my,
+        m,
+        {
+          x: toPx(cocktail.x, 'w'),
+          y: toPx(cocktail.y, 'h'),
+          w: toPx(cocktail.w, 'w'),
+          h: toPx(cocktail.h, 'h'),
+        },
+        gap,
+      )
+    ) {
+      return true;
     }
     // Vendor booths are obstacles too: a table can't be dropped on a booked
     // booth. Uses the real metre booth footprint; skipped on the free board
@@ -1582,31 +1652,27 @@ export function SeatingEditor({
       const bw = BOOTH_FOOTPRINT_M.w * pxPerMeter;
       const bh = BOOTH_FOOTPRINT_M.d * pxPerMeter;
       for (const b of booths) {
-        const bdx = Math.abs(((x - b.x_pos) / 100) * rect.width);
-        const bdy = Math.abs(((y - b.y_pos) / 100) * rect.height);
-        if (bdx < (m.w + bw) / 2 + gap && bdy < (m.h + bh) / 2 + gap) return true;
+        if (
+          boxOverlapsRect(mx, my, m, { x: toPx(b.x_pos, 'w'), y: toPx(b.y_pos, 'h'), w: bw, h: bh }, gap)
+        ) {
+          return true;
+        }
       }
     }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
-      // Chainable families never "collide" with their own kind: serpentine
-      // wedges chain tip-to-tip and banquet/family-head runs join end-flush,
-      // so their bounding boxes overlap BY DESIGN (the box includes chair
-      // overhang past the tabletop). Without this exemption the mount-time
-      // resolver tears saved chains apart on every reload. Rounds keep
-      // colliding — their kiss snap lands just OUTSIDE the threshold.
-      const ms = shapeHintFor(moving.table_type);
-      const os = shapeHintFor(o.table_type);
-      const rectish = (s: typeof ms) => s === 'long_banquet' || s === 'family_head';
-      if ((ms === 'serpentine' && os === 'serpentine') || (rectish(ms) && rectish(os))) {
-        return false;
-      }
       const op = posFor(o, i);
       if (!op) return false;
+      // The ONE sanctioned overlap: a chain contact (serpentine tips meeting,
+      // banquet/family-head run ends joined flush, or an explicit linked unit).
+      // Everything else collides — two serpentines merely shoved together
+      // mid-curve now register as a collision, so the drag slides them apart and
+      // a drop can never persist the overlap the owner reported. (Previously ALL
+      // same-family pairs were blanket-exempted, which is why loose serpentines
+      // and banquets could stack with nothing pushing them apart.)
+      if (chainJoined(moving, x, y, o, op, rect)) return false;
       const of = footprintPx(o);
-      const dx = Math.abs(((x - op.x) / 100) * rect.width);
-      const dy = Math.abs(((y - op.y) / 100) * rect.height);
-      return dx < (m.w + of.w) / 2 + gap && dy < (m.h + of.h) / 2 + gap;
+      return boxesOverlap(mx, my, m, toPx(op.x, 'w'), toPx(op.y, 'h'), of, gap);
     });
   };
   // Nearest %-position to (x,y) where `moving` clears every other table. Spirals
@@ -1973,9 +2039,12 @@ export function SeatingEditor({
         // S / circle (position + rotation), banquet/family-head ends join
         // flush into one continuous run (position + rotation), and rounds
         // kiss edge-to-edge with the chair rings clearing (position only).
-        // Wins over the alignment/grid snap; Alt drags free. Chained pairs
-        // skip the collision pass (they're MEANT to touch) and overlapsAny
-        // exempts the touching families so saved chains survive remounts.
+        // Wins over the alignment/grid snap; Alt drags free. When it fires we
+        // return early (the collision pass never runs), and overlapsAny exempts
+        // the resulting tip/flush contact (chainJoined) so the snapped join —
+        // and any explicit linked unit — survives remounts. A near-miss that
+        // DOESN'T snap now falls through to the collision pass instead of
+        // free-overlapping (the owner-reported "serpentines stack" bug).
         const movingEarly = tables.find((t) => t.table_id === d.id);
         const movingShape = movingEarly ? shapeHintFor(movingEarly.table_type) : null;
         if (movingEarly && movingShape && !e.altKey && movingShape !== 'sweetheart') {
@@ -1987,11 +2056,7 @@ export function SeatingEditor({
             const p = positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
             return { x: (p.x / 100) * rect.width, y: (p.y / 100) * rect.height };
           };
-          // Tabletop half-length (rects) — hub only, chairs hang past it.
-          const halfLenOf = (o: EventTableRow) => {
-            const g = tableGeometry(shapeHintFor(o.table_type), o.capacity);
-            return (g.hub.w / 2) * (footprintPx(o).w / g.box.w);
-          };
+          // halfLenOf (tabletop half-length, hub only) is defined at component scope.
           let snap: { x: number; y: number; rot?: number } | null = null;
           if (movingShape === 'serpentine') {
             const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
@@ -2825,6 +2890,7 @@ export function SeatingEditor({
             eventId={eventId}
             lockId={lock.lockId}
             chineseTradition={chineseTradition}
+            defaultLabel={nextTableName(tables.map((t) => t.table_label))}
             onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
             onDone={() => setShowAddTable(false)}
             onLockLost={handleLockLost}
@@ -6055,6 +6121,7 @@ function AddTablePanel({
   eventId,
   lockId,
   chineseTradition = false,
+  defaultLabel,
   onTableFourWarning,
   onDone,
   onLockLost,
@@ -6065,6 +6132,10 @@ function AddTablePanel({
   // when true and the entered label is a ones-digit-4 number, we surface a gentle
   // notice (via onTableFourWarning) but still create the table.
   chineseTradition?: boolean;
+  // Auto-incrementing "Table N" default (next free number over the existing
+  // labels) so rapid adds increment instead of every new table landing on the
+  // same name. The couple can still overwrite it with a custom name.
+  defaultLabel: string;
   onTableFourWarning?: () => void;
   onDone: () => void;
   // Called when createTable reports the editor lock was lost (peer takeover) so
@@ -6107,6 +6178,7 @@ function AddTablePanel({
         name="table_label"
         required
         maxLength={64}
+        defaultValue={defaultLabel}
         placeholder="Table name · e.g. Sponsors 1"
         className="w-full rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
       />

@@ -63,7 +63,16 @@ export function CaptureBar({
   };
 
   return (
-    <div className="relative rounded-xl border border-ink/10 bg-cream">
+    <div
+      className="relative rounded-xl border"
+      style={{
+        background: 'var(--sn-glass-bg)',
+        borderColor: 'var(--sn-glass-line)',
+        backdropFilter: 'var(--sn-glass-blur)',
+        WebkitBackdropFilter: 'var(--sn-glass-blur)',
+        boxShadow: 'var(--sn-sh-tile)',
+      }}
+    >
       <div className="flex items-center gap-2 p-2">
         {/* Leading glyph */}
         <span aria-hidden className="shrink-0 pl-1 text-ink/35">

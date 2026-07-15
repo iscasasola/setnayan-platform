@@ -301,17 +301,26 @@ function RowAvatar({
       </span>
     );
   }
-  const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-danger-200/60 text-danger-900',
-    groom: 'bg-sky-200/60 text-sky-900',
-    both: 'bg-warn-200/60 text-warn-900',
+  // Side-identity gradients (Glass PR-3, per the roster proto): bride → gold
+  // family, groom → info-slate family, both → a gold↔slate blend, each with a
+  // small side dot. White initials read on all three.
+  const sideStyle: Record<GuestSide, { bg: string; dot: string }> = {
+    bride: { bg: 'linear-gradient(135deg,#c8a877,#8a6b39)', dot: 'var(--sn-gold-500)' },
+    groom: { bg: 'linear-gradient(135deg,#7e93a5,#4e6c82)', dot: 'var(--sn-info)' },
+    both: { bg: 'linear-gradient(135deg,#c8a877,#7e93a5)', dot: 'var(--sn-gold-300)' },
   };
+  const s = sideStyle[guest.side];
   return (
     <span
       aria-hidden
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-[#FFFDF8]"
+      style={{ background: s.bg }}
     >
       {guestInitials(guest)}
+      <span
+        className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full ring-2 ring-[#EFEAE0]"
+        style={{ background: s.dot }}
+      />
     </span>
   );
 }
@@ -733,9 +742,21 @@ export function GuestListMultiselect({
       {/* Desktop · row/table. Photo thumbnail in the Name cell; when grouped
           (the importance sort · default) a tier header row precedes each tier's
           rows, else a flat table. The thead checkbox is select-all. */}
-      <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
+      {/* Glass roster panel (Glass PR-3 §1.6) — ONE blurred wrapper; the <tr>
+          rows stay opaque (hairline dividers, translucent hover/selected tints)
+          so hundreds of rows never each carry a blur layer. */}
+      <div
+        className="hidden overflow-hidden rounded-tile border sm:block"
+        style={{
+          background: 'var(--sn-glass-bg)',
+          borderColor: 'var(--sn-glass-line)',
+          backdropFilter: 'var(--sn-glass-blur)',
+          WebkitBackdropFilter: 'var(--sn-glass-blur)',
+          boxShadow: 'var(--sn-sh-tile)',
+        }}
+      >
         <table className="w-full table-fixed text-left text-sm">
-          <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+          <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
             <tr>
               <th className="w-10 px-3 py-2.5">
                 <label className="flex items-center justify-center">
@@ -1887,11 +1908,13 @@ function SidePill({ side }: { side: GuestRow['side'] }) {
 }
 
 function RsvpPill({ status }: { status: RsvpStatus }) {
+  // Warm RSVP semantics (Glass PR-3, per the roster proto): attending → success,
+  // maybe → warning, pending → neutral ink, declined → danger.
   const tone: Record<RsvpStatus, string> = {
     attending: 'bg-success-100 text-success-800',
-    pending: 'bg-warn-100 text-warn-800',
+    maybe: 'bg-warn-100 text-warn-800',
+    pending: 'bg-ink/10 text-ink/70',
     declined: 'bg-danger-100 text-danger-800',
-    maybe: 'bg-ink/10 text-ink/70',
   };
   return (
     <span

@@ -40,11 +40,14 @@ export function SeatChip({
     hasPlusOne && rsvp !== 'declined' ? (
       <span
         title="Their plus-one is seated with them"
-        className="ml-1 inline-flex rounded-full bg-terracotta/10 px-1.5 py-px text-[10px] font-semibold text-terracotta-700"
+        className="ml-1 inline-flex rounded-full bg-[var(--sn-gold-100)] px-1.5 py-px text-[10px] font-semibold text-[var(--sn-gold-700)]"
       >
         +1
       </span>
     ) : null;
+
+  // Mono seat chips (Glass PR-3, per the roster proto): placed = a white mono
+  // plaque, suggested = the gold-100 hint, declined/empty = a quiet dash.
 
   // 1. Declined — a dash. Checked FIRST so an optimistic decline shows "—" the
   //    instant the row flips, even while `placed` is still the stale prior seat.
@@ -56,8 +59,7 @@ export function SeatChip({
   if (placed) {
     return (
       <span className="inline-flex items-center whitespace-nowrap">
-        <span className="inline-flex items-center gap-1 rounded-full border border-terracotta/30 bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
-          <span aria-hidden>🪑</span>
+        <span className="inline-flex items-center rounded-md border border-ink/15 bg-white/70 px-2 py-0.5 font-mono text-[11px] font-bold text-ink/70">
           {placed}
         </span>
         {plus}
@@ -65,16 +67,16 @@ export function SeatChip({
     );
   }
 
-  // 3. Suggested — a dashed hint the couple confirms by seating the guest in the
-  //    0008 editor. Null suggestion (no tables yet) degrades to a quiet dash.
+  // 3. Suggested — a hint the couple confirms by seating the guest in the 0008
+  //    editor. Null suggestion (no tables yet) degrades to a quiet dash.
   if (suggested) {
     return (
       <span className="inline-flex items-center whitespace-nowrap">
         <span
           title="Suggested from role + side · place them in the seat plan to confirm"
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 px-2 py-0.5 text-[11px] text-ink/50"
+          className="inline-flex items-center rounded-md border border-transparent bg-[var(--sn-gold-100)] px-2 py-0.5 font-mono text-[11px] font-bold text-[var(--sn-gold-700)]"
         >
-          <span aria-hidden>⌁</span>~{suggested}
+          ~{suggested}
         </span>
         {plus}
       </span>

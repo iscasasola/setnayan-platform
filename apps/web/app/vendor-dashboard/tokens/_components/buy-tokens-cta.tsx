@@ -57,8 +57,9 @@ const NUMBER = new Intl.NumberFormat('en-PH');
 
 /**
  * Mobile SRP multiplier: 1.5× the web price.
- * Pack SRP prices (at ₱200/token web price · 2026-07-12 reprice):
- *   4-pack  → ₱800 web   → ₱1,200 mobile
+ * Pack SRP prices (flat ₱200/token web price · 2026-07-15 catalog restructure,
+ * anchored at ₱1,000 = 5 tokens):
+ *   5-pack  → ₱1,000 web  → ₱1,500 mobile
  *   10-pack → ₱2,000 web  → ₱3,000 mobile
  *   25-pack → ₱5,000 web  → ₱7,500 mobile
  *   50-pack → ₱10,000 web → ₱15,000 mobile

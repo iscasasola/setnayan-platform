@@ -96,7 +96,7 @@ export function BudgetLiveSummaryCard({
   return (
     <section
       aria-labelledby="budget-live-heading"
-      className="space-y-5 rounded-xl border border-ink/10 bg-cream p-5"
+      className="sn-tile space-y-5"
     >
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-baseline gap-2">
@@ -131,18 +131,18 @@ export function BudgetLiveSummaryCard({
             <span className="font-semibold text-ink">{formatPhp(budget)}</span>
             <span className="text-ink/45"> paid</span>
           </p>
-          <p className="font-display text-2xl text-ink">{percentPaid}%</p>
+          <p className="font-mono text-2xl font-bold text-ink">{percentPaid}%</p>
         </div>
         <div
-          className="h-2 w-full overflow-hidden rounded-full bg-ink/10"
+          className="sn-bar h-2 w-full overflow-hidden rounded-full bg-ink/10"
           role="progressbar"
           aria-valuenow={percentPaid}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Percent of budget paid"
         >
-          <div
-            className="h-full rounded-full bg-terracotta transition-[width] duration-500 ease-out"
+          <i
+            className="bg-terracotta transition-[width] duration-500 ease-out"
             style={{ width: `${percentPaid}%` }}
           />
         </div>
@@ -194,7 +194,7 @@ function Stat({
     <li className="space-y-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
       <p
-        className={`text-lg font-semibold tracking-tight sm:text-xl ${
+        className={`font-mono text-lg font-bold tracking-tight sm:text-xl ${
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'

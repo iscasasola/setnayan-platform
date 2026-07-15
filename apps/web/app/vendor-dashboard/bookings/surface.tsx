@@ -2,11 +2,17 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, ClipboardList } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchVendorThreads,
   formatChatTimestamp,
   type VendorThreadWithEvent,
 } from '@/lib/chat';
+import {
+  fetchInquiryMaskMeta,
+  inquiryPlaceholderLabel,
+  isInquiryRevealed,
+} from '@/lib/inquiry-mask.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
 import {
@@ -75,6 +81,17 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     // keyed by event_id; graceful-degrades to an empty map pre-migration.
     fetchVendorPreparationItemsByEvent(supabase, profile.vendor_profile_id),
   ]);
+
+  // Anonymization-until-accept (Glass PR-6b): for PRE-accept (unrevealed)
+  // threads, fetchVendorThreads already stripped the couple's event title +
+  // public-page link from the DTO. To still show a useful, non-identifying label
+  // ("A couple planning a {type} in {city}") we batch-read ONLY event_type +
+  // city-level region via the admin client (a vendor holds no events RLS),
+  // scoped to this vendor's own unrevealed threads.
+  const inquiryMaskMeta = await fetchInquiryMaskMeta(
+    createAdminClient(),
+    threads.filter((t) => !isInquiryRevealed(t)).map((t) => t.event_id),
+  );
 
   // Pull latest message per thread for preview + unread inference.
   const threadIds = threads.map((t) => t.thread_id);
@@ -304,7 +321,9 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                         {STATUS_LABEL[r.status]}
                       </span>
                       <p className="truncate text-sm font-semibold text-ink">
-                        {r.event?.display_name ?? 'Event'}
+                        {isInquiryRevealed(r)
+                          ? (r.event?.display_name ?? 'Event')
+                          : inquiryPlaceholderLabel(inquiryMaskMeta.get(r.event_id) ?? {})}
                       </p>
                     </div>
                     <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

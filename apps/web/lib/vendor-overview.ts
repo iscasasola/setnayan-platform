@@ -7,7 +7,8 @@ import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { regionBurnTokens } from '@/lib/v2/region-token-burn';
-import { resolveRegion } from '@/lib/region-source';
+import { resolveRegion, regionLabel } from '@/lib/region-source';
+import { inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { computeMonthlySubtotals, fetchVendorEarnings } from '@/lib/vendor-earnings';
@@ -201,14 +202,24 @@ export async function fetchVendorOverviewData(
 
   for (const t of pendingThreads) {
     const meta = eventMeta.get(t.event_id);
+    // Anonymization-until-accept (Glass PR-6b): a pending inquiry is PRE-accept,
+    // so the couple's identity must not surface here. `eventName` becomes the
+    // neutral placeholder ("A couple planning a {event_type} in {city}") — never
+    // the event display_name — and `place` is city/area-level ONLY (drop the
+    // venue name). `eventMeta.displayName`/`venue` are read via the admin client
+    // (a vendor holds no events RLS), so this is the load-bearing masking point:
+    // those PII fields must never be assembled into the card. `eventDate` is
+    // permitted. Full reveal happens after Accept (this card disappears once the
+    // thread leaves `pending`).
+    const city = regionLabel(meta?.region ?? null);
     whatsNew.push({
       kind: 'inquiry',
       id: `inq-${t.thread_id}`,
       threadId: t.thread_id,
       title: 'New inquiry — New customer',
-      eventName: t.event?.display_name ?? meta?.displayName ?? 'A couple',
+      eventName: inquiryPlaceholderLabel({ eventType: meta?.eventType ?? null, city }),
       eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
-      place: placeLabel(meta?.venue ?? null, meta?.region ?? null),
+      place: city,
       category: vendorCategory,
       tokenCost: regionBurnTokens(meta?.region ?? null),
       createdAt: t.created_at,
@@ -414,6 +425,7 @@ type EventMeta = {
   eventDate: string | null;
   region: string | null;
   venue: string | null;
+  eventType: string | null;
 };
 
 async function fetchEventMeta(
@@ -424,7 +436,7 @@ async function fetchEventMeta(
   if (eventIds.length === 0) return out;
   const { data } = await admin
     .from('events')
-    .select('event_id, display_name, event_date, region, venue')
+    .select('event_id, display_name, event_date, region, venue, event_type')
     .in('event_id', eventIds);
   for (const row of (data ?? []) as Array<{
     event_id: string;
@@ -432,12 +444,14 @@ async function fetchEventMeta(
     event_date: string | null;
     region: string | null;
     venue: string | null;
+    event_type: string | null;
   }>) {
     out.set(row.event_id, {
       displayName: row.display_name ?? 'A couple',
       eventDate: row.event_date,
       region: row.region,
       venue: row.venue,
+      eventType: row.event_type,
     });
   }
   return out;

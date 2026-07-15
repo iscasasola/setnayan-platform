@@ -100,10 +100,23 @@ export type CoupleThreadWithVendor = ChatThreadRow & {
 export type VendorThreadWithEvent = ChatThreadRow & {
   /** See CoupleThreadWithVendor.archived — same per-viewer archive state, vendor side. */
   archived: boolean;
+  /**
+   * Anonymization-until-accept (Glass PR-6b · Vendor_Inquiry_Anonymization_Spec
+   * _2026-07-15). PRE-ACCEPT the couple's identity must NOT ship to the vendor
+   * client at all: `display_name` (the event title carries the couple's names)
+   * and `public_id` (a link to the couple's public event page) are STRIPPED to
+   * null for any thread that isn't revealed (see isInquiryRevealed / the mapper
+   * below). `event_date` is retained — the spec permits showing the date. This
+   * is data-layer enforcement, independent of the RLS backstop (a vendor holds
+   * no `events` RLS, so the embed is already null for them — this makes the
+   * masking explicit and intentional rather than an implicit accident that a
+   * future policy change could silently undo). Post-accept the row passes
+   * through unchanged.
+   */
   event: {
-    display_name: string;
+    display_name: string | null;
     event_date: string | null;
-    public_id: string;
+    public_id: string | null;
   } | null;
 };
 
@@ -239,6 +252,24 @@ export async function fetchCoupleThreads(
   return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as CoupleThreadWithVendor[];
 }
 
+/**
+ * Anonymization-until-accept enforcement (Glass PR-6b). For any vendor thread
+ * that isn't revealed (the vendor hasn't burned the token to accept), strip the
+ * couple's identity fields — event title (`display_name`) + public-page link
+ * (`public_id`) — from the DTO so they never reach the vendor client. Keeps
+ * `event_date` (permitted). Revealed threads pass through unchanged. Mirrors
+ * isInquiryRevealed in lib/inquiry-mask.ts; inlined here to keep chat.ts free of
+ * a server-only import (this module is imported by couple-side code too).
+ */
+function maskVendorThreadEvent(row: VendorThreadWithEvent): VendorThreadWithEvent {
+  const revealed = row.accepted_at != null || row.inquiry_status === 'accepted';
+  if (revealed || !row.event) return row;
+  return {
+    ...row,
+    event: { display_name: null, event_date: row.event.event_date, public_id: null },
+  };
+}
+
 export async function fetchVendorThreads(
   supabase: SupabaseClient,
   vendorProfileId: string,
@@ -254,7 +285,10 @@ export async function fetchVendorThreads(
       const { reads: _reads, ...rest } = row as Record<string, unknown> & {
         reads?: { archived_at: string | null }[] | null;
       };
-      return { ...rest, archived: computeArchived(row as never) } as unknown as VendorThreadWithEvent;
+      return maskVendorThreadEvent({
+        ...rest,
+        archived: computeArchived(row as never),
+      } as unknown as VendorThreadWithEvent);
     });
   }
   logQueryError(
@@ -269,7 +303,9 @@ export async function fetchVendorThreads(
     .eq('vendor_profile_id', vendorProfileId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchVendorThreads failed: ${error.message}`);
-  return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as VendorThreadWithEvent[];
+  return (data ?? []).map((row) =>
+    maskVendorThreadEvent({ ...(row as object), archived: false } as unknown as VendorThreadWithEvent),
+  );
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   fetchThreadById,
 } from '@/lib/chat';
 import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
+import { isInquiryRevealed, inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -226,6 +227,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   ]));
 
   const coupleLabel = event?.display_name ?? 'Couple';
+  // Anonymization-until-accept (Glass PR-6b): pre-accept, the thread header + the
+  // customer rail show the neutral placeholder ("A couple planning a {type} in
+  // {city}") built from the non-identifying `get_pending_inquiry_basics` facts —
+  // never the couple's event title. Post-accept (token burned) the real label
+  // shows. The message-stream `counterpartyLabel` stays the generic `coupleLabel`
+  // (which the vendor's RLS already resolves to "Couple" while pending) so chat
+  // bubbles read naturally rather than repeating the long placeholder.
+  const inquiryRevealed = isInquiryRevealed(thread);
+  const maskedInquiryLabel = inquiryPlaceholderLabel({
+    eventType: inquiryBasics?.event_type ?? null,
+    city: regionLabel(inquiryBasics?.region ?? null),
+  });
+  const headerLabel = inquiryRevealed ? coupleLabel : maskedInquiryLabel;
 
   const alreadyOnThread = new Set(
     existingInterests
@@ -327,7 +341,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         vendorProfileId: profile.vendor_profile_id,
       });
   const railProps = {
-    displayName: railMasked ? 'New Customer' : coupleLabel,
+    displayName: railMasked ? maskedInquiryLabel : coupleLabel,
     initials: railInitials,
     masked: railMasked,
     stage: { label: THREAD_STAGE_LABEL[railStage], tone: THREAD_STAGE_TONE[railStage] },
@@ -351,7 +365,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           >
             ‹ Messages
           </Link>
-          <p className="truncate text-base font-semibold text-ink">{coupleLabel}</p>
+          <p className="truncate text-base font-semibold text-ink">{headerLabel}</p>
           {event?.event_date ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {event.event_date}
@@ -510,8 +524,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
-            <span className="font-semibold">New inquiry.</span> Accept to open the
-            chat and reply, or decline if you&rsquo;re not available for this date.
+            <span className="font-semibold">New inquiry.</span> Accept to see who
+            they are and reply — 1 token (₱200). You only spend when you accept.
+            Or decline if you&rsquo;re not available for this date.
           </p>
           {/* Inquiry basics (PR 1 · owner-approved 2026-07-11) — decision-useful,
               non-identifying facts surfaced on the MASKED lead. The couple's name

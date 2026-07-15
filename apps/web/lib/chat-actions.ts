@@ -165,12 +165,22 @@ export async function notifyOtherParty(args: {
         args.eventId,
         args.vendorProfileId,
       );
+      // Anonymization-until-accept (Glass PR-6b · spec 2026-07-15): a first
+      // couple→vendor message is a PRE-accept inquiry, so the notification (and
+      // the email it triggers via emitNotification's allowlist) must NOT carry
+      // the couple's identity — the title drops `eventName` (the event title,
+      // which contains the couple's names). The couple's message TEXT is NOT
+      // scrubbed (edge rule: they may sign their own message — that's their
+      // choice). NOTE: the "returning client" enrichment (which names a PRIOR
+      // event) is an owner-locked feature (2026-06-12) that deliberately tells
+      // the vendor a repeat client is reaching out; it's preserved here and
+      // flagged for owner reconciliation against this anonymization pass.
       await emitNotification({
         userId: vendorRes.data.user_id,
         type: 'vendor_inquiry_received',
         title: priorLocked
-          ? `New booking inquiry from ${eventName} — a returning client`
-          : `New booking inquiry from ${eventName}`,
+          ? 'New booking inquiry — a returning client'
+          : 'New booking inquiry',
         body: priorLocked
           ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
           : args.body.slice(0, 200),

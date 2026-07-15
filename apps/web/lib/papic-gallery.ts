@@ -21,6 +21,16 @@ export type GalleryPhoto = {
   /** Presigned URL of the actual VIDEO for clips (so the gallery can play it),
    *  null for photos. `url` stays the poster/thumb for the tile either way. */
   playUrl?: string | null;
+  /**
+   * OUTBOUND "save to phone" URL for a PHOTO — points ONLY at a metadata-stripped
+   * derivative (display → thumb), NEVER the geo-bearing original (RA 10173 ·
+   * CLAUDE.md "geo stripped on outbound shares"). Null when no derivative exists
+   * yet (freshly captured; the save button is hidden until it renders) and for
+   * clips (their video save is the deferred ffmpeg case). Distinct from `url`,
+   * which may still fall back to the original purely for on-screen display (an
+   * <img> never leaks EXIF to a recipient; a saved/shared file does).
+   */
+  saveUrl?: string | null;
   kind: 'photo' | 'clip';
   // Which capture table the row lives in. The showcase-approval toggle routes
   // to the matching action: seat clips flip papic_photos, guest clips flip
@@ -109,9 +119,12 @@ export async function fetchPapicGallery(
     /* untagged fallback */
   }
 
-  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl'> & {
+  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl'> & {
     ref: string | null;
     videoRef: string | null;
+    // Outbound save ref — a stripped derivative only (display → thumb), never the
+    // geo-bearing original. Null for clips + pre-derivative photos.
+    saveRef: string | null;
   };
 
   const seatPhotos: Pre[] = visibleSeat.map((r) => {
@@ -130,6 +143,11 @@ export async function fetchPapicGallery(
       // The playable video lives at r2_object_key for a clip (the tile shows its
       // poster). Photos have no separate video.
       videoRef: isClip ? (r.r2_object_key as string | null) : null,
+      // Save target for a photo: a stripped derivative ONLY (display → thumb),
+      // never the original. Clips fall through to the deferred video path.
+      saveRef: isClip
+        ? null
+        : ((r.display_r2_key as string | null) ?? (r.thumb_r2_key as string | null)),
       kind: isClip ? 'clip' : 'photo',
       source: 'seat',
       tagged: Boolean(tagSrc),
@@ -160,6 +178,9 @@ export async function fetchPapicGallery(
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
       videoRef: isClip ? (r.r2_object_key as string | null) : null,
+      saveRef: isClip
+        ? null
+        : ((r.display_r2_key as string | null) ?? (r.thumb_r2_key as string | null)),
       kind: isClip ? 'clip' : 'photo',
       source: 'guest',
       tagged: Boolean(tagSrc),
@@ -175,10 +196,11 @@ export async function fetchPapicGallery(
   );
 
   return Promise.all(
-    merged.map(async ({ ref, videoRef, ...rest }) => ({
+    merged.map(async ({ ref, videoRef, saveRef, ...rest }) => ({
       ...rest,
       url: ref ? await displayUrlForStoredAsset(ref) : null,
       playUrl: videoRef ? await displayUrlForStoredAsset(videoRef) : null,
+      saveUrl: saveRef ? await displayUrlForStoredAsset(saveRef) : null,
     })),
   );
 }

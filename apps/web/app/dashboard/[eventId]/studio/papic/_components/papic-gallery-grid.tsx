@@ -165,9 +165,12 @@ export function PapicGalleryGrid({
                   />
                 ) : null}
                 {/* Photos save straight from the tile; clips download from the
-                    lightbox (the tile thumbnail is only their poster frame). */}
-                {p.url && p.kind === 'photo' ? (
-                  <SavePhotoButton url={p.url} filename={`setnayan-photo-${p.id}.jpg`} />
+                    lightbox (the tile thumbnail is only their poster frame).
+                    Save uses `saveUrl` — a metadata-stripped derivative ONLY, never
+                    the geo-bearing original (RA 10173). Hidden until the derivative
+                    renders (seconds after capture), so no raw original is shared. */}
+                {p.saveUrl && p.kind === 'photo' ? (
+                  <SavePhotoButton url={p.saveUrl} filename={`setnayan-photo-${p.id}.jpg`} />
                 ) : null}
                 <span
                   className={`absolute bottom-1 left-1 h-2 w-2 rounded-full ring-1 ring-white/70 ${tagDotClass(p.tagSource)}`}
@@ -240,6 +243,12 @@ function ClipLightbox({ photo, onClose }: { photo: GalleryPhoto; onClose: () => 
               // fetch→blob→download: a bare cross-origin <a download> is ignored
               // by browsers (opens instead of saves) + the ext is derived from
               // the real container (webm vs mp4), not hardcoded.
+              // PRIVACY NOTE (RA 10173): this serves the clip's video ORIGINAL.
+              // Stripping MP4/container GPS needs an ffmpeg `-map_metadata -1` pass
+              // that Vercel can't run on the serving path — DEFERRED (see the
+              // geo-strip changelog). Papic clips are recorded in-browser via
+              // MediaRecorder, which writes no GPS, so the current exposure is nil;
+              // the gap is only camera-roll/DSLR-origin clips (a future path).
               await saveMediaToDevice(photo.playUrl, `setnayan-clip-${photo.id}`);
               setSaving(false);
             }}

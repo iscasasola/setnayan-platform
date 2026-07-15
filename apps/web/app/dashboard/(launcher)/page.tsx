@@ -9,10 +9,15 @@ import {
   LayoutGrid,
   Wand2,
   AlertCircle,
+  Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
+import {
+  fetchUserCommunities,
+  type CommunityWithRole,
+} from '@/lib/communities';
 import {
   fetchChecklistItems,
   daysUntilEvent,
@@ -74,9 +79,14 @@ export const metadata = {
  *     2026-07-13 rule. The flag-gated person-spine "Your story" renders in the
  *     tile's column when its flag turns on.
  *   • SPACES — the vendor shop(s) + admin HQ doorways as compact rows in the
- *     bento's right column; still the only allowed jumps besides events.
- *     Capability-gated: absent for a plain couple. A muted "Samahan ·
- *     Communities — coming soon" note (no dead door) marks the next build.
+ *     bento's right column (still the only allowed jumps besides events),
+ *     PLUS the Samahan · Communities section. The shop/HQ rows stay
+ *     capability-gated (absent for a plain couple), but the tile now renders
+ *     for EVERYONE because Samahan does: the user's samahans as rows (icon
+ *     Users · role + member count · href /dashboard/samahan/<id>) capped at 3
+ *     with a "N more samahans" overflow row, then a "+ Create a Samahan" door.
+ *     A plain couple with zero shops + zero samahans still sees the section
+ *     label, the "shared space for your barkada…" line, and the create door.
  *   • YOU — behind the top-bar avatar only (AccountSwitcher: Profile & settings ·
  *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
  *     rows moved into Alaala (People · Memories Hub) and the avatar menu
@@ -161,7 +171,7 @@ export default async function LauncherPage({
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
   // launcher instead of flashing the global error boundary.
-  const [events, profileRes, roles] = await Promise.all([
+  const [events, profileRes, roles, communities] = await Promise.all([
     fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
       logQueryError(
         'Launcher (fetchUserEvents threw)',
@@ -205,6 +215,18 @@ export default async function LauncherPage({
         ownedShopCount: 0,
         canOpenShop: false,
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
+    }),
+    // Samahan (communities) the user belongs to — graceful-degrade to [] so a
+    // pre-migration environment (or an OAuth-race read) renders the launcher
+    // with the create-only Samahan section rather than the error boundary.
+    fetchUserCommunities(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'Launcher (fetchUserCommunities threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as CommunityWithRole[];
     }),
   ]);
 
@@ -502,6 +524,38 @@ export default async function LauncherPage({
     });
   }
 
+  // SAMAHAN rows — the user's communities as compact SpaceRows (owner
+  // 2026-07-15 composable-event model). Organizer subtitle carries the member
+  // count; a plain member reads just "Member". Capped at 3 (MAX_SHOP_CARDS
+  // idiom) with a "N more samahans" overflow row into the index. RA 10173: only
+  // display name + role + count reach the DOM — never a user UUID or email.
+  const samahanSubtitle = (c: CommunityWithRole) =>
+    c.role === 'organizer'
+      ? `Organizer · ${c.member_count} ${c.member_count === 1 ? 'member' : 'members'}`
+      : 'Member';
+  const MAX_SAMAHAN_CARDS = 3;
+  const samahanRows: SpaceCardProps[] = communities
+    .slice(0, MAX_SAMAHAN_CARDS)
+    .map((c) => ({
+      id: `samahan-${c.community_id}`,
+      href: `/dashboard/samahan/${c.community_id}`,
+      icon: Users,
+      title: c.name,
+      subtitle: samahanSubtitle(c),
+      tone: 'default' as const,
+    }));
+  if (communities.length > MAX_SAMAHAN_CARDS) {
+    const moreCount = communities.length - MAX_SAMAHAN_CARDS;
+    samahanRows.push({
+      id: 'more-samahans',
+      href: '/dashboard/samahan',
+      icon: Users,
+      title: `${moreCount} more ${moreCount === 1 ? 'samahan' : 'samahans'}`,
+      subtitle: 'See all your samahans',
+      tone: 'default',
+    });
+  }
+
   // The deterministic search index — the user's OWN events, spaces and account
   // destinations, serialized for the HomeCommandBar client island (no functions
   // across the RSC boundary; icons resolve from string keys client-side).
@@ -531,6 +585,18 @@ export default async function LauncherPage({
         icon: s.href === '/admin' ? 'shield' : 'store',
       }),
     ),
+    // Samahan jump items — one per community, findable by name (⌘K). Same
+    // mapping shape as spaces.map above.
+    ...communities.map(
+      (c): HomeCommandItem => ({
+        id: `samahan-${c.community_id}`,
+        label: c.name,
+        sublabel: samahanSubtitle(c),
+        href: `/dashboard/samahan/${c.community_id}`,
+        kind: 'space',
+        icon: 'users',
+      }),
+    ),
     {
       id: 'action-new-event',
       label: 'New event',
@@ -538,6 +604,14 @@ export default async function LauncherPage({
       href: '/dashboard/create-event',
       kind: 'action',
       icon: 'plus',
+    },
+    {
+      id: 'action-new-samahan',
+      label: 'Create a Samahan',
+      sublabel: 'A shared space for your barkada, parish, or clan',
+      href: '/dashboard/samahan/new',
+      kind: 'action',
+      icon: 'users',
     },
     {
       id: 'action-library',
@@ -653,7 +727,6 @@ export default async function LauncherPage({
             <MobileEventHero
               event={upcoming[0]}
               pct={progressByEvent.get(upcoming[0].event_id) ?? null}
-              overdue={checklistByEvent.get(upcoming[0].event_id)?.overdue ?? 0}
             />
           ) : null}
           {upcoming.length > 1 || (showAll && finished.length > 0) ? (
@@ -712,7 +785,6 @@ export default async function LauncherPage({
               key={event.event_id}
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
-              decision={decisionByEvent.get(event.event_id) ?? null}
               index={i}
             />
           ))}
@@ -722,7 +794,6 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
-                  decision={decisionByEvent.get(event.event_id) ?? null}
                   finished
                   index={upcoming.length + i}
                 />
@@ -843,18 +914,22 @@ export default async function LauncherPage({
               )}
             </div>
 
-            {/* SPACES — the vendor shop(s) + admin HQ doorways, as compact rows
-                (prototype tile). Capability-gated: absent for a plain couple.
-                These still NAVIGATE (their own dashboards are allowed jumps). */}
-            {spaces.length > 0 ? (
-              <div
-                className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
-                style={{ animationDelay: '0.9s' }}
-              >
-                <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                  <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Spaces
-                </p>
+            {/* SPACES — the vendor shop(s) + admin HQ doorways (capability-gated
+                INSIDE the tile) PLUS Samahan · Communities, which renders for
+                EVERYONE. The whole tile now always renders: a plain couple must
+                still get the "+ Create a Samahan" door. These still NAVIGATE
+                (their own dashboards / space pages are allowed jumps). */}
+            <div
+              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
+              style={{ animationDelay: '0.9s' }}
+            >
+              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
+                <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Spaces
+              </p>
+              {/* Vendor shop / admin HQ rows — capability-gated: empty for a
+                  plain couple, so the block collapses and Samahan leads. */}
+              {spaces.length > 0 ? (
                 <div className="mt-2 divide-y divide-ink/[0.07]">
                   {spaces.map((space) => (
                     <SpaceRow
@@ -863,16 +938,27 @@ export default async function LauncherPage({
                     />
                   ))}
                 </div>
-                {/* Samahan — communities are the next build (owner 2026-07-15
-                    composable-event model). Honest note, no dead door. */}
-                <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                  Samahan · Communities
+              ) : null}
+              {/* Samahan — communities are LIVE (owner 2026-07-15 composable-
+                  event model): real rows + a create door for everyone. */}
+              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
+                Samahan · Communities
+              </p>
+              {communities.length === 0 ? (
+                <p className="mb-1 mt-1 text-xs text-ink/45">
+                  A shared space for your barkada, parish, or clan.
                 </p>
-                <p className="mt-1 text-xs text-ink/45">
-                  Coming soon — a shared space for your barkada, parish, or clan.
-                </p>
+              ) : null}
+              <div className="mt-1 divide-y divide-ink/[0.07]">
+                {samahanRows.map((space) => (
+                  <SpaceRow
+                    key={space.id ?? space.href + space.title}
+                    {...space}
+                  />
+                ))}
+                <CreateSamahanRow />
               </div>
-            ) : null}
+            </div>
           </div>
         </div>
 
@@ -1004,17 +1090,19 @@ function ShowAllToggle({ showAll }: { showAll: boolean }) {
  * 2026-07-12) — carrying the same signals as the old timeline node: badge ·
  * monogram · place/date · gold progress ring · countdown · attention line.
  * The card jumps into the event dashboard — an allowed navigation.
+ *
+ * Attention/overdue signals deliberately live ONLY in The Watch (desktop tile)
+ * / the mobile nudge row now (owner 2026-07-15: one home for overdue counts) —
+ * this card carries identity/type/date/progress, never a decision pill.
  */
 function GlassEventCard({
   event,
   pct,
-  decision,
   finished,
   index = 0,
 }: {
   event: EventWithRole;
   pct: number | null;
-  decision: EventDecisionSummary | null;
   finished?: boolean;
   /** Position in the grid — drives the entrance-cascade + ring/count-up
    *  stagger delays (computed, never hardcoded per card). */
@@ -1101,12 +1189,6 @@ function GlassEventCard({
             ) : null}
           </div>
         </div>
-        {decision?.top ? (
-          <AttentionPill
-            label={decision.top.label}
-            more={decision.total - decision.top.count}
-          />
-        ) : null}
       </div>
     </Link>
   );
@@ -1158,21 +1240,17 @@ function deriveEventView(
 function MobileEventHero({
   event,
   pct,
-  overdue,
 }: {
   event: EventWithRole;
   pct: number | null;
-  overdue: number;
 }) {
   const { badge, dateLabel, countdown, plannedLabel } = deriveEventView(
     event,
     pct,
   );
-  const facts = [
-    plannedLabel,
-    overdue > 0 ? `${overdue} overdue` : null,
-    dateLabel,
-  ].filter(Boolean) as string[];
+  // Attention/overdue lives ONLY in the mobile nudge row now (owner 2026-07-15:
+  // one home for overdue counts). The hero keeps identity/date/progress facts.
+  const facts = [plannedLabel, dateLabel].filter(Boolean) as string[];
   return (
     <Link
       href={`/dashboard/${event.event_id}`}
@@ -1362,6 +1440,32 @@ function SpaceRow({
             <AttentionPill label={attention} />
           </span>
         ) : null}
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
+      />
+    </Link>
+  );
+}
+
+/**
+ * The "+ Create a Samahan" doorway — the SpaceRow layout with a MUTED dashed
+ * Plus chip (the "New event" / samahan-index create-row idiom). Always present
+ * in the Spaces tile so a plain couple, or a member with no samahans yet, still
+ * has the real create door.
+ */
+function CreateSamahanRow() {
+  return (
+    <Link
+      href="/dashboard/samahan/new"
+      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-ink/20 text-[color:var(--sn-ink-400)]">
+        <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-[color:var(--sn-ink-500)] group-hover:text-ink">
+        Create a Samahan
       </span>
       <ArrowUpRight
         aria-hidden

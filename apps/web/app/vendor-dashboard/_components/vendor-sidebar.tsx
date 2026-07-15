@@ -302,10 +302,13 @@ function flattenChildren(groups: NavGroup[]): NavGroup[] {
 }
 
 /**
- * The vendor identity card — a dark rounded-square avatar (initials) + the
- * business display name + a green "Verified" / muted "Unverified" line. Reads
- * as the prototype's obsidian avatar tile. Hidden on the collapsed 64px rail
- * (no room) via the same data-attr selector the shell uses elsewhere.
+ * The vendor identity card — the avatar (initials/logo) + the business display
+ * name + a "Verified" / "Unverified" line. Glass PR-6: on the Atelier-Glass
+ * language, a flat translucent-white inset card with a GOLD left rail + gold
+ * avatar ring (the `--v-blue` photography-blue accents are retired). Flat tint,
+ * NO backdrop-filter of its own — it sits inside the already-frosted rail, so
+ * one blur layer deep is preserved (§ 1.6). Hidden on the collapsed 64px rail
+ * via the same data-attr selector the shell uses elsewhere.
  */
 function VendorIdentityCard({
   displayName,
@@ -322,16 +325,15 @@ function VendorIdentityCard({
     <div
       className="mx-2 mb-2 flex items-center gap-3 overflow-hidden rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
       style={{
-        background: 'var(--m-sidebar-bg-2)',
-        borderColor: 'var(--m-sidebar-line)',
-        // Photography-blue secondary accent (vendor doorway) — a thin left rail
-        // so the identity tile reads as the prototype's blue business switcher.
-        boxShadow: 'inset 3px 0 0 var(--v-blue)',
+        background: 'rgba(255,255,255,.5)',
+        borderColor: 'var(--sn-glass-line)',
+        // Gold left rail — the kit's one decorative colour (§ 1.2).
+        boxShadow: 'inset 3px 0 0 var(--sn-gold-500)',
       }}
     >
       <span
         className="shrink-0"
-        style={{ borderRadius: 'var(--m-r-sm)', boxShadow: '0 0 0 1.5px var(--v-blue)' }}
+        style={{ borderRadius: 'var(--m-r-sm)', boxShadow: '0 0 0 1.5px var(--sn-gold-300)' }}
       >
         <VendorAvatar
           logoUrl={logoUrl}
@@ -346,7 +348,7 @@ function VendorIdentityCard({
         {isVerified ? (
           <p
             className="mt-0.5 flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--m-sage)' }}
+            style={{ color: 'var(--sn-success)' }}
           >
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
             Verified
@@ -453,7 +455,9 @@ export function VendorSidebar({
       />
       <nav aria-label="Vendor menu">
         {groups.map((group) => (
-          <SidebarSection key={group.key} group={group} pathname={pathname}>
+          // `eyebrow` — Glass PR-6: section labels render as `.sn-eye` gold
+          // eyebrows, matching the couple rail's shipped treatment (PR-2).
+          <SidebarSection key={group.key} group={group} pathname={pathname} eyebrow>
             {group.items.map((item) => (
               <SidebarItem key={item.key} item={item} pathname={pathname} />
             ))}

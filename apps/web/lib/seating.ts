@@ -2639,7 +2639,35 @@ export type WorldPose = OraclePose & { tableId: string; linkGroupId: string | nu
 
 // A centre-anchored no-go rectangle (dance floor, cocktail room, booth, centre
 // aisle) in world px. `id` labels violations; axis-aligned (rot 0).
-export type OracleZone = { id: string; x: number; y: number; w: number; h: number };
+// `sweetheartExempt` marks the STAGE platform: a table overlapping it is a
+// violation UNLESS it's a sweetheart table (owner 2026-07-16 · shared oracle
+// rule — the couple's table may sit on the stage; nothing else may).
+export type OracleZone = {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  sweetheartExempt?: boolean;
+};
+
+// The stage platform expressed as a sweetheart-exempt no-go zone, in the world
+// px of the caller's rect. Shared by BOTH projections (2D `zonesFor`, 3D
+// `oracleZones`) and Auto Arrange so the "only a sweetheart on the stage" rule
+// is enforced identically everywhere through `checkPlacement` — no 3D fork.
+export function stageZone(
+  fp: { stage_x: number; stage_y: number; stage_w: number; stage_h: number },
+  rect: { width: number; height: number },
+): OracleZone {
+  return {
+    id: 'stage',
+    x: (fp.stage_x / 100) * rect.width,
+    y: (fp.stage_y / 100) * rect.height,
+    w: (fp.stage_w / 100) * rect.width,
+    h: (fp.stage_h / 100) * rect.height,
+    sweetheartExempt: true,
+  };
+}
 
 // Sanctioned-join tolerance, METRIC (not px): end-midpoints must coincide
 // within 5 cm and the rotation delta land on a legal joint angle (±3°). The
@@ -2899,6 +2927,10 @@ export function checkPlacement(
   }
 
   for (const z of world.zones) {
+    // Stage rule: a sweetheart table is exempt from the stage platform (the
+    // couple's table is the ONE thing allowed to sit on it). Any other zone —
+    // or any non-sweetheart table over the stage — is a violation as usual.
+    if (z.sweetheartExempt && pose.shape === 'sweetheart') continue;
     const fz = zoneFootprint(z);
     const body = footprintsOverlap(fp, fz, 0);
     if (body > 0) {
@@ -2929,6 +2961,7 @@ export function penetrationDepth(pose: WorldPose, world: OracleWorld): number {
     if (d > depth) depth = d;
   }
   for (const z of world.zones) {
+    if (z.sweetheartExempt && pose.shape === 'sweetheart') continue;
     const d = footprintsOverlap(fp, zoneFootprint(z), 0);
     if (d > depth) depth = d;
   }
@@ -3219,6 +3252,11 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
     });
     if (fp.dance_enabled) zones.push(toPxRect(fp.dance_x, fp.dance_y, fp.dance_w, fp.dance_h));
     if (fp.cocktail_enabled) zones.push(toPxRect(fp.cocktail_x, fp.cocktail_y, fp.cocktail_w, fp.cocktail_h));
+    // The stage is a conditional obstacle (sweetheart-exempt): Auto Arrange keeps
+    // its non-sweetheart rows off the platform, but the couple's sweetheart table
+    // may be seeded on it. Same shared rule as drag/rotate (owner 2026-07-16).
+    // Sized room only (ppm present) — the free board is place-anywhere.
+    if (ppm) zones.push(stageZone(fp, rect));
     for (const b of input.booths ?? []) zones.push({ id: `b${zones.length}`, x: b.x, y: b.y, w: b.w, h: b.h });
     // Centre aisle: reserved lane, width max(aisle, 1.5 m), stage→back wall.
     if (input.reserveCentreAisle && ppm) {

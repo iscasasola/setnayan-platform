@@ -128,6 +128,8 @@ import {
   tableGeometry,
   checkPlacement as oracleCheckPlacement,
   penetrationDepth as oraclePenetrationDepth,
+  stageZone,
+  legalJoinPose,
 } from '@/lib/seating';
 import type {
   KeepApartRule,
@@ -705,14 +707,24 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     }),
     [room, scaleOfTable],
   );
-  // No-go zones — dance floor + cocktail room + vendor booths, exactly the set
-  // the 2D editor's zonesFor collects (the STAGE is NOT a table obstacle in 2D,
-  // so it isn't one here either — parity supersedes the old 3D sweetheart-only
-  // stage rule). Centre-anchored, full extents, metres.
+  // No-go zones — stage (sweetheart-exempt) + dance floor + cocktail room +
+  // vendor booths, exactly the set the 2D editor's zonesFor collects. The STAGE
+  // is a CONDITIONAL obstacle: only the couple's sweetheart table may sit on it,
+  // every other table reads as a collision — the retired 3D-only sweetheart-stage
+  // rule, now SHARED in the oracle (owner 2026-07-16). Centre-anchored, metres.
   const oracleZones = useCallback((): OracleZone[] => {
     const out: OracleZone[] = [];
     const toX = (p: number) => (p / 100) * room.w;
     const toY = (p: number) => (p / 100) * room.d;
+    // Sized room only (parity with the 2D editor's zonesFor + the oracle bridge's
+    // venueScaled gate) — the free auto-grow board is place-anywhere.
+    if (venueScaled)
+      out.push(
+        stageZone(
+          { stage_x: floor.stage.xPct, stage_y: floor.stage.yPct, stage_w: floor.stage.wPct, stage_h: floor.stage.hPct },
+          { width: room.w, height: room.d },
+        ),
+      );
     if (floor.dance.enabled)
       out.push({ id: 'dance', x: toX(floor.dance.xPct), y: toY(floor.dance.yPct), w: toX(floor.dance.wPct), h: toY(floor.dance.hPct) });
     if (floorExtras.cocktailEnabled)
@@ -722,7 +734,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       out.push({ id: `booth${i}`, x: toX(b.xPct), y: toY(b.yPct), w: BOOTH_FOOTPRINT_M.w, h: BOOTH_FOOTPRINT_M.d });
     }
     return out;
-  }, [room, floor.dance, floorExtras, booths]);
+  }, [room, venueScaled, floor.stage, floor.dance, floorExtras, booths]);
   // World px ↔ percent for the ground-plane raycast (centre-origin, matches
   // pctToWorld). Kept local so the drag maths reads cleanly.
   const worldToPct = useCallback(
@@ -1348,10 +1360,49 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     [mode, placeZone, room, moveZone, floor, sendDancer],
   );
 
-  // Add a table → createTable (lock-gated), then refresh so the new row (with
-  // its real id) flows in. It lands at the 2D grid-default spot; drag to place
-  // (which persists). Dropping at the exact tapped point needs createTable to
-  // accept a position — a documented follow-up, not done here.
+  // Oracle-valid spawn for a NEW table (sized room): spiral out from room centre
+  // until the SHARED oracle clears every existing table + zone (stage / dance /
+  // booths), mirroring the 2D editor's nearestFree. Persisted via createTable so
+  // the 2D view reads the identical coordinates — CREATE parity (owner
+  // 2026-07-16). Free board → null (place-anywhere; the client grid resolves it).
+  const spawnRoundPct = useCallback((): { x: number; y: number } | null => {
+    if (!venueScaled) return null;
+    const geo = tableGeometry('round', 10);
+    const scale = (TABLE_FOOTPRINT_M.round_10 ?? geo.box.w) / geo.box.w;
+    const others = tables.map((o) => oraclePose(o, o.xPct, o.yPct));
+    const zones = oracleZones();
+    const ok = (xPct: number, yPct: number): boolean => {
+      const pose: OracleWorldPose = {
+        tableId: '__new__',
+        shape: 'round',
+        capacity: 10,
+        x: (xPct / 100) * room.w,
+        y: (yPct / 100) * room.d,
+        rot: 0,
+        scale,
+        linkGroupId: null,
+      };
+      return oracleCheckPlacement(pose, { others, zones }, { gapPx: WALKWAY_M }).valid;
+    };
+    const baseX = 50;
+    const baseY = 55; // below the top-centre stage default
+    if (ok(baseX, baseY)) return { x: baseX, y: baseY };
+    const stepPct = 4;
+    for (let ring = 1; ring <= 48; ring++) {
+      for (let deg = 0; deg < 360; deg += 18) {
+        const a = (deg * Math.PI) / 180;
+        const nx = baseX + Math.cos(a) * ring * stepPct;
+        const ny = baseY + Math.sin(a) * ring * stepPct;
+        if (nx < 2 || nx > 98 || ny < 2 || ny > 98) continue;
+        if (ok(nx, ny)) return { x: nx, y: ny };
+      }
+    }
+    return null; // dense room → let the client grid fallback place it
+  }, [venueScaled, tables, oraclePose, oracleZones, room]);
+
+  // Add a table → createTable (lock-gated) at an oracle-valid spawn, then refresh
+  // so the new row (with its real id) flows in. The persisted position means the
+  // 2D projection reads the identical spot — same shared action, same oracle.
   const addTable = useCallback(() => {
     if (!canEdit) {
       setNotice('You don’t have edit access — a 2D editor may be open.');
@@ -1363,11 +1414,16 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     fd.set('table_label', `Table ${tables.length + 1}`);
     fd.set('table_type', 'round_10');
     fd.set('capacity', '10');
+    const spawn = spawnRoundPct();
+    if (spawn) {
+      fd.set('x_pos', String(spawn.x));
+      fd.set('y_pos', String(spawn.y));
+    }
     void persist(async () => {
       await createTable(fd);
       router.refresh();
     });
-  }, [canEdit, eventId, lock.lockId, tables.length, persist, router]);
+  }, [canEdit, eventId, lock.lockId, tables.length, spawnRoundPct, persist, router]);
 
   const rotateSelected = useCallback(
     (delta: number) => {
@@ -1736,6 +1792,86 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   useEffect(() => {
     doLinkRef.current = doLink;
   }, [doLink]);
+
+  // Manual arm-link (tap A then tap B) — 2D-parity "pull-to-join": the mover (B)
+  // ANIMATES to the nearest oracle-valid legal joint on the anchor (A) via the
+  // SHARED legalJoinPose, is oracle-checked vs every third party, its snapped
+  // pose is PERSISTED, and only THEN is the link committed (through the same
+  // server linkTables, which re-validates). Same-family + geometric-joint gate,
+  // identical to the 2D editor (owner 2026-07-16 · full authoring parity). The
+  // drag-snap path keeps using doLink directly (B is already at the joint).
+  const weldLink = useCallback(
+    (anchorId: string, moverId: string) => {
+      if (!canEdit || anchorId === moverId) return;
+      const a = tablesById.get(anchorId);
+      const b = tablesById.get(moverId);
+      if (!a || !b) return;
+      const alreadyGrouped = a.linkGroupId != null && a.linkGroupId === b.linkGroupId;
+      const canWeld =
+        venueScaled && a.shape === b.shape && a.shape !== 'sweetheart' && !alreadyGrouped;
+      if (!canWeld) {
+        // Free board / sweetheart / re-link within a unit → identity link (server
+        // is the gate; on a sized room a cross-family link is refused there).
+        doLink(anchorId, moverId);
+        return;
+      }
+      const anchorPose = oraclePose(a, a.xPct, a.yPct);
+      const moverPose = oraclePose(b, b.xPct, b.yPct);
+      const cand = legalJoinPose(anchorPose, moverPose, Math.max(room.w, room.d));
+      if (!cand) {
+        setNotice(`No open end on “${a.label}” to join “${b.label}” — try the other table.`);
+        return;
+      }
+      const ghost: OracleWorldPose = { ...moverPose, x: cand.x, y: cand.y, rot: cand.rot };
+      const thirdParties = tables
+        .filter((t) => t.id !== anchorId && t.id !== moverId)
+        .map((t) => oraclePose(t, t.xPct, t.yPct));
+      if (!oracleCheckPlacement(ghost, { others: thirdParties, zones: oracleZones() }, { gapPx: WALKWAY_M }).valid) {
+        setNotice(`No room at that end — move “${b.label}” closer to “${a.label}” first.`);
+        return;
+      }
+      const xPct = (cand.x / room.w) * 100;
+      const yPct = (cand.y / room.d) * 100;
+      // Optimistic: snap B onto the joint + stamp the shared temp group on the
+      // whole would-be unit (mirrors doLink's optimistic grouping).
+      const tempGroup = a.linkGroupId ?? `tmp-${anchorId}`;
+      const groupLabel = `${a.label} & ${b.label}`;
+      const groupMembers = new Set<string>([anchorId, moverId]);
+      if (a.linkGroupId) tables.forEach((t) => t.linkGroupId === a.linkGroupId && groupMembers.add(t.id));
+      if (b.linkGroupId) tables.forEach((t) => t.linkGroupId === b.linkGroupId && groupMembers.add(t.id));
+      setTables((prev) =>
+        prev.map((t) => {
+          if (t.id === moverId) return { ...t, xPct, yPct, rotationDeg: cand.rot, linkGroupId: tempGroup, label: groupLabel };
+          if (groupMembers.has(t.id)) return { ...t, linkGroupId: tempGroup, label: groupLabel };
+          return t;
+        }),
+      );
+      void persist(async () => {
+        const fp = new FormData();
+        fp.set('event_id', eventId);
+        fp.set('lock_id', lock.lockId ?? '');
+        fp.set('table_id', moverId);
+        fp.set('x_pos', String(xPct));
+        fp.set('y_pos', String(yPct));
+        await updateTablePosition(fp);
+        const fr = new FormData();
+        fr.set('event_id', eventId);
+        fr.set('lock_id', lock.lockId ?? '');
+        fr.set('table_id', moverId);
+        fr.set('rotation_deg', String(cand.rot));
+        await updateTableRotation(fr);
+        const fl = new FormData();
+        fl.set('event_id', eventId);
+        fl.set('lock_id', lock.lockId ?? '');
+        fl.set('table_id_a', anchorId);
+        fl.set('table_id_b', moverId);
+        await linkTables(fl);
+        router.refresh();
+      });
+      setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
+    },
+    [canEdit, tablesById, venueScaled, oraclePose, oracleZones, room, tables, eventId, lock.lockId, persist, router, doLink],
+  );
   // 2D-parity: remove/restore an individual chair (tap a chair on the selected
   // table). Server rejects removing an OCCUPIED seat, so guard it client-side.
   const toggleSeat = useCallback(
@@ -2069,9 +2205,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       // A table tap cancels any armed "move a floor element" mode (the tap was
       // meant for a table, not the floor) so the zone-move never dangles.
       setPlaceZone(null);
-      // Link mode: first table is armed; tapping a different one links them.
+      // Link mode: first table is armed; tapping a different one welds + links
+      // them (2D-parity pull-to-join — B snaps to A's legal joint, oracle-checked).
       if (linkArmId) {
-        if (linkArmId !== id) doLink(linkArmId, id);
+        if (linkArmId !== id) weldLink(linkArmId, id);
         setLinkArmId(null);
         return;
       }
@@ -2108,7 +2245,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       dragRef.current = { id, x: w.x, z: w.z };
       setDraggingId(id);
     },
-    [linkArmId, doLink, placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
+    [linkArmId, weldLink, placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
   );
 
   // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or

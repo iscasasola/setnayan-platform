@@ -17,6 +17,7 @@ import {
   legalJoinPose,
   isLegalJoint,
   solveAutoLayout,
+  stageZone,
   serpentineChainSnap,
   roundKissSnap,
   boxesOverlap,
@@ -471,4 +472,106 @@ test('legalJoinPose delegates to the existing snap generators (no divergent math
     400,
   );
   assert.ok(rOracle && rDirect && Math.abs(rOracle.x - rDirect.x) < 1e-6);
+});
+
+// ===========================================================================
+// Sweetheart-on-stage — the SHARED oracle rule (owner 2026-07-16). Only a
+// sweetheart table may sit on the stage platform; every other table over the
+// stage is a violation. Enforced by checkPlacement identically for 2D + 3D.
+// ===========================================================================
+
+// A stage zone in world px, built by the shared helper both projections use.
+// stage_x/y/w/h % → world px via the rect; centred at (100,50), 80×20.
+const STAGE_RECT = { width: 200, height: 100 };
+const STAGE_FP = { stage_x: 50, stage_y: 50, stage_w: 40, stage_h: 20 };
+const STAGE_ZONE = stageZone(STAGE_FP, STAGE_RECT); // { x:100, y:50, w:80, h:20, sweetheartExempt:true }
+const roundR = tableGeometry('round', 10).box.w / 2; // world-px radius at scale 1
+
+test('stageZone: percent → world px + the sweetheart-exempt flag is set', () => {
+  assert.equal(STAGE_ZONE.id, 'stage');
+  assert.equal(STAGE_ZONE.x, 100);
+  assert.equal(STAGE_ZONE.y, 50);
+  assert.equal(STAGE_ZONE.w, 80);
+  assert.equal(STAGE_ZONE.h, 20);
+  assert.equal(STAGE_ZONE.sweetheartExempt, true);
+});
+
+test('stage rule: a sweetheart table on the stage is OK', () => {
+  const sweet = pose('sweetheart', 2, 100, 50); // dead centre of the stage
+  const res = checkPlacement(sweet, { others: [], zones: [STAGE_ZONE] }, { gapPx: 0 });
+  assert.equal(res.valid, true, 'the couple’s table may sit on the stage');
+  assert.equal(penetrationDepth(sweet, { others: [], zones: [STAGE_ZONE] }), 0, 'exempt → no penetration');
+});
+
+test('stage rule: a round table on the stage is a violation', () => {
+  const round = pose('round', 10, 100, 50); // dead centre of the stage
+  const res = checkPlacement(round, { others: [], zones: [STAGE_ZONE] }, { gapPx: 0 });
+  assert.equal(res.valid, false, 'a non-sweetheart table on the stage is illegal');
+  assert.ok(
+    res.violations.some((v) => v.zoneId === 'stage' && v.kind === 'overlap'),
+    'flagged as a stage overlap',
+  );
+});
+
+test('stage rule: a round straddling the stage edge is a violation', () => {
+  // Stage right edge = x 140. A round centred exactly on the edge half-hangs
+  // over the platform → its footprint overlaps the stage rect.
+  const straddle = pose('round', 10, 140, 50);
+  const res = checkPlacement(straddle, { others: [], zones: [STAGE_ZONE] }, { gapPx: 0 });
+  assert.equal(res.valid, false, 'a table crossing the stage edge is illegal');
+  assert.ok(res.violations.some((v) => v.zoneId === 'stage'), 'the stage is the culprit');
+});
+
+test('stage rule: monotone-escape — a round sliding off the stage is allowed', () => {
+  const world = { others: [], zones: [STAGE_ZONE] };
+  const onStage = pose('round', 10, 100, 50);
+  const clearOf = 140 + roundR + 20; // well past the right edge + radius
+  const offStage = pose('round', 10, clearOf, 50);
+  const depthOn = penetrationDepth(onStage, world);
+  const depthOff = penetrationDepth(offStage, world);
+  assert.ok(depthOn > 0, 'on the stage → penetrating');
+  assert.equal(depthOff, 0, 'off the stage → clear');
+  assert.ok(depthOff < depthOn, 'escape reduces penetration → the drag heal permits it');
+  // A partial escape off the stage FRONT (downward, off the thin platform) still
+  // overlaps but by LESS — a permitted monotone step toward freedom.
+  const partial = pose('round', 10, 100, 50 + STAGE_ZONE.h); // one stage-height below centre
+  assert.ok(penetrationDepth(partial, world) < depthOn, 'monotone: a step off the platform is non-worsening');
+});
+
+test('stage rule: a non-stage zone (no exempt flag) blocks a sweetheart too', () => {
+  // Only the stage is sweetheart-exempt; a dance floor still blocks everyone.
+  const dance: OracleZone = { id: 'dance', x: 100, y: 50, w: 80, h: 20 };
+  const sweet = pose('sweetheart', 2, 100, 50);
+  assert.equal(checkPlacement(sweet, { others: [], zones: [dance] }, { gapPx: 0 }).valid, false);
+});
+
+test('solveAutoLayout: non-sweetheart tables are kept OFF the stage (shared conditional obstacle)', () => {
+  const ppm = 16;
+  const rect = { width: 800, height: 600 };
+  const tables: EventTableRow[] = [
+    row('sweetheart_2', 2),
+    ...Array.from({ length: 6 }, () => row('round_10', 10)),
+  ];
+  const res = solveAutoLayout({ tables, floorPlan: FLOOR, rect, footprintOf: solverFootprint(ppm), aisleM: 0.9, pxPerMeter: ppm });
+  const stage = stageZone(FLOOR, rect);
+  const poses: WorldPose[] = tables
+    .filter((t) => res.placed[t.table_id])
+    .map((t) => {
+      const p = res.placed[t.table_id]!;
+      const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+      const f = footprintPx(t, ppm);
+      return {
+        tableId: t.table_id,
+        shape: shapeHintFor(t.table_type),
+        capacity: t.capacity,
+        x: (p.x / 100) * rect.width,
+        y: (p.y / 100) * rect.height,
+        rot: t.rotation_deg ?? 0,
+        scale: f.w / geo.box.w,
+        linkGroupId: null,
+      };
+    });
+  // Only the stage in the zone set → any flag is a non-sweetheart on the stage.
+  const stageHits = layoutViolations(poses, [stage], 0);
+  assert.equal(stageHits.length, 0, 'the solver seats nothing but a sweetheart on the stage');
 });

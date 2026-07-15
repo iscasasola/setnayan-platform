@@ -99,6 +99,7 @@ import {
   layoutViolations,
   legalJoinPose,
   isLegalJoint,
+  stageZone,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -1826,6 +1827,13 @@ export function SeatingEditor({
   const zonesFor = (rect: { width: number; height: number }): OracleZone[] => {
     const toPx = (p: number, axis: 'w' | 'h') => (p / 100) * (axis === 'w' ? rect.width : rect.height);
     const out: OracleZone[] = [];
+    // The stage platform is a sweetheart-exempt no-go zone: only the couple's
+    // sweetheart table may sit on it (owner 2026-07-16 · shared oracle rule,
+    // identical in 3D). Every other table over the stage reads as a collision
+    // and heals via the same slide / monotone-escape as any obstacle. Sized room
+    // only — the free auto-grow board is place-anywhere in both projections.
+    if (venueScaled)
+      out.push(stageZone({ stage_x: stage.x, stage_y: stage.y, stage_w: stage.w, stage_h: stage.h }, rect));
     // The dance floor + cocktail room are no-table zones.
     if (dance.enabled)
       out.push({ id: 'dance', x: toPx(dance.x, 'w'), y: toPx(dance.y, 'h'), w: toPx(dance.w, 'w'), h: toPx(dance.h, 'h') });
@@ -1974,6 +1982,32 @@ export function SeatingEditor({
       }
     }
     return best ?? { x, y };
+  };
+
+  // Oracle-valid spawn (world %) for a NEW table of `type`/`capacity`, via the
+  // SAME nearestFree the drag/auto-place paths use — so CREATE persists a
+  // non-overlapping, off-stage home and the 3D view reads the identical spot
+  // (owner 2026-07-16 · full authoring parity). Sized room only; the free board
+  // stays position-less (place-anywhere → the client grid resolves it on render,
+  // matching the 3D side which also returns null there).
+  const computeSpawnFor = (type: TableType, capacity: number): { x: number; y: number } | null => {
+    if (!venueScaled) return null;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return null;
+    const pseudo: EventTableRow = {
+      table_id: '__new__',
+      public_id: '__new__',
+      event_id: eventId,
+      table_label: '',
+      table_type: type,
+      capacity,
+      sort_order: tables.length,
+      x_pos: null,
+      y_pos: null,
+    };
+    const base = defaultGrid(tables.length, tables.length + 1, !venueScaled);
+    const posFor = (o: EventTableRow, i: number) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+    return nearestFree(base.x, base.y, pseudo, rect, posFor);
   };
 
   // Footprint-aware shelf pack for a sized room: lay tables left→right in rows
@@ -3616,6 +3650,7 @@ export function SeatingEditor({
           lockId={lock.lockId}
           chineseTradition={chineseTradition}
           defaultLabel={nextTableName(tables.map((t) => t.table_label))}
+          computeSpawn={computeSpawnFor}
           onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
           onDone={() => setShowAddTable(false)}
           onLockLost={handleLockLost}
@@ -6788,6 +6823,7 @@ function AddTablePanel({
   lockId,
   chineseTradition = false,
   defaultLabel,
+  computeSpawn,
   onTableFourWarning,
   onDone,
   onLockLost,
@@ -6802,6 +6838,9 @@ function AddTablePanel({
   // labels) so rapid adds increment instead of every new table landing on the
   // same name. The couple can still overwrite it with a custom name.
   defaultLabel: string;
+  // Oracle-valid spawn (world %) for the chosen type/capacity, or null on the
+  // free board. Persisted so the 3D view reads the identical spot (CREATE parity).
+  computeSpawn?: (type: TableType, capacity: number) => { x: number; y: number } | null;
   onTableFourWarning?: () => void;
   onDone: () => void;
   // Called when createTable reports the editor lock was lost (peer takeover) so
@@ -6822,6 +6861,13 @@ function AddTablePanel({
       action={(fd) => {
         fd.set('event_id', eventId);
         fd.set('lock_id', lockId ?? '');
+        // Oracle-valid spawn (sized room) so the new table persists a
+        // non-overlapping, off-stage home the 3D view reads identically.
+        const spawn = computeSpawn?.(tableType, capacity) ?? null;
+        if (spawn) {
+          fd.set('x_pos', String(spawn.x));
+          fd.set('y_pos', String(spawn.y));
+        }
         // Advisory only (never blocks the create): a Chinese-wedding couple adding
         // a ones-digit-4 table gets a gentle heads-up; the table is still created.
         const label = fd.get('table_label');

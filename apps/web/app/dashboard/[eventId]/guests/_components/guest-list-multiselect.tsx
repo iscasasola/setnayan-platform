@@ -10,6 +10,10 @@ import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { pushUndo } from './undo-toast';
 import { QuickViewButton } from './guest-drawer';
+import {
+  InspectorTrigger,
+  useInspectorContext,
+} from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
 import {
   AddToGroupControl,
@@ -362,10 +366,22 @@ function DesktopRow({
   const groupLabels = groupIds
     .map((id) => groupsById[id]?.label)
     .filter((label): label is string => Boolean(label));
+  // Desktop inspector selection (Inspector P2). When this guest owns the open
+  // `?inspect=` column, the whole row wears the quiet gold selected treatment —
+  // matching how Studio/Overview mark their selected master item. The name
+  // InspectorTrigger below opts OUT of its own default wash (.sn-guest-namelink)
+  // so the row isn't double-marked. Below xl there is no InspectorLayout, so
+  // `ctx` is null and this is inert (mobile unchanged).
+  const inspectorCtx = useInspectorContext();
+  const inspected = Boolean(inspectorCtx && inspectorCtx.selectedId === guest.guest_id);
   return (
     <tr
       className={`border-t border-ink/5 transition-colors ${
-        selected ? 'bg-terracotta/[0.06]' : 'hover:bg-terracotta/[0.04]'
+        selected
+          ? 'bg-terracotta/[0.06]'
+          : inspected
+            ? 'bg-[var(--sn-gold-100)]'
+            : 'hover:bg-terracotta/[0.04]'
       }`}
     >
       <td className="px-3 py-2.5">
@@ -381,9 +397,14 @@ function DesktopRow({
       </td>
       <td className="px-4 py-2.5">
         <div className="flex items-center justify-between gap-2">
-          <Link
+          {/* Name → the master-detail trigger (Inspector P2). Desktop (≥xl)
+              plain click SELECTS this guest into the sticky inspector column and
+              keeps the roster; below xl (and on modified / new-tab clicks) it
+              navigates to the standalone detail route exactly as before. */}
+          <InspectorTrigger
+            inspectId={guest.guest_id}
             href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-            className="flex min-w-0 flex-1 items-center gap-3"
+            className="sn-guest-namelink flex min-w-0 flex-1 items-center gap-3 rounded-md"
           >
             <RowAvatar guest={guest} displayUrl={displayUrl} />
             <div className="min-w-0">
@@ -396,9 +417,9 @@ function DesktopRow({
                 </p>
               ) : null}
             </div>
-          </Link>
-          {/* Quick-view drawer (P1) — the row name Link still opens the full
-              detail route; this opens the in-context read-only sheet. */}
+          </InspectorTrigger>
+          {/* Quick-view (P1) — desktop selects the inspector, below xl opens the
+              in-context read-only sheet (both show the same GuestDetailBody). */}
           <QuickViewButton guest={guest} groupLabels={groupLabels} />
         </div>
       </td>

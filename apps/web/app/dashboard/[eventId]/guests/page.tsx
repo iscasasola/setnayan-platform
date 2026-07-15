@@ -13,6 +13,7 @@ import {
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
   fetchGuestsByEvent,
+  guestDisplayName,
   GROUP_CATEGORY_LABELS,
   ROLE_LABELS,
   RSVP_LABELS,
@@ -52,8 +53,18 @@ import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestDrawerHost } from './_components/guest-drawer';
+import { GuestDetailBody } from './_components/guest-detail-body';
+import {
+  InspectorColumn,
+  InspectorLayout,
+} from '@/app/_components/inspector/inspector-column';
 
 export const metadata = { title: 'Guests' };
+
+// The `?inspect=` selection param is read by the inspector shell (useSearchParams);
+// cookie-scoped auth already makes this route dynamic, but the explicit flag keeps
+// the search-param read off any static path (mirrors the Studio hub consumer).
+export const dynamic = 'force-dynamic';
 
 const SORT_OPTIONS = [
   // Importance — owner directive 2026-06-05 ("guest is always arranged based on
@@ -140,6 +151,7 @@ type Props = {
     team?: string;
     tag?: string;
     sort?: string;
+    inspect?: string;
     added?: string;
     saved?: string;
     removed?: string;
@@ -427,6 +439,40 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     membershipsMap.entries(),
   );
 
+  // Desktop inspector selection (Inspector P2) — resolve `?inspect=<guestId>` to a
+  // guest ALREADY in this page's fetched roster (no extra query). An unknown or
+  // stale id renders the inspector closed (hasSelection=false), never a blank
+  // rail. The body is the SAME <GuestDetailBody> the mobile sheet renders — one
+  // body, two frames — so the desktop column can't diverge from the sheet.
+  const inspectId = typeof search.inspect === 'string' ? search.inspect : null;
+  const inspectedGuest = inspectId
+    ? (guests.find((g) => g.guest_id === inspectId) ?? null)
+    : null;
+  const groupLabelById = new Map(groups.map((g) => [g.group_id, g.label] as const));
+  const inspectedGroupLabels = inspectedGuest
+    ? (membershipsMap.get(inspectedGuest.guest_id) ?? [])
+        .map((id) => groupLabelById.get(id))
+        .filter((l): l is string => Boolean(l))
+    : [];
+  const inspectorBody = inspectedGuest ? (
+    <InspectorColumn
+      eyebrow="Guest"
+      title={guestDisplayName(inspectedGuest)}
+      fullHref={`/dashboard/${eventId}/guests/${inspectedGuest.guest_id}`}
+      fullLabel="Open full details"
+      swapKey={inspectedGuest.guest_id}
+      ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
+    >
+      <GuestDetailBody
+        guest={inspectedGuest}
+        groupLabels={inspectedGroupLabels}
+        eventId={eventId}
+        brandedQrActive={brandedQrActive}
+        showFullDetailsLink={false}
+      />
+    </InspectorColumn>
+  ) : null;
+
   const stats = computeGuestStats(guests);
   // Pax-target progress (Adaptive Pax Pricing Phase 2) — sure-attending vs the
   // couple's minimum pax (events.estimated_pax). null when no target is set.
@@ -504,7 +550,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     label: g.label,
   }));
 
-  return (
+  const master = (
     /* Owner directive 2026-06-01: top nav removed on Guests (mobile-first),
        matching the Vendors tab treatment. .shell-topbar{display:none} is
        scoped to this page via the injected <style> tag — the nav returns
@@ -790,6 +836,20 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       <UndoToastHost />
       <GuestDrawerHost eventId={eventId} brandedQrActive={brandedQrActive} />
     </section>
+  );
+
+  // Finder-style master ▸ detail (Inspector P2): at ≥xl the roster reflows to
+  // leave room for the sticky guest inspector rail; below xl the rail is hidden
+  // and the name triggers navigate to the standalone detail route (mobile
+  // unchanged). The whole page is the master so the rail sits beside all of the
+  // roster chrome (facet bar, capture bar, header actions), exactly like Studio.
+  return (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={Boolean(inspectedGuest)}
+      master={master}
+      inspector={inspectorBody}
+    />
   );
 }
 

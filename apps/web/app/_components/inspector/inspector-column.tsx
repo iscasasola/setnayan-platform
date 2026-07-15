@@ -100,7 +100,11 @@ export function useInspectorContext() {
 
 const XL_QUERY = '(min-width: 1280px)';
 
-function useIsInspectorViewport(): boolean {
+/** True at ≥xl — the viewport where the inspector lives. Exported so bespoke
+ *  triggers that can't use <InspectorTrigger> (e.g. a row's secondary "quick
+ *  view" button whose below-xl action is a sheet, not a navigation) can gate
+ *  select-vs-fallback on the SAME breakpoint instead of hardcoding it. */
+export function useIsInspectorViewport(): boolean {
   const [isXl, setIsXl] = useState(false);
   useEffect(() => {
     const mql = window.matchMedia(XL_QUERY);

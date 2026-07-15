@@ -73,12 +73,14 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
     eventId: m.eventId ?? null,
   }));
 
-  // "This year" sub-heading — the strip renders INSIDE the Alaala section
+  // "This year" glass row — the strip renders INSIDE the Alaala section
   // (owner-approved final home design 2026-07-15); its old standalone
   // "Your year" section merged into Alaala, killing the events/year dupe.
+  // The glass panel lives HERE (not around the call site) so the no-moments
+  // null return never leaves an empty frame on the page.
   return (
-    <div>
-      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
+    <div className="rounded-2xl border border-white/70 bg-white/45 p-4 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.3)]">
+      <h3 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
         This year
       </h3>
       <YearMomentsList moments={views} initial={HOME_LIMIT} />

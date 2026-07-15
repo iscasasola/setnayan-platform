@@ -2,13 +2,12 @@ import { Suspense, type ReactNode, type ComponentType } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
-  Sparkles,
   Store,
   ShieldCheck,
   Plus,
   ArrowUpRight,
-  Users,
   LayoutGrid,
+  Wand2,
   Check,
   AlertCircle,
 } from 'lucide-react';
@@ -38,10 +37,6 @@ import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events
 import { YearMomentsStrip } from './_components/year-moments-strip';
 import { personLifeStoriesEnabled } from '@/lib/person-life-stories';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import {
-  LifeFlashHomeCard,
-  LifeFlashHomeCardSkeleton,
-} from '../(account)/_components/life-flash-home-card';
 import { getMyLifeStory } from '../(account)/people/life-stories';
 import {
   LifeStorySection,
@@ -49,7 +44,7 @@ import {
 } from '../(account)/_components/life-story-section';
 import { PhotosTab } from '../(account)/library/_components/photos-tab';
 import { Expandable } from './_components/expandable';
-import { PeopleInline, LifeStoryInline } from './_components/account-inline';
+import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
 import {
   HomeCommandBar,
   type HomeCommandItem,
@@ -70,15 +65,18 @@ export const metadata = {
  *     ending in a "New event" card. COMPLETED (past) + archived stay hidden
  *     behind "Show all" (`?show=all`) and read "Celebrated". Each card jumps
  *     into its event dashboard — an allowed navigation.
- *   • ALAALA — the single memory dimension (owner-confirmed name 2026-07-14). It
- *     absorbs what used to be four sibling zones: the Life Story doorway ·
- *     "This year" derived moments (YearMomentsStrip, embedded) · Memories Hub ·
- *     People — each still EXPANDS INLINE per the owner 2026-07-13 rule
- *     ("everything on the home page must expand … not open a new page", except
- *     the role-routed dashboards). Flag-gated blocks (LifeFlashHomeCard, the
- *     person-spine "Your story") render inside Alaala when their flags turn on.
- *   • SPACES — the vendor shop(s) + admin HQ doorways; still the only allowed
- *     jumps besides events. Capability-gated: absent for a plain couple.
+ *   • ALAALA — the single memory dimension (owner-confirmed name 2026-07-14),
+ *     composed as the prototype's BENTO: the obsidian Alaala·Life-Flash tile
+ *     (headline · face row · Play when the flag is on · the five LENSES —
+ *     Recent/Owned/Attended/People/With me, all inline swaps) beside the
+ *     Setnayan-AI "Watch" aggregate; "This year" (YearMomentsStrip) + the
+ *     Memories Hub Expandable continue beneath — inline per the owner
+ *     2026-07-13 rule. The flag-gated person-spine "Your story" renders in the
+ *     tile's column when its flag turns on.
+ *   • SPACES — the vendor shop(s) + admin HQ doorways as compact rows in the
+ *     bento's right column; still the only allowed jumps besides events.
+ *     Capability-gated: absent for a plain couple. A muted "Samahan ·
+ *     Communities — coming soon" note (no dead door) marks the next build.
  *   • YOU — behind the top-bar avatar only (AccountSwitcher: Profile & settings ·
  *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
  *     rows moved into Alaala (People · Memories Hub) and the avatar menu
@@ -93,9 +91,10 @@ export const metadata = {
  * still jumps straight into their one event; a 0-event console user is sent to
  * create-event; everyone else lands on this launcher.
  *
- * Flag-gated blocks preserved (all default-OFF in prod): LifeFlashHomeCard
- * (`lifeStoryEnabled`), AutoSurfacedEvents (`accountAutosurfaceEnabled`), and the
- * person-spine "Your story" section (`personLifeStoriesEnabled`).
+ * Flag-gated behavior preserved (all default-OFF in prod): `lifeStoryEnabled`
+ * gates the Alaala tile's moment-graph fetch + "Play Life-Flash" link,
+ * AutoSurfacedEvents (`accountAutosurfaceEnabled`), and the person-spine
+ * "Your story" block (`personLifeStoriesEnabled`).
  */
 
 /**
@@ -337,9 +336,9 @@ export default async function LauncherPage({
 
   // SPACES — doorways into surfaces with their own dashboards. Marketplace
   // is intentionally excluded (it's an in-event vendor-discovery surface).
-  // (The Life Story doorway is NOT a space — it renders inside ALAALA, as an
-  // Expandable when `lifeStoryEnabled()` is off or the richer LifeFlashHomeCard
-  // when on; exactly one doorway either way.)
+  // (The Life Story doorway is NOT a space — the obsidian AlaalaTile carries
+  // it: flag-off = invite copy, flag-on = moment-graph summary + Play link;
+  // exactly one doorway either way.)
   // Vendor shop "needs a reply" signal — pending client inquiries per shop
   // (chat_threads.inquiry_status = 'pending' = a couple messaged and the vendor
   // hasn't accepted yet). One batched query across all the user's shops.
@@ -395,6 +394,33 @@ export default async function LauncherPage({
   // per-event decision summaries above. Real data only.
   let needsTotal = 0;
   for (const summary of decisionByEvent.values()) needsTotal += summary.total;
+
+  // The Watch tile's per-event rows — only events with something waiting,
+  // busiest first. Same real summaries as the hero stat.
+  const watchRows = active
+    .map((e) => ({
+      eventId: e.event_id,
+      name: e.display_name,
+      total: decisionByEvent.get(e.event_id)?.total ?? 0,
+    }))
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  // The Alaala "Attended" lens — a real head-count of guest memberships.
+  // Graceful-degrade to null (the lens shows its invite line, never a
+  // fabricated number).
+  let attendedCount: number | null = null;
+  try {
+    const { count, error } = await supabase
+      .from('event_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('member_type', 'guest')
+      .is('hidden_at', null);
+    if (!error) attendedCount = count ?? 0;
+  } catch {
+    attendedCount = null;
+  }
 
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
@@ -642,38 +668,130 @@ export default async function LauncherPage({
         </div>
       ) : null}
 
-      {/* ALAALA — the single memory dimension (owner-confirmed 2026-07-14): the
-          Life Story doorway · "This year" derived moments · Memories Hub ·
-          People, each expanding INLINE (owner 2026-07-13 rule). What used to be
-          four sibling zones is one surface with one job. */}
+      {/* ALAALA + THE WATCH + SPACES — the prototype's BENTO (owner-approved
+          final design 2026-07-15): the obsidian Alaala·Life-Flash tile with the
+          five lenses on the left; the Setnayan AI "Watch" aggregate and the
+          Spaces doorways stacked on the right. "This year" + Memories Hub
+          continue full-width beneath — all still ONE Alaala surface. */}
       <section className="mb-10">
-        <SectionLabel>Alaala</SectionLabel>
-        <p className="-mt-1 mb-3 text-xs text-ink/45">
-          Every event you hold and attend — kept for life.
-        </p>
-        {/* The band itself is a frosted glass panel over the ambient wash
-            (prototype composition) — its rows sit ON the glass. */}
-        <div className="space-y-4 rounded-2xl border border-white/70 bg-white/45 p-3 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.3)] sm:p-4">
-          {lifeOn ? (
-            /* Flag ON: the richer Life-Flash card is the SOLE Life-Story
-               doorway (dedup rule preserved from the `spaces` construction). */
-            <Suspense fallback={<LifeFlashHomeCardSkeleton />}>
-              <LifeFlashHomeCard userId={user.id} />
+        <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr] lg:items-start">
+          <div className="space-y-4">
+            <Suspense fallback={<AlaalaTileSkeleton />}>
+              <AlaalaTile
+                userId={user.id}
+                lifeOn={lifeOn}
+                ownedEvents={active.slice(0, 5).map((e) => ({
+                  name: e.display_name,
+                  dateLabel: shortDate(e.event_date) ?? 'TBD',
+                }))}
+                attendedCount={attendedCount}
+                personStoriesOn={lifeStoryGroups !== null}
+              />
             </Suspense>
-          ) : (
-            <Expandable
-              icon={<Sparkles className="h-[18px] w-[18px]" />}
-              title="Life Story"
-              subtitle="Your whole life, from every celebration."
-            >
-              <LifeStoryInline />
-            </Expandable>
-          )}
 
+            {/* Person-spine "Your story" (flag-gated, counsel-gated) — the
+                "With me" lens made concrete once the flag turns on. */}
+            {lifeStoryGroups && lifeStoryGroups.length > 0 ? (
+              <div>
+                <h3 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
+                  Your story
+                </h3>
+                <LifeStorySection groups={lifeStoryGroups} />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-4">
+            {/* SETNAYAN AI · THE WATCH — the deterministic aggregate of
+                everything waiting on the user (pay · approve · message ·
+                overdue), per event. Sums, not an LLM (Rule 1). */}
+            <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+              <p className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-mulberry">
+                <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Setnayan AI · The Watch
+              </p>
+              {needsTotal > 0 ? (
+                <>
+                  <p className="mt-3">
+                    <span className="font-mono text-3xl font-bold text-ink">
+                      {needsTotal}
+                    </span>{' '}
+                    <span className="text-sm text-ink/55">
+                      {needsTotal === 1 ? 'thing needs' : 'things need'} you
+                    </span>
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {watchRows.map((row) => (
+                      <li
+                        key={row.eventId}
+                        className="flex items-center gap-2.5 text-sm text-ink/80"
+                      >
+                        <span
+                          aria-hidden
+                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-warn-500"
+                        />
+                        <span className="min-w-0 truncate">{row.name}</span>
+                        <span className="ml-auto shrink-0 font-mono text-xs font-bold text-warn-900">
+                          {row.total}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div aria-hidden className="my-3 h-px bg-ink/10" />
+                  <p className="flex items-center gap-2 text-xs text-ink/45">
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-success"
+                    />
+                    Everything else — quiet
+                  </p>
+                </>
+              ) : (
+                <p className="mt-3 flex items-center gap-2 text-sm text-ink/55">
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-success"
+                  />
+                  Everything — quiet. Nothing needs you right now.
+                </p>
+              )}
+            </div>
+
+            {/* SPACES — the vendor shop(s) + admin HQ doorways, as compact rows
+                (prototype tile). Capability-gated: absent for a plain couple.
+                These still NAVIGATE (their own dashboards are allowed jumps). */}
+            {spaces.length > 0 ? (
+              <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+                <p className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+                  <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Spaces
+                </p>
+                <div className="mt-2 divide-y divide-ink/5">
+                  {spaces.map((space) => (
+                    <SpaceRow
+                      key={space.id ?? space.href + space.title}
+                      {...space}
+                    />
+                  ))}
+                </div>
+                {/* Samahan — communities are the next build (owner 2026-07-15
+                    composable-event model). Honest note, no dead door. */}
+                <div aria-hidden className="my-3 h-px bg-ink/10" />
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/35">
+                  Samahan · Communities
+                </p>
+                <p className="mt-1 text-xs text-ink/45">
+                  Coming soon — a shared space for your barkada, parish, or clan.
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-4">
           {/* Date-anchor model — the couple's next few derived moments
               (anniversaries · wedding countdowns). Self-fetching; renders
-              nothing when there are no anchors. Embedded = "This year" heading
-              inside Alaala instead of its old standalone "Your year" section. */}
+              nothing when there are no anchors. */}
           <Suspense fallback={null}>
             <YearMomentsStrip userId={user.id} />
           </Suspense>
@@ -687,46 +805,8 @@ export default async function LauncherPage({
               <PhotosTab userId={user.id} />
             </Suspense>
           </Expandable>
-          <Expandable
-            icon={<Users className="h-[18px] w-[18px]" />}
-            title="People"
-            subtitle="Everyone across your events"
-          >
-            <PeopleInline />
-          </Expandable>
-
-          {/* Person-spine "Your story" (flag-gated, counsel-gated) — the
-              "with me" lens of Alaala once the flag turns on. */}
-          {lifeStoryGroups ? (
-            <div>
-              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
-                Your story
-              </h3>
-              {lifeStoryGroups.length === 0 ? (
-                <p className="rounded-2xl border border-ink/10 bg-cream/50 px-4 py-6 text-sm text-ink/60">
-                  Photos and clips you appear in will gather here.
-                </p>
-              ) : (
-                <LifeStorySection groups={lifeStoryGroups} />
-              )}
-            </div>
-          ) : null}
         </div>
       </section>
-
-      {/* SPACES — the vendor shop(s) + admin HQ doorways. Capability-gated:
-          this section simply does not exist for a plain couple. These still
-          NAVIGATE (their own dashboards are allowed jumps). */}
-      {spaces.length > 0 ? (
-        <section>
-          <SectionLabel>Spaces</SectionLabel>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {spaces.map((space) => (
-              <SpaceCard key={space.id ?? space.href + space.title} {...space} />
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
@@ -996,7 +1076,7 @@ function InlinePanelSkeleton() {
 }
 
 type SpaceCardProps = {
-  /** Stable key when several cards share an href (e.g. one per vendor shop). */
+  /** Stable key when several rows share an href (e.g. one per vendor shop). */
   id?: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
@@ -1004,15 +1084,15 @@ type SpaceCardProps = {
   logoUrl?: string | null;
   title: string;
   subtitle: string;
-  /** admin = violet accent · default = gold. (The old 'hero' Life-Story tone is
-   *  gone — that doorway lives inside ALAALA as an Expandable now.) */
+  /** admin = slate accent · default = gold. */
   tone: 'admin' | 'default';
   /** "Needs a decision" line (e.g. "3 new inquiries" · "5 awaiting review"). */
   attention?: string;
 };
 
-/** One SPACES doorway card — a frosted glass panel per the Atelier language. */
-function SpaceCard({
+/** One SPACES doorway row — the prototype tile's compact row (icon chip ·
+ *  name · role · attention · jump arrow). Still a real navigation. */
+function SpaceRow({
   href,
   icon: Icon,
   logoUrl,
@@ -1025,37 +1105,37 @@ function SpaceCard({
   return (
     <Link
       href={href}
-      className="group flex min-h-[9rem] flex-col justify-between rounded-2xl border border-white/70 bg-white/60 p-4 text-ink shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)] transition-all hover:-translate-y-0.5 hover:border-mulberry/30 hover:shadow-[0_24px_48px_-24px_rgba(30,26,18,0.45)]"
+      className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70"
     >
-      <div className="flex items-start justify-between">
-        <span
-          className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ${
-            /* HQ = slate (--sn-info) per the prototype — violet retired by the
-               2026-07-12 atelier reskin. */
-            admin ? 'bg-[#E2EAEF] text-[#4E6C82]' : 'bg-mulberry/10 text-mulberry'
-          }`}
-        >
-          {logoUrl ? (
-            <ShopLogo
-              src={logoUrl}
-              fallback={<Icon className="h-[18px] w-[18px]" />}
-            />
-          ) : (
-            <Icon className="h-[18px] w-[18px]" />
-          )}
-        </span>
-        <ArrowUpRight
-          aria-hidden
-          className="h-4 w-4 text-ink/30 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <div className="space-y-0.5">
-          <p className="m-serif text-lg text-ink">{title}</p>
-          <p className="text-xs text-ink/55">{subtitle}</p>
-        </div>
-        {attention ? <AttentionPill label={attention} /> : null}
-      </div>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl ${
+          /* HQ = slate (--sn-info) per the prototype — violet retired by the
+             2026-07-12 atelier reskin. */
+          admin ? 'bg-[#E2EAEF] text-[#4E6C82]' : 'bg-mulberry/10 text-mulberry'
+        }`}
+      >
+        {logoUrl ? (
+          <ShopLogo
+            src={logoUrl}
+            fallback={<Icon className="h-[18px] w-[18px]" />}
+          />
+        ) : (
+          <Icon className="h-[18px] w-[18px]" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-ink">{title}</span>
+        <span className="block truncate text-xs text-ink/55">{subtitle}</span>
+        {attention ? (
+          <span className="mt-1 block">
+            <AttentionPill label={attention} />
+          </span>
+        ) : null}
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="h-4 w-4 shrink-0 text-ink/30 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+      />
     </Link>
   );
 }

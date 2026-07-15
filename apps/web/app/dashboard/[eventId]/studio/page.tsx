@@ -14,6 +14,11 @@ import { StudioAppRow, type RowPill } from './_components/studio-app-row';
 import { StudioFeaturedCard } from './_components/studio-featured-card';
 import { StudioSectionTabs } from './_components/studio-section-tabs';
 import {
+  AddOnDetailView,
+  isInspectableAddon,
+} from './_components/addon-detail-view';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
+import {
   dismissRecommendation,
   dismissVendorRecommendation,
   recommendFeature,
@@ -32,7 +37,15 @@ export type { PosterStyle } from './_components/service-poster';
 
 export const metadata = { title: 'Studio' };
 
-type Props = { params: Promise<{ eventId: string }> };
+// Cookie-scoped auth already makes this render dynamic; the explicit flag keeps
+// the `?inspect=` search-param read (useSearchParams in the inspector shell) off
+// the static path.
+export const dynamic = 'force-dynamic';
+
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams?: Promise<{ inspect?: string }>;
+};
 
 /**
  * Studio hub — an iOS App Store-style browse surface for every Setnayan in-app
@@ -65,8 +78,9 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
   return av - bv;
 }
 
-export default async function StudioPage({ params }: Props) {
+export default async function StudioPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const sp = searchParams ? await searchParams : {};
 
   const supabase = await createClient();
 
@@ -229,6 +243,28 @@ export default async function StudioPage({ params }: Props) {
       : appStoreDetailHref(entry.key, eventId);
   }
 
+  // Desktop inspector target for a catalog row: only rows whose click would land
+  // on the shared /studio/about/<key> detail page (i.e. NOT owned — owned rows
+  // deep-link to the tool — NOT opensDirect, and with authored detail content).
+  // Everything else keeps navigating; the standalone detail route is untouched
+  // for deep links + mobile. Returns the addon key (the `?inspect=` value) or null.
+  const aboutPrefix = `/dashboard/${eventId}/studio/about/`;
+  function inspectIdFor(entry: AddOnEntry): string | null {
+    if (isOwned(entry) || entry.status === 'coming_soon') return null;
+    if (cardHref(entry) !== `${aboutPrefix}${entry.key}`) return null;
+    return isInspectableAddon(entry.key) ? entry.key : null;
+  }
+
+  // Resolve the selected inspector target from `?inspect=` — valid only if it is
+  // a currently-inspectable (not-owned, detail-backed) catalog key. An unknown or
+  // stale id renders the inspector closed (hasSelection=false), never a blank rail
+  // or an AddOnDetailView notFound() that would 500 the hub.
+  const inspectKey = typeof sp.inspect === 'string' ? sp.inspect : null;
+  const selectedEntry = inspectKey
+    ? ADD_ONS.find((a) => a.key === inspectKey)
+    : undefined;
+  const inspectValid = Boolean(selectedEntry && inspectIdFor(selectedEntry));
+
   // Coordinator's per-feature control: "Recommend" → "Suggested ✓" once sent,
   // or a muted "Dismissed" if the couple has already passed on it (a dismissed
   // suggestion is never re-sent, so the coordinator can't nag). Null for the
@@ -338,6 +374,14 @@ export default async function StudioPage({ params }: Props) {
 
   const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
+  // The inspector body — the SAME AddOnDetailView the standalone /studio/about
+  // route renders, in its column variant (buy/CTA flow unchanged). Rendered only
+  // for a valid selection so an unknown id can't notFound() the whole hub.
+  const inspectorBody =
+    inspectValid && inspectKey ? (
+      <AddOnDetailView eventId={eventId} addon={inspectKey} variant="inspector" />
+    ) : null;
+
   // "Set up & manage" doorways (owner 2026-07-15 · flat sidebars, no submenus).
   // When the desktop Studio sidebar item lost its expandable children, three of
   // those child surfaces had NO home in the Studio hub body (they aren't App
@@ -386,7 +430,7 @@ export default async function StudioPage({ params }: Props) {
       : []),
   ];
 
-  return (
+  const master = (
     <section className="space-y-8">
       <header className="sn-reveal space-y-2">
         <p className="sn-eye">In-app services</p>
@@ -515,6 +559,7 @@ export default async function StudioPage({ params }: Props) {
                 Icon={addon.Icon}
                 gradient={addon.poster.baseBackground}
                 pill={pillFor(addon)}
+                inspectId={inspectIdFor(addon)}
               />
             ))}
           </RevealList>
@@ -653,6 +698,7 @@ export default async function StudioPage({ params }: Props) {
                       gradient={addon.poster.baseBackground}
                       pill={pillFor(addon)}
                       trailing={coordinatorControl(addon)}
+                      inspectId={comingSoon ? null : inspectIdFor(addon)}
                     />
                   );
                 })}
@@ -662,5 +708,14 @@ export default async function StudioPage({ params }: Props) {
         );
       })}
     </section>
+  );
+
+  return (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={inspectValid}
+      master={master}
+      inspector={inspectorBody}
+    />
   );
 }

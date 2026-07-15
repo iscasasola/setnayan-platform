@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AlertTriangle, Info, PartyPopper } from 'lucide-react';
+import { TOKEN_PRICE_PHP } from '@/lib/v2/region-token-burn';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -33,7 +34,7 @@ import { manilaToday } from '@/lib/std-views';
  * sample numbers), assembled in `fetchVendorOverviewData`:
  *
  *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries with
- *      the flat 1-token (₱200) cost to Accept · lock requests · new 5-star
+ *      the flat 1-token (TOKEN_PRICE_PHP) cost to Accept · lock requests · new 5-star
  *      reviews awaiting a reply · flagged delivery delays). Centrepiece.
  *   2. Amber note    — the token-cost-follows-event-location explainer.
  *   3. "Ongoing"     — the vendor's open tasks with due chips.
@@ -291,7 +292,7 @@ export default async function VendorOverviewPage() {
           style={{ color: 'var(--m-orange-2)' }}
         />
         <p>
-          Answering a lead costs a flat 1 token (₱200), anywhere in the
+          Answering a lead costs a flat 1 token (₱{TOKEN_PRICE_PHP}), anywhere in the
           Philippines. You only spend when you Accept.
         </p>
       </div>

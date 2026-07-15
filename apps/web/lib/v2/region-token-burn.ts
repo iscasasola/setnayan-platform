@@ -71,7 +71,7 @@ import { resolveRegion } from '@/lib/region-source';
  * that charge — vendor_billing_catalog.price_php ÷ token_grant_count = ₱200 —
  * so every vendor/admin surface reads the same peso figure the pack sells at.
  */
-export const TOKEN_PRICE_PHP = 200;
+export const TOKEN_PRICE_PHP = 100;
 
 /** The top burn band — a wedding in NCR/CALABARZON/Central Luzon costs this many tokens. */
 export const BURN_CEILING_TOKENS = 3;

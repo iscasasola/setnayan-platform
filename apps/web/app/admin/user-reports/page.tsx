@@ -209,7 +209,7 @@ export default async function AdminUserReportsPage({
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No reports in this view.
         </p>
       ) : (
@@ -271,7 +271,7 @@ export default async function AdminUserReportsPage({
                     </p>
                   )}
                   {r.details && (
-                    <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-sm text-ink/70">
+                    <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-sm text-ink/70">
                       “{r.details}”
                     </p>
                   )}
@@ -289,7 +289,7 @@ export default async function AdminUserReportsPage({
                           <input type="hidden" name="report_id" value={r.report_id} />
                           <input type="hidden" name="action" value="hide" />
                           <SubmitButton
-                            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
                             pendingLabel="Hiding…"
                           >
                             <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide content

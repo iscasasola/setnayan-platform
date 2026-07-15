@@ -33,7 +33,7 @@ const TIER_CHIP_TONE: Record<VendorTier, string> = {
   solo: 'bg-mulberry/10 text-mulberry-700',
   pro: 'bg-terracotta/15 text-terracotta-700',
   enterprise: 'bg-success-100 text-success-800',
-  custom: 'bg-violet-100 text-violet-800',
+  custom: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
 };
 
 const STATUS_TONE: Record<HelpMessageRow['status'], string> = {
@@ -101,7 +101,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
       ) : null}
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
           <Mail aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           Nothing in this view.
         </div>
@@ -111,7 +111,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
             <li
               key={m.message_id}
               id={`message-${m.message_id}`}
-              className="scroll-mt-24 space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
+              className="scroll-mt-24 space-y-3 sn-tile p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">

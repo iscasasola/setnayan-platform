@@ -175,7 +175,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
         </p>
       </header>
 
-      <dl className="mb-6 grid gap-4 rounded-xl border border-ink/10 bg-cream p-5 sm:grid-cols-2">
+      <dl className="mb-6 grid gap-4 sn-tile p-5 sm:grid-cols-2">
         <Field
           label="Event"
           value={
@@ -313,7 +313,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                 return (
                   <li
                     key={co.change_order_id}
-                    className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm"
+                    className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium text-ink">
@@ -397,7 +397,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-4 sn-tile p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Actions
         </h2>

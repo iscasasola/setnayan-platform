@@ -441,10 +441,10 @@ export async function SocialQueueSurface({
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Social Sharing &amp; Featuring Program · § 8 auto-publish · 2026-06-12
         </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
+        <h1 className="sn-h1">
           Social queue
         </h1>
         <p className="max-w-2xl text-sm text-ink/65">
@@ -627,7 +627,7 @@ export async function SocialQueueSurface({
         count={publishedPosts.length}
         empty="Nothing auto-published yet — successful dispatches land here."
       >
-        <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+        <ul className="sn-tile !p-0 divide-y divide-ink/10">
           {publishedPosts.map((p) => {
             const fb = platformResult(p.platform_results, 'facebook');
             const ig = platformResult(p.platform_results, 'instagram');
@@ -686,7 +686,7 @@ export async function SocialQueueSurface({
             Hand-written post — queues at the next governor slot, no hold window.
           </p>
         </div>
-        <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+        <article className="space-y-4 sn-tile p-5">
           {changelogSuggestions.length > 0 ? (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-ink/70">
@@ -735,7 +735,7 @@ export async function SocialQueueSurface({
                 required
                 rows={4}
                 placeholder={'Big news from Setnayan… ✨\n\n#Setnayan #SetNaYan'}
-                className="block w-full rounded-md border border-ink/20 bg-cream px-3 py-2 text-xs text-ink"
+                className="block w-full rounded-md border border-ink/20 bg-white/70 px-3 py-2 text-xs text-ink"
               />
             </label>
             <label className="block space-y-1 text-xs text-ink/65">
@@ -768,7 +768,7 @@ export async function SocialQueueSurface({
         </div>
 
         {evergreenItems.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
             No evergreen items yet — add a few planning tips or feature
             spotlights below so the page never looks abandoned.
           </p>
@@ -783,7 +783,7 @@ export async function SocialQueueSurface({
         )}
 
         {/* Add a new item — same action, no item_id → insert. */}
-        <article className="space-y-3 rounded-xl border border-dashed border-ink/20 bg-cream p-5">
+        <article className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-white/50 p-5">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             Add evergreen item
           </p>
@@ -800,7 +800,7 @@ export async function SocialQueueSurface({
               required
               rows={3}
               placeholder="The post body the page publishes…"
-              className="block w-full rounded-md border border-ink/20 bg-cream px-3 py-2 text-xs text-ink"
+              className="block w-full rounded-md border border-ink/20 bg-white/70 px-3 py-2 text-xs text-ink"
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <input
@@ -870,7 +870,7 @@ export async function SocialQueueSurface({
               c.artifact_type === 'monogram' ? (ev?.monogram_custom_svg ?? null) : null;
             return (
               <li key={c.consent_id}>
-                <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+                <article className="space-y-3 sn-tile p-4">
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       <p className="text-sm font-semibold text-ink">
@@ -893,7 +893,7 @@ export async function SocialQueueSurface({
                     <img
                       src={`data:image/svg+xml;utf8,${encodeURIComponent(monogramSvg)}`}
                       alt="Couple monogram"
-                      className="h-20 w-20 rounded-full border border-ink/10 bg-cream object-contain"
+                      className="h-20 w-20 rounded-full border border-ink/10 bg-white/70 object-contain"
                     />
                   ) : null}
 
@@ -927,7 +927,7 @@ export async function SocialQueueSurface({
         count={waitingOnGate.length}
         empty="Nothing waiting — every live consent is already postable."
       >
-        <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+        <ul className="sn-tile !p-0 divide-y divide-ink/10">
           {waitingOnGate.map((c) => {
             const ev = eventMap[c.event_id];
             const postableFrom = shareConsentPostableFrom(ev?.event_date ?? null);
@@ -985,7 +985,7 @@ export async function SocialQueueSurface({
             });
             return (
               <li key={v.vendor_profile_id}>
-                <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+                <article className="space-y-3 sn-tile p-4">
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       <p className="truncate text-sm font-semibold text-ink">
@@ -1045,7 +1045,7 @@ export async function SocialQueueSurface({
         <ul className="grid gap-3 sm:grid-cols-2">
           {birthdays.map((u) => (
             <li key={`bday-${u.user_id}`}>
-              <article className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
+              <article className="space-y-2 sn-tile p-4">
                 <p className="text-sm font-semibold text-ink">
                   🎂 {u.display_name || 'A Setnayan member'}
                 </p>
@@ -1060,7 +1060,7 @@ export async function SocialQueueSurface({
           ))}
           {anniversaries.map((e) => (
             <li key={`anniv-${e.event_id}`}>
-              <article className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
+              <article className="space-y-2 sn-tile p-4">
                 <p className="text-sm font-semibold text-ink">
                   💍 {e.display_name || 'A Setnayan couple'}
                 </p>
@@ -1116,7 +1116,7 @@ function AutopilotStrip({
       : { label: 'TikTok · assisted (audit pending)', tone: 'bg-warn-100 text-warn-900' };
 
   return (
-    <section id="autopilot" className="mb-8 space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+    <section id="autopilot" className="mb-8 space-y-4 sn-tile p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -1293,7 +1293,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
           Nothing to post yet — composed posts appear here with their 9:16 card
           once the sweep has run.
         </p>
@@ -1301,7 +1301,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
         <ul className="grid gap-3 sm:grid-cols-2">
           {items.map((p) => (
             <li key={p.post_id}>
-              <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+              <article className="space-y-3 sn-tile p-4">
                 <header className="flex items-start gap-3">
                   {/* 9:16 STORY card preview — the exact image to attach. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1310,7 +1310,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
                     alt="Story card preview — the 9:16 branded card image to attach to the TikTok post"
                     width={45}
                     height={80}
-                    className="shrink-0 rounded-md border border-ink/10 bg-cream object-cover"
+                    className="shrink-0 rounded-md border border-white/60 bg-white/70 object-cover"
                     style={{ width: 45, height: 80 }}
                   />
                   <div className="min-w-0 flex-1 space-y-0.5">
@@ -1373,7 +1373,7 @@ function ScheduledPostCard({
   const holdHours = holdFuture ? Math.max(1, Math.ceil((holdAt - now) / 3_600_000)) : 0;
 
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="space-y-3 sn-tile p-4">
       <header className="flex items-start gap-3">
         <CardPreview postId={post.post_id} />
         <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
@@ -1400,7 +1400,7 @@ function ScheduledPostCard({
         </p>
       ) : (
         <>
-          <details className="rounded-md border border-ink/10 bg-cream/60">
+          <details className="rounded-md border border-white/60 bg-white/70">
             <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
               Edit copy…
             </summary>
@@ -1418,7 +1418,7 @@ function ScheduledPostCard({
                 required
                 rows={4}
                 defaultValue={post.body}
-                className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
+                className="block w-full rounded-md border border-ink/20 bg-white/70 px-2 py-1 text-xs text-ink"
               />
               <SubmitButton pendingLabel="Saving…" className="button-primary h-9 px-3 text-xs">
                 Save copy
@@ -1484,7 +1484,7 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
   return (
     <article
       className={`space-y-3 rounded-xl border p-4 ${
-        item.is_active ? 'border-ink/10 bg-cream' : 'border-ink/10 bg-cream opacity-60'
+        item.is_active ? 'border-ink/10 bg-white/70' : 'border-ink/10 bg-white/70 opacity-60'
       }`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -1504,7 +1504,7 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
       <pre className="line-clamp-3 whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
         {item.body}
       </pre>
-      <details className="rounded-md border border-ink/10 bg-cream/60">
+      <details className="rounded-md border border-white/60 bg-white/70">
         <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">Edit…</summary>
         <form action={saveEvergreenItem} className="space-y-2 px-3 pb-3">
           <input type="hidden" name="item_id" value={item.item_id} />
@@ -1520,7 +1520,7 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
             required
             rows={4}
             defaultValue={item.body}
-            className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
+            className="block w-full rounded-md border border-ink/20 bg-white/70 px-2 py-1 text-xs text-ink"
           />
           <input
             name="media_url"
@@ -1620,7 +1620,7 @@ function CardPreview({ postId, size = 56 }: { postId: string; size?: number }) {
       alt="Social card preview — the branded card image for this post"
       width={size}
       height={size}
-      className="shrink-0 rounded-md border border-ink/10 bg-cream object-cover"
+      className="shrink-0 rounded-md border border-white/60 bg-white/70 object-cover"
       style={{ width: size, height: size }}
     />
   );
@@ -1701,7 +1701,7 @@ function QueueSection({
         <p className="text-xs text-ink/55">{hint}</p>
       </div>
       {count === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
           {empty}
         </p>
       ) : (

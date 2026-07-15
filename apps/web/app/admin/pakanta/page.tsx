@@ -252,7 +252,7 @@ export default async function AdminPakantaPage() {
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-ink/10 bg-cream p-8 text-center">
+        <div className="sn-tile p-8 text-center">
           <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No Pakanta orders yet.</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">

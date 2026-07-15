@@ -88,7 +88,7 @@ const DECISION_LABEL: Record<NonNullable<AppealRow['decision']>, string> = {
 const DECISION_TONE: Record<NonNullable<AppealRow['decision']>, string> = {
   override_published: 'bg-success-100 text-success-800',
   rejected: 'bg-ink/10 text-ink/60',
-  escalated: 'bg-violet-100 text-violet-800',
+  escalated: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
 };
 
 type Props = {
@@ -311,7 +311,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         </header>
 
         {fakeFlags.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+          <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
             <Flag aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
             No pending fake-review flags.
           </div>
@@ -352,7 +352,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         ) : null}
 
         {appeals.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+          <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
             <Gavel
               aria-hidden
               className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -398,7 +398,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           </p>
         </header>
         {flaggedReviews.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
+          <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
             No override-publishes yet.
           </div>
         ) : (
@@ -482,7 +482,7 @@ function AppealCard({
     typeof payload['body'] === 'string' ? (payload['body'] as string) : null;
 
   return (
-    <li className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <li className="space-y-3 sn-tile p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -619,7 +619,7 @@ function AppealCard({
               className="input-field min-h-[60px] w-full py-2 text-xs"
             />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-violet-200 px-3 py-2 text-xs font-medium text-violet-900 hover:bg-violet-300"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--sn-info-soft)] px-3 py-2 text-xs font-medium text-[color:var(--sn-info)] hover:bg-[var(--sn-info-soft)]"
               pendingLabel="Escalating…"
             >
               Escalate

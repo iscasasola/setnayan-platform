@@ -95,7 +95,7 @@ export default async function AdminPaxChangesPage() {
       </header>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center text-ink/60">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-ink/60">
           No pax-driven cost changes yet.
         </div>
       ) : (

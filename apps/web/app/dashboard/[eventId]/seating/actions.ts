@@ -12,6 +12,7 @@ import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
+  TABLE_FOOTPRINT_M,
   computeAutoLayout,
   computeAutoSeat,
   effectiveCapacity,
@@ -20,6 +21,7 @@ import {
   fetchSeatingConstraints,
   fetchGroupAdjacency,
   fetchTables,
+  isLegalJoint,
   parsePriorityOrder,
   recommendTableSet,
   removedSeatSet,
@@ -1335,10 +1337,54 @@ export async function linkTables(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const tables = await fetchTables(supabase, eventId);
+  const [tables, floorPlan] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
+  ]);
   const a = tables.find((t) => t.table_id === tableA);
   const b = tables.find((t) => t.table_id === tableB);
   if (!a || !b) throw new Error('Table not found');
+
+  // Council verdict 2026-07-16 (§ 1 root cause 5 · § 2): the weld model — a link
+  // may only be created between same-family tables sitting at a legal joint pose.
+  // Closes the old no-validation hole (a round could be "linked" to a serpentine,
+  // and arbitrary-pose links were accepted). Same-family is a hard gate; the
+  // geometric joint is verified in metric space when the room is sized (a free
+  // board has no metric truth — the editor's client-side oracle is the gate there,
+  // and re-linking members of an existing unit is always allowed).
+  const shapeA = shapeHintFor(a.table_type);
+  const shapeB = shapeHintFor(b.table_type);
+  const alreadyGrouped =
+    a.link_group_id != null && a.link_group_id === b.link_group_id;
+  if (!alreadyGrouped && shapeA !== shapeB) {
+    throw new Error('Only same-shape tables can be linked into one unit.');
+  }
+  const venueW = floorPlan.venue_width_m;
+  const venueL = floorPlan.venue_length_m;
+  const positioned =
+    a.x_pos != null && a.y_pos != null && b.x_pos != null && b.y_pos != null;
+  if (!alreadyGrouped && shapeA !== 'sweetheart' && positioned && venueW && venueL) {
+    // Nominal canvas keeps the oracle's px-tuned tolerances meaningful and
+    // matches the editor's render scale semantics (isotropic px/metre).
+    const NOMINAL_W = 1000;
+    const ppm = NOMINAL_W / venueW;
+    const nominalH = NOMINAL_W * (venueL / venueW);
+    const poseFor = (t: typeof a) => {
+      const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+      const footW = TABLE_FOOTPRINT_M[t.table_type] * ppm;
+      return {
+        shape: shapeHintFor(t.table_type),
+        capacity: t.capacity,
+        x: (Number(t.x_pos) / 100) * NOMINAL_W,
+        y: (Number(t.y_pos) / 100) * nominalH,
+        rot: t.rotation_deg ?? 0,
+        scale: footW / geo.box.w,
+      };
+    };
+    if (!isLegalJoint(poseFor(a), poseFor(b), ppm)) {
+      throw new Error('Those tables aren’t joined end-to-end — snap them together first.');
+    }
+  }
 
   const groupId = a.link_group_id ?? b.link_group_id ?? crypto.randomUUID();
   // A linked unit gets its OWN combined name (not silently the first table's),
@@ -1785,6 +1831,19 @@ export async function autoArrange(
   } catch {
     throw new Error('Invalid input');
   }
+  // Council verdict § 5: the honest overflow. Tables the solver couldn't place
+  // arrive here in `unplaced` and persist with x_pos = null (nothing fake) so
+  // they surface in the editor's "Unplaced" tray instead of being stacked.
+  const unplacedRaw = formData.get('unplaced');
+  let unplacedIds: string[] = [];
+  if (typeof unplacedRaw === 'string' && unplacedRaw.length > 0) {
+    try {
+      const parsed = JSON.parse(unplacedRaw);
+      if (Array.isArray(parsed)) unplacedIds = parsed.filter((x): x is string => typeof x === 'string');
+    } catch {
+      unplacedIds = [];
+    }
+  }
   const booths = parseBoothsPayload(formData.get('booths') ?? '[]');
 
   const supabase = await createClient();
@@ -1822,6 +1881,16 @@ export async function autoArrange(
       .from('event_tables')
       .update({ x_pos: p.x, y_pos: p.y })
       .eq('table_id', id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+  // Null the coordinates of tables the solver overflowed → the Unplaced tray.
+  const unplacedClean = unplacedIds.filter((id) => tableIds.has(id) && !cleanPos[id]);
+  if (unplacedClean.length > 0) {
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: null, y_pos: null })
+      .in('table_id', unplacedClean)
       .eq('event_id', eventId);
     if (error) throw new Error(error.message);
   }

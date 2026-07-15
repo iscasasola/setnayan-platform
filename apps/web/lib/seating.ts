@@ -728,11 +728,15 @@ export function groupColorFor(index: number): string {
 }
 
 // Side-of-wedding fallback color for a guest who belongs to no custom group —
-// mirrors the rose / sky / amethyst chip language used across the guest list.
+// the atelier/glass side-identity language (owner-locked 2026-07-12): bride →
+// gold family, groom → info-slate, both → a lighter gold. Matches the Guests
+// roster RowAvatar (guest-list-multiselect.tsx: gold-500 / info / gold-300 dots)
+// so a guest reads the same colour on the roster and on the seat map. Solid
+// values (not CSS vars) because they tint inline SVG chairs + avatar chips.
 export const SIDE_COLORS: Record<'bride' | 'groom' | 'both', string> = {
-  bride: '#D17A8A',
-  groom: '#5B92A6',
-  both: '#9B6FA0',
+  bride: '#A9834B', // --sn-gold-500
+  groom: '#4E6C82', // --sn-info
+  both: '#CBA766', // --sn-gold-300
 };
 
 // ---------------------------------------------------------------------------
@@ -1513,6 +1517,27 @@ export function recommendTableSet(
     out.push({ type: DRAFT_ROUND_TYPE, capacity: DRAFT_ROUND_SEATS, label: `Table ${tableNumber}` });
   }
   return out;
+}
+
+// Next auto-increment default name for a new table: the smallest positive
+// integer N not already used by an existing "Table N" label. Custom names
+// (anything that isn't exactly "Table <number>") are ignored, so a floor of
+// "Sponsors 1" + "Table 2" still suggests "Table 1". Fills gaps — deleting
+// "Table 2" from {1,2,3} makes the next suggestion "Table 2" again. This is the
+// fix for the "six tables all named Table 5" bug: the add-table form seeds this
+// as its default instead of leaving the field blank (so rapid adds increment).
+export function nextTableName(existing: ReadonlyArray<string | null | undefined>): string {
+  const used = new Set<number>();
+  for (const raw of existing) {
+    const m = /^Table\s+(\d+)$/i.exec((raw ?? '').trim());
+    if (m) {
+      const n = Number.parseInt(m[1]!, 10);
+      if (Number.isSafeInteger(n) && n > 0) used.add(n);
+    }
+  }
+  let n = 1;
+  while (used.has(n)) n += 1;
+  return `Table ${n}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -2402,6 +2427,92 @@ export function roundKissSnap(
     }
   }
   return best;
+}
+
+// ---------------------------------------------------------------------------
+// Footprint collision (owner-reported 2026-07-15: tables — rounds, serpentines —
+// were rendering STACKED into each other, chair rings interpenetrating). The
+// editor's footprint box (tableGeometry().box, scaled) already INCLUDES the
+// chair ring — a round's box is the seat-ring diameter + pad, a serpentine's is
+// the ribbon + its outer/inner chairs — so an axis-aligned box overlap is a true
+// "chairs touch" collision, not just "tabletops touch". These pure predicates
+// are the one source of truth the editor's drag/mount collision passes call, so
+// the "a drop never persists an overlap" invariant is unit-pinned.
+// ---------------------------------------------------------------------------
+
+export type Box = { w: number; h: number };
+export type Rect = { x: number; y: number; w: number; h: number };
+
+// Do two centre-anchored axis-aligned footprints overlap, keeping `gap` clear
+// between them? Same units throughout (the editor passes pixels). Because each
+// box already spans its chair ring, this is the chair-inclusive collision test.
+export function boxesOverlap(
+  ax: number,
+  ay: number,
+  a: Box,
+  bx: number,
+  by: number,
+  b: Box,
+  gap = 0,
+): boolean {
+  return Math.abs(ax - bx) < (a.w + b.w) / 2 + gap && Math.abs(ay - by) < (a.h + b.h) / 2 + gap;
+}
+
+// Does a centre-anchored footprint overlap a centre-anchored zone rect (dance
+// floor, cocktail room, booth) with `gap` clear? Same shape as boxesOverlap —
+// a zone is just a box that isn't a table.
+export function boxOverlapsRect(
+  ax: number,
+  ay: number,
+  a: Box,
+  zone: Rect,
+  gap = 0,
+): boolean {
+  return boxesOverlap(ax, ay, a, zone.x, zone.y, { w: zone.w, h: zone.h }, gap);
+}
+
+// ---------------------------------------------------------------------------
+// Sanctioned chain contact — the ONE overlap that is legal. Two same-family
+// tables may touch only when their connection anchors coincide: serpentine end
+// tips meeting (serpentineChainSnap's output), or banquet / family-head run ends
+// joining flush (rectChainSnap's). Everything else — two serpentines merely
+// shoved together mid-curve, two banquets crossing — is a real collision the
+// editor must resolve. The join tolerance absorbs the %→px round-trip; a genuine
+// body overlap puts the tips >100 px apart, far outside it.
+// ---------------------------------------------------------------------------
+
+export const SERP_JOIN_TOL_PX = 18;
+export const RECT_JOIN_TOL_PX = 16;
+
+type SerpPose = { x: number; y: number; rot: number; scale: number };
+type RectPose = { x: number; y: number; rot: number; halfLen: number };
+
+// Two serpentine wedges are in a sanctioned tip-join if any end-midpoint of one
+// coincides (within tol px) with an end-midpoint of the other.
+export function serpentinesJoined(a: SerpPose, b: SerpPose, tolPx = SERP_JOIN_TOL_PX): boolean {
+  const ea = serpentineEndsWorld(a);
+  const eb = serpentineEndsWorld(b);
+  for (const p of ea) for (const q of eb) if (Math.hypot(p.x - q.x, p.y - q.y) <= tolPx) return true;
+  return false;
+}
+
+// World-space end-face midpoints of a rectangular run (banquet / family head).
+// halfLen = half the TABLETOP length (px) along the run axis.
+export function rectEndsWorld(w: RectPose): SeatSlot[] {
+  const dir = rotatePoint({ x: 1, y: 0 }, w.rot);
+  return [
+    { x: w.x + dir.x * w.halfLen, y: w.y + dir.y * w.halfLen },
+    { x: w.x - dir.x * w.halfLen, y: w.y - dir.y * w.halfLen },
+  ];
+}
+
+// Two rectangular runs are in a sanctioned flush join if an end face of one
+// coincides (within tol px) with an end face of the other.
+export function rectRunsJoined(a: RectPose, b: RectPose, tolPx = RECT_JOIN_TOL_PX): boolean {
+  const ea = rectEndsWorld(a);
+  const eb = rectEndsWorld(b);
+  for (const p of ea) for (const q of eb) if (Math.hypot(p.x - q.x, p.y - q.y) <= tolPx) return true;
+  return false;
 }
 
 // ---------------------------------------------------------------------------

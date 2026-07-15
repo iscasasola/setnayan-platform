@@ -28,6 +28,7 @@ import {
   Martini,
   Maximize2,
   Minus,
+  MoreHorizontal,
   Navigation,
   Package,
   Plus,
@@ -701,6 +702,48 @@ export function SeatingEditor({
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
+
+  // Left-panel breakpoint (verdict §7): below `lg` the stacked panel-above-canvas
+  // sandwich is replaced by a bottom drawer over a full-height canvas. Tracked in
+  // JS so we render EITHER the desktop aside OR the drawer (one panel instance,
+  // no duplicate mount of AddTablePanel / the member lists).
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const sync = () => setIsNarrow(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  // Left panel → three tabs (People / Tables / Rules), full height (verdict §3).
+  // The active tab persists per user; the picked-guest echo lives in the canvas
+  // contextual pill so pick-to-seat survives a tab switch.
+  const [panelTab, setPanelTab] = useState<'people' | 'tables' | 'rules'>('people');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('seating:panel-tab');
+      if (saved === 'people' || saved === 'tables' || saved === 'rules') setPanelTab(saved);
+    } catch {
+      /* localStorage unavailable (private mode) — default People */
+    }
+  }, []);
+  const selectPanelTab = (t: 'people' | 'tables' | 'rules') => {
+    setPanelTab(t);
+    try {
+      localStorage.setItem('seating:panel-tab', t);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Mobile bottom drawer (verdict §7): 3 snap points — peek (~handle) / half / full.
+  // Drag the handle to resize (snaps to nearest on release); tap cycles up.
+  type DrawerSnap = 'peek' | 'half' | 'full';
+  const [drawerSnap, setDrawerSnap] = useState<DrawerSnap>('peek');
+  const [drawerDragPx, setDrawerDragPx] = useState<number | null>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const drawerDrag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
 
   // Scroll-wheel / trackpad zoom toward the cursor (non-passive so we can
   // preventDefault the page scroll). Re-attached when the plan view mounts.
@@ -3062,6 +3105,574 @@ export function SeatingEditor({
     [dragId, tables],
   );
 
+  // ── Mobile drawer drag handlers (verdict §7) ──────────────────────────────
+  // Force the drawer to its handle when the <768px per-table sheet is up, so the
+  // two never stack (verdict §7 exclusion rule).
+  const drawerForcedPeek = isPhone && highlightId !== null;
+  const effectiveSnap: DrawerSnap = drawerForcedPeek ? 'peek' : drawerSnap;
+  const DRAWER_PEEK_PX = 52;
+  const drawerHeight =
+    drawerDragPx !== null
+      ? `${drawerDragPx}px`
+      : effectiveSnap === 'full'
+        ? '88dvh'
+        : effectiveSnap === 'half'
+          ? '50dvh'
+          : `${DRAWER_PEEK_PX}px`;
+  const onDrawerHandleDown = (e: React.PointerEvent) => {
+    if (drawerForcedPeek) return;
+    const h = drawerRef.current?.getBoundingClientRect().height ?? DRAWER_PEEK_PX;
+    drawerDrag.current = { startY: e.clientY, startH: h, moved: false };
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  };
+  const onDrawerHandleMove = (e: React.PointerEvent) => {
+    const d = drawerDrag.current;
+    if (!d) return;
+    const dy = e.clientY - d.startY;
+    if (Math.abs(dy) > 4) d.moved = true;
+    const vh = window.innerHeight;
+    setDrawerDragPx(Math.min(vh * 0.9, Math.max(DRAWER_PEEK_PX, d.startH - dy)));
+  };
+  const onDrawerHandleUp = () => {
+    const d = drawerDrag.current;
+    if (!d) return;
+    if (d.moved) {
+      const vh = window.innerHeight;
+      const cur = drawerDragPx ?? d.startH;
+      const snaps: [DrawerSnap, number][] = [
+        ['peek', DRAWER_PEEK_PX],
+        ['half', vh * 0.5],
+        ['full', vh * 0.88],
+      ];
+      let best: DrawerSnap = 'peek';
+      let bestD = Infinity;
+      for (const [snap, px] of snaps) {
+        const dist = Math.abs(cur - px);
+        if (dist < bestD) {
+          bestD = dist;
+          best = snap;
+        }
+      }
+      setDrawerSnap(best);
+    } else {
+      // A tap (no drag) cycles peek → half → full → peek.
+      setDrawerSnap((s) => (s === 'peek' ? 'half' : s === 'half' ? 'full' : 'peek'));
+    }
+    setDrawerDragPx(null);
+    drawerDrag.current = null;
+  };
+
+  // ── Left-panel content, shared by the desktop aside + the mobile drawer ────
+  const searchRow = (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search people…"
+        className="w-full rounded-lg border border-ink/15 bg-cream py-1.5 pl-8 pr-2 text-sm outline-none focus:border-terracotta"
+      />
+    </div>
+  );
+
+  const peoplePane = (
+    <div className="flex flex-col gap-3">
+      {/* "Only show unseated" filter — pinned at the top of the People pane. */}
+      <label className="sticky top-0 z-10 -mx-3 -mt-3 flex items-center gap-2 border-b border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+        <input
+          type="checkbox"
+          checked={onlyUnseated}
+          onChange={(e) => setOnlyUnseated(e.target.checked)}
+          className="h-3.5 w-3.5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        Only show unseated
+      </label>
+
+      {/* Individual members */}
+      <Section label={`Individual Members · ${individuals.length}`}>
+        {individuals.length === 0 ? (
+          <p className="px-1 py-2 text-xs text-ink/45">Everyone here is in a group.</p>
+        ) : (
+          <ul className="space-y-0.5">
+            {individuals.map((g) => (
+              <MemberRow
+                key={g.guest_id}
+                guest={g}
+                color={colorFor(g)}
+                picked={pickedId === g.guest_id}
+                tableLabel={g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null}
+                onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
+                onCyclePriority={() => cyclePriority(g)}
+                roleSet={roleSet}
+              />
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* Member groups */}
+      {groups.length > 0 ? (
+        <Section label={`Member Groups · ${groups.length}`}>
+          <ul className="space-y-1">
+            {groups.map((grp) => {
+              const members = guests.filter((g) => g.group_id === grp.group_id && memberVisible(g));
+              const isOpen = openGroups.has(grp.group_id);
+              const hidden = hiddenGroups.has(grp.group_id);
+              return (
+                <li key={grp.group_id} className="rounded-lg border border-ink/10">
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenGroups((s) => {
+                          const n = new Set(s);
+                          n.has(grp.group_id) ? n.delete(grp.group_id) : n.add(grp.group_id);
+                          return n;
+                        })
+                      }
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{grp.label}</span>
+                      <span className="text-[11px] text-ink/50">{grp.member_count}</span>
+                      <ChevronDown className={`h-3.5 w-3.5 text-ink/40 transition ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPickedId(null);
+                        setNotice(null);
+                        setPickedGroupId((id) => (id === grp.group_id ? null : grp.group_id));
+                      }}
+                      aria-label={
+                        pickedGroupId === grp.group_id
+                          ? `Cancel seating ${grp.label}`
+                          : `Seat ${grp.label} at a table`
+                      }
+                      title="Seat this whole group at a table"
+                      className={`rounded p-1 ${
+                        pickedGroupId === grp.group_id
+                          ? 'bg-mulberry/10 text-mulberry'
+                          : 'text-ink/40 hover:bg-ink/5'
+                      }`}
+                    >
+                      <Armchair className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHiddenGroups((s) => {
+                          const n = new Set(s);
+                          n.has(grp.group_id) ? n.delete(grp.group_id) : n.add(grp.group_id);
+                          return n;
+                        })
+                      }
+                      aria-label={hidden ? 'Show colour on canvas' : 'Hide colour on canvas'}
+                      className="rounded p-1 text-ink/40 hover:bg-ink/5"
+                    >
+                      {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                  {isOpen ? (
+                    <ul className="space-y-0.5 border-t border-ink/10 p-1">
+                      {members.length === 0 ? (
+                        <li className="px-1 py-1 text-[11px] text-ink/40">No matching members.</li>
+                      ) : (
+                        members.map((g) => (
+                          <MemberRow
+                            key={g.guest_id}
+                            guest={g}
+                            color={colorFor(g)}
+                            picked={pickedId === g.guest_id}
+                            tableLabel={
+                              g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null
+                            }
+                            onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
+                            onCyclePriority={() => cyclePriority(g)}
+                            roleSet={roleSet}
+                          />
+                        ))
+                      )}
+                    </ul>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </Section>
+      ) : null}
+    </div>
+  );
+
+  const tablesPane = (
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setShowAddTable((v) => !v)}
+        disabled={!canEdit}
+        title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
+        className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-terracotta px-2.5 py-2 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
+      </button>
+
+      {showAddTable && canEdit ? (
+        <AddTablePanel
+          eventId={eventId}
+          lockId={lock.lockId}
+          chineseTradition={chineseTradition}
+          defaultLabel={nextTableName(tables.map((t) => t.table_label))}
+          onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
+          onDone={() => setShowAddTable(false)}
+          onLockLost={handleLockLost}
+        />
+      ) : null}
+
+      <Section label={`Tables · ${displayUnits.length}`}>
+        {displayUnits.length === 0 ? (
+          <p className="px-1 py-2 text-xs text-ink/45">
+            No tables yet — tap “Build my seating” on the floor, or add one above.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {displayUnits.map((u) => {
+              const occ = unitOcc(u);
+              const filled = occ.filter(Boolean).length;
+              const cap = u.capacity;
+              const full = filled >= cap;
+              return (
+                <li
+                  key={u.key}
+                  className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                    pickedGroupId
+                      ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
+                      : highlightId === u.lead.table_id
+                        ? 'border-terracotta bg-terracotta/5'
+                        : 'border-transparent hover:bg-ink/[0.03]'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      pickedGroupId
+                        ? seatGroupAt(u.lead.table_id)
+                        : setHighlightId((id) => (id === u.lead.table_id ? null : u.lead.table_id))
+                    }
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: dominantColor(occ, colorFor) ?? NEUTRAL }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-ink">
+                        {u.isLinked ? (
+                          <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
+                        ) : null}
+                        {u.label}
+                      </span>
+                      <span className="block font-mono text-[11px] text-ink/50">
+                        {filled}/{cap} {cap === 1 ? 'seat' : 'seats'} ·{' '}
+                        {u.members.length > 1
+                          ? `${u.members.length} tables joined`
+                          : TABLE_TYPE_LABEL[u.lead.table_type]}
+                      </span>
+                    </span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                        full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'
+                      }`}
+                    >
+                      {full ? 'Filled' : 'Open'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => requestRemoveUnit(u)}
+                    aria-label={`Delete ${u.label}`}
+                    className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Section>
+    </div>
+  );
+
+  const rulesPane = (
+    <div className="flex flex-col gap-3">
+      {/* Seating Priority (smart seat-plan Phase 2). The order decides who Auto
+          Arrange seats nearest the stage. Drag to reorder on desktop; the
+          up/down arrows do the same on touch / keyboard. */}
+      <Section label="Seating Priority">
+        <p className="px-1 pb-1.5 text-[11px] text-ink/50">
+          Who sits nearest the stage. Drag to reorder — Auto Arrange fills these tiers top to bottom.
+        </p>
+        <ul className="space-y-1">
+          {priorityOrder.map((t, i) => (
+            <li
+              key={t.tier}
+              draggable={canEdit}
+              onDragStart={() => setDragTierIndex(i)}
+              onDragOver={(e) => {
+                if (dragTierIndex !== null) e.preventDefault();
+              }}
+              onDrop={() => {
+                if (dragTierIndex !== null) reorderPriorityTo(dragTierIndex, i);
+                setDragTierIndex(null);
+              }}
+              onDragEnd={() => setDragTierIndex(null)}
+              className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                dragTierIndex === i ? 'border-mulberry/40 bg-mulberry/5' : 'border-ink/10'
+              } ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            >
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-ink/30" aria-hidden />
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/5 font-mono text-[10px] font-semibold text-ink/60">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.label}</span>
+              <div className="flex shrink-0 items-center">
+                <button
+                  type="button"
+                  onClick={() => movePriorityTier(i, -1)}
+                  disabled={i === 0 || !canEdit}
+                  aria-label={`Move ${t.label} up`}
+                  className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => movePriorityTier(i, 1)}
+                  disabled={i === priorityOrder.length - 1 || !canEdit}
+                  aria-label={`Move ${t.label} down`}
+                  className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {/* Seating Guide — keep-apart rules (smart seat-plan Phase 3). Couple-
+          private: Auto Arrange seats these pairs (and their whole groups) at
+          different tables. */}
+      <Section label="Seating Guide">
+        <p className="px-1 pb-1.5 text-[11px] text-ink/50">
+          Keep guests apart — Auto Arrange seats them at different tables (their whole groups too). Only you see this.
+        </p>
+        {keepApart.length > 0 ? (
+          <ul className="mb-2 space-y-1">
+            {keepApart.map((r) => {
+              const violated = isRuleViolated(r);
+              return (
+                <li
+                  key={`${r.guest_a_id}|${r.guest_b_id}`}
+                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                    violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
+                  }`}
+                >
+                  <Unlink
+                    className={`h-3.5 w-3.5 shrink-0 ${violated ? 'text-danger-600' : 'text-mulberry/70'}`}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                    <span className="font-medium">{guestsById.get(r.guest_a_id)?.name ?? 'Guest'}</span>
+                    <span className="text-ink/45"> can&apos;t sit with </span>
+                    <span className="font-medium">{guestsById.get(r.guest_b_id)?.name ?? 'Guest'}</span>
+                    {violated ? (
+                      <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-danger-600">
+                        · seated together
+                      </span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeKeepApart(r)}
+                    disabled={!canEdit}
+                    aria-label="Remove keep-apart rule"
+                    className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="px-1 pb-1.5 text-[11px] text-ink/40">No keep-apart rules yet.</p>
+        )}
+        {violatedRules.length > 0 && canEdit ? (
+          <button
+            type="button"
+            onClick={relaxLowest}
+            className="mb-2 inline-flex items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-ink/80 hover:border-terracotta"
+          >
+            <Unlink className="h-3.5 w-3.5" /> Relax the lowest-priority rule
+          </button>
+        ) : null}
+        {canEdit ? <KeepApartAdder guests={guests} onAdd={addKeepApart} /> : null}
+      </Section>
+    </div>
+  );
+
+  // The tab strip + active pane. `panelBody` is rendered by EITHER the desktop
+  // aside OR the mobile drawer (never both — `isNarrow` gates which).
+  const panelTabs = (
+    <div role="tablist" aria-label="Seat-plan panel" className="flex shrink-0 gap-1 border-b border-ink/10 px-2">
+      {([
+        ['people', 'People', unseatedCount, false] as const,
+        ['tables', 'Tables', 0, false] as const,
+        ['rules', 'Rules', violatedRules.length, true] as const,
+      ]).map(([key, label, count, warm]) => {
+        const active = panelTab === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => selectPanelTab(key)}
+            className={`relative flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition ${
+              active ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink'
+            }`}
+          >
+            {label}
+            {count > 0 ? (
+              <span
+                className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums ${
+                  warm ? 'bg-danger-100 text-danger-700' : 'bg-ink/8 text-ink/55'
+                }`}
+              >
+                {count}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const panelBody = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 p-3 pb-2">{searchRow}</div>
+      {panelTabs}
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {panelTab === 'people' ? peoplePane : panelTab === 'tables' ? tablesPane : rulesPane}
+      </div>
+    </div>
+  );
+
+  // ── Command-bar menu bodies, shared by the desktop `+ Add / Arrange / Share`
+  //    dropdowns and the mobile `⋯` overflow sheet (verdict §7). One source of
+  //    truth for the rows so nothing drifts between the two surfaces. ──────────
+  const addMenuBody = (
+    <>
+      <MenuCaption>Place on the floor</MenuCaption>
+      <MenuRow icon={Plus} label="New table…" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); }} disabled={!canEdit} />
+      <MenuRow icon={DoorOpen} label="Entrance" onClick={addEntrance} disabled={!canEdit || view !== 'plan' || entrance.enabled} />
+      <MenuRow icon={Truck} label="Service door" hint="Optional load-in / caterer door" onClick={addServiceDoor} disabled={!canEdit || view !== 'plan' || serviceDoor.enabled} />
+      <MenuRow icon={Footprints} label="Dance floor" onClick={addDanceFloor} disabled={!canEdit || view !== 'plan' || dance.enabled} />
+      <MenuRow icon={Martini} label="Cocktail area" hint="A second room — booths only, no tables" onClick={addCocktailArea} disabled={!canEdit || view !== 'plan' || cocktail.enabled} />
+      <MenuRow icon={Signpost} label="Sign" badge={`${signs.length}/24`} onClick={addSign} disabled={!canEdit || view !== 'plan' || signs.length >= 24} />
+      <MenuRow icon={Store} label="Vendor booth" onClick={addBooth} disabled={!canEdit || view !== 'plan'} />
+      <MenuDivider />
+      <MenuRow
+        icon={Ruler}
+        label="Room size & scale…"
+        hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Set the reception footprint'}
+        onClick={() => setShowRoomPanel((v) => !v)}
+        disabled={!canEdit || view !== 'plan'}
+      />
+    </>
+  );
+  const arrangeMenuBody = (
+    <>
+      <MenuCaption>Seating policies</MenuCaption>
+      <form action={setSeatingAutoplace} className="px-1">
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="enabled" value={autoplaceEnabled ? 'false' : 'true'} />
+        <button
+          type="submit"
+          className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
+        >
+          <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex items-center gap-2 text-sm font-medium text-ink">
+              Auto-seating
+              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${autoplaceEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
+                {autoplaceEnabled ? 'On' : 'Off'}
+              </span>
+            </span>
+            <span className="text-[11px] leading-snug text-ink/55">
+              {autoplaceEnabled ? 'New guests get a provisional seat; role/group changes re-seat them.' : 'Seat guests manually with Auto Arrange or drag.'}
+            </span>
+          </span>
+        </button>
+      </form>
+      <form action={setSeatingGroupAdjacency} className="px-1">
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="enabled" value={adjacencyEnabled ? 'false' : 'true'} />
+        <button
+          type="submit"
+          className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
+        >
+          <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex items-center gap-2 text-sm font-medium text-ink">
+              Keep groups together
+              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${adjacencyEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
+                {adjacencyEnabled ? 'On' : 'Off'}
+              </span>
+            </span>
+            <span className="text-[11px] leading-snug text-ink/55">
+              {adjacencyEnabled ? 'An overflowing group spills to the nearest table.' : 'Classic stage-order fill.'}
+            </span>
+          </span>
+        </button>
+      </form>
+      <MenuDivider />
+      <MenuRow
+        icon={Sparkles}
+        label="Build my seating draft"
+        hint="Lay out the whole floor in one tap"
+        onClick={buildDraft}
+        disabled={!canEdit || isPending || tables.length > 0}
+      />
+      {lockedCount > 0 ? (
+        <MenuRow
+          icon={Lock}
+          label={`Fill around ${lockedCount} locked`}
+          hint="Keep locked seats; re-seat everyone else around them"
+          onClick={() => setConfirmFill(true)}
+          disabled={isPending || !canEdit}
+        />
+      ) : null}
+    </>
+  );
+  const shareMenuBody = (
+    <>
+      <MenuCaption>Export PDF</MenuCaption>
+      <MenuRow icon={FileDown} label="Mood-board colours" hint="Floor & tables in your palette" href={`/dashboard/${eventId}/seating/export?mode=moodboard`} />
+      <MenuRow icon={FileDown} label="Blueprint" hint="Clean technical line drawing" href={`/dashboard/${eventId}/seating/export?mode=blueprint`} />
+      <MenuRow icon={FileDown} label="Caterer meal counts" hint="Meals per table + dietary · print or CSV" href={`/dashboard/${eventId}/seating/caterer`} target="_blank" />
+      <MenuDivider />
+      <MenuCaption>Guest photos in the 3D walk</MenuCaption>
+      <MenuRow icon={Eye} label="Own table only" badge={photoVis === 'table' ? '✓' : undefined} onClick={() => setPhotoVisibility('table')} disabled={!canEdit} />
+      <MenuRow icon={Camera} label="All guests" badge={photoVis === 'all' ? '✓' : undefined} onClick={() => setPhotoVisibility('all')} disabled={!canEdit} />
+      <MenuRow icon={EyeOff} label="No photos" badge={photoVis === 'none' ? '✓' : undefined} onClick={() => setPhotoVisibility('none')} disabled={!canEdit} />
+      <MenuDivider />
+      <MenuRow icon={Video} label="Walkthrough videos" href={`/dashboard/${eventId}/seating/walkthrough`} />
+      <MenuRow icon={Printer} label="Publish & print" hint="Freeze a snapshot + printable signs / place cards" onClick={publishAndPrint} disabled={isPending || tables.length === 0} emphasized />
+    </>
+  );
+
   return (
     <SeatingFrame>
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
@@ -3135,133 +3746,34 @@ export function SeatingEditor({
 
         <div className="flex-1" />
 
-        {/* ── + Add ▾ — place objects + room size (verdict §2) ── */}
-        <BarMenu label="Add" icon={Plus} width="w-64" disabled={!canEdit}>
-          <MenuCaption>Place on the floor</MenuCaption>
-          <MenuRow icon={Plus} label="New table…" hint="Pick from the 13-type catalog" onClick={() => setShowAddTable(true)} />
-          <MenuRow
-            icon={DoorOpen}
-            label="Entrance"
-            onClick={addEntrance}
-            disabled={view !== 'plan' || entrance.enabled}
-          />
-          <MenuRow
-            icon={Truck}
-            label="Service door"
-            hint="Optional load-in / caterer door"
-            onClick={addServiceDoor}
-            disabled={view !== 'plan' || serviceDoor.enabled}
-          />
-          <MenuRow
-            icon={Footprints}
-            label="Dance floor"
-            onClick={addDanceFloor}
-            disabled={view !== 'plan' || dance.enabled}
-          />
-          <MenuRow
-            icon={Martini}
-            label="Cocktail area"
-            hint="A second room — booths only, no tables"
-            onClick={addCocktailArea}
-            disabled={view !== 'plan' || cocktail.enabled}
-          />
-          <MenuRow
-            icon={Signpost}
-            label="Sign"
-            badge={`${signs.length}/24`}
-            onClick={addSign}
-            disabled={view !== 'plan' || signs.length >= 24}
-          />
-          <MenuRow icon={Store} label="Vendor booth" onClick={addBooth} disabled={view !== 'plan'} />
-          <MenuDivider />
-          <MenuRow
-            icon={Ruler}
-            label="Room size & scale…"
-            hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Set the reception footprint'}
-            onClick={() => setShowRoomPanel((v) => !v)}
-            disabled={view !== 'plan'}
-          />
-        </BarMenu>
+        {/* Desktop: the three labeled menus (verdict §2). Below `lg` they collapse
+            into the single `⋯` overflow sheet at the end of the bar (verdict §7). */}
+        <div className="hidden items-center gap-2 lg:flex">
+          {/* ── + Add ▾ — place objects + room size ── */}
+          <BarMenu label="Add" icon={Plus} width="w-64" disabled={!canEdit}>
+            {addMenuBody}
+          </BarMenu>
+          {/* ── Arrange ⚙▾ — policies + fill-around-locked + draft ── */}
+          <BarMenu label="Arrange" icon={Wand2} width="w-72" stateBadge={arrangePolicyOff}>
+            {arrangeMenuBody}
+          </BarMenu>
+          {/* ── Share & print ▾ — publish, PDFs, guest photos, walkthrough ── */}
+          <BarMenu label="Share & print" icon={Printer} width="w-72" align="right" disabled={tables.length === 0}>
+            {shareMenuBody}
+          </BarMenu>
+        </div>
 
-        {/* ── Arrange ⚙▾ — policies + fill-around-locked + draft (verdict §2) ── */}
-        <BarMenu label="Arrange" icon={Wand2} width="w-72" stateBadge={arrangePolicyOff}>
-          <MenuCaption>Seating policies</MenuCaption>
-          <form action={setSeatingAutoplace} className="px-1">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="enabled" value={autoplaceEnabled ? 'false' : 'true'} />
-            <button
-              type="submit"
-              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
-            >
-              <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-2 text-sm font-medium text-ink">
-                  Auto-seating
-                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${autoplaceEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
-                    {autoplaceEnabled ? 'On' : 'Off'}
-                  </span>
-                </span>
-                <span className="text-[11px] leading-snug text-ink/55">
-                  {autoplaceEnabled ? 'New guests get a provisional seat; role/group changes re-seat them.' : 'Seat guests manually with Auto Arrange or drag.'}
-                </span>
-              </span>
-            </button>
-          </form>
-          <form action={setSeatingGroupAdjacency} className="px-1">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="enabled" value={adjacencyEnabled ? 'false' : 'true'} />
-            <button
-              type="submit"
-              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
-            >
-              <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-2 text-sm font-medium text-ink">
-                  Keep groups together
-                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${adjacencyEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
-                    {adjacencyEnabled ? 'On' : 'Off'}
-                  </span>
-                </span>
-                <span className="text-[11px] leading-snug text-ink/55">
-                  {adjacencyEnabled ? 'An overflowing group spills to the nearest table.' : 'Classic stage-order fill.'}
-                </span>
-              </span>
-            </button>
-          </form>
-          <MenuDivider />
-          <MenuRow
-            icon={Sparkles}
-            label="Build my seating draft"
-            hint="Lay out the whole floor in one tap"
-            onClick={buildDraft}
-            disabled={!canEdit || isPending || tables.length > 0}
-          />
-          {lockedCount > 0 ? (
-            <MenuRow
-              icon={Lock}
-              label={`Fill around ${lockedCount} locked`}
-              hint="Keep locked seats; re-seat everyone else around them"
-              onClick={() => setConfirmFill(true)}
-              disabled={isPending || !canEdit}
-            />
-          ) : null}
-        </BarMenu>
-
-        {/* ── Share & print ▾ — publish, PDFs, guest photos, walkthrough (verdict §2) ── */}
-        <BarMenu label="Share & print" icon={Printer} width="w-72" align="right" disabled={tables.length === 0}>
-          <MenuCaption>Export PDF</MenuCaption>
-          <MenuRow icon={FileDown} label="Mood-board colours" hint="Floor & tables in your palette" href={`/dashboard/${eventId}/seating/export?mode=moodboard`} />
-          <MenuRow icon={FileDown} label="Blueprint" hint="Clean technical line drawing" href={`/dashboard/${eventId}/seating/export?mode=blueprint`} />
-          <MenuRow icon={FileDown} label="Caterer meal counts" hint="Meals per table + dietary · print or CSV" href={`/dashboard/${eventId}/seating/caterer`} target="_blank" />
-          <MenuDivider />
-          <MenuCaption>Guest photos in the 3D walk</MenuCaption>
-          <MenuRow icon={Eye} label="Own table only" badge={photoVis === 'table' ? '✓' : undefined} onClick={() => setPhotoVisibility('table')} disabled={!canEdit} />
-          <MenuRow icon={Camera} label="All guests" badge={photoVis === 'all' ? '✓' : undefined} onClick={() => setPhotoVisibility('all')} disabled={!canEdit} />
-          <MenuRow icon={EyeOff} label="No photos" badge={photoVis === 'none' ? '✓' : undefined} onClick={() => setPhotoVisibility('none')} disabled={!canEdit} />
-          <MenuDivider />
-          <MenuRow icon={Video} label="Walkthrough videos" href={`/dashboard/${eventId}/seating/walkthrough`} />
-          <MenuRow icon={Printer} label="Publish & print" hint="Freeze a snapshot + printable signs / place cards" onClick={publishAndPrint} disabled={isPending || tables.length === 0} emphasized />
-        </BarMenu>
+        {/* ── Mobile `⋯` overflow sheet (verdict §7) — + Add / Arrange / Share in
+            one menu; the save chip + Auto Arrange stay visible in the bar. ── */}
+        <div className="lg:hidden">
+          <BarMenu label="More" icon={MoreHorizontal} width="w-72" align="right" title="More seat-plan tools">
+            {addMenuBody}
+            <MenuDivider />
+            {arrangeMenuBody}
+            <MenuDivider />
+            {shareMenuBody}
+          </BarMenu>
+        </div>
 
         {/* Permanent save-status chip (verdict §2 SAVE). */}
         <SaveStatusChip
@@ -3280,7 +3792,10 @@ export function SeatingEditor({
           title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
           className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-mulberry px-3 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
+          <Sparkles className="h-3.5 w-3.5" />
+          {/* Condensed to "Auto" on phones so the bar fits (verdict §7). */}
+          <span className="sm:hidden">Auto</span>
+          <span className="hidden sm:inline">Auto Arrange</span>
         </button>
       </CommandBar>
 
@@ -3296,356 +3811,14 @@ export function SeatingEditor({
 
       {/* ═══════════ ROW 3 — BODY: [320px panel | canvas] ═══════════ */}
       <FrameBody>
-        {/* ---------------- Left panel (full-height, own scroll) ---------------- */}
-        <aside className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-b border-ink/10 bg-cream p-3 lg:h-full lg:flex-none lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search people…"
-              className="w-full rounded-lg border border-ink/15 bg-cream py-1.5 pl-8 pr-2 text-sm outline-none focus:border-terracotta"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowAddTable((v) => !v)}
-            disabled={!canEdit}
-            title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
-          </button>
-        </div>
-
-        <label className="flex items-center gap-2 px-0.5 text-xs text-ink/65">
-          <input
-            type="checkbox"
-            checked={onlyUnseated}
-            onChange={(e) => setOnlyUnseated(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
-          Only show unseated
-        </label>
-
-        {showAddTable && canEdit ? (
-          <AddTablePanel
-            eventId={eventId}
-            lockId={lock.lockId}
-            chineseTradition={chineseTradition}
-            defaultLabel={nextTableName(tables.map((t) => t.table_label))}
-            onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
-            onDone={() => setShowAddTable(false)}
-            onLockLost={handleLockLost}
-          />
-        ) : null}
-
-        {/* Tables */}
-        <Section label={`Tables · ${displayUnits.length}`}>
-          {displayUnits.length === 0 ? (
-            <p className="px-1 py-2 text-xs text-ink/45">
-              No tables yet — tap “Build my seating” on the floor, or add one above.
-            </p>
-          ) : (
-            <ul className="space-y-1">
-              {displayUnits.map((u) => {
-                const occ = unitOcc(u);
-                const filled = occ.filter(Boolean).length;
-                const cap = u.capacity;
-                const full = filled >= cap;
-                return (
-                  <li
-                    key={u.key}
-                    className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
-                      pickedGroupId
-                        ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
-                        : highlightId === u.lead.table_id
-                          ? 'border-terracotta bg-terracotta/5'
-                          : 'border-transparent hover:bg-ink/[0.03]'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        pickedGroupId
-                          ? seatGroupAt(u.lead.table_id)
-                          : setHighlightId((id) => (id === u.lead.table_id ? null : u.lead.table_id))
-                      }
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: dominantColor(occ, colorFor) ?? NEUTRAL }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-ink">
-                          {u.isLinked ? (
-                            <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
-                          ) : null}
-                          {u.label}
-                        </span>
-                        <span className="block text-[11px] text-ink/50">
-                          {filled}/{cap} {cap === 1 ? 'seat' : 'seats'} ·{' '}
-                          {u.members.length > 1
-                            ? `${u.members.length} tables joined`
-                            : TABLE_TYPE_LABEL[u.lead.table_type]}
-                        </span>
-                      </span>
-                      <span
-                        className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
-                          full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'
-                        }`}
-                      >
-                        {full ? 'Filled' : 'Open'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => requestRemoveUnit(u)}
-                      aria-label={`Delete ${u.label}`}
-                      className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
-
-        {/* Individual members */}
-        <Section label={`Individual Members · ${individuals.length}`}>
-          {individuals.length === 0 ? (
-            <p className="px-1 py-2 text-xs text-ink/45">Everyone here is in a group.</p>
-          ) : (
-            <ul className="space-y-0.5">
-              {individuals.map((g) => (
-                <MemberRow
-                  key={g.guest_id}
-                  guest={g}
-                  color={colorFor(g)}
-                  picked={pickedId === g.guest_id}
-                  tableLabel={g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null}
-                  onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
-                  onCyclePriority={() => cyclePriority(g)}
-                  roleSet={roleSet}
-                />
-              ))}
-            </ul>
-          )}
-        </Section>
-
-        {/* Member groups */}
-        {groups.length > 0 ? (
-          <Section label={`Member Groups · ${groups.length}`}>
-            <ul className="space-y-1">
-              {groups.map((grp) => {
-                const members = guests.filter((g) => g.group_id === grp.group_id && memberVisible(g));
-                const isOpen = openGroups.has(grp.group_id);
-                const hidden = hiddenGroups.has(grp.group_id);
-                return (
-                  <li key={grp.group_id} className="rounded-lg border border-ink/10">
-                    <div className="flex items-center gap-2 px-2 py-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenGroups((s) => {
-                            const n = new Set(s);
-                            n.has(grp.group_id) ? n.delete(grp.group_id) : n.add(grp.group_id);
-                            return n;
-                          })
-                        }
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                      >
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{grp.label}</span>
-                        <span className="text-[11px] text-ink/50">{grp.member_count}</span>
-                        <ChevronDown className={`h-3.5 w-3.5 text-ink/40 transition ${isOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPickedId(null);
-                          setNotice(null);
-                          setPickedGroupId((id) => (id === grp.group_id ? null : grp.group_id));
-                        }}
-                        aria-label={
-                          pickedGroupId === grp.group_id
-                            ? `Cancel seating ${grp.label}`
-                            : `Seat ${grp.label} at a table`
-                        }
-                        title="Seat this whole group at a table"
-                        className={`rounded p-1 ${
-                          pickedGroupId === grp.group_id
-                            ? 'bg-mulberry/10 text-mulberry'
-                            : 'text-ink/40 hover:bg-ink/5'
-                        }`}
-                      >
-                        <Armchair className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setHiddenGroups((s) => {
-                            const n = new Set(s);
-                            n.has(grp.group_id) ? n.delete(grp.group_id) : n.add(grp.group_id);
-                            return n;
-                          })
-                        }
-                        aria-label={hidden ? 'Show colour on canvas' : 'Hide colour on canvas'}
-                        className="rounded p-1 text-ink/40 hover:bg-ink/5"
-                      >
-                        {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                    {isOpen ? (
-                      <ul className="space-y-0.5 border-t border-ink/10 p-1">
-                        {members.length === 0 ? (
-                          <li className="px-1 py-1 text-[11px] text-ink/40">No matching members.</li>
-                        ) : (
-                          members.map((g) => (
-                            <MemberRow
-                              key={g.guest_id}
-                              guest={g}
-                              color={colorFor(g)}
-                              picked={pickedId === g.guest_id}
-                              tableLabel={
-                                g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null
-                              }
-                              onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
-                              onCyclePriority={() => cyclePriority(g)}
-                              roleSet={roleSet}
-                            />
-                          ))
-                        )}
-                      </ul>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </Section>
-        ) : null}
-
-        {/* Seating Priority (smart seat-plan Phase 2). The order decides who Auto
-            Arrange seats nearest the stage. Drag to reorder on desktop; the
-            up/down arrows do the same on touch / keyboard. */}
-        <Section label="Seating Priority">
-          <p className="px-1 pb-1.5 text-[11px] text-ink/50">
-            Who sits nearest the stage. Drag to reorder — Auto Arrange fills these tiers top to bottom.
-          </p>
-          <ul className="space-y-1">
-            {priorityOrder.map((t, i) => (
-              <li
-                key={t.tier}
-                draggable={canEdit}
-                onDragStart={() => setDragTierIndex(i)}
-                onDragOver={(e) => {
-                  if (dragTierIndex !== null) e.preventDefault();
-                }}
-                onDrop={() => {
-                  if (dragTierIndex !== null) reorderPriorityTo(dragTierIndex, i);
-                  setDragTierIndex(null);
-                }}
-                onDragEnd={() => setDragTierIndex(null)}
-                className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
-                  dragTierIndex === i
-                    ? 'border-mulberry/40 bg-mulberry/5'
-                    : 'border-ink/10'
-                } ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
-              >
-                <GripVertical className="h-3.5 w-3.5 shrink-0 text-ink/30" aria-hidden />
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/5 text-[10px] font-semibold text-ink/60">
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.label}</span>
-                <div className="flex shrink-0 items-center">
-                  <button
-                    type="button"
-                    onClick={() => movePriorityTier(i, -1)}
-                    disabled={i === 0 || !canEdit}
-                    aria-label={`Move ${t.label} up`}
-                    className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => movePriorityTier(i, 1)}
-                    disabled={i === priorityOrder.length - 1 || !canEdit}
-                    aria-label={`Move ${t.label} down`}
-                    className="rounded p-1 text-ink/40 hover:bg-ink/5 disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Section>
-
-        {/* Seating Guide — keep-apart rules (smart seat-plan Phase 3). Couple-
-            private: Auto Arrange seats these pairs (and their whole groups) at
-            different tables. */}
-        <Section label="Seating Guide">
-          <p className="px-1 pb-1.5 text-[11px] text-ink/50">
-            Keep guests apart — Auto Arrange seats them at different tables (their whole groups too). Only you see this.
-          </p>
-          {keepApart.length > 0 ? (
-            <ul className="mb-2 space-y-1">
-              {keepApart.map((r) => {
-                const violated = isRuleViolated(r);
-                return (
-                  <li
-                    key={`${r.guest_a_id}|${r.guest_b_id}`}
-                    className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
-                      violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
-                    }`}
-                  >
-                    <Unlink
-                      className={`h-3.5 w-3.5 shrink-0 ${violated ? 'text-danger-600' : 'text-mulberry/70'}`}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                      <span className="font-medium">{guestsById.get(r.guest_a_id)?.name ?? 'Guest'}</span>
-                      <span className="text-ink/45"> can&apos;t sit with </span>
-                      <span className="font-medium">{guestsById.get(r.guest_b_id)?.name ?? 'Guest'}</span>
-                      {violated ? (
-                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-danger-600">
-                          · seated together
-                        </span>
-                      ) : null}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeKeepApart(r)}
-                      disabled={!canEdit}
-                      aria-label="Remove keep-apart rule"
-                      className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="px-1 pb-1.5 text-[11px] text-ink/40">No keep-apart rules yet.</p>
-          )}
-          {violatedRules.length > 0 && canEdit ? (
-            <button
-              type="button"
-              onClick={relaxLowest}
-              className="mb-2 inline-flex items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-ink/80 hover:border-terracotta"
-            >
-              <Unlink className="h-3.5 w-3.5" /> Relax the lowest-priority rule
-            </button>
-          ) : null}
-          {canEdit ? <KeepApartAdder guests={guests} onAdd={addKeepApart} /> : null}
-        </Section>
-      </aside>
+        {/* ---------------- Left panel — 3 tabs, full height (verdict §3) ---------------- */}
+        {/* Desktop: the 320px grid column. Mobile (<lg): a bottom drawer renders
+            the SAME `panelBody` instead — see after </FrameBody>. */}
+        {isNarrow ? null : (
+          <aside className="flex min-h-0 flex-col overflow-hidden bg-cream lg:h-full lg:border-r lg:border-ink/10">
+            {panelBody}
+          </aside>
+        )}
 
       {/* ---------------- Canvas cell — fills all remaining height (verdict §1) ---------------- */}
       <div ref={regionRef} className="relative min-h-0 flex-1 overflow-hidden lg:flex-none">
@@ -3933,11 +4106,12 @@ export function SeatingEditor({
           {/* room outline (walls) + metric labels, when a venue size is set */}
           {venueScaled ? (
             <>
-              <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-ink/25" />
-              <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 text-[9px] font-medium text-ink/55">
+              {/* Blueprint (directive 2026-07-15): hairline walls, mono dims. */}
+              <div className="pointer-events-none absolute inset-0 rounded-lg border border-ink/30" />
+              <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/55">
                 {venue.width} m
               </span>
-              <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 rounded bg-cream/80 px-1.5 text-[9px] font-medium text-ink/55">
+              <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/55">
                 {venue.length} m
               </span>
             </>
@@ -3999,7 +4173,7 @@ export function SeatingEditor({
                 type="button"
                 onPointerDown={onMarkerPointerDown('dance')}
                 aria-label="Dance floor — drag to move"
-                className={`flex h-full w-full select-none items-center justify-center rounded-lg border-2 border-dashed bg-mulberry/[0.04] text-[10px] font-semibold uppercase tracking-[0.2em] text-mulberry/70 ${
+                className={`flex h-full w-full select-none items-center justify-center rounded-lg border border-dashed bg-mulberry/[0.04] font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-mulberry/70 ${
                   dragId === '__dance__' ? 'border-mulberry cursor-grabbing' : 'border-mulberry/40 cursor-grab'
                 }`}
               >
@@ -4069,12 +4243,12 @@ export function SeatingEditor({
                 transform: 'translate(-50%, -50%)',
               }}
             >
-              <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/45 bg-terracotta/[0.04]" />
+              <div className="h-full w-full rounded-xl border border-dashed border-terracotta/45 bg-terracotta/[0.04]" />
               <button
                 type="button"
                 onPointerDown={onMarkerPointerDown('cocktail')}
                 aria-label={`${cocktail.label} — drag to move`}
-                className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border bg-cream px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta shadow-sm ${
+                className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border bg-cream px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta shadow-sm ${
                   dragId === '__cocktail__'
                     ? 'border-terracotta cursor-grabbing'
                     : 'border-terracotta/40 cursor-grab'
@@ -4144,7 +4318,7 @@ export function SeatingEditor({
               type="button"
               onPointerDown={onMarkerPointerDown('stage')}
               aria-label="Stage — drag to move"
-              className={`flex h-full w-full select-none items-center justify-center overflow-hidden rounded-md border bg-cream/85 text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 shadow-sm backdrop-blur-sm ${
+              className={`flex h-full w-full select-none items-center justify-center overflow-hidden rounded-md border bg-cream/85 font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 shadow-sm backdrop-blur-sm ${
                 dragId === '__stage__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
               }`}
             >
@@ -4227,7 +4401,7 @@ export function SeatingEditor({
                 type="button"
                 onPointerDown={onMarkerPointerDown('entrance')}
                 aria-label="Entrance — drag to move"
-                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
                   dragId === '__entrance__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
                 }`}
               >
@@ -4322,7 +4496,7 @@ export function SeatingEditor({
                 type="button"
                 onPointerDown={onMarkerPointerDown('service')}
                 aria-label="Service entrance — drag to move"
-                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
                   dragId === '__service__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
                 }`}
               >
@@ -4387,7 +4561,7 @@ export function SeatingEditor({
                         />
                         <span
                           style={{ transform: `translate(-50%, -50%) rotate(${-deg}deg)` }}
-                          className="pointer-events-none absolute left-1/2 top-1/2 flex items-center gap-1 whitespace-nowrap rounded bg-cream/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/70 shadow-sm"
+                          className="pointer-events-none absolute left-1/2 top-1/2 flex items-center gap-1 whitespace-nowrap rounded bg-cream/90 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/70 shadow-sm"
                         >
                           <BoothIcon type={b.booth_type} className="h-3 w-3 text-terracotta-700" />
                           {unassigned ? 'Pick type' : b.label}
@@ -4400,7 +4574,7 @@ export function SeatingEditor({
                     type="button"
                     onPointerDown={onBoothPointerDown(b.booth_id)}
                     aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag to move`}
-                    className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
+                    className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
                       unassigned
                         ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
                         : 'bg-cream/85 text-ink/70'
@@ -4761,8 +4935,8 @@ export function SeatingEditor({
                   >
                     <path
                       d={ribbonPath!}
-                      className={`fill-cream ${highlighted ? 'stroke-terracotta' : 'stroke-ink/25'}`}
-                      strokeWidth={2}
+                      className={`fill-cream ${highlighted ? 'stroke-terracotta' : 'stroke-ink/30'}`}
+                      strokeWidth={1.25}
                       vectorEffect="non-scaling-stroke"
                     />
                   </svg>
@@ -4817,11 +4991,18 @@ export function SeatingEditor({
                             pickedId === occupant.guest_id ? ' sn-bounce' : ''
                           }`}
                         >
-                          {/* the chair, tinted in the guest's group/side colour */}
-                          <Armchair
-                            className="absolute inset-0 h-full w-full"
-                            strokeWidth={1.8}
-                            style={{ color: colorFor(occupant) }}
+                          {/* Blueprint seat slot (directive 2026-07-15) — a seat
+                              footprint tinted in the guest's colour, NOT a chair
+                              illustration. Identity + selection clarity stay on
+                              the SeatBadge above it. */}
+                          <span
+                            aria-hidden
+                            className="absolute inset-[10%] rounded-sm border"
+                            style={{
+                              borderColor: colorFor(occupant),
+                              backgroundColor: colorFor(occupant),
+                              opacity: 0.24,
+                            }}
                           />
                           {/* the guest sitting on it */}
                           <SeatBadge guest={occupant} color={colorFor(occupant)} />
@@ -4835,13 +5016,16 @@ export function SeatingEditor({
                             else if (pickedId) place(t.table_id, i);
                           }}
                           aria-label={`Empty seat ${i + 1}`}
-                          className={`block h-full w-full transition ${
+                          className={`flex h-full w-full items-center justify-center transition ${
                             pickedId || pickedGroupId
                               ? 'text-terracotta hover:text-terracotta-600'
-                              : 'text-ink/30 hover:text-ink/50'
+                              : 'text-ink/35 hover:text-ink/55'
                           }`}
                         >
-                          <Armchair className="h-full w-full" strokeWidth={1.6} />
+                          {/* Blueprint empty-seat slot — a footprint outline, not
+                              a chair. `border-current` inherits the pick/idle
+                              colour so the affordance stays obvious. */}
+                          <span className="block h-[70%] w-[70%] rounded-sm border border-current" />
                         </button>
                       )}
                       {/* delete this chair — only on a selected table, on an empty
@@ -4883,8 +5067,8 @@ export function SeatingEditor({
                     we show only a centred number/count badge here instead. */}
                 {showRibbon ? (
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
-                    <span className="text-sm font-semibold text-ink">{num || '·'}</span>
-                    <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                    <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
+                    <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                       {filled}/{effCap}
                     </span>
                   </div>
@@ -4893,9 +5077,10 @@ export function SeatingEditor({
                     type="button"
                     onPointerDown={onHubPointerDown(t)}
                     aria-label={`${t.table_label} — drag to move`}
-                    className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border-2 bg-cream text-center shadow-sm transition ${
+                    // Blueprint: hairline footprint (directive) — border-2 → border.
+                    className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${
                       rot ? '' : '-translate-x-1/2 -translate-y-1/2'
-                    } ${highlighted ? 'border-terracotta' : 'border-ink/25'} ${
+                    } ${highlighted ? 'border-terracotta' : 'border-ink/30'} ${
                       pickedId ? 'cursor-pointer' : dragging ? 'cursor-grabbing' : 'cursor-grab'
                     }`}
                     style={{
@@ -4909,8 +5094,8 @@ export function SeatingEditor({
                       className="flex flex-col items-center"
                       style={rot ? { transform: `rotate(${-rot}deg)` } : undefined}
                     >
-                      <span className="text-sm font-semibold text-ink">{num || '·'}</span>
-                      <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                      <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
+                      <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                         {filled}/{effCap}
                       </span>
                     </div>
@@ -4926,8 +5111,8 @@ export function SeatingEditor({
               pan/zoom world layer) at the room's default overview px-per-metre,
               so big rooms stay legible. */}
           {scaleBar ? (
-            <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col items-start gap-0.5">
-              <span className="rounded bg-cream/80 px-1 text-[9px] font-medium tabular-nums text-ink/60">
+            <div className="pointer-events-none absolute bottom-[64px] left-3 z-20 flex flex-col items-start gap-0.5 lg:bottom-3">
+              <span className="rounded bg-cream/80 px-1 font-mono text-[9px] font-medium tabular-nums text-ink/60">
                 {scaleBar.metres} m
               </span>
               <div
@@ -4938,7 +5123,7 @@ export function SeatingEditor({
           ) : null}
 
           {/* zoom controls */}
-          <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm">
+          <div className="absolute bottom-[64px] right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm lg:bottom-3">
             <button
               type="button"
               onClick={() => zoomAround(1.25)}
@@ -5547,6 +5732,34 @@ export function SeatingEditor({
       </div>
       </FrameBody>
 
+      {/* ═══════════ Mobile bottom drawer (verdict §7) — replaces the stacked
+          panel on <lg screens; 3 snap points over a full-height canvas. Yields
+          to the <768px per-table sheet (drawer never stacks with it). ═══════════ */}
+      {isNarrow ? (
+        <div
+          ref={drawerRef}
+          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
+          style={{ height: drawerHeight }}
+        >
+          <button
+            type="button"
+            onPointerDown={onDrawerHandleDown}
+            onPointerMove={onDrawerHandleMove}
+            onPointerUp={onDrawerHandleUp}
+            onPointerCancel={onDrawerHandleUp}
+            aria-label={`Seat-plan panel — ${effectiveSnap === 'peek' ? 'tap or drag up to open' : 'drag to resize'}`}
+            className="flex shrink-0 touch-none cursor-grab flex-col items-center justify-center gap-1 active:cursor-grabbing"
+            style={{ height: DRAWER_PEEK_PX }}
+          >
+            <span aria-hidden className="h-1 w-9 rounded-full bg-ink/25" />
+            <span className="font-mono text-[11px] text-ink/60">
+              {toSeatReserved} to seat · {tables.length} tables
+            </span>
+          </button>
+          <div className="min-h-0 flex-1 overflow-hidden">{panelBody}</div>
+        </div>
+      ) : null}
+
       {/* auto-arrange confirm */}
       {confirmAuto ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
@@ -5907,7 +6120,10 @@ function MemberRow({
   const tier = guestTier(guest.role, guest.group_category, guest.seating_priority, roleSet);
   const overridden = guest.seating_priority !== null;
   return (
-    <li className="flex items-center gap-1">
+    // Virtualization (verdict §3): `content-visibility:auto` skips layout/paint
+    // for off-screen rows — the dependency-free fix for the 250-pax list. The
+    // intrinsic size keeps the scrollbar honest before a row is rendered.
+    <li className="flex items-center gap-1 [contain-intrinsic-size:auto_34px] [content-visibility:auto]">
       <button
         type="button"
         onClick={onPick}

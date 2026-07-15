@@ -227,14 +227,24 @@ export default async function AdminOverview() {
       meta.lane === 'support' ? sum : sum + Math.max(0, digest[key]?.count ?? 0),
     0,
   );
-  // Top-3 lanes for the focal preview — the overview's own presentational lanes
-  // ranked by open count (busiest first), derived from the already-fetched tile
-  // values (no new query).
-  const laneSummaries = lanes
-    .map((lane) => ({ key: lane.key, label: lane.label, ...laneRollup(lane.tiles) }))
-    .filter((l) => l.open > 0)
-    .sort((a, b) => b.open - a.open)
-    .slice(0, 3);
+  // Top-3 busiest INDIVIDUAL queues for the focal preview (Exception Desk
+  // fidelity, 2026-07-16) — the proto ranks the single busiest queues, each with
+  // its open count AND its oldest-open age, not the coarse 4-lane rollups. Flatten
+  // every lane's tiles, rank by open count, take three. All from the
+  // already-fetched digest-backed tile values (no new query); ties break on the
+  // tile declaration order via a stable sort.
+  const topQueues = lanes
+    .flatMap((lane) => lane.tiles)
+    .filter((t) => (t.value ?? 0) > 0)
+    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    .slice(0, 3)
+    .map((t) => ({
+      label: t.label,
+      href: t.href,
+      count: t.value ?? 0,
+      state: t.state,
+      age: t.oldestAt ? ageShort(t.oldestAt, nowMs) : null,
+    }));
 
   // Recent admin activity — the last few admin_audit_log entries (real data,
   // not a fake feed) so an admin lands and sees what teammates just did, which
@@ -298,7 +308,7 @@ export default async function AdminOverview() {
        *  .sn-tile-dark this view is allowed). Headline = open items across the
        *  ACTIONABLE work lanes, computed EXACTLY as the launcher HQ signal does
        *  (support lane excluded). Below: the urgency sub-line, a cleared-queues
-       *  ring, the top-3 busiest lanes, and the two triage links. Lands last in
+       *  ring, the top-3 busiest queues, and the two triage links. Lands last in
        *  the entrance cascade via `sn-bloom`. */}
       <section
         aria-label="Exception desk"
@@ -353,25 +363,40 @@ export default async function AdminOverview() {
           </div>
         </div>
 
-        {/* Top-3 busiest lanes — a preview; act in the lane bento below. */}
-        {laneSummaries.length > 0 ? (
+        {/* Top-3 busiest queues — a preview; each links straight into its queue,
+            with the oldest-open age so an admin sees which is most behind. Act on
+            the full set in the lane bento below. */}
+        {topQueues.length > 0 ? (
           <div className="mt-5 grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-3">
-            {laneSummaries.map((l) => (
-              <div
-                key={l.key}
-                className="flex items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2"
+            {topQueues.map((qq) => (
+              <Link
+                key={qq.href}
+                href={qq.href}
+                className="sn-press flex items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2 transition-colors hover:bg-white/[0.1]"
               >
-                <span className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--sn-gold-100)]">
-                  <span
-                    aria-hidden
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${laneDot(l.state)}`}
-                  />
-                  <span className="truncate">{l.label}</span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--sn-gold-100)]">
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${queueDot(qq.state)}`}
+                    />
+                    <span className="truncate">{qq.label}</span>
+                  </span>
+                  {qq.age ? (
+                    <span className="pl-3.5 text-[11px] text-white/55">
+                      oldest {qq.age}
+                      {qq.state === 'overdue'
+                        ? ' · past SLA'
+                        : qq.state === 'due-soon'
+                          ? ' · due soon'
+                          : ''}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="font-mono text-sm font-semibold tabular-nums text-[color:var(--sn-gold-100)]">
-                  {l.open}
+                  {qq.count}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         ) : anyUnavailable ? null : (
@@ -688,10 +713,10 @@ function laneRollup(tiles: LaneTile[]): {
   return { open, unavailable, state, chip };
 }
 
-/** Dot colour for a lane's worst-urgency state on the obsidian focal. */
-function laneDot(state: 'overdue' | 'due-soon' | 'open' | 'clear'): string {
+/** Dot colour for a queue's oldest-item urgency on the obsidian focal. */
+function queueDot(state?: AdminQueueDueState): string {
   if (state === 'overdue') return 'bg-[var(--sn-danger)]';
-  if (state === 'due-soon' || state === 'open') return 'bg-[var(--sn-warning)]';
+  if (state === 'due-soon') return 'bg-[var(--sn-warning)]';
   return 'bg-[var(--sn-gold-300)]';
 }
 

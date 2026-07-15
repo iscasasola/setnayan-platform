@@ -34,7 +34,10 @@ import {
   serpentineEndsWorld,
   rectRunsJoined,
   rectEndsWorld,
+  boothPresenceLabel,
+  SETNAYAN_BOOTH_PROMO_LABEL,
 } from './seating';
+import { BOOKED_VENDOR_STATUSES } from './vendors';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
 // bare units[i] is T | undefined. Asserts presence and returns the element.
@@ -782,4 +785,47 @@ test('rectRunsJoined: flush end-to-end join is joined; a crossing overlap is not
   // Two runs crossing at their centres (bodies overlap, ends far apart) → not joined.
   const crossing = { x: 0, y: 0, rot: 90, halfLen };
   assert.equal(rectRunsJoined(a, crossing), false);
+});
+
+// ---------------------------------------------------------------------------
+// Vendor presence / Setnayan promotion default (owner directive 2026-07-16).
+// A booth slot shows a FINALIZED vendor's name when linked, and defaults to the
+// Setnayan promotion label otherwise — the data-driven rule shared by the 2D
+// blueprint marker and the 3D booth sign so the two projections never diverge.
+// ---------------------------------------------------------------------------
+
+test('boothPresenceLabel — a finalized-vendor booth shows the vendor name', () => {
+  assert.equal(
+    boothPresenceLabel({ event_vendor_id: 'S89V-abc', label: 'Bloom & Co' }),
+    'Bloom & Co',
+  );
+});
+
+test('boothPresenceLabel — an OPEN slot (no vendor) defaults to Setnayan promotion', () => {
+  assert.equal(
+    boothPresenceLabel({ event_vendor_id: null, label: 'Front Desk' }),
+    SETNAYAN_BOOTH_PROMO_LABEL,
+  );
+  // The default never leaks a stale station label — it is always the brand.
+  assert.equal(SETNAYAN_BOOTH_PROMO_LABEL, 'SETNAYAN');
+});
+
+test('boothPresenceLabel — an empty vendor id string is treated as unassigned', () => {
+  // Defensive: only a truthy id links a booth; '' must fall to the promo default
+  // (mirrors the editor/save-path, which nulls empty ids before persisting).
+  assert.equal(
+    boothPresenceLabel({ event_vendor_id: '' as unknown as string, label: 'X' }),
+    SETNAYAN_BOOTH_PROMO_LABEL,
+  );
+});
+
+test('finalized gate — only committed statuses count as placeable vendors', () => {
+  // The booth picker + the save-path guard offer/accept ONLY these statuses.
+  // 'considering' / 'shortlisted' are still candidates and must never place.
+  assert.deepEqual(
+    [...BOOKED_VENDOR_STATUSES].sort(),
+    ['complete', 'contracted', 'delivered', 'deposit_paid'],
+  );
+  assert.ok(!(BOOKED_VENDOR_STATUSES as readonly string[]).includes('considering'));
+  assert.ok(!(BOOKED_VENDOR_STATUSES as readonly string[]).includes('shortlisted'));
 });

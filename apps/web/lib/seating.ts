@@ -1619,6 +1619,33 @@ export const BOOTH_CATALOG: ReadonlyArray<{ type: Exclude<BoothType, 'unassigned
   { type: 'custom', label: 'Custom booth' },
 ];
 
+// --- vendor presence / Setnayan promotion (owner directive 2026-07-16) -------
+// A booth is a PRESENCE SLOT: it shows a FINALIZED (booked/locked) vendor when
+// one is assigned (event_vendor_id → a BOOKED_VENDOR_STATUSES event_vendors row,
+// enforced server-side by nullOutForeignBoothVendors), and defaults to SETNAYAN
+// promotion otherwise. This is the 3D Booth Ads inventory seam — the default is
+// data-driven so future ad inventory swaps in without touching the render layer.
+
+/** The brand string shown on any booth/slot with NO finalized vendor — the 3D
+ *  Setnayan-promotion default + the 2D blueprint marker's "otherwise" label.
+ *  Kept as a single constant so 2D + 3D never drift. Brand spelling per
+ *  CLAUDE.md (full "SETNAYAN", never "STNYN"). */
+export const SETNAYAN_BOOTH_PROMO_LABEL = 'SETNAYAN';
+
+/**
+ * The presence label for a booth slot: a FINALIZED vendor's name when the booth
+ * is assigned one, else the Setnayan-promotion default. Pure + data-driven so
+ * the 2D marker and the 3D booth sign resolve identically from the same room
+ * doc (no divergence — owner alignment directive). The blank pre-pick pin
+ * (booth_type === 'unassigned') is an EDITOR affordance, not a presence slot, so
+ * callers handle its "Pick type" prompt separately and never pass it here.
+ */
+export function boothPresenceLabel(
+  booth: { event_vendor_id: string | null; label: string },
+): string {
+  return booth.event_vendor_id ? booth.label : SETNAYAN_BOOTH_PROMO_LABEL;
+}
+
 /**
  * Coarse map from a booked vendor's canonical category → the booth's 2D icon +
  * PR1 footprint. Deliberately coarse: the 3D venue walk resolves the booth's

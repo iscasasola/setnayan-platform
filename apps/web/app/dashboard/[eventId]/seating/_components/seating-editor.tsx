@@ -36,7 +36,6 @@ import {
   RotateCcw,
   RotateCw,
   Ruler,
-  Save,
   Search,
   Signpost,
   Sparkles,
@@ -1246,10 +1245,9 @@ export function SeatingEditor({
 
   const [confirmFill, setConfirmFill] = useState(false);
   // Scroll-less frame (council verdict 2026-07-15): permanent save chip + the
-  // "N notices" banner-collapse + the 2D→3D dirty-switch interceptor.
+  // "N notices" banner-collapse state.
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [noticesExpanded, setNoticesExpanded] = useState(false);
-  const [pendingSwitch3D, setPendingSwitch3D] = useState(false);
   const runFillAroundLocked = () => {
     setConfirmFill(false);
     if (!canEdit) return;
@@ -3314,9 +3312,13 @@ export function SeatingEditor({
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [layoutDirty]);
 
-  // 2D/3D segment (verdict §4): 2D↔List swap in-page; 3D is an honest route
-  // swap to the existing lab (same doc, same actions, same lock). A dirty guard
-  // intercepts the 3D hop because v1 keeps manual save.
+  // 2D/3D segment: 2D↔List swap in-page; 3D is an honest route swap to the lab
+  // (same doc, same actions, same lock). Cross-projection editing rule
+  // (2026-07-16): the switch is one-tap "Save & view" — auto-save-on-switch
+  // replaces the blocking dirty guard. A clean switch goes straight through; a
+  // dirty one saves first and hops when the save lands. On a save FAILURE the
+  // layout stays dirty, so the effect never fires — we stay put and the error is
+  // surfaced (saveLayout's own notice). A switch never loses work, never blocks.
   const switchAfterSaveRef = useRef(false);
   useEffect(() => {
     if (switchAfterSaveRef.current && !isPending && !layoutDirty) {
@@ -3326,8 +3328,11 @@ export function SeatingEditor({
   }, [isPending, layoutDirty, router, labUrl]);
   const onSelectView = (target: '2d' | '3d' | 'list') => {
     if (target === '3d') {
-      if (layoutDirty) {
-        setPendingSwitch3D(true);
+      if (layoutDirty && canEdit) {
+        // Save & view: persist the pending layout, then the effect above hops to
+        // the lab once the save settles clean (the 3D plan reads saved truth).
+        switchAfterSaveRef.current = true;
+        saveLayout();
         return;
       }
       router.push(labUrl);
@@ -6275,43 +6280,6 @@ export function SeatingEditor({
         </div>
       ) : null}
 
-      {/* 2D→3D dirty guard (verdict §4) — v1 keeps manual save, so switching to
-          the 3D lab with unsaved layout asks first. */}
-      {pendingSwitch3D ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setPendingSwitch3D(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-ink">Save layout first?</h3>
-            <p className="mt-1 text-sm text-ink/70">
-              You have <span className="font-mono">{unsavedCount}</span> unsaved layout{' '}
-              {unsavedCount === 1 ? 'change' : 'changes'}. The 3D plan reads the saved layout.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingSwitch3D(false);
-                  router.push(labUrl);
-                }}
-                className="rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
-              >
-                Switch anyway
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingSwitch3D(false);
-                  switchAfterSaveRef.current = true;
-                  saveLayout();
-                }}
-                disabled={!canEdit}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-50"
-              >
-                <Save className="h-4 w-4" /> Save &amp; switch
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </SeatingFrame>
   );
 }

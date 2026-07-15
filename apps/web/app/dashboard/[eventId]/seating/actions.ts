@@ -118,6 +118,21 @@ export async function createTable(formData: FormData) {
     Math.min(typeSeats, typeof capacityRaw === 'string' ? Number(capacityRaw) || typeSeats : typeSeats),
   );
 
+  // Optional spawn position (world %, 0–100). Both projections compute an
+  // oracle-valid home for the new table (2D via nearestFree, 3D via the shared
+  // oracle) and pass it here so CREATE persists a non-overlapping spot — the
+  // other view then reads the exact same coordinates (owner 2026-07-16 · full
+  // authoring parity). Omitted (or out of range) → null position + the client
+  // grid fallback resolves it on render, as before.
+  const spawn = (key: 'x_pos' | 'y_pos'): number | null => {
+    const raw = formData.get(key);
+    if (typeof raw !== 'string' || raw.length === 0) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= -1000 && n <= 1000 ? n : null;
+  };
+  const xPos = spawn('x_pos');
+  const yPos = spawn('y_pos');
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -131,6 +146,7 @@ export async function createTable(formData: FormData) {
     table_label: trimmed,
     table_type: type,
     capacity,
+    ...(xPos != null && yPos != null ? { x_pos: xPos, y_pos: yPos } : {}),
   });
   if (error) throw new Error(error.message);
 
@@ -158,12 +174,39 @@ export async function deleteTable(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // Remember the deleted table's link group so we can tidy a stray remnant: a
+  // linked unit reduced to ONE table is no longer a unit (a lone member still
+  // carrying the group's combined name + shared-QR flag). Cleaned identically for
+  // BOTH projections since 2D and 3D delete through this one action (owner
+  // 2026-07-16 · authoring parity — DELETE cleans link groups consistently).
+  const { data: doomed } = await supabase
+    .from('event_tables')
+    .select('link_group_id')
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('event_tables')
     .delete()
     .eq('table_id', tableId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  if (doomed?.link_group_id) {
+    const { data: remaining } = await supabase
+      .from('event_tables')
+      .select('table_id')
+      .eq('event_id', eventId)
+      .eq('link_group_id', doomed.link_group_id);
+    if (remaining && remaining.length <= 1) {
+      await supabase
+        .from('event_tables')
+        .update({ link_group_id: null, link_group_label: null, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('link_group_id', doomed.link_group_id);
+    }
+  }
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);

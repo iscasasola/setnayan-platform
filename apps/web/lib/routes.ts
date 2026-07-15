@@ -282,7 +282,8 @@ export const routes = {
       // `animatedMonogram` + `detail` helpers removed 2026-07-11 (dead — zero
       // callers; the Studio hub routes add-ons via add-ons-catalog.ts's
       // addOnHref/appStoreDetailHref, not these). See changelog studio-hygiene.
-      bundle: (eventId: string) => `/dashboard/${eventId}/studio/bundle`,
+      // `bundle` helper removed 2026-07-15 (dead — zero callers; the /studio/bundle
+      // route + Essentials/Complete bundles were retired). See changelog dead-route-cleanup.
       customQrGuest: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest`,
         print: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest/print`,

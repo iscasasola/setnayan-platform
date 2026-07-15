@@ -1,24 +1,29 @@
 /**
- * Settings → Setnayan AI tab.
+ * Settings → Setnayan AI tab. This is a LIVE settings surface, not dead code:
+ * it renders per-event Setnayan AI status + a pricing CTA, and it backs the
+ * admin concierge-abuse queue's notification relatedUrls + the profile entry
+ * link. (Verified in the 2026-07-15 dead-route cleanup — kept, not deleted.)
  *
- * V2 cutover (CLAUDE.md 2026-05-28 row 3 + PR #560 marketing rewrite):
- * the V1 Concierge ₱2,499 SKU + 3-day card-less free trial + wedding-
- * anchored 12-mo floor / 24-mo cap expiry framework all retired. V2
- * replaces them with a single TODAYS_FOCUS line item in
- * platform_retail_catalog_v2 — one purchase per event, full wedding
- * access, no trial mechanic. This page is now a thin V2-aligned settings
- * tab: status read, copy reframed to "Setnayan AI", purchase CTA
- * redirects to /pricing.
+ * V1 → V2 cutover (CLAUDE.md 2026-05-28 row 3 + PR #560 marketing rewrite):
+ * the V1 "Setnayan Concierge" ₱2,499 SKU + 3-day card-less free trial +
+ * wedding-anchored 12-mo floor / 24-mo cap expiry framework are all RETIRED.
+ * The successor is the ₱499 one-time Setnayan AI planner (owner-locked
+ * 2026-07-02) — one purchase per event, no trial mechanic; the purchase CTA
+ * points to /pricing.
  *
- * Route URL kept at `/dashboard/profile/concierge` so existing bookmarks,
- * navigation chrome, and the cross-iteration `CONCIERGE_ENABLED` kill-
- * switch wiring keep resolving without rename churn. Engineering rename
- * to /dashboard/profile/todays-focus is V2.x scope per the lock.
+ * `CONCIERGE_ENABLED` (lib/concierge.ts) is PERMANENTLY false — there is no
+ * Concierge purchase flow to re-light. With it off, this page always renders
+ * the flag-off "Setnayan AI · see pricing" panel below. The `true` branch (V1
+ * trial/expiry StatusPanel reading the legacy concierge_* columns) is a dormant
+ * tombstone that retires wholesale in the V2 schema migration.
  *
- * Existing V1 schema columns (events.concierge_status, etc.) are still
- * the canonical state store during the cutover — they get renamed +
- * dropped during the Phase A schema migration. Until then this page
- * reads the existing columns and surfaces them under V2 brand voice.
+ * Route URL kept at `/dashboard/profile/concierge` so bookmarks, the routes.ts
+ * helper, sku-activation.ts's activateConcierge import, and the admin
+ * concierge-abuse relatedUrls keep resolving without rename churn. Engineering
+ * rename to /dashboard/profile/todays-focus is V2.x scope per the lock.
+ *
+ * Existing V1 schema columns (events.concierge_status, etc.) remain the
+ * canonical state store until the Phase A schema migration renames + drops them.
  */
 
 import Link from 'next/link';
@@ -52,9 +57,9 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // V2 cutover (CLAUDE.md 2026-05-28 row 3): when the V1 kill-switch is
-  // off, surface a polite "manage from pricing" panel. Once the V2
-  // schema migration lands, this branch retires entirely.
+  // CONCIERGE_ENABLED is permanently false (Concierge retired — see lib/concierge.ts),
+  // so this is the live path: a Setnayan AI settings panel with a pricing CTA. The
+  // V1 status panel below (the `true` branch) stays dormant until the V2 schema migration.
   if (!CONCIERGE_ENABLED) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">

@@ -2567,3 +2567,768 @@ export function computeTableSwap(
   }
   return out;
 }
+
+// ===========================================================================
+// THE PLACEMENT ORACLE (council verdict 2026-07-16 · one pure, testable model)
+// ---------------------------------------------------------------------------
+// Governing principle: there is exactly ONE placement oracle. Every mutation
+// path in the editor (drag, snap, every rotate path, link, group move/rotate,
+// Auto Arrange, server persist) validates through these pure helpers, and
+// nothing persists a pose the oracle rejects. Sanctioned contact exists ONLY as
+// same-`link_group_id` membership — the "weld" model (snap is link, link is
+// rigid). The old distance-only join exemptions (serpentinesJoined /
+// rectRunsJoined / SERP_JOIN_TOL_PX) are superseded: they were wider than the
+// enforcement gap at real room scales and let X-crossed tips read as "joined".
+//
+// Geometry: rotation-aware oriented footprints (OBBs) with a SAT narrow-phase
+// and an AABB/circumscribed-circle broad-phase prefilter. A round table is a
+// circle; banquet / sweetheart / family-head are a single OBB; a serpentine
+// wedge is a 3-OBB decomposition of its arc (a convex hull would overestimate
+// the concave inner edge). All numbers are WORLD PIXELS at the editor scale.
+// ===========================================================================
+
+export type Vec2 = { x: number; y: number };
+
+// A convex footprint primitive. `ax`/`ay` are unit axis vectors (rotated with
+// the table); `hw`/`hh` the half-extents along them.
+export type ConvexPart =
+  | { kind: 'circle'; c: Vec2; r: number }
+  | { kind: 'obb'; c: Vec2; ax: Vec2; ay: Vec2; hw: number; hh: number };
+
+// A table's world footprint: one or more convex parts, plus a circumscribed
+// broad-phase circle (centre + radius) for the cheap prefilter.
+export type Footprint = { parts: ConvexPart[]; bc: { c: Vec2; r: number } };
+
+// The minimum a pose must carry for the oracle to build its footprint. `scale`
+// = world px per local geometry unit (footprintPx.w / tableGeometry().box.w),
+// i.e. the same to-scale shrink the editor applies when rendering.
+export type OraclePose = {
+  shape: TableShapeHint;
+  capacity: number;
+  x: number; // world-px centre
+  y: number;
+  rot: number; // degrees, y-down clockwise (matches rotatePoint)
+  scale: number;
+};
+
+// A pose the oracle can attribute a violation to / exempt by link membership.
+export type WorldPose = OraclePose & { tableId: string; linkGroupId: string | null };
+
+// A centre-anchored no-go rectangle (dance floor, cocktail room, booth, centre
+// aisle) in world px. `id` labels violations; axis-aligned (rot 0).
+export type OracleZone = { id: string; x: number; y: number; w: number; h: number };
+
+// Sanctioned-join tolerance, METRIC (not px): end-midpoints must coincide
+// within 5 cm and the rotation delta land on a legal joint angle (±3°). The
+// 5 cm floor absorbs float drift in saved rotations (2 cm was too tight).
+export const JOIN_TOL_M = 0.05;
+export const JOIN_ROT_TOL_DEG = 3;
+
+// --- vector helpers (local, pure) ------------------------------------------
+function vdot(a: Vec2, b: Vec2): number {
+  return a.x * b.x + a.y * b.y;
+}
+
+// Unit axis vectors for a table rotated by `deg` (local x-axis → world).
+function axesFor(deg: number): { ax: Vec2; ay: Vec2 } {
+  const r = (deg * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  // Same convention as rotatePoint: (x,y) → (x c − y s, x s + y c).
+  return { ax: { x: c, y: s }, ay: { x: -s, y: c } };
+}
+
+// ---------------------------------------------------------------------------
+// Serpentine local geometry — mirrors tableGeometry()'s serpentine branch so
+// the oracle footprint lines up with the render exactly (chair-inclusive).
+// ---------------------------------------------------------------------------
+const SERP_CHAIR_GAP = CHAIR_PX / 2 + 4; // chairs sit this far past each arc edge
+const SERP_RCO = SERP_RO + SERP_CHAIR_GAP; // outer chair radius
+const SERP_RCI = SERP_RI - SERP_CHAIR_GAP; // inner chair radius
+const SERP_R_OUT = SERP_RCO + CHAIR_PX / 2; // outer occupied radius (chair edge)
+const SERP_R_IN = SERP_RCI - CHAIR_PX / 2; // inner occupied radius (chair edge)
+// Recenter offset tableGeometry applies (box-centre origin): oy = (minY+maxY)/2
+// where minY = −Ro (outer apex) and maxY = −Ri·cos(sweep/2) (inner ends).
+const SERP_OY = (() => {
+  const s = (SERPENTINE_SWEEP_DEG * Math.PI) / 180;
+  return (-SERP_RO + -SERP_RI * Math.cos(s / 2)) / 2;
+})();
+
+// Build the 3-OBB decomposition of a serpentine wedge in LOCAL geometry px
+// (box-centre origin, pre-scale, pre-rotate). Three angular slices of the
+// [SERP_R_IN, SERP_R_OUT] radial band, each a box tangent to the arc — so the
+// union hugs the curve and leaves the concave interior empty.
+function serpLocalParts(): Array<{ c: Vec2; ax: Vec2; ay: Vec2; hw: number; hh: number }> {
+  const s = (SERPENTINE_SWEEP_DEG * Math.PI) / 180;
+  const rMid = (SERP_R_IN + SERP_R_OUT) / 2;
+  const radialHalf = (SERP_R_OUT - SERP_R_IN) / 2;
+  const sliceHalf = s / 6; // three slices → each spans s/3, half = s/6
+  const tangHalf = SERP_R_OUT * Math.sin(sliceHalf) + CHAIR_PX / 2;
+  const parts: Array<{ c: Vec2; ax: Vec2; ay: Vec2; hw: number; hh: number }> = [];
+  for (let i = 0; i < 3; i++) {
+    const phi = -s / 2 + (s * (i + 0.5)) / 3;
+    const sinP = Math.sin(phi);
+    const cosP = Math.cos(phi);
+    // at(r, phi) = { x: r·sinφ, y: −r·cosφ }; then recenter by −oy on y.
+    const c: Vec2 = { x: rMid * sinP, y: -rMid * cosP - SERP_OY };
+    // radial (outward) axis = d/dr at(r,phi) = (sinφ, −cosφ); tangential ⟂.
+    const ax: Vec2 = { x: sinP, y: -cosP }; // hw along radial band
+    const ay: Vec2 = { x: cosP, y: sinP }; // hh along tangent
+    parts.push({ c, ax, ay, hw: radialHalf, hh: tangHalf });
+  }
+  return parts;
+}
+const SERP_LOCAL_PARTS = serpLocalParts();
+
+// Rotate+scale+translate a local unit vector's *direction* (scale is uniform so
+// direction is preserved; we just rotate by the table angle).
+function rotDir(v: Vec2, ax: Vec2, ay: Vec2): Vec2 {
+  // world dir = v.x·ax + v.y·ay
+  return { x: v.x * ax.x + v.y * ay.x, y: v.x * ax.y + v.y * ay.y };
+}
+
+// The oracle footprint of a table at a pose. Round → circle; banquet /
+// sweetheart / family-head → single OBB; serpentine → 3-OBB arc decomposition.
+export function obbOf(p: OraclePose): Footprint {
+  const geo = tableGeometry(p.shape, Math.max(1, p.capacity));
+  const s = p.scale;
+  const { ax, ay } = axesFor(p.rot);
+  const centre: Vec2 = { x: p.x, y: p.y };
+
+  if (p.shape === 'round') {
+    const r = (geo.box.w / 2) * s;
+    return { parts: [{ kind: 'circle', c: centre, r }], bc: { c: centre, r } };
+  }
+
+  if (p.shape === 'serpentine') {
+    const parts: ConvexPart[] = SERP_LOCAL_PARTS.map((lp) => {
+      // world centre = tableCentre + rotate(scale·localCentre)
+      const wax = rotDir(lp.ax, ax, ay);
+      const way = rotDir(lp.ay, ax, ay);
+      const local = rotatePoint({ x: lp.c.x * s, y: lp.c.y * s }, p.rot);
+      return {
+        kind: 'obb' as const,
+        c: { x: p.x + local.x, y: p.y + local.y },
+        ax: wax,
+        ay: way,
+        hw: lp.hw * s,
+        hh: lp.hh * s,
+      };
+    });
+    // Broad circle: enclose the whole wedge (outer occupied radius from the arc
+    // centre, which sits below the box centre by |SERP_OY|·s).
+    const bcR = (SERP_R_OUT + Math.abs(SERP_OY)) * s;
+    return { parts, bc: { c: centre, r: bcR } };
+  }
+
+  // sweetheart / long_banquet / family_head → single OBB.
+  const hw = (geo.box.w / 2) * s;
+  const hh = (geo.box.h / 2) * s;
+  const r = Math.hypot(hw, hh);
+  return {
+    parts: [{ kind: 'obb', c: centre, ax, ay, hw, hh }],
+    bc: { c: centre, r },
+  };
+}
+
+// A zone rect → a single axis-aligned OBB footprint.
+function zoneFootprint(z: OracleZone): Footprint {
+  const hw = z.w / 2;
+  const hh = z.h / 2;
+  const c = { x: z.x, y: z.y };
+  return {
+    parts: [{ kind: 'obb', c, ax: { x: 1, y: 0 }, ay: { x: 0, y: 1 }, hw, hh }],
+    bc: { c, r: Math.hypot(hw, hh) },
+  };
+}
+
+// --- SAT narrow-phase (penetration depth for the monotone-escape rule) ------
+// Project an OBB's half-width onto axis n.
+function obbProjHalf(
+  part: { ax: Vec2; ay: Vec2; hw: number; hh: number },
+  n: Vec2,
+): number {
+  return Math.abs(vdot(part.ax, n)) * part.hw + Math.abs(vdot(part.ay, n)) * part.hh;
+}
+
+// OBB vs OBB with a clearance `gap` (each inflated by gap/2). Returns the
+// penetration depth (MTV magnitude) if they overlap, else null.
+function obbObb(
+  a: { c: Vec2; ax: Vec2; ay: Vec2; hw: number; hh: number },
+  b: { c: Vec2; ax: Vec2; ay: Vec2; hw: number; hh: number },
+  gap: number,
+): number | null {
+  const g = gap / 2;
+  const A = { ...a, hw: a.hw + g, hh: a.hh + g };
+  const B = { ...b, hw: b.hw + g, hh: b.hh + g };
+  const d: Vec2 = { x: B.c.x - A.c.x, y: B.c.y - A.c.y };
+  const axes = [A.ax, A.ay, B.ax, B.ay];
+  let minOverlap = Infinity;
+  for (const n of axes) {
+    const len = Math.hypot(n.x, n.y) || 1;
+    const un = { x: n.x / len, y: n.y / len };
+    const overlap = obbProjHalf(A, un) + obbProjHalf(B, un) - Math.abs(vdot(d, un));
+    if (overlap <= 0) return null; // separating axis found → clear
+    if (overlap < minOverlap) minOverlap = overlap;
+  }
+  return minOverlap;
+}
+
+// OBB vs circle with clearance `gap`. Closest-point method (robust for the
+// corner case). Returns penetration depth if overlapping, else null.
+function obbCircle(
+  a: { c: Vec2; ax: Vec2; ay: Vec2; hw: number; hh: number },
+  circle: { c: Vec2; r: number },
+  gap: number,
+): number | null {
+  const g = gap / 2;
+  const hw = a.hw + g;
+  const hh = a.hh + g;
+  const r = circle.r + g;
+  const d: Vec2 = { x: circle.c.x - a.c.x, y: circle.c.y - a.c.y };
+  const lx = vdot(d, a.ax);
+  const ly = vdot(d, a.ay);
+  const clx = Math.max(-hw, Math.min(hw, lx));
+  const cly = Math.max(-hh, Math.min(hh, ly));
+  const inside = Math.abs(lx) <= hw && Math.abs(ly) <= hh;
+  if (inside) {
+    // Circle centre inside the box → deep penetration.
+    return r + Math.min(hw - Math.abs(lx), hh - Math.abs(ly));
+  }
+  const dx = lx - clx;
+  const dy = ly - cly;
+  const dist = Math.hypot(dx, dy);
+  if (dist >= r) return null;
+  return r - dist;
+}
+
+function circleCircle(
+  a: { c: Vec2; r: number },
+  b: { c: Vec2; r: number },
+  gap: number,
+): number | null {
+  const dist = Math.hypot(a.c.x - b.c.x, a.c.y - b.c.y);
+  const sum = a.r + b.r + gap;
+  return dist < sum ? sum - dist : null;
+}
+
+function partsOverlap(a: ConvexPart, b: ConvexPart, gap: number): number | null {
+  if (a.kind === 'circle' && b.kind === 'circle') return circleCircle(a, b, gap);
+  if (a.kind === 'obb' && b.kind === 'circle') return obbCircle(a, b, gap);
+  if (a.kind === 'circle' && b.kind === 'obb') return obbCircle(b, a, gap);
+  if (a.kind === 'obb' && b.kind === 'obb') return obbObb(a, b, gap);
+  return null;
+}
+
+// Overlap between two footprints, honouring `gap` clearance. Returns the
+// maximum penetration depth across all part pairs (0 when clear). Broad-phase
+// circle prefilter first.
+export function footprintsOverlap(A: Footprint, B: Footprint, gap: number): number {
+  const bd = Math.hypot(A.bc.c.x - B.bc.c.x, A.bc.c.y - B.bc.c.y);
+  if (bd > A.bc.r + B.bc.r + gap) return 0; // broad-phase: definitely clear
+  let depth = 0;
+  for (const pa of A.parts) {
+    for (const pb of B.parts) {
+      const d = partsOverlap(pa, pb, gap);
+      if (d != null && d > depth) depth = d;
+    }
+  }
+  return depth;
+}
+
+export type Violation = {
+  otherId: string | null; // table id, or null for a zone (id in `zoneId`)
+  zoneId?: string;
+  kind: 'overlap' | 'tight';
+  depthPx: number;
+};
+
+export type OracleWorld = { others: WorldPose[]; zones: OracleZone[] };
+export type OracleParams = { gapPx: number };
+
+// THE ORACLE. A pose vs all non-groupmates + zones, keeping `gapPx` clear.
+// `valid` iff the pose fully clears the aisle everywhere; violations grade the
+// failure — 'overlap' = true body intersection, 'tight' = gap < aisle but no
+// body overlap. Same-`linkGroupId` members are exempt (the weld model).
+export function checkPlacement(
+  pose: WorldPose,
+  world: OracleWorld,
+  params: OracleParams,
+): { valid: boolean; violations: Violation[] } {
+  const fp = obbOf(pose);
+  const gap = Math.max(0, params.gapPx);
+  const violations: Violation[] = [];
+
+  for (const other of world.others) {
+    if (other.tableId === pose.tableId) continue;
+    // Sanctioned contact = same non-null link group ONLY.
+    if (pose.linkGroupId != null && pose.linkGroupId === other.linkGroupId) continue;
+    const fo = obbOf(other);
+    const body = footprintsOverlap(fp, fo, 0);
+    if (body > 0) {
+      violations.push({ otherId: other.tableId, kind: 'overlap', depthPx: body });
+      continue;
+    }
+    if (gap > 0) {
+      const infl = footprintsOverlap(fp, fo, gap);
+      if (infl > 0) violations.push({ otherId: other.tableId, kind: 'tight', depthPx: infl });
+    }
+  }
+
+  for (const z of world.zones) {
+    const fz = zoneFootprint(z);
+    const body = footprintsOverlap(fp, fz, 0);
+    if (body > 0) {
+      violations.push({ otherId: null, zoneId: z.id, kind: 'overlap', depthPx: body });
+      continue;
+    }
+    if (gap > 0) {
+      const infl = footprintsOverlap(fp, fz, gap);
+      if (infl > 0) violations.push({ otherId: null, zoneId: z.id, kind: 'tight', depthPx: infl });
+    }
+  }
+
+  const valid = violations.length === 0;
+  return { valid, violations };
+}
+
+// Maximum penetration depth of a pose against everything (0 when fully valid) —
+// the scalar the monotone-escape drag compares frame to frame. Counts body
+// overlap only (gap 0); a table may always slide out of a real overlap even
+// through a tight-but-legal corridor.
+export function penetrationDepth(pose: WorldPose, world: OracleWorld): number {
+  const fp = obbOf(pose);
+  let depth = 0;
+  for (const other of world.others) {
+    if (other.tableId === pose.tableId) continue;
+    if (pose.linkGroupId != null && pose.linkGroupId === other.linkGroupId) continue;
+    const d = footprintsOverlap(fp, obbOf(other), 0);
+    if (d > depth) depth = d;
+  }
+  for (const z of world.zones) {
+    const d = footprintsOverlap(fp, zoneFootprint(z), 0);
+    if (d > depth) depth = d;
+  }
+  return depth;
+}
+
+// Full-board O(n²) audit built on checkPlacement. Returns only the tables that
+// have violations. Used by Auto Arrange verification, the mount audit, and the
+// server actions.
+export function layoutViolations(
+  poses: WorldPose[],
+  zones: OracleZone[],
+  gapPx: number,
+): Array<{ tableId: string; violations: Violation[] }> {
+  const out: Array<{ tableId: string; violations: Violation[] }> = [];
+  for (const p of poses) {
+    const others = poses.filter((q) => q.tableId !== p.tableId);
+    const res = checkPlacement(p, { others, zones }, { gapPx });
+    if (!res.valid) out.push({ tableId: p.tableId, violations: res.violations });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// legalJoinPose — the single source of truth for BOTH snapping and join
+// validation. Given an anchor and a mover (at its drag/current centre), returns
+// the EXACT snapped pose for a legal joint or null. Reuses the existing snap
+// generators (serpentineChainSnap / rectChainSnap / roundKissSnap); the joint
+// is legal by construction (only ±sweep / 180° / flush-collinear / kiss poses
+// are ever produced), so the rotation constraint is automatic.
+// ---------------------------------------------------------------------------
+type JoinPose = {
+  shape: TableShapeHint;
+  capacity: number;
+  x: number;
+  y: number;
+  rot: number;
+  scale: number;
+};
+
+function serpBoxW(capacity: number): number {
+  return tableGeometry('serpentine', Math.max(1, capacity)).box.w;
+}
+function rectHalfLenPx(p: JoinPose): number {
+  const g = tableGeometry(p.shape, Math.max(1, p.capacity));
+  const footW = g.box.w * p.scale;
+  return (g.hub.w / 2) * (footW / g.box.w);
+}
+function roundRadiusPx(p: JoinPose): number {
+  return (tableGeometry('round', Math.max(1, p.capacity)).box.w / 2) * p.scale;
+}
+const rectishShape = (s: TableShapeHint) => s === 'long_banquet' || s === 'family_head';
+
+export function legalJoinPose(
+  anchor: JoinPose,
+  mover: JoinPose,
+  tolPx: number,
+): { x: number; y: number; rot: number } | null {
+  if (anchor.shape !== mover.shape) return null; // cross-family never joins
+  const drag = { x: mover.x, y: mover.y };
+  if (mover.shape === 'serpentine') {
+    const snap = serpentineChainSnap(
+      drag,
+      [{ x: anchor.x, y: anchor.y, rot: anchor.rot, scale: anchor.scale }],
+      tolPx,
+    );
+    return snap;
+  }
+  if (rectishShape(mover.shape)) {
+    const snap = rectChainSnap(
+      drag,
+      rectHalfLenPx(mover),
+      [{ x: anchor.x, y: anchor.y, rot: anchor.rot, halfLen: rectHalfLenPx(anchor) }],
+      tolPx,
+    );
+    return snap;
+  }
+  if (mover.shape === 'round') {
+    const snap = roundKissSnap(
+      drag,
+      roundRadiusPx(mover),
+      [{ x: anchor.x, y: anchor.y, radius: roundRadiusPx(anchor) }],
+      tolPx,
+    );
+    return snap ? { x: snap.x, y: snap.y, rot: mover.rot } : null;
+  }
+  return null; // sweetheart never chains
+}
+
+// Are two tables ALREADY in a legal joint at their current poses? Used to
+// validate `linkTables` server-side and to promote legacy kissed-but-unlinked
+// runs. Metric tolerance (JOIN_TOL_M) converted to px via pxPerMeter.
+export function isLegalJoint(
+  anchor: JoinPose,
+  mover: JoinPose,
+  pxPerMeter: number,
+): boolean {
+  const tolPx = Math.max(4, JOIN_TOL_M * pxPerMeter);
+  // Generous catch so the generator returns the nearest candidate; then verify
+  // the mover already sits on it within the tight metric tolerance.
+  const cand = legalJoinPose(anchor, mover, Math.max(tolPx * 6, 120));
+  if (!cand) return false;
+  const dist = Math.hypot(cand.x - mover.x, cand.y - mover.y);
+  if (dist > tolPx) return false;
+  if (mover.shape === 'round') return true; // kiss has no rotation constraint
+  const dRot = Math.abs(((cand.rot - mover.rot + 540) % 360) - 180);
+  return dRot <= JOIN_ROT_TOL_DEG;
+}
+
+// ---------------------------------------------------------------------------
+// Auto Arrange = solver over the same oracle (verdict § 5). Keeps the stage-out
+// centre-out row-packing heuristic as the SEED, adds verified legality: every
+// slot must pass checkPlacement vs everything placed so far; rejected slots scan
+// alternate slots in the row, then the next row; the keep-stacking fallback and
+// one-shot zone push are DELETED (they were dishonest overlap producers). After
+// layout a final layoutViolations pass runs — the result is either fully legal
+// or { placed, unplaced }. Structurally incapable of returning what drag forbids.
+// ---------------------------------------------------------------------------
+export type SolveLayoutInput = {
+  tables: EventTableRow[];
+  floorPlan: FloorPlanLike &
+    Pick<FloorPlanRow, 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'> &
+    Pick<FloorPlanRow, 'cocktail_enabled' | 'cocktail_x' | 'cocktail_y' | 'cocktail_w' | 'cocktail_h'>;
+  rect: { width: number; height: number };
+  footprintOf: (t: EventTableRow) => { w: number; h: number };
+  // Metric walkway width (m) and the room's px/m — drive metric gaps + zone
+  // inflation. When absent (free board) the solver falls back to % gaps.
+  aisleM?: number;
+  pxPerMeter?: number;
+  // Extra world-px no-go zones (booths). Centre-anchored.
+  booths?: Array<{ x: number; y: number; w: number; h: number }>;
+  // Reserve a centre processional/service lane when a stage exists.
+  reserveCentreAisle?: boolean;
+};
+
+export type SolveLayoutResult = {
+  placed: Record<string, { x: number; y: number }>;
+  unplaced: string[];
+  // How many MORE tables would fit if the walkway dropped to the 0.6 m floor —
+  // powers the honest overflow banner's "at 0.6 m it fits N" suggestion.
+  altPlacedAtFloor: number;
+};
+
+// A rigid super-element: a link group collapsed to one compound footprint that
+// the solver places as a unit (never scatters an assembled chain).
+type SolveUnit = {
+  id: string; // representative table id
+  members: EventTableRow[];
+  // Union footprint half-extents (world px, axis-aligned bound of the group).
+  fw: number;
+  fh: number;
+  // Member offsets from the unit's bbox centre (world px), so the placer can
+  // fan the group's tables out around the chosen centre.
+  offsets: Record<string, { dx: number; dy: number }>;
+  rep: EventTableRow;
+};
+
+function unitFor(
+  members: EventTableRow[],
+  footprintOf: (t: EventTableRow) => { w: number; h: number },
+  posOf: (t: EventTableRow) => { x: number; y: number } | null,
+): { fw: number; fh: number; offsets: Record<string, { dx: number; dy: number }> } {
+  // Build the group's bounding box from members' CURRENT positions (world %),
+  // falling back to a single-file lay-out when unpositioned.
+  const pts: Array<{ t: EventTableRow; x: number; y: number; f: { w: number; h: number } }> = [];
+  let cursor = 0;
+  for (const m of members) {
+    const f = footprintOf(m);
+    const p = posOf(m);
+    const x = p ? p.x : cursor;
+    const y = p ? p.y : 0;
+    if (!p) cursor += f.w;
+    pts.push({ t: m, x, y, f });
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of pts) {
+    minX = Math.min(minX, p.x - p.f.w / 2);
+    minY = Math.min(minY, p.y - p.f.h / 2);
+    maxX = Math.max(maxX, p.x + p.f.w / 2);
+    maxY = Math.max(maxY, p.y + p.f.h / 2);
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const offsets: Record<string, { dx: number; dy: number }> = {};
+  for (const p of pts) offsets[p.t.table_id] = { dx: p.x - cx, dy: p.y - cy };
+  return { fw: maxX - minX, fh: maxY - minY, offsets };
+}
+
+export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
+  const empty: SolveLayoutResult = { placed: {}, unplaced: [], altPlacedAtFloor: 0 };
+  const { tables, floorPlan: fp, rect, footprintOf } = input;
+  if (tables.length === 0 || rect.width <= 0 || rect.height <= 0) return empty;
+
+  const ppm = input.pxPerMeter && input.pxPerMeter > 0 ? input.pxPerMeter : null;
+  const pctW = (px: number) => (px / rect.width) * 100;
+  const pctH = (px: number) => (px / rect.height) * 100;
+
+  // --- collapse link groups to rigid super-elements ------------------------
+  // Member positions in WORLD PX (unitFor's bbox math must match footprintOf's
+  // px units — mixing % positions with px footprints scrambles the offsets).
+  const posOf = (t: EventTableRow): { x: number; y: number } | null =>
+    t.x_pos != null && t.y_pos != null
+      ? { x: (Number(t.x_pos) / 100) * rect.width, y: (Number(t.y_pos) / 100) * rect.height }
+      : null;
+  const groups = new Map<string, EventTableRow[]>();
+  const singles: EventTableRow[] = [];
+  for (const t of tables) {
+    if (t.link_group_id) {
+      const g = groups.get(t.link_group_id) ?? [];
+      g.push(t);
+      groups.set(t.link_group_id, g);
+    } else {
+      singles.push(t);
+    }
+  }
+  const units: SolveUnit[] = [];
+  for (const t of singles) {
+    const f = footprintOf(t);
+    units.push({ id: t.table_id, members: [t], fw: f.w, fh: f.h, offsets: { [t.table_id]: { dx: 0, dy: 0 } }, rep: t });
+  }
+  for (const [, members] of groups) {
+    const { fw, fh, offsets } = unitFor(members, footprintOf, posOf);
+    // Representative = highest-priority member (drives row rank + label sort).
+    const rep = [...members].sort((a, b) => a.sort_order - b.sort_order)[0]!;
+    units.push({ id: rep.table_id, members, fw, fh, offsets, rep });
+  }
+
+  // Solve for a given metric walkway; returns placed count + placements.
+  const solveAt = (aisleM: number | null): { placed: Record<string, { x: number; y: number }>; unplaced: string[] } => {
+    const slotGapPct = ((): { gw: number; gh: number } => {
+      if (ppm && aisleM != null) {
+        const slotPx = aisleM * ppm;
+        const rowPx = (aisleM + 0.3) * ppm; // + service allowance
+        return { gw: pctW(slotPx), gh: pctH(rowPx) };
+      }
+      return { gw: 3, gh: 4 }; // free-board % gaps
+    })();
+    const gapPx = ppm && aisleM != null ? aisleM * ppm : 0;
+
+    // Stage-out axis (same heuristic as before).
+    const dx = 50 - fp.stage_x;
+    const dy = 50 - fp.stage_y;
+    const u: Vec2 = Math.abs(dy) >= Math.abs(dx) ? { x: 0, y: dy >= 0 ? 1 : -1 } : { x: dx >= 0 ? 1 : -1, y: 0 };
+    const v = { x: u.y, y: u.x };
+
+    const depthOf = (unit: SolveUnit) => (u.x === 0 ? pctH(unit.fh) : pctW(unit.fw));
+    const breadthOf = (unit: SolveUnit) => (u.x === 0 ? pctW(unit.fw) : pctH(unit.fh));
+
+    const TYPE_RANK: Record<TableShapeHint, number> = {
+      sweetheart: 0,
+      family_head: 1,
+      round: 2,
+      long_banquet: 3,
+      serpentine: 4,
+    };
+    const ordered = [...units].sort((a, b) => {
+      const ra = TYPE_RANK[shapeHintFor(a.rep.table_type)];
+      const rb = TYPE_RANK[shapeHintFor(b.rep.table_type)];
+      return (
+        ra - rb ||
+        a.rep.sort_order - b.rep.sort_order ||
+        a.rep.table_label.localeCompare(b.rep.table_label) ||
+        a.rep.table_id.localeCompare(b.rep.table_id)
+      );
+    });
+
+    const stageHalfU = u.x === 0 ? fp.stage_h / 2 : fp.stage_w / 2;
+    const stageFront =
+      u.x === 0
+        ? fp.stage_y + (u.y > 0 ? stageHalfU : -stageHalfU)
+        : fp.stage_x + (u.x > 0 ? stageHalfU : -stageHalfU);
+    const LO = 8;
+    const HI = 92;
+
+    // No-go zones (world px) for the verified pass: dance, cocktail, booths,
+    // optional centre aisle. Inflated by aisle/2 already handled by gapPx in
+    // checkPlacement — here they are the raw rects.
+    const zones: OracleZone[] = [];
+    const toPxRect = (cx: number, cy: number, w: number, h: number): OracleZone => ({
+      id: `z${zones.length}`,
+      x: (cx / 100) * rect.width,
+      y: (cy / 100) * rect.height,
+      w: (w / 100) * rect.width,
+      h: (h / 100) * rect.height,
+    });
+    if (fp.dance_enabled) zones.push(toPxRect(fp.dance_x, fp.dance_y, fp.dance_w, fp.dance_h));
+    if (fp.cocktail_enabled) zones.push(toPxRect(fp.cocktail_x, fp.cocktail_y, fp.cocktail_w, fp.cocktail_h));
+    for (const b of input.booths ?? []) zones.push({ id: `b${zones.length}`, x: b.x, y: b.y, w: b.w, h: b.h });
+    // Centre aisle: reserved lane, width max(aisle, 1.5 m), stage→back wall.
+    if (input.reserveCentreAisle && ppm) {
+      const laneM = Math.max(aisleM ?? 0.9, 1.5);
+      const lanePx = laneM * ppm;
+      if (u.x === 0) {
+        zones.push({ id: 'aisle', x: (fp.stage_x / 100) * rect.width, y: rect.height / 2, w: lanePx, h: rect.height });
+      } else {
+        zones.push({ id: 'aisle', x: rect.width / 2, y: (fp.stage_y / 100) * rect.height, w: rect.width, h: lanePx });
+      }
+    }
+
+    const placed: Record<string, { x: number; y: number }> = {};
+    const placedPoses: WorldPose[] = [];
+    const unplaced: string[] = [];
+
+    // Try to place a unit's representative CENTRE at (cx,cy) %, expanding the
+    // whole group by offsets, and verify every member clears.
+    const tryPlaceUnit = (unit: SolveUnit, cx: number, cy: number): boolean => {
+      const memberPoses: WorldPose[] = [];
+      for (const m of unit.members) {
+        const off = unit.offsets[m.table_id]!;
+        const mx = cx + pctW(off.dx);
+        const my = cy + pctH(off.dy);
+        if (mx < LO || mx > HI || my < LO || my > HI) return false;
+        const g = tableGeometry(shapeHintFor(m.table_type), m.capacity);
+        const f = footprintOf(m);
+        memberPoses.push({
+          tableId: m.table_id,
+          shape: shapeHintFor(m.table_type),
+          capacity: m.capacity,
+          x: (mx / 100) * rect.width,
+          y: (my / 100) * rect.height,
+          rot: m.rotation_deg ?? 0,
+          scale: f.w / g.box.w,
+          linkGroupId: m.link_group_id ?? null,
+        });
+      }
+      // Verify each member vs everything already placed + zones (group members
+      // exempt each other by link membership inside checkPlacement).
+      for (const mp of memberPoses) {
+        const res = checkPlacement(mp, { others: placedPoses, zones }, { gapPx });
+        if (!res.valid) return false;
+      }
+      // Commit.
+      for (let i = 0; i < unit.members.length; i++) {
+        const m = unit.members[i]!;
+        const mp = memberPoses[i]!;
+        placed[m.table_id] = { x: (mp.x / rect.width) * 100, y: (mp.y / rect.height) * 100 };
+        placedPoses.push(mp);
+      }
+      return true;
+    };
+
+    const rowAnchor = u.x === 0 ? fp.stage_x : fp.stage_y;
+    let cursor = 0;
+    let rowStart = stageFront;
+    const roomBreadth = HI - LO;
+
+    while (cursor < ordered.length) {
+      // Greedy fill: how many upcoming units fit across the room breadth?
+      const rowUnits: SolveUnit[] = [];
+      let rowDepth = 0;
+      let used = 0;
+      for (let i = cursor; i < ordered.length; i++) {
+        const unit = ordered[i]!;
+        const w = breadthOf(unit) + slotGapPct.gw;
+        if (rowUnits.length > 0 && used + w > roomBreadth) break;
+        rowUnits.push(unit);
+        used += w;
+        rowDepth = Math.max(rowDepth, depthOf(unit));
+      }
+      const rowSign = u.x === 0 ? u.y : u.x;
+      const depth = rowStart + rowSign * (slotGapPct.gh + rowDepth / 2);
+      const depthClamped = Math.max(LO, Math.min(HI, depth));
+
+      // Centre-out slotting with per-slot verification + alternate-slot scan.
+      let right = 0;
+      let left = 0;
+      let anyPlacedThisRow = false;
+      for (let k = 0; k < rowUnits.length; k++) {
+        const unit = rowUnits[k]!;
+        const w = breadthOf(unit) + slotGapPct.gw;
+        let offset: number;
+        if (k === 0) {
+          offset = 0;
+          right = w / 2;
+          left = w / 2;
+        } else if (right <= left) {
+          offset = right + w / 2;
+          right += w;
+        } else {
+          offset = -(left + w / 2);
+          left += w;
+        }
+        // Candidate slot centres to try: the natural slot, then nudged along
+        // the row in both directions (alternate-slot scan), all in this row.
+        const baseCx = u.x === 0 ? rowAnchor + offset * v.x : depthClamped;
+        const baseCy = u.x === 0 ? depthClamped : rowAnchor + offset * v.y;
+        let done = false;
+        for (let step = 0; step <= 6 && !done; step++) {
+          const nudges = step === 0 ? [0] : [step, -step];
+          for (const ns of nudges) {
+            const shift = ns * (breadthOf(unit) / 2 + slotGapPct.gw);
+            const cx = Math.max(LO, Math.min(HI, u.x === 0 ? baseCx + shift * v.x : baseCx));
+            const cy = Math.max(LO, Math.min(HI, u.x === 0 ? baseCy : baseCy + shift * v.y));
+            if (tryPlaceUnit(unit, cx, cy)) {
+              done = true;
+              anyPlacedThisRow = true;
+              break;
+            }
+          }
+        }
+        if (!done) {
+          // Defer to the next row by leaving it in the queue tail.
+          for (const m of unit.members) unplaced.push(m.table_id);
+        }
+      }
+      rowStart = depthClamped + rowSign * (rowDepth / 2);
+      cursor += rowUnits.length;
+      if (!anyPlacedThisRow && depthClamped >= HI) break; // ran off the board
+    }
+
+    return { placed, unplaced };
+  };
+
+  const primary = solveAt(ppm ? (input.aisleM ?? 0.9) : null);
+  // Cheap second pass at the 0.6 m floor to power the honest "at Tight it fits
+  // N" banner (only meaningful in a metric room with overflow).
+  let altPlacedAtFloor = Object.keys(primary.placed).length;
+  if (ppm && primary.unplaced.length > 0) {
+    const floor = solveAt(0.6);
+    altPlacedAtFloor = Object.keys(floor.placed).length;
+  }
+  return { placed: primary.placed, unplaced: primary.unplaced, altPlacedAtFloor };
+}

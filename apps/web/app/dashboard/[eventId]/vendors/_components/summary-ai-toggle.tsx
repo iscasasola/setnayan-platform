@@ -38,7 +38,7 @@ export function SummaryAiToggle({
   }
 
   return (
-    <section className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+    <section className="sn-row flex items-center justify-between gap-3 px-4 py-3">
       <span className="flex items-center gap-2 text-sm text-ink/70">
         <Gem className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
         Setnayan AI {optimistic ? 'is on' : 'is off'}

@@ -435,6 +435,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tagFilter ||
       teamFilter !== 'all',
   );
+  // Roster lens-swap key (Glass PR-3) — a stable digest of the active filter
+  // dimensions. When any facet changes the key changes, remounting the roster
+  // wrapper so `.sn-lens-swap` cross-fades the new result set (§2d "tab/lens/
+  // filter body swaps: never a hard cut"). Sort/gview are display-only and are
+  // deliberately excluded (a re-sort isn't a lens change). The Living Roster's
+  // selection + optimistic state live in module-singleton stores, so the
+  // remount is presentational — no data/action/selection is lost.
+  const rosterLensKey = [q, rsvpFilter, view, currentGroupId ?? '', teamFilter, tagFilter].join(
+    '|',
+  );
 
   // Resolve each guest's stored photo ref → a display URL once on the server:
   // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
@@ -497,13 +507,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}
-      <header className="hidden flex-col gap-3 lg:flex lg:flex-row lg:items-end lg:justify-between">
+      <header className="sn-reveal hidden flex-col gap-3 lg:flex lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            Guest list
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            {stats.total} {stats.total === 1 ? 'guest' : 'guests'}
+          <p className="sn-eye">Guest list</p>
+          <h1 className="sn-h1 mt-1.5">
+            <span className="font-mono">{stats.total}</span>{' '}
+            <span className="sn-h1-tail">
+              {stats.total === 1 ? 'guest' : 'guests'}
+            </span>
           </h1>
         </div>
         <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
@@ -626,7 +637,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
           gone, so the strip uses symmetric padding.) */}
       {hasAnyFilter ? (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/10 bg-cream/95 px-3 py-2 backdrop-blur lg:hidden">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-white/60 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
           <ActiveFilters
             eventId={eventId}
             search={search}
@@ -701,7 +712,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          above, so the list gets the whole width instead of a cramped 240px
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
-      <div className="gl-settle-delayed min-w-0 space-y-4">
+      <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
           {visible.length === 0 ? (
             <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
           ) : (
@@ -1066,9 +1077,20 @@ function SummaryFacetBar({
   ];
 
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream">
+    <div
+      className="gl-settle rounded-tile border"
+      style={{
+        background: 'var(--sn-glass-bg)',
+        borderColor: 'var(--sn-glass-line)',
+        backdropFilter: 'var(--sn-glass-blur)',
+        WebkitBackdropFilter: 'var(--sn-glass-blur)',
+        boxShadow: 'var(--sn-sh-tile)',
+      }}
+    >
       {/* Root has NO overflow-hidden: the inline group pills' rename/delete kebab
           opens downward and would otherwise be clipped past the bar's bottom edge.
+          Glass panel (§1.2 .sn-tile recipe, inline so the sectioned px-4/py-3
+          layout keeps its own padding). ONE blurred panel — within the §1.6 budget.
           Meters — the pax target + confirmations progress that headlined the old
           stat strip, kept verbatim (data-display only). */}
       <div className="border-b border-ink/[0.07] px-4 py-3">
@@ -1078,7 +1100,7 @@ function SummaryFacetBar({
               <span className="font-mono uppercase tracking-[0.15em] text-terracotta">
                 {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
               </span>
-              <span className="tabular-nums text-ink/70">
+              <span className="font-mono tabular-nums text-ink/70">
                 {paxProgress.exceeded ? (
                   <>
                     {paxProgress.headcount} guests · {paxProgress.overBy} over your{' '}
@@ -1099,10 +1121,10 @@ function SummaryFacetBar({
                   ? `Now planning for ${paxProgress.headcount} attending guests, ${paxProgress.overBy} over the ${paxProgress.target} minimum pax`
                   : `${paxProgress.headcount} attending of a ${paxProgress.target} minimum pax target, ${paxProgress.progressPct}%`
               }
-              className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
+              className="sn-bar mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
             >
-              <div
-                className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+              <i
+                className={paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}
                 style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
               />
             </div>
@@ -1110,7 +1132,7 @@ function SummaryFacetBar({
                 from the sure-attending meter above. */}
             <div className="mt-1.5 flex items-baseline justify-between text-[11px] text-ink/55">
               <span className="font-mono uppercase tracking-[0.12em]">Pax pool</span>
-              <span className="tabular-nums">
+              <span className="font-mono tabular-nums">
                 {paxProgress.overListed > 0
                   ? `${paxProgress.listed} listed · ${paxProgress.overListed} over target`
                   : `${paxProgress.unassigned} unassigned · ${paxProgress.listed} of ${paxProgress.target} listed`}
@@ -1120,7 +1142,7 @@ function SummaryFacetBar({
         ) : null}
         <div className="flex items-baseline justify-between text-xs text-ink/55">
           <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
-          <span className="tabular-nums">
+          <span className="font-mono tabular-nums">
             {responded} of {stats.total} responded · {pct}%
             {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
           </span>
@@ -1271,17 +1293,17 @@ function LensPill({
       href={href}
       aria-current={active ? 'true' : undefined}
       title={title}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-[background-color,transform,color] ${
         active
-          ? 'border-terracotta bg-terracotta/10 font-semibold text-terracotta-700'
-          : 'border-ink/15 text-ink/70 hover:border-ink/30'
+          ? 'sn-chip-pop border-transparent bg-terracotta font-bold text-cream'
+          : 'border-white/60 bg-white/55 text-ink/70 hover:bg-white/85'
       }`}
     >
       {dot ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} /> : null}
       <span className="whitespace-nowrap">{children}</span>
       {typeof count === 'number' ? (
         <span
-          className={`tabular-nums ${active ? 'text-terracotta-700/70' : 'text-ink/40'}`}
+          className={`font-mono tabular-nums ${active ? 'text-cream/75' : 'text-ink/40'}`}
         >
           {count}
         </span>

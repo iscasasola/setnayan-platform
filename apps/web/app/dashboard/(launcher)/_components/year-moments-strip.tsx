@@ -13,9 +13,12 @@ import { YearMomentsList, type YearMomentView } from './year-moments-list';
  * view) so the home strip stays PERSONAL. Renders nothing when the user has no
  * anchors yet — zero home clutter, zero PII (no birthdate path; that's PR-D).
  *
- * Per the owner rule (2026-07-13) the strip no longer links out to
- * /dashboard/year: it shows the first few moments and expands the rest INLINE
- * via <YearMomentsList>. Event moments still deep-link into their dashboards.
+ * The strip shows the first few moments and expands the rest INLINE via
+ * <YearMomentsList>, AND carries that list's "See the year →" door to the full
+ * /dashboard/year calendar (re-linked 2026-07-15 under the owner's "nothing
+ * orphaned" directive, superseding the 2026-07-13 de-link that had left the
+ * full Year view without an in-app doorway). Event moments still deep-link into
+ * their dashboards.
  */
 
 const HOME_LIMIT = 3;

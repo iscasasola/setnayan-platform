@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, CalendarHeart, Sparkles } from 'lucide-react';
+import { ChevronDown, ArrowRight, CalendarHeart, Sparkles } from 'lucide-react';
 
 /**
  * Serializable view of one "Your year" moment — the strings are precomputed on
@@ -20,10 +20,14 @@ export type YearMomentView = {
 };
 
 /**
- * "Your year" list — shows the first few moments and expands the rest INLINE
- * (owner 2026-07-13: the home page no longer navigates to /dashboard/year).
- * Moments tied to an event still deep-link into that event's dashboard (an
- * allowed jump); undated/derived moments render as plain, non-navigating rows.
+ * "Your year" list — shows the first few moments and expands the rest INLINE,
+ * and carries a "See the year →" door to the full /dashboard/year calendar
+ * (which also holds the holidays the home strip omits). The 2026-07-13 de-link
+ * (home no longer navigates to /dashboard/year) is superseded by the owner's
+ * 2026-07-15 "nothing orphaned" directive — the full Year view was left with no
+ * in-app doorway, so the see-all row restores it. Moments tied to an event
+ * still deep-link into that event's dashboard (an allowed jump); undated/derived
+ * moments render as plain, non-navigating rows.
  */
 export function YearMomentsList({
   moments,
@@ -45,22 +49,32 @@ export function YearMomentsList({
           </li>
         ))}
       </ul>
-      {hiddenCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => setShowAll((v) => !v)}
-          aria-expanded={showAll}
-          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {hiddenCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            aria-expanded={showAll}
+            className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
+          >
+            {showAll ? 'Show less' : `Show ${hiddenCount} more`}
+            <ChevronDown
+              aria-hidden
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                showAll ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+        ) : null}
+        {/* Door to the full Year calendar (holidays + every moment). */}
+        <Link
+          href="/dashboard/year"
+          className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
         >
-          {showAll ? 'Show less' : `See your year · ${hiddenCount} more`}
-          <ChevronDown
-            aria-hidden
-            className={`h-3.5 w-3.5 transition-transform duration-200 ${
-              showAll ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
-      ) : null}
+          See the year
+          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+        </Link>
+      </div>
     </div>
   );
 }

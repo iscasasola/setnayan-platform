@@ -16,8 +16,8 @@ export const metadata = { title: 'Track record · Vendor' };
  *
  * A standalone reputation surface that breaks a vendor's flat completed-events
  * count out by events.event_type: Weddings 12 · ★4.8 / Debuts 3 · ★4.6 / … .
- * Reachable from the My Shop group (the /more landing + mobile nav) via the
- * `track-record` sidebar entry. Owner/admin only — agents/viewers don't see the
+ * Reachable from the /shop "More tools" card (SHOP_TOOLS) via the `track-record`
+ * entry. Owner/admin only — agents/viewers don't see the
  * aggregate reputation view (mirrors the reviews/analytics surfaces).
  */
 export default async function VendorTrackRecordPage() {

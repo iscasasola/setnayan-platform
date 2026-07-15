@@ -51,6 +51,7 @@ import {
   Palette,
   PencilRuler,
   PiggyBank,
+  Plug,
   Radar,
   Receipt,
   RefreshCw,
@@ -819,6 +820,20 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/settings?tab=demo-mode',
         icon: Settings,
         matchPrefix: '/admin/settings/demo-mode',
+      },
+      {
+        // Integration Activation Console — the one place the solo operator flips
+        // every external-service switch (Resend email · OpenAI · Maya/GCash pay)
+        // and the AI-paywall flag. Sits in the settings tail beside Compliance /
+        // Notifications / Demo-mode: it's platform-config the owner sets once. A
+        // STANDALONE page (mirrors Papic storage above), not a Settings-studio
+        // tab, so the matchPrefix is the plain pathname. Wayfinding 2026-07-15 —
+        // previously reachable only from a tile on the /admin dashboard.
+        key: 'integrations',
+        label: 'Integrations',
+        href: '/admin/integrations',
+        icon: Plug,
+        matchPrefix: '/admin/integrations',
       },
       {
         // Personal account security — admins use the shared /dashboard/profile

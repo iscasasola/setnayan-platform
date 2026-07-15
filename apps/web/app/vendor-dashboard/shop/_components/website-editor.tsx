@@ -282,6 +282,19 @@ export function WebsiteEditor({
         </p>
       )}
 
+      {/* Route-wayfinding 2026-07-15 — door to the standalone website surface
+          (/vendor-dashboard/website), which carries the DomainManager (custom
+          address) + deeper settings this inline tile only summarises. It had no
+          other in-app doorway (the vendor-bottom-nav reference is an activeMatch
+          entry, not a link). */}
+      <Link
+        href="/vendor-dashboard/website"
+        className="inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+      >
+        Open full website settings
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      </Link>
+
       {/* ── Gallery & media (ALL TIERS · relocated from the retired /profile
           page · 2026-07-05): portfolio photos, featured videos, Instagram. The
           curation controls below (About / sections / Pro / Enterprise) sit on

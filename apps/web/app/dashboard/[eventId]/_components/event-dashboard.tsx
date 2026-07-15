@@ -1404,7 +1404,7 @@ export async function EventDashboard({
                           <InspectorTrigger
                             inspectId={`d:${item.id}`}
                             href={item.href}
-                            className="-mx-3.5 -my-2.5 block rounded-[14px] px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                            className="-mx-3.5 -my-2.5 block rounded-xl px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
                           >
                             <div className="flex items-center gap-2.5">
                               <b className="min-w-0 truncate text-sm font-semibold text-ink">

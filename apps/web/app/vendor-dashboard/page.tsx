@@ -13,6 +13,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { vendorAcknowledgeDeposit } from './clients/[eventId]/actions';
 import {
+  VendorTodayFocal,
   VendorEnergyStats,
   WhatsNewFeed,
   OngoingTasks,
@@ -23,6 +24,7 @@ import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
 import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
+import { formatPhp } from '@/lib/vendors';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -54,22 +56,15 @@ function AgentHome() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
-          Setnayan · Vendor
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          You&apos;re on the team
-        </h1>
-        <p className="max-w-prose text-base" style={{ color: 'var(--m-slate)' }}>
+        <p className="sn-eye">Setnayan · Vendor</p>
+        <h1 className="sn-h1">You&apos;re on the team</h1>
+        <p className="max-w-prose text-base text-ink/65">
           Your account is set up as a team member. The services and customers your
           owner assigns to you will appear here — scoped access is rolling out
           shortly. There&apos;s nothing you need to do right now.
         </p>
       </header>
-      <div
-        className="rounded-xl border p-5 text-sm"
-        style={{ background: '#fff', borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-      >
+      <div className="sn-tile p-5 text-sm text-ink/65">
         Need access to something now? Ask your vendor owner to assign you to the
         services you&apos;ll be managing.
       </div>
@@ -111,31 +106,21 @@ export default async function VendorOverviewPage() {
     return (
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <header className="mb-6 space-y-1.5">
-          <h1
-            className="text-3xl font-semibold tracking-tight sm:text-4xl"
-            style={{ color: 'var(--m-ink)' }}
-          >
-            Overview
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+          <h1 className="sn-h1">Overview</h1>
+          <p className="text-sm text-ink/60">
             What needs you today — {todayLabel()}.
           </p>
         </header>
-        <div
-          className="rounded-xl border p-6"
-          style={{ background: '#fff', borderColor: 'var(--m-line)' }}
-        >
-          <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
-            Team access
-          </p>
-          <h2 className="mt-2 text-xl font-semibold">You&rsquo;re on a vendor team.</h2>
-          <p className="mt-2 text-sm" style={{ color: 'var(--m-slate)' }}>
+        <div className="sn-tile p-6">
+          <p className="sn-eye">Team access</p>
+          <h2 className="mt-2 text-xl font-semibold text-ink">You&rsquo;re on a vendor team.</h2>
+          <p className="mt-2 text-sm text-ink/65">
             You don&rsquo;t own a vendor profile yet. Reach the team owner to be
             added to bookings + chats, or
             <Link
               href="/signup?as=vendor"
-              className="ml-1 font-medium underline"
-              style={{ color: 'var(--m-orange-2)' }}
+              className="ml-1 font-semibold underline"
+              style={{ color: 'var(--sn-gold-700)' }}
             >
               create your own
             </Link>
@@ -209,31 +194,74 @@ export default async function VendorOverviewPage() {
 
   timer.flush();
 
+  // Hero stat line — real aggregates, mono numerals, hidden-when-zero (§ 1.4).
+  const heroInquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
+  const heroBookings = upcoming.length;
+  const heroEarnedPhp = earnings?.earnedThisYearPhp ?? null;
+  const heroStats: React.ReactNode[] = [];
+  if (heroInquiries > 0) {
+    heroStats.push(
+      <>
+        <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
+          {heroInquiries}
+        </b>{' '}
+        {heroInquiries === 1 ? 'inquiry' : 'inquiries'} waiting
+      </>,
+    );
+  }
+  if (heroBookings > 0) {
+    heroStats.push(
+      <>
+        <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
+          {heroBookings}
+        </b>{' '}
+        {heroBookings === 1 ? 'booking' : 'bookings'} upcoming
+      </>,
+    );
+  }
+  if (heroEarnedPhp !== null && heroEarnedPhp > 0) {
+    heroStats.push(
+      <>
+        <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
+          {formatPhp(heroEarnedPhp)}
+        </b>{' '}
+        earned this year
+      </>,
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      {/* Heading */}
-      <header className="mb-8 space-y-1.5">
-        <h1
-          className="m-serif text-4xl tracking-tight sm:text-5xl"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Overview
+      {/* Hero — greeting eyebrow → `.sn-h1` statement → mono stat line (§ 3.3). */}
+      <header className="sn-reveal space-y-1.5">
+        <p className="text-[13px] text-ink/55">
+          Kumusta, {profile.business_name} · {todayLabel()}
+        </p>
+        <h1 className="sn-h1">
+          Your shop, today.
         </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          What needs you today — {todayLabel()}.
+        <p className="max-w-[56ch] pt-0.5 text-[12.5px] text-ink/55">
+          {heroStats.length > 0
+            ? heroStats.map((s, i) => (
+                <span key={i}>
+                  {i > 0 ? ' · ' : ''}
+                  {s}
+                </span>
+              ))
+            : "You're all caught up — new leads land here the moment a couple unlocks you."}
         </p>
         {milestone ? (
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1.5">
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-ink)' }}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-ink-900)' }}
             >
-              <PartyPopper aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--m-orange-2)' }} />
+              <PartyPopper aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--sn-gold-700)' }} />
               {profile.business_name} — your {milestone.label}
               {/* A countdown only when it's near; a far-off anniversary reads as
                   a proud badge, not an early countdown. */}
               {milestone.daysUntil <= 92 ? (
-                <span style={{ color: 'var(--m-slate)' }}>
+                <span style={{ color: 'var(--sn-ink-400)' }}>
                   ·{' '}
                   {milestone.daysUntil <= 0
                     ? 'today'
@@ -245,8 +273,8 @@ export default async function VendorOverviewPage() {
             </span>
             <Link
               href="/dashboard/create-event"
-              className="text-xs font-medium underline-offset-2 hover:underline"
-              style={{ color: 'var(--m-accent-deep)' }}
+              className="text-xs font-semibold underline-offset-2 hover:underline"
+              style={{ color: 'var(--sn-gold-700)' }}
             >
               Plan a celebration →
             </Link>
@@ -254,14 +282,25 @@ export default async function VendorOverviewPage() {
         ) : null}
       </header>
 
-      {/* 0 · Energy stats — the databerry stat bento (real feed-derived counts
-          + real booked-revenue tiles; earnings null → tiles omitted) */}
-      <VendorEnergyStats
-        whatsNew={whatsNew}
-        ongoing={ongoing}
-        upcoming={upcoming}
-        earnings={earnings}
+      {/* Focal — "Today at {shop}", the single obsidian tile (§ 1.3). Blooms
+          last; its gold CTA anchors to the What's-new feed below. */}
+      <VendorTodayFocal
+        businessName={profile.business_name}
+        inquiries={heroInquiries}
+        nextBooking={upcoming[0] ?? null}
+        earnedThisYearPhp={heroEarnedPhp}
       />
+
+      {/* KPI bento — glass tiles, ring sweeps, Space-Mono numerals (real
+          feed-derived counts + real earnings; earnings null → money tiles omitted). */}
+      <div className="mt-6">
+        <VendorEnergyStats
+          whatsNew={whatsNew}
+          ongoing={ongoing}
+          upcoming={upcoming}
+          earnings={earnings}
+        />
+      </div>
 
       {/* Spotlight Award — celebratory banner, shown only when this vendor holds
           at least one current-period award (empty list renders nothing). */}
@@ -275,20 +314,14 @@ export default async function VendorOverviewPage() {
         confirmLock={vendorAcknowledgeDeposit}
       />
 
-      {/* 2 · Amber note — token cost follows the customer's event location */}
-      <div
-        className="mb-8 flex items-start gap-3 rounded-xl border p-4 text-sm"
-        style={{
-          background: 'var(--m-orange-4)',
-          borderColor: 'var(--m-orange-3)',
-          color: 'var(--m-ink)',
-        }}
-      >
+      {/* 2 · Token note — cost follows the customer's event location. A subtle
+          glass tile with a gold info accent (not a loud banner). */}
+      <div className="sn-tile mb-8 flex items-start gap-3 p-4 text-sm text-ink/75">
         <Info
           aria-hidden
           className="mt-0.5 h-4 w-4 shrink-0"
           strokeWidth={1.75}
-          style={{ color: 'var(--m-orange-2)' }}
+          style={{ color: 'var(--sn-gold-700)' }}
         />
         <p>
           Answering a lead costs a flat 1 token (₱200), anywhere in the

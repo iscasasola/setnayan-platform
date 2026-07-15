@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Users } from 'lucide-react';
+import { ArrowLeft, Sparkles, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
@@ -102,20 +102,25 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       <header className="mb-8 space-y-2">
         <Link
           href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard'}
-          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          className="sn-chip sn-press w-fit"
         >
-          ‹ {samahan ? `Back to ${samahan.name}` : 'Back to events'}
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {samahan ? `Back to ${samahan.name}` : 'Back to events'}
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <p className="sn-eye">
+          <Sparkles aria-hidden strokeWidth={1.75} />
+          New event
+        </p>
+        <h1 className="sn-h1">
           What kind of event are you planning?
         </h1>
-        <p className="text-base text-ink/60">
+        <p className="text-base text-ink/65">
           Tap a type to begin.
         </p>
       </header>
 
       {samahan ? (
-        <p className="mb-6 flex items-center gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/75">
+        <p className="sn-tile mb-6 flex items-center gap-2 py-3 text-sm text-ink/75">
           <Users aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
           <span>
             Planning for <span className="font-medium text-ink">{samahan.name}</span>

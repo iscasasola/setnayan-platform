@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, HeartHandshake } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { COMMUNITY_KINDS, COMMUNITY_KIND_LABEL } from '@/lib/communities';
 import { createCommunity } from '../actions';
@@ -30,18 +30,17 @@ export default async function NewSamahanPage({
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard/samahan"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard/samahan" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to Samahan
       </Link>
-      <header className="mb-6 space-y-1">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
-          Create a Samahan
-        </h1>
-        <p className="text-base text-ink/60">
+      <header className="mb-6 space-y-2">
+        <p className="sn-eye">
+          <HeartHandshake aria-hidden strokeWidth={1.75} />
+          New shared space
+        </p>
+        <h1 className="sn-h1">Create a Samahan</h1>
+        <p className="text-base text-ink/65">
           One shared space for your group — free, private, invite-link-only.
         </p>
       </header>
@@ -57,7 +56,7 @@ export default async function NewSamahanPage({
 
       <form
         action={createCommunity}
-        className="space-y-6 rounded-2xl border border-white/70 bg-white/60 p-6 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]"
+        className="sn-tile space-y-6 p-6"
       >
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="name">
@@ -114,7 +113,7 @@ export default async function NewSamahanPage({
 
         <SubmitButton
           pendingLabel="Creating…"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600 sm:w-auto"
+          className="button-primary w-full sm:w-auto"
         >
           Create samahan
         </SubmitButton>

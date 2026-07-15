@@ -51,16 +51,17 @@ export default async function PeoplePage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to home
       </Link>
-      <header className="mb-6 space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
-        <p className="text-base text-ink/60">Your family, godparents, and friends.</p>
+      <header className="mb-6 space-y-2">
+        <p className="sn-eye">
+          <Users aria-hidden strokeWidth={1.75} />
+          The people you gather
+        </p>
+        <h1 className="sn-h1">People</h1>
+        <p className="text-base text-ink/65">Your family, godparents, and friends.</p>
       </header>
       {errorMsg ? (
         <p
@@ -164,21 +165,22 @@ async function fetchMyConnections(userId: string): Promise<{
 function PeoplePreview() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to home
       </Link>
-      <header className="mb-6 space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
-        <p className="text-base text-ink/60">
+      <header className="mb-6 space-y-2">
+        <p className="sn-eye">
+          <Users aria-hidden strokeWidth={1.75} />
+          The people you gather
+        </p>
+        <h1 className="sn-h1">People</h1>
+        <p className="text-base text-ink/65">
           Family, godparents, and friends — the people your celebrations connect.
         </p>
       </header>
 
-      <div className="mb-8 flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <div className="sn-tile mb-8 flex items-start gap-3">
         <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">Connections are coming soon.</p>
@@ -216,7 +218,7 @@ function PeoplePreview() {
           (g) => (
             <span
               key={g}
-              className="rounded-full border border-ink/10 bg-cream px-3 py-1 text-xs text-ink/60"
+              className="sn-row px-3 py-1 text-xs text-ink/60"
             >
               {g}
             </span>
@@ -238,7 +240,7 @@ function PreviewRow({
   body: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-ink/10 bg-white/40 p-4">
+    <div className="sn-row flex items-start gap-3 p-4">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-ink">{title}</p>

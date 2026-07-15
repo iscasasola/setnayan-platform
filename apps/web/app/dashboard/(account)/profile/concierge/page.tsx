@@ -63,14 +63,11 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   if (!CONCIERGE_ENABLED) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-        <Link
-          href="/dashboard/profile"
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <Link href="/dashboard/profile" className="sn-chip sn-press w-fit">
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Back to profile
         </Link>
-        <section className="mt-6 rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+        <section className="sn-tile mt-6 p-8 text-center">
           <Gem aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
             Setnayan AI
@@ -86,10 +83,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
             <Link href="/pricing" className="button-primary">
               See pricing
             </Link>
-            <Link
-              href="/dashboard/profile"
-              className="rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-            >
+            <Link href="/dashboard/profile" className="sn-chip sn-press">
               Back to profile
             </Link>
           </div>
@@ -149,17 +143,16 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <Link
-          href="/dashboard/profile"
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <Link href="/dashboard/profile" className="sn-chip sn-press w-fit">
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Back to profile
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Setnayan AI
-        </h1>
-        <p className="text-base text-ink/60">
+        <p className="sn-eye">
+          <Gem aria-hidden strokeWidth={1.75} />
+          Your assistant
+        </p>
+        <h1 className="sn-h1">Setnayan AI</h1>
+        <p className="text-base text-ink/65">
           Your in-app planner that surfaces the next step every time you open the dashboard.
         </p>
       </header>
@@ -183,7 +176,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
           activatedAt={todaysFocusRow?.concierge_activated_at ?? null}
         />
       ) : (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/60">
+        <p className="sn-tile border-dashed p-6 text-center text-sm text-ink/60">
           Create your first event from the dashboard to manage Setnayan AI.
         </p>
       )}
@@ -200,7 +193,7 @@ function EventPicker({
 }) {
   return (
     <section className="mb-6 space-y-2">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Event</p>
+      <p className="sn-sec">Event</p>
       <div className="flex flex-wrap gap-2">
         {events.map((e) => {
           const isActive = e.event_id === selectedId;
@@ -208,11 +201,7 @@ function EventPicker({
             <Link
               key={e.event_id}
               href={`/dashboard/profile/concierge?event=${encodeURIComponent(e.event_id)}`}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-terracotta text-cream'
-                  : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-              }`}
+              className={`sn-chip sn-press ${isActive ? 'selected' : ''}`}
             >
               {e.display_name}
             </Link>
@@ -237,10 +226,10 @@ function StatusPanel({
   if (status === 'active' || status === 'trial') {
     const days = daysRemaining(expiresAt);
     return (
-      <section className="rounded-2xl border border-success-300/60 bg-success-50 p-6">
+      <section className="rounded-tile border border-success-300/60 bg-success-50 p-6">
         <header className="mb-3 flex items-center gap-2">
           <CheckCircle2 aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900/75">
+          <p className="sn-eye text-success-900/75">
             Setnayan AI · active
           </p>
         </header>
@@ -265,12 +254,10 @@ function StatusPanel({
 
   if (status === 'expired') {
     return (
-      <section className="rounded-2xl border border-ink/15 bg-cream p-6">
+      <section className="sn-tile p-6">
         <header className="mb-3 flex items-center gap-2">
           <Clock aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Setnayan AI ended
-          </p>
+          <p className="sn-eye">Setnayan AI ended</p>
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
         <p className="mt-1 text-sm text-ink/65">
@@ -288,12 +275,10 @@ function StatusPanel({
 
   // DIY — Setnayan AI not yet activated on this event.
   return (
-    <section className="rounded-2xl border border-ink/10 bg-cream p-6">
+    <section className="sn-tile p-6">
       <header className="mb-3 flex items-center gap-2">
         <Gem aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Currently · DIY
-        </p>
+        <p className="sn-eye">Currently · DIY</p>
       </header>
       <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
       <p className="mt-1 text-sm text-ink/65">
@@ -313,9 +298,9 @@ function StatusPanel({
 
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-0.5 rounded-md border border-ink/10 bg-cream/50 p-3">
-      <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</dt>
-      <dd className="text-base text-ink">{value}</dd>
+    <div className="sn-row space-y-0.5 p-3">
+      <dt className="sn-eye">{label}</dt>
+      <dd className="font-mono text-base text-ink">{value}</dd>
     </div>
   );
 }

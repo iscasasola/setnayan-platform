@@ -93,7 +93,6 @@ import {
   ShoppingBag,
   BarChart2,
   ChevronRight,
-  Check,
   Zap,
   Briefcase,
   CalendarCheck,
@@ -131,7 +130,6 @@ import { usePathname } from 'next/navigation';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
-import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import type { NavGroup, NavBadge } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups, canManageVendor } from '@/lib/vendor-role';
@@ -302,73 +300,13 @@ function flattenChildren(groups: NavGroup[]): NavGroup[] {
 }
 
 /**
- * The vendor identity card — the avatar (initials/logo) + the business display
- * name + a "Verified" / "Unverified" line. Glass PR-6: on the Atelier-Glass
- * language, a flat translucent-white inset card with a GOLD left rail + gold
- * avatar ring (the `--v-blue` photography-blue accents are retired). Flat tint,
- * NO backdrop-filter of its own — it sits inside the already-frosted rail, so
- * one blur layer deep is preserved (§ 1.6). Hidden on the collapsed 64px rail
- * via the same data-attr selector the shell uses elsewhere.
- */
-function VendorIdentityCard({
-  displayName,
-  initials,
-  logoUrl,
-  isVerified,
-}: {
-  displayName: string;
-  initials: string;
-  logoUrl: string | null;
-  isVerified: boolean;
-}) {
-  return (
-    <div
-      className="mx-2 mb-2 flex items-center gap-3 overflow-hidden rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
-      style={{
-        background: 'rgba(255,255,255,.5)',
-        borderColor: 'var(--sn-glass-line)',
-        // Gold left rail — the kit's one decorative colour (§ 1.2).
-        boxShadow: 'inset 3px 0 0 var(--sn-gold-500)',
-      }}
-    >
-      <span
-        className="shrink-0"
-        style={{ borderRadius: 'var(--m-r-sm)', boxShadow: '0 0 0 1.5px var(--sn-gold-300)' }}
-      >
-        <VendorAvatar
-          logoUrl={logoUrl}
-          initials={initials}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
-        />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-sidebar-fg)' }}>
-          {displayName}
-        </p>
-        {isVerified ? (
-          <p
-            className="mt-0.5 flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--sn-success)' }}
-          >
-            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Verified
-          </p>
-        ) : (
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-sidebar-fg-muted)' }}>
-            Unverified
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * VendorSidebar — the "Energy, not skin" vendor shell body: the identity card +
- * the two labelled sections (Business · Grow) rendered through the shared
- * <SidebarSection> + <SidebarItem> primitives (wine active-state · nested
- * auto-expanding sub-items · live badges — all inherited from the shared
- * chrome). The brand wordmark + "Vendor" eyebrow + account switcher live in
+ * VendorSidebar — the "Energy, not skin" vendor shell body: the two labelled
+ * sections (Business · Grow) rendered through the shared <SidebarSection> +
+ * <SidebarItem> primitives (wine active-state · nested auto-expanding
+ * sub-items · live badges — all inherited from the shared chrome). The brand
+ * wordmark home-link + "Vendor" eyebrow + the business identity plaque (the
+ * account-menu SwitcherPlaqueTrigger — Plaque-as-Menu council verdict
+ * 2026-07-16, which retired the old in-body VendorIdentityCard div) live in
  * DoorwaySidebarHeader (pinned above by SidebarShell); the subscription chip +
  * token row live in VendorSidebarFooter (pinned below via SidebarShell).
  */
@@ -376,10 +314,6 @@ export function VendorSidebar({
   role,
   showRepertoire = true,
   navSlots,
-  displayName,
-  initials,
-  logoUrl = null,
-  isVerified,
   bookingsBadge = 0,
   threadsBadge = 0,
 }: {
@@ -390,11 +324,6 @@ export function VendorSidebar({
    *  top-level filter in vendor-dashboard/more/page.tsx. */
   showRepertoire?: boolean;
   navSlots?: Record<string, NavSlotLite>;
-  displayName: string;
-  initials: string;
-  /** Presigned display URL of the uploaded logo — replaces the initials tile. */
-  logoUrl?: string | null;
-  isVerified: boolean;
   /** Pending-inquiry count → Bookings badge. Real layout data; 0 omits it. */
   bookingsBadge?: number;
   /** Unread-thread count → Threads badge. Real layout data; 0 omits it. */
@@ -447,12 +376,6 @@ export function VendorSidebar({
 
   return (
     <div className="pt-1">
-      <VendorIdentityCard
-        displayName={displayName}
-        initials={initials}
-        logoUrl={logoUrl}
-        isVerified={isVerified}
-      />
       <nav aria-label="Vendor menu">
         {groups.map((group) => (
           // `eyebrow` — Glass PR-6: section labels render as `.sn-eye` gold

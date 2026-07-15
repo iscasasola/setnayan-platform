@@ -47,10 +47,13 @@ type Props = {
   sidebar: ReactNode;
   /**
    * Pinned header slot rendered at the TOP of the sidebar, outside the
-   * scrollable nav area. Use this for identity / branding elements
-   * (AccountSwitcher, Wordmark + eyebrow) that must stay visible while the
-   * nav items below scroll. Hidden automatically when the sidebar collapses
-   * to the 64px icon rail via `[[data-sidebar-collapsed='1']_&]:hidden`.
+   * scrollable nav area. Use this for identity / branding elements (wordmark
+   * home-link + the SwitcherPlaqueTrigger account menu) that must stay
+   * visible while the nav items below scroll. The slot is NOT hidden on the
+   * 64px collapsed rail (Council Verdict 2026-07-16 — blanket-hiding it
+   * stranded home + every account action behind a persisted collapse):
+   * the header component itself renders compact icon variants via the
+   * `[data-sidebar-collapsed='1']` data-attr (see DoorwaySidebarHeader).
    */
   sidebarHeader?: ReactNode;
   /**
@@ -123,14 +126,14 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
           transition: 'width 180ms cubic-bezier(.2,.7,.2,1)',
         }}
       >
-        {/* Pinned header — identity / branding (AccountSwitcher, Wordmark).
-            Rendered outside the scroll container so it stays put while the
-            nav items below scroll. Hidden on the 64px collapsed rail. */}
+        {/* Pinned header — identity / branding (wordmark home-link + plaque
+            account-menu trigger). Rendered outside the scroll container so it
+            stays put while the nav items below scroll. Stays mounted on the
+            64px collapsed rail — the header's own data-attr variants swap to
+            icon-only (home mark + avatar trigger) so the account actions
+            never vanish with the rail. */}
         {sidebarHeader ? (
-          <div
-            className="shrink-0 border-b [[data-sidebar-collapsed='1']_&]:hidden"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
+          <div className="shrink-0 border-b" style={{ borderColor: 'var(--m-line)' }}>
             {sidebarHeader}
           </div>
         ) : null}

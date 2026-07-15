@@ -23,6 +23,13 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
+import {
+  resolveDayOfFamily,
+  resolveModules,
+  DAY_OF_FAMILY_META,
+  type DayOfFamily,
+  type ResolvedModule,
+} from '@/lib/vendor-dayof-modules';
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
@@ -59,13 +66,36 @@ export const metadata = { title: 'On the Day · Vendor · Setnayan' };
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
 
-/** The four day-of console personas shown as pills (order matters for display). */
-const CATEGORY_PILLS: { kind: DayOfConsoleKind; label: string; icon: typeof Camera }[] = [
-  { kind: 'photo', label: 'Photo / Video', icon: Camera },
-  { kind: 'coordinator', label: 'Coordinator', icon: UserCheck },
-  { kind: 'caterer', label: 'Caterer', icon: UtensilsCrossed },
-  { kind: 'band', label: 'Band / DJ', icon: Music },
-];
+/**
+ * Icon per controller family. The old hardcoded 4-persona quad
+ * (`CATEGORY_PILLS`) is gone — the family a vendor operates in is now derived
+ * from the real ~57-tile taxonomy (`resolveDayOfFamily`, lib/vendor-dayof-modules),
+ * so a florist / HMUA / photo-booth / host — every tile the old resolver dumped
+ * into a dead 'general' bucket — lands in a real family with real tools.
+ */
+const FAMILY_ICON: Record<DayOfFamily, typeof Camera> = {
+  coordinate: UserCheck,
+  capture: Camera,
+  serve: UtensilsCrossed,
+  perform: Music,
+  setup: PackageCheck,
+};
+
+/** Icon per module id, for the day-of module readout. */
+const MODULE_ICON: Partial<Record<ResolvedModule['id'], typeof Camera>> = {
+  run_of_show: CalendarClock,
+  pax_headcount: Users,
+  delivery_handover: PackageCheck,
+  review_qr: Star,
+  live_reviews: Star,
+  qr_scanner: UserCheck,
+  shot_list: Camera,
+  setlist: Music,
+  issues_log: Circle,
+  production_sheet: UtensilsCrossed,
+  vendor_papic: Images,
+  guest_delivery: CheckCircle2,
+};
 
 type Brief = {
   event: {
@@ -235,6 +265,16 @@ export default async function VendorOnTheDayPage({
   const invited = brief?.pax.invited ?? 0;
   const attending = brief?.pax.attending ?? 0;
 
+  // Taxonomy-driven controller family + module set. When we have a brief we
+  // narrow to the tiles the vendor is actually booked on for THIS event
+  // (`booked_categories`); otherwise we consider all of the vendor's services.
+  // `override` is null until the per-booking configurator (a later PR) persists
+  // a `vendor_dayof_configs` row — so today every vendor sees code defaults.
+  const eventTiles = brief?.booked_categories ?? null;
+  const family = resolveDayOfFamily(profile.services, eventTiles);
+  const modules = resolveModules(profile.services, eventTiles, null);
+  const enabledModules = modules.filter((m) => m.enabled);
+
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
@@ -343,32 +383,9 @@ export default async function VendorOnTheDayPage({
         </div>
       )}
 
-      {/* 3 · Category pills + category-conditional console. */}
+      {/* 3 · Controller family + module readout (taxonomy-driven) + console. */}
       <div>
-        <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-          Day-of tools adapt to your service{' '}
-          <ArrowRight aria-hidden className="inline h-3.5 w-3.5" strokeWidth={1.75} />
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {CATEGORY_PILLS.map((pill) => {
-            const active = pill.kind === kind;
-            const Icon = pill.icon;
-            return (
-              <span
-                key={pill.kind}
-                className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
-                style={
-                  active
-                    ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-                    : { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
-                }
-              >
-                <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {pill.label}
-              </span>
-            );
-          })}
-        </div>
+        <ModuleReadout family={family} modules={enabledModules} />
 
         {/* Photo / Video console — delivery progress + guests headcount. */}
         {kind === 'photo' ? (
@@ -535,9 +552,69 @@ export default async function VendorOnTheDayPage({
       </div>
         </>
       ) : (
-        <CompactDayOf kind={kind} />
+        <CompactDayOf family={family} modules={enabledModules} />
       )}
     </section>
+  );
+}
+
+/**
+ * Taxonomy-driven module readout — the honest replacement for the old
+ * hardcoded 4-persona pill quad. Shows the controller family the vendor is
+ * operating in for this event and the day-of tools that are on for it. Modules
+ * gated behind the DPO/NPC consent ruling are labelled "needs setup" rather
+ * than rendered as silently active.
+ */
+function ModuleReadout({
+  family,
+  modules,
+}: {
+  family: DayOfFamily;
+  modules: ResolvedModule[];
+}) {
+  const FamilyIcon = FAMILY_ICON[family];
+  const meta = DAY_OF_FAMILY_META[family];
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <FamilyIcon aria-hidden className="h-4 w-4" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
+        <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          {meta.label}
+        </p>
+      </div>
+      <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+        {meta.blurb}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {modules.map((m) => {
+          const Icon = MODULE_ICON[m.id] ?? Circle;
+          const needsSetup = Boolean(m.counselGated);
+          return (
+            <span
+              key={m.id}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
+              style={
+                needsSetup
+                  ? { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
+                  : { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
+              }
+              title={m.blurb}
+            >
+              <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {m.label}
+              {needsSetup ? (
+                <span
+                  className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                >
+                  Needs setup
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -548,7 +625,13 @@ export default async function VendorOnTheDayPage({
  * that will adapt to their service, and a door into their event briefs. A
  * discreet "Preview the console" link is the owner escape hatch.
  */
-function CompactDayOf({ kind }: { kind: DayOfConsoleKind }) {
+function CompactDayOf({
+  family,
+  modules,
+}: {
+  family: DayOfFamily;
+  modules: ResolvedModule[];
+}) {
   return (
     <div className="space-y-6">
       {/* Promoted "No event today" explainer. */}
@@ -587,33 +670,8 @@ function CompactDayOf({ kind }: { kind: DayOfConsoleKind }) {
         </div>
       </div>
 
-      {/* Day-of tools adapt — informational pills (your service is highlighted). */}
-      <div>
-        <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-          On the day, your tools adapt to your service{' '}
-          <ArrowRight aria-hidden className="inline h-3.5 w-3.5" strokeWidth={1.75} />
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {CATEGORY_PILLS.map((pill) => {
-            const active = pill.kind === kind;
-            const Icon = pill.icon;
-            return (
-              <span
-                key={pill.kind}
-                className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
-                style={
-                  active
-                    ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-                    : { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
-                }
-              >
-                <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {pill.label}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+      {/* Day-of tools adapt — taxonomy-driven family + module readout. */}
+      <ModuleReadout family={family} modules={modules} />
 
       {/* Event-brief door — where day-of prep actually happens before the day. */}
       <Link

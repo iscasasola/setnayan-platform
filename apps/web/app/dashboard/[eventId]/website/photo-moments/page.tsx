@@ -56,7 +56,7 @@ export default async function PhotoMomentsEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -65,11 +65,11 @@ export default async function PhotoMomentsEditorPage({
           Back to wedding website
         </Link>
         <div className="space-y-1.5">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Photo moments
           </p>
-          <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             {event.display_name}
           </h1>
         </div>
@@ -82,7 +82,7 @@ export default async function PhotoMomentsEditorPage({
 
       <PhotoMomentsEditor eventId={eventId} initial={config} />
 
-      <footer className="rounded-xl border border-ink/10 bg-cream/60 p-5 text-sm text-ink/65">
+      <footer className="sn-tile p-5 text-sm text-ink/65">
         Changes go live the moment you save. Guests will see the new list on their next
         visit to your wedding URL.
       </footer>

@@ -70,8 +70,9 @@ export default async function StampMakerPage({ params }: Props) {
         Back to Save the Date
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Make your wax seal</h1>
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Wax Seal</p>
+        <h1 className="sn-h1">Make your wax seal</h1>
         <p className="max-w-prose text-base text-ink/65">
           Your monogram is the stamp. Pour the wax, wait for it to set, then press — every pour is
           one of a kind. Your seal holds your invitation closed until a guest swipes it away.

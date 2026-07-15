@@ -147,11 +147,11 @@ export default async function SetnayanAiPage({ params }: Props) {
           shortlist) lives on /vendors, so the active state leads straight there. */}
       {active ? (
         <>
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Setnayan AI
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Your vendor shortlist is ranked
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -177,11 +177,11 @@ export default async function SetnayanAiPage({ params }: Props) {
         </>
       ) : owns || !paywallOn ? (
         <>
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Setnayan AI
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Setnayan AI is ready for your wedding
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -191,7 +191,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
           </header>
 
-          <div className="flex flex-col gap-4 rounded-xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="sn-tile flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
               Assisted planning is currently off.
             </p>
@@ -206,11 +206,11 @@ export default async function SetnayanAiPage({ params }: Props) {
       ) : (
         <>
           {/* BUY — the only state that sells. Non-owner, paywall on. */}
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Setnayan AI
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Stop guessing who to hire
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -224,7 +224,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
               <li
                 key={title}
-                className="rounded-xl border border-ink/10 bg-cream p-4"
+                className="sn-row p-4"
               >
                 <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
                 <p className="mt-2 text-sm font-medium text-ink">{title}</p>
@@ -233,7 +233,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             ))}
           </ul>
 
-          <div className="rounded-xl border border-ink/10 bg-white p-5">
+          <div className="sn-tile p-5">
             {pricePhp != null && settings ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-ink/65">

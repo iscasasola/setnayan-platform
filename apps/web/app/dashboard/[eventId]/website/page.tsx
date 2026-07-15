@@ -113,12 +113,12 @@ export default async function WebsiteHubPage({
   return (
     <section className="space-y-8">
       {/* Header strip — eyebrow + title + lede */}
-      <header className="space-y-2">
-        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye flex items-center gap-2">
           <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Your {eventNoun(event.event_type)} website
         </p>
-        <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           {event.display_name || `Your ${eventNounCap(event.event_type)} page`}
         </h1>
         <p className="max-w-prose text-base text-ink/70">
@@ -128,8 +128,8 @@ export default async function WebsiteHubPage({
       </header>
 
       {/* Hero — public site identity + the primary "Launch editor" action */}
-      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/70">
-        <div className="space-y-5 p-6 sm:p-8">
+      <div className="overflow-hidden sn-tile">
+        <div className="space-y-5">
           <div className="space-y-1.5">
             {publicLandingUrl ? (
               <>
@@ -229,7 +229,7 @@ export default async function WebsiteHubPage({
       {publicLandingUrl ? (
         <div className="space-y-3">
           <div className="space-y-1">
-            <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+            <p className="sn-eye flex items-center gap-2">
               <CalendarClock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Your page through time
             </p>
@@ -295,7 +295,7 @@ function QuickLink({
     <Link
       data-reveal-item={dataRevealItem ? '' : undefined}
       href={href}
-      className="group flex items-start gap-4 rounded-xl border border-ink/10 bg-cream p-5 transition-colors hover:border-terracotta/40 hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+      className="group sn-row flex items-start gap-4 p-5 transition-colors hover:border-terracotta/40 hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
     >
       <span className="mt-0.5 shrink-0">{icon}</span>
       <span className="min-w-0 flex-1 space-y-1">
@@ -337,7 +337,7 @@ function PhasePart({
   return (
     <div
       data-reveal-item={dataRevealItem ? '' : undefined}
-      className="flex flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40"
+      className="flex flex-col sn-row p-4 transition-colors hover:border-terracotta/40"
     >
       <span className="min-w-0 flex-1 space-y-1">
         <span className="block text-sm font-semibold text-ink">{title}</span>

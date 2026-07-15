@@ -49,12 +49,12 @@ export default async function PabuyaDashboardPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <header className="mb-6">
-        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <header className="sn-reveal mb-6">
+        <p className="sn-eye">
           <Gift aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
           Pabuya · E-Gifts
         </p>
-        <h1 className="mt-1 font-display text-3xl italic text-ink/90 sm:text-4xl">
+        <h1 className="sn-h1 mt-1">
           The digital money dance
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">

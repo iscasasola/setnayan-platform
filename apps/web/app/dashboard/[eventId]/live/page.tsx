@@ -216,8 +216,9 @@ export default async function LiveWallConsolePage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
+      <header className="sn-reveal">
+        <p className="sn-eye">Live Wall</p>
+        <h1 className="sn-h1 flex items-center gap-2">
           <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
           Live Wall
         </h1>
@@ -234,7 +235,7 @@ export default async function LiveWallConsolePage({
             {stats.map((s) => (
               <div key={s.label} className="text-center">
                 <dt className="sr-only">{s.label}</dt>
-                <dd className="text-lg font-semibold text-ink">{s.value}</dd>
+                <dd className="font-mono text-lg font-semibold text-ink">{s.value}</dd>
                 <dd className="flex items-center gap-1 text-[11px] text-ink/50">
                   {s.icon}
                   {s.label}

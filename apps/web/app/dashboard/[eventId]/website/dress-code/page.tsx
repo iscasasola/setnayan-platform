@@ -72,7 +72,7 @@ export default async function DressCodeEditorPage({
   return (
     <section className="space-y-6">
       {/* Header strip */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -81,11 +81,11 @@ export default async function DressCodeEditorPage({
           Back to website
         </Link>
         <div>
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Shirt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Dress code
           </p>
-          <h1 className="mt-1 font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1 mt-1">
             Tell your guests what to wear
           </h1>
           <p className="mt-2 max-w-prose text-sm text-ink/65">
@@ -131,7 +131,7 @@ export default async function DressCodeEditorPage({
           <div className="space-y-2">
             <label
               htmlFor="dress-code-title"
-              className="block font-mono text-xs uppercase tracking-[0.18em] text-ink/55"
+              className="sn-eye block"
             >
               Headline
             </label>
@@ -151,7 +151,7 @@ export default async function DressCodeEditorPage({
           <div className="space-y-2">
             <label
               htmlFor="dress-code-description"
-              className="block font-mono text-xs uppercase tracking-[0.18em] text-ink/55"
+              className="sn-eye block"
             >
               Guidance
             </label>
@@ -169,7 +169,7 @@ export default async function DressCodeEditorPage({
 
           {/* Palette */}
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+            <p className="sn-eye">
               Palette
             </p>
             <p className="text-xs text-ink/55">
@@ -213,7 +213,7 @@ export default async function DressCodeEditorPage({
 
         {/* Preview */}
         <aside className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+          <p className="sn-eye mb-2">
             Live preview
           </p>
           <DressCodePreview config={config} />

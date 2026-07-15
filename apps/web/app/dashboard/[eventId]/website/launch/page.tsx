@@ -81,7 +81,7 @@ export default async function WebsiteLaunchPage({
   return (
     <section className="space-y-8">
       {/* Header */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/studio`}
           className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
@@ -90,11 +90,11 @@ export default async function WebsiteLaunchPage({
           Back to Studio
         </Link>
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <CalendarClock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Launch
           </p>
-          <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             Preview &amp; launch your website
           </h1>
           <p className="max-w-prose text-base text-ink/70">
@@ -119,7 +119,7 @@ export default async function WebsiteLaunchPage({
         {publicLandingUrl ? (
           <WebsiteLaunchPreview eventId={eventId} publicLandingUrl={publicLandingUrl} />
         ) : (
-          <div className="flex flex-col items-start gap-3 rounded-2xl border border-ink/10 bg-cream/60 p-6">
+          <div className="flex flex-col items-start gap-3 sn-tile p-6">
             <p className="flex items-center gap-2 text-sm font-semibold text-ink">
               <Link2 aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
               Set your {eventNoun(event.event_type)} URL to preview

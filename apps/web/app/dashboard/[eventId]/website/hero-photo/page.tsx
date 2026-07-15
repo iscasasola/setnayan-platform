@@ -68,8 +68,9 @@ export default async function HeroPhotoEditorPage({
       </Link>
 
       {/* Header */}
-      <header className="mb-8 space-y-2">
-        <h1 className="font-display text-3xl italic text-ink sm:text-4xl">
+      <header className="sn-reveal mb-8 space-y-2">
+        <p className="sn-eye">Landing page</p>
+        <h1 className="sn-h1">
           Hero photo
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
@@ -97,7 +98,7 @@ export default async function HeroPhotoEditorPage({
       {currentPhotoUrl ? (
         <section
           aria-labelledby="current-photo-heading"
-          className="mb-8 space-y-4 rounded-2xl border border-ink/10 bg-cream/60 p-5"
+          className="mb-8 space-y-4 sn-tile p-5"
         >
           <div className="flex items-center justify-between gap-3">
             <h2
@@ -145,7 +146,7 @@ export default async function HeroPhotoEditorPage({
       {/* Upload form */}
       <section
         aria-labelledby="upload-heading"
-        className="space-y-4 rounded-2xl border border-ink/10 bg-cream/40 p-5"
+        className="space-y-4 sn-tile p-5"
       >
         <h2 id="upload-heading" className="font-display text-lg italic text-ink">
           {currentPhotoUrl ? 'Replace photo' : 'Add a photo'}

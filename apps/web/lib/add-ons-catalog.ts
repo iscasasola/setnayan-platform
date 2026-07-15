@@ -228,12 +228,16 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'setnayan_ai',
     serviceKey: 'SETNAYAN_AI',
     poster: {
+      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): the old purple
+      // gradient + purple chip were a retired-mulberry island (owner screenshot
+      // flag). Re-expressed to the kit — obsidian base with a warm gold cast, so
+      // the AI hero reads as the premium tile idiom, not violet.
       motion: 'pulse',
       baseBackground:
-        'linear-gradient(135deg, #2A1330 0%, #5A2E66 50%, #8B4A93 100%)',
+        'linear-gradient(135deg, #17160F 0%, #3A2E1A 55%, #6B5324 100%)',
       motionBackground:
-        'radial-gradient(circle at 50% 50%, #E8C8FF 0%, transparent 55%)',
-      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+        'radial-gradient(circle at 50% 50%, #E8D3A0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {
@@ -448,12 +452,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'branding',
     tier: 'free',
     poster: {
+      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): retired the purple
+      // gradient + chip (the other studio violet island) to a warm gold-brown,
+      // keeping the App Store variety on-language (no violet).
       motion: 'pulse',
       baseBackground:
-        'linear-gradient(135deg, #1A0B2E 0%, #3D1F5C 50%, #6B3FA0 100%)',
+        'linear-gradient(135deg, #241A12 0%, #4A331F 50%, #7A5326 100%)',
       motionBackground:
-        'radial-gradient(circle at 50% 50%, #C8A0FF 0%, transparent 50%)',
-      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+        'radial-gradient(circle at 50% 50%, #F0D8A8 0%, transparent 50%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {

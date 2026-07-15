@@ -79,8 +79,9 @@ export default async function ClearancePage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to your dashboard
       </Link>
 
-      <header className="mt-3 space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Close out the day</h1>
+      <header className="sn-reveal mt-3 space-y-1">
+        <p className="sn-eye">Close out</p>
+        <h1 className="sn-h1">Close out the day</h1>
         <p className="text-sm text-ink/60">
           When the celebration winds down, wrap up the live services and close out — the app moves
           into After mode (recap, galleries, and vendor reviews).
@@ -94,7 +95,7 @@ export default async function ClearancePage({ params }: Props) {
             <li key={s.label}>
               <Link
                 href={s.href}
-                className="group flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-4 shadow-sm transition-colors hover:border-terracotta/40"
+                className="sn-row group flex items-center justify-between gap-3 p-4 transition-colors hover:border-terracotta/40"
               >
                 <span className="flex items-center gap-3">
                   <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">

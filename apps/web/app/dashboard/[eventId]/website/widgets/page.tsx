@@ -156,7 +156,7 @@ export default async function WidgetsEditorPage({
   return (
     <section className="space-y-8">
       {/* Header strip — back link + title */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
@@ -165,11 +165,11 @@ export default async function WidgetsEditorPage({
           Back to your {eventNoun(event.event_type)} website
         </Link>
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <LayoutGrid aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Customize widgets
           </p>
-          <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             Shape your {eventNoun(event.event_type)} page
           </h1>
           <p className="max-w-prose text-base text-ink/70">
@@ -280,7 +280,7 @@ export default async function WidgetsEditorPage({
       {/* Always-on section */}
       <section className="space-y-3">
         <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Always visible
           </p>
           <p className="mt-1 text-sm text-ink/65">
@@ -305,7 +305,7 @@ export default async function WidgetsEditorPage({
       {/* Hideable section */}
       <section className="space-y-3">
         <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Optional sections
           </p>
           <p className="mt-1 text-sm text-ink/65">
@@ -315,7 +315,7 @@ export default async function WidgetsEditorPage({
           </p>
         </header>
         {hideableRows.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-6 text-sm italic text-ink/55">
+          <p className="sn-row border-dashed p-6 text-sm italic text-ink/55">
             Your optional sections will appear here.
           </p>
         ) : (
@@ -335,7 +335,7 @@ export default async function WidgetsEditorPage({
       </section>
 
       {/* Footer note */}
-      <footer className="rounded-xl border border-ink/10 bg-cream/60 p-5 text-sm text-ink/65">
+      <footer className="sn-tile p-5 text-sm text-ink/65">
         Changes apply right away. Guests who already opened your page may see the
         previous layout for up to a minute while their browser refreshes.
       </footer>
@@ -377,10 +377,8 @@ function WidgetRow({
 
   return (
     <li
-      className={`flex flex-col gap-3 rounded-xl border bg-cream p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
-        row.is_visible
-          ? 'border-ink/10'
-          : 'border-ink/10 bg-cream/60 opacity-70'
+      className={`flex flex-col gap-3 sn-row p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
+        row.is_visible ? '' : 'opacity-70'
       }`}
     >
       {/* Drag handle — visual cue · functional via Up/Down buttons in V1 */}

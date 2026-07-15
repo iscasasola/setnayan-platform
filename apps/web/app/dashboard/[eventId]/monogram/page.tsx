@@ -107,11 +107,11 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           Monogram maker
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Your wedding monogram
         </h1>
         <p className="max-w-prose text-base text-ink/65">

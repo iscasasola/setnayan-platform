@@ -116,11 +116,11 @@ export default async function CoupleThreadPage({ params }: Props) {
 
   return (
     <section className="flex h-[calc(100dvh-12rem)] flex-col gap-4">
-      <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <header className="sn-tile flex items-center justify-between gap-3 p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
             href={`/dashboard/${eventId}/messages`}
-            className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+            className="sn-eye hover:text-terracotta"
           >
             ‹ Messages
           </Link>

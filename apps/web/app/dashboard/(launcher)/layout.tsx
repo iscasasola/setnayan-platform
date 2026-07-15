@@ -56,7 +56,21 @@ export default async function LauncherLayout({
   ]);
 
   return (
-    <div className="min-h-dvh">
+    // The ambient Atelier wash — the warm paper + gold/sage/slate glows the
+    // frosted home cards sit ON (owner-approved final home design 2026-07-15;
+    // Glass Dashboard reference). Scoped to the LAUNCHER route only — the rest
+    // of the dashboard keeps the flat `--m-paper` from dashboard/layout.tsx
+    // (the 2026-07-13 white-flatten stands everywhere but this home splash).
+    <div
+      className="min-h-dvh"
+      style={{
+        background:
+          'radial-gradient(50% 60% at 15% 4%, rgba(203,167,102,.16), transparent 62%),' +
+          'radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.09), transparent 62%),' +
+          'radial-gradient(50% 62% at 45% 100%, rgba(78,108,130,.10), transparent 62%),' +
+          '#F4F1EA',
+      }}
+    >
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/dashboard" aria-label="Setnayan — home">
           <Wordmark />

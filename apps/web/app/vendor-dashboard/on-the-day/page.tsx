@@ -30,9 +30,19 @@ import {
   type DayOfFamily,
   type ResolvedModule,
 } from '@/lib/vendor-dayof-modules';
+import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
+import {
+  fetchVendorTeam,
+  enrichTeamWithUsers,
+  isVendorAdminRole,
+  VENDOR_TEAM_ROLE_LABEL,
+} from '@/lib/vendor-team';
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
+import { ModuleConfigurator } from './_components/module-configurator';
+import { EventPicker } from './_components/event-picker';
+import { AccessGrants, type GrantableMember } from './_components/access-grants';
 
 export const metadata = { title: 'On the Day · Vendor · Setnayan' };
 
@@ -150,7 +160,9 @@ export default async function VendorOnTheDayPage({
   // Owner/design escape hatch: ?preview=1 renders the full console with no event
   // in window so the layout can be reviewed. The DEFAULT (no flag, no event
   // today) shows the compact honest state — matching the banner's own claim.
-  const isPreview = (await searchParams).preview === '1';
+  const sp = await searchParams;
+  const isPreview = sp.preview === '1';
+  const configureId = typeof sp.event === 'string' ? sp.event : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -167,6 +179,38 @@ export default async function VendorOnTheDayPage({
   const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
   const todaysBooking =
     bookings.find((b) => b.bookedDate === today) ?? null;
+
+  // Step 1 of the launcher — the pick-event list. Dedupe to one row per event
+  // (a vendor can hold several pool slots on one event) and classify each as
+  // today / upcoming / past for the picker + the configure/launch affordances.
+  const pickerBookings = [...new Map(bookings.map((b) => [b.eventId, b])).values()]
+    .map((b) => ({
+      eventId: b.eventId,
+      eventName: b.eventName,
+      bookedDate: b.bookedDate,
+      when: (b.bookedDate === today ? 'today' : b.bookedDate > today ? 'upcoming' : 'past') as
+        | 'today'
+        | 'upcoming'
+        | 'past',
+    }))
+    .sort((a, b) => a.bookedDate.localeCompare(b.bookedDate));
+
+  // Step 2 — configure a specific booking ahead of time (?event=<id>). Renders a
+  // focused setup view for any booked event (today's or upcoming), then returns.
+  const configureBooking = configureId
+    ? bookings.find((b) => b.eventId === configureId) ?? null
+    : null;
+  if (configureBooking) {
+    return (
+      <ConfigureEventView
+        supabase={supabase}
+        vendorProfileId={profile.vendor_profile_id}
+        services={profile.services}
+        booking={configureBooking}
+        isToday={configureBooking.bookedDate === today}
+      />
+    );
+  }
 
   // The event-day gate that makes the banner TRUE: the full console renders only
   // when there is a booking dated today (the real in-window state, T-1h → T+8h
@@ -347,11 +391,11 @@ export default async function VendorOnTheDayPage({
               </div>
             </div>
             <Link
-              href={`/vendor-dashboard/clients/${todaysBooking.eventId}`}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition hover:bg-white/10"
-              style={{ borderColor: 'rgba(255,255,255,0.22)', color: 'var(--m-paper)' }}
+              href={`/vendor-dashboard/on-the-day/live/${todaysBooking.eventId}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition"
+              style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
             >
-              Change event <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Launch the app <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           </div>
         </div>
@@ -385,7 +429,18 @@ export default async function VendorOnTheDayPage({
 
       {/* 3 · Controller family + module readout (taxonomy-driven) + console. */}
       <div>
-        <ModuleReadout family={family} modules={enabledModules} />
+        <div className="flex items-start justify-between gap-3">
+          <ModuleReadout family={family} modules={enabledModules} />
+          {todaysBooking ? (
+            <Link
+              href={`/vendor-dashboard/on-the-day?event=${todaysBooking.eventId}`}
+              className="mt-0.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold"
+              style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+            >
+              Set up
+            </Link>
+          ) : null}
+        </div>
 
         {/* Photo / Video console — delivery progress + guests headcount. */}
         {kind === 'photo' ? (
@@ -552,7 +607,7 @@ export default async function VendorOnTheDayPage({
       </div>
         </>
       ) : (
-        <CompactDayOf family={family} modules={enabledModules} />
+        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} />
       )}
     </section>
   );
@@ -619,6 +674,120 @@ function ModuleReadout({
 }
 
 /**
+ * Step 2 — configure a specific booking's day-of app. Resolves the modules
+ * available to the vendor for THIS event's booked tiles (folding in any saved
+ * override) and renders the toggle configurator. Today's booking also gets a
+ * Launch button; upcoming bookings show when they'll be launchable.
+ */
+async function ConfigureEventView({
+  supabase,
+  vendorProfileId,
+  services,
+  booking,
+  isToday,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  vendorProfileId: string;
+  services: string[];
+  booking: { eventId: string; eventName: string; bookedDate: string };
+  isToday: boolean;
+}) {
+  const { data: briefData } = await supabase.rpc('get_vendor_event_brief', {
+    p_event_id: booking.eventId,
+  });
+  const eventTiles =
+    briefData && Array.isArray((briefData as { booked_categories?: unknown }).booked_categories)
+      ? (briefData as { booked_categories: string[] }).booked_categories
+      : null;
+  const coupleName =
+    (briefData as { event?: { display_name?: string | null } } | null)?.event?.display_name ??
+    booking.eventName;
+
+  const override = await fetchDayOfOverride(supabase, vendorProfileId, booking.eventId);
+  const resolved = resolveModules(services, eventTiles, override);
+  const modules = resolved.map((m) => ({
+    id: m.id,
+    label: m.label,
+    blurb: m.blurb,
+    enabled: m.enabled,
+    counselGated: m.counselGated,
+  }));
+  const family = resolveDayOfFamily(services, eventTiles);
+  const dateLabel = fmtDate(booking.bookedDate);
+
+  // Step 3 — access grants. Only surfaces when the vendor has teammates beyond
+  // the owner (a solo operator never sees it) AND an enabled module is delegable.
+  const anyGrantModule = resolved.some((m) => m.enabled && m.requiresGrant);
+  let grantMembers: GrantableMember[] = [];
+  if (anyGrantModule) {
+    const [teamRows, grantRows] = await Promise.all([
+      fetchVendorTeam(supabase, vendorProfileId).catch(() => []),
+      supabase
+        .from('vendor_event_access_grants')
+        .select('grantee_user_id, revoked_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('event_id', booking.eventId),
+    ]);
+    const grantedIds = new Set(
+      ((grantRows.data ?? []) as { grantee_user_id: string; revoked_at: string | null }[])
+        .filter((g) => !g.revoked_at)
+        .map((g) => g.grantee_user_id),
+    );
+    const enriched = await enrichTeamWithUsers(supabase, teamRows);
+    grantMembers = enriched.map((m) => ({
+      userId: m.user_id,
+      name: m.display_name || m.email || 'Teammate',
+      roleLabel: VENDOR_TEAM_ROLE_LABEL[m.role],
+      isOwnerAdmin: isVendorAdminRole(m.role),
+      granted: grantedIds.has(m.user_id),
+    }));
+  }
+  // Only worth showing when there's at least one non-owner teammate to grant.
+  const showGrants = grantMembers.some((m) => !m.isOwnerAdmin);
+
+  return (
+    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/vendor-dashboard/on-the-day"
+          className="inline-flex items-center gap-1.5 text-sm font-medium"
+          style={{ color: 'var(--m-slate-2)' }}
+        >
+          <ArrowRight aria-hidden className="h-4 w-4 rotate-180" strokeWidth={1.75} /> All events
+        </Link>
+        {isToday ? (
+          <Link
+            href={`/vendor-dashboard/on-the-day/live/${booking.eventId}`}
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white"
+            style={{ background: 'var(--m-ink)' }}
+          >
+            Launch the app <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        ) : (
+          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            Launches on {dateLabel}
+          </span>
+        )}
+      </div>
+
+      <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
+        <p className="text-lg font-semibold" style={{ color: 'var(--m-paper)' }}>
+          {coupleName}
+        </p>
+        <p className="mt-0.5 text-sm" style={{ color: 'rgba(251,251,250,0.62)' }}>
+          {dateLabel}
+          {` · ${DAY_OF_FAMILY_META[family].label}`}
+        </p>
+      </div>
+
+      <ModuleConfigurator eventId={booking.eventId} modules={modules} />
+
+      {showGrants ? <AccessGrants eventId={booking.eventId} members={grantMembers} /> : null}
+    </section>
+  );
+}
+
+/**
  * Compact honest state — shown when there is NO event today and no ?preview=1.
  * This is what makes the banner true: instead of a full console of degraded
  * zero-cards, the vendor sees the "No event today" explainer, the day-of tools
@@ -628,12 +797,22 @@ function ModuleReadout({
 function CompactDayOf({
   family,
   modules,
+  bookings,
 }: {
   family: DayOfFamily;
   modules: ResolvedModule[];
+  bookings: {
+    eventId: string;
+    eventName: string;
+    bookedDate: string;
+    when: 'today' | 'upcoming' | 'past';
+  }[];
 }) {
   return (
     <div className="space-y-6">
+      {/* Step 1 — pick a booked event to set up ahead of time. */}
+      {bookings.length > 0 ? <EventPicker bookings={bookings} activeEventId={null} /> : null}
+
       {/* Promoted "No event today" explainer. */}
       <div
         className="rounded-2xl border border-dashed p-8 text-center"

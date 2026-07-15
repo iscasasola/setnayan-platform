@@ -164,25 +164,29 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
 
   return (
     <>
-      {/* The glass bar — looks like an input, acts as the palette trigger. */}
+      {/* The glass bar — looks like an input, acts as the palette trigger
+          (proto .cmd: glass recipe from .sn-tile-glass, lift on hover). */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 rounded-2xl border border-white/70 bg-white/60 px-4 py-3 text-left shadow-sm transition-colors hover:border-mulberry/30"
+        className="sn-tile-glass sn-lift-2 flex w-full max-w-[760px] items-center gap-3 rounded-xl px-[15px] py-2.5 text-left hover:border-mulberry/30 sm:py-3"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <Search
           aria-hidden
-          className="h-4 w-4 shrink-0 text-mulberry"
+          className="h-[18px] w-[18px] shrink-0 text-[color:var(--sn-gold-600)]"
           strokeWidth={1.75}
         />
-        <span className="flex-1 truncate text-sm text-ink/50">
-          Search your events, spaces &amp; more — or jump to a task
+        <span className="flex-1 truncate text-sm text-[color:var(--sn-ink-500)]">
+          <span className="sm:hidden">Search events, people, vendors</span>
+          <span className="hidden sm:inline">
+            Search events, people, vendors — or jump to a task
+          </span>
         </span>
         <kbd
           aria-hidden
-          className="hidden rounded-md border border-ink/15 bg-cream px-1.5 py-0.5 font-mono text-[10px] text-ink/40 sm:inline-block"
+          className="hidden rounded-md border border-[color:var(--sn-line)] bg-white/60 px-[7px] py-[3px] font-mono text-[11px] text-[color:var(--sn-ink-400)] sm:inline-block"
         >
           ⌘K
         </kbd>
@@ -190,7 +194,8 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 bg-ink/[0.32] backdrop-blur-[8px]"
+          style={{ animation: 'sn-fade .3s both' }}
           role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
@@ -201,9 +206,9 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
             role="dialog"
             aria-modal="true"
             aria-label="Search and jump"
-            className="mx-auto mt-[12vh] w-[min(34rem,92vw)] overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-xl backdrop-blur-2xl"
+            className="sn-pop-in mx-auto mt-[11vh] w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-white/70 bg-white/85 shadow-[0_60px_100px_-60px_rgba(30,26,18,0.6)] backdrop-blur-[30px] backdrop-saturate-150"
           >
-            <div className="flex items-center gap-3 border-b border-ink/10 px-4 py-3">
+            <div className="flex items-center gap-3 border-b border-ink/10 px-4 py-3.5">
               <Search
                 aria-hidden
                 className="h-4 w-4 shrink-0 text-mulberry"
@@ -218,10 +223,10 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
                 }}
                 onKeyDown={onInputKeyDown}
                 placeholder="Search your events, spaces & more"
-                className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
+                className="flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40"
                 aria-label="Search your events, spaces and account"
               />
-              <kbd className="rounded-md border border-ink/15 bg-cream px-1.5 py-0.5 font-mono text-[10px] text-ink/40">
+              <kbd className="rounded-md border border-[color:var(--sn-line)] bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[color:var(--sn-ink-400)]">
                 esc
               </kbd>
             </div>
@@ -241,10 +246,10 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
                       onClick={() => go(item.href)}
                       onMouseEnter={() => setHighlight(i)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                        active ? 'bg-mulberry/10' : 'hover:bg-mulberry/5'
+                        active ? 'bg-mulberry/[0.14]' : 'hover:bg-mulberry/5'
                       }`}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cream text-mulberry ring-1 ring-ink/10">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/70 text-[color:var(--sn-gold-700)]">
                         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                       </span>
                       <span className="min-w-0 flex-1">

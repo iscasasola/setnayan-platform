@@ -79,8 +79,8 @@ export async function YearMomentsStrip({ userId }: { userId: string }) {
   // The glass panel lives HERE (not around the call site) so the no-moments
   // null return never leaves an empty frame on the page.
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/45 p-4 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.3)]">
-      <h3 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
+    <div className="sn-tile-glass sn-lift-3 rounded-2xl p-4 sm:p-[18px]">
+      <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
         This year
       </h3>
       <YearMomentsList moments={views} initial={HOME_LIMIT} />

@@ -32,10 +32,14 @@ export function AlaalaLenses({
 
   return (
     <div>
-      <p className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+      <p className="mb-[9px] text-[10px] font-normal uppercase tracking-[0.14em] text-terracotta-100/50">
         Lenses
       </p>
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Alaala lenses">
+      <div
+        className="flex flex-wrap gap-[7px]"
+        role="tablist"
+        aria-label="Alaala lenses"
+      >
         {LENSES.map((lens) => {
           const on = lens.key === active;
           return (
@@ -45,10 +49,10 @@ export function AlaalaLenses({
               role="tab"
               aria-selected={on}
               onClick={() => setActive(lens.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+              className={`rounded-full border px-[11px] py-1.5 text-xs transition-[background-color,border-color,color] duration-200 ${
                 on
-                  ? 'bg-terracotta text-ink'
-                  : 'border border-white/20 text-white/75 hover:bg-white/10'
+                  ? 'sn-chip-pop border-transparent bg-terracotta font-extrabold text-[color:var(--sn-ink-black)]'
+                  : 'border-white/[0.16] bg-white/10 font-semibold text-terracotta-100/80 hover:bg-white/[0.18]'
               }`}
             >
               {lens.label}
@@ -56,7 +60,11 @@ export function AlaalaLenses({
           );
         })}
       </div>
-      <div className="mt-3 text-sm leading-relaxed text-white/60">
+      {/* `key` remount re-triggers the lens-body cross-fade per switch. */}
+      <div
+        key={active}
+        className="sn-lens-swap mt-3.5 min-h-16 text-xs leading-normal text-terracotta-100/60"
+      >
         {bodies[active]}
       </div>
     </div>

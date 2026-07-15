@@ -56,32 +56,30 @@ export default async function LauncherLayout({
   ]);
 
   return (
-    // The ambient Atelier wash — the warm paper + gold/sage/slate glows the
-    // frosted home cards sit ON (owner-approved final home design 2026-07-15;
-    // Glass Dashboard reference). Scoped to the LAUNCHER route only — the rest
-    // of the dashboard keeps the flat `--m-paper` from dashboard/layout.tsx
+    // The ambient Atelier wash — the warm paper + gold/slate glows the frosted
+    // home cards sit ON (owner-approved final home design 2026-07-15; pixel
+    // pass: the prototype's .win/.winwash gradient stack, defined once as
+    // `.sn-wash-home` in globals.css). Scoped to the LAUNCHER route only — the
+    // rest of the dashboard keeps the flat `--m-paper` from dashboard/layout.tsx
     // (the 2026-07-13 white-flatten stands everywhere but this home splash).
-    <div
-      className="min-h-dvh"
-      style={{
-        background:
-          'radial-gradient(50% 60% at 15% 4%, rgba(203,167,102,.16), transparent 62%),' +
-          'radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.09), transparent 62%),' +
-          'radial-gradient(50% 62% at 45% 100%, rgba(78,108,130,.10), transparent 62%),' +
-          '#F4F1EA',
-      }}
-    >
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="sn-wash-home min-h-dvh">
+      <header
+        className="sn-reveal mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8"
+        style={{ animationDelay: '0.12s' }}
+      >
         <Link href="/dashboard" aria-label="Setnayan — home">
           <Wordmark />
         </Link>
-        <div className="flex items-center gap-2">
+        {/* Top-bar utility pill (proto .utilpill) — bell + avatar in one
+            frosted capsule over the wash. */}
+        <div className="flex items-center gap-1 rounded-full border border-white/[0.65] bg-white/45 p-1 shadow-[0_12px_30px_-22px_rgba(30,26,18,0.45)] backdrop-blur-[16px]">
           <UnreadBellBadge
             userId={user.id}
             initialUnread={unreadCount}
             href="/dashboard/notifications"
             ariaBaseLabel="Notifications"
             ariaUnreadSuffix="unread"
+            pulse
           />
           <AccountSwitcher data={switcherData} />
         </div>

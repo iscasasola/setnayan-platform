@@ -325,7 +325,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
     );
 
   const createCalendarForm = (
-    <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+    <details className="sn-tile p-4 sm:p-6">
       <summary className="cursor-pointer text-base font-semibold">
         <CalendarPlus aria-hidden className="mr-1 inline h-4 w-4" /> Create a calendar
       </summary>
@@ -408,7 +408,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
   // visibility surface.
   const waitlistSection: WaitlistDateGroup[] = waitlist;
   const waitlistQueue = (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+    <div className="sn-tile p-4 sm:p-6">
       <h3 className="flex items-center gap-2 text-base font-semibold">
         <BellRing aria-hidden className="h-4 w-4 text-terracotta" /> Booked-Out Waitlist
       </h3>
@@ -552,7 +552,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
       {pools.length === 0 ? (
         namedCalendars ? (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center">
+            <div className="sn-tile p-6 text-center">
               <p className="text-ink/70">
                 No calendars yet. Create one below — name it, set its daily limit, and
                 pick which services it covers.
@@ -561,7 +561,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
             {createCalendarForm}
           </div>
         ) : (
-          <div className="rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+          <div className="sn-tile p-8 text-center">
             <p className="text-ink/70">
               Post a service first — each service category you offer gets its own
               schedule here automatically.
@@ -584,7 +584,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                 className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
                   isAllView
                     ? 'border-terracotta bg-terracotta text-cream'
-                    : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
+                    : 'border-ink/15 bg-white/70 text-ink/75 hover:border-ink/30'
                 }`}
               >
                 All schedules
@@ -599,7 +599,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                   className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
                     active
                       ? 'border-terracotta bg-terracotta text-cream'
-                      : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
+                      : 'border-ink/15 bg-white/70 text-ink/75 hover:border-ink/30'
                   }`}
                 >
                   {p.label}
@@ -613,7 +613,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
 
           {/* ── UNIVERSAL GRID — every schedule stacked per day ── (grid visuals only) */}
           {isAllView && variant === 'full' ? (
-            <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <div className="sn-tile p-4 sm:p-6">
               {gridNav}
               {weekdayHeader}
               <div className="grid grid-cols-7 gap-1">
@@ -724,7 +724,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
           {!isAllView && activePool ? (
             <>
               {variant === 'full' ? (
-              <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+              <div className="sn-tile p-4 sm:p-6">
                 {gridNav}
                 {weekdayHeader}
                 <div className="grid grid-cols-7 gap-1">
@@ -809,7 +809,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
               {/* Named Calendars: edit the calendar (name + limit + services).
                   Flag off: the per-pool daily-capacity editor only. */}
               {namedCalendars ? (
-                <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                <div className="sn-tile p-4 sm:p-6">
                   <h3 className="text-base font-semibold">Edit {activePool.label}</h3>
                   <p className="mt-1 text-sm text-ink/65">
                     Rename this calendar, set its daily limit, and choose which services it
@@ -847,7 +847,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                   </form>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+                <div className="sn-tile p-4 sm:p-6">
                   <h3 className="text-base font-semibold">Daily capacity — {activePool.label}</h3>
                   <p className="mt-1 text-sm text-ink/65">
                     How many bookings this team can serve on one date. Unlimited
@@ -878,7 +878,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
 
           {/* Add block + import client — pool select adapts to the view */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <details id="block-dates" className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <details id="block-dates" className="sn-tile p-4 sm:p-6">
               <summary className="cursor-pointer text-base font-semibold">
                 <Lock aria-hidden className="mr-1 inline h-4 w-4" /> Block dates
               </summary>
@@ -918,7 +918,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
               </form>
             </details>
 
-            <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <details className="sn-tile p-4 sm:p-6">
               <summary className="cursor-pointer text-base font-semibold">
                 <UserPlus aria-hidden className="mr-1 inline h-4 w-4" /> Import an outside client
               </summary>
@@ -957,7 +957,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
           </div>
 
           {/* Upcoming list — scoped to the view */}
-          <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <div className="sn-tile p-4 sm:p-6">
             <h3 className="text-base font-semibold">
               Upcoming {isAllView ? 'across every schedule' : 'on this schedule'}
             </h3>
@@ -1019,7 +1019,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
               is replaced by the per-calendar service picker (createCalendar /
               editCalendar above), so it's hidden when the flag is on. */}
           {!namedCalendars ? (
-          <details className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <details className="sn-tile p-4 sm:p-6">
             <summary className="cursor-pointer text-base font-semibold">
               <Users aria-hidden className="mr-1 inline h-4 w-4" /> Which categories share this team?
             </summary>

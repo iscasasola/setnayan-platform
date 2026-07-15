@@ -105,7 +105,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
       </header>
 
       {nothingYet ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream px-6 py-10 text-center">
+        <div className="sn-tile px-6 py-10 text-center">
           <p className="text-base text-ink/55">
             The couple hasn&rsquo;t set their mood board yet. Check back once they&rsquo;ve saved
             their palette.
@@ -115,7 +115,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         <div className="space-y-8">
           {/* Palette */}
           {hasPalette ? (
-            <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+            <section className="sn-tile p-5 sm:p-6">
               <h2 className="mb-4 text-lg font-semibold">Palette</h2>
               <ul className="space-y-3">
                 {paletteRows.map(({ key, label, colors }) => (
@@ -139,7 +139,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
 
           {/* Reception scene — read-only SVG render */}
           {hasReception ? (
-            <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+            <section className="sn-tile p-5 sm:p-6">
               <h2 className="mb-1 text-lg font-semibold">Reception design</h2>
               <p className="mb-4 text-sm text-ink/55">
                 The couple&rsquo;s chosen materials and treatments — ceiling, backdrop, stage,
@@ -154,7 +154,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
 
           {/* Inspiration photos */}
           {hasInspiration ? (
-            <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+            <section className="sn-tile p-5 sm:p-6">
               <h2 className="mb-1 text-lg font-semibold">Inspirations</h2>
               <p className="mb-4 text-sm text-ink/55">
                 Reference images the couple uploaded — venues, backdrops, florals, styling

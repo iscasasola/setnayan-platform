@@ -52,7 +52,7 @@ export function PushToggle() {
   const isActive = permission === 'granted' && !disabled;
 
   return (
-    <div className="mb-6 flex items-center justify-between rounded-xl border border-ink/10 bg-cream px-4 py-3">
+    <div className="mb-6 flex items-center justify-between sn-row px-4 py-3">
       <div className="flex items-center gap-3">
         {isActive ? (
           <Bell aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />

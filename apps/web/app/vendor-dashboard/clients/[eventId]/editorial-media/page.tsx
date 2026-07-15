@@ -97,7 +97,7 @@ export default async function VendorEditorialMediaPage({
       ) : eligibility.isRecommendedPick ? (
         // Recommended pick, but the service isn't confirmed complete yet —
         // Stage-10 gate. Show a clear pending/locked state, not "unavailable".
-        <div className="rounded-2xl border border-ink/10 bg-cream p-6">
+        <div className="sn-tile p-6">
           <h2 className="text-lg font-semibold">
             {eligibility.isDisputed ? 'On hold for this event' : 'Almost there'}
           </h2>
@@ -108,7 +108,7 @@ export default async function VendorEditorialMediaPage({
           </p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-6">
+        <div className="sn-tile p-6">
           <h2 className="text-lg font-semibold">Not available for this event yet</h2>
           <p className="mt-2 text-sm text-ink/65">
             “From your vendors” is open to the couple’s recommended vendor for a category. Once

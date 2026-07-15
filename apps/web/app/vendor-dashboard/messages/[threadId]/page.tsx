@@ -357,7 +357,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   return (
     <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
-      <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <header className="flex items-center justify-between gap-3 sn-row p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
             href="/vendor-dashboard/messages"
@@ -432,7 +432,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 <input type="hidden" name="thread_id" value={threadId} />
                 <SubmitButton
                   pendingLabel="Holding…"
-                  className="inline-flex h-9 items-center rounded-lg border border-ink/15 bg-cream px-4 text-sm text-ink/70 hover:border-ink/40"
+                  className="inline-flex h-9 items-center rounded-lg border border-ink/15 bg-white/70 px-4 text-sm text-ink/70 hover:border-ink/40"
                 >
                   Hold price
                 </SubmitButton>

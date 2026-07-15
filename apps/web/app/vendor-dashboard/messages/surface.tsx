@@ -148,7 +148,7 @@ export default async function VendorMessagesPage() {
       <InquiryOutcomesRollup rollup={outcomeRollup} />
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="rounded-xl border border-dashed border-ink/20 p-8 text-center">
           <MessageSquare
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -172,13 +172,13 @@ export default async function VendorMessagesPage() {
               {activeThreads.map(renderRow)}
             </RevealList>
           ) : (
-            <p className="rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+            <p className="rounded-xl border border-dashed border-ink/20 px-4 py-6 text-center text-sm text-ink/60">
               No active conversations — everything&rsquo;s tucked into Archived below.
             </p>
           )}
 
           {archivedThreads.length > 0 ? (
-            <details className="mt-4 rounded-xl border border-ink/10 bg-cream/60">
+            <details className="sn-row mt-4">
               <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
                 Archived · {archivedThreads.length}
               </summary>

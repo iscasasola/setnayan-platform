@@ -101,10 +101,10 @@ export function BuyTokensCta({
   const mobileTokenPrice = Math.round(webTokenPrice * MOBILE_SRP_MULTIPLIER);
 
   return (
-    <div className="m-card p-6">
+    <div className="sn-tile p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <p className="m-label-mono">Token packs</p>
+          <p className="sn-eye">Token packs</p>
           <p className="mt-1 text-sm text-ink/65">
             Buy tokens to unlock matched couples. Purchased tokens never expire.
           </p>

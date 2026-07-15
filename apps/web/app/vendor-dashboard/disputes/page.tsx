@@ -135,7 +135,7 @@ export default async function VendorDisputesPage() {
       ) : null}
 
       {rows.length === 0 && !error ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <div className="rounded-xl border border-dashed border-ink/15 p-8 text-center">
           <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <p className="mt-3 text-sm font-medium text-ink">No disputes — nice work.</p>
           <p className="mt-1 text-sm text-ink/60">
@@ -165,7 +165,7 @@ export default async function VendorDisputesPage() {
 function DisputeCard({ row }: { row: DisputeRow }) {
   const isOpen = row.status === 'open';
   return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5">
+    <li className="sn-row p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] font-medium text-ink/60">{row.public_id}</span>

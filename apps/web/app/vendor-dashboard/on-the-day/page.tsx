@@ -238,12 +238,10 @@ export default async function VendorOnTheDayPage() {
         </p>
       </div>
 
-      {/* 2 · Dark event card — today's booked event, or the no-event state. */}
+      {/* 2 · Dark event card — today's booked event (the sanctioned day-of
+          obsidian focal, § 1.3), or the no-event state. */}
       {todaysBooking ? (
-        <div
-          className="rounded-xl p-5 sm:p-6"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
+        <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
               <span
@@ -273,8 +271,8 @@ export default async function VendorOnTheDayPage() {
         </div>
       ) : (
         <div
-          className="rounded-xl border border-dashed p-8 text-center"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+          className="rounded-2xl border border-dashed p-8 text-center"
+          style={{ borderColor: 'var(--sn-line)' }}
         >
           <CalendarClock
             aria-hidden
@@ -330,10 +328,7 @@ export default async function VendorOnTheDayPage() {
         {kind === 'photo' ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {/* Delivery to the couple — 3-stage handshake, rendered as % done. */}
-            <div
-              className="rounded-xl border p-5"
-              style={{ borderColor: 'var(--m-line)', background: 'white' }}
-            >
+            <div className="sn-tile">
               <div className="flex items-center gap-2">
                 <CheckCircle2
                   aria-hidden
@@ -346,7 +341,7 @@ export default async function VendorOnTheDayPage() {
                 </p>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+                <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
                   {DELIVERY_PCT}%
                 </span>
                 <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -370,10 +365,7 @@ export default async function VendorOnTheDayPage() {
             </div>
 
             {/* Guests — live RSVP headcount. */}
-            <div
-              className="rounded-xl border p-5"
-              style={{ borderColor: 'var(--m-line)', background: 'white' }}
-            >
+            <div className="sn-tile">
               <div className="flex items-center gap-2">
                 <Users
                   aria-hidden
@@ -386,7 +378,7 @@ export default async function VendorOnTheDayPage() {
                 </p>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+                <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
                   {attending} / {invited}
                 </span>
                 <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -412,12 +404,7 @@ export default async function VendorOnTheDayPage() {
 
       {/* 5 · Capture for your website + their recap. */}
       <div>
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          Capture for your website + their recap
-        </h2>
+        <h2 className="sn-sec">Capture for your website + their recap</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <CaptureCard
             icon={Clapperboard}
@@ -464,12 +451,7 @@ export default async function VendorOnTheDayPage() {
 
       {/* 6 · Instant reviews from guests — the review QR. */}
       <div>
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          Instant reviews from guests
-        </h2>
+        <h2 className="sn-sec">Instant reviews from guests</h2>
         <div className="mt-3">
           {reviewQrSvg && reviewUrl ? (
             <GuestReviewQr
@@ -478,10 +460,7 @@ export default async function VendorOnTheDayPage() {
               businessName={profile.business_name}
             />
           ) : (
-            <div
-              className="flex items-start gap-3 rounded-xl border p-5"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-            >
+            <div className="sn-tile flex items-start gap-3">
               <Star
                 aria-hidden
                 className="mt-0.5 h-5 w-5 shrink-0"
@@ -530,8 +509,8 @@ function ShotListSection({
           Shot list · syncs to the couple
         </h2>
         <p
-          className="mt-3 rounded-xl border px-4 py-4 text-sm"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-slate-2)' }}
+          className="sn-tile mt-3 text-sm"
+          style={{ color: 'var(--m-slate-2)' }}
         >
           Your must-get shot list appears here on an event day, ready to check off as you shoot.
         </p>
@@ -541,12 +520,7 @@ function ShotListSection({
   // localStorage-backed, offline-tolerant client component.
   return (
     <div>
-      <h2
-        className="font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        Shot list · syncs to the couple
-      </h2>
+      <h2 className="sn-sec">Shot list · syncs to the couple</h2>
       <div className="mt-3">
         <ShotList eventId={eventId} eventName={eventName ?? 'this event'} />
       </div>
@@ -571,17 +545,14 @@ function CaptureCard({
   hint: string | null;
 }) {
   const inner = (
-    <div
-      className="flex h-full flex-col rounded-xl border p-5 transition"
-      style={{ borderColor: 'var(--m-line)', background: 'white' }}
-    >
+    <div className="sn-tile flex h-full flex-col">
       <div className="flex items-center gap-2">
         <Icon aria-hidden className="h-5 w-5" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
         <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {title}
         </p>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-3 font-mono text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -604,7 +575,7 @@ function CaptureCard({
   );
   if (!href) return inner;
   return (
-    <Link href={href} className="block">
+    <Link href={href} className="sn-press block">
       {inner}
     </Link>
   );
@@ -660,8 +631,7 @@ function NonPhotoConsole({
     <div className="mt-4 space-y-3">
       <Link
         href={target}
-        className="flex items-center justify-between gap-4 rounded-xl border p-5 transition hover:bg-white sm:p-6"
-        style={{ borderColor: 'var(--m-line)', background: 'white' }}
+        className="sn-tile sn-press flex items-center justify-between gap-4 sm:p-6"
       >
         <span className="flex items-start gap-3">
           <Icon aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />

@@ -85,8 +85,8 @@ function daysBetween(from: Date, to: Date): number {
 export function VoucherList({ vouchers }: { vouchers: VoucherRow[] }) {
   if (vouchers.length === 0) {
     return (
-      <div className="m-card p-6">
-        <p className="m-label-mono mb-2">Active vouchers</p>
+      <div className="sn-tile p-6">
+        <p className="sn-eye mb-2">Active vouchers</p>
         <p className="text-sm text-ink/65">
           No active earned-token vouchers yet. Earn tokens through subscription
           bundles, admin grants, or voucher codes.
@@ -98,9 +98,9 @@ export function VoucherList({ vouchers }: { vouchers: VoucherRow[] }) {
   const now = new Date();
 
   return (
-    <div className="m-card p-6">
+    <div className="sn-tile p-6">
       <div className="mb-4 flex items-center justify-between">
-        <p className="m-label-mono">Active vouchers</p>
+        <p className="sn-eye">Active vouchers</p>
         <p className="text-[11px] text-ink/50">FIFO burn · oldest first</p>
       </div>
       <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>

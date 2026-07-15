@@ -183,7 +183,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
               const myVote = mv.find((v) => v.voter_user_id === user.id);
               const iAmTarget = m.target_user_id === user.id;
               return (
-                <li key={m.motion_id} className="rounded-xl border border-sky-200 bg-cream p-4">
+                <li key={m.motion_id} className="rounded-xl border border-sky-200 bg-white/70 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-ink">
@@ -206,7 +206,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                           <input type="hidden" name="motion_id" value={m.motion_id} />
                           <input type="hidden" name="approve" value="true" />
                           <SubmitButton
-                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote?.approve ? 'bg-success-600 text-white' : 'border border-success-300 bg-cream text-success-900 hover:border-success-500'}`}
+                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote?.approve ? 'bg-success-600 text-white' : 'border border-success-300 bg-white/70 text-success-900 hover:border-success-500'}`}
                             pendingLabel="…"
                           >
                             Approve{myVote?.approve ? ' ✓' : ''}
@@ -216,7 +216,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                           <input type="hidden" name="motion_id" value={m.motion_id} />
                           <input type="hidden" name="approve" value="false" />
                           <SubmitButton
-                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote && !myVote.approve ? 'bg-terracotta text-white' : 'border border-ink/20 bg-cream text-ink hover:border-ink/40'}`}
+                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote && !myVote.approve ? 'bg-terracotta text-white' : 'border border-ink/20 bg-white/70 text-ink hover:border-ink/40'}`}
                             pendingLabel="…"
                           >
                             Reject{myVote && !myVote.approve ? ' ✓' : ''}
@@ -242,7 +242,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       ) : null}
 
       {/* ── Invite ────────────────────────────────────────────────────── */}
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-3 sn-tile p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Invite a team member
         </h2>
@@ -330,7 +330,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
         </h2>
 
         {enriched.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
             <Users aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
             <p className="text-sm font-medium text-ink">No team members yet.</p>
           </div>
@@ -341,7 +341,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
               const isAdmin = isVendorAdminRole(m.role);
               const hasOpenMotion = motions.some((mo) => mo.target_user_id === m.user_id);
               return (
-                <li key={m.vendor_team_member_id} className="rounded-2xl border border-ink/10 bg-cream p-4">
+                <li key={m.vendor_team_member_id} className="sn-row p-4">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="truncate text-base font-semibold text-ink">
@@ -403,7 +403,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                         <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} placeholder="e.g. Videographer" className="input-field" />
                       </label>
                       <div className="flex items-end">
-                        <SubmitButton className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-4 text-xs font-medium text-ink hover:border-ink/40" pendingLabel="Saving…">
+                        <SubmitButton className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-4 text-xs font-medium text-ink hover:border-ink/40" pendingLabel="Saving…">
                           Save
                         </SubmitButton>
                       </div>
@@ -429,7 +429,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                               <option value="agent">Demote to Agent</option>
                               <option value="viewer">Demote to Viewer</option>
                             </select>
-                            <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-sky-300 bg-cream px-3 text-xs font-medium text-sky-900 hover:border-sky-500" pendingLabel="…">
+                            <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-sky-300 bg-white/70 px-3 text-xs font-medium text-sky-900 hover:border-sky-500" pendingLabel="…">
                               Start vote
                             </SubmitButton>
                           </form>
@@ -496,14 +496,14 @@ function AgentServiceAssignment({
         <>
           <div className="flex flex-wrap gap-2">
             {services.map((s) => (
-              <label key={s.vendor_service_id} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs text-ink/80 hover:border-ink/30">
+              <label key={s.vendor_service_id} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/80 hover:border-ink/30">
                 <input type="checkbox" name="service_ids" value={s.vendor_service_id} defaultChecked={assignedSet.has(s.vendor_service_id)} className="h-3.5 w-3.5 accent-success-600" />
                 {categoryLabel(s.category)}
                 {s.is_active ? null : <span className="text-ink/40">(inactive)</span>}
               </label>
             ))}
           </div>
-          <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-success-300 bg-cream px-3 text-xs font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
+          <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-success-300 bg-white/70 px-3 text-xs font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
             Save assignments
           </SubmitButton>
         </>

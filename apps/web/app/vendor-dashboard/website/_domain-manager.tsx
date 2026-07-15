@@ -77,7 +77,7 @@ export function DomainManager({ initial }: { initial: DomainRow[] }) {
       style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)', boxShadow: 'var(--m-shadow-sm)' }}
     >
       <div className="space-y-1">
-        <p className="m-eyebrow inline-flex items-center gap-2" style={{ color: 'var(--m-orange-2)' }}>
+        <p className="sn-eye inline-flex items-center gap-2" style={{ color: 'var(--m-orange-2)' }}>
           <Globe aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Your own domain
         </p>

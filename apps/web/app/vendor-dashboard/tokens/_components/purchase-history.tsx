@@ -29,10 +29,10 @@ function fmt(s: string) {
 
 export function PurchaseHistory({ purchases }: { purchases: ResolvedPurchase[] }) {
   return (
-    <div className="m-card p-6">
+    <div className="sn-tile p-6">
       <div className="mb-4 flex items-center gap-2">
         <Receipt aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
-        <p className="m-label-mono">Purchase history</p>
+        <p className="sn-eye">Purchase history</p>
       </div>
 
       {purchases.length === 0 ? (

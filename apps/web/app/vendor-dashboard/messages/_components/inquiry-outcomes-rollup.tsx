@@ -39,7 +39,7 @@ export function InquiryOutcomesRollup({
   };
 
   return (
-    <section className="mb-6 rounded-xl border border-ink/10 bg-cream p-5">
+    <section className="mb-6 sn-row p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-base font-semibold text-ink">Won &amp; lost</h2>
         <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">

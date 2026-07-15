@@ -63,7 +63,7 @@ export default async function VendorTrackRecordPage() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <header className="mb-6 space-y-1.5">
-        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
+        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
           One profile, every life event
         </p>
         <h1
@@ -85,7 +85,7 @@ export default async function VendorTrackRecordPage() {
           rows={rows}
         />
       ) : (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
           <CalendarHeart
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
             strokeWidth={1.5}

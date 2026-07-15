@@ -212,7 +212,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
 
       <nav
         aria-label="Booking filters"
-        className="flex flex-wrap items-center gap-2 rounded-2xl border border-ink/10 bg-cream p-3"
+        className="sn-tile flex flex-wrap items-center gap-2 p-3"
       >
         {(['all', 'new', 'in_progress', 'stale'] as Filter[]).map((f) => {
           const params = new URLSearchParams();
@@ -267,7 +267,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
       </nav>
 
       {visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
           <ClipboardList
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -305,10 +305,9 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                 }))
               : [];
             return (
-              <li
-                key={r.thread_id}
-                className="overflow-hidden rounded-xl border border-ink/10 bg-cream"
-              >
+              // `.sn-row` — repeated list items stay opaque (blur budget § 1.6).
+              // The #3266 anonymization placeholder renders inside untouched.
+              <li key={r.thread_id} className="sn-row overflow-hidden">
                 <Link
                   href={`/vendor-dashboard/messages/${r.thread_id}`}
                   className="group flex items-start justify-between gap-3 p-4 transition-colors hover:bg-terracotta/5"

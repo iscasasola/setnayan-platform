@@ -109,14 +109,12 @@ export function VerifySection({
   if (isVerified) {
     return (
       <section id="get-verified" className="space-y-3">
-        <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-          Verification
-        </h2>
+        <h2 className="sn-sec">Verification</h2>
         <div
           className="flex items-start gap-3 rounded-2xl border p-5"
           style={{
             borderColor: 'var(--m-line)',
-            background: 'color-mix(in srgb, var(--m-sage-deep) 8%, var(--m-paper))',
+            background: 'color-mix(in srgb, var(--m-sage-deep) 8%, rgba(255,255,255,.72))',
           }}
         >
           <BadgeCheck aria-hidden className="h-6 w-6 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-sage-deep)' }} />
@@ -140,14 +138,9 @@ export function VerifySection({
 
   return (
     <section ref={sectionRef} id="get-verified" className="space-y-3">
-      <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-        Get verified
-      </h2>
+      <h2 className="sn-sec">Get verified</h2>
 
-      <div
-        className="rounded-2xl border p-5"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-      >
+      <div className="sn-tile p-5">
         {/* Reward first — why verify at all. */}
         <div className="mb-4 flex items-start gap-3">
           <span

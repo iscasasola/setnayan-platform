@@ -43,11 +43,11 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
   } = scorecard;
 
   return (
-    <section className="mt-8 m-card p-6">
+    <section className="sn-tile mt-8 p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="m-label-mono">Peso-per-lead scorecard</p>
-          <h2 className="m-display-tight mt-1 text-xl">Your unit economics</h2>
+          <p className="sn-eye">Peso-per-lead scorecard</p>
+          <h2 className="mt-1 text-xl font-extrabold tracking-[-0.015em]">Your unit economics</h2>
           <p className="mt-1 max-w-prose text-sm text-ink/60">
             What this {periodDays}-day cycle cost you — token answers plus
             subscription — measured against the couples you actually booked.

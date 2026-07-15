@@ -160,7 +160,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       ) : null}
 
       {/* Booked */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Booked via Setnayan</h2>
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
@@ -215,7 +215,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       </div>
 
       {/* Inquiring */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">In conversation</h2>
         <p className="mt-1 text-sm text-ink/65">
           Accepted inquiries that haven&rsquo;t booked yet. The full inbox lives in{' '}
@@ -269,7 +269,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       </div>
 
       {/* Outside clients */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Outside clients</h2>
           <Link

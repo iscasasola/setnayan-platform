@@ -31,10 +31,10 @@ export function BalanceCard({
   const numberFormat = new Intl.NumberFormat('en-PH');
 
   return (
-    <div className="m-card p-6 sm:p-8">
+    <div className="sn-tile p-6 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="m-label-mono">Tokens.</p>
+          <p className="sn-eye">Tokens.</p>
           <p className="text-xs text-ink/55">Your wallet balance, live.</p>
         </div>
         <div
@@ -50,7 +50,7 @@ export function BalanceCard({
       </div>
 
       <p
-        className="m-display-tight mt-6 text-5xl sm:text-6xl"
+        className="mt-6 font-mono text-5xl font-bold sm:text-6xl"
         aria-label={`Total balance: ${total} tokens`}
       >
         {numberFormat.format(total)}
@@ -61,12 +61,12 @@ export function BalanceCard({
 
       <div className="mt-6 grid grid-cols-2 gap-4 border-t pt-4" style={{ borderColor: 'var(--m-line)' }}>
         <div>
-          <p className="m-label-mono">Earned</p>
+          <p className="sn-eye">Earned</p>
           <p className="mt-1 text-xl font-medium text-ink">{numberFormat.format(earned)}</p>
           <p className="mt-0.5 text-[11px] text-ink/55">45-day vouchers</p>
         </div>
         <div>
-          <p className="m-label-mono">Purchased</p>
+          <p className="sn-eye">Purchased</p>
           <p className="mt-1 text-xl font-medium text-ink">{numberFormat.format(purchased)}</p>
           <p className="mt-0.5 text-[11px] text-ink/55">No expiry</p>
         </div>

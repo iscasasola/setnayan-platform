@@ -104,14 +104,9 @@ function safeRead<T>(p: PromiseLike<T>, fallback: T, label: string): Promise<T> 
  *  windowed-vs-not-windowed boundary legible at a glance (owner 2026-07-02
  *  arrangement pass). */
 function SectionEyebrow({ label }: { label: string }) {
-  return (
-    <p
-      className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
-      style={{ color: 'var(--m-slate-3)' }}
-    >
-      {label}
-    </p>
-  );
+  // Glass PR-7: section labels render as `.sn-sec` (sentence-case ink) rather
+  // than the retired mono ALL-CAPS hand-roll (contract § 5).
+  return <p className="sn-sec mb-3">{label}</p>;
 }
 
 /**
@@ -475,7 +470,7 @@ async function PerformanceHome({
             <div className="text-sm">
               <p style={{ color: 'var(--m-ink)' }}>
                 <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
-                <span className="tabular-nums">{serviceBooked ?? 0}</span> — {label}.
+                <span className="font-mono">{serviceBooked ?? 0}</span> — {label}.
               </p>
               <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t

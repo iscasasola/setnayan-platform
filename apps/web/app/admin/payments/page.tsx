@@ -153,8 +153,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Payments &amp; reconciliation</h1>
-        <p className="text-sm text-ink/60">
+        <p className="sn-eye">Money · reconciliation</p>
+        <h1 className="sn-h1">Payments &amp; reconciliation</h1>
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
           Couples log payments after they transfer. Match each one against the order&rsquo;s
           reference code. Submitted orders without a confirmed total need a quote before couples can
           pay.
@@ -164,10 +165,10 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       {notice ? (
         <div
           role="alert"
-          className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+          className={`mb-6 rounded-card border px-4 py-3 text-sm text-ink ${
             noticeIsWarn
-              ? 'border-terracotta/30 bg-terracotta/5 text-ink'
-              : 'border-success-700/30 bg-success-700/5 text-ink'
+              ? 'border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)]'
+              : 'border-[color:var(--sn-success)] bg-[var(--sn-success-soft)]'
           }`}
         >
           {notice}
@@ -221,13 +222,7 @@ function FilterChip({
   // Preserve the active platform filter when switching status.
   const href = `/admin/payments?filter=${target}${platform ? `&platform=${platform}` : ''}`;
   return (
-    <a
-      href={href}
-      aria-pressed={isActive}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive ? 'bg-terracotta text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
-    >
+    <a href={href} aria-pressed={isActive} className={`sn-chip${isActive ? ' selected' : ''}`}>
       {label}
     </a>
   );
@@ -248,13 +243,7 @@ function PlatformChip({
   // Preserve the active status filter when switching platform; target=null = all.
   const href = `/admin/payments?filter=${filter}${target ? `&platform=${target}` : ''}`;
   return (
-    <a
-      href={href}
-      aria-pressed={isActive}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive ? 'bg-mulberry text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
-    >
+    <a href={href} aria-pressed={isActive} className={`sn-chip${isActive ? ' selected' : ''}`}>
       {label}
     </a>
   );
@@ -263,15 +252,16 @@ function PlatformChip({
 function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
         No orders waiting for a quote.
       </div>
     );
   }
   return (
-    <ul className="space-y-3">
+    <div className="sn-tile">
+      <ul className="space-y-3">
       {orders.map((o) => (
-        <li key={o.order_id} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+        <li key={o.order_id} className="sn-row space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -338,7 +328,8 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
           </form>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }
 
@@ -357,7 +348,7 @@ function PaymentsList({
 }) {
   if (payments.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
         Nothing to reconcile.
       </div>
     );
@@ -374,6 +365,7 @@ function PaymentsList({
   return (
     <>
       <InboxMatcher payments={matcherRows} />
+      <div className="sn-tile">
       <ul className="space-y-3">
       {payments.map((p) => {
         const matchesRef =
@@ -384,7 +376,7 @@ function PaymentsList({
           <li
             key={p.payment_id}
             id={`payment-${p.payment_id}`}
-            className="scroll-mt-20 space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
+            className="sn-row scroll-mt-20 space-y-3 p-4"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-0.5">
@@ -440,11 +432,11 @@ function PaymentsList({
                 {' · status '}
                 <span className="font-mono">{ORDER_STATUS_LABEL[p.order.status]}</span>
                 {matchesRef ? (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-success-800">
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-success)]">
                     Reference matches
                   </span>
                 ) : (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-warn-900">
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-warning-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-warning)]">
                     Verify reference manually
                   </span>
                 )}
@@ -574,13 +566,13 @@ function PaymentsList({
               line below (which surfaces for matched / rejected payments).
             */}
             {p.status === 'resubmit_requested' && p.admin_resubmit_notice ? (
-              <div className="rounded-md border border-warn-300/60 bg-warn-50 p-3 text-xs text-warn-900">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/70">
+              <div className="rounded-md border border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)] p-3 text-xs text-[color:var(--sn-warning)]">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
                   Resubmit notice sent to couple
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{p.admin_resubmit_notice}</p>
                 {p.reviewed_at ? (
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/70">
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
                     Requested {p.reviewed_at.slice(0, 10)}
                   </p>
                 ) : null}
@@ -601,6 +593,7 @@ function PaymentsList({
         );
       })}
       </ul>
+      </div>
     </>
   );
 }

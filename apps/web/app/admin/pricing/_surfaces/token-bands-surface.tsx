@@ -63,17 +63,19 @@ export async function TokenBandsSurface() {
           <h1 className="text-2xl font-semibold tracking-tight">Token bands</h1>
         </div>
         <p className="text-sm text-ink/65">
-          What a vendor pays to <strong>answer</strong> an inquiry, banded by the
-          wedding&rsquo;s region. One answer = one unlock per (vendor, event) and
-          covers all of that vendor&rsquo;s services for the event. ₱200 per token,
-          so 1 / 2 / 3 tokens = ₱200 / ₱400 / ₱600 — currently flat 1 token (₱200)
-          for every region.
+          What a vendor pays to <strong>answer</strong> an inquiry. One answer =
+          one unlock per (vendor, event) and covers all of that vendor&rsquo;s
+          services for the event. Since the 2026-07-11 lock the burn is a{' '}
+          <strong>flat 1 token (₱200) per connection, everywhere</strong> —
+          region tiering is retired as an active policy.
         </p>
         <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
-          <span className="font-semibold">Pending owner ratification.</span> The
-          seeded band→region map is the proposed default keyed to regional
-          minimum wage — adjust here as wage orders change. An unknown / blank /
-          out-of-PH region falls to band&nbsp;1 (conservative floor).
+          <span className="font-semibold">Platform-wide lever only.</span> This
+          table is the emergency control the <code>unlock_vendor_event</code> RPC
+          reads — edit it to change the burn platform-wide, not to re-tier by
+          region. Per the owner lock the base gate is never raised above 1. An
+          unknown / blank / out-of-PH region falls to band&nbsp;1 (conservative
+          floor).
         </p>
       </header>
 

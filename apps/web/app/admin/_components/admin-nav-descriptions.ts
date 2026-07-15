@@ -125,7 +125,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   addons: 'Attachable add-on SKUs and their availability.',
   'vendor-recommendations':
     'The vendor-leaf → recommendable-SKU map and its two-way curation review queue.',
-  'token-bands': 'Vendor token pricing bands by location tier.',
+  'token-bands':
+    'Per-inquiry token burn — flat 1 everywhere since the 2026-07-11 lock. Edit only to change the platform-wide burn.',
   'price-bands': 'Price bands used across the catalog.',
   'budget-planner': 'The couple budget-planner reference table and defaults.',
   receipts: 'Issued receipts and BIR-facing records.',

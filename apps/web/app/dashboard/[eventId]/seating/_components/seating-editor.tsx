@@ -1438,7 +1438,18 @@ export function SeatingEditor({
     // links in place. B animates to the nearest oracle-valid legal joint on A
     // and only then links (a weld is always at an exact legal pose). Cross-family
     // or no-room → refuse (the server re-validates too). Skipped when they're
-    // already the same unit, on the free board, or unpositioned (identity link).
+    // already the same unit.
+    //
+    // Runs on the FREE board too (fix 2026-07-16): the weld was formerly gated
+    // on `venueScaled`, so on a board with no venue dimensions the chain icon
+    // grouped the two tables IN PLACE — serpentines linked wherever they sat and
+    // visibly overlapped (owner-reported "serpentine link tables still overlap").
+    // Every helper the weld needs has a free-board path already — `legalJoinPose`
+    // is pure px, `gapPxNow()` falls back to COLLIDE_GAP, `poseAt`/`scaleOf`
+    // resolve scale 1 when `pxPerMeter` is null — so the guard was purely
+    // over-restrictive. The drag-snap gesture never had this gate, which is why
+    // dragging one wedge onto another already welded on the free board but the
+    // chain-icon link did not.
     const from = tables.find((t) => t.table_id === fromId);
     const to = tables.find((t) => t.table_id === toId);
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -1448,7 +1459,6 @@ export function SeatingEditor({
       to &&
       rect &&
       rect.width > 0 &&
-      venueScaled &&
       shapeHintFor(from.table_type) === shapeHintFor(to.table_type) &&
       shapeHintFor(from.table_type) !== 'sweetheart' &&
       (from.link_group_id == null || from.link_group_id !== to.link_group_id)

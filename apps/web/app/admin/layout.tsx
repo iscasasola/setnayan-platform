@@ -122,14 +122,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
-  // Role badge — the violet dot is the admin doorway's accent (couple = wine,
-  // vendor = wine+blue, admin = wine+violet — "Energy, not skin" 2026-07-09).
+  // Role badge — warm info-slate for the Internal marker (Glass PR-1,
+  // 2026-07-15: violet retired; admin's identity is the ShieldCheck + "HQ"
+  // label, not a colour fork — gold is the only decorative colour).
   // Emoji retired: screen readers read it aloud and it renders inconsistently.
   const badge = profile?.is_internal
     ? {
         label: 'Internal',
-        tone: 'bg-purple-100 text-purple-800',
-        dot: 'bg-[var(--a-violet)]',
+        tone: 'bg-[var(--sn-info-soft)] text-[var(--sn-info)]',
+        dot: 'bg-[var(--sn-info)]',
       }
     : profile?.is_team_member
       ? {
@@ -227,7 +228,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="app-surface">
       <SidebarShell
-        accent="violet"
         sidebarHeader={
           <DoorwaySidebarHeader
             label="Setnayan HQ"

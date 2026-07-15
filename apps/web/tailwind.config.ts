@@ -51,6 +51,11 @@ const config: Config = {
         '2xl': 'var(--m-r-lg)', // 22
         '3xl': 'var(--m-r-xl)', // 36
         full: 'var(--m-r-full)', // 999
+        // Atelier-Glass kit radii (Glass PR-1, 2026-07-15). Named tokens so the
+        // kit surface recipes use `rounded-tile`/`rounded-card` instead of the
+        // lint:radius-forbidden arbitrary `rounded-[20px]`/`rounded-[18px]`.
+        tile: '20px', // .sn-tile / .sn-tile-dark
+        card: '18px', // .sn-card
       },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars

@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 
 /**
- * CountUp — animated numeral for the launcher's REAL aggregates (hero stat ·
- * Watch numeral · per-event row counts · ring % labels), per the approved
- * prototype's `[data-count]` behavior (2026-07-15 pixel pass).
+ * CountUp — the shared animated-numeral island for the app's REAL aggregates
+ * (hero stats · focal numerals · row counts · ring % labels). Promoted from the
+ * launcher's `_components/count-up.tsx` to `app/_components/` in Glass PR-1
+ * (2026-07-15) so every recomposed surface (event / vendor / admin) counts its
+ * headline numerals the same way.
  *
  * SSR renders the FINAL value (no hydration mismatch; works with JS off), then
  * on mount — unless the visitor prefers reduced motion — the number snaps to 0

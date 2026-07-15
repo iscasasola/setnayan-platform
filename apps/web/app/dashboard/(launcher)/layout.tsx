@@ -56,13 +56,12 @@ export default async function LauncherLayout({
   ]);
 
   return (
-    // The ambient Atelier wash — the warm paper + gold/slate glows the frosted
-    // home cards sit ON (owner-approved final home design 2026-07-15; pixel
-    // pass: the prototype's .win/.winwash gradient stack, defined once as
-    // `.sn-wash-home` in globals.css). Scoped to the LAUNCHER route only — the
-    // rest of the dashboard keeps the flat `--m-paper` from dashboard/layout.tsx
-    // (the 2026-07-13 white-flatten stands everywhere but this home splash).
-    <div className="sn-wash-home min-h-dvh">
+    // The ambient Atelier wash — the warm paper + gold/green/slate glows the
+    // frosted home cards sit ON. Now the canonical `.sn-ambient` (Glass PR-1,
+    // 2026-07-15): ONE wash source shared with every shell (event / vendor /
+    // admin / account spokes) so the whole app "feels similar," replacing the
+    // launcher-only `.sn-wash-home` splash and the 2026-07-13 white-flatten.
+    <div className="sn-ambient min-h-dvh">
       <header
         className="sn-reveal mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8"
         style={{ animationDelay: '0.12s' }}

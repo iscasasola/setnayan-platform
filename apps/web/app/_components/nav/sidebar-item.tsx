@@ -20,9 +20,9 @@
  * accent wash (`--m-sidebar-accent` / `-soft`) + near-white label
  * (`--m-sidebar-fg`) + lighter accent icon (`--m-sidebar-accent-fg`). Inactive:
  * soft-light label + icon (`--m-sidebar-fg-soft`), transparent bg. Hover:
- * `--m-sidebar-hover` wash. The accent is WINE for couple + vendor and VIOLET
- * for admin — driven by `.sn-sidebar--violet` on the <aside>, which flips
- * `--m-sidebar-accent`; gold stays the secondary accent (eyebrows · chips).
+ * `--m-sidebar-hover` wash. The accent is Atelier GOLD for every doorway
+ * (`--m-sidebar-accent`); the admin violet fork was retired in Glass PR-1
+ * (2026-07-15).
  *
  * BADGE TONES (NavBadgeTone union from types.ts):
  *   - 'neutral' — stone tint (generic count)

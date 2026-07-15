@@ -48,6 +48,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { getPrimaryColor, paletteKeyForRole, type RolePalette } from '@/lib/mood-board';
+import { SIDE_AVATAR, SIDE_CHIP, SIDE_RING, SIDE_TINT_FILL } from '@/lib/side-colors';
 import {
   importanceGroupOf,
   ROLE_GROUP_CHIP,
@@ -307,13 +308,9 @@ function RowAvatar({
   }
   // Side-identity gradients (Glass PR-3, per the roster proto): bride → gold
   // family, groom → info-slate family, both → a gold↔slate blend, each with a
-  // small side dot. White initials read on all three.
-  const sideStyle: Record<GuestSide, { bg: string; dot: string }> = {
-    bride: { bg: 'linear-gradient(135deg,#c8a877,#8a6b39)', dot: 'var(--sn-gold-500)' },
-    groom: { bg: 'linear-gradient(135deg,#7e93a5,#4e6c82)', dot: 'var(--sn-info)' },
-    both: { bg: 'linear-gradient(135deg,#c8a877,#7e93a5)', dot: 'var(--sn-gold-300)' },
-  };
-  const s = sideStyle[guest.side];
+  // small side dot. White initials read on all three. This is the reference
+  // recipe for the whole side-colour language — SIDE_AVATAR in lib/side-colors.
+  const s = SIDE_AVATAR[guest.side];
   return (
     <span
       aria-hidden
@@ -1343,11 +1340,8 @@ function NewGroupInlineForm({
 // interactive element is ever nested inside the <Link> anchor.
 // -----------------------------------------------------------------------
 
-const SIDE_RING: Record<GuestSide, string> = {
-  bride: 'border-danger-200',
-  groom: 'border-sky-200',
-  both: 'border-warn-200',
-};
+// Card-frame side ring — canonical map (lib/side-colors.ts). bride gold ·
+// groom info-slate · both lighter gold.
 
 function GuestCard({
   guest,
@@ -1892,15 +1886,10 @@ function GuestPhoto({
       />
     );
   }
-  const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-danger-100 text-danger-900',
-    groom: 'bg-sky-100 text-sky-900',
-    both: 'bg-warn-100 text-warn-900',
-  };
   return (
     <div
       aria-hidden
-      className={`flex h-full w-full items-center justify-center ${sideTint[guest.side]}`}
+      className={`flex h-full w-full items-center justify-center ${SIDE_TINT_FILL[guest.side]}`}
     >
       <span className="text-3xl font-semibold tracking-tight">
         {guestInitials(guest)}
@@ -1910,18 +1899,14 @@ function GuestPhoto({
 }
 
 // Side pill — bride/groom/both attribution shown as a tinted chip in the
-// card's top-right corner. Same side-tint language (rose for bride · sky for
-// groom · amber for both) as the card ring + the initials fallback, so the
-// cue stays consistent across the card.
+// card's top-right corner. Same side-colour language (canonical SIDE_CHIP in
+// lib/side-colors: gold for bride · info-slate for groom · lighter gold for
+// both) as the card ring + the initials fallback, so the cue stays consistent
+// across the card.
 function SidePill({ side }: { side: GuestRow['side'] }) {
-  const tone: Record<GuestRow['side'], string> = {
-    bride: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
-    groom: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200',
-    both: 'bg-warn-100 text-warn-900 ring-1 ring-warn-200',
-  };
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[side]}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${SIDE_CHIP[side]}`}
     >
       {SIDE_LABELS[side]}
     </span>

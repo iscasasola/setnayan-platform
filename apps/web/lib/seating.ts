@@ -727,17 +727,13 @@ export function groupColorFor(index: number): string {
   return GROUP_COLORS[((index % GROUP_COLORS.length) + GROUP_COLORS.length) % GROUP_COLORS.length]!;
 }
 
-// Side-of-wedding fallback color for a guest who belongs to no custom group —
-// the atelier/glass side-identity language (owner-locked 2026-07-12): bride →
-// gold family, groom → info-slate, both → a lighter gold. Matches the Guests
-// roster RowAvatar (guest-list-multiselect.tsx: gold-500 / info / gold-300 dots)
-// so a guest reads the same colour on the roster and on the seat map. Solid
-// values (not CSS vars) because they tint inline SVG chairs + avatar chips.
-export const SIDE_COLORS: Record<'bride' | 'groom' | 'both', string> = {
-  bride: '#A9834B', // --sn-gold-500
-  groom: '#4E6C82', // --sn-info
-  both: '#CBA766', // --sn-gold-300
-};
+// Side-of-wedding fallback color for a guest who belongs to no custom group.
+// The canonical side-colour language now lives in lib/side-colors.ts (SIDE_HEX)
+// — the ONE map consumed by BOTH the seat map and the Guests roster so a guest
+// reads the same colour everywhere. Re-exported under the historical name for
+// this file's existing importer; SIDE_HEX carries the solid (non-CSS-var) hex
+// the inline SVG chairs need.
+export { SIDE_HEX as SIDE_COLORS } from './side-colors';
 
 // ---------------------------------------------------------------------------
 // Role-tier auto-seat (iteration 0008 "Auto-fill — role-tier rings"). Maps the

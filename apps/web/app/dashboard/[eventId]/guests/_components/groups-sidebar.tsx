@@ -15,6 +15,7 @@ import {
   type GuestGroupTeamSide,
   type GuestGroupWithCount,
 } from '@/lib/guests';
+import { SIDE_DOT, SIDE_ROW_TINT } from '@/lib/side-colors';
 
 // -----------------------------------------------------------------------
 // GroupsSidebar · custom-groups section beneath the locked role-group
@@ -23,45 +24,19 @@ import {
 // is open?" UI state.
 // -----------------------------------------------------------------------
 
-// Per-side row tint · owner directive 2026-05-23 PM: "pink for bride,
-// blue for groom, amethyst for both". `idle` is the resting state;
-// `active` deepens the same hue when the group is the currently-viewed
-// filter. `icon` colors the Users icon to match. `count` colors the
-// member-count chip on the right.
-const ROW_TINT_BY_SIDE: Record<
-  GuestGroupTeamSide,
-  { idle: string; active: string; icon: string; count: string }
-> = {
-  bride: {
-    idle: 'bg-danger-50 text-danger-900 hover:bg-danger-100',
-    active: 'bg-danger-100 font-medium text-danger-800',
-    icon: 'text-danger-500',
-    count: 'text-danger-500/70',
-  },
-  groom: {
-    idle: 'bg-sky-50 text-sky-900 hover:bg-sky-100',
-    active: 'bg-sky-100 font-medium text-sky-800',
-    icon: 'text-sky-500',
-    count: 'text-sky-500/70',
-  },
-  // Amethyst = purple — distinct from both bride (rose/pink) and groom
-  // (sky/blue) so "Both sides" groups read as their own category.
-  both: {
-    idle: 'bg-purple-50 text-purple-900 hover:bg-purple-100',
-    active: 'bg-purple-100 font-medium text-purple-800',
-    icon: 'text-purple-500',
-    count: 'text-purple-500/70',
-  },
-};
+// Per-side row tint — the canonical side-colour map (lib/side-colors.ts ·
+// SIDE_ROW_TINT), retinted to the Atelier/glass side identity (owner-locked
+// 2026-07-12, superseding the 2026-05-23 "pink/blue/amethyst"): bride → gold,
+// groom → info-slate, both → a lighter gold. `idle` is the resting state;
+// `active` deepens the same family when the group is the currently-viewed
+// filter; `icon` + `count` follow.
+const ROW_TINT_BY_SIDE = SIDE_ROW_TINT;
 
 // Inline-pill side dot (Living Roster P0) — the horizontal `layout="inline"`
 // variant drops the full-row team tint (no room in a pill row) for a compact
-// leading dot instead. Bride = blush, Groom = sky, Both = champagne gold.
-const SIDE_DOT_BY_TEAM: Record<GuestGroupTeamSide, string> = {
-  bride: 'bg-danger-500',
-  groom: 'bg-sky-600',
-  both: 'bg-terracotta',
-};
+// leading dot instead. Same canonical map (SIDE_DOT): gold / info-slate /
+// lighter gold.
+const SIDE_DOT_BY_TEAM = SIDE_DOT;
 
 type Props = {
   eventId: string;

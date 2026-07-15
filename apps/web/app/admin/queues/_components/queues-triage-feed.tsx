@@ -80,22 +80,19 @@ function TriageRow({ item }: { item: TriageItem }) {
     <li>
       <Link
         href={item.href}
-        className="m-card flex items-center gap-3 p-4 transition-colors hover:bg-[var(--m-paper)]"
+        className="sn-row flex items-center gap-3 p-4 transition-colors hover:bg-[var(--sn-paper)]"
         style={{
-          color: 'var(--m-ink)',
+          color: 'var(--sn-ink-900)',
           minHeight: 64,
           borderLeft: accent ? `3px solid ${accent}` : undefined,
         }}
       >
-        <span
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md"
-          style={{ background: 'var(--m-paper-2)' }}
-        >
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-ink/5">
           <Icon
             aria-hidden
             className="h-5 w-5"
             strokeWidth={1.75}
-            style={{ color: open ? badgeColor(item.dueState) : 'var(--m-slate)' }}
+            style={{ color: open ? badgeColor(item.dueState) : 'var(--sn-ink-500)' }}
           />
         </span>
 
@@ -103,22 +100,19 @@ function TriageRow({ item }: { item: TriageItem }) {
           <span className="flex items-center gap-2">
             <span
               className="text-base font-semibold"
-              style={{ color: 'var(--m-ink)' }}
+              style={{ color: 'var(--sn-ink-900)' }}
             >
               {item.label}
             </span>
             {item.lane ? (
-              <span
-                className="m-label-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
-                style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate-2)' }}
-              >
+              <span className="shrink-0 rounded bg-ink/5 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.10em] text-[color:var(--sn-ink-500)]">
                 {LANE_LABEL[item.lane]}
               </span>
             ) : null}
           </span>
           <span
             className="truncate text-xs"
-            style={{ color: accent ?? 'var(--m-slate)' }}
+            style={{ color: accent ?? 'var(--sn-ink-500)' }}
           >
             {open && item.ageLabel ? item.ageLabel : item.description}
           </span>
@@ -136,14 +130,14 @@ function TriageRow({ item }: { item: TriageItem }) {
           <ChevronRight
             aria-hidden
             className="h-5 w-5 shrink-0"
-            style={{ color: 'var(--m-slate-2)' }}
+            style={{ color: 'var(--sn-ink-500)' }}
           />
         ) : (
           <Check
             aria-label="clear"
             className="h-5 w-5 shrink-0"
             strokeWidth={2}
-            style={{ color: 'var(--m-slate-2)' }}
+            style={{ color: 'var(--sn-ink-500)' }}
           />
         )}
       </Link>
@@ -163,34 +157,25 @@ export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
       <header className="mb-6 space-y-2">
-        <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
-          Admin
-        </p>
-        <h1 className="m-display-tight text-3xl" style={{ color: 'var(--m-ink)' }}>
-          {title}
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          {subtitle}
-        </p>
+        <p className="sn-eye">Admin</p>
+        <h1 className="sn-h1">{title}</h1>
+        <p className="text-sm text-[color:var(--sn-ink-500)]">{subtitle}</p>
       </header>
 
       {totalOpen === 0 && (
         <div
-          className="m-card mb-4 flex items-center gap-3 p-4"
-          style={{ color: 'var(--m-ink)' }}
+          className="sn-tile mb-4 flex items-center gap-3 p-4"
+          style={{ color: 'var(--sn-ink-900)' }}
         >
-          <span
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-            style={{ background: 'var(--m-paper-2)' }}
-          >
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/5">
             <Check
               aria-hidden
               className="h-5 w-5"
               strokeWidth={2}
-              style={{ color: 'var(--m-slate)' }}
+              style={{ color: 'var(--sn-ink-500)' }}
             />
           </span>
-          <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
+          <span className="text-sm text-[color:var(--sn-ink-500)]">
             All queues clear. Open any queue to review history or recent decisions.
           </span>
         </div>
@@ -199,7 +184,7 @@ export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) 
       {overdue.length > 0 && (
         <section className="mb-8">
           <h2
-            className="m-label-mono mb-3 flex items-center gap-2"
+            className="sn-eye mb-3 flex items-center gap-2"
             style={{ color: '#B42318' }}
           >
             Needs attention now
@@ -221,9 +206,7 @@ export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) 
       {rest.length > 0 && (
         <section>
           {overdue.length > 0 && (
-            <h2 className="m-label-mono mb-3" style={{ color: 'var(--m-slate-2)' }}>
-              All queues
-            </h2>
+            <h2 className="sn-eye mb-3">All queues</h2>
           )}
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {rest.map((item) => (

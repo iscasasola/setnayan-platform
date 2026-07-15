@@ -154,16 +154,16 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       {/*
-       * v2.1 chrome overlay (2026-05-28) — eyebrow uses .m-eyebrow, heading
-       * uses .m-display-tight (Saira Condensed). Matches admin overview +
-       * couple/vendor dashboard treatment. Logic + queue table preserved.
+       * Atelier-Glass chrome — eyebrow uses .sn-eye, heading uses .sn-h1 (Hanken
+       * Grotesk). Matches admin overview + couple/vendor dashboard treatment.
+       * Logic + queue table preserved.
        */}
       <header className="mb-6 space-y-2">
         <p className="sn-eye">Trust &amp; supply · verification</p>
         <h1 className="sn-h1">Verification queue</h1>
         <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
-          Vendors submit a 12-document checklist; Setnayan reviews within 3–5
-          business days and flips them to <span className="font-medium">Verified</span>.
+          Vendors submit a 12-document checklist; Setnayan reviews within 72
+          hours and flips them to <span className="font-medium">Verified</span>.
           The companion <span className="font-medium">Visibility</span> surface
           governs marketplace listing state (coming_soon · verified · hidden ·
           archived) independent of the verification workflow.

@@ -23,6 +23,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RevealList } from '@/app/_components/reveal-list';
+import { Eye, MonitorPlay, Gift } from 'lucide-react';
 import Link from 'next/link';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
@@ -337,6 +338,54 @@ export default async function StudioPage({ params }: Props) {
 
   const tabs = SECTIONS.map((s) => ({ id: s.anchor, label: s.label }));
 
+  // "Set up & manage" doorways (owner 2026-07-15 · flat sidebars, no submenus).
+  // When the desktop Studio sidebar item lost its expandable children, three of
+  // those child surfaces had NO home in the Studio hub body (they aren't App
+  // Store SKUs like Mood Board / Monogram / Website, which stay reachable as
+  // catalog rows below): Event page, Live Wall, and E-Gifts. Per the wayfinding
+  // rule ("a page ships with its doorway or it doesn't ship") they get explicit
+  // hub doorways here so nothing orphans. Gating mirrors the former sidebar
+  // children exactly: Event page + E-Gifts on the 'website' surface, Live Wall
+  // always. websiteEnabled reuses the same profile helper the layout uses.
+  const websiteOn = surfaceEnabled(profile, 'website');
+  const manageSurfaces: {
+    key: string;
+    label: string;
+    blurb: string;
+    href: string;
+    Icon: typeof Eye;
+  }[] = [
+    ...(websiteOn
+      ? [
+          {
+            key: 'event-page',
+            label: 'Event page',
+            blurb: 'See the live page your guests see, and jump in to edit it.',
+            href: `/dashboard/${eventId}/event-page`,
+            Icon: Eye,
+          },
+        ]
+      : []),
+    {
+      key: 'live',
+      label: 'Live Wall',
+      blurb: 'Run the on-screen photo wall for your reception.',
+      href: `/dashboard/${eventId}/live`,
+      Icon: MonitorPlay,
+    },
+    ...(websiteOn
+      ? [
+          {
+            key: 'pabuya',
+            label: 'E-Gifts',
+            blurb: 'Add your own GCash / Maya / bank handles for a digital money dance.',
+            href: `/dashboard/${eventId}/pabuya`,
+            Icon: Gift,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <section className="space-y-8">
       <header className="space-y-2">
@@ -494,6 +543,54 @@ export default async function StudioPage({ params }: Props) {
           And it never gets in the way. The day stays yours — the tech just quietly remembers it.
         </p>
       </div>
+
+      {/* Set up & manage — doorways to the couple-configured event surfaces
+          that aren't App Store SKUs (Event page · Live Wall · E-Gifts). These
+          used to hang off the desktop sidebar's Studio item; the rail is now a
+          flat leaf (owner 2026-07-15 "no submenus"), so their home is here. */}
+      {manageSurfaces.length > 0 ? (
+        <section aria-label="Set up and manage your event" className="space-y-3">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta-600">
+              Set up &amp; manage
+            </p>
+            <p className="mt-1 text-sm text-ink/60">
+              Your event&rsquo;s own surfaces — set them up and run them from here.
+            </p>
+          </div>
+          <RevealList
+            as="ul"
+            className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-cream"
+          >
+            {manageSurfaces.map((s) => (
+              <li key={s.key}>
+                <Link
+                  href={s.href}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-ink/[0.03]"
+                >
+                  <span
+                    aria-hidden
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta-700"
+                  >
+                    <s.Icon className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-ink">
+                      {s.label}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink/60">
+                      {s.blurb}
+                    </span>
+                  </span>
+                  <span aria-hidden className="shrink-0 text-ink/30">
+                    &rsaquo;
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </RevealList>
+        </section>
+      ) : null}
 
       <div className="border-t border-ink/10 pt-6">
         <h2 className="text-xl font-semibold tracking-tight text-ink">

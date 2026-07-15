@@ -6,21 +6,27 @@
  * couple energy prototype:
  *   PLAN    → Overview · Guests · Merkado · Studio
  *   GO LIVE → Launch (the couple's live personal website)
- * Each top-level item auto-expands on the desktop sidebar to reveal its
- * sub-pages. The mobile bottom nav (lib/customer-menu.ts) carries the same
- * top-level destinations + labels (Overview · Guests · Merkado · Studio) — the
- * two are now at parity (no desktop-only Budget menu).
+ * EVERY top-level item is a PLAIN LEAF (owner 2026-07-15: "solid menu with no
+ * submenus" — extends the vendor 5-page IA + the 2026-07-10 Overview/Guests
+ * plain-leaf decision to the whole couple rail). No item expands children in the
+ * rail; sub-navigation lives INSIDE each page (the Merkado tab strip, the Studio
+ * hub body). The PLAN / GO LIVE strings are flat SECTION HEADINGS, not
+ * expandable parents. The mobile bottom nav (lib/customer-menu.ts) carries the
+ * same top-level destinations + labels (Overview · Guests · Merkado · Studio).
  *
- * PLAN items (same destinations as before — only regrouped + relabelled):
- *   1. Overview → /dashboard/[id]         (plain leaf — its old checklist/
- *      schedule/messages/contracts children were flattened #3004; those surfaces
- *      live in the dashboard body + topbar). Renamed from "Home"; route +
- *      exact-match sentinel unchanged.
- *   2. Guests   → /dashboard/[id]/guests  (plain leaf — the guest-journey stages
- *      are integrated into the single Guests page) · guest-count badge.
- *   3. Merkado  → /dashboard/[id]/vendors (marketplace + Build tabs)
- *      — renamed from "Explore"; key + route unchanged.
- *   4. Studio   → /dashboard/[id]/studio  (website · mood-board · monogram · live wall)
+ * PLAN items (all plain leaves):
+ *   1. Overview → /dashboard/[id]         (its old checklist/schedule/messages/
+ *      contracts children were flattened #3004; those surfaces live in the
+ *      dashboard body + topbar). Renamed from "Home"; route + exact-match
+ *      sentinel unchanged.
+ *   2. Guests   → /dashboard/[id]/guests  (the guest-journey stages are
+ *      integrated into the single Guests page) · guest-count badge.
+ *   3. Merkado  → /dashboard/[id]/vendors (the Build/Budget/Compare tabs live in
+ *      the page's own tab strip) — renamed from "Explore"; key + route unchanged.
+ *   4. Studio   → /dashboard/[id]/studio  (Event page · Website · Mood Board ·
+ *      Monogram · Live Wall · E-Gifts all live in the Studio hub body — the App
+ *      Store catalog rows + the hub's "Set up & manage" doorway block, NOT the
+ *      rail — owner 2026-07-15 "no submenus")
  * GO LIVE items:
  *   5. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
  *
@@ -63,15 +69,8 @@ import {
   Users,
   Compass,
   Sparkles,
-  Globe,
-  Palette,
-  Type,
-  MonitorPlay,
-  Eye,
   Rocket,
-  Gift,
 } from 'lucide-react';
-import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
@@ -160,10 +159,14 @@ export function buildCustomerNavGroups(
             : {}),
         },
         {
-          // 3 · Explore — vendor marketplace. Sub-items are the 5 Build tabs
-          // (Summary · Shortlist · Build · Compare · Lock); clicking them fires
-          // the BB_TAB_EVENT bus (no server round-trip) via SidebarItem's tab
-          // child handler, mirroring what the mobile <SubNav> pill does.
+          // 3 · Merkado — vendor marketplace. PLAIN LEAF (owner 2026-07-15:
+          // "solid menu with no submenus"). The 5 Build tabs (Summary ·
+          // Shortlist · Build · Compare · Lock) that used to expand here as
+          // sidebar children now live ONLY as the page's own tab strip inside
+          // /vendors (the docked <SubNav> pill / BB_TAB_EVENT bus is unchanged),
+          // so tapping this row lands on /vendors and the in-page strip covers
+          // the tabs. The single matchPrefix (${base}/vendors) keeps the item lit
+          // on every ?tab= state (query-less prefix match).
           key: 'explore',
           // Renamed Explore → Merkado (owner-approved product naming; matches
           // the design prototype). Key + route (/vendors) + match unchanged.
@@ -171,91 +174,25 @@ export function buildCustomerNavGroups(
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,
-          children: BUDGET_BUILD_TABS.map((t) => ({
-            key: `explore-${t}`,
-            label: TAB_META[t].label,
-            href: `${base}/vendors?tab=${t}`,
-            icon: TAB_META[t].icon,
-            matchPrefix: `${base}/vendors`,
-            tab: t,
-          })),
         },
         {
-          // 4 · Studio — add-ons hub. Expands to design surfaces that all
-          // light the Studio tab on mobile (site-editor + /monogram).
+          // 4 · Studio — add-ons hub. PLAIN LEAF (owner 2026-07-15: "solid menu
+          // with no submenus"). The design surfaces that used to expand here as
+          // sidebar children (Event page · Website · Mood Board · Monogram · Live
+          // Wall · E-Gifts) now live ONLY inside the Studio hub body: Mood Board
+          // / Monogram / Website are App Store rows in "Browse everything"
+          // (lib/add-ons-catalog.ts), and Event page / Live Wall / E-Gifts get an
+          // explicit "Set up & manage" doorway block on the hub page
+          // (studio/page.tsx) — added there because they aren't catalog SKUs, so
+          // nothing orphans. matchPrefix (${base}/studio) keeps this lit on the
+          // hub + /studio/* (mood-board, add-on detail); the disjoint surfaces
+          // (/monogram, /live, /event-page, /pabuya, /site-editor) are their own
+          // destinations reached from the hub body, same as the vendor 5-page IA.
           key: 'studio',
           label: 'Studio',
           href: `${base}/studio`,
           icon: Sparkles,
           matchPrefix: `${base}/studio`,
-          children: [
-            // Website surface — Event page (the host's doorway to the live guest
-            // page), the site editor, and Launch (preview + go-live). Shown ONLY
-            // for event types whose profile enables 'website' (weddings today;
-            // resolved in layout.tsx → websiteEnabled). A birthday with no website
-            // surface never sees these. Wedding enables it → byte-identical.
-            ...(opts?.websiteEnabled
-              ? [
-                  {
-                    key: 'event-page',
-                    label: 'Event page',
-                    href: `${base}/event-page`,
-                    icon: Eye,
-                    matchPrefix: `${base}/event-page`,
-                  },
-                  {
-                    key: 'website',
-                    label: 'Website',
-                    href: `/site-editor/${eventId}`,
-                    icon: Globe,
-                    matchPrefix: `/site-editor/${eventId}`,
-                  },
-                ]
-              : []),
-            {
-              key: 'mood-board',
-              label: 'Mood Board',
-              href: `${base}/studio/mood-board`,
-              icon: Palette,
-              matchPrefix: `${base}/studio/mood-board`,
-            },
-            // Monogram surface — gated per event type (weddings today). A
-            // non-wedding event whose profile omits 'monogram' never sees it.
-            ...(opts?.monogramEnabled
-              ? [
-                  {
-                    key: 'monogram',
-                    label: 'Monogram',
-                    href: `${base}/monogram`,
-                    icon: Type,
-                    matchPrefix: `${base}/monogram`,
-                  },
-                ]
-              : []),
-            {
-              key: 'live',
-              label: 'Live Wall',
-              href: `${base}/live`,
-              icon: MonitorPlay,
-              matchPrefix: `${base}/live`,
-            },
-            // Pabuya (E-Gifts · digital money dance) — a public event-website
-            // surface the couple configures (like Event page / Live Wall), so
-            // it's gated on the same 'website' surface. The couple adds THEIR
-            // OWN GCash/Maya/bank/PayPal handles + QR codes; Setnayan never
-            // holds money. Guest-facing route: /[slug]/pabuya (flag-gated).
-            ...(opts?.websiteEnabled
-              ? [
-                  {
-                    key: 'pabuya',
-                    label: 'E-Gifts',
-                    href: `${base}/pabuya`,
-                    icon: Gift,
-                    matchPrefix: `${base}/pabuya`,
-                  },
-                ]
-              : []),
-          ],
         },
         // (Launch moved OUT of the Plan items into its own "Go live" section —
         // see `launchItem` above + the two-group composition below.)

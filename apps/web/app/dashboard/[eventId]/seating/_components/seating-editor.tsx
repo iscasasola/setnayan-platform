@@ -25,7 +25,6 @@ import {
   Link2,
   List,
   Loader2,
-  Map as MapIcon,
   Martini,
   Maximize2,
   Minus,
@@ -50,7 +49,27 @@ import {
   Music,
   ChefHat,
   Mic,
+  Users,
+  Wand2,
+  Video,
+  AlertTriangle,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { DayOfEditingBanner } from './day-of-editing-banner';
+import { isEventDayActive } from '@/lib/day-of-mode';
+import {
+  SeatingFrame,
+  CommandBar,
+  BannerSlot,
+  FrameBody,
+  BarMenu,
+  MenuRow,
+  MenuCaption,
+  MenuDivider,
+  SaveStatusChip,
+  SeatingViewSegment,
+  type SaveState,
+} from './seating-frame';
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
@@ -216,6 +235,28 @@ type Props = {
   constraints: KeepApartRule[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
   me: { id: string; name: string };
+  // ── Scroll-less frame (council verdict 2026-07-15): the page header's stats,
+  // the two seating policies, the walkthrough link, and the day-of / walima /
+  // capacity banners moved into the editor's command bar + banner slot, so the
+  // data they need arrives as props. ─────────────────────────────────────────
+  eventDate: string | null;
+  /** Walima gender-separation advisory (null when not requested). */
+  genderSeparationNote: string | null;
+  /** How many non-declined guests exceed total effective seats (0 = enough). */
+  seatShortfall: number;
+  nonDeclinedCount: number;
+  totalSeats: number;
+  autoplaceEnabled: boolean;
+  adjacencyEnabled: boolean;
+  /** RSVP-confirmed guests (stats chip "reserved" framing). */
+  reservedCount: number;
+  /** Reserved guests still without a chair (stats chip "to seat"). */
+  toSeatReserved: number;
+  /** The two policy toggles are plain server-action forms, passed down verbatim. */
+  setSeatingAutoplace: (formData: FormData) => void | Promise<void>;
+  setSeatingGroupAdjacency: (formData: FormData) => void | Promise<void>;
+  /** Initial view — 'list' when the lab's mirrored segment links here (?view=list). */
+  initialView?: 'plan' | 'list';
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -263,6 +304,18 @@ export function SeatingEditor({
   bookedVendors,
   constraints: constraintsProp,
   me,
+  eventDate,
+  genderSeparationNote,
+  seatShortfall,
+  nonDeclinedCount,
+  totalSeats,
+  autoplaceEnabled,
+  adjacencyEnabled,
+  reservedCount,
+  toSeatReserved,
+  setSeatingAutoplace,
+  setSeatingGroupAdjacency,
+  initialView = 'plan',
 }: Props) {
   // Iteration 0053 P4 Unit 6: the event's role set drives seating tiers + labels.
   // Pure client-safe lookup; wedding → WEDDING_ROLE_SET (byte-identical). Declared
@@ -472,11 +525,10 @@ export function SeatingEditor({
     length: floorPlan.venue_length_m ?? 30,
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
-  const [showExport, setShowExport] = useState(false);
   // Guest-photo visibility in the public 3D venue walk (owner 2026-07-03).
   // Optimistic local mirror of floorPlan.venue_photo_visibility so the choice
-  // reflects instantly; the server persist reconciles on revalidation.
-  const [showPhotoVis, setShowPhotoVis] = useState(false);
+  // reflects instantly; the server persist reconciles on revalidation. (The
+  // open/close boolean is gone — the Share & print ▾ menu manages its own.)
   const [photoVis, setPhotoVis] = useState<'table' | 'all' | 'none'>(floorPlan.venue_photo_visibility);
   // The booth whose type-picker is open (place-then-pick). null = none.
   const [boothPickerFor, setBoothPickerFor] = useState<string | null>(null);
@@ -628,12 +680,15 @@ export function SeatingEditor({
   // The spatial chair canvas can't hold many tables on a phone, so small
   // screens default to a scrollable table-card list (0008 spec's mobile
   // surface). Both views are available on both platforms via the toggle.
-  const [view, setView] = useState<'plan' | 'list'>('plan');
+  const [view, setView] = useState<'plan' | 'list'>(initialView);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+    // Mobile default is List (verdict §7) — unless the URL explicitly asked for
+    // the List view (the lab's mirrored segment links here with ?view=list).
+    if (initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
       setView('list');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Phone breakpoint → the per-table popup renders as a bottom sheet (thumb-zone,
   // larger tap targets) instead of a beside-table popover. Tracked live on resize
@@ -1091,6 +1146,11 @@ export function SeatingEditor({
   };
 
   const [confirmFill, setConfirmFill] = useState(false);
+  // Scroll-less frame (council verdict 2026-07-15): permanent save chip + the
+  // "N notices" banner-collapse + the 2D→3D dirty-switch interceptor.
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [noticesExpanded, setNoticesExpanded] = useState(false);
+  const [pendingSwitch3D, setPendingSwitch3D] = useState(false);
   const runFillAroundLocked = () => {
     setConfirmFill(false);
     if (!canEdit) return;
@@ -1136,13 +1196,9 @@ export function SeatingEditor({
   // the choice flips instantly, then persists lock-gated (runGated drops us to
   // view-only + reverts if a peer took the editor). Reverts on any error too.
   const setPhotoVisibility = (next: 'table' | 'all' | 'none') => {
-    if (!canEdit || next === photoVis) {
-      setShowPhotoVis(false);
-      return;
-    }
+    if (!canEdit || next === photoVis) return;
     const prev = photoVis;
     setPhotoVis(next);
-    setShowPhotoVis(false);
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
@@ -2820,6 +2876,9 @@ export function SeatingEditor({
         }
         setDirty(new Set());
         setFloorDirty(false);
+        setSavedAt(
+          new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        );
       } catch (err) {
         if (handleLockLost(err)) {
           setNotice('Editing was taken over by another co-host — you’re viewing only now. Your unsaved layout changes weren’t saved.');
@@ -2829,6 +2888,159 @@ export function SeatingEditor({
       }
     });
   };
+
+  // ── Scroll-less frame plumbing (council verdict 2026-07-15) ───────────────
+  const router = useRouter();
+  const labUrl = `/dashboard/${eventId}/seating/lab`;
+
+  // The canvas cell now absorbs all remaining height (verdict §1). Measure it so
+  // to-scale mode can letterbox the room ratio INSIDE the fill (not a vh guess),
+  // and re-frame on mount + resize.
+  const regionRef = useRef<HTMLDivElement>(null);
+  const [region, setRegion] = useState({ w: 0, h: 0 });
+  useIsoLayoutEffect(() => {
+    const el = regionRef.current;
+    if (!el || view !== 'plan') return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setRegion({ w: r.width, h: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
+  // Re-fit whenever the region size changes (mount + every resize).
+  const fitViewRef = useRef<() => void>(() => {});
+  fitViewRef.current = fitView;
+  useEffect(() => {
+    if (view !== 'plan' || region.w === 0) return;
+    fitViewRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region.w, region.h, view]);
+  // To-scale letterbox box (venue mode): the largest room-ratio rectangle that
+  // fits the measured cell. Free mode fills the cell.
+  const scaledBox =
+    venueScaled && region.w > 0 && region.h > 0
+      ? (() => {
+          const ratio = venue.width / venue.length;
+          let w = region.w;
+          let h = w / ratio;
+          if (h > region.h) {
+            h = region.h;
+            w = h * ratio;
+          }
+          return { w: Math.floor(w), h: Math.floor(h) };
+        })()
+      : null;
+
+  // Permanent save-status chip state (no autosave in v1 — sign-off S2).
+  const saveState: SaveState = isPending ? 'saving' : layoutDirty ? 'dirty' : 'saved';
+  const unsavedCount =
+    dirty.size + (floorDirty ? 1 : 0) + (boothsDirty ? 1 : 0) + (signsDirty ? 1 : 0);
+  // Either seating policy Off → the closed Arrange menu shows a state badge.
+  const arrangePolicyOff = !autoplaceEnabled || !adjacencyEnabled;
+
+  // Day-of live? Drives banner priority (DayOf > capacity shortfall > walima).
+  const [dayOfLive, setDayOfLive] = useState(false);
+  useEffect(() => {
+    if (!eventDate) {
+      setDayOfLive(false);
+      return;
+    }
+    const tick = () => setDayOfLive(isEventDayActive(eventDate));
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [eventDate]);
+
+  // ⌘S / Ctrl+S saves the layout (menu-row shortcut suffices for v1 — no ⌘K).
+  const cmdSaveRef = useRef<() => void>(() => {});
+  cmdSaveRef.current = () => {
+    if (layoutDirty && canEdit) saveLayout();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        cmdSaveRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // beforeunload guard on unsaved layout — the manual-save safety net (v1 keeps
+  // manual save; autosave is a separate lock-aware PR, sign-off S2).
+  useEffect(() => {
+    if (!layoutDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [layoutDirty]);
+
+  // 2D/3D segment (verdict §4): 2D↔List swap in-page; 3D is an honest route
+  // swap to the existing lab (same doc, same actions, same lock). A dirty guard
+  // intercepts the 3D hop because v1 keeps manual save.
+  const switchAfterSaveRef = useRef(false);
+  useEffect(() => {
+    if (switchAfterSaveRef.current && !isPending && !layoutDirty) {
+      switchAfterSaveRef.current = false;
+      router.push(labUrl);
+    }
+  }, [isPending, layoutDirty, router, labUrl]);
+  const onSelectView = (target: '2d' | '3d' | 'list') => {
+    if (target === '3d') {
+      if (layoutDirty) {
+        setPendingSwitch3D(true);
+        return;
+      }
+      router.push(labUrl);
+      return;
+    }
+    setView(target === 'list' ? 'list' : 'plan');
+  };
+
+  // Banner slot (verdict §1, row 2): ONE single-line strip max. Priority
+  // DayOf > capacity shortfall > walima; the losers collapse into a "N notices"
+  // badge on the command bar that expands on tap. Never two stacked banners.
+  const bannerItems: { key: string; node: React.ReactNode }[] = [];
+  if (dayOfLive) {
+    bannerItems.push({ key: 'dayof', node: <DayOfEditingBanner eventDate={eventDate} /> });
+  }
+  if (seatShortfall > 0) {
+    bannerItems.push({
+      key: 'capacity',
+      node: (
+        <div className="flex items-center gap-2 border-b border-warn-200/70 bg-warn-50/60 px-4 py-1.5 text-xs text-ink/80">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-700" />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-medium text-warn-800">Not enough seats:</span>{' '}
+            <span className="font-mono">{nonDeclinedCount}</span> guests but only{' '}
+            <span className="font-mono">{totalSeats}</span> {totalSeats === 1 ? 'seat' : 'seats'} — add
+            more tables{autoplaceEnabled ? ' (auto-seating fills them as you add)' : ''}.
+          </span>
+        </div>
+      ),
+    });
+  }
+  if (genderSeparationNote) {
+    bannerItems.push({
+      key: 'walima',
+      node: (
+        <div className="flex items-center gap-2 border-b border-success-200/70 bg-success-50/50 px-4 py-1.5 text-xs text-ink/80">
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-medium text-success-800">Walima seating:</span> {genderSeparationNote}
+          </span>
+        </div>
+      ),
+    });
+  }
+  const bannerWinner = bannerItems[0] ?? null;
+  const collapsedNotices = bannerItems.slice(1);
 
   // --- sidebar member filtering --------------------------------------------
   const q = search.trim().toLowerCase();
@@ -2851,9 +3063,241 @@ export function SeatingEditor({
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-      {/* ---------------- Sidebar ---------------- */}
-      <aside className="flex max-h-[46vh] flex-col gap-3 overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-3 lg:max-h-[78vh]">
+    <SeatingFrame>
+      {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
+      <CommandBar>
+        {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover. */}
+        <SeatingViewSegment
+          active={view === 'list' ? 'list' : '2d'}
+          onSelect={onSelectView}
+          on3DHover={() => router.prefetch(labUrl)}
+        />
+
+        {/* Merged stats chip — the SAME sources as the retired SeatStat cells +
+            the duplicate Pills (verdict §2, one stats surface not two). */}
+        <span
+          className="hidden shrink-0 items-center gap-2 rounded-lg border border-ink/12 bg-cream px-3 py-1.5 font-mono text-[11px] text-ink/70 sm:inline-flex"
+          title={`${reservedCount} guests confirmed attending`}
+        >
+          <span>
+            {seatedCount}/{totalCapacity} seated
+          </span>
+          <span className="text-ink/25">·</span>
+          <span className={toSeatReserved > 0 ? 'text-terracotta' : ''}>{toSeatReserved} to seat</span>
+          <span className="text-ink/25">·</span>
+          <span>{tables.length} tables</span>
+          {unseatedCount > 0 ? (
+            <>
+              <span className="text-ink/25">·</span>
+              <span className="text-warn-700">{unseatedCount} unseated</span>
+            </>
+          ) : null}
+        </span>
+
+        {/* Live peers + view-only lock pill (verdict §2). */}
+        {peerList.map((p) => (
+          <span
+            key={p.id}
+            className="hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-cream md:inline-flex"
+            style={{ backgroundColor: p.color }}
+            title={p.table ? `${p.name} is editing ${tableLabelById.get(p.table) ?? 'a table'}` : `${p.name} is here`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-cream/90" />
+            {p.name}
+          </span>
+        ))}
+        {!canEdit ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink/70">
+            <Eye className="h-3.5 w-3.5 text-ink/50" />
+            {lock.status === 'acquiring' ? 'Opening…' : 'Viewing only'}
+            <button
+              type="button"
+              onClick={lock.acquire}
+              disabled={lock.status === 'acquiring'}
+              className="rounded-md bg-ink/80 px-1.5 py-0.5 text-[10px] font-semibold text-cream hover:bg-ink disabled:opacity-50"
+            >
+              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
+            </button>
+          </span>
+        ) : null}
+
+        {collapsedNotices.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setNoticesExpanded((v) => !v)}
+            aria-expanded={noticesExpanded}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warn-300 bg-warn-50 px-2 py-1 text-[11px] font-medium text-warn-800 hover:bg-warn-100"
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {collapsedNotices.length} notice{collapsedNotices.length === 1 ? '' : 's'}
+          </button>
+        ) : null}
+
+        <div className="flex-1" />
+
+        {/* ── + Add ▾ — place objects + room size (verdict §2) ── */}
+        <BarMenu label="Add" icon={Plus} width="w-64" disabled={!canEdit}>
+          <MenuCaption>Place on the floor</MenuCaption>
+          <MenuRow icon={Plus} label="New table…" hint="Pick from the 13-type catalog" onClick={() => setShowAddTable(true)} />
+          <MenuRow
+            icon={DoorOpen}
+            label="Entrance"
+            onClick={addEntrance}
+            disabled={view !== 'plan' || entrance.enabled}
+          />
+          <MenuRow
+            icon={Truck}
+            label="Service door"
+            hint="Optional load-in / caterer door"
+            onClick={addServiceDoor}
+            disabled={view !== 'plan' || serviceDoor.enabled}
+          />
+          <MenuRow
+            icon={Footprints}
+            label="Dance floor"
+            onClick={addDanceFloor}
+            disabled={view !== 'plan' || dance.enabled}
+          />
+          <MenuRow
+            icon={Martini}
+            label="Cocktail area"
+            hint="A second room — booths only, no tables"
+            onClick={addCocktailArea}
+            disabled={view !== 'plan' || cocktail.enabled}
+          />
+          <MenuRow
+            icon={Signpost}
+            label="Sign"
+            badge={`${signs.length}/24`}
+            onClick={addSign}
+            disabled={view !== 'plan' || signs.length >= 24}
+          />
+          <MenuRow icon={Store} label="Vendor booth" onClick={addBooth} disabled={view !== 'plan'} />
+          <MenuDivider />
+          <MenuRow
+            icon={Ruler}
+            label="Room size & scale…"
+            hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Set the reception footprint'}
+            onClick={() => setShowRoomPanel((v) => !v)}
+            disabled={view !== 'plan'}
+          />
+        </BarMenu>
+
+        {/* ── Arrange ⚙▾ — policies + fill-around-locked + draft (verdict §2) ── */}
+        <BarMenu label="Arrange" icon={Wand2} width="w-72" stateBadge={arrangePolicyOff}>
+          <MenuCaption>Seating policies</MenuCaption>
+          <form action={setSeatingAutoplace} className="px-1">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="enabled" value={autoplaceEnabled ? 'false' : 'true'} />
+            <button
+              type="submit"
+              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
+            >
+              <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                  Auto-seating
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${autoplaceEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
+                    {autoplaceEnabled ? 'On' : 'Off'}
+                  </span>
+                </span>
+                <span className="text-[11px] leading-snug text-ink/55">
+                  {autoplaceEnabled ? 'New guests get a provisional seat; role/group changes re-seat them.' : 'Seat guests manually with Auto Arrange or drag.'}
+                </span>
+              </span>
+            </button>
+          </form>
+          <form action={setSeatingGroupAdjacency} className="px-1">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="enabled" value={adjacencyEnabled ? 'false' : 'true'} />
+            <button
+              type="submit"
+              className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]"
+            >
+              <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                  Keep groups together
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${adjacencyEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
+                    {adjacencyEnabled ? 'On' : 'Off'}
+                  </span>
+                </span>
+                <span className="text-[11px] leading-snug text-ink/55">
+                  {adjacencyEnabled ? 'An overflowing group spills to the nearest table.' : 'Classic stage-order fill.'}
+                </span>
+              </span>
+            </button>
+          </form>
+          <MenuDivider />
+          <MenuRow
+            icon={Sparkles}
+            label="Build my seating draft"
+            hint="Lay out the whole floor in one tap"
+            onClick={buildDraft}
+            disabled={!canEdit || isPending || tables.length > 0}
+          />
+          {lockedCount > 0 ? (
+            <MenuRow
+              icon={Lock}
+              label={`Fill around ${lockedCount} locked`}
+              hint="Keep locked seats; re-seat everyone else around them"
+              onClick={() => setConfirmFill(true)}
+              disabled={isPending || !canEdit}
+            />
+          ) : null}
+        </BarMenu>
+
+        {/* ── Share & print ▾ — publish, PDFs, guest photos, walkthrough (verdict §2) ── */}
+        <BarMenu label="Share & print" icon={Printer} width="w-72" align="right" disabled={tables.length === 0}>
+          <MenuCaption>Export PDF</MenuCaption>
+          <MenuRow icon={FileDown} label="Mood-board colours" hint="Floor & tables in your palette" href={`/dashboard/${eventId}/seating/export?mode=moodboard`} />
+          <MenuRow icon={FileDown} label="Blueprint" hint="Clean technical line drawing" href={`/dashboard/${eventId}/seating/export?mode=blueprint`} />
+          <MenuRow icon={FileDown} label="Caterer meal counts" hint="Meals per table + dietary · print or CSV" href={`/dashboard/${eventId}/seating/caterer`} target="_blank" />
+          <MenuDivider />
+          <MenuCaption>Guest photos in the 3D walk</MenuCaption>
+          <MenuRow icon={Eye} label="Own table only" badge={photoVis === 'table' ? '✓' : undefined} onClick={() => setPhotoVisibility('table')} disabled={!canEdit} />
+          <MenuRow icon={Camera} label="All guests" badge={photoVis === 'all' ? '✓' : undefined} onClick={() => setPhotoVisibility('all')} disabled={!canEdit} />
+          <MenuRow icon={EyeOff} label="No photos" badge={photoVis === 'none' ? '✓' : undefined} onClick={() => setPhotoVisibility('none')} disabled={!canEdit} />
+          <MenuDivider />
+          <MenuRow icon={Video} label="Walkthrough videos" href={`/dashboard/${eventId}/seating/walkthrough`} />
+          <MenuRow icon={Printer} label="Publish & print" hint="Freeze a snapshot + printable signs / place cards" onClick={publishAndPrint} disabled={isPending || tables.length === 0} emphasized />
+        </BarMenu>
+
+        {/* Permanent save-status chip (verdict §2 SAVE). */}
+        <SaveStatusChip
+          state={saveState}
+          unsavedCount={unsavedCount}
+          savedAt={savedAt}
+          onSave={saveLayout}
+          disabled={!canEdit}
+        />
+
+        {/* The single gold primary — Auto Arrange (verdict §2/§6). */}
+        <button
+          type="button"
+          onClick={() => setConfirmAuto(true)}
+          disabled={isPending || tables.length === 0 || !canEdit}
+          title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-mulberry px-3 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
+        </button>
+      </CommandBar>
+
+      {/* ═══════════ ROW 2 — BANNER SLOT (one strip max + "N notices") ═══════════ */}
+      <BannerSlot>
+        {bannerWinner ? (
+          <div key={bannerWinner.key}>{bannerWinner.node}</div>
+        ) : null}
+        {noticesExpanded
+          ? collapsedNotices.map((n) => <div key={n.key}>{n.node}</div>)
+          : null}
+      </BannerSlot>
+
+      {/* ═══════════ ROW 3 — BODY: [320px panel | canvas] ═══════════ */}
+      <FrameBody>
+        {/* ---------------- Left panel (full-height, own scroll) ---------------- */}
+        <aside className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-b border-ink/10 bg-cream p-3 lg:h-full lg:flex-none lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
@@ -3203,384 +3647,24 @@ export function SeatingEditor({
         </Section>
       </aside>
 
-      {/* ---------------- Canvas ---------------- */}
-      <div className="space-y-3">
-        {/* Exclusive-editor lock banner (PR 2). Renders whenever we are NOT the
-            active editor (canEdit === false) — a SOLO editor who holds the lock
-            (status==='editing') still sees NOTHING (no regression). Two shapes:
-            (a) a live peer is present → "X is editing" + takeover once stale;
-            (b) NO peer present but we still can't edit → a solo-recovery banner
-            so the user is never stranded in view-only (orphaned lock, or a
-            transient acquire failure on mount). Recovery is always one click:
-            acquire() re-asserts and the DB grants it (took_over for a stale/
-            orphaned lock, acquired once it frees). */}
-        {peers.size > 0 && !canEdit ? (
-          <div
-            role="status"
-            className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-3 py-2 text-xs text-ink/80"
-          >
-            <Eye className="h-3.5 w-3.5 shrink-0 text-mulberry" />
-            <span className="min-w-0 flex-1">
-              <strong className="font-semibold text-ink">
-                {lockHolderPeer?.lockHolderLabel ?? lock.holderLabel ?? 'Someone'}
-              </strong>{' '}
-              is editing this seat plan — you&rsquo;re viewing only. Your changes are paused until
-              they finish.
-            </span>
-            {lock.status === 'stale_takeover_available' ? (
-              <button
-                type="button"
-                onClick={lock.acquire}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 font-semibold text-cream hover:bg-mulberry-600"
-              >
-                Take over editing
-              </button>
-            ) : (
-              <span className="shrink-0 text-ink/45">Checking for handover…</span>
-            )}
-          </div>
-        ) : !canEdit ? (
-          // No peer present, yet we can't edit — never strand a solo user.
-          <div
-            role="status"
-            className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-3 py-2 text-xs text-ink/80"
-          >
-            <Eye className="h-3.5 w-3.5 shrink-0 text-mulberry" />
-            <span className="min-w-0 flex-1">
-              {lock.status === 'acquiring' ? (
-                <>Opening the seat plan for editing…</>
-              ) : (
-                <>
-                  You&rsquo;re viewing only — the editor lock isn&rsquo;t held by you yet. Tap to
-                  start editing.
-                </>
-              )}
-            </span>
-            <button
-              type="button"
-              onClick={lock.acquire}
-              disabled={lock.status === 'acquiring'}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Retry editing'}
-            </button>
-          </div>
-        ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <ul className="flex flex-wrap gap-2 text-[11px]">
-            {peerList.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-cream"
-                style={{ backgroundColor: p.color }}
-                title={p.table ? `${p.name} is editing ${tableLabelById.get(p.table) ?? 'a table'}` : `${p.name} is here`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-cream/90" />
-                {p.name}
-              </li>
-            ))}
-            <Pill>{tables.length} tables</Pill>
-            <Pill>
-              {seatedCount}/{totalCapacity} seated
-            </Pill>
-            <Pill tone={unseatedCount > 0 ? 'warn' : 'ok'}>{unseatedCount} unseated</Pill>
-          </ul>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-lg border border-ink/15 p-0.5">
-              <button
-                type="button"
-                onClick={() => setView('plan')}
-                aria-pressed={view === 'plan'}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition ${
-                  view === 'plan' ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
-                }`}
-              >
-                <MapIcon className="h-3.5 w-3.5" /> Floor plan
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('list')}
-                aria-pressed={view === 'list'}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition ${
-                  view === 'list' ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
-                }`}
-              >
-                <List className="h-3.5 w-3.5" /> List
-              </button>
-            </div>
-            {view === 'plan' ? (
-              <button
-                type="button"
-                onClick={() => setShowRoomPanel((v) => !v)}
-                aria-pressed={showRoomPanel}
-                className={`inline-flex items-center gap-1.5 rounded-lg border bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta ${
-                  venueScaled ? 'border-terracotta/50' : 'border-ink/15'
-                }`}
-              >
-                <Ruler className="h-3.5 w-3.5" />
-                {venueScaled ? `${venue.width}×${venue.length} m` : 'Room size'}
-              </button>
-            ) : null}
-            {view === 'plan' && !entrance.enabled ? (
-              <button
-                type="button"
-                onClick={addEntrance}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
-              >
-                <DoorOpen className="h-3.5 w-3.5" /> Add entrance
-              </button>
-            ) : null}
-            {view === 'plan' && !serviceDoor.enabled ? (
-              <button
-                type="button"
-                onClick={addServiceDoor}
-                title="Optional load-in / caterer door"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
-              >
-                <Truck className="h-3.5 w-3.5" /> Service door
-              </button>
-            ) : null}
-            {view === 'plan' && !dance.enabled ? (
-              <button
-                type="button"
-                onClick={addDanceFloor}
-                title="A no-table zone — tables can't be dropped inside"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
-              >
-                <Footprints className="h-3.5 w-3.5" /> Dance floor
-              </button>
-            ) : null}
-            {view === 'plan' && !cocktail.enabled ? (
-              <button
-                type="button"
-                onClick={addCocktailArea}
-                title="A second room (cocktail / waiting area) — booths only, no tables"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
-              >
-                <Martini className="h-3.5 w-3.5" /> Cocktail area
-              </button>
-            ) : null}
-            {view === 'plan' ? (
-              <button
-                type="button"
-                onClick={addSign}
-                disabled={signs.length >= 24}
-                title="A directional sign (Restrooms, Parking…) — drag to place, rotate to point"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-mulberry disabled:opacity-40"
-              >
-                <Signpost className="h-3.5 w-3.5" /> Add sign
-              </button>
-            ) : null}
-            {view === 'plan' ? (
-              <button
-                type="button"
-                onClick={addBooth}
-                title={
-                  venueScaled
-                    ? 'Drop a vendor booth, then tap it to pick what it is — it anchors to the walls'
-                    : 'Drop a vendor booth, then tap it to pick what it is — an open venue has no walls'
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
-              >
-                <Store className="h-3.5 w-3.5" /> Add booth
-              </button>
-            ) : null}
-            {view === 'plan' && layoutDirty ? (
-              <button
-                type="button"
-                onClick={saveLayout}
-                disabled={isPending || !canEdit}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
-              >
-                <Save className="h-3.5 w-3.5" /> Save layout ({dirty.size + (floorDirty ? 1 : 0)})
-              </button>
-            ) : null}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowExport((v) => !v)}
-                disabled={tables.length === 0}
-                aria-haspopup="menu"
-                aria-expanded={showExport}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
-              >
-                <FileDown className="h-3.5 w-3.5" /> Export PDF
-                <ChevronDown className="h-3 w-3 text-ink/40" />
-              </button>
-              {showExport ? (
-                <>
-                  <button
-                    type="button"
-                    aria-hidden
-                    tabIndex={-1}
-                    onClick={() => setShowExport(false)}
-                    className="fixed inset-0 z-30 cursor-default"
-                  />
-                  <div
-                    role="menu"
-                    className="absolute right-0 z-40 mt-1 w-56 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
-                  >
-                    <a
-                      role="menuitem"
-                      href={`/dashboard/${eventId}/seating/export?mode=moodboard`}
-                      onClick={() => setShowExport(false)}
-                      className="flex flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04]"
-                    >
-                      <span className="text-sm font-medium text-ink">Mood-board colours</span>
-                      <span className="text-[11px] text-ink/55">Floor &amp; tables in your palette</span>
-                    </a>
-                    <a
-                      role="menuitem"
-                      href={`/dashboard/${eventId}/seating/export?mode=blueprint`}
-                      onClick={() => setShowExport(false)}
-                      className="flex flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04]"
-                    >
-                      <span className="text-sm font-medium text-ink">Blueprint</span>
-                      <span className="text-[11px] text-ink/55">Clean technical line drawing</span>
-                    </a>
-                    <a
-                      role="menuitem"
-                      href={`/dashboard/${eventId}/seating/caterer`}
-                      target="_blank"
-                      onClick={() => setShowExport(false)}
-                      className="flex flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04]"
-                    >
-                      <span className="text-sm font-medium text-ink">Caterer meal counts</span>
-                      <span className="text-[11px] text-ink/55">Meals per table + dietary notes · print or CSV</span>
-                    </a>
-                    <p className="px-3 py-1.5 text-[10px] text-ink/45">
-                      A4 PDF · floor plan + seating arrangements · with your monogram &amp; website QR.
-                    </p>
-                  </div>
-                </>
-              ) : null}
-            </div>
-            {/* Guest-photo visibility in the public 3D venue walk (owner
-                2026-07-03). Same popover pattern as Export PDF next door: a
-                toggle + click-away backdrop + role="menu". Photos are always
-                token-gated server-side; this only sets which faces a guest sees.
-                Free — the seat plan has no paywall. */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowPhotoVis((v) => !v)}
-                disabled={!canEdit}
-                aria-haspopup="menu"
-                aria-expanded={showPhotoVis}
-                title={!canEdit ? 'View only — someone else is editing this seat plan' : 'Choose which guest photos show in the 3D venue walk'}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
-              >
-                {photoVis === 'none' ? <EyeOff className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
-                Guest photos
-                <ChevronDown className="h-3 w-3 text-ink/40" />
-              </button>
-              {showPhotoVis ? (
-                <>
-                  <button
-                    type="button"
-                    aria-hidden
-                    tabIndex={-1}
-                    onClick={() => setShowPhotoVis(false)}
-                    className="fixed inset-0 z-30 cursor-default"
-                  />
-                  <div
-                    role="menu"
-                    className="absolute right-0 z-40 mt-1 w-72 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
-                  >
-                    <p className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink/45">
-                      Photos in the 3D venue walk
-                    </p>
-                    {(
-                      [
-                        {
-                          value: 'table' as const,
-                          Icon: Eye,
-                          label: 'Own table only',
-                          hint: 'Each guest sees the faces at their own table — the rest stay anonymous. (Default.)',
-                        },
-                        {
-                          value: 'all' as const,
-                          Icon: Camera,
-                          label: 'All guests',
-                          hint: 'Every seated guest’s photo shows, so anyone can recognise faces around the room.',
-                        },
-                        {
-                          value: 'none' as const,
-                          Icon: EyeOff,
-                          label: 'No photos',
-                          hint: 'Seats show as plain markers — no guest photos anywhere in the walk.',
-                        },
-                      ]
-                    ).map((opt) => {
-                      const active = photoVis === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={active}
-                          onClick={() => setPhotoVisibility(opt.value)}
-                          className={`flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04] ${
-                            active ? 'bg-mulberry/[0.06]' : ''
-                          }`}
-                        >
-                          <opt.Icon className={`mt-0.5 h-4 w-4 shrink-0 ${active ? 'text-mulberry' : 'text-ink/55'}`} />
-                          <span className="flex flex-col gap-0.5">
-                            <span className={`text-sm font-medium ${active ? 'text-mulberry' : 'text-ink'}`}>
-                              {opt.label}
-                              {active ? <Check aria-hidden className="ml-1.5 inline h-3.5 w-3.5" /> : null}
-                            </span>
-                            <span className="text-[11px] leading-snug text-ink/55">{opt.hint}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={publishAndPrint}
-              disabled={isPending || tables.length === 0}
-              title="Publish the plan and open printable table signs + place cards"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
-            >
-              {isPending ? (
-                <><Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> Publishing…</>
-              ) : (
-                <><Printer className="h-3.5 w-3.5" /> Publish &amp; print</>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmAuto(true)}
-              disabled={isPending || tables.length === 0 || !canEdit}
-              title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
-            </button>
-            {lockedCount > 0 ? (
-              <button
-                type="button"
-                onClick={() => setConfirmFill(true)}
-                disabled={isPending || !canEdit}
-                title={
-                  !canEdit
-                    ? 'View only — someone else is editing this seat plan'
-                    : 'Keep locked seats, re-seat everyone else around them'
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-mulberry/40 bg-cream px-3 py-1.5 text-xs font-semibold text-mulberry hover:bg-mulberry/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Lock className="h-3.5 w-3.5" /> Fill around {lockedCount} locked
-              </button>
-            ) : null}
-          </div>
-        </div>
+      {/* ---------------- Canvas cell — fills all remaining height (verdict §1) ---------------- */}
+      <div ref={regionRef} className="relative min-h-0 flex-1 overflow-hidden lg:flex-none">
 
+        {/* Room size & scale — right-anchored popover over the canvas (verdict
+            §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
         {view === 'plan' && showRoomPanel ? (
-          <div className="flex flex-wrap items-end gap-4 rounded-xl border border-ink/10 bg-cream p-3">
+          <div className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg">
+            <div className="flex w-full items-center justify-between">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size &amp; scale</span>
+              <button
+                type="button"
+                onClick={() => setShowRoomPanel(false)}
+                aria-label="Close room size"
+                className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <label className="flex items-center gap-2 text-sm text-ink/75">
               <input
                 type="checkbox"
@@ -3736,8 +3820,12 @@ export function SeatingEditor({
           </div>
         ) : null}
 
+        {/* Floating contextual pill — bottom-center, swaps content instead of
+            pushing the canvas down with flow rows (verdict §1). Includes the
+            "picked: …" echo so pick-to-seat survives view switches. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex flex-col items-center gap-2 px-4 [&>*]:pointer-events-auto [&>*]:w-full [&>*]:max-w-md">
         {pickedGuest ? (
-          <div className="flex items-center gap-3 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
+          <div className="flex items-center gap-3 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm shadow-lg">
             <ChairAvatar guest={pickedGuest} color={colorFor(pickedGuest)} size={28} />
             <span className="min-w-0 flex-1 truncate">
               Seating <span className="font-semibold text-ink">{pickedGuest.name}</span> — tap a chair or a table.
@@ -3803,7 +3891,7 @@ export function SeatingEditor({
         ) : null}
 
         {notice ? (
-          <div className="flex items-center gap-3 rounded-xl border border-warn-300 bg-warn-50 px-3 py-2 text-sm text-warn-900">
+          <div className="flex items-center gap-3 rounded-xl border border-warn-300 bg-warn-50 px-3 py-2 text-sm text-warn-900 shadow-lg">
             <span className="min-w-0 flex-1">{notice}</span>
             <button
               type="button"
@@ -3815,6 +3903,7 @@ export function SeatingEditor({
             </button>
           </div>
         ) : null}
+        </div>
 
         {/* Per-table actions (rename · rotate · delete) now live in the floating
             popup overlay anchored beside the selected table on the canvas — see below. */}
@@ -3827,20 +3916,15 @@ export function SeatingEditor({
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerCancel={onCanvasPointerUp}
-          className={`relative cursor-grab touch-none overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02] active:cursor-grabbing ${
-            venueScaled ? 'mx-auto' : 'aspect-[7/5] w-full'
-          }`}
+          className="absolute inset-0 m-auto cursor-grab touch-none overflow-hidden border border-ink/15 bg-ink/[0.02] active:cursor-grabbing"
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
             backgroundSize: `${gridPx}px ${gridPx}px`,
-            // To scale: take the room's aspect ratio, but cap the height (a 64vh
-            // budget drives the width) so a portrait room doesn't balloon into a
-            // giant canvas. Centered; never wider than the column.
-            ...(venueScaled
-              ? {
-                  aspectRatio: `${venue.width} / ${venue.length}`,
-                  width: `min(100%, calc(64vh * ${venue.width} / ${venue.length}))`,
-                }
+            // The canvas fills the cell (verdict §1 — no aspect-[7/5] box, no 64vh
+            // cap). To-scale mode letterboxes the room ratio INSIDE the fill,
+            // sized to the measured region so a portrait room doesn't distort.
+            ...(scaledBox
+              ? { width: `${scaledBox.w}px`, height: `${scaledBox.h}px` }
               : {}),
           }}
         >
@@ -5278,14 +5362,9 @@ export function SeatingEditor({
             );
           })()}
         </div>
-
-        <p className="text-xs text-ink/50">
-          Scroll or pinch to zoom · drag the background to pan · <Maximize2 className="inline h-3 w-3" /> fits every
-          table. Zoom in to seat individual chairs; drag a table&rsquo;s centre to move it, then Save layout.
-        </p>
         </>
         ) : (
-          <div className="space-y-2">
+          <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">
             {tables.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/50">
                 No tables yet — tap “Build my seating” on the Map, or add one from the panel above.
@@ -5466,6 +5545,7 @@ export function SeatingEditor({
           </div>
         )}
       </div>
+      </FrameBody>
 
       {/* auto-arrange confirm */}
       {confirmAuto ? (
@@ -5607,7 +5687,45 @@ export function SeatingEditor({
           </div>
         </div>
       ) : null}
-    </div>
+
+      {/* 2D→3D dirty guard (verdict §4) — v1 keeps manual save, so switching to
+          the 3D lab with unsaved layout asks first. */}
+      {pendingSwitch3D ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setPendingSwitch3D(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-ink">Save layout first?</h3>
+            <p className="mt-1 text-sm text-ink/70">
+              You have <span className="font-mono">{unsavedCount}</span> unsaved layout{' '}
+              {unsavedCount === 1 ? 'change' : 'changes'}. The 3D plan reads the saved layout.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingSwitch3D(false);
+                  router.push(labUrl);
+                }}
+                className="rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
+              >
+                Switch anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingSwitch3D(false);
+                  switchAfterSaveRef.current = true;
+                  saveLayout();
+                }}
+                disabled={!canEdit}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" /> Save &amp; switch
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </SeatingFrame>
   );
 }
 
@@ -5669,16 +5787,6 @@ function KeepApartAdder({
       </div>
     </div>
   );
-}
-
-function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'warn' | 'ok' }) {
-  const cls =
-    tone === 'warn'
-      ? 'bg-warn-100 text-warn-800'
-      : tone === 'ok'
-        ? 'bg-success-100 text-success-700'
-        : 'bg-ink/5 text-ink/65';
-  return <li className={`rounded-full px-2.5 py-1 font-medium ${cls}`}>{children}</li>;
 }
 
 function BoothIcon({ type, className }: { type: BoothType; className?: string }) {

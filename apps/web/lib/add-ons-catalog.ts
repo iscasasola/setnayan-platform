@@ -167,7 +167,10 @@ export function addOnHref(key: string, eventId: string): string {
   // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
   // is the kill-switch that falls back to the 2D editor (kept in lockstep with
   // the lab route's own gate). NEXT_PUBLIC_* vars are inlined server-side, and
-  // the Studio hub is a server component.
+  // the Studio hub is a server component. Both doorways keep their targets — the
+  // 2026-07-15 scroll-less rebuild put the [2D · 3D · List] segment on BOTH the
+  // 2D editor's command bar and the lab chrome, so the siblings cross-link and
+  // neither projection is orphaned (verdict §4).
   if (key === 'seating') {
     return process.env.NEXT_PUBLIC_SEATING_3D === 'false'
       ? `/dashboard/${eventId}/seating`

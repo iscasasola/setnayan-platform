@@ -99,18 +99,29 @@ export async function getGuestLiveGallery(
           }),
     ]);
 
-    // Re-order by the tag feed (newest tag first), then presign the cap. Prefer
-    // the cheap web copy (thumb → display) over the full-res original — lighter
-    // for a thumbnail grid AND drop-safe: once a photo's original is dropped from
-    // R2 after 3 months, the web copy is what's left (the row + tags are kept).
+    // Re-order by the tag feed (newest tag first), then presign the cap. Serve the
+    // cheap web copy (thumb → display) — lighter for a venue-WiFi thumbnail grid,
+    // drop-safe (the web copy is what survives the 3-month original drop), AND the
+    // privacy-correct choice: this URL is BOTH the <img> src and the "open full
+    // size to save" href (an OUTBOUND path), so it must NEVER be the geo-bearing
+    // original (RA 10173 · CLAUDE.md "geo stripped on outbound shares"). Both
+    // derivatives are sharp-built with all EXIF/GPS dropped. A row with neither
+    // derivative yet (capture still processing) is filtered out below rather than
+    // served raw — it reappears once its web copy renders (seconds later).
     const webRef = (r: {
       r2_object_key: string;
       thumb_r2_key: string | null;
       display_r2_key: string | null;
-    }): string => r.thumb_r2_key ?? r.display_r2_key ?? r.r2_object_key;
+    }): string | undefined => r.thumb_r2_key ?? r.display_r2_key ?? undefined;
     const keyById = new Map<string, string>();
-    for (const p of photosRes.data ?? []) keyById.set(p.photo_id, webRef(p));
-    for (const c of capturesRes.data ?? []) keyById.set(c.capture_id, webRef(c));
+    for (const p of photosRes.data ?? []) {
+      const k = webRef(p);
+      if (k) keyById.set(p.photo_id, k);
+    }
+    for (const c of capturesRes.data ?? []) {
+      const k = webRef(c);
+      if (k) keyById.set(c.capture_id, k);
+    }
 
     const ordered = tags
       .map((t) => ({

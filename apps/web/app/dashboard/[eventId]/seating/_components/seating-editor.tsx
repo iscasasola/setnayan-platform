@@ -79,7 +79,7 @@ import {
   boothTypeForVendorCategory,
   boothPerimeterSlots,
   clampBoothToPerimeter,
-  computeAutoLayout,
+  solveAutoLayout,
   freeBoothSlots,
   defaultPriorityOrder,
   defaultTablePosition,
@@ -89,16 +89,16 @@ import {
   removedSeatSet,
   roleTier,
   rectChainSnap,
-  rectRunsJoined,
   rotatePoint,
   roundKissSnap,
-  boxesOverlap,
-  boxOverlapsRect,
   nextTableName,
   serpentineChainSnap,
-  serpentinesJoined,
-  RECT_JOIN_TOL_PX,
-  SERP_JOIN_TOL_PX,
+  obbOf,
+  checkPlacement,
+  penetrationDepth,
+  layoutViolations,
+  legalJoinPose,
+  isLegalJoint,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -116,6 +116,8 @@ import {
   type FloorSignRow,
   type TableShapeHint,
   type TableType,
+  type WorldPose,
+  type OracleZone,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
@@ -591,6 +593,21 @@ export function SeatingEditor({
   // revalidates + the prop catches up). Keyed by table_id; falls back to the row.
   const [rotById, setRotById] = useState<Record<string, number>>({});
 
+  // Council verdict § 3 — the one global "Walkway width" (metric), the clear
+  // space kept between any two table footprints (chair-back to chair-back).
+  // Defaults to the legacy 0.6 m so no saved room turns red on upgrade (the
+  // 2026-07-11 grandfather rule + § 9.4 sign-off). Raising it enforces a wider
+  // aisle live. Session-scoped in V1 (persisting needs an additive
+  // event_floor_plan.aisle_m column — owner-open, out of the no-schema-change
+  // scope of this PR). New rooms are nudged to Service 0.9 m via the control.
+  const [aisleM, setAisleM] = useState(0.6);
+  // Read-only mount audit (§ 6): tables with persisted overlaps at load — surfaced
+  // as a dismissible pill, never auto-rearranged. { tableId → worst grade }.
+  const [mountAudit, setMountAudit] = useState<Map<string, 'overlap' | 'tight'>>(new Map());
+  const [auditDismissed, setAuditDismissed] = useState(false);
+  // A drag that welded a compatible neighbour → link the two on release (§ 2).
+  const weldRef = useRef<{ moverId: string; anchorId: string } | null>(null);
+
   // --- zoom + pan (growable floor plan) ------------------------------------
   // The world transform is applied to the DOM directly (refs) so panning /
   // zooming a 50-table plan doesn't re-render every table each frame. React
@@ -980,7 +997,19 @@ export function SeatingEditor({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
     const fp = boothFp();
-    const layout = computeAutoLayout({
+    // Council verdict § 5: Auto Arrange is now a VERIFIED metric solver over the
+    // same oracle — every placed slot passes checkPlacement (no silent stacking).
+    // Booths become hard no-go zones; the metric walkway drives the gaps.
+    const boothZones =
+      pxPerMeter && venueScaled
+        ? booths.map((b) => ({
+            x: (b.x_pos / 100) * rect.width,
+            y: (b.y_pos / 100) * rect.height,
+            w: BOOTH_FOOTPRINT_M.w * pxPerMeter,
+            h: BOOTH_FOOTPRINT_M.d * pxPerMeter,
+          }))
+        : [];
+    const solved = solveAutoLayout({
       tables,
       floorPlan: {
         ...fp,
@@ -997,7 +1026,22 @@ export function SeatingEditor({
       },
       rect: { width: rect.width, height: rect.height },
       footprintOf: footprintPx,
+      aisleM: pxPerMeter ? aisleM : undefined,
+      pxPerMeter: pxPerMeter ?? undefined,
+      booths: boothZones,
     });
+    const layout = { ...solved.placed };
+    // Best-effort home for any overflow the solver couldn't fit cleanly (never
+    // silent — the banner below states the honest count). Kept on-canvas via the
+    // existing spiral rather than a fake parked coordinate.
+    const overflow = solved.unplaced.filter((id) => !layout[id]);
+    for (const id of overflow) {
+      const t = tables.find((x) => x.table_id === id);
+      if (!t) continue;
+      const i = tables.indexOf(t);
+      const base = positions[id] ?? defaultGrid(i, tables.length, !venueScaled);
+      layout[id] = nearestFree(base.x, base.y, t, rect, (o) => layout[o.table_id] ?? null);
+    }
     // Sized room → hug the walls; free venue → a row behind the tables.
     const slots = venueScaled
       ? boothPerimeterSlots(fp, booths.length)
@@ -1034,11 +1078,22 @@ export function SeatingEditor({
                 : '.'
             }`
           : '';
+      // Honest overflow (§ 5): if the walkway is too wide for the room, say so —
+      // with the real count that WOULD fit at the 0.6 m Tight floor (a second
+      // solver pass, so the suggestion is true, not a guess).
+      const fitCount = Object.keys(solved.placed).length;
+      const overflowNote =
+        overflow.length > 0
+          ? ` ⚠ ${overflow.length} table${overflow.length === 1 ? "" : "s"} couldn't fit cleanly at the ${aisleM.toFixed(1)} m walkway (${fitCount} of ${tables.length} fit)${
+              solved.altPlacedAtFloor > fitCount ? ` — at 0.6 m (Tight) ${solved.altPlacedAtFloor} fit` : ''
+            }. Try a narrower walkway, fewer tables, or a bigger room.`
+          : '';
       setNotice(
         (res.seated > 0
           ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
           : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone who hasn't declined already has a seat.`) +
-          keepApartNote,
+          keepApartNote +
+          overflowNote,
       );
     });
   };
@@ -1379,6 +1434,43 @@ export function SeatingEditor({
     if (!canEdit) return;
     const fromLabel = tableLabelById.get(fromId) ?? 'the first table';
     const toLabel = tableLabelById.get(toId) ?? 'the second table';
+    // Council verdict § 2 Gesture 2 — pull-to-join: the chain icon no longer
+    // links in place. B animates to the nearest oracle-valid legal joint on A
+    // and only then links (a weld is always at an exact legal pose). Cross-family
+    // or no-room → refuse (the server re-validates too). Skipped when they're
+    // already the same unit, on the free board, or unpositioned (identity link).
+    const from = tables.find((t) => t.table_id === fromId);
+    const to = tables.find((t) => t.table_id === toId);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    let weldMove: { xPct: number; yPct: number; rot: number } | null = null;
+    if (
+      from &&
+      to &&
+      rect &&
+      rect.width > 0 &&
+      venueScaled &&
+      shapeHintFor(from.table_type) === shapeHintFor(to.table_type) &&
+      shapeHintFor(from.table_type) !== 'sweetheart' &&
+      (from.link_group_id == null || from.link_group_id !== to.link_group_id)
+    ) {
+      const anchorPose = poseAt(from, (positions[fromId] ?? { x: 50, y: 50 }).x, (positions[fromId] ?? { x: 50, y: 50 }).y, rect);
+      const moverCur = positions[toId] ?? { x: 50, y: 50 };
+      const moverPose = poseAt(to, moverCur.x, moverCur.y, rect);
+      const cand = legalJoinPose(anchorPose, moverPose, Math.max(rect.width, rect.height));
+      if (!cand) {
+        setNotice(`No open end on “${fromLabel}” to join “${toLabel}” — try the other table.`);
+        return;
+      }
+      // Oracle-check the welded pose vs every THIRD party (anchor exempt).
+      const ghost: WorldPose = { ...moverPose, x: cand.x, y: cand.y, rot: cand.rot };
+      const posFor = (o: EventTableRow, i: number) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+      const thirdParties = othersFor(to, rect, posFor).filter((p) => p.tableId !== fromId);
+      if (!checkPlacement(ghost, { others: thirdParties, zones: zonesFor(rect) }, { gapPx: gapPxNow() }).valid) {
+        setNotice(`No room at that end — drag “${toLabel}” closer to “${fromLabel}” first.`);
+        return;
+      }
+      weldMove = { xPct: (cand.x / rect.width) * 100, yPct: (cand.y / rect.height) * 100, rot: cand.rot };
+    }
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
@@ -1386,6 +1478,24 @@ export function SeatingEditor({
     fd.set('table_id_b', toId);
     startTransition(async () => {
       try {
+        if (weldMove) {
+          // Snap B onto the legal joint, persist its pose, THEN link.
+          setPositions((p) => ({ ...p, [toId]: { x: weldMove!.xPct, y: weldMove!.yPct } }));
+          setRotById((m) => ({ ...m, [toId]: weldMove!.rot }));
+          const fp = new FormData();
+          fp.set('event_id', eventId);
+          fp.set('lock_id', lock.lockId ?? '');
+          fp.set('table_id', toId);
+          fp.set('x_pos', String(weldMove.xPct));
+          fp.set('y_pos', String(weldMove.yPct));
+          await updateTablePosition(fp);
+          const fr = new FormData();
+          fr.set('event_id', eventId);
+          fr.set('lock_id', lock.lockId ?? '');
+          fr.set('table_id', toId);
+          fr.set('rotation_deg', String(weldMove.rot));
+          await updateTableRotation(fr);
+        }
         await linkTables(fd);
         setNotice(
           `Grouped — “${fromLabel}” and “${toLabel}” are now one unit “${fromLabel} & ${toLabel}” that moves and rotates together, with one printed QR sign. Rename it from any member; Break apart to separate them.`,
@@ -1457,8 +1567,11 @@ export function SeatingEditor({
     snap: GroupSnap | null;
   } | null>(null);
   // Serpentine chain snap may rotate the dragged wedge mid-drag (the joint
-  // dictates the angle); the final angle commits once on release.
-  const serpSnapRotRef = useRef<{ id: string; rot: number } | null>(null);
+  // dictates the angle); the final angle commits once on release. Carries the
+  // snap centre + catch radius so the drag can HYSTERESIS-clear the stale chain
+  // angle once it leaves 1.4× the catch radius (verdict § 1 root cause 6 —
+  // otherwise a free-position wedge persists a phantom chain angle).
+  const serpSnapRotRef = useRef<{ id: string; rot: number; cx: number; cy: number; r: number } | null>(null);
 
   const angleDeg = (cx: number, cy: number, px: number, py: number) =>
     (Math.atan2(py - cy, px - cx) * 180) / Math.PI;
@@ -1470,6 +1583,24 @@ export function SeatingEditor({
   const commitRotation = (tableId: string, deg: number) => {
     if (!canEdit) return;
     const next = normDeg(deg);
+    // § 1 root cause 4: only a legal angle persists. If the target angle would
+    // collide with a non-joint neighbour, refuse it (revert to the stored angle)
+    // — legal-joint partners are exempt so a chain-snapped joint still commits.
+    const t = tables.find((x) => x.table_id === tableId);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (t && rect && rect.width > 0) {
+      const cur = positions[tableId] ?? defaultGrid(tables.indexOf(t), tables.length, !venueScaled);
+      if (rotationBlocked(t, cur.x, cur.y, next, rect)) {
+        setRotById((m) => {
+          if (!(tableId in m)) return m;
+          const n = { ...m };
+          delete n[tableId];
+          return n;
+        });
+        setNotice('No room to rotate that table there — move it to more open space first.');
+        return;
+      }
+    }
     setRotById((m) => ({ ...m, [tableId]: next }));
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -1575,6 +1706,11 @@ export function SeatingEditor({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
     const snap = groupSnap(memberIds, rect);
+    // § 1 root cause 4: refuse a unit twist that would collide with a non-member.
+    if (groupRotationBlocked(snap, deltaDeg)) {
+      setNotice('No room to rotate this linked group here — move it to more open space first.');
+      return;
+    }
     const { nextPos, nextRot } = applyGroupRotation(snap, deltaDeg);
     persistGroupTransform(nextPos, nextRot);
   };
@@ -1591,6 +1727,15 @@ export function SeatingEditor({
     }
     const base = absolute ? 0 : rotationOf(t);
     const next = ((Math.round((base + delta) / 15) * 15) % 360 + 360) % 360;
+    // § 1 root cause 4: refuse a single-table rotation with no room (joint-exempt).
+    const rectR = canvasRef.current?.getBoundingClientRect();
+    if (rectR && rectR.width > 0) {
+      const cur = positions[t.table_id] ?? defaultGrid(tables.indexOf(t), tables.length, !venueScaled);
+      if (rotationBlocked(t, cur.x, cur.y, next, rectR)) {
+        setNotice('No room to rotate that table there — move it to more open space first.');
+        return;
+      }
+    }
     setRotById((m) => ({ ...m, [t.table_id]: next }));
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -1653,50 +1798,72 @@ export function SeatingEditor({
     const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
     return (g.hub.w / 2) * (footprintPx(t).w / g.box.w);
   };
-  const rectish = (s: TableShapeHint) => s === 'long_banquet' || s === 'family_head';
-  // Are `moving` (at mx%,my%) and `other` (at op%) in a SANCTIONED chain contact
-  // — the one overlap that isn't a collision? Serpentine tips meeting, or
-  // banquet/family-head run ends joined flush. Poses are built in the same px
-  // space serpentineChainSnap / rectChainSnap use, so a snapped join (tips
-  // coincident) reads as joined here too and survives the collision pass.
-  const chainJoined = (
-    moving: EventTableRow,
-    mx: number,
-    my: number,
-    other: EventTableRow,
-    op: LocalPos,
-    rect: { width: number; height: number },
-  ): boolean => {
-    const shape = shapeHintFor(moving.table_type);
-    if (shapeHintFor(other.table_type) !== shape) return false; // only same-family joins
-    // An explicit linked unit (same link_group_id) is always a legal contact —
-    // the couple joined them on purpose; never let the resolver tear it apart.
-    if (moving.link_group_id != null && moving.link_group_id === other.link_group_id) return true;
-    const a = { x: (mx / 100) * rect.width, y: (my / 100) * rect.height };
-    const b = { x: (op.x / 100) * rect.width, y: (op.y / 100) * rect.height };
-    if (shape === 'serpentine') {
-      const boxWa = tableGeometry('serpentine', moving.capacity).box.w;
-      const boxWb = tableGeometry('serpentine', other.capacity).box.w;
-      return serpentinesJoined(
-        { ...a, rot: rotationOf(moving), scale: footprintPx(moving).w / boxWa },
-        { ...b, rot: rotationOf(other), scale: footprintPx(other).w / boxWb },
-        SERP_JOIN_TOL_PX,
-      );
-    }
-    if (rectish(shape)) {
-      return rectRunsJoined(
-        { ...a, rot: rotationOf(moving), halfLen: halfLenOf(moving) },
-        { ...b, rot: rotationOf(other), halfLen: halfLenOf(other) },
-        RECT_JOIN_TOL_PX,
-      );
-    }
-    return false;
-  };
-  // Breathing gap (px) kept between any two tables.
+  // Breathing gap (px) kept between any two tables on the FREE board (no metre
+  // scale). In a sized room the metric Walkway width (aisleM) drives the gap.
   const COLLIDE_GAP = 10;
-  // Would `moving` sitting at (x%,y%) overlap any OTHER table? AABB test in px.
-  // `posFor` yields each table's %-position, or null to skip one (used while the
-  // auto-place pass is still deciding where un-placed tables go).
+  const gapPxNow = () => (pxPerMeter ? aisleM * pxPerMeter : COLLIDE_GAP);
+  // Council verdict 2026-07-16: every collision test routes through the ONE
+  // placement oracle (lib/seating.ts). `scaleOf`/`poseAt` build the rotation-
+  // aware world pose the oracle consumes; `zonesFor` collects the no-go rects.
+  const scaleOf = (t: EventTableRow) => {
+    const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    return footprintPx(t).w / geo.box.w;
+  };
+  const poseAt = (
+    t: EventTableRow,
+    xPct: number,
+    yPct: number,
+    rect: { width: number; height: number },
+  ): WorldPose => ({
+    tableId: t.table_id,
+    shape: shapeHintFor(t.table_type),
+    capacity: t.capacity,
+    x: (xPct / 100) * rect.width,
+    y: (yPct / 100) * rect.height,
+    rot: rotationOf(t),
+    scale: scaleOf(t),
+    linkGroupId: t.link_group_id ?? null,
+  });
+  const zonesFor = (rect: { width: number; height: number }): OracleZone[] => {
+    const toPx = (p: number, axis: 'w' | 'h') => (p / 100) * (axis === 'w' ? rect.width : rect.height);
+    const out: OracleZone[] = [];
+    // The dance floor + cocktail room are no-table zones.
+    if (dance.enabled)
+      out.push({ id: 'dance', x: toPx(dance.x, 'w'), y: toPx(dance.y, 'h'), w: toPx(dance.w, 'w'), h: toPx(dance.h, 'h') });
+    if (cocktail.enabled)
+      out.push({ id: 'cocktail', x: toPx(cocktail.x, 'w'), y: toPx(cocktail.y, 'h'), w: toPx(cocktail.w, 'w'), h: toPx(cocktail.h, 'h') });
+    // Vendor booths are obstacles too — real metre footprint (sized room only).
+    if (pxPerMeter) {
+      const bw = BOOTH_FOOTPRINT_M.w * pxPerMeter;
+      const bh = BOOTH_FOOTPRINT_M.d * pxPerMeter;
+      booths.forEach((b, i) =>
+        out.push({ id: `booth${i}`, x: toPx(b.x_pos, 'w'), y: toPx(b.y_pos, 'h'), w: bw, h: bh }),
+      );
+    }
+    return out;
+  };
+  // All OTHER table poses (posFor yields each table's %-position, or null to
+  // skip one while the auto-place pass is still deciding).
+  const othersFor = (
+    moving: EventTableRow,
+    rect: { width: number; height: number },
+    posFor: (o: EventTableRow, i: number) => LocalPos | null,
+  ): WorldPose[] => {
+    const out: WorldPose[] = [];
+    tables.forEach((o, i) => {
+      if (o.table_id === moving.table_id) return;
+      const op = posFor(o, i);
+      if (!op) return;
+      out.push(poseAt(o, op.x, op.y, rect));
+    });
+    return out;
+  };
+  // Would `moving` sitting at (x%,y%) violate the oracle — a body overlap OR a
+  // walkway-clearance shortfall — against any other table, zone or booth? The
+  // ONLY sanctioned contact is same-link_group_id membership (the weld model);
+  // the retired distance-only serpentine/rect join exemptions are gone (verdict
+  // § 1 root cause 1) so a snapped-but-unlinked pair now reads as a collision
+  // and heals via slide/monotone-escape — a drop can never persist the overlap.
   const overlapsAny = (
     x: number,
     y: number,
@@ -1704,75 +1871,68 @@ export function SeatingEditor({
     rect: { width: number; height: number },
     posFor: (o: EventTableRow, i: number) => LocalPos | null,
   ) => {
-    const m = footprintPx(moving);
-    const mx = (x / 100) * rect.width;
-    const my = (y / 100) * rect.height;
-    const toPx = (p: number, axis: 'w' | 'h') => (p / 100) * (axis === 'w' ? rect.width : rect.height);
-    // Walkable aisle: ~0.6 m of clear space kept between a table and any
-    // obstacle in a to-scale room (falls back to the 10 px breathing gap on the
-    // free board, where there is no metre scale). Owner rule 2026-07-11.
-    const gap = pxPerMeter ? 0.6 * pxPerMeter : COLLIDE_GAP;
-    // The dance floor is a no-table zone: a table can't be dropped inside it
-    // (drags slide around it via nearestFree, same as around other tables).
-    if (
-      dance.enabled &&
-      boxOverlapsRect(
-        mx,
-        my,
-        m,
-        { x: toPx(dance.x, 'w'), y: toPx(dance.y, 'h'), w: toPx(dance.w, 'w'), h: toPx(dance.h, 'h') },
-        gap,
-      )
-    ) {
+    const res = checkPlacement(
+      poseAt(moving, x, y, rect),
+      { others: othersFor(moving, rect, posFor), zones: zonesFor(rect) },
+      { gapPx: gapPxNow() },
+    );
+    return !res.valid;
+  };
+  // Council verdict § 1 root cause 4 — every rotate path validates through the
+  // oracle so only a LEGAL angle ever persists. Would `t`, sitting at (x%,y%)
+  // rotated to `deg`, collide? Legal-joint partners (a serpentine tip-join / rect
+  // flush / round kiss) and same-unit members are exempt — so a chain-snapped
+  // joint angle passes even before the link commits. Free board: never blocked.
+  const rotationBlocked = (
+    t: EventTableRow,
+    xPct: number,
+    yPct: number,
+    deg: number,
+    rect: { width: number; height: number },
+  ): boolean => {
+    if (!venueScaled) return false;
+    const pose: WorldPose = { ...poseAt(t, xPct, yPct, rect), rot: deg };
+    const jp = { shape: pose.shape, capacity: pose.capacity, x: pose.x, y: pose.y, rot: deg, scale: pose.scale };
+    const ppm = pxPerMeter ?? 40;
+    const posFor = (o: EventTableRow, i: number) =>
+      positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+    const others = othersFor(t, rect, posFor).filter((op) => {
+      if (pose.linkGroupId != null && pose.linkGroupId === op.linkGroupId) return false; // same unit
+      if (op.shape === pose.shape && isLegalJoint(op, jp, ppm)) return false; // valid weld/kiss
       return true;
-    }
-    // The cocktail / waiting-area room is also a no-table zone (booths only).
-    if (
-      cocktail.enabled &&
-      boxOverlapsRect(
-        mx,
-        my,
-        m,
-        {
-          x: toPx(cocktail.x, 'w'),
-          y: toPx(cocktail.y, 'h'),
-          w: toPx(cocktail.w, 'w'),
-          h: toPx(cocktail.h, 'h'),
-        },
-        gap,
-      )
-    ) {
-      return true;
-    }
-    // Vendor booths are obstacles too: a table can't be dropped on a booked
-    // booth. Uses the real metre booth footprint; skipped on the free board
-    // (no metre scale — booths there aren't wall-snapped either).
-    if (pxPerMeter) {
-      const bw = BOOTH_FOOTPRINT_M.w * pxPerMeter;
-      const bh = BOOTH_FOOTPRINT_M.d * pxPerMeter;
-      for (const b of booths) {
-        if (
-          boxOverlapsRect(mx, my, m, { x: toPx(b.x_pos, 'w'), y: toPx(b.y_pos, 'h'), w: bw, h: bh }, gap)
-        ) {
-          return true;
-        }
-      }
-    }
-    return tables.some((o, i) => {
-      if (o.table_id === moving.table_id) return false;
-      const op = posFor(o, i);
-      if (!op) return false;
-      // The ONE sanctioned overlap: a chain contact (serpentine tips meeting,
-      // banquet/family-head run ends joined flush, or an explicit linked unit).
-      // Everything else collides — two serpentines merely shoved together
-      // mid-curve now register as a collision, so the drag slides them apart and
-      // a drop can never persist the overlap the owner reported. (Previously ALL
-      // same-family pairs were blanket-exempted, which is why loose serpentines
-      // and banquets could stack with nothing pushing them apart.)
-      if (chainJoined(moving, x, y, o, op, rect)) return false;
-      const of = footprintPx(o);
-      return boxesOverlap(mx, my, m, toPx(op.x, 'w'), toPx(op.y, 'h'), of, gap);
     });
+    return !checkPlacement(pose, { others, zones: zonesFor(rect) }, { gapPx: gapPxNow() }).valid;
+  };
+  // A whole linked unit's would-be rotation — poses computed WITHOUT mutating
+  // state. Blocked iff any member collides with a NON-member (members exempt
+  // each other by link membership). Used to refuse a unit twist with no room.
+  const groupRotationBlocked = (snap: GroupSnap, deltaDeg: number): boolean => {
+    if (!venueScaled) return false;
+    const rect = { width: snap.rectW, height: snap.rectH };
+    const memberIds = new Set(snap.pts.map((p) => p.id));
+    const nonMembers = tables.filter((o) => !memberIds.has(o.table_id));
+    const zones = zonesFor(rect);
+    for (const p of snap.pts) {
+      const t = tables.find((x) => x.table_id === p.id);
+      if (!t) continue;
+      const r = rotatePoint({ x: p.px - snap.cx, y: p.py - snap.cy }, deltaDeg);
+      const pose: WorldPose = {
+        tableId: p.id,
+        shape: shapeHintFor(t.table_type),
+        capacity: t.capacity,
+        x: snap.cx + r.x,
+        y: snap.cy + r.y,
+        rot: normDeg(p.rot0 + deltaDeg),
+        scale: scaleOf(t),
+        linkGroupId: t.link_group_id ?? null,
+      };
+      const others: WorldPose[] = nonMembers.map((o) => {
+        const op = positions[o.table_id] ?? defaultGrid(tables.indexOf(o), tables.length, !venueScaled);
+        return poseAt(o, op.x, op.y, rect);
+      });
+      if (!checkPlacement(pose, { others, zones }, { gapPx: gapPxNow() }).valid) return true;
+    }
+    return false;
   };
   // Nearest %-position to (x,y) where `moving` clears every other table. Spirals
   // outward from the desired spot; stays inside the walls when a room is sized.
@@ -1897,6 +2057,34 @@ export function SeatingEditor({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables, venueScaled, canvasW, wallSettled]);
+
+  // Council verdict § 6 — READ-ONLY mount audit. Saved anchors are NEVER
+  // rearranged on load (the resolver above honours them verbatim); this just
+  // reports which tables sit in a real persisted overlap (or a tight gap after
+  // the walkway was widened) so the editor can surface a dismissible "N overlaps
+  // — Review" pill. Zero mutation. Runs on mount / settle / walkway change, not
+  // per drag frame. `overlap` = body intersection · `tight` = gap < walkway.
+  useIsoLayoutEffect(() => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || !venueScaled) {
+      setMountAudit((m) => (m.size === 0 ? m : new Map()));
+      return;
+    }
+    const poses: WorldPose[] = tables.map((t, i) => {
+      const p = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+      return poseAt(t, p.x, p.y, rect);
+    });
+    const violations = layoutViolations(poses, zonesFor(rect), gapPxNow());
+    const next = new Map<string, 'overlap' | 'tight'>();
+    for (const row of violations) {
+      next.set(row.tableId, row.violations.some((v) => v.kind === 'overlap') ? 'overlap' : 'tight');
+    }
+    setMountAudit((prev) => {
+      if (prev.size === next.size && [...next].every(([k, v]) => prev.get(k) === v)) return prev;
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tables, venueScaled, canvasW, wallSettled, aisleM]);
 
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {
@@ -2157,36 +2345,31 @@ export function SeatingEditor({
           };
           // halfLenOf (tabletop half-length, hub only) is defined at component scope.
           let snap: { x: number; y: number; rot?: number } | null = null;
+          let catchR = 36;
           if (movingShape === 'serpentine') {
             const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
-            // Same "flush join sits far from the neighbour's centre" problem the
-            // rect path fixed below: a serpentine's chain candidates (continue-
-            // the-circle / S-bend) land ~a footprint away from the drag centre,
-            // so the default 36 px catch is almost impossible to hit by hand and
-            // serpentines "don't link on the end" like the long tables do. Scale
-            // the catch to the wedge's footprint — drag it ROUGHLY end-to-end and
-            // it snaps, matching rectChainSnap's generosity (owner 2026-07-10).
+            // Scale the catch to the wedge's footprint — drag it ROUGHLY end-to-
+            // end and it snaps (a chain candidate lands ~a footprint away).
+            catchR = Math.max(48, footprintPx(movingEarly).w * 0.5);
             snap = serpentineChainSnap(
               dragPx,
               tables
                 .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
                 .map((o) => ({ ...pxOf(o), rot: rotationOf(o), scale: footprintPx(o).w / serpBoxW })),
-              Math.max(48, footprintPx(movingEarly).w * 0.5),
+              catchR,
             );
           } else if (isRect(movingShape)) {
-            // A banquet/family-head flush join sits a whole tabletop-length
-            // away from the neighbour's centre, so a tiny catch radius is
-            // almost impossible to hit by hand. Scale the catch to the moving
-            // table's half-length — drag it ROUGHLY end-to-end and it snaps.
+            catchR = Math.max(40, halfLenOf(movingEarly) * 0.9);
             snap = rectChainSnap(
               dragPx,
               halfLenOf(movingEarly),
               tables
                 .filter((o) => o.table_id !== d.id && isRect(shapeHintFor(o.table_type)))
                 .map((o) => ({ ...pxOf(o), rot: rotationOf(o), halfLen: halfLenOf(o) })),
-              Math.max(40, halfLenOf(movingEarly) * 0.9),
+              catchR,
             );
           } else if (movingShape === 'round') {
+            catchR = 36;
             snap = roundKissSnap(
               dragPx,
               footprintPx(movingEarly).w / 2,
@@ -2196,17 +2379,90 @@ export function SeatingEditor({
             );
           }
           if (snap) {
-            guidesRef.current = { x: null, y: null };
             const nx = Math.max(lo, Math.min(hi, (snap.x / rect.width) * 100));
             const ny = Math.max(lo, Math.min(hi, (snap.y / rect.height) * 100));
-            if (snap.rot !== undefined) {
-              serpSnapRotRef.current = { id: d.id, rot: snap.rot };
-              if (rotationOf(movingEarly) !== snap.rot) {
-                setRotById((m) => ({ ...m, [d.id]: snap.rot! }));
+            const snapRot = snap.rot ?? rotationOf(movingEarly);
+            const ppm = pxPerMeter ?? 40;
+            // Weld model (§ 2): snap is LINK. Identify which same-family neighbour
+            // we welded onto, then run the ghost through the oracle vs ALL third
+            // parties + zones/booths (the weld anchor is the one legal contact,
+            // excluded). If the welded pose collides elsewhere → "No room": refuse
+            // the weld and fall through to the plain slide.
+            const snappedJoinPose = {
+              shape: movingShape,
+              capacity: movingEarly.capacity,
+              x: snap.x,
+              y: snap.y,
+              rot: snapRot,
+              scale: scaleOf(movingEarly),
+            };
+            const anchor = tables.find(
+              (o) =>
+                o.table_id !== d.id &&
+                shapeHintFor(o.table_type) === movingShape &&
+                isLegalJoint(
+                  {
+                    shape: shapeHintFor(o.table_type),
+                    capacity: o.capacity,
+                    x: pxOf(o).x,
+                    y: pxOf(o).y,
+                    rot: rotationOf(o),
+                    scale: scaleOf(o),
+                  },
+                  snappedJoinPose,
+                  ppm,
+                ),
+            );
+            const ghostPose: WorldPose = {
+              tableId: d.id,
+              shape: movingShape,
+              capacity: movingEarly.capacity,
+              x: snap.x,
+              y: snap.y,
+              rot: snapRot,
+              scale: scaleOf(movingEarly),
+              linkGroupId: movingEarly.link_group_id ?? null,
+            };
+            const posFor = (o: EventTableRow, i: number) =>
+              positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+            const thirdParties = othersFor(movingEarly, rect, posFor).filter(
+              (p) => p.tableId !== anchor?.table_id,
+            );
+            const ghostOk =
+              !!anchor &&
+              checkPlacement(ghostPose, { others: thirdParties, zones: zonesFor(rect) }, { gapPx: gapPxNow() }).valid;
+            if (ghostOk) {
+              guidesRef.current = { x: null, y: null };
+              if (snap.rot !== undefined) {
+                serpSnapRotRef.current = { id: d.id, rot: snap.rot, cx: snap.x, cy: snap.y, r: catchR };
+                if (rotationOf(movingEarly) !== snap.rot) {
+                  setRotById((m) => ({ ...m, [d.id]: snap.rot! }));
+                }
               }
+              weldRef.current = { moverId: d.id, anchorId: anchor.table_id };
+              setPositions((p) => ({ ...p, [d.id]: { x: nx, y: ny } }));
+              return;
             }
-            setPositions((p) => ({ ...p, [d.id]: { x: nx, y: ny } }));
-            return;
+            // No room at the weld → drop weld intent, hysteresis-clear a stale
+            // chain angle, and fall through to the alignment-snap + slide path.
+            weldRef.current = null;
+          }
+          // Hysteresis: once the drag leaves 1.4× the catch radius of the last
+          // snap centre, release the phantom chain angle (revert to the table's
+          // stored rotation) so a free-position drop never persists a stale angle.
+          const held = serpSnapRotRef.current;
+          if (held && held.id === d.id) {
+            const dist = Math.hypot(dragPx.x - held.cx, dragPx.y - held.cy);
+            if (dist > held.r * 1.4) {
+              serpSnapRotRef.current = null;
+              weldRef.current = null;
+              setRotById((m) => {
+                if (!(d.id in m)) return m;
+                const n = { ...m };
+                delete n[d.id];
+                return n;
+              });
+            }
           }
         }
         // Alignment snap: pull to another table's centre (or the room
@@ -2249,34 +2505,45 @@ export function SeatingEditor({
           if (gy === null) ay = Math.round(ay / gridY) * gridY;
         }
         guidesRef.current = { x: gx, y: gy };
-        // No-overlap + walkable aisle (owner 2026-07-11). In a SIZED room a
-        // table can't be dropped overlapping another table, the dance floor,
-        // the cocktail room, or a vendor booth — overlapsAny keeps a ~0.6 m
-        // aisle clear. Axis-separated slide: if the target overlaps, keep
-        // whichever single axis is clear so the table GLIDES along the obstacle
-        // to the nearest gap. We only call overlapsAny (a cheap AABB), never
-        // nearestFree per-frame — so this cannot resurrect the old "spiral an
-        // already-touching table far across the room on the first drag pixel"
-        // bug. A table that STARTS overlapping (pre-existing layout) drags FREE
-        // so it can never get boxed in. The STAGE is not an obstacle (it's a
-        // platform tables may sit on). The free board keeps place-anywhere
-        // (0.6 m is meaningless without a metre scale).
+        // Council verdict § 4 — slide + MONOTONE ESCAPE (replaces the old
+        // "already stuck → drag free" disjunct, root cause 2). In a sized room a
+        // table can't be dropped overlapping another table, the dance floor, the
+        // cocktail room or a booth — the oracle keeps the metric walkway clear.
+        // A CLEAN table must stay fully legal (axis-separated slide glides it
+        // along an obstacle to the nearest gap). A table that STARTS violating
+        // (legacy save, or the walkway was widened) may move only to a fully-
+        // valid pose OR one whose max body penetration does NOT increase beyond
+        // ε = 2 cm (plateau allowance) — out is always possible, deeper never.
+        // So you can always rescue a stuck table but can never worsen or seed a
+        // new overlap. The STAGE is not an obstacle. The free board keeps
+        // place-anywhere (a metric walkway is meaningless without a metre scale).
         const posFor = (o: EventTableRow, i: number) =>
           positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
         const cur = positions[d.id] ?? { x, y };
-        if (
-          !venueScaled ||
-          !movingEarly ||
-          overlapsAny(cur.x, cur.y, movingEarly, rect, posFor) || // already stuck → drag free
-          !overlapsAny(ax, ay, movingEarly, rect, posFor) // target is clear
-        ) {
+        if (!venueScaled || !movingEarly) {
           setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
-        } else if (!overlapsAny(ax, cur.y, movingEarly, rect, posFor)) {
-          setPositions((p) => ({ ...p, [d.id]: { x: ax, y: cur.y } })); // slide along X
-        } else if (!overlapsAny(cur.x, ay, movingEarly, rect, posFor)) {
-          setPositions((p) => ({ ...p, [d.id]: { x: cur.x, y: ay } })); // slide along Y
+        } else {
+          const world = { others: othersFor(movingEarly, rect, posFor), zones: zonesFor(rect) };
+          const params = { gapPx: gapPxNow() };
+          const curPose = poseAt(movingEarly, cur.x, cur.y, rect);
+          const curValid = checkPlacement(curPose, world, params).valid;
+          const curDepth = curValid ? 0 : penetrationDepth(curPose, world);
+          const epsPx = pxPerMeter ? 0.02 * pxPerMeter : 2;
+          const accept = (px: number, py: number): boolean => {
+            const p = poseAt(movingEarly, px, py, rect);
+            if (checkPlacement(p, world, params).valid) return true;
+            if (curValid) return false; // a clean table must keep the walkway
+            return penetrationDepth(p, world) <= curDepth + epsPx; // stuck → non-worsening
+          };
+          if (accept(ax, ay)) {
+            setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
+          } else if (accept(ax, cur.y)) {
+            setPositions((p) => ({ ...p, [d.id]: { x: ax, y: cur.y } })); // slide along X
+          } else if (accept(cur.x, ay)) {
+            setPositions((p) => ({ ...p, [d.id]: { x: cur.x, y: ay } })); // slide along Y
+          }
+          // else fully boxed in → hold at cur (apply nothing)
         }
-        // else fully boxed in → hold at cur (apply nothing)
       } else if (d.kind === 'stage') {
         // Wall-snap only in a sized (walled) room; a free board has no walls.
         const p = venueScaled ? snapRectToWalls(x, y, stage.w, stage.h) : { x, y };
@@ -2348,8 +2615,15 @@ export function SeatingEditor({
       rotateGestureRef.current = null;
       if (rg.latched && rg.latest !== rg.startRot) {
         if (rg.snap) {
-          const { nextPos, nextRot } = applyGroupRotation(rg.snap, rg.latest - rg.startRot);
-          persistGroupTransform(nextPos, nextRot);
+          // § 1 root cause 4: refuse a unit twist with no room — revert the
+          // optimistic preview to its pre-gesture pose (delta 0).
+          if (groupRotationBlocked(rg.snap, rg.latest - rg.startRot)) {
+            applyGroupRotation(rg.snap, 0);
+            setNotice('No room to rotate this linked group there — move it to more open space first.');
+          } else {
+            const { nextPos, nextRot } = applyGroupRotation(rg.snap, rg.latest - rg.startRot);
+            persistGroupTransform(nextPos, nextRot);
+          }
         } else {
           commitRotation(rg.tableId, rg.latest);
         }
@@ -2361,6 +2635,8 @@ export function SeatingEditor({
     guidesRef.current = { x: null, y: null };
     const serpRot = serpSnapRotRef.current;
     serpSnapRotRef.current = null;
+    const weld = weldRef.current;
+    weldRef.current = null;
     if (d?.moved) {
       if (d.kind === 'table') {
         // A linked unit moved as one — every member's position changed.
@@ -2374,6 +2650,18 @@ export function SeatingEditor({
         if (serpRot && serpRot.id === d.id) {
           const t = tables.find((x) => x.table_id === d.id);
           if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
+        }
+        // Weld model (§ 2): a drag that snapped onto a compatible neighbour LINKS
+        // the two into one rigid unit on release (snap is link). Cross-group /
+        // already-linked is a no-op inside doLinkTables → linkTables (server
+        // re-validates same-family + legal joint). Skipped when they're already
+        // members of the same unit.
+        if (weld && weld.moverId === d.id) {
+          const mover = tables.find((t) => t.table_id === weld.moverId);
+          const anchor = tables.find((t) => t.table_id === weld.anchorId);
+          const sameUnit =
+            mover?.link_group_id != null && mover.link_group_id === anchor?.link_group_id;
+          if (mover && anchor && !sameUnit) doLinkTables(weld.anchorId, weld.moverId);
         }
       } else if (d.kind === 'booth') setBoothsDirty(true);
       else setFloorDirty(true);
@@ -3637,6 +3925,80 @@ export function SeatingEditor({
           </span>
         </button>
       </form>
+      <MenuDivider />
+      {/* Council verdict § 3 — the one global Walkway width (metric). The clear
+          space kept between any two table footprints (chair-back to chair-back).
+          Drives live collision + Auto Arrange. Disabled on a free board. */}
+      <MenuCaption>Walkway width</MenuCaption>
+      <div className="px-3 pb-1.5">
+        {venueScaled ? (
+          <>
+            <div className="flex gap-1">
+              {([
+                { m: 0.6, label: 'Tight' },
+                { m: 0.9, label: 'Service' },
+                { m: 1.5, label: 'Comfort' },
+              ] as const).map((o) => (
+                <button
+                  key={o.m}
+                  type="button"
+                  onClick={() => setAisleM(o.m)}
+                  disabled={!canEdit}
+                  className={`flex-1 rounded-md border px-1.5 py-1 text-center text-[11px] font-medium transition-colors disabled:opacity-50 ${
+                    Math.abs(aisleM - o.m) < 0.05
+                      ? 'border-mulberry bg-mulberry/10 text-mulberry'
+                      : 'border-ink/15 text-ink/60 hover:bg-ink/[0.04]'
+                  }`}
+                >
+                  {o.label}
+                  <span className="block text-[9px] opacity-70">{o.m.toFixed(1)} m</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAisleM((v) => Math.max(0.6, Math.round((v - 0.1) * 10) / 10))}
+                disabled={!canEdit || aisleM <= 0.6}
+                className="h-6 w-6 rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] disabled:opacity-40"
+                aria-label="Narrower walkway"
+              >
+                −
+              </button>
+              <span className="min-w-[3.5rem] text-center text-xs font-semibold tabular-nums text-ink">
+                {aisleM.toFixed(1)} m
+              </span>
+              <button
+                type="button"
+                onClick={() => setAisleM((v) => Math.min(2.0, Math.round((v + 0.1) * 10) / 10))}
+                disabled={!canEdit || aisleM >= 2.0}
+                className="h-6 w-6 rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] disabled:opacity-40"
+                aria-label="Wider walkway"
+              >
+                +
+              </button>
+            </div>
+            <p className="mt-1.5 text-[10px] leading-snug text-ink/50">
+              {aisleM <= 0.6
+                ? 'Single-file — staff can’t pass with trays.'
+                : aisleM < 0.95
+                  ? 'Room for staff with trays (PH banquet minimum).'
+                  : aisleM < 1.5
+                    ? 'Comfortable service aisle.'
+                    : 'Guest aisle — gowns and easy passing.'}
+            </p>
+            {mountAudit.size > 0 ? (
+              <p className="mt-1 text-[10px] leading-snug text-terracotta">
+                {mountAudit.size} table{mountAudit.size === 1 ? '' : 's'} too close at this walkway — drag them apart or narrow the walkway to heal.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-[11px] leading-snug text-ink/50">
+            Set your room size to control walkway width.
+          </p>
+        )}
+      </div>
       <MenuDivider />
       <MenuRow
         icon={Sparkles}
@@ -5403,8 +5765,14 @@ export function SeatingEditor({
                   handleRotRef.current = null;
                   if (h && h.latest !== h.startRot) {
                     if (h.snap) {
-                      const { nextPos, nextRot } = applyGroupRotation(h.snap, h.latest - h.startRot);
-                      persistGroupTransform(nextPos, nextRot);
+                      // § 1 root cause 4: refuse a unit twist with no room.
+                      if (groupRotationBlocked(h.snap, h.latest - h.startRot)) {
+                        applyGroupRotation(h.snap, 0);
+                        setNotice('No room to rotate this linked group there — move it to more open space first.');
+                      } else {
+                        const { nextPos, nextRot } = applyGroupRotation(h.snap, h.latest - h.startRot);
+                        persistGroupTransform(nextPos, nextRot);
+                      }
                     } else {
                       commitRotation(h.tableId, h.latest);
                     }

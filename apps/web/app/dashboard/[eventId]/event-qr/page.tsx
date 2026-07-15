@@ -19,9 +19,11 @@
  * Auth: RLS on events does the heavy lifting. Non-host gets maybeSingle
  * = null → redirect to /dashboard.
  *
- * Per [[feedback_setnayan_orphan_prevention]] the page is reachable from
- * the event-home TILES grid via the new Event QR tile (see same-PR diff
- * to apps/web/app/dashboard/[eventId]/page.tsx).
+ * Per [[feedback_setnayan_orphan_prevention]] the page is reachable via a
+ * secondary "Event QR for your crew" link on the guest Invite stage
+ * (apps/web/app/dashboard/[eventId]/guests/invite/page.tsx). It previously
+ * hung off an event-home TILES grid tile, which the Home/Overview redesigns
+ * dropped — the Invite-page link (2026-07-15) is now its findable home.
  */
 
 import { redirect } from 'next/navigation';

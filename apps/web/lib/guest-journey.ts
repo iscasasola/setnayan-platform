@@ -23,8 +23,9 @@
  * event window opens, then becomes the live surface. Every other stage stays
  * visible always (guest work is non-linear — late adds, re-seats), changing state
  * not visibility. (Event QR is a crew-pairing tool and Hosts is a team surface —
- * neither is a journey stage, so neither lives here; both stay reachable from the
- * Home tiles grid.)
+ * neither is a journey stage, so neither lives here. Event QR is reachable via a
+ * secondary link on the Invite stage — /guests/invite (2026-07-15, after the Home/
+ * Overview redesigns dropped its tile); Hosts from the Home tiles grid.)
  */
 
 import {

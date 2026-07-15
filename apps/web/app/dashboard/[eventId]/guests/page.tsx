@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight } from 'lucide-react';
+import { Link2, ArrowRight, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
@@ -507,9 +507,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           </h1>
         </div>
         <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
-          {/* Share stays in the header; the add paths (primary add, CSV import,
-              quick-add list, full form) moved INTO the capture bar's Add input +
-              its overflow menu (Living Roster P2 · capture-first). */}
+          {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
+              the one join link + QR) was orphaned when the Living Roster reskin
+              dropped the lifecycle ribbon; this restores its desktop entry point.
+              Same button-secondary weight as the Share affordance beside it —
+              discoverable, not shouty. Share stays; the add paths (primary add,
+              CSV import, quick-add list, full form) live in the capture bar. */}
+          <Link
+            href={`/dashboard/${eventId}/guests/invite`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Invite guests
+          </Link>
           {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
         </div>
       </header>
@@ -1324,9 +1334,18 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
         No guests yet. Start by adding the couple&rsquo;s first invite.
       </p>
       {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
-          detailed form stays one click away for power users. */}
+          detailed form stays one click away for power users. Inviting is THE
+          zero-state action, so the Invite doorway (2026-07-15) sits right here
+          beside adding names — share one link and let guests self-add. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <OpenQuickAddButton label="+ Add your first guest" />
+        <Link
+          href={`/dashboard/${eventId}/guests/invite`}
+          className="button-secondary inline-flex items-center gap-2"
+        >
+          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Invite guests
+        </Link>
         <Link
           href={`/dashboard/${eventId}/guests/new`}
           className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"

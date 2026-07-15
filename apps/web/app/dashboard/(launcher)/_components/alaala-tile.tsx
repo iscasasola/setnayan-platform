@@ -133,20 +133,32 @@ export async function AlaalaTile({
     people: (
       <div className="space-y-2.5">
         {faces.length > 0 ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {faces.map((f) => (
               <span
                 key={f.personId}
-                title={f.displayName}
-                className="relative flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-ink ring-2 ring-white/15"
-                style={{ background: orbBackground(f.displayName, f.inMemoriam) }}
+                className="flex min-w-0 flex-col items-center gap-1"
               >
-                {f.displayName.charAt(0).toUpperCase()}
-                {f.inMemoriam ? (
-                  <span aria-hidden className="absolute -right-0.5 -top-0.5 text-[9px]">
-                    ✦
-                  </span>
-                ) : null}
+                <span
+                  title={f.displayName}
+                  className="relative flex h-[46px] w-[46px] items-center justify-center rounded-full text-base font-extrabold text-ink ring-2 ring-white/20"
+                  style={{
+                    background: orbBackground(f.displayName, f.inMemoriam),
+                  }}
+                >
+                  {f.displayName.charAt(0).toUpperCase()}
+                  {f.inMemoriam ? (
+                    <span
+                      aria-hidden
+                      className="absolute -right-0.5 -top-0.5 text-[9px]"
+                    >
+                      ✦
+                    </span>
+                  ) : null}
+                </span>
+                <span className="max-w-[52px] truncate text-[11px] font-bold text-terracotta-100/85">
+                  {f.displayName}
+                </span>
               </span>
             ))}
           </div>
@@ -165,47 +177,97 @@ export async function AlaalaTile({
   };
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-white/10 bg-ink p-5 shadow-[0_26px_50px_-28px_rgba(23,22,15,0.7)] sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <p className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-terracotta">
-          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Alaala · Life-Flash
+    <>
+      {/* The obsidian tile (proto .tile.dark.alaala — surface recipe lives once
+          in globals.css as .sn-tile-obsidian; .sn-bloom materializes it LAST,
+          after the glass cascade). */}
+      <div className="sn-tile-obsidian sn-bloom relative flex flex-col gap-4 overflow-hidden rounded-2xl p-4 shadow-[0_26px_50px_-28px_rgba(23,22,15,0.7)] sm:gap-5 sm:p-[18px]">
+        {/* Life-Flash veil lift + capiz shimmer sweep — decorative, aria-hidden,
+            display:none under prefers-reduced-motion (see globals.css). */}
+        <span aria-hidden className="sn-veil" />
+        <span aria-hidden className="sn-capiz" />
+        <div className="flex items-start justify-between gap-3">
+          <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-300)]">
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Alaala · Life-Flash
+          </p>
+        </div>
+
+        <h3 className="max-w-[20ch] text-lg font-extrabold leading-[1.12] tracking-[-0.01em] text-[color:var(--sn-gold-100)] sm:text-[21px]">
+          See your whole life — while you’re still in it.
+        </h3>
+
+        <div className="flex items-center gap-2.5">
+          {faces.length > 0 ? (
+            <span
+              aria-hidden
+              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-xs font-bold text-ink"
+              style={{
+                background: orbBackground(
+                  faces[0]!.displayName,
+                  faces[0]!.inMemoriam,
+                ),
+              }}
+            >
+              {faces[0]!.displayName.charAt(0).toUpperCase()}
+            </span>
+          ) : null}
+          <p className="text-xs text-terracotta-100/70">{whoLine}</p>
+        </div>
+
+        {lifeOn ? (
+          <Link
+            href="/dashboard/life-flash"
+            className="sn-press inline-flex w-fit items-center gap-2 rounded-full bg-terracotta px-4 py-[9px] text-[13px] font-extrabold text-[color:var(--sn-ink-black)] transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:bg-terracotta-300 hover:shadow-[0_12px_26px_-10px_rgba(203,167,102,0.7)]"
+          >
+            <Play
+              aria-hidden
+              className="h-[15px] w-[15px] fill-current"
+              strokeWidth={1.75}
+            />
+            Play Life-Flash
+          </Link>
+        ) : null}
+
+        {/* The five LENSES are a ≥sm affordance (proto mobile keeps the tile
+            compact); below sm the People / With-me rows beneath the tile carry
+            the same content in the scroll. */}
+        <div className="hidden sm:block">
+          <div aria-hidden className="mb-3.5 h-px bg-white/[0.12]" />
+          <AlaalaLenses bodies={bodies} />
+        </div>
+      </div>
+
+      {/* MOBILE Alaala companions (proto .m-face + .mghost) — the People and
+          With-me lenses expressed as visible rows in the scroll, from the same
+          real data the tile fetched. */}
+      <div className="space-y-2.5 sm:hidden">
+        <div className="sn-tile-glass flex items-center gap-3 rounded-xl px-3 py-3">
+          {faces[0] ? (
+            <span
+              aria-hidden
+              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-xs font-bold text-ink"
+              style={{
+                background: orbBackground(
+                  faces[0].displayName,
+                  faces[0].inMemoriam,
+                ),
+              }}
+            >
+              {faces[0].displayName.charAt(0).toUpperCase()}
+            </span>
+          ) : null}
+          <p className="min-w-0 flex-1 truncate text-xs text-ink/55">
+            <span className="font-bold text-ink">People</span> —{' '}
+            {peopleCount > 0 ? peopleCount : 'connections'} · coming soon
+          </p>
+        </div>
+        <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white/40 px-3 py-3 text-xs text-ink/50">
+          {personStoriesOn
+            ? 'Photos and clips you appear in gather below.'
+            : 'Photos you appear in gather here.'}
         </p>
       </div>
-
-      <h3 className="m-serif max-w-[22ch] text-2xl leading-snug text-cream sm:text-[1.7rem]">
-        See your whole life —{' '}
-        <span className="text-cream/60">while you’re still in it.</span>
-      </h3>
-
-      <div className="flex items-center gap-3">
-        {faces.length > 0 ? (
-          <span
-            aria-hidden
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-ink"
-            style={{
-              background: orbBackground(faces[0]!.displayName, faces[0]!.inMemoriam),
-            }}
-          >
-            {faces[0]!.displayName.charAt(0).toUpperCase()}
-          </span>
-        ) : null}
-        <p className="text-sm text-white/60">{whoLine}</p>
-      </div>
-
-      {lifeOn ? (
-        <Link
-          href="/dashboard/life-flash"
-          className="inline-flex w-fit items-center gap-2 rounded-full bg-terracotta px-4 py-2 text-sm font-bold text-ink transition-colors hover:bg-terracotta-600"
-        >
-          <Play aria-hidden className="h-4 w-4 fill-current" strokeWidth={1.75} />
-          Play Life-Flash
-        </Link>
-      ) : null}
-
-      <div aria-hidden className="h-px bg-white/10" />
-
-      <AlaalaLenses bodies={bodies} />
-    </div>
+    </>
   );
 }

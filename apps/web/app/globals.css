@@ -193,9 +193,15 @@
    * left intact. prefers-reduced-motion (block below) snaps it instantly,
    * which is still felt as feedback.
    */
+  /* `.sn-press` — same press feedback as an OPT-IN for <Link>-based cards
+   * (home-launcher pixel pass 2026-07-15: event cards, ghost card, space rows,
+   * moment rows, the Play pill), which the button-shaped selectors below can't
+   * match. Base-layer on purpose so Tailwind transition utilities on the same
+   * element keep winning exactly as they do for buttons. */
   button,
   [role='button'],
   a.button,
+  .sn-press,
   input[type='submit'],
   input[type='button'],
   summary {
@@ -218,6 +224,11 @@
   summary:active {
     scale: 0.96;
     filter: brightness(0.97);
+  }
+  /* Proto universal :active is scale(.97) on cards — slightly gentler than
+   * the button press above. */
+  .sn-press:active {
+    scale: 0.97;
   }
   button:disabled,
   [aria-disabled='true'] {
@@ -2850,6 +2861,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-gold-600:   #95713D;
   --sn-gold-700:   #8A6B39;
 
+  /* home-launcher fidelity additions (2026-07-15 pixel pass) —
+     proto values with no pre-existing kit slot, named per owner rule
+     "no hardcoded dependent values" */
+  --sn-ink-400:    #8A857B;  /* proto soft-label grey (sits between ink-300/ink-500) */
+  --sn-terra:      #C08A4A;  /* true terracotta (proto primary-star accent; predates the gold re-point) */
+
   /* semantic (warm-tuned, never neon) */
   --sn-success:    #5E7C52;  --sn-success-soft: #E9EEE3;
   --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
@@ -2868,6 +2885,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
   --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
   --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
+  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows */
+  --sn-sh-tile: 0 18px 40px -26px rgba(30,26,18,.4);
+  --sn-sh-hi:   0 28px 54px -30px rgba(30,26,18,.5);
 
   /* glass (macOS vibrancy) */
   --sn-glass-bg:   rgba(255,255,255,.55);
@@ -2921,6 +2941,74 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
   color: var(--sn-gold-100);
 }
+
+/* ---------- home-launcher fidelity surfaces (2026-07-15 pixel pass) ----------
+ * Each recipe defined ONCE here (owner: "do not hard code values that should be
+ * dependent") and referenced by class from the launcher components. In
+ * @layer components so Tailwind hover/state utilities on the same element
+ * (e.g. hover:border-mulberry/30) still win the cascade. */
+@layer components {
+  /* The launcher's ambient Atelier wash — warm paper gradient + gold/slate
+   * glows (proto .win + .winwash; slate 78,108,130 = --sn-info). */
+  .sn-wash-home {
+    background:
+      radial-gradient(45% 55% at 18% 6%, rgba(203, 167, 102, 0.32), transparent 60%),
+      radial-gradient(45% 60% at 86% 92%, rgba(78, 108, 130, 0.2), transparent 60%),
+      linear-gradient(135deg, #efeae0, #e3ddcf 55%, #ddd6c6);
+  }
+
+  /* Frosted glass tile (proto .glass/.tile/.ev/.cmd): white .5 + 22px blur +
+   * 1.5 saturation + white .72 hairline + the warm tile shadow. */
+  .sn-tile-glass {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    box-shadow: var(--sn-sh-tile);
+  }
+
+  /* Obsidian tile (proto .tile.dark.alaala): gold-glow radial over the dark
+   * glass base, gold-100 base text. */
+  .sn-tile-obsidian {
+    background:
+      radial-gradient(70% 60% at 85% -10%, rgba(203, 167, 102, 0.16), transparent 60%),
+      var(--sn-glass-dark-bg);
+    border: 1px solid var(--sn-glass-dark-line);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    color: var(--sn-gold-100);
+  }
+
+  /* Event-card editorial texture band (proto .ev .top). */
+  .sn-texture-band {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.5) 0 12px,
+      rgba(240, 232, 215, 0.62) 12px 24px
+    );
+  }
+}
+
+/* Hover lifts (proto .cmd:hover -2px · .tile.glass:hover -3px · .ev:hover -4px)
+ * — shared .32s ease + shadow deepen to --sn-sh-hi. The transition list also
+ * covers border/opacity hovers the launcher cards layer on top. */
+.sn-lift-2,
+.sn-lift-3,
+.sn-lift-4 {
+  transition:
+    transform 0.32s var(--sn-ease),
+    box-shadow 0.32s var(--sn-ease),
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s,
+    opacity 0.2s,
+    scale 0.13s var(--sn-ease);
+}
+.sn-lift-2:hover { transform: translateY(-2px); box-shadow: var(--sn-sh-hi); }
+.sn-lift-3:hover { transform: translateY(-3px); box-shadow: var(--sn-sh-hi); }
+.sn-lift-4:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-hi); }
+/* (Press feedback for Link cards is the `.sn-press` opt-in on the base-layer
+ * universal press rule near the top of this file.) */
 
 /* ---------- buttons ---------- */
 .sn-btn {
@@ -3024,3 +3112,59 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 .sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
 .sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
 /* route change: main { animation:sn-fade .32s both; } */
+
+/* ---------- home-launcher fidelity motion (2026-07-15 pixel pass) ----------
+ * All `both`-filled or single-run, so the global reduced-motion freeze above
+ * (0.001ms + iteration-count 1) snaps every one to its safe end state. */
+
+/* Obsidian Alaala tile entrance — materializes LAST, after the glass cascade. */
+@keyframes sn-bloom {
+  0%   { opacity:0; transform:translateY(22px) scale(.96); filter:blur(12px); }
+  62%  { filter:blur(0); }
+  100% { opacity:1; transform:none; filter:blur(0); }
+}
+.sn-bloom { animation: sn-bloom 1s 1.05s both var(--sn-ease-out); }
+
+/* Command-palette panel pop-in (proto popIn). */
+@keyframes sn-pop-in {
+  from { opacity:0; transform:scale(.94) translateY(8px); }
+  to   { opacity:1; transform:none; }
+}
+.sn-pop-in { animation: sn-pop-in .38s both var(--sn-ease-out); }
+
+/* Alaala lens-body cross-fade on lens switch (proto lensIn; re-triggered by a
+ * React key remount per switch). */
+@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); filter:blur(4px); } }
+.sn-lens-swap > * { animation: sn-lens-in .42s both var(--sn-ease-out); }
+.sn-lens-swap > :nth-child(2) { animation-delay:.06s; }
+.sn-lens-swap > :nth-child(3) { animation-delay:.12s; }
+
+/* Lens chip pop on select (proto chipPop — gentler than .sn-pick-bounce). */
+@keyframes sn-chip-pop { 0% { transform:scale(1); } 45% { transform:scale(1.09); } 100% { transform:scale(1); } }
+.sn-chip-pop { animation: sn-chip-pop .34s var(--sn-ease-out); }
+
+/* Progress-ring entrance sweep — generalizes sn-donut: the circle sets its own
+ * circumference via --sn-ring-circ (keyframes may read custom properties). */
+@keyframes sn-ring-sweep { from { stroke-dashoffset: var(--sn-ring-circ); } }
+
+/* Life-Flash veil lift + capiz shimmer sweep — the Alaala tile's signature
+ * flourish (proto .veil/.capiz). Decorative spans, pointer-events none. */
+.sn-veil {
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background: linear-gradient(180deg, rgba(23,22,15,0), rgba(203,167,102,.12) 55%, rgba(23,22,15,.6));
+  animation: sn-veil-lift 1.5s 1.9s both var(--sn-ease);
+}
+@keyframes sn-veil-lift { to { transform:translateY(-103%); opacity:0; } }
+.sn-capiz {
+  position:absolute; top:-10%; bottom:-10%; left:-42%; width:34%; z-index:3; pointer-events:none;
+  transform: skewX(-14deg); filter: blur(2px);
+  background: linear-gradient(105deg, rgba(255,255,255,0), rgba(255,255,255,.13) 50%, rgba(255,255,255,0));
+  animation: sn-capiz-sweep 2s 2.4s ease-in-out both;
+}
+@keyframes sn-capiz-sweep { to { transform:translateX(560%) skewX(-14deg); } }
+/* Belt-and-braces beyond the global freeze: the veil's from-state COVERS the
+ * tile, so under reduced motion both decorations are removed outright (matches
+ * the prototype's own RM rule). */
+@media (prefers-reduced-motion: reduce) {
+  .sn-veil, .sn-capiz { display:none !important; }
+}

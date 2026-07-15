@@ -103,7 +103,7 @@ function MomentRow({ moment: m }: { moment: YearMomentView }) {
   return m.eventId ? (
     <Link
       href={`/dashboard/${m.eventId}`}
-      className={`${shell} transition-colors ${
+      className={`${shell} sn-press transition-colors ${
         m.isMilestone ? 'hover:bg-gold/[0.1]' : 'hover:bg-ink/[0.04]'
       }`}
     >

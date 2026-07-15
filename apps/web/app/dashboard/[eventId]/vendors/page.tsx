@@ -63,6 +63,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
+import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
@@ -82,7 +84,6 @@ import {
   type BuildState,
 } from '@/lib/build-3state';
 import { getCategoryBuildStates } from './build-3state-actions';
-import { SummaryAiToggle } from './_components/summary-ai-toggle';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
@@ -106,7 +107,9 @@ type Props = {
   // refresh + deep links land on the same section.
   // open (2026-06-16) = a Shortlist tile key to pre-expand (checklist "Book your
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string }>;
+  // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
+  // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string }>;
 };
 
 type EventBudgetRow = {
@@ -580,10 +583,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     ev?.venue_setting ?? null,
   );
 
-  // Setnayan AI gate (owner 2026-06-05/06-08) — Manual mode = AI OFF: the strip
-  // collapses to a slim "you're driving" bar, the accordion drops the
-  // per-candidate "% match" pills, AND the "👀 eyeing your date" nudge is
-  // suppressed (generic browse). One governing gate: lib/setnayan-ai.
+  // Setnayan AI gate — an ENTITLEMENT STATE, not a toggle (owner 2026-07-15,
+  // DECISION_LOG): the Merkado's per-surface Manual switch (SummaryAiToggle) is
+  // retired. Ownership alone decides — paywall off → AI on; paywall on → on iff
+  // the event/user owns it (`setnayan_ai_active` / the per-user subscription,
+  // via the same lib/setnayan-ai gate as before), with the Unlock banner below
+  // as the only door in. `planning_mode` is deliberately neutralized on THIS
+  // surface so a couple who once flipped the old toggle to Manual isn't
+  // stranded AI-off here with no control left to flip back.
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
@@ -596,7 +603,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     perUserEnabled,
     subscription: aiSubscription,
   };
-  const aiActive = isSetnayanAiActiveForUser(ev, aiGateOpts);
+  const aiActive = isSetnayanAiActiveForUser(
+    ev ? { ...ev, planning_mode: null } : ev,
+    aiGateOpts,
+  );
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -916,13 +926,45 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return out;
   })();
 
-  const shortlistContent = (
+  // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
+  // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
+  // and render its quick-view as the inspector column body — a new PRESENTATION
+  // of the SAME `ShortlistVendor` the card shows (identity · badges · fit · price
+  // · "Open full profile ↗"), never a new fetch or fabricated field. An unknown /
+  // stale id resolves to nothing → the inspector renders closed (hasSelection=
+  // false), never a blank rail. The bench card's data carries no AI-ranked signal
+  // (the "% match" / eyeing / ranked sort live outside ShortlistVendor, gated
+  // upstream), so this quick-view leaks nothing behind the Setnayan AI paywall.
+  const inspectVendorId =
+    typeof sp.inspect === 'string' && sp.inspect.startsWith('v:')
+      ? sp.inspect.slice(2)
+      : null;
+  const inspectSelection = inspectVendorId
+    ? (() => {
+        for (const folder of shortlistFolders) {
+          for (const tile of folder.tiles) {
+            const vendor = tile.vendors.find((v) => v.vendorId === inspectVendorId);
+            if (vendor) return { vendor, categoryLabel: tile.label };
+          }
+        }
+        return null;
+      })()
+    : null;
+  const shortlistInspectorBody = inspectSelection ? (
+    <VendorQuickViewInspector
+      vendor={inspectSelection.vendor}
+      categoryLabel={inspectSelection.categoryLabel}
+      fullHref={inspectSelection.vendor.href}
+    />
+  ) : null;
+
+  const shortlistMaster = (
     <>
       {aiOfferBanner}
-      {/* Setnayan AI on/off — relocated here from the removed Summary tab
-          (owner 2026-06-25) so the workspace's only AI personalization control
-          still has a home, now atop the bench it actually governs. */}
-      <SummaryAiToggle eventId={eventId} enabled={model.personalizationEnabled} />
+      {/* The Setnayan AI on/off switch that lived here is RETIRED (owner
+          2026-07-15): AI is an entitlement state, not a toggle. Not owned →
+          the plain bench + the Unlock banner above as the only door; owned →
+          the AI-enhanced bench renders unconditionally. */}
       <WaitingForQuotes items={waitingForQuotes} />
       <ShortlistCategories
         folders={shortlistFolders}
@@ -931,6 +973,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
       />
     </>
+  );
+
+  // Attach the inspector to the BENCH surface only (never the Build rail / Lock
+  // flow / Budget accordion — those locked compositions keep their structure).
+  // Below xl the rail is display:none and the cards fall back to plain links.
+  const shortlistContent = (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={Boolean(shortlistInspectorBody)}
+      master={shortlistMaster}
+      inspector={shortlistInspectorBody}
+    />
   );
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).

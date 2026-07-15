@@ -37,34 +37,27 @@ import type {
  * and all residual `--v-blue` accents are retired here (gold-700 eyebrows;
  * gold rings). Data sources are unchanged — only the expression.
  *
- * The feed cards carry a LEFT COLOR ACCENT keyed to the card kind, now mapped
- * to the warm semantics:
- *   · inquiry  → gold (--sn-gold-500)   — a new lead, money-adjacent
- *   · lock     → success (--sn-success) — a positive commit to confirm
- *   · review   → gold (--sn-gold-500)   — 5-star praise
- *   · dispute  → danger (--sn-danger)   — needs attention
+ * COLOR IS ONE SOURCE OF TRUTH. Each card kind maps to a single palette entry
+ * ({ accent, eye, eyebrow }) in `CARD_KIND` — the left accent bar and the
+ * eyebrow tint both read from it, so a kind can never be one colour in one place
+ * and a contradictory colour in another. Per the Atelier-Glass kit, decorative
+ * accents are the gold family; only genuine status uses a warm semantic:
+ *   · inquiry  → gold (--sn-gold)       — a new lead, money-adjacent (decorative)
+ *   · review   → gold (--sn-gold)       — 5-star praise (decorative)
+ *   · lock     → success (--sn-success) — a positive commit to confirm (semantic)
+ *   · dispute  → danger (--sn-danger)   — needs attention (semantic)
+ * The accent uses the -500 shade (a fill), the eyebrow the -700 shade (text on
+ * light) of the SAME family — one colour identity per kind, two legible weights.
  */
 
-const CARD_ACCENT: Record<WhatsNewCard['kind'], string> = {
-  inquiry: 'var(--sn-gold-500)',
-  lock: 'var(--sn-success)',
-  review: 'var(--sn-gold-500)',
-  dispute: 'var(--sn-danger)',
-};
-
-/** Eyebrow tint per kind — gold for money-adjacent, warm semantics for status. */
-const CARD_EYE_COLOR: Record<WhatsNewCard['kind'], string> = {
-  inquiry: 'var(--sn-gold-700)',
-  lock: 'var(--sn-success)',
-  review: 'var(--sn-gold-700)',
-  dispute: 'var(--sn-danger)',
-};
-
-const CARD_EYEBROW: Record<WhatsNewCard['kind'], string> = {
-  inquiry: 'New inquiry',
-  lock: 'Lock request',
-  review: 'New 5-star review',
-  dispute: 'Delivery delay flagged',
+const CARD_KIND: Record<
+  WhatsNewCard['kind'],
+  { accent: string; eye: string; eyebrow: string }
+> = {
+  inquiry: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New inquiry' },
+  lock: { accent: 'var(--sn-success)', eye: 'var(--sn-success)', eyebrow: 'Lock request' },
+  review: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New 5-star review' },
+  dispute: { accent: 'var(--sn-danger)', eye: 'var(--sn-danger)', eyebrow: 'Delivery delay flagged' },
 };
 
 /** A small gold diamond that leads a section head (matches the event surface). */
@@ -534,14 +527,14 @@ function FeedCard({
 }) {
   return (
     <div className="sn-card relative overflow-hidden py-4 pl-5 pr-4">
-      {/* Left color accent — warm-semantic per kind. */}
+      {/* Left color accent + eyebrow — one palette entry per kind. */}
       <span
         aria-hidden
         className="absolute inset-y-0 left-0 w-1"
-        style={{ background: CARD_ACCENT[card.kind] }}
+        style={{ background: CARD_KIND[card.kind].accent }}
       />
-      <p className="sn-eye mb-1" style={{ color: CARD_EYE_COLOR[card.kind] }}>
-        {CARD_EYEBROW[card.kind]}
+      <p className="sn-eye mb-1" style={{ color: CARD_KIND[card.kind].eye }}>
+        {CARD_KIND[card.kind].eyebrow}
       </p>
 
       {card.kind === 'inquiry' ? (
@@ -570,8 +563,10 @@ function InquiryBody({
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
 }) {
+  // `card.descriptor` is the neutral anonymized label ("A couple planning a
+  // {type} in {city}") — the inquiry card carries no couple identity pre-accept.
   const meta = metaLine([
-    card.eventName,
+    card.descriptor,
     shortDate(card.eventDate),
     card.place,
     card.category,

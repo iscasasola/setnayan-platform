@@ -6,9 +6,11 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
-import { regionBurnTokens } from '@/lib/v2/region-token-burn';
-import { resolveRegion, regionLabel } from '@/lib/region-source';
-import { inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
+import { resolveRegion } from '@/lib/region-source';
+import {
+  buildInquiryCard,
+  type InquiryWhatsNewCard,
+} from '@/lib/vendor-overview-inquiry-card';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { computeMonthlySubtotals, fetchVendorEarnings } from '@/lib/vendor-earnings';
@@ -50,19 +52,9 @@ import {
 
 /** A single card in the "What's new" decision feed. */
 export type WhatsNewCard =
-  | {
-      kind: 'inquiry';
-      id: string;
-      threadId: string;
-      title: string; // "New inquiry — New customer"
-      eventName: string;
-      eventDate: string | null;
-      place: string | null;
-      category: string | null;
-      /** Region-banded token cost to Accept (◎N). */
-      tokenCost: number;
-      createdAt: string;
-    }
+  // Pre-accept inquiry — masked by construction (no couple identity, no
+  // `eventName`); see `vendor-overview-inquiry-card.ts`.
+  | InquiryWhatsNewCard
   | {
       kind: 'lock';
       id: string;
@@ -203,27 +195,23 @@ export async function fetchVendorOverviewData(
   for (const t of pendingThreads) {
     const meta = eventMeta.get(t.event_id);
     // Anonymization-until-accept (Glass PR-6b): a pending inquiry is PRE-accept,
-    // so the couple's identity must not surface here. `eventName` becomes the
-    // neutral placeholder ("A couple planning a {event_type} in {city}") — never
-    // the event display_name — and `place` is city/area-level ONLY (drop the
-    // venue name). `eventMeta.displayName`/`venue` are read via the admin client
-    // (a vendor holds no events RLS), so this is the load-bearing masking point:
-    // those PII fields must never be assembled into the card. `eventDate` is
-    // permitted. Full reveal happens after Accept (this card disappears once the
-    // thread leaves `pending`).
-    const city = regionLabel(meta?.region ?? null);
-    whatsNew.push({
-      kind: 'inquiry',
-      id: `inq-${t.thread_id}`,
-      threadId: t.thread_id,
-      title: 'New inquiry — New customer',
-      eventName: inquiryPlaceholderLabel({ eventType: meta?.eventType ?? null, city }),
-      eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
-      place: city,
-      category: vendorCategory,
-      tokenCost: regionBurnTokens(meta?.region ?? null),
-      createdAt: t.created_at,
-    });
+    // so the couple's identity must NOT surface here. `buildInquiryCard` accepts
+    // only non-identifying inputs (event type · region · date · category) — the
+    // admin-read `meta.displayName`/`venue` PII fields are deliberately NOT
+    // passed, so there is no path through which they can reach the card. The card
+    // carries a neutral `descriptor` ("A couple planning a {type} in {city}") and
+    // city/area-level `place` only. Full reveal happens after Accept (this card
+    // disappears once the thread leaves `pending`).
+    whatsNew.push(
+      buildInquiryCard({
+        threadId: t.thread_id,
+        createdAt: t.created_at,
+        eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
+        eventType: meta?.eventType ?? null,
+        region: meta?.region ?? null,
+        category: vendorCategory,
+      }),
+    );
   }
 
   for (const lr of lockRequests) {

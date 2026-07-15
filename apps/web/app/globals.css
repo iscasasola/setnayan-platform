@@ -804,12 +804,11 @@ html.subnav-docked [data-shell-main] {
    * the warm info-slate semantic; the sidebar-header dot uses --m-sidebar-accent
    * (gold). */
 
-  /* Vendor doorway accent — PHOTOGRAPHY BLUE ("Energy, not skin" 2026-07-09:
-   * couple = wine, vendor = wine+blue, admin = wine+violet). SECONDARY accent
-   * for the vendor doorway only — the identity-card ring + the Overview stat
-   * bento's rings/dots/KPI numerals. The wine nav-active chrome above stays the
-   * shared primary for all three doorways; blue never replaces it. */
-  --v-blue: #3F6EA5;
+  /* Vendor doorway accent — PHOTOGRAPHY BLUE: RETIRED (gold-only finalization,
+   * 2026-07-12). The vendor Overview's rings/eyebrows/KPI accents are gold; the
+   * `--v-blue` token had zero remaining consumers, so its definition is gone.
+   * The vendor identity is carried by the ShieldCheck + shop label, not a colour
+   * fork (kit rule: gold is the only decorative colour). */
 
   /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
   --m-mulberry:    #1E2229;

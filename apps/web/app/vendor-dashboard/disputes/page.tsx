@@ -63,7 +63,7 @@ const STATUS_LABEL: Record<DisputeRow['status'], string> = {
 const STATUS_TONE: Record<DisputeRow['status'], string> = {
   open: 'bg-warn-100 text-warn-900',
   resolved_for_vendor: 'bg-success-100 text-success-800',
-  resolved_for_couple: 'bg-violet-100 text-violet-800',
+  resolved_for_couple: 'bg-info-100 text-info-800',
   withdrawn: 'bg-ink/10 text-ink/60',
 };
 

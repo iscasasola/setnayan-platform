@@ -32,8 +32,12 @@ export const metadata = { title: 'On the Day · Vendor · Setnayan' };
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
  * prototype (editorial `--m-*` palette). A free, CATEGORY-CONDITIONAL day-of
- * hub that surfaces only on an event day (T-1h → T+8h in production; always
- * visible here for design, behind an explanatory amber banner).
+ * hub that surfaces only on an event day (a booking dated today, T-1h → T+8h in
+ * production). The full console is now GATED to that window: when no event is in
+ * window it renders a compact honest state (the "No event today" explainer, the
+ * day-of tool pills, and the event-brief door) instead of a full console full of
+ * degraded zero-cards — so the visibility banner tells the truth. `?preview=1`
+ * is the owner/design escape hatch that forces the full console.
  *
  * Every number is wired LIVE — nothing is hardcoded to the prototype's sample:
  *   • The dark event card = the vendor's own booked event dated TODAY, resolved
@@ -108,7 +112,15 @@ function primaryServiceLabel(services: readonly string[] | null | undefined): st
   return null;
 }
 
-export default async function VendorOnTheDayPage() {
+export default async function VendorOnTheDayPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Owner/design escape hatch: ?preview=1 renders the full console with no event
+  // in window so the layout can be reviewed. The DEFAULT (no flag, no event
+  // today) shows the compact honest state — matching the banner's own claim.
+  const isPreview = (await searchParams).preview === '1';
   const supabase = await createClient();
   const {
     data: { user },
@@ -125,6 +137,12 @@ export default async function VendorOnTheDayPage() {
   const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
   const todaysBooking =
     bookings.find((b) => b.bookedDate === today) ?? null;
+
+  // The event-day gate that makes the banner TRUE: the full console renders only
+  // when there is a booking dated today (the real in-window state, T-1h → T+8h
+  // on the day) OR the owner explicitly asked to preview it. Otherwise a compact
+  // honest state renders instead of a full console full of degraded zero-cards.
+  const showFullConsole = todaysBooking != null || isPreview;
 
   // Live brief for today's event (couple / date / venue / pax). The booked gate
   // + aggregation live inside the SECURITY DEFINER RPC; a null means we couldn't
@@ -222,22 +240,50 @@ export default async function VendorOnTheDayPage() {
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      {/* 1 · Amber info banner — the design-time visibility explainer. */}
-      <div
-        className="flex items-start gap-3 rounded-xl border px-4 py-3.5"
-        style={{
-          borderColor: 'var(--m-orange-3)',
-          background: 'var(--m-orange-4)',
-          color: 'var(--m-orange-2)',
-        }}
-      >
-        <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <p className="text-sm leading-relaxed">
-          Shows automatically on an event day (T-1h → T+8h). Visible here for design — normally
-          hidden until you have an event today.
-        </p>
-      </div>
+      {/* 1 · Honest status banner — the console's behaviour now MATCHES the copy:
+          the full console renders only on an event day (a booking dated today) or
+          in explicit ?preview=1 mode; otherwise the compact state below shows. */}
+      {todaysBooking ? (
+        <div
+          className="flex items-start gap-3 rounded-xl border px-4 py-3.5"
+          style={{
+            borderColor: 'var(--sn-success)',
+            background: 'var(--sn-success-soft)',
+            color: 'var(--sn-success)',
+          }}
+        >
+          <CalendarClock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <p className="text-sm leading-relaxed">
+            Your event is today — this console is live now (T-1h → T+8h on the day).
+          </p>
+        </div>
+      ) : isPreview ? (
+        <div
+          className="flex items-start justify-between gap-3 rounded-xl border px-4 py-3.5"
+          style={{
+            borderColor: 'var(--m-orange-3)',
+            background: 'var(--m-orange-4)',
+            color: 'var(--m-orange-2)',
+          }}
+        >
+          <span className="flex items-start gap-3">
+            <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span className="text-sm leading-relaxed">
+              Preview — this is how your day-of console looks. It appears here automatically on an
+              event day (T-1h → T+8h); until then it stays hidden.
+            </span>
+          </span>
+          <Link
+            href="/vendor-dashboard/on-the-day"
+            className="shrink-0 whitespace-nowrap text-sm font-semibold underline"
+          >
+            Exit preview
+          </Link>
+        </div>
+      ) : null}
 
+      {showFullConsole ? (
+        <>
       {/* 2 · Dark event card — today's booked event (the sanctioned day-of
           obsidian focal, § 1.3), or the no-event state. */}
       {todaysBooking ? (
@@ -487,7 +533,113 @@ export default async function VendorOnTheDayPage() {
           )}
         </div>
       </div>
+        </>
+      ) : (
+        <CompactDayOf kind={kind} />
+      )}
     </section>
+  );
+}
+
+/**
+ * Compact honest state — shown when there is NO event today and no ?preview=1.
+ * This is what makes the banner true: instead of a full console of degraded
+ * zero-cards, the vendor sees the "No event today" explainer, the day-of tools
+ * that will adapt to their service, and a door into their event briefs. A
+ * discreet "Preview the console" link is the owner escape hatch.
+ */
+function CompactDayOf({ kind }: { kind: DayOfConsoleKind }) {
+  return (
+    <div className="space-y-6">
+      {/* Promoted "No event today" explainer. */}
+      <div
+        className="rounded-2xl border border-dashed p-8 text-center"
+        style={{ borderColor: 'var(--sn-line)' }}
+      >
+        <CalendarClock
+          aria-hidden
+          className="mx-auto h-8 w-8"
+          style={{ color: 'var(--m-slate-3)' }}
+          strokeWidth={1.5}
+        />
+        <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
+          No event today
+        </p>
+        <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
+          Your day-of console opens automatically on an event day (T-1h → T+8h) — the moment a
+          couple’s booked date is today. Until then, there’s nothing live to run here.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <Link
+            href="/vendor-dashboard/customers"
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
+            style={{ background: 'var(--m-ink)' }}
+          >
+            See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+          <Link
+            href="/vendor-dashboard/on-the-day?preview=1"
+            className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
+            style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
+          >
+            Preview the console
+          </Link>
+        </div>
+      </div>
+
+      {/* Day-of tools adapt — informational pills (your service is highlighted). */}
+      <div>
+        <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
+          On the day, your tools adapt to your service{' '}
+          <ArrowRight aria-hidden className="inline h-3.5 w-3.5" strokeWidth={1.75} />
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {CATEGORY_PILLS.map((pill) => {
+            const active = pill.kind === kind;
+            const Icon = pill.icon;
+            return (
+              <span
+                key={pill.kind}
+                className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
+                style={
+                  active
+                    ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
+                    : { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
+                }
+              >
+                <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                {pill.label}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Event-brief door — where day-of prep actually happens before the day. */}
+      <Link
+        href="/vendor-dashboard/customers"
+        className="sn-tile sn-press flex items-center justify-between gap-4"
+      >
+        <span className="flex items-start gap-3">
+          <PackageCheck
+            aria-hidden
+            className="mt-0.5 h-5 w-5 shrink-0"
+            style={{ color: 'var(--m-orange-2)' }}
+            strokeWidth={1.75}
+          />
+          <span>
+            <span className="block text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+              Your event briefs
+            </span>
+            <span className="mt-0.5 block text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              Headcount, palette, the day-of timeline, and the delivery handover for each booking —
+              ready before the day arrives.
+            </span>
+          </span>
+        </span>
+        <ArrowRight aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+      </Link>
+    </div>
   );
 }
 

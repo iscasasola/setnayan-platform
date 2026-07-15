@@ -330,7 +330,7 @@ export default async function VendorDashboardLayout({
                   <VendorAvatar
                     logoUrl={vendorLogoUrl}
                     initials={vendorInitials}
-                    className="flex h-full w-full items-center justify-center rounded-[10px] text-[11px] font-semibold tracking-wide"
+                    className="flex h-full w-full items-center justify-center rounded-lg text-[11px] font-semibold tracking-wide"
                   />
                 }
                 title={vendorSidebarName}

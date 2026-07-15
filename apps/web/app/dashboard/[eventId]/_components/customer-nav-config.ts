@@ -70,6 +70,9 @@ import {
   Compass,
   Sparkles,
   Rocket,
+  CalendarDays,
+  Armchair,
+  Wallet,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
@@ -209,11 +212,48 @@ export function buildCustomerNavGroups(
   // Replaces the single header-less 'root' group. The Go-live section only
   // exists when Launch does (websiteEnabled) — an empty section would render a
   // heading with no rows.
+  // "ALSO IN THIS EVENT" — the off-nav destinations the proto keeps as quiet
+  // flat links (design: event_dashboard_v2_2026-07-15.html · the rail's "also
+  // in this event" block). These are NOT top-level tabs (Schedule lives off the
+  // rail by design; Seat plan + Budget live inside Guests / Merkado), but they
+  // are real routes couples reach often, so the rail surfaces them as plain
+  // links — flat, never a submenu (the whole-rail plain-leaf rule holds). Each
+  // matchPrefix lights the row on its own route. Budget carries key 'budget' so
+  // the Simple-Event `budget` hideKey drops it (same gate as the mobile SSOT).
+  const alsoItems: NavItem[] = [
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      href: `${base}/schedule`,
+      icon: CalendarDays,
+      matchPrefix: `${base}/schedule`,
+    },
+    {
+      key: 'seat',
+      label: 'Seat plan',
+      href: `${base}/seating`,
+      icon: Armchair,
+      matchPrefix: `${base}/seating`,
+    },
+    {
+      key: 'budget',
+      label: 'Budget',
+      href: `${base}/budget`,
+      icon: Wallet,
+      matchPrefix: `${base}/budget`,
+    },
+  ];
+
+  // Two labelled sidebar sections (design: setnayan-overview-energy.html):
+  //   PLAN    → Overview · Guests · Merkado · Studio
+  //   GO LIVE → Launch (the couple's live personal website)
+  //   ALSO IN THIS EVENT → Schedule · Seat plan · Budget (flat off-nav links)
   const groups: NavGroup[] = [
     { key: 'plan', label: 'Plan', defaultOpen: true, items: planItems },
     ...(launchItem
       ? [{ key: 'golive', label: 'Go live', defaultOpen: true, items: [launchItem] } as NavGroup]
       : []),
+    { key: 'also', label: 'Also in this event', defaultOpen: true, items: alsoItems },
   ];
 
   // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore').

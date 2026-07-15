@@ -49,6 +49,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isDayOfOpen } from '@/lib/guest-journey';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
@@ -154,6 +155,24 @@ function applyRegistry(
   }));
 }
 
+/**
+ * Derives a compact 2–3 char monogram from the event's monogram_text (e.g.
+ * "C&I") or, absent that, the initials of the event name ("Cale & Ice" → "C&I").
+ * Purely presentational; never fabricates when there's nothing to show.
+ */
+function eventInitials(name: string, monogramText?: string | null): string {
+  const m = (monogramText ?? '').trim();
+  if (m) return m.slice(0, 3).toUpperCase();
+  const parts = name
+    .split(/\s*&\s*|\s+/)
+    .map((w) => w.trim())
+    .filter(Boolean);
+  const a = parts[0];
+  const b = parts[1];
+  if (a && b) return `${a[0]}&${b[0]}`.toUpperCase();
+  return (a ?? name).slice(0, 2).toUpperCase();
+}
+
 export function CustomerSidebar({
   eventId,
   navSlots,
@@ -163,9 +182,19 @@ export function CustomerSidebar({
   monogramEnabled,
   slug,
   guestCount,
+  eventName,
+  eventMetaLine,
+  monogramText,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
+  /** Event display name → the identity plaque headline. */
+  eventName?: string | null;
+  /** Pre-formatted `{type} · {date}` mono line under the plaque name (server-
+   *  formatted in layout.tsx to avoid a client timezone hydration split). */
+  eventMetaLine?: string | null;
+  /** Raw monogram_text → the plaque's initials chip (falls back to the name). */
+  monogramText?: string | null;
   /**
    * Drives the Guests-journey Day-of stage's time-gate (muted until the live
    * window). Deferred to a client effect so SSR + first paint agree (both
@@ -212,8 +241,51 @@ export function CustomerSidebar({
     navSlots,
   );
 
+  const plaqueName = (eventName ?? '').trim();
+
   return (
     <>
+      {/* Event identity plaque (design: event_dashboard_v2_2026-07-15.html) — a
+       *  dark mini-card at the rail top: monogram chip + event name + {type}·
+       *  {date} mono line. It ACTS AS THE EVENT SWITCHER by linking to the
+       *  existing all-events picker at /dashboard (reuse, not a new switcher). */}
+      {plaqueName ? (
+        <Link
+          href="/dashboard"
+          aria-label={`${plaqueName} — switch events`}
+          className="mb-2 flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-transform hover:-translate-y-0.5"
+          style={{
+            background:
+              'radial-gradient(70% 60% at 85% -10%, rgba(203,167,102,.18), transparent 60%), var(--sn-glass-dark-bg, rgba(23,22,15,.82))',
+            borderColor: 'var(--sn-glass-dark-line, rgba(255,255,255,.18))',
+            color: 'var(--sn-gold-100, #F3ECDF)',
+          }}
+        >
+          <span
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-xl text-[11px] font-extrabold"
+            style={{
+              background: 'linear-gradient(135deg, #8a6b39, #5a3b28)',
+              border: '1.5px solid rgba(255,255,255,.35)',
+              color: '#FFFDF8',
+            }}
+          >
+            {eventInitials(plaqueName, monogramText)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-extrabold tracking-[-0.01em]">
+              {plaqueName}
+            </span>
+            {eventMetaLine ? (
+              <span
+                className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.1em]"
+                style={{ color: 'rgba(243,236,223,.6)' }}
+              >
+                {eventMetaLine}
+              </span>
+            ) : null}
+          </span>
+        </Link>
+      ) : null}
       {groups.map((group) => (
         // `eyebrow` — Glass PR-2 shell polish: section labels render as `.sn-eye`
         // gold eyebrows on the customer doorway only (opt-in; vendor/admin adopt

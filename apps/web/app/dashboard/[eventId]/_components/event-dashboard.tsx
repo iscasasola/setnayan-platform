@@ -509,10 +509,28 @@ export async function EventDashboard({
     (event as { display_name?: string | null }).display_name ??
     (eventType === 'wedding' ? 'Your wedding' : 'Your event');
 
+  // Precision resolution — the single source of truth for "is there a firm,
+  // countdown-worthy day?" A present `event_date` with a NULL precision column
+  // is a real committed day: migration 20260603100000's own backfill rule is
+  // "event_date present ⇒ 'day'", and the sibling readers (details/vendors)
+  // already default null → 'day'. The old bare `'year'` default here made any
+  // dated event whose precision column was null resolve to daysOut=null, so the
+  // focal rendered "—" while its date line said "The date is locked" (owner
+  // screenshot, 2026-07-15). Only genuine year/month placeholders (first-of-
+  // range dates) stay date-less for the countdown.
+  const rawPrecision = (event as { event_date_precision?: string | null })
+    .event_date_precision;
   const eventDatePrecision: EventDatePrecision =
-    (event as { event_date_precision?: EventDatePrecision | null }).event_date_precision ??
-    'year';
+    rawPrecision === 'day' || rawPrecision === 'month' || rawPrecision === 'year'
+      ? rawPrecision
+      : event.event_date
+        ? 'day'
+        : 'year';
   const daysOut = eventDatePrecision === 'day' ? daysUntil(event.event_date) : null;
+  // ONE firm-date predicate shared by the focal's date line AND its countdown
+  // numeral so they can never disagree again (the "locked" vs "no firm date
+  // yet" split that produced bug 2).
+  const hasFirmDate = eventDatePrecision === 'day' && Boolean(event.event_date);
 
   const stats = computeGuestStats(guests);
 
@@ -741,6 +759,10 @@ export async function EventDashboard({
     (a, b) => order.indexOf(a.id) - order.indexOf(b.id),
   );
   const openDecisionCount = decisionGroups.reduce((acc, g) => acc + g.items.length, 0);
+  // Flattened, group-ordered decision list — ONE source of data feeding both the
+  // top-grid digest (top 3) AND the full board below (all of them, grouped). The
+  // digest links to `#decisions` (the board), so there is no data drift.
+  const flatDecisions = decisionGroups.flatMap((g) => g.items);
 
   // ---- FREE first-venue-shortlist offer (owner-locked 2026-07-09 ·
   // Pricing.md § 00 carve-out). Free (non-AI) state only, and ONLY while the
@@ -776,9 +798,6 @@ export async function EventDashboard({
     pendingPaymentCount: pendingOrders.length,
     activeServiceCount: paidOrders.length,
   });
-  const currentStageLabel =
-    stageModel.stages.find((s) => s.key === stageModel.currentKey)?.label ?? 'Dreaming';
-
   // ---- "Suri on watch" — render-only pass through the pure trigger engine,
   // fed ONLY what this surface already loaded (payments due + budget). -------
   let watchItems: Array<{ intervention: Intervention; copy: string }> = [];
@@ -875,8 +894,6 @@ export async function EventDashboard({
     </span>
   ) : null;
 
-  const countdownPct =
-    daysOut === null ? 0 : Math.max(0, Math.min(100, ((365 - daysOut) / 365) * 100));
   const budgetPct =
     budgetTargetCentavos && budgetTargetCentavos > 0
       ? (committedCentavos / budgetTargetCentavos) * 100
@@ -893,11 +910,27 @@ export async function EventDashboard({
   // The focal's date line — the emotional anchor. Real event data or a muted
   // "to be set" (a no-date event still gets the SetDateNudge in slotAfterBento).
   const focalDateLabel = event.event_date
-    ? new Intl.DateTimeFormat('en-PH', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-      }).format(new Date(`${event.event_date}T00:00:00`))
+    ? (() => {
+        const d = new Date(`${event.event_date}T00:00:00`);
+        if (Number.isNaN(d.getTime())) {
+          return eventType === 'wedding' ? 'Your date, once it’s set' : 'Date to be set';
+        }
+        // Match the date's real precision — a year/month placeholder must NOT
+        // masquerade as a full "Friday, December 18" (which is what let the
+        // coarse-precision case read as a locked day).
+        if (eventDatePrecision === 'year') return String(d.getFullYear());
+        if (eventDatePrecision === 'month') {
+          return new Intl.DateTimeFormat('en-PH', {
+            month: 'long',
+            year: 'numeric',
+          }).format(d);
+        }
+        return new Intl.DateTimeFormat('en-PH', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+        }).format(d);
+      })()
     : eventType === 'wedding'
       ? 'Your date, once it’s set'
       : 'Date to be set';
@@ -961,6 +994,140 @@ export async function EventDashboard({
       }
     }
   }
+  // ── Top-grid right column · the 2×2 live minis (NAVIGATE) ───────────────
+  // Real-data-or-nothing: each tile renders only when its own data exists, so a
+  // fresh event never shows a fabricated "₱86,450"/"Casa Ibarra" sample. Blur
+  // budget (§ 1.6): focal(1) + digest(1) + ≤4 minis + chrome(2) ≤ 8 above fold.
+  const miniFoot = (label: string) => (
+    <span
+      className="mt-auto flex items-center gap-1 pt-3 text-[11.5px] font-bold"
+      style={{ color: 'var(--sn-gold-700)' }}
+    >
+      {label} →
+    </span>
+  );
+  const miniTiles: ReactNode[] = [];
+  if (stats.total > 0) {
+    miniTiles.push(
+      <Link
+        key="guests"
+        href={`${base}/guests`}
+        className="sn-tile sn-press flex flex-col text-left"
+      >
+        <span className="sn-eye">
+          <Users aria-hidden strokeWidth={1.75} />
+          Guests
+        </span>
+        <span className="mt-3 flex items-center gap-3">
+          <ProgressRing
+            pct={guestPct}
+            size={46}
+            stroke={6}
+            color="var(--sn-gold-500)"
+            sweep={{ delayMs: 600 }}
+          />
+          <span className="min-w-0">
+            <span className="block font-mono text-[22px] font-bold leading-none text-ink">
+              <CountUp value={stats.attending} delayMs={600} />
+            </span>
+            <span className="mt-0.5 block text-[11.5px] text-ink/55">
+              attending of {stats.total} invited
+            </span>
+          </span>
+        </span>
+        {miniFoot('Open the roster')}
+      </Link>,
+    );
+  }
+  if (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {
+    miniTiles.push(
+      <Link
+        key="budget"
+        href={`${base}/budget`}
+        className="sn-tile sn-press flex flex-col text-left"
+      >
+        <span className="sn-eye">
+          <Wallet aria-hidden strokeWidth={1.75} />
+          Budget
+        </span>
+        <span className="mt-3 block font-mono text-[20px] font-bold leading-none text-ink">
+          {formatPeso(committedCentavos)}
+        </span>
+        <span className="mt-0.5 block text-[11.5px] text-ink/55">
+          {budgetTargetCentavos && budgetTargetCentavos > 0
+            ? `committed of ${formatPeso(budgetTargetCentavos)}`
+            : 'committed so far'}
+        </span>
+        {budgetTargetCentavos && budgetTargetCentavos > 0 ? (
+          <span
+            className="sn-bar mt-2.5 block h-1.5 overflow-hidden rounded-full"
+            style={{ background: 'rgba(30,26,18,.08)' }}
+          >
+            <i
+              className="block h-full rounded-full"
+              style={{
+                width: `${Math.min(100, budgetPct)}%`,
+                background: 'var(--sn-gold-500)',
+              }}
+            />
+          </span>
+        ) : null}
+        {miniFoot('Open budget & payments')}
+      </Link>,
+    );
+  }
+  if (!schedulePreview.isEmpty) {
+    miniTiles.push(
+      <Link
+        key="schedule"
+        href={`${base}/schedule?view=journey`}
+        className="sn-tile sn-press flex flex-col text-left"
+      >
+        <span className="sn-eye">
+          <CalendarClock aria-hidden strokeWidth={1.75} />
+          Schedule · next
+        </span>
+        <span className="mt-2.5 block space-y-1.5">
+          {schedulePreview.display.slice(0, 2).map((block) => (
+            <span key={block.block_id} className="flex items-center gap-2 text-[12px]">
+              <span
+                className="flex-none rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-bold"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+              >
+                {shortDate.format(new Date(block.start_at))}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+                {block.label}
+              </span>
+            </span>
+          ))}
+        </span>
+        {miniFoot('Full program')}
+      </Link>,
+    );
+  }
+  if (unreadCount > 0) {
+    miniTiles.push(
+      <Link
+        key="messages"
+        href={`${base}/messages`}
+        className="sn-tile sn-press flex flex-col text-left"
+      >
+        <span className="sn-eye">
+          <MessageSquare aria-hidden strokeWidth={1.75} />
+          Messages
+        </span>
+        <span className="mt-3 block font-mono text-[22px] font-bold leading-none text-ink">
+          <CountUp value={unreadCount} delayMs={700} />
+        </span>
+        <span className="mt-0.5 block text-[11.5px] text-ink/55">
+          {unreadCount === 1 ? 'unread thread' : 'unread across threads'}
+        </span>
+        {miniFoot('Open threads')}
+      </Link>,
+    );
+  }
+
   const inspectorMaster = (
     <div className="relative">
       <div className="space-y-10">
@@ -979,340 +1146,342 @@ export async function EventDashboard({
               <span className="sn-h1-tail">Here&rsquo;s today.</span>
             ) : null}
           </h1>
-          <p className="mt-2.5 max-w-[56ch] text-[12.5px] text-ink/55">
-            {daysOut !== null && daysOut > 0 ? (
-              <>
-                <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
-                  {daysOut}
-                </b>{' '}
-                {daysOut === 1 ? 'day' : 'days'} to go ·{' '}
-              </>
-            ) : null}
-            <b className="font-mono font-bold" style={{ color: 'var(--sn-gold-700)' }}>
-              {openDecisionCount}
-            </b>{' '}
-            {openDecisionCount === 1 ? 'decision' : 'decisions'} waiting on you ·
-            you&rsquo;re in the{' '}
-            <b className="font-semibold text-ink">{currentStageLabel}</b> stage.
-          </p>
+          {/* One home per number (rollout § 3.1): the countdown lives in the
+           *  focal, the open-decision count in the digest panel, the stage on
+           *  the journey rail — so the hero is greeting + sentence only. */}
         </header>
 
-        {/* ── The Big Day — the obsidian focal (§ 1.3). Countdown · date ·
-         *  venue · % planned gold bar; when Setnayan AI is active the Suri
-         *  briefing sentence + chips render INSIDE it — retiring BOTH the
-         *  retired-wine `from-mulberry-700` gradient strip (R7 bug) AND the
-         *  separate premium veil (the tile IS the premium presence). On the
-         *  day itself it steps down to glass so the DayOfModeGrid's "happening
-         *  now" card owns the single obsidian (§ 1.3). Blooms last (sn-bloom). */}
+        {/* ── Top grid — the proto's 2-column grammar (rollout plan § 3.1).
+         *  LEFT: the obsidian "Big Day" focal (STATUS) as a tall column — date ·
+         *  locked line · the countdown numeral · % planned gold bar · and, when
+         *  Setnayan AI is active, the Suri briefing + "The Watch" attention rows
+         *  INSIDE it (what fills the tall tile). RIGHT (ACT → NAVIGATE): the
+         *  decisions digest panel + a 2×2 of live minis (Guests · Budget ·
+         *  Schedule · Messages). The old separate 4-ring bento AND the
+         *  standalone "Suri on watch" section dissolve into this grid — the
+         *  countdown now lives ONLY in the focal, which killed the duplicate that
+         *  let the focal and the tile disagree on whether a date is set. One
+         *  obsidian per view (§ 1.3): glass on the day itself. Focal blooms last.
+         *  Blur budget (§ 1.6): focal(1) + digest(1) + ≤4 minis + chrome(2) ≤ 8. */}
         <section aria-label={`The ${eventWord} day`} className="!mt-6">
-          <div
-            className={`relative overflow-hidden sn-bloom ${
-              focalDark ? 'sn-tile-dark' : 'sn-tile'
-            }`}
-          >
-            {focalDark ? (
-              <>
-                <span className="sn-veil" aria-hidden />
-                <span className="sn-capiz" aria-hidden />
-              </>
-            ) : null}
-            <p className="sn-eye">
-              <CalendarClock aria-hidden strokeWidth={1.75} />
-              The {eventWord} day
-            </p>
-            <div className="mt-3 min-w-0">
-              <h2
-                className="text-[22px] font-extrabold leading-tight tracking-[-0.015em]"
-                style={{ color: focalHeadColor }}
-              >
-                {focalDateLabel}
-              </h2>
-              <p className="mt-1 truncate font-mono text-xs" style={{ color: focalSubColor }}>
-                {focalVenue
-                  ? focalVenue
-                  : event.event_date
-                    ? 'The date is locked'
-                    : 'No firm date yet'}
-              </p>
-            </div>
-            <div className="mt-4 flex items-baseline gap-2">
-              <b
-                className="font-mono text-[46px] font-bold leading-none tracking-[-0.02em]"
-                style={{ color: focalHeadColor }}
-              >
-                {daysOut === null
-                  ? '—'
-                  : daysOut === 0
-                    ? 'Today'
-                    : daysOut < 0
-                      ? Math.abs(daysOut)
-                      : <CountUp value={daysOut} delayMs={700} />}
-              </b>
-              <span
-                className="text-[13px] font-semibold"
-                style={{ color: focalDark ? 'rgba(243,236,223,.7)' : 'var(--sn-ink-500)' }}
-              >
-                {daysOut === null
-                  ? 'days to go'
-                  : daysOut === 0
-                    ? 'it all happens now'
-                    : daysOut < 0
-                      ? Math.abs(daysOut) === 1
-                        ? 'day ago'
-                        : 'days ago'
-                      : 'days to go'}
-              </span>
-            </div>
-            {/* % planned — gold bar with a single shimmer pass. */}
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            {/* LEFT — the Big Day focal */}
             <div
-              className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
-              style={{
-                background: focalDark ? 'rgba(255,255,255,.14)' : 'rgba(30,26,18,.08)',
-              }}
+              className={`relative overflow-hidden sn-bloom ${
+                focalDark ? 'sn-tile-dark' : 'sn-tile'
+              }`}
             >
-              <i
-                className="relative block h-full overflow-hidden rounded-full"
-                style={{ width: `${plannedPct}%`, background: 'var(--sn-gold-300)' }}
-              >
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 w-2/5"
-                  style={{
-                    background:
-                      'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)',
-                    animation: 'sn-shimmer 2.8s var(--sn-ease-out) 1.6s 1 both',
-                  }}
-                />
-              </i>
-            </div>
-            <p
-              className="mt-2 font-mono text-[10px]"
-              style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
-            >
-              <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
-                {Math.round(plannedPct)}%
-              </b>{' '}
-              planned
-            </p>
-
-            {/* AI-active: the Suri briefing sentence + chips, INSIDE the focal. */}
-            {aiActive ? (
-              <>
-                <div
-                  className="my-4 h-px"
-                  style={{
-                    background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
-                  }}
-                />
-                {/* .sn-eye cascades gold-300 inside .sn-tile-dark and gold-700
-                 *  on the day-of glass fallback — no inline color override. */}
-                <p className="sn-eye">
-                  <Sparkles aria-hidden strokeWidth={1.75} />
-                  Suri · your briefing
-                </p>
-                <p
-                  className="mt-2 max-w-[60ch] text-[15px] font-semibold leading-snug"
+              {focalDark ? (
+                <>
+                  <span className="sn-veil" aria-hidden />
+                  <span className="sn-capiz" aria-hidden />
+                </>
+              ) : null}
+              <p className="sn-eye">
+                <CalendarClock aria-hidden strokeWidth={1.75} />
+                The {eventWord} day
+              </p>
+              <div className="mt-3 min-w-0">
+                <h2
+                  className="text-[22px] font-extrabold leading-tight tracking-[-0.015em]"
                   style={{ color: focalHeadColor }}
                 >
-                  {cockpitModel.briefing.sentence}
+                  {focalDateLabel}
+                </h2>
+                {/* Locked line + numeral both derive from `hasFirmDate` — they
+                 *  can no longer disagree ("locked" vs "no firm date yet"). */}
+                <p className="mt-1 truncate font-mono text-xs" style={{ color: focalSubColor }}>
+                  {focalVenue
+                    ? focalVenue
+                    : hasFirmDate
+                      ? 'The date is locked'
+                      : event.event_date
+                        ? 'Target date — not locked yet'
+                        : 'No firm date yet'}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {daysOut !== null && daysOut >= 0 ? (
-                    <span
-                      className="rounded-full px-3 py-1 text-xs font-semibold"
-                      style={focalChipStyle}
-                    >
-                      {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
-                    </span>
-                  ) : null}
-                  <span
-                    className="rounded-full px-3 py-1 text-xs font-semibold"
-                    style={focalChipStyle}
+              </div>
+              {hasFirmDate ? (
+                <div className="mt-4 flex items-baseline gap-2">
+                  <b
+                    className="font-mono text-[46px] font-bold leading-none tracking-[-0.02em]"
+                    style={{ color: focalHeadColor }}
                   >
-                    {lockedVendorCount} of {totalLockableCategories} categories locked
+                    {daysOut === null
+                      ? '—'
+                      : daysOut === 0
+                        ? 'Today'
+                        : daysOut < 0
+                          ? Math.abs(daysOut)
+                          : <CountUp value={daysOut} delayMs={700} />}
+                  </b>
+                  <span
+                    className="text-[13px] font-semibold"
+                    style={{ color: focalDark ? 'rgba(243,236,223,.7)' : 'var(--sn-ink-500)' }}
+                  >
+                    {daysOut === 0
+                      ? 'it all happens now'
+                      : daysOut !== null && daysOut < 0
+                        ? Math.abs(daysOut) === 1
+                          ? 'day ago'
+                          : 'days ago'
+                        : 'days to go'}
                   </span>
-                  {topPriorityTask ? (
+                </div>
+              ) : (
+                <p className="mt-4 text-[13px]" style={{ color: focalSubColor }}>
+                  {event.event_date
+                    ? 'Narrow to a single day to start your countdown.'
+                    : 'Your countdown begins the moment your date is set.'}
+                </p>
+              )}
+              {/* % planned — gold bar, date-independent (vendor-categories locked). */}
+              <div
+                className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
+                style={{
+                  background: focalDark ? 'rgba(255,255,255,.14)' : 'rgba(30,26,18,.08)',
+                }}
+              >
+                <i
+                  className="relative block h-full overflow-hidden rounded-full"
+                  style={{ width: `${plannedPct}%`, background: 'var(--sn-gold-300)' }}
+                >
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 w-2/5"
+                    style={{
+                      background:
+                        'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)',
+                      animation: 'sn-shimmer 2.8s var(--sn-ease-out) 1.6s 1 both',
+                    }}
+                  />
+                </i>
+              </div>
+              <p
+                className="mt-2 font-mono text-[10px]"
+                style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
+              >
+                <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
+                  {Math.round(plannedPct)}%
+                </b>{' '}
+                planned
+              </p>
+
+              {/* AI: the Suri briefing sentence + chips, inside the focal. */}
+              {aiActive ? (
+                <>
+                  <div
+                    className="my-4 h-px"
+                    style={{
+                      background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
+                    }}
+                  />
+                  <p className="sn-eye">
+                    <Sparkles aria-hidden strokeWidth={1.75} />
+                    Suri · your briefing
+                  </p>
+                  <p
+                    className="mt-2 max-w-[60ch] text-[15px] font-semibold leading-snug"
+                    style={{ color: focalHeadColor }}
+                  >
+                    {cockpitModel.briefing.sentence}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {daysOut !== null && daysOut >= 0 ? (
+                      <span
+                        className="rounded-full px-3 py-1 text-xs font-semibold"
+                        style={focalChipStyle}
+                      >
+                        {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
+                      </span>
+                    ) : null}
                     <span
                       className="rounded-full px-3 py-1 text-xs font-semibold"
                       style={focalChipStyle}
                     >
-                      Most urgent: {topPriorityTask.title.toLowerCase()}
+                      {lockedVendorCount} of {totalLockableCategories} categories locked
                     </span>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-          </div>
+                    {topPriorityTask ? (
+                      <span
+                        className="rounded-full px-3 py-1 text-xs font-semibold"
+                        style={focalChipStyle}
+                      >
+                        Most urgent: {topPriorityTask.title.toLowerCase()}
+                      </span>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
 
-          {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
-           *  glass tile right below the focal. */}
-          {aiActive && topPriorityTask ? (
-            <div className="sn-tile relative mt-3 flex flex-wrap items-center gap-4 overflow-hidden">
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-x-4 top-0 h-px"
-                style={{
-                  background:
-                    'linear-gradient(90deg, transparent, var(--sn-gold-500), transparent)',
-                }}
-              />
-              <span
-                className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-mono text-lg font-bold"
-                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
-              >
-                1
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="sn-eye">Today&rsquo;s one thing</p>
-                <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">
-                  {topPriorityTask.title}
-                </p>
-                <p className="mt-0.5 text-[13px] text-ink/60">
-                  {topPriorityTask.whyItMatters}
-                </p>
-              </div>
-              <Link
-                href={topPriorityTask.ctaHref}
-                className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-                style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
-              >
-                {topPriorityTask.ctaLabel}
-              </Link>
+              {/* AI: "The Watch" — the attention rows, moved INTO the focal's
+               *  lower half (was a standalone section below). Each row keeps its
+               *  #3265 desktop inspector trigger (w:<dedupeKey>); below xl it's
+               *  inert, matching a no-action row. This is what fills the tall
+               *  focal in the AI state. */}
+              {aiActive && watchItems.length > 0 ? (
+                <>
+                  <div
+                    className="my-4 h-px"
+                    style={{
+                      background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
+                    }}
+                  />
+                  <p className="sn-eye">
+                    <Sparkles aria-hidden strokeWidth={1.75} />
+                    Setnayan AI · The Watch
+                  </p>
+                  <div className="mt-1">
+                    {watchItems.map(({ intervention, copy }) => {
+                      const watchColor =
+                        intervention.category === 'guard'
+                          ? 'var(--sn-info)'
+                          : 'var(--sn-gold-600)';
+                      return (
+                        <InspectorTrigger
+                          key={intervention.dedupeKey}
+                          inspectId={`w:${intervention.dedupeKey}`}
+                          className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                        >
+                          <span
+                            aria-hidden
+                            className="mt-1.5 h-2 w-2 flex-none rounded-full"
+                            style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                          />
+                          <span className="min-w-0">
+                            <span
+                              className="block text-[10px] font-bold uppercase tracking-[0.13em]"
+                              style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                            >
+                              {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
+                            </span>
+                            <span
+                              className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
+                              style={{
+                                color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
+                              }}
+                            >
+                              {copy}
+                            </span>
+                          </span>
+                        </InspectorTrigger>
+                      );
+                    })}
+                  </div>
+                  <p
+                    className="mt-3 text-[10.5px]"
+                    style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
+                  >
+                    Suri fires a few alerts a week at most — deduped, most-urgent first.
+                  </p>
+                </>
+              ) : null}
             </div>
-          ) : null}
-        </section>
 
-        {/* ── At-a-glance bento ────────────────────────────────────────── */}
-        {/* Entrance cascade § 2(b): header (0s) → these four tiles stagger via
-         *  .sn-reveal's nth-child delays (+.08s each) → the focal blooms LAST
-         *  at ~1.05s. Header + 4 tiles + focal = the 6-element stagger cap;
-         *  everything below the fold paints static. */}
-        <section aria-label="At a glance" className={aiActive ? '!mt-5' : '!mt-6'}>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="sn-tile sn-reveal flex items-center gap-3.5">
-              <ProgressRing
-                pct={countdownPct}
-                size={60}
-                stroke={7}
-                color="var(--sn-gold-500)"
-                sweep={{ delayMs: 300 }}
-              />
-              <div className="min-w-0">
-                <p className="sn-eye">
-                  <CalendarClock aria-hidden strokeWidth={1.75} />
-                  Countdown
-                </p>
-                <p className="mt-1 font-mono text-2xl font-bold leading-none text-ink">
-                  {daysOut === null ? (
-                    '—'
-                  ) : daysOut === 0 ? (
-                    'Today'
-                  ) : daysOut < 0 ? (
-                    Math.abs(daysOut)
-                  ) : (
-                    <CountUp value={daysOut} delayMs={300} />
-                  )}
-                </p>
-                <p className="mt-0.5 truncate text-xs text-ink/55">
-                  {daysOut === null
-                    ? 'no firm date yet'
-                    : daysOut === 0
-                      ? 'it all happens now'
-                      : daysOut < 0
-                        ? 'days since — congratulations'
-                        : 'days to go'}
-                </p>
-              </div>
-            </div>
-            {/* Gauge + jump-anchor (not a second decisions list): tapping the
-             *  ring scrolls to the Decisions board below, which owns the items. */}
-            <a
-              href="#decisions"
-              aria-label="Jump to decisions waiting on you"
-              className="sn-tile sn-reveal sn-press flex items-center gap-3.5"
-            >
-              <ProgressRing
-                pct={cockpitModel.briefing.lockedPct}
-                size={60}
-                stroke={7}
-                color="var(--sn-gold-500)"
-                sweep={{ delayMs: 380 }}
-              >
-                <span className="font-mono text-lg font-bold leading-none text-ink">
-                  {openDecisionCount}
-                </span>
-              </ProgressRing>
-              <div className="min-w-0">
+            {/* RIGHT — decisions digest (ACT) + 2×2 live minis (NAVIGATE) */}
+            <div className="flex flex-col gap-3.5">
+              <div className="sn-tile">
                 <p className="sn-eye">
                   <ListChecks aria-hidden strokeWidth={1.75} />
-                  Decisions
+                  Decisions · waiting on you
                 </p>
-                <p className="mt-1 font-mono text-2xl font-bold leading-none text-ink">
-                  <CountUp value={openDecisionCount} delayMs={380} />
-                </p>
-                <p className="mt-0.5 truncate text-xs text-ink/55">waiting on you</p>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <b className="font-mono text-[30px] font-bold leading-none text-ink">
+                    <CountUp value={openDecisionCount} delayMs={300} />
+                  </b>
+                  <span className="text-[12.5px] text-ink/55">
+                    {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
+                    {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
+                  </span>
+                </div>
+                {flatDecisions.length > 0 ? (
+                  <>
+                    <div className="mt-2 space-y-2">
+                      {flatDecisions.slice(0, 3).map((item, ii) => (
+                        <div
+                          key={item.id}
+                          className="sn-row flex items-center gap-2.5 px-3 py-2.5"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-semibold text-ink">
+                              {item.label}
+                            </p>
+                            <p className="truncate text-[11.5px] text-ink/55">{item.sub}</p>
+                          </div>
+                          <Link
+                            href={item.href}
+                            className="flex-none whitespace-nowrap rounded-full px-3 py-1.5 text-[11.5px] font-bold transition-transform hover:-translate-y-0.5"
+                            style={
+                              ii === 0
+                                ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
+                                : {
+                                    border: '1px solid var(--sn-gold-500)',
+                                    color: 'var(--sn-gold-700)',
+                                  }
+                            }
+                          >
+                            {item.ctaLabel}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                    <a
+                      href="#decisions"
+                      className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold"
+                      style={{ color: 'var(--sn-gold-700)' }}
+                    >
+                      All {openDecisionCount}{' '}
+                      {openDecisionCount === 1 ? 'decision' : 'decisions'} ↗
+                    </a>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[13px] text-ink/55">
+                    Nothing needs a decision right now — your plan keeps moving on its own.
+                  </p>
+                )}
               </div>
-            </a>
-            <div className="sn-tile sn-reveal flex items-center gap-3.5">
-              <ProgressRing
-                pct={budgetPct}
-                size={60}
-                stroke={7}
-                color="var(--sn-gold-500)"
-                sweep={{ delayMs: 460 }}
-              >
-                <span className="font-mono text-sm font-bold leading-none text-ink">
-                  {budgetTargetCentavos && budgetTargetCentavos > 0
-                    ? `${Math.round(Math.min(999, budgetPct))}%`
-                    : '—'}
-                </span>
-              </ProgressRing>
-              <div className="min-w-0">
-                <p className="sn-eye">
-                  <Wallet aria-hidden strokeWidth={1.75} />
-                  Budget
-                </p>
-                <p className="mt-1 font-mono text-xl font-bold leading-none text-ink">
-                  {formatPeso(committedCentavos)}
-                </p>
-                {/* Owner screenshot fix (2026-07-15): the old "of ₱X committed"
-                 *  sub read as if the BUDGET were the committed amount. The
-                 *  mono value above is what's committed; the sub names the
-                 *  budget it counts against, and the ring carries %-of-budget. */}
-                <p className="mt-0.5 truncate text-xs text-ink/55">
-                  {budgetTargetCentavos && budgetTargetCentavos > 0
-                    ? `committed · of ${formatPeso(budgetTargetCentavos)} budget`
-                    : 'committed · no target set'}
-                </p>
-              </div>
-            </div>
-            <div className="sn-tile sn-reveal flex items-center gap-3.5">
-              <ProgressRing
-                pct={guestPct}
-                size={60}
-                stroke={7}
-                color="var(--sn-gold-500)"
-                sweep={{ delayMs: 540 }}
-              >
-                <span className="font-mono text-lg font-bold leading-none text-ink">
-                  {stats.attending}
-                </span>
-              </ProgressRing>
-              <div className="min-w-0">
-                <p className="sn-eye">
-                  <Users aria-hidden strokeWidth={1.75} />
-                  Guests
-                </p>
-                <p className="mt-1 font-mono text-2xl font-bold leading-none text-ink">
-                  <CountUp value={stats.attending} delayMs={540} />
-                </p>
-                <p className="mt-0.5 truncate text-xs text-ink/55">
-                  attending of {stats.total}
-                </p>
-              </div>
+
+              {miniTiles.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3.5">{miniTiles}</div>
+              ) : null}
             </div>
           </div>
         </section>
+
+        {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
+         *  glass tile below the top grid. */}
+        {aiActive && topPriorityTask ? (
+          <div className="sn-tile relative !mt-4 flex flex-wrap items-center gap-4 overflow-hidden">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-4 top-0 h-px"
+              style={{
+                background:
+                  'linear-gradient(90deg, transparent, var(--sn-gold-500), transparent)',
+              }}
+            />
+            <span
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-mono text-lg font-bold"
+              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+            >
+              1
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="sn-eye">Today&rsquo;s one thing</p>
+              <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">
+                {topPriorityTask.title}
+              </p>
+              <p className="mt-0.5 text-[13px] text-ink/60">
+                {topPriorityTask.whyItMatters}
+              </p>
+            </div>
+            <Link
+              href={topPriorityTask.ctaHref}
+              className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
+              style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
+            >
+              {topPriorityTask.ctaLabel}
+            </Link>
+          </div>
+        ) : null}
 
         {/* ── Home-injected overlays (cultural / set-date) ─────────────────
          *   Rendered between the bento and the journey rail via the
@@ -1809,61 +1978,9 @@ export async function EventDashboard({
             aiActive={aiActive}
           />
         </section>
-
-        {/* ── Suri on watch (AI · render-only) ─────────────────────────── */}
-        {aiActive && watchItems.length > 0 ? (
-          <section aria-label="Suri on watch">
-            <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="sn-sec">{spark}Suri on watch</h2>
-              <p className="sn-sec-sub">
-                Guards run in the background — they only speak up when something changes.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {watchItems.map(({ intervention, copy }) => {
-                const watchColor =
-                  intervention.category === 'guard'
-                    ? 'var(--sn-info)'
-                    : 'var(--sn-gold-600)';
-                return (
-                  // Render-only rows (no action today): the whole tile opens the
-                  // inspector on desktop to show the alert in full; below xl it is
-                  // inert (href="" → no navigation, matching today's no-action row).
-                  <InspectorTrigger
-                    key={intervention.dedupeKey}
-                    inspectId={`w:${intervention.dedupeKey}`}
-                    className="sn-tile flex w-full gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-1.5 h-2.5 w-2.5 flex-none rounded-full"
-                      style={{ background: watchColor, boxShadow: `0 0 0 4px ${watchColor}22` }}
-                    />
-                    <div className="min-w-0">
-                      <p
-                        className="text-[10.5px] font-bold uppercase tracking-[0.13em]"
-                        style={{ color: watchColor }}
-                      >
-                        {intervention.category === 'guard' ? 'Guard' : 'Secretary'} ·{' '}
-                        {intervention.templateId}
-                      </p>
-                      <p className="mt-0.5 whitespace-pre-line text-[13.5px] leading-relaxed text-ink/80">
-                        {copy}
-                      </p>
-                    </div>
-                  </InspectorTrigger>
-                );
-              })}
-            </div>
-            <p className="mt-3 flex items-center gap-2 text-xs text-ink/45">
-              <span aria-hidden style={{ color: 'var(--sn-gold-500)' }}>
-                ✦
-              </span>
-              Suri fires a few alerts a week at most — deduped, cooled down, most-urgent
-              first. Quiet weeks stay quiet.
-            </p>
-          </section>
-        ) : null}
+        {/* The "Suri on watch" section moved INTO the Big-Day focal's lower half
+         *  (top grid, above) so the tall focal is filled and the watch lives in
+         *  one place. Its #3265 inspector triggers travelled with it. */}
       </div>
     </div>
   );

@@ -288,6 +288,23 @@ export default async function EventLayout({ children, params }: Props) {
 
   const tr = makeT(locale);
 
+  // Event identity plaque meta line — "{Type} · {short date}" for the sidebar
+  // plaque (customer-sidebar.tsx). Formatted server-side so the mono date never
+  // hydration-splits on timezone. Date omitted when unset. (The plaque's own
+  // countdown lives in the dashboard body; this is just the switcher label.)
+  const plaqueTypeLabel = ((event.event_type as string | null) ?? 'wedding')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const plaqueDate = (event.event_date as string | null) ?? null;
+  const plaqueDateShort = plaqueDate
+    ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric' }).format(
+        new Date(`${plaqueDate}T00:00:00`),
+      )
+    : null;
+  const eventPlaqueMeta = plaqueDateShort
+    ? `${plaqueTypeLabel} · ${plaqueDateShort}`
+    : plaqueTypeLabel;
+
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
   // scoped utilities cluster — AccountSwitcher (left), Marketplace + role-
   // switch + unread bell + profile menu (right). Pre-Phase 1 this sat
@@ -360,6 +377,9 @@ export default async function EventLayout({ children, params }: Props) {
             slug={(event.slug as string | null) ?? null}
             guestCount={guestCount}
             unreadMessages={unreadMessages}
+            eventName={(event.display_name as string | null) ?? null}
+            monogramText={(event.monogram_text as string | null) ?? null}
+            eventMetaLine={eventPlaqueMeta}
           />
         }
         topBar={topBar}

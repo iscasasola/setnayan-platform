@@ -47,7 +47,7 @@ export async function GrowthSurface({ searchParams }: Props) {
     <div>
       <header className="mb-6 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+          <h1 className="sn-h1">
             Growth &amp; Population
           </h1>
           {stats.demo ? (
@@ -214,8 +214,8 @@ function BreakdownCard({ title, rows }: { title: string; rows: BreakdownRow[] })
   const max = Math.max(1, ...rows.map((r) => r.count));
   const total = rows.reduce((sum, r) => sum + r.count, 0);
   return (
-    <div className="m-card p-5">
-      <p className="m-label-mono mb-3" style={{ color: 'var(--m-slate-2)' }}>
+    <div className="sn-row p-5">
+      <p className="sn-eye mb-3" style={{ color: 'var(--m-slate-2)' }}>
         {title}
       </p>
       {rows.length === 0 ? (
@@ -262,8 +262,8 @@ function StatTile({
   sub?: string;
 }) {
   return (
-    <div className="m-card p-4">
-      <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+    <div className="sn-row p-4">
+      <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
         {label}
       </p>
       <p
@@ -300,10 +300,10 @@ function DeltaChip({ value }: { value: number }) {
 
 function GrowthCard({ series }: { series: GrowthSeries }) {
   return (
-    <div className="m-card p-5">
+    <div className="sn-row p-5">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+          <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
             {series.label}
           </p>
           <p
@@ -343,11 +343,11 @@ function ConversionCard({
           Math.round(c.medianDaysToConvert) === 1 ? 'day' : 'days'
         }`;
   return (
-    <div className="m-card p-5">
+    <div className="sn-row p-5">
       <div className="grid gap-5 lg:grid-cols-[1fr_1.4fr]">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-2">
           <div>
-            <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+            <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
               Conversion rate
             </p>
             <p
@@ -358,7 +358,7 @@ function ConversionCard({
             </p>
           </div>
           <div>
-            <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+            <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
               Converted
             </p>
             <p
@@ -373,7 +373,7 @@ function ConversionCard({
             </p>
           </div>
           <div>
-            <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+            <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
               New this period
             </p>
             <p
@@ -385,7 +385,7 @@ function ConversionCard({
             </p>
           </div>
           <div>
-            <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+            <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
               Median time to convert
             </p>
             <p
@@ -402,7 +402,7 @@ function ConversionCard({
           </div>
         </div>
         <div className="flex flex-col justify-center">
-          <p className="m-label-mono mb-2" style={{ color: 'var(--m-slate-2)' }}>
+          <p className="sn-eye mb-2" style={{ color: 'var(--m-slate-2)' }}>
             Cumulative conversions · {rangeLabel.toLowerCase()}
           </p>
           <Sparkline points={c.points} ariaLabel="Cumulative guest conversions" />

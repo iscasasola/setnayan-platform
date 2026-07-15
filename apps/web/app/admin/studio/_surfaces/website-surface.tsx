@@ -30,7 +30,7 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Iteration 0023 · § 3.10
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Website editor</h1>
@@ -99,7 +99,7 @@ function PageSelector({ currentPage }: { currentPage: SiteWidgetPage }) {
       </select>
       <button
         type="submit"
-        className="ml-2 inline-flex h-11 items-center rounded-md border border-ink/20 bg-cream px-3 text-xs text-ink/75 hover:bg-ink/5"
+        className="ml-2 inline-flex h-11 items-center rounded-md border border-ink/20 bg-white/70 px-3 text-xs text-ink/75 hover:bg-ink/5"
       >
         Open
       </button>
@@ -109,7 +109,7 @@ function PageSelector({ currentPage }: { currentPage: SiteWidgetPage }) {
 
 function EmptyPage({ page }: { page: SiteWidgetPage }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+    <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
       <p className="text-base font-medium text-ink/75">
         No widgets seeded for <code>{page}</code> yet.
       </p>

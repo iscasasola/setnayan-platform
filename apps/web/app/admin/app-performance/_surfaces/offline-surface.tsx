@@ -57,8 +57,8 @@ export function OfflineSurface() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="m-eyebrow">Operations</p>
-        <h1 className="m-display-tight mt-2 text-3xl text-ink">Offline daemon</h1>
+        <p className="sn-eye">Operations</p>
+        <h1 className="sn-h1 mt-2">Offline daemon</h1>
         <p className="mt-3 max-w-2xl text-sm text-ink-soft">
           The offline daemon scaffolds IndexedDB queues + a background-sync
           service worker for the seven media services. During pilot the
@@ -69,8 +69,8 @@ export function OfflineSurface() {
 
       <OfflineDiagnosticLoader />
 
-      <aside className="m-card border border-orange/15 bg-orange/5 p-6">
-        <p className="m-eyebrow text-orange">Note</p>
+      <aside className="sn-row border border-orange/15 bg-orange/5 p-6">
+        <p className="sn-eye">Note</p>
         <p className="mt-2 text-sm text-ink-soft">
           Offline daemon is scaffolded for pilot. Service-specific sync
           handlers ship with the next refresh.

@@ -26,7 +26,7 @@ type MetricRow = {
 const STATUS_STYLE: Record<HealthStatus, { icon: typeof CheckCircle2; cls: string; label: string }> = {
   ok: { icon: CheckCircle2, cls: 'text-emerald-600', label: 'OK' },
   warn: { icon: AlertTriangle, cls: 'text-amber-600', label: 'Warn' },
-  fail: { icon: XCircle, cls: 'text-red-600', label: 'Fail' },
+  fail: { icon: XCircle, cls: 'text-[color:var(--sn-danger)]', label: 'Fail' },
 };
 
 function StatCard({ n, label, tone }: { n: number; label: string; tone: string }) {
@@ -100,7 +100,7 @@ export async function SeoSurface() {
             <div className="grid grid-cols-3 gap-3">
               <StatCard n={snap.ok_count} label="Passing" tone="text-emerald-600" />
               <StatCard n={snap.warn_count} label="Warnings" tone="text-amber-600" />
-              <StatCard n={snap.fail_count} label="Failing" tone="text-red-600" />
+              <StatCard n={snap.fail_count} label="Failing" tone="text-[color:var(--sn-danger)]" />
             </div>
             <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-white/60">
               {snap.findings.map((f, i) => {
@@ -135,7 +135,7 @@ export async function SeoSurface() {
                   <li key={i} className="flex items-center gap-3 p-3 text-sm">
                     <span
                       className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                        d.kind === 'missing' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                        d.kind === 'missing' ? 'bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]' : 'bg-amber-50 text-amber-700'
                       }`}
                     >
                       {d.kind}

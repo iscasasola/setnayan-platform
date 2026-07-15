@@ -79,7 +79,7 @@ export async function TokenBandsSurface() {
         </p>
       </header>
 
-      <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+      <div className="sn-tile overflow-x-auto !p-0">
         <table className="w-full text-left text-sm">
           <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
             <tr>

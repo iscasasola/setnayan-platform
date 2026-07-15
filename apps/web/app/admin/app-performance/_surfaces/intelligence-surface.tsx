@@ -29,7 +29,7 @@ import { WonLostAdminCard } from '../_components/won-lost-admin-card';
  * All three sections are local Postgres aggregations (RPCs from migration
  * 20261202000000) cached for 10 minutes via unstable_cache — zero external
  * AI/API spend, bounded DB load. Mirrors /admin/growth's server-rendered,
- * no-client-JS pattern: GET-form filter, demo-mode cookie, m-card tiles.
+ * no-client-JS pattern: GET-form filter, demo-mode cookie, sn-row tiles.
  */
 
 type Props = {
@@ -87,11 +87,11 @@ export async function IntelligenceSurface({ searchParams }: Props) {
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan · Internal ops
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+          <h1 className="sn-h1">
             Intelligence
           </h1>
           {stats.demo ? (
@@ -225,7 +225,7 @@ const TD_CLASS = 'px-3 py-2.5 align-top text-sm whitespace-nowrap';
 function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: number }) {
   if (rows.length === 0) {
     return (
-      <div className="m-card p-5">
+      <div className="sn-row p-5">
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           No at-risk events — every couple with an upcoming event has been
           active inside the last {staleDays} days.
@@ -234,7 +234,7 @@ function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: numb
     );
   }
   return (
-    <div className="m-card overflow-x-auto p-0">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full min-w-[56rem] border-collapse">
         <thead>
           <tr
@@ -308,7 +308,7 @@ function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: numb
 function MarketPulse({ market }: { market: MarketAnalytics | null }) {
   if (!market) {
     return (
-      <div className="m-card p-5">
+      <div className="sn-row p-5">
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           Market aggregates couldn&apos;t load.
         </p>
@@ -376,8 +376,8 @@ function BarListCard({
   const max = Math.max(1, ...rows.map((r) => r.count));
   const total = rows.reduce((sum, r) => sum + r.count, 0);
   return (
-    <div className="m-card p-5">
-      <p className="m-label-mono mb-3" style={{ color: 'var(--m-slate-2)' }}>
+    <div className="sn-row p-5">
+      <p className="sn-eye mb-3" style={{ color: 'var(--m-slate-2)' }}>
         {title}
       </p>
       {rows.length === 0 ? (
@@ -429,8 +429,8 @@ function StatTile({
   sub?: string;
 }) {
   return (
-    <div className="m-card p-4">
-      <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+    <div className="sn-row p-4">
+      <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
         {label}
       </p>
       <p
@@ -457,7 +457,7 @@ const TIER_STYLES: Record<LeadTier, { background: string; color: string }> = {
 function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
   if (rows.length === 0) {
     return (
-      <div className="m-card p-5">
+      <div className="sn-row p-5">
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           No active events to score yet.
         </p>
@@ -465,7 +465,7 @@ function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
     );
   }
   return (
-    <div className="m-card overflow-x-auto p-0">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full min-w-[56rem] border-collapse">
         <thead>
           <tr

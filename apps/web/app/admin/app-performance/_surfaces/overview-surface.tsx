@@ -209,7 +209,7 @@ export async function CockpitSurface({ searchParams }: Props) {
 
       <header className="mb-6 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+          <h1 className="sn-h1">
             App Performance
           </h1>
           {demoActive ? (
@@ -296,7 +296,7 @@ export async function CockpitSurface({ searchParams }: Props) {
       <Suspense
         fallback={
           <section aria-label="Action Center loading" className="mb-12">
-            <div className="m-card h-28 animate-pulse p-5" />
+            <div className="sn-row h-28 animate-pulse p-5" />
           </section>
         }
       >
@@ -308,7 +308,7 @@ export async function CockpitSurface({ searchParams }: Props) {
       <Suspense
         fallback={
           <section aria-label="Expenses loading" className="mb-12">
-            <div className="m-card h-28 animate-pulse p-5" />
+            <div className="sn-row h-28 animate-pulse p-5" />
           </section>
         }
       >
@@ -708,10 +708,10 @@ function ContextTile({
   return (
     <div
       data-reveal=""
-      className={`m-card p-4 ${muted ? 'opacity-75' : ''}`}
+      className={`sn-row p-4 ${muted ? 'opacity-75' : ''}`}
       style={muted ? { borderStyle: 'dashed' } : undefined}
     >
-      <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+      <p className="sn-eye" style={{ color: 'var(--m-slate-2)' }}>
         {label}
       </p>
       <p

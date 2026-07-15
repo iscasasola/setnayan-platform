@@ -259,7 +259,7 @@ export default async function AdminIntegrityWatchPage({
           {hasRescan && (
             <form action={rescanAction}>
               <SubmitButton
-                className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
                 pendingLabel="Rescanning…"
               >
                 <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />{' '}
@@ -353,7 +353,7 @@ export default async function AdminIntegrityWatchPage({
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No flags in this view.
           {tab === 'listings'
             ? ' Use “Rescan listings” to sweep the marketplace.'
@@ -424,7 +424,7 @@ export default async function AdminIntegrityWatchPage({
                         name="note"
                         placeholder="Optional note…"
                         maxLength={500}
-                        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
+                        className="min-w-0 flex-1 rounded-md border border-white/60 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
                       {r.kind === 'review_fraud' ? (
                         <button

@@ -277,10 +277,11 @@ export default async function VendorTeamPage({ searchParams }: Props) {
         <p className="text-xs text-ink/55">
           {Number.isFinite(effectiveCap) ? (
             <>
+              {/* Just the used/cap glance here — the base + extra breakdown lives
+                  once, in the Extra seats card below (deduped 2026-07-16). */}
               <strong>{usedSeats}</strong> of <strong>{effectiveCap}</strong> team seat
-              {effectiveCap === 1 ? '' : 's'} used
-              {extraSeats > 0 ? ` (${baseSeatCap} base + ${extraSeats} extra)` : ''} — the founding
-              admin is always free and doesn’t count.
+              {effectiveCap === 1 ? '' : 's'} used — the founding admin is always
+              free and doesn’t count.
             </>
           ) : (
             <>The founding admin is always free and doesn’t count toward seats.</>

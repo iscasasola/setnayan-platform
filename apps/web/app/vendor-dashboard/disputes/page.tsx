@@ -111,16 +111,15 @@ export default async function VendorDisputesPage() {
         </div>
         <p className="max-w-prose text-base text-ink/65">
           Stand up for yourself. If a couple raises a concern about a booking, a{' '}
-          <span className="font-medium text-ink">neutral Setnayan team reviews the record first</span> —
-          it can never affect your rating or your listing until the team has
-          looked at both sides.
+          <span className="font-medium text-ink">neutral Setnayan team reviews the record first</span>{' '}
+          — and you get to add your side before anything is decided.
         </p>
         <div className="flex items-start gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2.5 text-sm text-success-800">
           <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>
             An open dispute is <span className="font-semibold">under review only</span> — it does
-            not count against you unless the team resolves it in the couple&rsquo;s favor.
-            Add your side below while it&rsquo;s still open.
+            not count against your rating or listing unless the team resolves it in
+            the couple&rsquo;s favor. Add your side below while it&rsquo;s still open.
           </p>
         </div>
       </header>

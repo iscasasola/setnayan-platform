@@ -451,21 +451,18 @@ async function CustomersPipeline({ searchParams }: Props) {
                     style={{ width: `${collectPct}%`, background: 'var(--m-sage-deep)' }}
                   />
                 </div>
-                {payments.unresolvedCount > 0 ? (
-                  <p className="mt-2 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-                    {payments.unresolvedCount} installment
-                    {payments.unresolvedCount === 1 ? '' : 's'} this month has no set
-                    amount yet.
-                  </p>
-                ) : null}
+                {/* The "N installments have no set amount yet" caveat lives once,
+                    on the Payday timeline this card links down to — not repeated
+                    here. */}
               </>
             )}
             <Link
-              href="/vendor-dashboard/payday"
+              href="#payday"
+              scroll
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
               style={{ color: 'var(--m-orange-2)' }}
             >
-              Payday <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Payday timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </Link>
           </article>
 
@@ -491,7 +488,8 @@ async function CustomersPipeline({ searchParams }: Props) {
               {conversationCount} conversation{conversationCount === 1 ? '' : 's'}
             </p>
             <Link
-              href="/vendor-dashboard/messages"
+              href="?open=messages"
+              scroll={false}
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
               style={{ color: 'var(--m-orange-2)' }}
             >
@@ -571,7 +569,8 @@ async function CustomersPipeline({ searchParams }: Props) {
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="sn-sec">Customers</h2>
             <Link
-              href="/vendor-dashboard/clients"
+              href="?open=clients"
+              scroll={false}
               className="inline-flex items-center gap-1 text-sm font-semibold"
               style={{ color: 'var(--sn-gold-700)' }}
             >
@@ -698,7 +697,20 @@ import MessagesSurface from '../messages/surface';
 //   else). COLLAPSE: Clients (the pipeline list already covers the roster),
 //   Messages (unread count is on the pipeline's summary card), Availability
 //   (config).
+//
+//   DEDUP 2026-07-16: Messages moved back to COLLAPSE. It had been promoted to
+//   always-on, but BookingsSurface (also always-on) renders the SAME
+//   fetchVendorThreads() set as a work queue — so two full thread lists showed
+//   on one page. Messages now folds here (its unread count already lives on the
+//   pipeline's Messages summary card, which links straight to this section).
+//   ⚠ Reverses the owner 2026-07-12 "promote Messages to always-on" — see PR.
 const CUSTOMER_SECTIONS: AccordionSection[] = [
+  {
+    key: 'messages',
+    label: 'Messages',
+    sub: 'Your conversations — reply, reveal, and log outcomes',
+    icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
+  },
   {
     key: 'clients',
     label: 'Clients',
@@ -722,6 +734,8 @@ async function CustomerSectionBody({
 }) {
   const pass = Promise.resolve(sp);
   switch (open) {
+    case 'messages':
+      return <MessagesSurface />;
     case 'clients':
       return <ClientsSurface searchParams={pass as never} />;
     case 'availability':
@@ -757,14 +771,10 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       <div id="payday">
         <PaydaySurface />
       </div>
-      {/* Messages promoted to always-on (owner "build it" 2026-07-12) —
-          communication is daily; the thread list stays visible, live chat is
-          one click into a thread. */}
-      <div id="messages">
-        <MessagesSurface />
-      </div>
 
-      {/* The rest folds in — glance-covered or configure-once. */}
+      {/* The rest folds in — glance-covered or configure-once. Messages folds
+          here too (its thread set is already the always-on Bookings queue
+          above; opening this section shows the chat/reply view). */}
       <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
         {open ? (
           <Suspense fallback={<AccordionSkeleton />}>

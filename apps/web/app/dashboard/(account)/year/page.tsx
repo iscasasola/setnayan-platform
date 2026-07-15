@@ -100,16 +100,17 @@ export default async function YearPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 transition-colors hover:text-ink"
-        href="/dashboard"
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Back to events
+      <Link className="sn-chip sn-press w-fit" href="/dashboard">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Back to events
       </Link>
 
-      <header className="mt-6">
-        <h1 className="font-serif text-3xl tracking-tight text-ink">Your year</h1>
-        <p className="mt-2 max-w-prose text-ink/60">
+      <header className="mt-6 space-y-2">
+        <p className="sn-eye">
+          <CalendarHeart aria-hidden strokeWidth={1.75} />
+          The dates ahead
+        </p>
+        <h1 className="sn-h1">Your year</h1>
+        <p className="max-w-prose text-base text-ink/65">
           The moments ahead — anniversaries, and the dates worth gathering for. Nothing here is
           on your plate yet; tap one when you’re ready to plan it.
         </p>
@@ -117,9 +118,7 @@ export default async function YearPage() {
 
       {nudges.length > 0 ? (
         <section className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-ink/50">
-            Worth planning for
-          </h2>
+          <h2 className="sn-sec">Worth planning for</h2>
           <ul className="mt-3 space-y-3">
             {nudges.map((m) => (
               <li key={`${m.kind}-${m.dateISO}-${m.label}`}>
@@ -131,11 +130,9 @@ export default async function YearPage() {
       ) : null}
 
       <section className="mt-8">
-        <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-ink/50">
-          The year ahead
-        </h2>
+        <h2 className="sn-sec">The year ahead</h2>
         {moments.length === 0 ? (
-          <p className="mt-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-8 text-center text-sm text-ink/55">
+          <p className="sn-tile mt-3 px-4 py-8 text-center text-sm text-ink/55">
             Nothing on your calendar yet. Create an anniversary or a celebration and it’ll appear
             here every year.
           </p>
@@ -157,10 +154,10 @@ function MomentCard({ moment: m, highlight = false }: { moment: YearMoment; high
   const inner = (
     <div
       className={[
-        'flex items-center gap-4 rounded-xl border px-4 py-3.5 transition-colors',
+        'sn-row flex items-center gap-4 px-4 py-3.5 transition-colors',
         highlight
-          ? 'border-gold/40 bg-gold/[0.06] hover:bg-gold/[0.1]'
-          : 'border-ink/10 bg-ink/[0.015] hover:bg-ink/[0.04]',
+          ? 'border-gold/40 bg-gold/[0.08] hover:bg-gold/[0.12]'
+          : 'hover:bg-white/85',
       ].join(' ')}
     >
       <span
@@ -174,13 +171,13 @@ function MomentCard({ moment: m, highlight = false }: { moment: YearMoment; high
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-ink">{m.label}</p>
         <p className="truncate text-sm text-ink/55">
-          {formatMoment(m.dateISO)}
+          <span className="font-mono">{formatMoment(m.dateISO)}</span>
           {m.detail ? <span className="text-ink/40"> · {m.detail}</span> : null}
         </p>
       </div>
       <span
         className={[
-          'shrink-0 whitespace-nowrap text-xs font-medium',
+          'shrink-0 whitespace-nowrap font-mono text-xs font-medium',
           highlight ? 'text-gold-deep' : 'text-ink/45',
         ].join(' ')}
       >
@@ -192,7 +189,7 @@ function MomentCard({ moment: m, highlight = false }: { moment: YearMoment; high
   // A moment tied to an event links to it; a holiday prompts a create flow.
   const href = m.eventId ? `/dashboard/${m.eventId}` : '/dashboard/create-event';
   return (
-    <Link className="block" href={href}>
+    <Link className="sn-press block" href={href}>
       {inner}
     </Link>
   );

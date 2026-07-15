@@ -8,6 +8,7 @@ import {
   KeyRound,
   Gem,
   MonitorSmartphone,
+  UserCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -221,16 +222,15 @@ export default async function ProfilePage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <Link href={backHref} className="sn-chip sn-press w-fit">
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {backLabel}
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Profile &amp; settings
-        </h1>
+        <p className="sn-eye">
+          <UserCircle aria-hidden strokeWidth={1.75} />
+          Your account
+        </p>
+        <h1 className="sn-h1">Profile &amp; settings</h1>
       </header>
 
       {search.error ? (
@@ -275,7 +275,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       {/* Personal info */}
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Personal info
           </h2>
         </div>
@@ -343,7 +343,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           {/* Optional, reference-only personalization (date-anchor model). Both
               fields are sensitive PI (RA 10173 §3(l)) — opt-in, never required,
               never shared. Leaving them blank changes nothing. */}
-          <fieldset className="space-y-3 rounded-md border border-ink/10 bg-cream p-4">
+          <fieldset className="sn-row space-y-3 p-4">
             <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
               Personalize your events — optional
             </legend>
@@ -431,7 +431,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           {/* Anon-draft: marketing email would go to the non-routable
               placeholder address. Hide until they secure a real email. */}
           {isAnon ? null : (
-            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
+            <label className="sn-row flex cursor-pointer items-start gap-3 p-3 text-sm">
               <input
                 type="checkbox"
                 name="marketing_opt_in"
@@ -459,7 +459,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       <>
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Change password
           </h2>
           <p className="text-sm text-ink/60">
@@ -469,7 +469,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             the reset link on the sign-in page instead.
           </p>
         </div>
-        <form action={changePassword} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+        <form action={changePassword} className="sn-tile space-y-3">
           <input type="hidden" name="return_to" value="/dashboard/profile" />
           <TurnstileField action="reauth" />
           <Field label="Current password" htmlFor="current_password">
@@ -516,7 +516,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Sessions
           </h2>
           <p className="text-sm text-ink/60">
@@ -524,7 +524,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             Sign out everywhere else in one tap — this device stays signed in.
           </p>
         </div>
-        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Sign out other devices</p>
             <p className="text-xs text-ink/55">
@@ -591,7 +591,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       */}
       <section id="settings" className="mt-10 space-y-4 scroll-mt-24">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Planner mode
           </h2>
           <p className="text-sm text-ink/60">
@@ -645,7 +645,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Planning reminders
           </h2>
           <p className="text-sm text-ink/60">
@@ -700,7 +700,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Display language
           </h2>
           <p className="text-sm text-ink/60">
@@ -755,7 +755,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Notifications &amp; feedback
           </h2>
           <p className="text-sm text-ink/60">
@@ -770,7 +770,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Privacy &amp; data (RA 10173)
           </h2>
           <p className="text-sm text-ink/60">
@@ -779,7 +779,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             effect.
           </p>
         </div>
-        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Export my data</p>
             <p className="text-xs text-ink/55">
@@ -805,7 +805,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           permanent home. See 03_Strategy/People_Graph_and_Lifelong_Identity_
           2026-07-04.md.
         */}
-        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Legacy contact</p>
             <p className="text-xs text-ink/55">
@@ -826,7 +826,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           AI"). Two controls: the opt-in toggle, and account-level erasure.
         */}
         {faceProfileFlagOn ? (
-          <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+          <div className="sn-tile space-y-3">
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-medium text-ink">
                 Remember my face across my events
@@ -925,7 +925,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           flips); the admin Social Queue then handles the take-down within
           the 24-hour SLA. See migration 20261203000000.
         */}
-        <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+        <div className="sn-tile space-y-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">
               Featured on Setnayan&rsquo;s pages
@@ -946,7 +946,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               {shareConsents.map((c) => (
                 <li
                   key={c.consent_id}
-                  className="flex flex-col gap-2 rounded-md border border-ink/10 bg-cream/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="sn-row flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0 space-y-0.5">
                     <p className="text-sm font-medium text-ink">
@@ -1027,7 +1027,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           // Anon-draft: there's no permanent account to delete — the deletion
           // queue is for real accounts. Explain instead of showing a confirm
           // box that just redirects to /signup.
-          <p className="rounded-xl border border-ink/10 bg-cream p-4 text-sm text-ink/70">
+          <p className="sn-row p-4 text-sm text-ink/70">
             Your plan isn&rsquo;t saved to an account yet, so there&rsquo;s nothing to delete. To
             discard it, just close the tab; to keep it,{' '}
             <Link
@@ -1135,8 +1135,8 @@ export default async function ProfilePage({ searchParams }: Props) {
 
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="space-y-1 rounded-md border border-ink/10 bg-cream/60 p-4">
-      <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
+    <div className="sn-row space-y-1 p-4">
+      <dt className="sn-eye">{label}</dt>
       <dd className={`text-base text-ink ${mono ? 'font-mono' : ''}`}>{value}</dd>
     </div>
   );

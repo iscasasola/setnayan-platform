@@ -38,33 +38,29 @@ export default async function SamahanIndexPage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to home
       </Link>
-      <header className="mb-6 space-y-1">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
-          Samahan
-        </h1>
-        <p className="text-base text-ink/60">
+      <header className="mb-6 space-y-2">
+        <p className="sn-eye">
+          <HeartHandshake aria-hidden strokeWidth={1.75} />
+          Your shared spaces
+        </p>
+        <h1 className="sn-h1">Samahan</h1>
+        <p className="text-base text-ink/65">
           Shared spaces for the groups you belong to — barkada, parish, clan, org.
         </p>
       </header>
 
       {banner ? (
-        <p
-          role="status"
-          className="mb-6 rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/70"
-        >
+        <p role="status" className="sn-row mb-6 px-4 py-3 text-sm text-ink/70">
           {banner}
         </p>
       ) : null}
 
       {communities.length === 0 ? (
-        <div className="rounded-2xl border border-white/70 bg-white/60 p-8 text-center shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+        <div className="sn-tile p-8 text-center">
           <HeartHandshake
             aria-hidden
             className="mx-auto h-8 w-8 text-ink/35"
@@ -86,7 +82,7 @@ export default async function SamahanIndexPage({
           </Link>
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+        <div className="sn-tile p-5">
           <div className="divide-y divide-ink/5">
             {communities.map((c) => (
               <CommunityRow key={c.community_id} community={c} />

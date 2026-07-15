@@ -39,9 +39,10 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱9,000', // Papic Ltd per-day cap (owner 2026-07-11, PR #3112)
   '₱15,000', // Papic Unli per-day cap (owner 2026-07-11, PR #3112)
 
-  // Vendor tokens + packs (flat ₱200/token · flat 1-token burn · 2026-07-12 lock)
+  // Vendor tokens + packs (flat ₱200/token · flat 1-token burn · 2026-07-15
+  // catalog restructure: ₱1,000 = 5 tokens, ladder 5/10/25/50/100)
   '₱200', // flat per-token price · flat 1-token inquiry unlock (any region)
-  '₱800', // 4-token pack
+  '₱1,000', // 5-token anchor pack
   '₱5,000', // 25-token pack
   '₱10,000', // 50-token pack
   '₱20,000', // 100-token pack

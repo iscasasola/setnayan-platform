@@ -77,6 +77,7 @@ import {
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
   boothTypeForVendorCategory,
+  boothPresenceLabel,
   boothPerimeterSlots,
   clampBoothToPerimeter,
   solveAutoLayout,
@@ -4880,6 +4881,10 @@ export function SeatingEditor({
               the wall-snap rules live so they can't leave the legal band */}
           {booths.map((b) => {
             const unassigned = b.booth_type === 'unassigned';
+            // Presence label (owner directive 2026-07-16): a booth mirrors the 3D
+            // slot — a FINALIZED vendor's name when linked, "SETNAYAN" otherwise.
+            // The blank pre-pick pin keeps its "Pick type" editor prompt.
+            const markerLabel = unassigned ? 'Pick type' : boothPresenceLabel(b);
             return (
               <div
                 key={b.booth_id}
@@ -4905,7 +4910,7 @@ export function SeatingEditor({
                       <button
                         type="button"
                         onPointerDown={onBoothPointerDown(b.booth_id)}
-                        aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag along the walls`}
+                        aria-label={`${unassigned ? 'New booth — tap to pick a type' : markerLabel} — drag along the walls`}
                         style={{ width: `${fpW}px`, height: `${fpH}px`, transform: `rotate(${deg}deg)` }}
                         className={`relative block select-none rounded-sm border shadow-sm backdrop-blur-sm ${
                           unassigned
@@ -4926,7 +4931,7 @@ export function SeatingEditor({
                           className="pointer-events-none absolute left-1/2 top-1/2 flex items-center gap-1 whitespace-nowrap rounded bg-cream/90 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/70 shadow-sm"
                         >
                           <BoothIcon type={b.booth_type} className="h-3 w-3 text-terracotta-700" />
-                          {unassigned ? 'Pick type' : b.label}
+                          {markerLabel}
                         </span>
                       </button>
                     );
@@ -4935,7 +4940,7 @@ export function SeatingEditor({
                   <button
                     type="button"
                     onPointerDown={onBoothPointerDown(b.booth_id)}
-                    aria-label={`${unassigned ? 'New booth — tap to pick a type' : b.label} — drag to move`}
+                    aria-label={`${unassigned ? 'New booth — tap to pick a type' : markerLabel} — drag to move`}
                     className={`flex select-none items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm ${
                       unassigned
                         ? 'border-dashed border-terracotta/60 bg-terracotta/[0.06] text-terracotta-700'
@@ -4947,14 +4952,14 @@ export function SeatingEditor({
                     }`}
                   >
                     <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
-                    {unassigned ? 'Pick type' : b.label}
+                    {markerLabel}
                   </button>
                 )}
                 <button
                   type="button"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeBooth(b.booth_id)}
-                  aria-label={`Remove ${b.label}`}
+                  aria-label={`Remove ${markerLabel}`}
                   className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                 >
                   <X className="h-3 w-3" />
@@ -5001,17 +5006,18 @@ export function SeatingEditor({
                             <div className="px-3 pb-2 pt-0.5 text-[11px] leading-snug text-ink/50">
                               {bookedVendors.length === 0 ? (
                                 <>
-                                  No booked vendors yet —{' '}
+                                  No finalized vendors yet —{' '}
                                   <a
                                     href={`/dashboard/${eventId}/vendors`}
                                     className="font-medium text-terracotta-700 underline hover:text-terracotta"
                                   >
-                                    book vendors
+                                    lock a vendor in Merkado
                                   </a>{' '}
-                                  to place their booths.
+                                  to place them here. Until then this slot shows
+                                  Setnayan.
                                 </>
                               ) : (
-                                'All your booked vendors are already placed.'
+                                'All your finalized vendors are already placed.'
                               )}
                             </div>
                           );

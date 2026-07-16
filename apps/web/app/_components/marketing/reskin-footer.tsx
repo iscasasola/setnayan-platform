@@ -109,7 +109,7 @@ export function ReskinFooter() {
         <span>&copy; 2026 Setnayan &middot; Made in the Philippines</span>
         <span>
           Data Protection Officer ·{' '}
-          <a href="mailto:dpo@setnayan.com">dpo@setnayan.com</a>
+          <a href="mailto:iscasasolaii@gmail.com">iscasasolaii@gmail.com</a>
         </span>
       </div>
     </footer>

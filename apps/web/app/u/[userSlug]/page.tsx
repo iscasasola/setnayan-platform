@@ -10,6 +10,10 @@ import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { CHAPTER_KIND_LABEL } from '@/lib/creator-chapters';
 import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public';
+import {
+  fetchCreatorInfluence,
+  type CreatorInfluenceVendor,
+} from '@/lib/creator-offers';
 import { formatAudienceCount } from '@/lib/creator-audience';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
@@ -140,6 +144,13 @@ export default async function AccountProfilePage({ params }: Props) {
   // into a single event — the chapters are the point of the page.
   const chapters: PublicChapter[] = await fetchPublishedChapters(user.user_id);
   const hasChapters = chapters.length > 0;
+
+  // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
+  // relevant for a creator profile; never exposes the offer terms or the graph,
+  // just the fact of a partnership + the vendor's public identity.
+  const influenceVendors: CreatorInfluenceVendor[] = hasChapters
+    ? await fetchCreatorInfluence(user.user_id)
+    : [];
 
   const ongoing = publicWebsiteEvents.filter((e) => !e.archived);
 
@@ -275,6 +286,10 @@ export default async function AccountProfilePage({ params }: Props) {
           <ChapterTimeline chapters={chapters} slug={canonicalSlug} />
         ) : null}
 
+        {influenceVendors.length > 0 ? (
+          <CreatorInfluence vendors={influenceVendors} />
+        ) : null}
+
         {/* Share doorway + report path (#7c). Gated on the profile being a real
             public showcase — opted-in AND has ≥1 public chapter (hasPublicContent).
             Never rendered on the disabled owner-preview or the empty state, so we
@@ -363,7 +378,97 @@ function ChapterTimeline({
   );
 }
 
+// Creator "influence" — partnered vendors (accepted discount collabs), an
+// aggregate social-proof strip. Public + terms-free: it shows WHO the creator
+// has partnered with (name/logo → the vendor's 0%-commission public page), never
+// the discount terms or the offer graph. Bookings-driven ROI is P2/P3.
+function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
+  return (
+    <section className="uprof-inf" aria-label="Partnered vendors">
+      <h2 className="m-serif uprof-inf-head">Partnered with</h2>
+      <ul className="uprof-inf-list">
+        {vendors.map((v) => (
+          <li key={v.slug}>
+            <Link href={`/v/${v.slug}`} className="uprof-inf-card">
+              {v.logoUrl ? (
+                <span className="uprof-inf-logo">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={v.logoUrl} alt="" loading="lazy" decoding="async" />
+                </span>
+              ) : (
+                <span className="uprof-inf-logo uprof-inf-logo--blank" aria-hidden>
+                  {v.name.charAt(0)}
+                </span>
+              )}
+              <span className="uprof-inf-name">{v.name}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 const UPROF_CSS = `
+  .uprof-inf { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
+  .uprof-inf-head {
+    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
+    text-align: center;
+    margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
+    color: var(--m-ink, #1B1A17);
+  }
+  .uprof-inf-list {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    max-width: 620px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.7rem;
+  }
+  .uprof-inf-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.95rem 0.5rem 0.6rem;
+    background: #fff;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-full, 999px);
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+    text-decoration: none;
+    color: inherit;
+    transition: transform .15s cubic-bezier(.2,.7,.2,1), border-color .15s;
+  }
+  .uprof-inf-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--m-orange, #A9834B);
+  }
+  .uprof-inf-logo {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--m-ivory, #EDEAE0);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .uprof-inf-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .uprof-inf-logo--blank {
+    font-family: var(--font-mono-marketing), ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--m-orange-2, #8A6B39);
+    text-transform: uppercase;
+  }
+  .uprof-inf-name {
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: var(--m-ink, #1B1A17);
+  }
+
   .uprof {
     min-height: 100dvh;
     background: var(--m-paper, #FBFBFA);

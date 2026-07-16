@@ -52,7 +52,7 @@ export function SaveStoryCardButton({
         aria-label="Save a story card for Instagram or TikTok"
         aria-live="polite"
         onClick={onClick}
-        className="inline-flex h-6 items-center gap-1 rounded-full px-1.5 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/55 transition-colors hover:bg-ink/5 hover:text-terracotta"
+        className="inline-flex h-6 items-center gap-1 rounded-full px-1.5 font-mono text-xs uppercase tracking-[0.1em] text-ink/55 transition-colors hover:bg-ink/5 hover:text-terracotta"
       >
         {state === 'saving' ? (
           <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />

@@ -113,6 +113,9 @@ import {
   type AutoSeatGuest,
   type FloorBoothRow,
   type FloorPlanRow,
+  sanitizeCapacity,
+  weldCommitBatch,
+  DEFAULT_ROOM_M,
   type FloorSignRow,
   type TableShapeHint,
   type TableType,
@@ -140,6 +143,7 @@ import {
   saveBooths,
   saveFloorPlan,
   savePriorityOrder,
+  commitWeld,
   saveSigns,
   saveVenuePhotoVisibility,
   seatRoleAtTable,
@@ -538,10 +542,20 @@ export function SeatingEditor({
   const [floorDirty, setFloorDirty] = useState(false);
 
   const venueScaled = venue.enabled && venue.width > 0 && venue.length > 0;
+  // The COORDINATE room box (contract v2 · § 2 · GUN B): the venue metres when
+  // sized, else the default 20×30 board. ALWAYS defined — it's the coordinate
+  // denominator, and the canvas letterboxes to its aspect so a percent is
+  // isotropic on the free board exactly like a sized room.
+  const roomM = venueScaled ? { w: venue.width, d: venue.length } : DEFAULT_ROOM_M;
   // Pixels-per-metre at zoom 1 (the world layer width === canvas width). Tables
   // multiply this by their real footprint to render at true scale. The canvas
   // preserves the room aspect ratio, so px-per-metre is isotropic (x === y).
+  // `pxPerMeter` stays SIZED-ROOM-only (it still gates the metric aisle/grid/
+  // scale-bar/oracle — those are meaningless without a real venue); `metricPpm`
+  // is the ALWAYS-defined table-render scale (GUN B: the free board renders at
+  // true metric size against the 20×30 box, no more `scale : 1`).
   const pxPerMeter = venueScaled && canvasW > 0 ? canvasW / venue.width : null;
+  const metricPpm = canvasW > 0 ? canvasW / roomM.w : null;
 
   // Feature B — metre-aware dot grid. The free board keeps its fixed 22px dots;
   // a sized room coarsens the dot spacing to a "nice" number of metres kept
@@ -835,12 +849,18 @@ export function SeatingEditor({
   };
 
   const occupantsFor = (t: EventTableRow): (SeatingGuest | null)[] => {
-    const removed = removedSeatSet(t.removed_seats, t.capacity);
-    const occ: (SeatingGuest | null)[] = new Array(t.capacity).fill(null);
+    // Render-crash guard (Sync verdict 2026-07-16 · c): a malformed persisted
+    // capacity (negative / non-integer / absurd) would make `new Array(cap)`
+    // throw RangeError mid-render → a between-hooks throw → React #310. Sanitize
+    // to a safe integer so the table renders DEGRADED, never crashes. (Reads are
+    // already healed in fetchTables; this is belt-and-braces for any other path.)
+    const cap = sanitizeCapacity(t.capacity);
+    const removed = removedSeatSet(t.removed_seats, cap);
+    const occ: (SeatingGuest | null)[] = new Array(cap).fill(null);
     const leftovers: SeatingGuest[] = [];
     for (const g of guests) {
       if (g.seated_table_id !== t.table_id) continue;
-      if (g.seat_number !== null && g.seat_number >= 0 && g.seat_number < t.capacity && occ[g.seat_number] === null) {
+      if (g.seat_number !== null && g.seat_number >= 0 && g.seat_number < cap && occ[g.seat_number] === null) {
         occ[g.seat_number] = g;
       } else {
         leftovers.push(g);
@@ -1709,7 +1729,10 @@ export function SeatingEditor({
   // sized room (same maths as fitView + the table render).
   const footprintPx = (t: EventTableRow) => {
     const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
-    const s = pxPerMeter ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w : 1;
+    // GUN B: true metric footprint on BOTH boards (metricPpm is always defined
+    // once the canvas is measured); the scale : 1 fallback only covers the
+    // canvasW === 0 first paint.
+    const s = metricPpm ? (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) / geo.box.w : 1;
     return { w: geo.box.w * s, h: geo.box.h * s };
   };
   // Half the TABLETOP length (px) of a rectangular run — hub only, chairs hang
@@ -2621,22 +2644,54 @@ export function SeatingEditor({
       if (d.kind === 'table') {
         // A linked unit moved as one — every member's position changed.
         const moved = groupMemberIds(d.id);
-        // Connective snap (owner 2026-07-16 — positioning, NOT linking): if this
-        // drag snapped onto a neighbour's end, the ANCHOR is now part of the
-        // connection too. Persist BOTH tables' own coordinates via the ordinary
-        // move path (mark dirty → Save), so the join survives reload from each
-        // table's own x/y/rotation — no link_group_id is written, they stay two
-        // independent tables that simply sit connected.
-        setDirty((s) => {
-          const n = new Set(s);
-          moved.forEach((id) => n.add(id));
-          if (weld && weld.moverId === d.id) n.add(weld.anchorId);
-          return n;
-        });
-        // The chain snap rotated the wedge to fit the joint — persist it once.
-        if (serpRot && serpRot.id === d.id) {
-          const t = tables.find((x) => x.table_id === d.id);
-          if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
+        const moverPos = positions[d.id];
+        const anchorTable = weld ? tables.find((x) => x.table_id === weld.anchorId) : undefined;
+        const anchorPos = weld ? positions[weld.anchorId] : undefined;
+        if (weld && weld.moverId === d.id && canEdit && moverPos && anchorPos && anchorTable) {
+          // ATOMIC WELD (Sync verdict 2026-07-16 · § 5 · GUN C — positioning, NOT
+          // linking). A connective snap changes the mover's position AND rotation;
+          // persist BOTH the mover and the (now-connected) anchor in ONE round trip
+          // and drop both from the dirty set, so abandoning the editor can never
+          // leave a wedge "rotated-as-if-joined but standing at its pre-drag spot"
+          // (the owner's screenshot). No link_group_id is written — they stay two
+          // independent tables that simply sit connected.
+          const moverTable = tables.find((x) => x.table_id === d.id);
+          const moverRot =
+            serpRot && serpRot.id === d.id
+              ? serpRot.rot
+              : rotById[d.id] ?? moverTable?.rotation_deg ?? 0;
+          const batch = weldCommitBatch(
+            { tableId: d.id, xPct: moverPos.x, yPct: moverPos.y, rotationDeg: moverRot },
+            { tableId: weld.anchorId, xPct: anchorPos.x, yPct: anchorPos.y, rotationDeg: rotationOf(anchorTable) },
+          );
+          setRotById((m) => ({ ...m, [d.id]: moverRot }));
+          setDirty((s) => {
+            const n = new Set(s);
+            n.delete(d.id);
+            n.delete(weld.anchorId);
+            return n;
+          });
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lock.lockId ?? '');
+          fd.set('poses', JSON.stringify(batch));
+          startTransition(async () => {
+            await runGated(() => commitWeld(fd));
+          });
+        } else {
+          // Plain move (single table or a linked unit moved as one): mark the
+          // moved tables dirty → Save persists each own x/y (the join, if any,
+          // survives reload from each table's own coordinates).
+          setDirty((s) => {
+            const n = new Set(s);
+            moved.forEach((id) => n.add(id));
+            return n;
+          });
+          // A chain snap rotated the wedge to fit — persist it once (no weld pair).
+          if (serpRot && serpRot.id === d.id) {
+            const t = tables.find((x) => x.table_id === d.id);
+            if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
+          }
         }
       } else if (d.kind === 'booth') setBoothsDirty(true);
       else setFloorDirty(true);
@@ -3026,9 +3081,10 @@ export function SeatingEditor({
     tables.forEach((t, i) => {
       const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
       const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
-      // Use the ON-SCREEN size (to-scale shrinks tables in venue mode), so the
-      // bounding box is tight and Fit zooms in enough to make tables readable.
-      const s = pxPerMeter ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w : 1;
+      // Use the ON-SCREEN size (to-scale shrinks tables to the room box on BOTH
+      // boards now — GUN B), so the bounding box is tight and Fit zooms in enough
+      // to make tables readable.
+      const s = metricPpm ? (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) / geo.box.w : 1;
       const cx = (pos.x / 100) * rect.width;
       const cy = (pos.y / 100) * rect.height;
       minX = Math.min(minX, cx - (geo.box.w * s) / 2);
@@ -3220,12 +3276,16 @@ export function SeatingEditor({
     fitViewRef.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [region.w, region.h, view]);
-  // To-scale letterbox box (venue mode): the largest room-ratio rectangle that
-  // fits the measured cell. Free mode fills the cell.
+  // To-scale letterbox box: the largest room-aspect rectangle that fits the
+  // measured cell. GUN B (Sync verdict 2026-07-16 · § 2): the FREE board now
+  // letterboxes to the DEFAULT 20×30 aspect exactly like a sized room — so the
+  // canvas carries the room aspect and `(x/100)·rect.width` / `(y/100)·rect.height`
+  // become ISOTROPIC and canvas-INDEPENDENT (the anisotropic fill-the-cell shear
+  // that made a free-board percent mean different things on each axis is gone).
   const scaledBox =
-    venueScaled && region.w > 0 && region.h > 0
+    region.w > 0 && region.h > 0
       ? (() => {
-          const ratio = venue.width / venue.length;
+          const ratio = roomM.w / roomM.d;
           let w = region.w;
           let h = w / ratio;
           if (h > region.h) {
@@ -3272,17 +3332,50 @@ export function SeatingEditor({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // beforeunload guard on unsaved layout — the manual-save safety net (v1 keeps
-  // manual save; autosave is a separate lock-aware PR, sign-off S2).
+  // beforeunload guard on unsaved layout — the manual-save safety net. Plus the
+  // DIRTY MARKER (Sync verdict 2026-07-16 · § 5 · GUN C · auto-save-on-exit door
+  // audit): the SPA-nav door out of a dirty editor can't be intercepted (App
+  // Router has no route events — verdict § 8.4), so instead of silent staleness
+  // we make it VISIBLE. While the layout is dirty we stamp a localStorage marker
+  // `seating-dirty:{eventId}`; the 3D lab (any tab) reads it and shows a
+  // non-blocking "return to the editor to save" banner. Cleared the instant the
+  // layout goes clean. `beforeunload` still covers hard unloads; `pagehide`
+  // re-stamps so a tab-close leaves the marker for the next surface to surface.
+  const dirtyMarkerKey = `seating-dirty:${eventId}`;
   useEffect(() => {
+    const stamp = () => {
+      try {
+        localStorage.setItem(
+          dirtyMarkerKey,
+          JSON.stringify({ dirtyIds: Array.from(dirty), ts: Date.now() }),
+        );
+      } catch {
+        /* private mode — best-effort only */
+      }
+    };
+    const clear = () => {
+      try {
+        localStorage.removeItem(dirtyMarkerKey);
+      } catch {
+        /* ignore */
+      }
+    };
+    if (layoutDirty) stamp();
+    else clear();
     if (!layoutDirty) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
+    const onPageHide = () => stamp();
     window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [layoutDirty]);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutDirty, dirty, dirtyMarkerKey]);
 
   // 2D/3D segment: 2D↔List swap in-page; 3D is an honest route swap to the lab
   // (same doc, same actions, same lock). Cross-projection editing rule
@@ -5188,9 +5281,12 @@ export function SeatingEditor({
               : null;
             const showRibbon = ribbonPath !== null && detail;
             // To-scale factor: render the table at its true footprint relative
-            // to the room (1 when no venue size is set → unchanged appearance).
-            const tableScale = pxPerMeter
-              ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) /
+            // to the room. GUN B (Sync verdict 2026-07-16): metric on BOTH boards
+            // — the free board now scales against the 20×30 box exactly like a
+            // sized room, so 2D matches what 3D always showed. (1 only at the
+            // canvasW === 0 first paint.)
+            const tableScale = metricPpm
+              ? (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) /
                 (detail ? geo.box.w : geo.hub.w + 12)
               : 1;
 

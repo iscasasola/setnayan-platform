@@ -12,7 +12,6 @@ import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
-  TABLE_FOOTPRINT_M,
   chainableShapes,
   computeAutoLayout,
   computeAutoSeat,
@@ -22,14 +21,16 @@ import {
   fetchSeatingConstraints,
   fetchGroupAdjacency,
   fetchTables,
-  isLegalJoint,
+  metricPoseM,
   parsePriorityOrder,
   recommendTableSet,
   removedSeatSet,
   roleTier,
+  roomBoxM,
   shapeHintFor,
   solveSeatPlan,
   tableGeometry,
+  validateChainJointM,
   type AutoSeatGuest,
   type BoothType,
   type PriorityOrder,
@@ -1140,6 +1141,64 @@ export async function updateTableRotation(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Atomic connective-weld persist (Sync verdict 2026-07-16 · § 5 · GUN C). A
+// connective snap changes BOTH a table's position AND rotation; persisting them
+// as two separate writes (an instant rotation + a deferred position) left the DB
+// holding a wedge "rotated-as-if-joined but standing at its pre-drag spot" if the
+// editor was abandoned before Save — the owner's screenshot. `commitWeld` writes
+// every welded table's (x_pos, y_pos, rotation_deg) in ONE round trip, so the DB
+// never holds a half-applied gesture. It does NOT write `link_group_id` (honors
+// the owner-locked "positioning, NOT linking" ruling). Additive — the plain
+// `updateTablePosition`/`updateTableRotation` paths (#3307/#3317) are untouched.
+// Rule: any gesture that changes both pos and rot persists both atomically or
+// neither. Payload: JSON `poses` = [{ tableId, xPct, yPct, rotationDeg }, ...].
+export async function commitWeld(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const posesRaw = formData.get('poses');
+  if (typeof eventId !== 'string' || typeof posesRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  let poses: Array<{ tableId: string; xPct: number; yPct: number; rotationDeg: number }>;
+  try {
+    poses = JSON.parse(posesRaw);
+  } catch {
+    throw new Error('Invalid poses payload');
+  }
+  if (!Array.isArray(poses) || poses.length === 0) throw new Error('Empty weld batch');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const now = new Date().toISOString();
+  for (const p of poses) {
+    if (typeof p?.tableId !== 'string') throw new Error('Invalid weld pose');
+    const x = Number(p.xPct);
+    const y = Number(p.yPct);
+    const deg = Number(p.rotationDeg);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(deg)) {
+      throw new Error('Weld pose must be numeric');
+    }
+    // Same clamps as updateTablePosition/updateTableRotation (contract §§ 1,3).
+    const clampedX = Math.max(-300, Math.min(900, x));
+    const clampedY = Math.max(-300, Math.min(900, y));
+    const rotation = ((Math.round(deg) % 360) + 360) % 360;
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: clampedX, y_pos: clampedY, rotation_deg: rotation, updated_at: now })
+      .eq('table_id', p.tableId)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Change a table's STYLE/type (owner-directed 2026-06-13: "they picked long
 // table, then decided to make them round tables — give them the right to do
 // so"). Capacity resets to the new type's seat count and the geometry changes,
@@ -1406,29 +1465,20 @@ export async function linkTables(formData: FormData) {
   if (!alreadyGrouped && !chainableShapes(shapeA, shapeB)) {
     throw new Error('Those two table shapes don’t join end-to-end.');
   }
-  const venueW = floorPlan.venue_width_m;
-  const venueL = floorPlan.venue_length_m;
   const positioned =
     a.x_pos != null && a.y_pos != null && b.x_pos != null && b.y_pos != null;
-  if (!alreadyGrouped && shapeA !== 'sweetheart' && positioned && venueW && venueL) {
-    // Nominal canvas keeps the oracle's px-tuned tolerances meaningful and
-    // matches the editor's render scale semantics (isotropic px/metre).
-    const NOMINAL_W = 1000;
-    const ppm = NOMINAL_W / venueW;
-    const nominalH = NOMINAL_W * (venueL / venueW);
-    const poseFor = (t: typeof a) => {
-      const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
-      const footW = TABLE_FOOTPRINT_M[t.table_type] * ppm;
-      return {
-        shape: shapeHintFor(t.table_type),
-        capacity: t.capacity,
-        x: (Number(t.x_pos) / 100) * NOMINAL_W,
-        y: (Number(t.y_pos) / 100) * nominalH,
-        rot: t.rotation_deg ?? 0,
-        scale: footW / geo.box.w,
-      };
-    };
-    if (!isLegalJoint(poseFor(a), poseFor(b), ppm)) {
+  if (!alreadyGrouped && shapeA !== 'sweetheart' && positioned) {
+    // Sync verdict 2026-07-16 · § 3: the joint is verified in METRIC space via
+    // the shared `validateChainJointM` on `pctToWorldM` poses (contract v2). This
+    // REPLACES the NOMINAL_W bridge + the `venueW && venueL` guard — the free
+    // board reads the default 20×30 box (`roomBoxM`), so a free-board link now
+    // validates too (both projections snap to the SAME legal joint, so the ~0.44 m
+    // 3D-authored rejection is dead). Existing `link_group_id` rows are never
+    // retro-invalidated — this gate runs only for a NEW link attempt.
+    const room = roomBoxM(floorPlan);
+    const poseA = metricPoseM(a, Number(a.x_pos), Number(a.y_pos), room);
+    const poseB = metricPoseM(b, Number(b.x_pos), Number(b.y_pos), room);
+    if (!validateChainJointM(poseA, poseB)) {
       throw new Error('Those tables aren’t joined end-to-end — snap them together first.');
     }
   }

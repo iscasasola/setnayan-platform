@@ -28,6 +28,7 @@ import {
   CheckCheck,
   CircleUser,
   Coins,
+  Crown,
   Compass,
   CreditCard,
   DollarSign,
@@ -338,6 +339,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/accounts?tab=users',
         icon: Users,
         matchPrefix: '/admin/users',
+      },
+      {
+        // Founder seats — up to 10 owner-granted platform-founder accounts
+        // (owner-locked 2026-07-16): all in-app features comped + token-free
+        // vendor inquiries + the server-asserted founder badge. Standalone
+        // surface (grant/revoke writes go through the service-role actions).
+        key: 'founder-seats',
+        label: 'Founder seats',
+        href: '/admin/founder-seats',
+        icon: Crown,
+        matchPrefix: '/admin/founder-seats',
       },
       {
         // Repointed to the Accounts Studio Vendors tab (slice 3). matchPrefix

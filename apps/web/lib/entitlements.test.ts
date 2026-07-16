@@ -184,6 +184,7 @@ function makeOwnedSupabase(
   status = 'paid',
   comp?: { forSku?: Set<string> | 'all'; activeSkus?: string[] },
   internalHost = false,
+  founderSeatHost = false,
 ) {
   // The ownership query now filters service_key via .in([canonical, ...aliases]).
   // Capture that key list and resolve "owned" when ANY of the queried keys is in
@@ -231,6 +232,9 @@ function makeOwnedSupabase(
       }
       if (fn === 'event_host_is_internal') {
         return Promise.resolve({ data: internalHost, error: null });
+      }
+      if (fn === 'event_host_holds_founder_seat') {
+        return Promise.resolve({ data: founderSeatHost, error: null });
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -474,6 +478,20 @@ test('eventSkuActive: a §10a internal-hosted event owns any SKU (no order/comp)
 test('eventSkuActive: a NON-internal-hosted event with nothing owned stays inactive', async () => {
   // Guard the inverse: the internal-host OR must not leak to external couples.
   const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+test('eventSkuActive: a founder-seat-hosted event owns any SKU (no order/comp)', async () => {
+  // "All features are already paid for" on every owner-granted founder seat
+  // (owner-locked 2026-07-16 · migration 20270818135217) — no orders, no comp,
+  // not internal, yet every SKU resolves active.
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false, true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'ANY_FUTURE_SKU'), true);
+});
+
+test('eventSkuActive: the founder-seat OR must not leak to non-founder events', async () => {
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false, false);
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
 });
 

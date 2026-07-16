@@ -151,7 +151,7 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 - **What is Live Studio?** Live streaming embedded on the event page, sent out through the couple's own YouTube. A single-camera stream is free; the multi-camera control room is per-day by device — Live Studio Mobile ₱1,299 / day (up to 3 cameras) or Live Studio Desktop ₱2,499 / day (offline-capable, up to 8 cameras). (Formerly branded "Panood.")
 - **What about my privacy?** RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without explicit couple opt-in. Real-wedding editorials publish 30 days post-event with explicit couple consent. National Privacy Commission registration in progress.
 - **What languages does Setnayan support?** English (primary) and Tagalog (TL) on the dashboard. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
-- **How do I contact Setnayan support?** Through the contact form at /help. Email channel via Setnayan's transactional pipeline; DPO contact at dpo@setnayan.com (mailbox standing up before public launch).
+- **How do I contact Setnayan support?** Through the contact form at /help. Email channel via Setnayan's transactional pipeline; DPO contact at iscasasolaii@gmail.com (mailbox standing up before public launch).
 
 ## What makes Setnayan structurally different
 

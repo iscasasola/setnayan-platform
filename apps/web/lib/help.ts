@@ -138,12 +138,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding editorials publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding editorials publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at iscasasolaii@gmail.com.',
       },
       {
         slug: 'how-to-contact-support',
         title: 'How do I contact Setnayan support?',
-        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
+        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at iscasasolaii@gmail.com.',
       },
       {
         slug: 'when-does-setnayan-launch',

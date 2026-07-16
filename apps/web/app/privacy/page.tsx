@@ -43,8 +43,8 @@ export default function PrivacyPage() {
         <Section title="Data Protection Officer">
           <p>
             Setnayan&rsquo;s Data Protection Officer is reachable at{' '}
-            <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
-              dpo@setnayan.com
+            <a href="mailto:iscasasolaii@gmail.com" className="text-terracotta hover:underline">
+              iscasasolaii@gmail.com
             </a>
             . Reach the DPO for requests under RA 10173 (access, correction,
             blocking, erasure, complaints, NPC inquiries). We respond within 15
@@ -63,8 +63,8 @@ export default function PrivacyPage() {
             proprietor, the Personal Information Controller under RA 10173 is the
             proprietor, who also holds the Data Protection Officer function
             directly and is reachable at{' '}
-            <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
-              dpo@setnayan.com
+            <a href="mailto:iscasasolaii@gmail.com" className="text-terracotta hover:underline">
+              iscasasolaii@gmail.com
             </a>
             . BIR registration is under the proprietor&rsquo;s existing TIN.
             NPC registration will be filed under this business name.
@@ -446,10 +446,10 @@ export default function PrivacyPage() {
               deletion is permanent and immediate upon processing, it cannot be
               undone once completed — please contact{' '}
               <a
-                href="mailto:dpo@setnayan.com"
+                href="mailto:iscasasolaii@gmail.com"
                 className="text-terracotta hover:underline"
               >
-                dpo@setnayan.com
+                iscasasolaii@gmail.com
               </a>{' '}
               before requesting if you are unsure.
             </li>

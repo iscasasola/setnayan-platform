@@ -1,4 +1,5 @@
-import { ShieldCheck, CheckCircle2, Circle, Ban } from 'lucide-react';
+import Link from 'next/link';
+import { ShieldCheck, CheckCircle2, Circle, Ban, Download, FileText, FolderArchive } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
@@ -9,6 +10,7 @@ import {
   type PrivacyControlRow,
   type PrivacyControlStatus,
 } from '@/lib/data-privacy-controls';
+import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-documents';
 import { setDataPrivacyControl } from './actions';
 
 export const metadata = { title: 'Data Privacy · Admin' };
@@ -76,7 +78,87 @@ export default async function DataPrivacyPage({
           <ControlCard key={c.control_key} control={c} />
         ))}
       </ul>
+
+      <NpcDocuments />
     </div>
+  );
+}
+
+/**
+ * The NPC submission document set, downloadable (admin-only) from here. The full
+ * packet is featured; the individual documents follow, grouped. Files stream
+ * through /admin/data-privacy/documents/[key] — internal compliance docs, never
+ * public. These are DPO-prepared drafts pending external counsel review before
+ * actual lodging (per the dossier's own filing gate).
+ */
+function NpcDocuments() {
+  const packet = NPC_DOCUMENTS.find((d) => d.group === 'packet');
+  const rest = NPC_DOCUMENTS.filter((d) => d.group !== 'packet');
+  const groups: NpcDocGroup[] = ['executive', 'pack', 'companion', 'audit'];
+
+  return (
+    <section className="mt-10">
+      <h2 className="sn-sec flex items-center gap-2">
+        <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> NPC submission documents
+      </h2>
+      <p className="mt-1 max-w-2xl text-sm" style={{ color: 'var(--m-slate-2)' }}>
+        The DPO-prepared filing set for the National Privacy Commission, as PDFs. Download the full
+        packet or any single document. These are <strong>drafts pending external counsel review</strong>{' '}
+        before lodging — internal only, never shared publicly.
+      </p>
+
+      {packet ? (
+        <Link
+          href={`/admin/data-privacy/documents/${packet.key}`}
+          prefetch={false}
+          className="sn-tile sn-press mt-4 flex items-center justify-between gap-4"
+        >
+          <span className="flex items-start gap-3">
+            <FolderArchive aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
+            <span>
+              <span className="block text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+                {packet.title}
+              </span>
+              <span className="mt-0.5 block text-sm" style={{ color: 'var(--m-slate-2)' }}>
+                Every document below, merged into one PDF.
+              </span>
+            </span>
+          </span>
+          <Download aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+        </Link>
+      ) : null}
+
+      {groups.map((g) => {
+        const docs = rest.filter((d) => d.group === g);
+        if (docs.length === 0) return null;
+        return (
+          <div key={g} className="mt-5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
+              {NPC_DOC_GROUP_LABEL[g]}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {docs.map((d) => (
+                <li key={d.key}>
+                  <Link
+                    href={`/admin/data-privacy/documents/${d.key}`}
+                    prefetch={false}
+                    className="sn-tile sn-press flex items-center justify-between gap-3 py-2.5"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <FileText aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+                      <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                        {d.title}
+                      </span>
+                    </span>
+                    <Download aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

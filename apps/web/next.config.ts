@@ -170,6 +170,10 @@ const nextConfig: NextConfig = {
       './models/face-detection/**/*',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
+      // NPC submission PDFs streamed admin-only by
+      // /admin/data-privacy/documents/[doc] (read via a dynamic filename, so
+      // nft can't statically trace them — force-include the set).
+      './assets/npc-docs/*.pdf',
     ],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images

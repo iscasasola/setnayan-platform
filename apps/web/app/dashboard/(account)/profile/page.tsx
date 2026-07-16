@@ -31,6 +31,8 @@ import {
 import { HapticsToggle } from './_components/haptics-toggle';
 import { PushToggle } from './_components/push-toggle';
 import { SHARE_ARTIFACT_LABEL, type ShareArtifactType } from '@/lib/social-sharing';
+import { resolvePublicProfile } from '@/lib/public-profile';
+import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { revokeShareConsent } from '@/app/dashboard/[eventId]/_actions/share-consent';
 import {
   cancelAccountDeletionRequest,
@@ -161,6 +163,20 @@ export default async function ProfilePage({ searchParams }: Props) {
   const publicHost = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
     .replace(/\/+$/, '')
     .replace(/^https?:\/\//, '');
+  // Share doorway (#7c): offered ONLY when the profile is public AND has ≥1
+  // public chapter — the SAME gate the /u page + OG card enforce
+  // (resolvePublicProfile is the single source of truth for "a public chapter").
+  // Skip the query entirely when the profile is off or slug-less. Never offer
+  // sharing on a dormant/empty profile.
+  let hasPublicChapter = false;
+  if (publicProfileOn && currentSlug) {
+    const pub = await resolvePublicProfile(currentSlug);
+    hasPublicChapter = (pub?.publicWebsiteEvents.length ?? 0) > 0;
+  }
+  const publicProfileUrl = `https://${publicHost}/u/${currentSlug ?? ''}`;
+  const publicProfileShareTitle = profile?.display_name?.trim()
+    ? `${profile.display_name.trim()} · Setnayan`
+    : 'My Setnayan profile';
   // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
   // UI exposes EN/TL only; anything else falls back to EN in the toggle.
   const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
@@ -772,13 +788,27 @@ export default async function ProfilePage({ searchParams }: Props) {
             })}
           </div>
           {publicProfileOn && currentSlug ? (
-            <Link
-              href={`/u/${currentSlug}`}
-              className="sn-chip sn-press w-fit"
-              prefetch={false}
-            >
-              Preview your public profile
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={`/u/${currentSlug}`}
+                className="sn-chip sn-press w-fit"
+                prefetch={false}
+              >
+                Preview your public profile
+              </Link>
+              {/* Share doorway (#7c) — only once there's a public celebration to
+                  show; until then, sharing the link would land on an empty page. */}
+              {hasPublicChapter ? (
+                <ProfileShareButton
+                  url={publicProfileUrl}
+                  title={publicProfileShareTitle}
+                />
+              ) : (
+                <p className="text-xs text-ink/50">
+                  Publish a celebration to share your profile.
+                </p>
+              )}
+            </div>
           ) : null}
         </section>
       )}

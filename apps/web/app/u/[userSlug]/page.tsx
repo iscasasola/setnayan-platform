@@ -1,17 +1,12 @@
-import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
-import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import {
-  resolveProfile as resolveEventTypeProfile,
-  surfaceEnabled,
-} from '@/lib/event-type-profile';
+import { resolvePublicProfile } from '@/lib/public-profile';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { formatEventDate } from '@/lib/events';
+import { ReportPageButton } from '@/app/_components/report-page-button';
+import { ProfileShareButton } from '@/app/_components/profile-share-button';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -40,78 +35,15 @@ export const revalidate = 60;
 
 type Props = { params: Promise<{ userSlug: string }> };
 
-type ProfileEvent = {
-  event_id: string;
-  slug: string | null;
-  display_name: string | null;
-  event_date: string | null;
-  venue_name: string | null;
-  event_type: string | null;
-  archived: boolean | null;
-  landing_page_visibility: 'public' | 'unlisted' | 'private' | null;
-  scheduled_launch_at: string | null;
-  landing_page_hero_image_url: string | null;
-  monogram_text: string | null;
-  monogram_color: string | null;
-  monogram_style: string | null;
-  monogram_font_key: string | null;
-  monogram_frame_key: string | null;
-  monogram_custom_svg: string | null;
-};
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+).replace(/\/$/, '');
 
-const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg';
-
-// Wrapped in cache() so generateMetadata + the page body share one set of
-// queries per request (mirrors fetchEventBySlug on the [slug] page).
-const resolveProfile = cache(async function resolveProfile(userSlugRaw: string) {
-  const userSlug = userSlugRaw.toLowerCase();
-  // A path segment that's a reserved word is never a user profile.
-  if (!userSlug || RESERVED_SLUGS.has(userSlug)) return null;
-
-  const admin = createAdminClient();
-  const { data: user } = await admin
-    .from('users')
-    .select('user_id, display_name, slug, public_profile_enabled')
-    .ilike('slug', userSlug)
-    .maybeSingle();
-  if (!user) return null;
-
-  // Events this account owns (couple member), that have a public slug.
-  const { data: memberships } = await admin
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', user.user_id)
-    .eq('member_type', 'couple');
-  const eventIds = (memberships ?? []).map((m) => m.event_id as string);
-  const { data: events } =
-    eventIds.length === 0
-      ? { data: [] }
-      : await admin.from('events').select(EVENT_FIELDS).in('event_id', eventIds);
-
-  const all = (events ?? []) as ProfileEvent[];
-  const withSlug = all.filter((e): e is ProfileEvent & { slug: string } => !!e.slug);
-
-  // Mirror the /[slug] target's second gate: only event types whose profile
-  // enables the public 'website' surface actually render there. Resolve once
-  // per distinct event_type (resolveEventTypeProfile is React-cached) so a
-  // public generic/simple event is never listed into a 404.
-  const websiteByType = new Map<string, boolean>();
-  for (const et of new Set(withSlug.map((e) => e.event_type ?? ''))) {
-    const profile = await resolveEventTypeProfile(et);
-    websiteByType.set(et, surfaceEnabled(profile, 'website'));
-  }
-  const isPublicWebsite = (e: ProfileEvent) =>
-    resolveEffectiveVisibility(e) === 'public' &&
-    (websiteByType.get(e.event_type ?? '') ?? false);
-
-  // The single list of events this profile is ever allowed to surface — the
-  // effectively-public + website-enabled ones. Computed here so the page body
-  // AND generateMetadata agree on "has ≥1 public chapter" without recomputing.
-  const publicWebsiteEvents = withSlug.filter(isPublicWebsite);
-
-  return { user, publicWebsiteEvents };
-});
+// The "who is a public profile / what counts as a public chapter" resolver lives
+// in lib/public-profile.ts (resolvePublicProfile, cache()-wrapped) so the page
+// body, generateMetadata, the OG route, and the settings share-doorway gate all
+// agree on the SAME definition — a name/hero never leaks anywhere one of them
+// would have hidden it.
 
 // Owner-preview probe. Only ever called on the DORMANT path (profile disabled),
 // so the common enabled+public render never reads cookies and stays cacheable
@@ -131,7 +63,7 @@ async function isSignedInHolder(ownerUserId: string): Promise<boolean> {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { userSlug } = await params;
-  const resolved = await resolveProfile(userSlug);
+  const resolved = await resolvePublicProfile(userSlug);
 
   // Neutral, name-free metadata unless the profile is BOTH opted-in AND has at
   // least one public chapter. This keeps the account holder's real name out of
@@ -147,18 +79,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const name = resolved.user.display_name?.trim() || 'Setnayan';
+  const canonicalSlug = resolved.user.slug ?? userSlug;
+  // Personalized share card (name + most-recent public hero) — item #7c. The OG
+  // route re-checks the SAME enabled + ≥1-public-chapter gate before rendering a
+  // name-bearing card, and falls back to the brand card otherwise, so this URL is
+  // only ever emitted for a genuine public showcase.
+  const ogImage = `${SITE_URL}/api/og/u/${canonicalSlug}`;
   return {
     title: `${name} · Setnayan`,
     // Aggregation surface — the individual event pages carry the real SEO. Keep
     // this out of the index to avoid thin-content duplication, but allow follow
     // so the (public) chapter links are crawled.
     robots: { index: false, follow: true },
+    openGraph: {
+      type: 'profile',
+      title: `${name} · Setnayan`,
+      siteName: 'Setnayan',
+      locale: 'en_PH',
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `${name} · Setnayan` }],
+    },
+    twitter: { card: 'summary_large_image' as const },
   };
 }
 
 export default async function AccountProfilePage({ params }: Props) {
   const { userSlug } = await params;
-  const resolved = await resolveProfile(userSlug);
+  const resolved = await resolvePublicProfile(userSlug);
   if (!resolved) notFound();
 
   const { user, publicWebsiteEvents } = resolved;
@@ -267,6 +213,27 @@ export default async function AccountProfilePage({ params }: Props) {
             </p>
           </div>
         )}
+
+        {/* Share doorway + report path (#7c). Gated on the profile being a real
+            public showcase — opted-in AND has ≥1 public chapter (hasPublicContent).
+            Never rendered on the disabled owner-preview or the empty state, so we
+            never offer sharing on, or attach a report target to, a non-public
+            profile. */}
+        {enabled && hasPublicContent ? (
+          <div className="uprof-actions">
+            <ProfileShareButton
+              url={`${SITE_URL}/u/${canonicalSlug}`}
+              title={`${displayName} · Setnayan`}
+              className="uprof-action-btn"
+            />
+            <ReportPageButton
+              targetType="user_profile"
+              targetId={user.user_id}
+              label="Report this page"
+              className="inline-flex"
+            />
+          </div>
+        ) : null}
 
         <footer className="uprof-foot">
           <a href="https://www.setnayan.com" className="uprof-foot-link">
@@ -402,6 +369,34 @@ const UPROF_CSS = `
   }
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
+
+  .uprof-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem 1.4rem;
+    margin-top: clamp(2rem, 5vw, 3rem);
+  }
+  .uprof-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--m-ink, #1B1A17);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+    transition: border-color .15s, transform .15s cubic-bezier(.2,.7,.2,1);
+  }
+  .uprof-action-btn:hover {
+    border-color: var(--m-orange, #A9834B);
+    transform: translateY(-1px);
+  }
 
   .uprof-foot { margin-top: clamp(2.5rem, 7vw, 4rem); text-align: center; }
   .uprof-foot-link {

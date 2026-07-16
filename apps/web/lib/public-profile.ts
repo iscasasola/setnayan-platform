@@ -42,6 +42,9 @@ export type PublicProfileUser = {
   display_name: string | null;
   slug: string | null;
   public_profile_enabled: boolean | null;
+  /** Public aggregate audience numbers (no graph exposure). */
+  followers_count: number;
+  profile_view_count: number;
 };
 
 export type ResolvedPublicProfile = {
@@ -64,12 +67,23 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
   if (!userSlug || RESERVED_SLUGS.has(userSlug)) return null;
 
   const admin = createAdminClient();
-  const { data: user } = await admin
+  const { data: userRow } = await admin
     .from('users')
-    .select('user_id, display_name, slug, public_profile_enabled')
+    .select(
+      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count',
+    )
     .ilike('slug', userSlug)
     .maybeSingle();
-  if (!user) return null;
+  if (!userRow) return null;
+  const user: PublicProfileUser = {
+    user_id: userRow.user_id as string,
+    display_name: (userRow.display_name as string | null) ?? null,
+    slug: (userRow.slug as string | null) ?? null,
+    public_profile_enabled:
+      (userRow.public_profile_enabled as boolean | null) ?? null,
+    followers_count: Number(userRow.followers_count ?? 0),
+    profile_view_count: Number(userRow.profile_view_count ?? 0),
+  };
 
   // Events this account owns (couple member), that have a public slug.
   const { data: memberships } = await admin
@@ -103,7 +117,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
 
   const publicWebsiteEvents = withSlug.filter(isPublicWebsite);
 
-  return { user: user as PublicProfileUser, publicWebsiteEvents };
+  return { user, publicWebsiteEvents };
 });
 
 /** Newest public chapter (by event_date desc, nulls last) — the OG card's hero

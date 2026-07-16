@@ -41,10 +41,12 @@ export type PublicChapter = {
   teaser_r2_key: string | null;
   substrate: ChapterSubstrate;
   published_at: string | null;
+  /** Aggregate public views (no PII) — the audience-layer counter. */
+  view_count: number;
 };
 
 const CHAPTER_FIELDS =
-  'chapter_id, public_id, title, kind, embed_url, embed_provider, teaser_r2_key, substrate, published_at';
+  'chapter_id, public_id, title, kind, embed_url, embed_provider, teaser_r2_key, substrate, published_at, view_count';
 
 function coerceSubstrate(raw: unknown): ChapterSubstrate {
   if (!raw || typeof raw !== 'object') return {};
@@ -76,6 +78,8 @@ function mapRow(row: Record<string, unknown>): PublicChapter {
     teaser_r2_key: (row.teaser_r2_key as string | null) ?? null,
     substrate: coerceSubstrate(row.substrate),
     published_at: (row.published_at as string | null) ?? null,
+    view_count:
+      typeof row.view_count === 'number' ? row.view_count : Number(row.view_count ?? 0),
   };
 }
 

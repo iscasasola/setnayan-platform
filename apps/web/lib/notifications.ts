@@ -222,7 +222,15 @@ export type NotificationType =
   // get even when they're not in the app (same register as booking_confirmed /
   // rsvp_received). MVP = confirm-time reminder; a scheduled T-minus reminder is a
   // further follow-up (Resend scheduledAt / cron).
-  | 'appointment_reminder';
+  | 'appointment_reminder'
+  // Added 2026-07-16 (Creator "Adventure Chapter" · AUDIENCE layer) alongside
+  // migration 20270815640306_creator_notification_type_new_chapter_from_followed.sql.
+  // Fired (FOLLOWER-recipient) from the publishChapter server action → the
+  // lib/creator-notify fan-out when a followed account PUBLISHES a new chapter.
+  // In-app for every follower; email ONLY for followers who've opted into
+  // marketing (MARKETING_GATED_EMAIL_TYPES in notification-emit) — this is an
+  // engagement signal, not a transactional one, so it respects RA 10173 consent.
+  | 'new_chapter_from_followed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -241,6 +249,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   inquiry_declined: 'Inquiry declined',
   inquiry_displaced: 'Inquiry released',
   force_majeure_filed: 'Force-majeure flag filed',
+  new_chapter_from_followed: 'New chapter',
   booking_confirmed: 'Booking confirmed',
   review_received: 'New review',
   booking_cancelled: 'Booking cancelled',
@@ -404,6 +413,10 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // A confirmed meeting = a positive close-of-scheduling → emerald (matches
   // booking_confirmed / the confirmation register).
   appointment_reminder: 'bg-success-100 text-success-800',
+  // A new chapter from someone you follow = a positive, informational arrival
+  // (the audience-layer engagement signal) → sky, matching chat_message / the
+  // informational register.
+  new_chapter_from_followed: 'bg-sky-100 text-sky-900',
 };
 
 export type NotificationRow = {

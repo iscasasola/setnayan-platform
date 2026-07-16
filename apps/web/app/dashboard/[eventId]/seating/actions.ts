@@ -13,6 +13,7 @@ import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
   TABLE_FOOTPRINT_M,
+  chainableShapes,
   computeAutoLayout,
   computeAutoSeat,
   effectiveCapacity,
@@ -1399,8 +1400,12 @@ export async function linkTables(formData: FormData) {
   const shapeB = shapeHintFor(b.table_type);
   const alreadyGrouped =
     a.link_group_id != null && a.link_group_id === b.link_group_id;
-  if (!alreadyGrouped && shapeA !== shapeB) {
-    throw new Error('Only same-shape tables can be linked into one unit.');
+  // Linkable set (owner 2026-07-16 "long and serpentine should also be able to
+  // link"): any two chain-class shapes weld end-to-end — banquet↔banquet,
+  // serpentine↔serpentine, AND banquet↔serpentine — plus round↔round (kiss).
+  // NOT a blanket allow: round↔chain and sweetheart still reject.
+  if (!alreadyGrouped && !chainableShapes(shapeA, shapeB)) {
+    throw new Error('Those two table shapes don’t join end-to-end.');
   }
   const venueW = floorPlan.venue_width_m;
   const venueL = floorPlan.venue_length_m;

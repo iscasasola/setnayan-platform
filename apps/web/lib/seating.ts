@@ -2897,10 +2897,42 @@ export type Violation = {
 export type OracleWorld = { others: WorldPose[]; zones: OracleZone[] };
 export type OracleParams = { gapPx: number };
 
+// Rotation slack for the pairwise weld-exemption test — looser than the strict
+// link-CREATE tolerance so sub-pixel float drift on a saved joint never
+// un-exempts a genuinely welded seam.
+const JOINT_EXEMPT_ROT_TOL_DEG = 6;
+
+// Are two tables DIRECTLY welded — same link group AND sitting at a legal joint
+// with EACH OTHER? This is the collision exemption (fix 2026-07-16): membership
+// alone is NOT enough. The verdict assumed "same group ⇒ always at a legal joint
+// (rigid by construction)", but that invariant was violable — a third table
+// stacked into a group, a legacy in-place link, or drift left same-group tables
+// grossly overlapping yet invisibly exempt. Exempting only directly-welded pairs
+// means a groupmate a table is NOT welded to still collides: a 3-table run
+// exempts each adjacent seam but flags a member stacked off-axis; two parallel
+// rows in one group still collide. A genuine seam stays exempt (tips coincide →
+// legalJoinPose returns a candidate ≈ the mover's own pose).
+export function directlyWelded(a: WorldPose, b: WorldPose): boolean {
+  if (a.linkGroupId == null || a.linkGroupId !== b.linkGroupId) return false;
+  if (!chainableShapes(a.shape, b.shape)) return false;
+  const ra = obbOf(a).bc.r;
+  const rb = obbOf(b).bc.r;
+  // Generous catch so the generator returns the nearest candidate; then confirm
+  // `a` actually sits on it within a tight, size-relative tolerance.
+  const cand = legalJoinPose(b, a, ra + rb + 40);
+  if (!cand) return false;
+  const tol = Math.max(6, 0.1 * Math.min(ra, rb));
+  if (Math.hypot(cand.x - a.x, cand.y - a.y) > tol) return false;
+  if (a.shape === 'round') return true; // a kiss has no rotation constraint
+  const dRot = Math.abs(((cand.rot - a.rot + 540) % 360) - 180);
+  return dRot <= JOINT_EXEMPT_ROT_TOL_DEG;
+}
+
 // THE ORACLE. A pose vs all non-groupmates + zones, keeping `gapPx` clear.
 // `valid` iff the pose fully clears the aisle everywhere; violations grade the
 // failure — 'overlap' = true body intersection, 'tight' = gap < aisle but no
-// body overlap. Same-`linkGroupId` members are exempt (the weld model).
+// body overlap. Only DIRECTLY-WELDED members (same group AT a legal joint) are
+// exempt — a groupmate a table is not welded to still collides.
 export function checkPlacement(
   pose: WorldPose,
   world: OracleWorld,
@@ -2912,8 +2944,9 @@ export function checkPlacement(
 
   for (const other of world.others) {
     if (other.tableId === pose.tableId) continue;
-    // Sanctioned contact = same non-null link group ONLY.
-    if (pose.linkGroupId != null && pose.linkGroupId === other.linkGroupId) continue;
+    // Sanctioned contact = a DIRECT weld (same group AT a legal joint), not
+    // blanket group membership.
+    if (directlyWelded(pose, other)) continue;
     const fo = obbOf(other);
     const body = footprintsOverlap(fp, fo, 0);
     if (body > 0) {
@@ -2956,7 +2989,7 @@ export function penetrationDepth(pose: WorldPose, world: OracleWorld): number {
   let depth = 0;
   for (const other of world.others) {
     if (other.tableId === pose.tableId) continue;
-    if (pose.linkGroupId != null && pose.linkGroupId === other.linkGroupId) continue;
+    if (directlyWelded(pose, other)) continue;
     const d = footprintsOverlap(fp, obbOf(other), 0);
     if (d > depth) depth = d;
   }
@@ -3014,32 +3047,121 @@ function roundRadiusPx(p: JoinPose): number {
   return (tableGeometry('round', Math.max(1, p.capacity)).box.w / 2) * p.scale;
 }
 const rectishShape = (s: TableShapeHint) => s === 'long_banquet' || s === 'family_head';
+// A shape that chains END-TO-END: straight banquet runs and serpentine curves.
+// Owner directive 2026-07-16 ("long and serpentine should also be able to link"):
+// any two chain-class shapes may weld — banquet↔banquet, serpentine↔serpentine,
+// AND banquet↔serpentine (a straight section flowing into a curved one). Round
+// tables keep their SEPARATE same-family kiss join (never mixing with a chain
+// shape); sweetheart never joins.
+const chainClassShape = (s: TableShapeHint) => s === 'serpentine' || rectishShape(s);
+
+// The linkable-set rule (supersedes the verdict's "cross-family rejected"):
+// two shapes may weld iff both are chain-class (any mix), or both are round.
+export function chainableShapes(a: TableShapeHint, b: TableShapeHint): boolean {
+  if (chainClassShape(a) && chainClassShape(b)) return true;
+  if (a === 'round' && b === 'round') return true;
+  return false;
+}
+
+const norm360 = (deg: number) => ((deg % 360) + 360) % 360;
+
+// Serpentine LOCAL end tips + their outward run tangents (unit, pre-rotate). The
+// tangent is the direction a straight run would continue past the tip — for the
+// tangent-continuous straight→curve joint.
+function serpLocalTips(): Array<{ loc: Vec2; tan: Vec2 }> {
+  const s = (SERPENTINE_SWEEP_DEG * Math.PI) / 180;
+  const f = serpentineFrame();
+  return [
+    { loc: f.endPlus, tan: { x: Math.cos(s / 2), y: Math.sin(s / 2) } },
+    { loc: f.endMinus, tan: { x: -Math.cos(s / 2), y: Math.sin(s / 2) } },
+  ];
+}
+
+// Serpentine WORLD end tips + outward tangents for a pose.
+function serpWorldTips(p: JoinPose): Array<{ tip: Vec2; tan: Vec2 }> {
+  return serpLocalTips().map(({ loc, tan }) => {
+    const tw = rotatePoint({ x: loc.x * p.scale, y: loc.y * p.scale }, p.rot);
+    const td = rotatePoint(tan, p.rot); // rotation preserves the unit length
+    return { tip: { x: p.x + tw.x, y: p.y + tw.y }, tan: { x: td.x, y: td.y } };
+  });
+}
+
+// Rect run WORLD end-face midpoints + outward run directions for a pose.
+function rectEndFrames(p: JoinPose): Array<{ end: Vec2; out: Vec2 }> {
+  const halfLen = rectHalfLenPx(p);
+  const dir = rotatePoint({ x: 1, y: 0 }, p.rot);
+  return [
+    { end: { x: p.x + dir.x * halfLen, y: p.y + dir.y * halfLen }, out: { x: dir.x, y: dir.y } },
+    { end: { x: p.x - dir.x * halfLen, y: p.y - dir.y * halfLen }, out: { x: -dir.x, y: -dir.y } },
+  ];
+}
+
+// Cross-family weld (rect-ish ↔ serpentine): the banquet's end-face midpoint
+// coincides with the serpentine's end-tip AND the banquet's run axis is tangent-
+// continuous with the serpentine's end-tangent (straight flows smoothly into
+// curve, no kink, no gap). Returns the mover's snapped pose, or null past tolPx.
+function crossChainSnap(
+  anchor: JoinPose,
+  mover: JoinPose,
+  tolPx: number,
+): { x: number; y: number; rot: number } | null {
+  const candidates: Array<{ x: number; y: number; rot: number }> = [];
+  if (mover.shape === 'serpentine') {
+    // anchor = rect: seat a serpentine tip on a rect end, its tangent continuing
+    // the run INTO the curve (so the tip's OUTWARD tangent points back along the
+    // rect, i.e. = −out).
+    for (const { end, out } of rectEndFrames(anchor)) {
+      const targetAng = Math.atan2(-out.y, -out.x);
+      for (const { loc, tan } of serpLocalTips()) {
+        const rotDeg = norm360(((targetAng - Math.atan2(tan.y, tan.x)) * 180) / Math.PI);
+        const tw = rotatePoint({ x: loc.x * mover.scale, y: loc.y * mover.scale }, rotDeg);
+        candidates.push({ x: end.x - tw.x, y: end.y - tw.y, rot: rotDeg });
+      }
+    }
+  } else {
+    // anchor = serpentine, mover = rect: seat a rect end on a serpentine tip, the
+    // run axis continuing the tip's OUTWARD tangent (banquet extends away).
+    const halfLen = rectHalfLenPx(mover);
+    for (const { tip, tan } of serpWorldTips(anchor)) {
+      const rotDeg = norm360((Math.atan2(tan.y, tan.x) * 180) / Math.PI);
+      candidates.push({ x: tip.x + tan.x * halfLen, y: tip.y + tan.y * halfLen, rot: rotDeg });
+    }
+  }
+  let best: { x: number; y: number; rot: number } | null = null;
+  let bestD = tolPx * tolPx;
+  for (const c of candidates) {
+    const d = (c.x - mover.x) ** 2 + (c.y - mover.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
 
 export function legalJoinPose(
   anchor: JoinPose,
   mover: JoinPose,
   tolPx: number,
 ): { x: number; y: number; rot: number } | null {
-  if (anchor.shape !== mover.shape) return null; // cross-family never joins
+  if (!chainableShapes(anchor.shape, mover.shape)) return null;
   const drag = { x: mover.x, y: mover.y };
-  if (mover.shape === 'serpentine') {
-    const snap = serpentineChainSnap(
+  if (anchor.shape === 'serpentine' && mover.shape === 'serpentine') {
+    return serpentineChainSnap(
       drag,
       [{ x: anchor.x, y: anchor.y, rot: anchor.rot, scale: anchor.scale }],
       tolPx,
     );
-    return snap;
   }
-  if (rectishShape(mover.shape)) {
-    const snap = rectChainSnap(
+  if (rectishShape(anchor.shape) && rectishShape(mover.shape)) {
+    return rectChainSnap(
       drag,
       rectHalfLenPx(mover),
       [{ x: anchor.x, y: anchor.y, rot: anchor.rot, halfLen: rectHalfLenPx(anchor) }],
       tolPx,
     );
-    return snap;
   }
-  if (mover.shape === 'round') {
+  if (anchor.shape === 'round' && mover.shape === 'round') {
     const snap = roundKissSnap(
       drag,
       roundRadiusPx(mover),
@@ -3047,6 +3169,10 @@ export function legalJoinPose(
       tolPx,
     );
     return snap ? { x: snap.x, y: snap.y, rot: mover.rot } : null;
+  }
+  // Cross-family chain (rect-ish ↔ serpentine).
+  if (chainClassShape(anchor.shape) && chainClassShape(mover.shape)) {
+    return crossChainSnap(anchor, mover, tolPx);
   }
   return null; // sweetheart never chains
 }

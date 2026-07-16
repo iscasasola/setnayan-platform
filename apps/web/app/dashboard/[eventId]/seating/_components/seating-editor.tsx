@@ -99,6 +99,7 @@ import {
   layoutViolations,
   legalJoinPose,
   isLegalJoint,
+  chainableShapes,
   stageZone,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
@@ -1459,8 +1460,7 @@ export function SeatingEditor({
       to &&
       rect &&
       rect.width > 0 &&
-      shapeHintFor(from.table_type) === shapeHintFor(to.table_type) &&
-      shapeHintFor(from.table_type) !== 'sweetheart' &&
+      chainableShapes(shapeHintFor(from.table_type), shapeHintFor(to.table_type)) &&
       (from.link_group_id == null || from.link_group_id !== to.link_group_id)
     ) {
       const anchorPose = poseAt(from, (positions[fromId] ?? { x: 50, y: 50 }).x, (positions[fromId] ?? { x: 50, y: 50 }).y, rect);
@@ -2389,28 +2389,44 @@ export function SeatingEditor({
           // halfLenOf (tabletop half-length, hub only) is defined at component scope.
           let snap: { x: number; y: number; rot?: number } | null = null;
           let catchR = 36;
-          if (movingShape === 'serpentine') {
-            const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
-            // Scale the catch to the wedge's footprint — drag it ROUGHLY end-to-
-            // end and it snaps (a chain candidate lands ~a footprint away).
-            catchR = Math.max(48, footprintPx(movingEarly).w * 0.5);
-            snap = serpentineChainSnap(
-              dragPx,
-              tables
-                .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
-                .map((o) => ({ ...pxOf(o), rot: rotationOf(o), scale: footprintPx(o).w / serpBoxW })),
-              catchR,
-            );
-          } else if (isRect(movingShape)) {
-            catchR = Math.max(40, halfLenOf(movingEarly) * 0.9);
-            snap = rectChainSnap(
-              dragPx,
-              halfLenOf(movingEarly),
-              tables
-                .filter((o) => o.table_id !== d.id && isRect(shapeHintFor(o.table_type)))
-                .map((o) => ({ ...pxOf(o), rot: rotationOf(o), halfLen: halfLenOf(o) })),
-              catchR,
-            );
+          // Chain-class shapes (banquet + serpentine) weld end-to-end, now
+          // INCLUDING cross-family (owner 2026-07-16): a dragged serpentine snaps
+          // onto a banquet end and vice-versa. One unified pass over every
+          // chain-class neighbour through `legalJoinPose` (the single snap/join
+          // oracle) picks the nearest legal candidate — same-family and cross —
+          // so a straight run flows tangent-continuous into a curve. Round keeps
+          // its separate same-family kiss.
+          if (movingShape === 'serpentine' || isRect(movingShape)) {
+            catchR =
+              movingShape === 'serpentine'
+                ? Math.max(48, footprintPx(movingEarly).w * 0.5)
+                : Math.max(40, halfLenOf(movingEarly) * 0.9);
+            const moverJoin = {
+              shape: movingShape,
+              capacity: movingEarly.capacity,
+              x: dragPx.x,
+              y: dragPx.y,
+              rot: rotationOf(movingEarly),
+              scale: scaleOf(movingEarly),
+            };
+            let bestD = catchR * catchR;
+            for (const o of tables) {
+              if (o.table_id === d.id) continue;
+              const oShape = shapeHintFor(o.table_type);
+              if (!chainableShapes(oShape, movingShape)) continue;
+              const p = pxOf(o);
+              const cand = legalJoinPose(
+                { shape: oShape, capacity: o.capacity, x: p.x, y: p.y, rot: rotationOf(o), scale: scaleOf(o) },
+                moverJoin,
+                catchR,
+              );
+              if (!cand) continue;
+              const dd = (cand.x - dragPx.x) ** 2 + (cand.y - dragPx.y) ** 2;
+              if (dd < bestD) {
+                bestD = dd;
+                snap = cand;
+              }
+            }
           } else if (movingShape === 'round') {
             catchR = 36;
             snap = roundKissSnap(
@@ -2442,7 +2458,7 @@ export function SeatingEditor({
             const anchor = tables.find(
               (o) =>
                 o.table_id !== d.id &&
-                shapeHintFor(o.table_type) === movingShape &&
+                chainableShapes(shapeHintFor(o.table_type), movingShape) &&
                 isLegalJoint(
                   {
                     shape: shapeHintFor(o.table_type),

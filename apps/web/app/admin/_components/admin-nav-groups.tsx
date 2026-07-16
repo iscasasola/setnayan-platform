@@ -257,6 +257,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/data-privacy',
       },
       {
+        // NPC pre-filing readiness worklist (RA 10173). The completeness audit's
+        // Tier 0-3 checklist as tracked work; external counsel review is the
+        // standing gate. Sibling of the Data Privacy board.
+        key: 'npc-readiness',
+        label: 'NPC Filing',
+        href: '/admin/npc-readiness',
+        icon: ListChecks,
+        matchPrefix: '/admin/npc-readiness',
+      },
+      {
         // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost
         // listings). Deterministic scoring of submitted reviews (velocity/burst,
         // rating anomaly, shared-device reviewer clusters) + placeholder /

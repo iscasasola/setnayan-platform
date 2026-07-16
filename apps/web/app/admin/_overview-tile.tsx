@@ -7,6 +7,7 @@ import {
   Calendar,
   Camera,
   LayoutGrid,
+  ListChecks,
   MessageSquare,
   ShieldCheck,
   Users,
@@ -22,7 +23,8 @@ export type TileIconKey =
   | 'wallet'
   | 'layout-grid'
   | 'message-square'
-  | 'camera';
+  | 'camera'
+  | 'list-checks';
 
 const ICONS: Record<TileIconKey, LucideIcon> = {
   users: Users,
@@ -33,6 +35,7 @@ const ICONS: Record<TileIconKey, LucideIcon> = {
   'layout-grid': LayoutGrid,
   'message-square': MessageSquare,
   camera: Camera,
+  'list-checks': ListChecks,
 };
 
 export function Tile({

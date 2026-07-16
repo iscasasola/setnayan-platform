@@ -59,6 +59,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── Accounts group (key 'directory') ──────────────────────────────────
   users:
     'All accounts across customer, vendor, and admin roles. Issue comp grants, reset passwords, suspend.',
+  'founder-seats':
+    'Up to 10 owner-granted founder accounts — all features comped, token-free vendor inquiries, founder badge.',
   vendors:
     'Vendor profiles directory. Edit business details, override visibility, and review tier state.',
   'demo-vendors':

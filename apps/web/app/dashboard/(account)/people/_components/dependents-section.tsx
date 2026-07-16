@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import {
@@ -9,26 +10,34 @@ import {
   RELIGIONS,
   fenceBand,
   dependentNextMilestone,
+  isClaimEligible,
   type DependentSex,
   type DependentKind,
 } from '@/lib/dependent-people';
 import { RELIGION_LABELS } from '@/lib/profile-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
 import {
   addDependent,
   deleteDependent,
   addGodparent,
   deleteGodparent,
   setDependentSharing,
+  createHandoverLink,
+  revokeHandoverLink,
 } from '../dependent-actions';
 
 /**
- * "The ones you care for" — the dependent capture (Phase 3 family graph ·
- * flag-gated). Rendered only when dependentPeopleEnabled(). A dependent is a
- * person, a pet, or anything else. Only a PERSON carries a birthdate/religion +
- * the age fence (child <18 / elder >50); pets/other are just a name (+ optional
- * birthday). Milestones + godparents apply to the person case only.
+ * "Alaga" — the dependent capture (Phase 3 family graph · flag-gated).
+ * Product name owner-locked 2026-07-16: Alaga in all user-facing copy;
+ * "dependents" stays the technical/legal term (schema, RLS, counsel docs).
+ * Rendered only when dependentPeopleEnabled(). An alaga is a person, a pet, or
+ * anything else you care for — an account created inside your account, owned
+ * by you. Only a PERSON carries a birthdate/religion + the age fence (child
+ * <18 / elder >50) and can later claim the profile as their own account at 18;
+ * pets/other are just a name (+ optional birthday). Milestones + godparents
+ * apply to the person case only.
  */
 
 type DependentRow = {
@@ -41,6 +50,11 @@ type DependentRow = {
   relationship: string | null;
   owner_user_id: string;
   shared_with_spouse: boolean;
+  handed_over_at: string | null;
+  claimed_user_id: string | null;
+  claim_token: string | null;
+  claim_token_purpose: string | null;
+  claim_token_expires_at: string | null;
 };
 
 type GodparentRow = {
@@ -70,10 +84,16 @@ export async function DependentsSection() {
   // RLS now returns MY dependents + any my spouse marked shared (PR-G household).
   const { data } = await supabase
     .from('dependents')
-    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse')
+    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse, handed_over_at, claimed_user_id, claim_token, claim_token_purpose, claim_token_expires_at')
     .order('created_at', { ascending: true });
   const dependents = (data ?? []) as DependentRow[];
   const today = manilaToday();
+
+  // Absolute base for hand-over links (same pattern as the Papic crew page).
+  const h = await headers();
+  const host = h.get('host') ?? 'www.setnayan.com';
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  const appUrl = `${proto}://${host}`;
 
   // Do I have a spouse on Setnayan? Only then is the "share with spouse" toggle
   // meaningful. current_spouse_user_ids() returns the co-host(s) of my wedding.
@@ -96,11 +116,13 @@ export async function DependentsSection() {
     <section className="mt-10">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          The ones you care for
+          Alaga
         </h2>
         <p className="mt-1 text-sm text-ink/55">
-          A person, a pet, or anyone else. We store the names, dates, and events that matter — not
-          documents. Milestones and rites apply to a person you plan for (a child or an elder).
+          The ones you care for — a person, a pet, or anything else. Their profile lives inside
+          your account and belongs to you; a child&rsquo;s becomes their own at 18. We store the
+          names, dates, and events that matter — not documents. Milestones and rites apply to a
+          person you plan for (a child or an elder).
         </p>
       </header>
 
@@ -113,6 +135,17 @@ export async function DependentsSection() {
             const band = isPersonRow && d.birth_date ? fenceBand(d.birth_date, today) : null;
             const next = isPersonRow && d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
             const mine = d.owner_user_id === myUserId;
+            // Hand-over states (owner-locked 2026-07-16): a handed-over row is
+            // read-only history for the guardian; a claimed row is the adult's
+            // own data. Link mint: person needs age ≥18 proof; pet/other always.
+            const handedOver = !!d.handed_over_at;
+            const claimedByMe = d.claimed_user_id === myUserId;
+            const canMintLink =
+              mine && !handedOver && (!isPersonRow || isClaimEligible(d.birth_date, today));
+            const linkActive =
+              !!d.claim_token &&
+              !!d.claim_token_expires_at &&
+              new Date(d.claim_token_expires_at) > new Date();
             const gps = godparentsByDependent.get(d.dependent_id) ?? [];
             return (
               <li
@@ -127,12 +160,18 @@ export async function DependentsSection() {
                         ? DEPENDENT_KIND_LABELS[d.dependent_kind]
                         : d.relationship
                           ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
-                          : 'Someone I care for'}
+                          : 'My alaga'}
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
                   </div>
-                  {mine ? (
+                  {handedOver ? (
+                    <span className="shrink-0 rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
+                      {claimedByMe
+                        ? 'Your own profile'
+                        : `Their own account since ${fmt(d.handed_over_at!.slice(0, 10))}`}
+                    </span>
+                  ) : mine ? (
                     <ConfirmForm
                       action={deleteDependent}
                       title="Remove this record?"
@@ -155,8 +194,48 @@ export async function DependentsSection() {
                   )}
                 </div>
 
+                {/* Hand-over / transfer-care link (owner-locked 2026-07-16):
+                    a PERSON of age claims their own account; a pet/other
+                    rehomes to a new guardian. One active link, 7-day expiry. */}
+                {canMintLink ? (
+                  <div className="mt-2">
+                    {linkActive ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CopyButton
+                          value={`${appUrl}/claim/${d.claim_token}`}
+                          label={isPersonRow ? 'Copy hand-over link' : 'Copy transfer link'}
+                        />
+                        <span className="text-[0.7rem] text-ink/45">
+                          expires {fmt(d.claim_token_expires_at!.slice(0, 10))}
+                        </span>
+                        <form action={revokeHandoverLink}>
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <SubmitButton
+                            className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-terracotta hover:underline"
+                            pendingLabel="Revoking…"
+                          >
+                            Revoke
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    ) : (
+                      <form action={createHandoverLink}>
+                        <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                        <SubmitButton
+                          className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                          pendingLabel="Creating…"
+                        >
+                          {isPersonRow
+                            ? `${d.name} is of age — create their hand-over link`
+                            : 'Transfer care to someone else'}
+                        </SubmitButton>
+                      </form>
+                    )}
+                  </div>
+                ) : null}
+
                 {/* Share-with-spouse toggle — my own rows, only if I have a spouse */}
-                {mine && hasSpouse ? (
+                {mine && !handedOver && hasSpouse ? (
                   <form action={setDependentSharing} className="mt-2">
                     <input type="hidden" name="dependent_id" value={d.dependent_id} />
                     <input type="hidden" name="share" value={d.shared_with_spouse ? '0' : '1'} />
@@ -256,7 +335,7 @@ export async function DependentsSection() {
         action={addDependent}
         className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
       >
-        <p className="text-sm font-medium text-ink">Add someone (or a pet)</p>
+        <p className="text-sm font-medium text-ink">Add an alaga</p>
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="dep_kind">
             What is this?

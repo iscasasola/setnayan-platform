@@ -4,13 +4,15 @@
  * /vendor-dashboard/creators · vendor-scoped server actions (Creator Economy P1).
  *
  * A vendor spends a REACH TOKEN to send a discount OFFER to a creator. The token
- * spend REUSES the existing per-voucher burn via the hold-and-release RPC
- * `offer_creator_reach_hold` (SECURITY DEFINER + answering-member gated inside the
- * DB, exactly like unlock_vendor_event_hold) — no fork of the token economy. The
- * send RESERVES the token (offer.status='pending'); the creator's accept/decline
- * CONSUMES it; an unanswered offer past expires_at RELEASES it (the cron-free
- * sweep). The vendor_profile_id is resolved server-side from the authed user,
- * never trusted from the form.
+ * spend REUSES the existing per-voucher burn via `offer_creator_reach_hold`
+ * (SECURITY DEFINER + answering-member gated inside the DB, exactly like
+ * unlock_vendor_event_hold) — no fork of the token economy. ESCROW AT SEND
+ * (migration 20270819350491, closing the readiness-verdict B1–B3 money bugs):
+ * the send DEBITS the token immediately (tagged spend_source='creator_offer'
+ * on the burn ledger); the creator's accept OR decline settles the spend; only
+ * an unanswered offer past expires_at is REFUNDED (as purchased tokens) by the
+ * cron-free sweep. The vendor_profile_id is resolved server-side from the
+ * authed user, never trusted from the form.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -70,8 +72,10 @@ export async function sendCreatorOffer(formData: FormData) {
   if (!creatorUserId) back('Pick a creator to offer to.');
   if (!creatorRate) back('Add the creator-rate discount you’re offering.');
 
-  // Token-gated send — RESERVES a reach token via the reused hold path. The RPC
-  // is SECURITY DEFINER + answering-member gated, so it runs on the RLS client.
+  // Token-gated send — DEBITS (escrows) a reach token up front. The RPC is
+  // SECURITY DEFINER + answering-member gated, so it runs on the RLS client.
+  // On any debit failure the RPC raises and the offer is rolled back — an offer
+  // can never exist unpaid.
   const { data, error } = await supabase.rpc('offer_creator_reach_hold', {
     p_vendor_profile_id: vendorProfileId,
     p_creator_user_id: creatorUserId,
@@ -82,7 +86,14 @@ export async function sendCreatorOffer(formData: FormData) {
   if (error) back(humanizeOfferError(error.message));
 
   // Notify the creator (reuses the notification pipeline). Best-effort.
-  const result = data as { ok?: boolean; offer_id?: string } | null;
+  // `tokens_charged` = what was ACTUALLY debited at send; refunded only if the
+  // offer expires unanswered.
+  const result = data as {
+    ok?: boolean;
+    escrowed?: boolean;
+    offer_id?: string;
+    tokens_charged?: number;
+  } | null;
   if (result?.ok) {
     await emitNotification({
       userId: creatorUserId,

@@ -80,6 +80,7 @@ const APP_EXCLUDED_MARKETING_PATHS = new Set([
   '/',
   '/features',
   '/vendors',
+  '/creators',
   '/pricing',
   '/how-it-works',
   '/waitlist',

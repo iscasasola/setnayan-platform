@@ -97,6 +97,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/user-reports',
       '/admin/repost-watch',
       '/admin/corrections',
+      '/admin/data-privacy',
       '/admin/integrity-watch',
       '/admin/fraud',
       '/admin/approvals',

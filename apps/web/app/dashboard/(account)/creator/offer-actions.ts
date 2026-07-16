@@ -3,12 +3,15 @@
 /**
  * Creator dashboard · discount-offer inbox actions (Creator Economy P1).
  *
- * A creator accepts or declines a vendor's discount offer. Both responses
- * CONSUME the vendor's held reach token (they paid to reach out) via the reused
- * hold-and-release RPC `respond_creator_offer` (SECURITY DEFINER, gated to the
- * addressed creator inside the DB). On accept, the creator may link a published
- * chapter that credits the vendor as the deliverable. No money moves here —
- * Setnayan only records the collab; the discount settles off-platform.
+ * A creator accepts or declines a vendor's discount offer. The vendor's reach
+ * token was already DEBITED at send (escrow-at-send, migration 20270819350491
+ * — closing the swallowed-consume leak, readiness verdict B1); both responses
+ * merely SETTLE that spent token via `respond_creator_offer` (SECURITY DEFINER,
+ * gated to the addressed creator inside the DB). Responding past the offer's
+ * expires_at raises OFFER_EXPIRED — the expiry sweep refunds the vendor. On
+ * accept, the creator may link a published chapter that credits the vendor as
+ * the deliverable. No money moves here — Setnayan only records the collab; the
+ * discount settles off-platform.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -25,6 +28,15 @@ function readString(fd: FormData, key: string): string {
 
 function back(msg: string): never {
   redirect(`${PANEL_PATH}?error=${encodeURIComponent(msg)}`);
+}
+
+/** Map the DB RPC's RAISE codes to plain-language creator copy. */
+function humanizeRespondError(message: string): string {
+  if (message.includes('OFFER_EXPIRED'))
+    return 'This offer expired before you responded — it can no longer be accepted or declined. The vendor’s token is returned automatically.';
+  if (message.includes('FORBIDDEN')) return 'This offer isn’t addressed to your account.';
+  if (message.includes('NOT_FOUND')) return 'That offer no longer exists.';
+  return message;
 }
 
 async function ensureUser() {
@@ -47,10 +59,17 @@ async function respond(formData: FormData, response: 'accepted' | 'declined') {
     p_response: response,
     p_deliverable_chapter_id: response === 'accepted' && chapterId ? chapterId : null,
   });
-  if (error) back(error.message);
+  if (error) back(humanizeRespondError(error.message));
 
   // Tell the vendor their offer was answered (reuses the notification pipeline).
-  const result = data as { ok?: boolean; status?: string; vendor_id?: string } | null;
+  // `tokens_settled` = what was ACTUALLY debited at send (escrow) — the RPC no
+  // longer reports a charge that might not have happened.
+  const result = data as {
+    ok?: boolean;
+    status?: string;
+    vendor_id?: string;
+    tokens_settled?: number;
+  } | null;
   if (result?.ok && result.status === response) {
     // The vendor's recipient is the shop founder — notify by their user_id.
     const { data: vendor } = await supabase

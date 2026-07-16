@@ -11,6 +11,7 @@ import {
   UserRound,
   ChevronDown,
   Wand2,
+  Clapperboard,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -59,6 +60,8 @@ type Props = {
  *   3. Console rail (conditional) — vendor / Setnayan-team only. Home already
  *      covers the User console, so the rail only offers Shop / HQ.
  *   4. Footer — Profile & settings (→ /dashboard/profile) · Setnayan AI ·
+ *      Your Story (→ /dashboard/creator, the Storyteller chapters surface —
+ *      doorway added per the 2026-07-16 creator readiness verdict B4) ·
  *      Secure-your-plan (anonymous) / Sign out. (The Hosts link moved to the
  *      event Overview's Hosts card, owner 2026-07-12.)
  *
@@ -181,6 +184,19 @@ function SwitcherPanelBody({
               onClick={close}
             >
               <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Setnayan AI
+            </Link>
+          ) : null}
+          {/* Your Story — the Storyteller chapters surface (/dashboard/creator).
+              The authoring funnel had NO doorway anywhere (creator readiness
+              verdict 2026-07-16 · B4 — the wayfinding rule: a page ships with
+              its doorway). Hidden for anon-drafts, matching Setnayan AI. */}
+          {!data.isAnonymous ? (
+            <Link
+              href="/dashboard/creator"
+              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+              onClick={close}
+            >
+              <Clapperboard aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Your Story
             </Link>
           ) : null}
           {data.isAnonymous ? (

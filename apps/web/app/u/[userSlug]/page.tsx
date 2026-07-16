@@ -448,7 +448,7 @@ const UPROF_CSS = `
     flex: 0 0 auto;
     width: 26px;
     height: 26px;
-    border-radius: 999px;
+    border-radius: var(--m-r-full, 999px);
     overflow: hidden;
     background: var(--m-ivory, #EDEAE0);
     display: inline-flex;
@@ -675,7 +675,7 @@ const UPROF_CSS = `
     top: 1.35rem;
     width: 11px;
     height: 11px;
-    border-radius: 999px;
+    border-radius: var(--m-r-full, 999px);
     background: var(--m-paper, #FBFBFA);
     border: 2px solid var(--m-orange, #A9834B);
   }

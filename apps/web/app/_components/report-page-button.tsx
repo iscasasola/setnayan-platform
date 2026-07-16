@@ -9,8 +9,9 @@ import { fileReport } from '@/lib/reports';
  * Files a report of a given target_type/target_id into the single existing
  * moderation queue (public.user_reports → /admin/user-reports) via the shared
  * server action (lib/reports.ts). Shared by the invitation page /[slug]
- * (target_type='event') and, forward-compat, the public profile /u/[slug]
- * (target_type='user_profile').
+ * (target_type='event'), the public profile /u/[slug]
+ * (target_type='user_profile'), and the creator chapter page
+ * /u/[slug]/c/[public_id] (target_type='chapter' — Storytellers S0).
  *
  * Deliberately DISCREET — a small ghost link that opens a compact reason picker
  * on tap. It's chrome, never part of the couple's sacred aesthetic. Works for a
@@ -32,7 +33,7 @@ export function ReportPageButton({
   label = 'Report this page',
   className,
 }: {
-  targetType: 'event' | 'user_profile';
+  targetType: 'event' | 'user_profile' | 'chapter';
   targetId: string;
   label?: string;
   className?: string;

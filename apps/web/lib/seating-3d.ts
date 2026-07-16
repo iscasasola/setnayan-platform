@@ -15,6 +15,46 @@
 
 import type { MonogramConfig } from '@/lib/monogram';
 import type { RolePalette } from '@/lib/mood-board';
+// Shared projection API (contract v2 · Sync verdict 2026-07-16 · § 3). The
+// geometry authority is lib/seating.ts; this module holds thin 3D adapters and
+// RE-EXPORTS so plan3d/stage/dance/booth consumers keep compiling untouched.
+// GUN A: the serpentine BODY family is derived here from `metricGeometry` — the
+// old independent SERP_RI=0.95/RO=1.55 metric family is deleted, so 2D, 3D, the
+// mesh, the snap and the server validator speak ONE family (2026-05-09 2D lock,
+// scaled to metres).
+import {
+  DEFAULT_ROOM_M,
+  roomBoxM as roomBoxMShared,
+  pctToWorldM,
+  worldToPctM,
+  rotationWorldY,
+  metricGeometry,
+  metricScale,
+  legalJoinPoseM,
+  validateChainJointM,
+  resolveHomePcts,
+  fitRoomToCell,
+  canvasPxToPctM,
+  contentBoundsM,
+  type PoseM,
+} from './seating';
+// RE-EXPORTS (verdict § 3): the shared projection API, surfaced from the 3D
+// module so its existing consumers/tests import the ONE implementation.
+export {
+  DEFAULT_ROOM_M,
+  pctToWorldM,
+  worldToPctM,
+  rotationWorldY,
+  metricGeometry,
+  metricScale,
+  legalJoinPoseM,
+  validateChainJointM,
+  resolveHomePcts,
+  fitRoomToCell,
+  canvasPxToPctM,
+  contentBoundsM,
+};
+export type { PoseM };
 
 export type ShapeHint = 'round' | 'long_banquet' | 'family_head' | 'sweetheart' | 'serpentine';
 
@@ -177,7 +217,7 @@ function wrapAngle(a: number): number {
 // ?? 20 · venue_length_m ?? 30 in seating-editor.tsx). When they drift, the stage
 // (and everything) scales differently between 2D and 3D — most visibly the stage
 // depth (owner 2026-06-26 bug: "stage didn't follow the 2D size").
-export const DEFAULT_ROOM = { w: 20, d: 30 } as const;
+export const DEFAULT_ROOM = DEFAULT_ROOM_M;
 
 /** A rectangular zone in world metres (stage / dance floor). */
 export type PlaceZone = { cx: number; cz: number; hw: number; hd: number };
@@ -330,10 +370,10 @@ export function effectiveCapacity(capacity: number, removedSeats: number[]): num
 
 /** The room's world size in metres (venue dims when set, else the default board). */
 export function roomSize(floor: Lab3DFloor): { w: number; d: number } {
-  if (floor.venueWidthM && floor.venueLengthM && floor.venueWidthM > 0 && floor.venueLengthM > 0) {
-    return { w: floor.venueWidthM, d: floor.venueLengthM };
-  }
-  return { w: DEFAULT_ROOM.w, d: DEFAULT_ROOM.d };
+  // Thin adapter over the shared `roomBoxM` (contract § 2) — the camelCase lab
+  // floor keys mapped to the canonical column names, `isDefault` dropped.
+  const r = roomBoxMShared({ venue_width_m: floor.venueWidthM, venue_length_m: floor.venueLengthM });
+  return { w: r.w, d: r.d };
 }
 
 /**
@@ -365,23 +405,27 @@ export function contentBounds(
   return { minX, maxX, minZ, maxZ, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, span: Math.max(maxX - minX, maxZ - minZ) };
 }
 
-/** percent (0–100, origin top-left) → centred world metres (origin room centre). */
+/** percent (0–100, origin top-left) → centred world metres (origin room centre).
+ *  Thin wrapper over the shared `pctToWorldM` (contract § 6 · the ONE linear map). */
 export function pctToWorld(xPct: number, yPct: number, room: { w: number; d: number }): Vec2 {
-  return {
-    x: (xPct / 100 - 0.5) * room.w,
-    z: (yPct / 100 - 0.5) * room.d,
-  };
+  return pctToWorldM(xPct, yPct, room);
 }
 
 // ── Serpentine geometry (curved quarter-donut wedge) ───────────────────────
 // The 2D catalog's serpentine is ONE 104° curved band (2026-05-09 lock) — NOT a
-// rectangle and NOT a round. These helpers reproduce that band in metres so the
-// 3D lab draws the real shape: chairs ride the convex OUTER arc (facing in) and
-// the concave INNER arc (facing out), and the band pivots on its visual centre.
-const SERP_RI = 0.95; // inner (concave) radius, m
-const SERP_RO = 1.55; // outer (convex) radius, m
-const SERP_SWEEP = (104 * Math.PI) / 180; // angular span (canonical)
-const SERP_CHAIR_GAP = 0.5; // chair offset just beyond / inside the band edge, m
+// rectangle and NOT a round. GUN A (Sync verdict 2026-07-16 · § 1/§ 3): the band
+// radii + chair gap are DERIVED from the shared `metricGeometry('serpentine')`
+// (the 2D px family scaled to metres) — the old independent SERP_RI=0.95/RO=1.55
+// family is DELETED. So the mesh (`SERPENTINE_TOP_GEO`), `serpentineBand`,
+// `serpentineChairs`, `tableDims('serpentine')`, `serpentineChainSnapWorld`,
+// `serpentineTipsWorld` and the footprint discs all speak ONE family, and a
+// 3D-snapped chain passes the server's own `validateChainJointM` by construction.
+// (Visible: 3D serpentines shrink band bbox 2.443 → 1.864 m — owner sign-off #1.)
+const _SERP_BAND = metricGeometry('serpentine', 5).bandM!;
+const SERP_RI = _SERP_BAND.ri; // inner (concave) radius, m ≈ 0.789
+const SERP_RO = _SERP_BAND.ro; // outer (convex) radius, m ≈ 1.183
+const SERP_SWEEP = (_SERP_BAND.sweepDeg * Math.PI) / 180; // angular span (canonical, 104°)
+const SERP_CHAIR_GAP = _SERP_BAND.chairGap; // chair offset beyond / inside the band edge, m ≈ 0.237
 
 // φ = 0 points to −z (the band bulges toward −z); +φ sweeps to +x. The centre of
 // curvature sits at the local origin BEFORE the band is recentred on its bbox.

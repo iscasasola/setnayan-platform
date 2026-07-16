@@ -2,33 +2,48 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ALL_REAL_WEDDINGS } from '@/lib/real-weddings';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
+import { loadFeaturedChapters, loadChapterCutsForEvents } from '@/lib/storytellers';
 import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
+import { StorytellersShelf } from './_components/storytellers-shelf';
 
-// /realstories — Real Stories index (iteration 0046).
+// /realstories — THE single public stories hub (iteration 0046 + Storytellers
+// PR-D, council verdict 2026-07-16): two named, visually distinct shelves on
+// one page.
 //
-// "A wall of living front pages": every published editorial is a newspaper
-// cover with its Chronicle nameplate, organised by the dedup cascade (Cover
-// → Most loved → Just published → Archive). Event type filter chips let
-// visitors browse by milestone (Wedding, Debut, Anniversary, Graduation,
-// Reunion, …). A search bar covers the full haystack.
+// 1 · EDITORIAL SHELF — "a wall of living front pages": every published
+// editorial is a newspaper cover with its Chronicle nameplate, organised by
+// the dedup cascade (Cover → Most loved → Just published → Archive). Event
+// type filter chips let visitors browse by milestone; a search bar covers the
+// full haystack. Real, consent-gated editorials (loadPublishedShowcases) take
+// priority and link to each person's canonical editorial at /[slug] (0002
+// Phase 4). Until any real editorial qualifies (first = the founder's Dec 2026
+// wedding), the page falls back to curated, clearly-labelled SAMPLES.
 //
-// Covers ALL Filipino life milestones, not just weddings. The data model is
-// unchanged (events table), but `eventType` is surfaced as the primary
-// browsing axis on this page.
+// 2 · STORYTELLERS SHELF — "From Our Storytellers" (#storytellers): ONLY
+// owner-featured creator chapters (deny-by-default — publish ≠ listed), in
+// their own byline-forward tile grammar, linking to each chapter's canonical
+// /u/[slug]/c/[id] page (which stays noindex; the hub keeps the SEO equity).
+// ZERO featured chapters ⇒ the shelf renders NOTHING — this page today is
+// byte-identical to its pre-PR-D self until the owner's first Feature click.
 //
-// Real, consent-gated editorials (loadPublishedShowcases) take priority and
-// link to each person's canonical editorial at /[slug] (0002 Phase 4). Until
-// any real editorial qualifies (first = the founder's Dec 2026 wedding), the
-// page falls back to curated, clearly-labelled SAMPLES. DB-backed → ISR.
+// Cross-rails ride the creator_chapters.event_id join: editorial cards gain a
+// "Watch the storyteller's cut" chip; chapter tiles gain "Read the editorial".
+// DB-backed → ISR.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
+// Hub identity reworded ONCE for both voices (Storytellers verdict §3, owner
+// decision #2 signed 2026-07-16): editorial features written by Setnayan AND
+// chapters told by our storytellers. Chapter detail pages stay noindex — only
+// the hub's identity widens; all creator SEO equity concentrates here.
+const HUB_DESCRIPTION =
+  'Real stories from real events — editorial features written by Setnayan, and chapters told by our storytellers. Filipino weddings, debuts, anniversaries, graduations, travels, and reunions, told in full by the people who were there.';
+
 export const metadata: Metadata = {
   title: 'Real stories · Setnayan',
-  description:
-    'Real Filipino weddings, debuts, anniversaries, graduations, and reunions — every major life milestone told in full, by the people who were there. Sample showcases now live; real editorials begin December 2026 with explicit consent per RA 10173.',
+  description: HUB_DESCRIPTION,
   alternates: { canonical: '/realstories' },
   keywords: [
     'real Filipino weddings',
@@ -36,20 +51,20 @@ export const metadata: Metadata = {
     'Filipino anniversary celebration',
     'Philippines life milestones',
     'Setnayan real stories',
+    'Setnayan storytellers',
     'Filipino wedding editorial',
+    'Filipino creator wedding video',
     'wedding stories Philippines',
   ],
   openGraph: {
     title: 'Real stories · Setnayan',
-    description:
-      'Real Filipino life milestones — weddings, debuts, anniversaries, and more — told in full by the people who were there. Sample showcases now live; real editorials begin December 2026.',
+    description: HUB_DESCRIPTION,
     url: '/realstories',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Real stories · Setnayan',
-    description:
-      'Real Filipino life milestones — weddings, debuts, anniversaries, and more — told in full by the people who were there. Sample showcases now live; real editorials begin December 2026.',
+    description: HUB_DESCRIPTION,
   },
 };
 
@@ -57,7 +72,25 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function RealStoriesIndexPage() {
-  const showcases = await loadPublishedShowcases();
+  // Both shelves load in parallel; each degrades independently ([] on any
+  // failure / pre-migration DB), so neither voice can break the other.
+  const [showcases, featuredChapters] = await Promise.all([
+    loadPublishedShowcases(),
+    loadFeaturedChapters(),
+  ]);
+  // Cross-rail (editorial → chapter): "Watch the storyteller's cut" chips for
+  // editorial cards whose event has a linked PUBLISHED chapter. A join over
+  // creator_chapters.event_id — skipped gracefully when there's nothing to join.
+  const chapterCutByEvent =
+    showcases.length > 0
+      ? await loadChapterCutsForEvents(showcases.map((s) => s.eventId))
+      : new Map<string, string>();
+  // Cross-rail (chapter → editorial): "Read the editorial" chips for chapter
+  // tiles whose event has a consented published editorial — composed from the
+  // showcases already loaded above (the shelf modules stay route-agnostic).
+  const editorialHrefByEvent = new Map<string, string>(
+    showcases.filter((s) => !s.isSample).map((s) => [s.eventId, s.href]),
+  );
   // Fall back to the in-code curated samples only when the DB path is empty.
   const showingSamples = showcases.length === 0;
   // Truth-in-UI: the "published with their consent" header copy is only honest
@@ -113,6 +146,8 @@ export default async function RealStoriesIndexPage() {
         witnessAttribution: null,
         services: null,
         editionNumber: null,
+        // Cross-rail chip — the storyteller's cut of this same event, if any.
+        storytellerCutHref: chapterCutByEvent.get(s.eventId) ?? null,
       }));
 
   const itemListElements = items.map((it, i) => ({
@@ -122,10 +157,14 @@ export default async function RealStoriesIndexPage() {
     name: it.city ? `${it.coupleNames} · ${it.city}` : it.coupleNames,
   }));
 
+  // JSON-LD covers both voices (verdict §3): the CollectionPage description is
+  // the reworded hub identity. The ItemList stays editorial-only on purpose —
+  // chapter detail pages are noindex, so they never enter the structured list.
   const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'Real stories · Setnayan',
+    description: HUB_DESCRIPTION,
     url: `${SITE_URL}/realstories`,
     inLanguage: 'en-PH',
     isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
@@ -174,6 +213,13 @@ export default async function RealStoriesIndexPage() {
         </div>
 
         <RealStoriesGallery items={items} />
+
+        {/* "From Our Storytellers" — renders NOTHING (not even a heading) with
+            zero featured chapters; the editorial cascade above is untouched. */}
+        <StorytellersShelf
+          items={featuredChapters}
+          editorialHrefByEvent={editorialHrefByEvent}
+        />
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

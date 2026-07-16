@@ -13,12 +13,14 @@ import {
   BookOpen,
   Tag,
   Gift,
+  Clapperboard,
 } from 'lucide-react';
 import { WebsiteSurface } from './_surfaces/website-surface';
 import { HeroVideoSurface } from './_surfaces/hero-video-surface';
 import { RevealStudioSurface } from './_surfaces/reveal-studio-surface';
 import { RecapsSurface } from './_surfaces/recaps-surface';
 import { RealStoriesSurface } from './_surfaces/real-stories-surface';
+import { StorytellersSurface } from './_surfaces/storytellers-surface';
 import { PatiktokSurface } from './_surfaces/patiktok-surface';
 import { SongsSurface } from './_surfaces/songs-surface';
 import { MoodboardLibrarySurface } from './_surfaces/moodboard-library-surface';
@@ -60,6 +62,7 @@ const TABS = [
   'reveal-studio',
   'recaps',
   'real-stories',
+  'storytellers',
   'patiktok',
   'songs',
   'moodboard-library',
@@ -81,7 +84,8 @@ function coerceTab(v: string | undefined): Tab {
   return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'website';
 }
 
-// The full 13-item Studio IA, grouped Content · Marketing. `wired` items render
+// The full 14-item Studio IA, grouped Content · Marketing (Storytellers joined
+// as the 14th sibling — PR-D 2026-07-16). `wired` items render
 // inline via ?tab=; the not-yet-wired items link out to their still-standalone
 // legacy routes (converted to real tabs in later slices) so the final IA is
 // visible and nothing is a dead link. Later slices flip `wired:true` + add a
@@ -96,11 +100,15 @@ type RailItem = {
 };
 
 const RAIL: RailItem[] = [
-  // ── Content (8) ─────────────────────────────────────────────────────────
+  // ── Content (9) ─────────────────────────────────────────────────────────
   { key: 'website', label: 'Website', icon: Globe, group: 'Content', wired: true, legacyHref: '/admin/website' },
   { key: 'hero-video', label: 'Hero video', icon: Video, group: 'Content', wired: true, legacyHref: '/admin/hero-video' },
   { key: 'reveal-studio', label: 'Reveal Studio', icon: Sparkles, group: 'Content', wired: true, legacyHref: '/admin/reveal-studio' },
   { key: 'real-stories', label: 'Real Stories', icon: Newspaper, group: 'Content', wired: true, legacyHref: '/admin/real-stories' },
+  // Storytellers (PR-D 2026-07-16) — chapter featuring for the /realstories
+  // "From Our Storytellers" shelf. Born inside the studio hub (no legacy
+  // standalone route ever existed), so legacyHref is its own tab URL.
+  { key: 'storytellers', label: 'Storytellers', icon: Clapperboard, group: 'Content', wired: true, legacyHref: '/admin/studio?tab=storytellers' },
   { key: 'recaps', label: 'Recaps', icon: Images, group: 'Content', wired: true, legacyHref: '/admin/recaps' },
   { key: 'patiktok', label: 'Patiktok', icon: Film, group: 'Content', wired: true, legacyHref: '/admin/patiktok' },
   { key: 'songs', label: 'Songs', icon: Music, group: 'Content', wired: true, legacyHref: '/admin/songs' },
@@ -178,6 +186,8 @@ export default async function AdminStudioPage({ searchParams }: Props) {
           <RecapsSurface ok={first(search.ok) ?? null} error={first(search.error) ?? null} />
         ) : tab === 'real-stories' ? (
           <RealStoriesSurface ok={first(search.ok)} error={first(search.error)} />
+        ) : tab === 'storytellers' ? (
+          <StorytellersSurface ok={first(search.ok)} error={first(search.error)} />
         ) : tab === 'patiktok' ? (
           <PatiktokSurface />
         ) : tab === 'songs' ? (

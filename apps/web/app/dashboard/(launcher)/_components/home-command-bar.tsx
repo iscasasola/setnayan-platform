@@ -14,6 +14,7 @@ import {
   UserRound,
   Bell,
   Wand2,
+  Clapperboard,
 } from 'lucide-react';
 import { useModalA11y, anyModalOpen } from '@/lib/use-modal-a11y';
 
@@ -59,7 +60,8 @@ export type HomeCommandItem = {
     | 'users'
     | 'user'
     | 'bell'
-    | 'wand';
+    | 'wand'
+    | 'clapperboard';
 };
 
 const ICONS = {
@@ -73,6 +75,7 @@ const ICONS = {
   user: UserRound,
   bell: Bell,
   wand: Wand2,
+  clapperboard: Clapperboard,
 } as const;
 
 const KIND_LABEL: Record<HomeCommandItem['kind'], string> = {

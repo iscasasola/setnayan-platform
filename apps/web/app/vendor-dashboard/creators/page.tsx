@@ -263,6 +263,14 @@ function CreatorCard({
                 placeholder="e.g. 10% off for anyone booking through your chapter"
                 className="input-field"
               />
+              {/* Honest dormant-field label (readiness verdict 2026-07-16 ·
+                  B6, owner-ratified): nothing viewer-facing consumes this
+                  until chapter booking (PR-C) ships — say so instead of
+                  letting it look like a live promo. Keep the field. */}
+              <span className="block text-[11px] text-ink/55">
+                Viewer promo — activates when chapter booking ships; the
+                storyteller sees these terms now.
+              </span>
             </label>
             <p className="text-[11px] text-ink/50">
               Sending spends 1 reach token (held until they respond; refunded if

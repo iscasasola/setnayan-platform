@@ -108,6 +108,11 @@ import {
   type VendorFeaturedStory,
 } from '@/lib/realstories-vendor';
 import {
+  loadFeaturedChaptersCreditingVendor,
+  type StorytellerTileItem,
+} from '@/lib/storytellers';
+import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import {
   fetchVendorMicrosite,
   isSectionVisible,
   micrositeAccentVars,
@@ -950,12 +955,19 @@ export async function renderVendorBySlug({
         ]
       : reviews;
 
-  // Editorials ("Real Stories") — the vendor's own booked weddings the couple
-  // has PUBLISHED + consented to showcase. Featured-first (Pro pick), capped to
-  // a tidy row. Best-effort + auto-hidden when empty: today this is [] for
-  // everyone until real consented stories exist (~Dec 2026), so the whole
-  // section simply doesn't render until there's something to show.
-  const showEditorials = premiumLayout && isSectionVisible(pageSections, 'editorials');
+  // "Featured in these stories" — BOTH voices crediting this vendor (PR-D ·
+  // Storytellers council verdict 2026-07-16 + Simplicity Canon rule 2: being
+  // credited in a story is ALWAYS FREE, any tier — the former Pro-gate
+  // (`premiumLayout`) on this section is RETIRED; Pro keeps its other perks):
+  //   • EDITORIALS — the vendor's own booked weddings the couple has
+  //     PUBLISHED + consented to showcase. Featured-first ordering stays a
+  //     personalization pick where available.
+  //   • CHAPTERS — the owner-FEATURED, published creator chapters whose
+  //     shoppable substrate credits this vendor (joins over the featured set,
+  //     so it has nothing to show before the owner's first Feature click).
+  // Best-effort + auto-hidden when BOTH are empty: the section renders
+  // nothing until there's something to show.
+  const showEditorials = isSectionVisible(pageSections, 'editorials');
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
@@ -972,6 +984,13 @@ export async function renderVendorBySlug({
     } catch {
       featuredEditorials = [];
     }
+  }
+  let featuredChapterCredits: StorytellerTileItem[] = [];
+  if (showEditorials) {
+    featuredChapterCredits = await loadFeaturedChaptersCreditingVendor({
+      businessSlug: vendor.business_slug,
+      publicId: vendor.public_id,
+    });
   }
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
@@ -1902,14 +1921,18 @@ export async function renderVendorBySlug({
             videos" gallery above (owner: single video system). Vendors' existing
             films were migrated into gallery_video_links. */}
 
-        {/* Editorials ("Real Stories") — the vendor's published, couple-consented
-            weddings, told in full. Featured-first (Pro pick); the lead story is a
-            wide spotlight. Auto-hidden until a real story exists. */}
-        {showEditorials && featuredEditorials.length > 0 ? (
+        {/* "Featured in these stories" — both voices crediting this vendor
+            (PR-D · Simplicity Canon rule 2: credit is FREE for every visible
+            vendor, any tier — the old Pro-gate is retired). Editorials keep
+            their editorial grammar; chapters render in the Storyteller tile
+            grammar. Auto-hidden until either voice has something to show. */}
+        {showEditorials &&
+        (featuredEditorials.length > 0 || featuredChapterCredits.length > 0) ? (
           <section className="space-y-4 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Featured in Real Stories
+              Featured in these stories
             </h2>
+            {featuredEditorials.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
               {featuredEditorials.map((story, idx) => (
                 <a
@@ -1941,6 +1964,16 @@ export async function renderVendorBySlug({
                 </a>
               ))}
             </div>
+            ) : null}
+            {/* Storyteller chapters crediting this vendor — their own tile
+                grammar (byline + badge + view count), never the editorial's. */}
+            {featuredChapterCredits.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {featuredChapterCredits.map((chapter) => (
+                  <StorytellerTile key={chapter.publicId} item={chapter} />
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
 

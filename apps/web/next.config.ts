@@ -170,6 +170,10 @@ const nextConfig: NextConfig = {
       './models/face-detection/**/*',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
+      // NPC submission PDFs streamed admin-only by
+      // /admin/data-privacy/documents/[doc] (read via a dynamic filename, so
+      // nft can't statically trace them — force-include the set).
+      './assets/npc-docs/*.pdf',
     ],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
@@ -339,6 +343,15 @@ const nextConfig: NextConfig = {
       // asset URLs. Marketplace subpaths (`/vendors/*` → /explore) are handled
       // separately in middleware.ts.
       { source: '/for-vendors', destination: '/vendors', permanent: true },
+      // 2026-07-16 — Storytellers hub (PR-D · council verdict): /storytellers
+      // is a SPEAKABLE WORD, not a page — it redirects into the "From Our
+      // Storytellers" shelf on the single stories hub, so creators/marketing
+      // (and the /pricing "Creators — Free" callout) have a link target with
+      // zero second page to maintain. Never indexable on its own. TEMPORARY
+      // (307) on purpose: the verdict's Phase S4 leaves room for a future
+      // standalone page once chapter volume outgrows the shelf — a permanent
+      // redirect would be cached against that promotion.
+      { source: '/storytellers', destination: '/realstories#storytellers', permanent: false },
     ];
   },
   async rewrites() {

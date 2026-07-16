@@ -498,6 +498,18 @@ export default async function AdminOverview() {
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Tile
+            href="/admin/data-privacy"
+            icon="shield-check"
+            title="Data Privacy"
+            body="Approve each privacy-sensitive capability (RA 10173) — the control board."
+          />
+          <Tile
+            href="/admin/npc-readiness"
+            icon="list-checks"
+            title="NPC Filing"
+            body="Work down the NPC pre-filing checklist — counsel review is the gate."
+          />
+          <Tile
             href="/admin/fraud"
             icon="shield-check"
             title="Fraud queue"

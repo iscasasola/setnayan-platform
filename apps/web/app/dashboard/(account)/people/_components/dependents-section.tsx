@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import {
@@ -9,18 +10,22 @@ import {
   RELIGIONS,
   fenceBand,
   dependentNextMilestone,
+  isClaimEligible,
   type DependentSex,
   type DependentKind,
 } from '@/lib/dependent-people';
 import { RELIGION_LABELS } from '@/lib/profile-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
 import {
   addDependent,
   deleteDependent,
   addGodparent,
   deleteGodparent,
   setDependentSharing,
+  createHandoverLink,
+  revokeHandoverLink,
 } from '../dependent-actions';
 
 /**
@@ -45,6 +50,11 @@ type DependentRow = {
   relationship: string | null;
   owner_user_id: string;
   shared_with_spouse: boolean;
+  handed_over_at: string | null;
+  claimed_user_id: string | null;
+  claim_token: string | null;
+  claim_token_purpose: string | null;
+  claim_token_expires_at: string | null;
 };
 
 type GodparentRow = {
@@ -74,10 +84,16 @@ export async function DependentsSection() {
   // RLS now returns MY dependents + any my spouse marked shared (PR-G household).
   const { data } = await supabase
     .from('dependents')
-    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse')
+    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse, handed_over_at, claimed_user_id, claim_token, claim_token_purpose, claim_token_expires_at')
     .order('created_at', { ascending: true });
   const dependents = (data ?? []) as DependentRow[];
   const today = manilaToday();
+
+  // Absolute base for hand-over links (same pattern as the Papic crew page).
+  const h = await headers();
+  const host = h.get('host') ?? 'www.setnayan.com';
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  const appUrl = `${proto}://${host}`;
 
   // Do I have a spouse on Setnayan? Only then is the "share with spouse" toggle
   // meaningful. current_spouse_user_ids() returns the co-host(s) of my wedding.
@@ -119,6 +135,17 @@ export async function DependentsSection() {
             const band = isPersonRow && d.birth_date ? fenceBand(d.birth_date, today) : null;
             const next = isPersonRow && d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
             const mine = d.owner_user_id === myUserId;
+            // Hand-over states (owner-locked 2026-07-16): a handed-over row is
+            // read-only history for the guardian; a claimed row is the adult's
+            // own data. Link mint: person needs age ≥18 proof; pet/other always.
+            const handedOver = !!d.handed_over_at;
+            const claimedByMe = d.claimed_user_id === myUserId;
+            const canMintLink =
+              mine && !handedOver && (!isPersonRow || isClaimEligible(d.birth_date, today));
+            const linkActive =
+              !!d.claim_token &&
+              !!d.claim_token_expires_at &&
+              new Date(d.claim_token_expires_at) > new Date();
             const gps = godparentsByDependent.get(d.dependent_id) ?? [];
             return (
               <li
@@ -138,7 +165,13 @@ export async function DependentsSection() {
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
                   </div>
-                  {mine ? (
+                  {handedOver ? (
+                    <span className="shrink-0 rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
+                      {claimedByMe
+                        ? 'Your own profile'
+                        : `Their own account since ${fmt(d.handed_over_at!.slice(0, 10))}`}
+                    </span>
+                  ) : mine ? (
                     <ConfirmForm
                       action={deleteDependent}
                       title="Remove this record?"
@@ -161,8 +194,48 @@ export async function DependentsSection() {
                   )}
                 </div>
 
+                {/* Hand-over / transfer-care link (owner-locked 2026-07-16):
+                    a PERSON of age claims their own account; a pet/other
+                    rehomes to a new guardian. One active link, 7-day expiry. */}
+                {canMintLink ? (
+                  <div className="mt-2">
+                    {linkActive ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CopyButton
+                          value={`${appUrl}/claim/${d.claim_token}`}
+                          label={isPersonRow ? 'Copy hand-over link' : 'Copy transfer link'}
+                        />
+                        <span className="text-[0.7rem] text-ink/45">
+                          expires {fmt(d.claim_token_expires_at!.slice(0, 10))}
+                        </span>
+                        <form action={revokeHandoverLink}>
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <SubmitButton
+                            className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-terracotta hover:underline"
+                            pendingLabel="Revoking…"
+                          >
+                            Revoke
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    ) : (
+                      <form action={createHandoverLink}>
+                        <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                        <SubmitButton
+                          className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                          pendingLabel="Creating…"
+                        >
+                          {isPersonRow
+                            ? `${d.name} is of age — create their hand-over link`
+                            : 'Transfer care to someone else'}
+                        </SubmitButton>
+                      </form>
+                    )}
+                  </div>
+                ) : null}
+
                 {/* Share-with-spouse toggle — my own rows, only if I have a spouse */}
-                {mine && hasSpouse ? (
+                {mine && !handedOver && hasSpouse ? (
                   <form action={setDependentSharing} className="mt-2">
                     <input type="hidden" name="dependent_id" value={d.dependent_id} />
                     <input type="hidden" name="share" value={d.shared_with_spouse ? '0' : '1'} />

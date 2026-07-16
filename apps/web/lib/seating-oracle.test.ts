@@ -297,7 +297,7 @@ test('penetrationDepth: an overlapping table can move OUT (depth decreases) but 
 // layoutViolations (verdict § 6 mount audit)
 // ===========================================================================
 
-test('layoutViolations: reports overlapping pairs, exempts linked groups, clean layout is empty', () => {
+test('layoutViolations: reports overlapping pairs; exempts a GENUINE weld; a bogus same-group overlap still collides', () => {
   const geo = tableGeometry('round', 10).box;
   const clean: WorldPose[] = [
     pose('round', 10, 0, 0, 0, 'a'),
@@ -309,12 +309,25 @@ test('layoutViolations: reports overlapping pairs, exempts linked groups, clean 
     pose('round', 10, geo.w * 0.4, 0, 0, 'b'),
   ];
   assert.equal(layoutViolations(overlapping, [], 0).length, 2, 'both tables flagged');
-  // Same link group at the same overlap → exempt (a rigid welded unit).
-  const linked: WorldPose[] = [
+  // Pairwise exemption (fix 2026-07-16): membership is NOT a blanket pass. Two
+  // same-group rounds SHOVED into each other (not at a kiss) still collide —
+  // the old blanket rule hid this.
+  const bogus: WorldPose[] = [
     pose('round', 10, 0, 0, 0, 'a', 'g'),
     pose('round', 10, geo.w * 0.4, 0, 0, 'b', 'g'),
   ];
-  assert.equal(layoutViolations(linked, [], 0).length, 0);
+  assert.equal(layoutViolations(bogus, [], 0).length, 2, 'a non-welded same-group overlap is NOT exempt');
+  // A GENUINE kiss between the same-group rounds → exempt (directly welded).
+  const kiss = legalJoinPose(
+    { shape: 'round', capacity: 10, x: 0, y: 0, rot: 0, scale: 1 },
+    { shape: 'round', capacity: 10, x: 300, y: 0, rot: 0, scale: 1 },
+    400,
+  )!;
+  const welded: WorldPose[] = [
+    pose('round', 10, 0, 0, 0, 'a', 'g'),
+    pose('round', 10, kiss.x, kiss.y, 0, 'b', 'g'),
+  ];
+  assert.equal(layoutViolations(welded, [], 0).length, 0, 'a genuine kissed pair is exempt');
 });
 
 // ===========================================================================

@@ -264,6 +264,18 @@ async function pickMusic(): Promise<StoryMusic | null> {
 }
 
 /**
+ * Owned-catalogue music picker, exported for reuse by other Setnayan-hosted
+ * renders (e.g. the creator Adventure-Chapter teaser). Delegates to the exact
+ * same `reel_music_tracks` query as a Guest Story — `is_active` + NOT
+ * `is_premium` — so the "owned catalogue only, never major-label" guarantee is
+ * one code path, not two. Deliberately does NOT reach for a couple's Pakanta
+ * song (that's event-personal, not a general owned track).
+ */
+export async function pickOwnedReelMusic(): Promise<StoryMusic | null> {
+  return pickMusic();
+}
+
+/**
  * Assemble the full render plan for a guest's Story. The caller MUST have
  * already verified the (eventId, guestId) pair from the guest's qr_token
  * capability. Never throws — returns a `canRender:false` plan on any read

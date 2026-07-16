@@ -18,10 +18,12 @@ import {
   type ChapterStatus,
   type EmbedProvider,
 } from '@/lib/creator-chapters';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchCreatorInbox, type CreatorInboxOffer } from '@/lib/creator-offers';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ChapterEmbedFrame } from './_components/chapter-embed-frame';
+import { TeaserGenerator } from './_components/teaser-generator';
 import {
   createChapter,
   deleteChapter,
@@ -45,6 +47,7 @@ type ChapterRow = {
   embed_url: string | null;
   embed_provider: EmbedProvider | null;
   substrate: Record<string, unknown> | null;
+  teaser_r2_key: string | null;
   status: ChapterStatus;
   published_at: string | null;
   updated_at: string;
@@ -133,7 +136,7 @@ async function CreatorBody({
     supabase
       .from('creator_chapters')
       .select(
-        'chapter_id, public_id, title, kind, embed_url, embed_provider, substrate, status, published_at, updated_at',
+        'chapter_id, public_id, title, kind, embed_url, embed_provider, substrate, teaser_r2_key, status, published_at, updated_at',
       )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false }),
@@ -141,6 +144,20 @@ async function CreatorBody({
   ]);
   const chapters = (data ?? []) as ChapterRow[];
   const publishedChapters = chapters.filter((c) => c.status === 'published');
+
+  // Presign any already-rendered teaser so the card can preview/download it.
+  const teaserUrls = new Map<string, string | null>();
+  await Promise.all(
+    chapters
+      .filter((c) => c.teaser_r2_key)
+      .map(async (c) => {
+        try {
+          teaserUrls.set(c.chapter_id, await displayUrlForStoredAsset(c.teaser_r2_key as string));
+        } catch {
+          teaserUrls.set(c.chapter_id, null);
+        }
+      }),
+  );
 
   return (
     <>
@@ -182,6 +199,7 @@ async function CreatorBody({
                   chapter={c}
                   slug={slug}
                   publicProfileEnabled={publicProfileEnabled}
+                  teaserUrl={teaserUrls.get(c.chapter_id) ?? null}
                 />
               </li>
             ))}
@@ -373,10 +391,12 @@ function ChapterCard({
   chapter: c,
   slug,
   publicProfileEnabled,
+  teaserUrl,
 }: {
   chapter: ChapterRow;
   slug: string | null;
   publicProfileEnabled: boolean;
+  teaserUrl: string | null;
 }) {
   const substrate = (c.substrate ?? {}) as {
     papic_gallery_id?: string;
@@ -446,6 +466,8 @@ function ChapterCard({
           .
         </p>
       ) : null}
+
+      <TeaserGenerator chapterId={c.chapter_id} existingTeaserUrl={teaserUrl} />
 
       {/* Edit */}
       <details className="group">
@@ -568,9 +590,13 @@ function ChapterFields({
             name="papic_gallery_id"
             maxLength={200}
             defaultValue={substrate?.papic_gallery_id ?? ''}
-            placeholder="optional"
+            placeholder="optional — the event id whose Papic gallery seeds the teaser"
             className="input-field"
           />
+          <span className="block text-[11px] text-ink/55">
+            Set this to power the owned-music teaser — it’s built from this
+            gallery’s photos. Only galleries you have access to can be used.
+          </span>
         </label>
         <label className="block space-y-1">
           <span className="block text-xs font-medium text-ink/80">Itinerary</span>

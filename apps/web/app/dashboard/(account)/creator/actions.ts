@@ -9,6 +9,8 @@ import {
   normalizeEmbed,
   type ChapterKind,
 } from '@/lib/creator-chapters';
+import { buildChapterTeaserPlan, type TeaserPlan } from '@/lib/creator-teaser';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { notifyFollowersOfNewChapter } from '@/lib/creator-notify';
 
 const SURFACE = '/dashboard/creator';
@@ -214,6 +216,88 @@ export async function unpublishChapter(formData: FormData) {
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?unpublished=1`);
+}
+
+// ---------------------------------------------------------------------------
+// Owned-music TEASER (CP-2) — client-side render, server bookends the plan +
+// the finalize write. See lib/creator-teaser.ts for the owned-music guarantee.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the teaser render PLAN for a chapter (which photos, which owned track).
+ * Returns the plan to the client — the encode itself runs in the browser. Never
+ * redirects on the "can't build yet" case; it hands back `canRender:false` + a
+ * reason so the client can show it inline.
+ */
+export async function prepareChapterTeaser(chapterId: string): Promise<TeaserPlan> {
+  const { supabase, userId } = await requireUser();
+  if (typeof chapterId !== 'string' || !chapterId) {
+    return {
+      canRender: false,
+      reason: 'Missing chapter.',
+      photos: [],
+      musicUrl: null,
+      beatGrid: null,
+      musicLabel: null,
+      targetSec: 0,
+    };
+  }
+
+  const { data: row } = await supabase
+    .from('creator_chapters')
+    .select('substrate')
+    .eq('chapter_id', chapterId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!row) {
+    return {
+      canRender: false,
+      reason: 'Chapter not found.',
+      photos: [],
+      musicUrl: null,
+      beatGrid: null,
+      musicLabel: null,
+      targetSec: 0,
+    };
+  }
+
+  return buildChapterTeaserPlan(
+    supabase,
+    (row.substrate ?? null) as Record<string, unknown> | null,
+  );
+}
+
+/**
+ * Persist a rendered teaser: point the chapter's `teaser_r2_key` at the blob the
+ * browser just PUT to R2 (via /api/creator/teaser-upload). Returns a presigned
+ * GET so the client can preview/download the saved copy.
+ */
+export async function finalizeChapterTeaser(args: {
+  chapterId: string;
+  bucket: string;
+  key: string;
+}): Promise<{ downloadUrl: string | null }> {
+  const { supabase, userId } = await requireUser();
+  const { chapterId, bucket, key } = args;
+  if (!chapterId || !bucket || !key) fail('Missing teaser upload result.');
+
+  const ref = `r2://${bucket}/${key}`;
+  const { error } = await supabase
+    .from('creator_chapters')
+    .update({ teaser_r2_key: ref, updated_at: new Date().toISOString() })
+    .eq('chapter_id', chapterId)
+    .eq('user_id', userId);
+  if (error) fail(error.message);
+
+  let downloadUrl: string | null = null;
+  try {
+    downloadUrl = await displayUrlForStoredAsset(ref);
+  } catch {
+    downloadUrl = null;
+  }
+
+  revalidatePath(SURFACE);
+  return { downloadUrl };
 }
 
 export async function deleteChapter(formData: FormData) {

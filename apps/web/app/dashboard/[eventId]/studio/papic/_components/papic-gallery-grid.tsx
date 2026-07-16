@@ -166,9 +166,9 @@ export function PapicGalleryGrid({
                 ) : null}
                 {/* Photos save straight from the tile; clips download from the
                     lightbox (the tile thumbnail is only their poster frame).
-                    Save uses `saveUrl` — a metadata-stripped derivative ONLY, never
-                    the geo-bearing original (RA 10173). Hidden until the derivative
-                    renders (seconds after capture), so no raw original is shared. */}
+                    `saveUrl` is the same-origin save-photo route: FULL-RES original
+                    with EXIF/GPS stripped on the fly (owner 2026-07-16), never the
+                    raw geo-bearing original (RA 10173). */}
                 {p.saveUrl && p.kind === 'photo' ? (
                   <SavePhotoButton url={p.saveUrl} filename={`setnayan-photo-${p.id}.jpg`} />
                 ) : null}

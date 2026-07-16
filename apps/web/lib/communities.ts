@@ -432,6 +432,12 @@ export type SamahanSecondDegreeEntry = {
   display_name: string;
   /** Names of the samahan(s) the viewer shares with this person. */
   via: string[];
+  /** A representative community_members bigserial id — the SAFE action handle
+   *  (fetchCommunityRoster rule: actions target member_row_id, never a UUID). */
+  member_row_id: number;
+  /** True when the viewer already has a (pending or confirmed) connection —
+   *  the section then renders no Connect affordance. */
+  known: boolean;
 };
 
 /**
@@ -448,6 +454,10 @@ export async function fetchSamahanSecondDegree(
   supabase: SupabaseClient,
   admin: SupabaseClient,
   userId: string,
+  /** User ids the viewer is already connected to (pending or confirmed) —
+   *  computed by the caller when the connections flag is on; entries matching
+   *  are marked `known` so the UI skips the Connect affordance. */
+  knownUserIds: ReadonlySet<string> = new Set(),
 ): Promise<SamahanSecondDegreeEntry[]> {
   const communities = await fetchUserCommunities(supabase, userId);
   const active = communities.filter((c) => !c.archived);
@@ -456,7 +466,7 @@ export async function fetchSamahanSecondDegree(
 
   const { data, error } = await supabase
     .from('community_members')
-    .select('community_id, user_id')
+    .select('id, community_id, user_id')
     .in('community_id', active.map((c) => c.community_id));
   if (error) {
     logQueryError('fetchSamahanSecondDegree', error, { user_id: userId }, 'graceful_degrade');
@@ -464,12 +474,14 @@ export async function fetchSamahanSecondDegree(
   }
 
   const viaByUser = new Map<string, Set<string>>();
-  for (const r of (data ?? []) as Array<{ community_id: string; user_id: string }>) {
+  const rowIdByUser = new Map<string, number>();
+  for (const r of (data ?? []) as Array<{ id: number; community_id: string; user_id: string }>) {
     if (r.user_id === userId) continue;
     const via = viaByUser.get(r.user_id) ?? new Set<string>();
     const label = nameById.get(r.community_id);
     if (label) via.add(label);
     viaByUser.set(r.user_id, via);
+    if (!rowIdByUser.has(r.user_id)) rowIdByUser.set(r.user_id, r.id);
   }
   if (viaByUser.size === 0) return [];
 
@@ -487,6 +499,8 @@ export async function fetchSamahanSecondDegree(
     .map(([uid, via]) => ({
       display_name: names.get(uid) ?? 'Member',
       via: [...via].sort((a, b) => a.localeCompare(b)),
+      member_row_id: rowIdByUser.get(uid) ?? 0,
+      known: knownUserIds.has(uid),
     }))
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
 }

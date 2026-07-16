@@ -19,7 +19,6 @@ import {
   solveAutoLayout,
   stageZone,
   serpentineChainSnap,
-  roundKissSnap,
   boxesOverlap,
   tableGeometry,
   shapeHintFor,
@@ -198,26 +197,33 @@ test('isLegalJoint: a 180° S-bend is a legal join', () => {
   assert.ok(rots.has(180), 'an S-bend (180°) join is offered');
 });
 
-test('checkPlacement: two welded serpentines (same link group) exempt each other; different groups collide', () => {
-  const anchor = pose('serpentine', 5, 400, 400, 0, 'a', 'grp1');
+test('checkPlacement: two serpentines at a legal joint are valid ADJACENCY — by geometry, no link needed', () => {
+  const anchor = pose('serpentine', 5, 400, 400, 0, 'a'); // NO link group
   const cand = legalJoinPose(
     { shape: 'serpentine', capacity: 5, x: 400, y: 400, rot: 0, scale: 1 },
     { shape: 'serpentine', capacity: 5, x: 580, y: 400, rot: 0, scale: 1 },
     200,
   )!;
-  const welded = pose('serpentine', 5, cand.x, cand.y, cand.rot, 'b', 'grp1');
-  const sameGroup = checkPlacement(welded, { others: [anchor], zones: [] }, { gapPx: 20 });
-  assert.equal(sameGroup.valid, true, 'same link group → seam exempt, no self-report at the weld');
-  const otherGroup = pose('serpentine', 5, cand.x, cand.y, cand.rot, 'b', 'grp2');
-  const cross = checkPlacement(otherGroup, { others: [anchor], zones: [] }, { gapPx: 0 });
-  assert.equal(cross.valid, false, 'different groups at a touching seam collide (legacy broken link)');
+  const connected = pose('serpentine', 5, cand.x, cand.y, cand.rot, 'b'); // NO link group
+  // Connection is positional, not a link: two independent serpentines snapped to
+  // a legal joint pass the oracle with zero violations — pure geometry.
+  const res = checkPlacement(connected, { others: [anchor], zones: [] }, { gapPx: 0 });
+  assert.equal(res.valid, true, 'ends-touching at a legal joint = valid adjacency (no link_group_id)');
+  // A serpentine merely SHOVED into the anchor mid-curve (not at a joint) collides.
+  const shoved = pose('serpentine', 5, 470, 400, 0, 'b');
+  assert.equal(
+    checkPlacement(shoved, { others: [anchor], zones: [] }, { gapPx: 0 }).valid,
+    false,
+    'a non-joint overlap is a real collision',
+  );
 });
 
 // ===========================================================================
-// Round kiss (verdict § 8)
+// Round is standalone — non-connectable (owner 2026-07-16, supersedes the
+// verdict's "round kiss"). Two rounds never form a joint; overlap always fails.
 // ===========================================================================
 
-test('round kiss: a snapped kiss clears the bodies (any angle); a shoved overlap fails', () => {
+test('round: NEVER offered a joint (no kiss); two overlapping rounds always collide', () => {
   const anchor = { shape: 'round' as const, capacity: 10, x: 500, y: 500, rot: 0, scale: 1 };
   for (const deg of [0, 37, 90, 210, 315]) {
     const rad = (deg * Math.PI) / 180;
@@ -229,13 +235,9 @@ test('round kiss: a snapped kiss clears the bodies (any angle); a shoved overlap
       rot: 0,
       scale: 1,
     };
-    const cand = legalJoinPose(anchor, mover, 400);
-    assert.ok(cand, `kiss offered at ${deg}°`);
-    const kissed = pose('round', 10, cand!.x, cand!.y, 0, 'b');
-    const res = checkPlacement(kissed, { others: [pose('round', 10, 500, 500, 0, 'a')], zones: [] }, { gapPx: 0 });
-    assert.equal(res.valid, true, `kissed pair clears bodies at ${deg}°`);
+    assert.equal(legalJoinPose(anchor, mover, 400), null, `round is non-connectable at ${deg}°`);
   }
-  // Bodies shoved together (well inside kiss distance) → overlap violation.
+  // Two rounds shoved together → overlap violation, no exemption path.
   const stacked = pose('round', 10, 560, 500, 0, 'b');
   const res = checkPlacement(stacked, { others: [pose('round', 10, 500, 500, 0, 'a')], zones: [] }, { gapPx: 0 });
   assert.equal(res.valid, false);
@@ -297,7 +299,7 @@ test('penetrationDepth: an overlapping table can move OUT (depth decreases) but 
 // layoutViolations (verdict § 6 mount audit)
 // ===========================================================================
 
-test('layoutViolations: reports overlapping pairs; exempts a GENUINE weld; a bogus same-group overlap still collides', () => {
+test('layoutViolations: overlaps flagged; a GEOMETRIC joint is exempt (no link); rounds always collide', () => {
   const geo = tableGeometry('round', 10).box;
   const clean: WorldPose[] = [
     pose('round', 10, 0, 0, 0, 'a'),
@@ -309,25 +311,25 @@ test('layoutViolations: reports overlapping pairs; exempts a GENUINE weld; a bog
     pose('round', 10, geo.w * 0.4, 0, 0, 'b'),
   ];
   assert.equal(layoutViolations(overlapping, [], 0).length, 2, 'both tables flagged');
-  // Pairwise exemption (fix 2026-07-16): membership is NOT a blanket pass. Two
-  // same-group rounds SHOVED into each other (not at a kiss) still collide —
-  // the old blanket rule hid this.
-  const bogus: WorldPose[] = [
+  // Two overlapping rounds even sharing a legacy link_group_id STILL collide —
+  // round is non-connectable, no exemption path.
+  const bogusRounds: WorldPose[] = [
     pose('round', 10, 0, 0, 0, 'a', 'g'),
     pose('round', 10, geo.w * 0.4, 0, 0, 'b', 'g'),
   ];
-  assert.equal(layoutViolations(bogus, [], 0).length, 2, 'a non-welded same-group overlap is NOT exempt');
-  // A GENUINE kiss between the same-group rounds → exempt (directly welded).
-  const kiss = legalJoinPose(
-    { shape: 'round', capacity: 10, x: 0, y: 0, rot: 0, scale: 1 },
-    { shape: 'round', capacity: 10, x: 300, y: 0, rot: 0, scale: 1 },
-    400,
+  assert.equal(layoutViolations(bogusRounds, [], 0).length, 2, 'rounds never exempt, link or not');
+  // Two INDEPENDENT serpentines snapped to a legal joint → exempt by GEOMETRY,
+  // with NO link_group_id on either.
+  const cand = legalJoinPose(
+    { shape: 'serpentine', capacity: 5, x: 0, y: 0, rot: 0, scale: 1 },
+    { shape: 'serpentine', capacity: 5, x: 180, y: 0, rot: 0, scale: 1 },
+    260,
   )!;
-  const welded: WorldPose[] = [
-    pose('round', 10, 0, 0, 0, 'a', 'g'),
-    pose('round', 10, kiss.x, kiss.y, 0, 'b', 'g'),
+  const connected: WorldPose[] = [
+    pose('serpentine', 5, 0, 0, 0, 'a'),
+    pose('serpentine', 5, cand.x, cand.y, cand.rot, 'b'),
   ];
-  assert.equal(layoutViolations(welded, [], 0).length, 0, 'a genuine kissed pair is exempt');
+  assert.equal(layoutViolations(connected, [], 0).length, 0, 'a clean geometric joint is exempt (no link)');
 });
 
 // ===========================================================================
@@ -478,13 +480,16 @@ test('legalJoinPose delegates to the existing snap generators (no divergent math
   const direct = serpentineChainSnap(drag, [{ x: 300, y: 300, rot: 0, scale: 1 }], 200);
   const viaOracle = legalJoinPose(anchor, { ...anchor, x: drag.x, y: drag.y }, 200);
   assert.deepEqual(viaOracle, direct, 'oracle join == raw serpentine snap');
-  const rDirect = roundKissSnap({ x: 470, y: 300 }, 60, [{ x: 300, y: 300, radius: 60 }], 400);
-  const rOracle = legalJoinPose(
-    { shape: 'round', capacity: 10, x: 300, y: 300, rot: 0, scale: 60 / (tableGeometry('round', 10).box.w / 2) },
-    { shape: 'round', capacity: 10, x: 470, y: 300, rot: 0, scale: 60 / (tableGeometry('round', 10).box.w / 2) },
-    400,
+  // Round is standalone → the oracle never offers it a joint.
+  assert.equal(
+    legalJoinPose(
+      { shape: 'round', capacity: 10, x: 300, y: 300, rot: 0, scale: 1 },
+      { shape: 'round', capacity: 10, x: 470, y: 300, rot: 0, scale: 1 },
+      400,
+    ),
+    null,
+    'round is non-connectable',
   );
-  assert.ok(rOracle && rDirect && Math.abs(rOracle.x - rDirect.x) < 1e-6);
 });
 
 // ===========================================================================

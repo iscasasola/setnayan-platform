@@ -1352,14 +1352,13 @@ export async function updateTableLabel(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Link two tables into ONE grouped unit: members share link_group_id +
-// link_group_label, render under the shared name, and the print pack emits ONE
-// QR sign for the unit. Linking into an existing unit merges the groups.
-// Owner-authorized 2026-06-21 ("group as one, like Keynote") to upgrade the
-// prior 2026-06-10 identity-only lock: the EDITOR now also moves and rotates a
-// linked unit as one rigid body (positions/angles still persist per-table via
-// updateTablePosition / updateTableRotation — no schema change). Seating math
-// (who sits where, capacity) stays per-table.
+// Link two tables into ONE grouped unit (shared link_group_id + label). NOTE
+// (owner 2026-07-16): the interactive editor NO LONGER calls this — tables are
+// CONNECTED by drag-snap positioning, not by linking; linking is deferred to a
+// future PR. This server action is retained (unused by the current UI) so
+// existing grouped data and the `unlinkTable` break-apart path keep working, and
+// it now enforces the connectable-set gate (round / sweetheart reject) should
+// any future caller use it. It is NOT reachable from a drag.
 export async function linkTables(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');

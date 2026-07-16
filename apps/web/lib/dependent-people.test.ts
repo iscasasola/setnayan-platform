@@ -14,6 +14,8 @@ import {
   isFenceEligible,
   handOverAge,
   shouldHandOver,
+  isClaimEligible,
+  claimBirthdateCutoff,
   isDependentSex,
   isDependentRelationship,
 } from './dependent-people';
@@ -53,6 +55,22 @@ test('shouldHandOver: everyone hands over at 18', () => {
 
 test('shouldHandOver: an elder never hands over', () => {
   assert.equal(shouldHandOver('1960-01-01', null, TODAY), false);
+});
+
+test('isClaimEligible: 18+ claims — child at 18 yes, 17 no, elder yes, no birthday no', () => {
+  assert.equal(isClaimEligible('2008-07-12', TODAY), true); // turned 18 today
+  assert.equal(isClaimEligible('2008-07-13', TODAY), false); // still 17
+  assert.equal(isClaimEligible('1960-01-01', TODAY), true); // elder — past majority day one
+  assert.equal(isClaimEligible(null, TODAY), false); // no birthday = no age proof
+});
+
+test('claimBirthdateCutoff: today − 18 years, calendar-exact', () => {
+  assert.equal(claimBirthdateCutoff('2026-07-12'), '2008-07-12');
+  // Born ON the cutoff = exactly 18 → eligible (<= comparison); a day after = 17.
+  assert.equal(isClaimEligible(claimBirthdateCutoff(TODAY), TODAY), true);
+  // Leap day clamps to Feb 28 — born Mar 1 is still 17 on the leap day, so a
+  // Mar 1 rollover would hand over a minor's profile a day early.
+  assert.equal(claimBirthdateCutoff('2028-02-29'), '2010-02-28');
 });
 
 test('validators reject unknown values', () => {

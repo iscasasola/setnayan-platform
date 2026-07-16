@@ -121,3 +121,36 @@ export function shouldHandOver(
 export function dependentNextMilestone(birthISO: string, sex: DependentSex | null | undefined, todayISO: string) {
   return nextMilestone(birthISO, (sex ?? null) as Sex, todayISO);
 }
+
+/**
+ * May this PERSON record be claimed as their own account? True at age ≥ 18 —
+ * the hand-over lock (RA 6809 age of majority). Covers both cases: a child who
+ * just turned 18 AND an elder (>50), who is past majority from day one. A
+ * person with no stored birthdate can't prove age → not claim-eligible until
+ * the guardian records the birthday.
+ */
+export function isClaimEligible(
+  birthISO: string | null | undefined,
+  todayISO: string,
+): boolean {
+  if (!birthISO) return false;
+  const birth = parseISO(birthISO);
+  const today = parseISO(todayISO);
+  if (!birth || !today) return false;
+  return yearsBetween(birth, today) >= 18;
+}
+
+/**
+ * The latest birth_date that proves age ≥ 18 on `todayISO` (today − 18 years,
+ * calendar-exact). Used as the atomic SQL age guard on claim redemption:
+ * `birth_date <= claimBirthdateCutoff(today)`.
+ */
+export function claimBirthdateCutoff(todayISO: string): string {
+  const [y = 0, m = 1, d = 1] = todayISO.split('-').map(Number);
+  // Clamp to the target month's last day (Feb 29 → Feb 28 eighteen years back).
+  // Letting Date roll Feb 29 into Mar 1 would be OVER-permissive: someone born
+  // Mar 1 is still 17 on the leap day.
+  const lastDay = new Date(Date.UTC(y - 18, m, 0)).getUTCDate();
+  const cut = new Date(Date.UTC(y - 18, m - 1, Math.min(d, lastDay)));
+  return cut.toISOString().slice(0, 10);
+}

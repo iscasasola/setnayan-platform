@@ -1,5 +1,6 @@
 'use server';
 
+import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -7,6 +8,7 @@ import { manilaToday } from '@/lib/std-views';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import {
   isFenceEligible,
+  isClaimEligible,
   isDependentSex,
   isDependentRelationship,
   isDependentKind,
@@ -187,4 +189,78 @@ export async function deleteGodparent(formData: FormData): Promise<void> {
   await supabase.from('godparents').delete().eq('godparent_id', godparentId).eq('owner_user_id', user.id);
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?removed=1');
+}
+
+/**
+ * Mint (or refresh) the single-use hand-over link for an alaga (owner-locked
+ * 2026-07-16 ownership rule). Purpose derives from the record, never the form:
+ *  - kind = 'person'  → 'claim': the person takes ownership of their own
+ *    profile. Gate: stored birth_date proves age ≥ 18 (isClaimEligible) — the
+ *    RA 6809 majority lock. No birthday on file → no link.
+ *  - kind = 'pet'|'other' → 'rehome': care transfers to another guardian.
+ * One active link per alaga (re-minting replaces it), 7-day expiry. Writes
+ * under the owner's session → RLS dependents_owner_update blocks non-owners
+ * AND already-handed-over rows.
+ */
+export async function createHandoverLink(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  if (!dependentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: row } = await supabase
+    .from('dependents')
+    .select('dependent_kind, birth_date, handed_over_at')
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id)
+    .maybeSingle();
+  if (!row || row.handed_over_at) redirect('/dashboard/people');
+
+  const isPerson = (row.dependent_kind ?? 'person') === 'person';
+  if (isPerson && !isClaimEligible(row.birth_date, manilaToday())) {
+    // Not 18 yet (or no birthday on file) — the majority lock, server-side.
+    redirect('/dashboard/people?error=not_of_age');
+  }
+
+  const token = randomBytes(24).toString('base64url');
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from('dependents')
+    .update({
+      claim_token: token,
+      claim_token_purpose: isPerson ? 'claim' : 'rehome',
+      claim_token_expires_at: expires,
+    })
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id);
+  if (error) redirect(`/dashboard/people?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
+}
+
+/** Revoke an alaga's active hand-over link. Owner-scoped via RLS. */
+export async function revokeHandoverLink(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  if (!dependentId) redirect('/dashboard/people');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await supabase
+    .from('dependents')
+    .update({ claim_token: null, claim_token_purpose: null, claim_token_expires_at: null })
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
 }

@@ -15,13 +15,17 @@ import { isTrueNameTier } from '@/lib/vendor-tier-caps';
  * the collab + gates the outreach with a token; the discount settles off-platform.
  *
  * REUSE, DON'T FORK: the token spend is the EXISTING per-voucher burn
- * (consume_vendor_assets_per_voucher / consume_member_purchased_tokens) fronted
- * by the SAME hold-and-release shape as fake-inquiry protection. The SQL lives in
- * migration 20270817214733; this module is the thin seam over its RPCs:
- *   • offer_creator_reach_hold      — send (HOLD a reach token)
- *   • respond_creator_offer         — accept/decline (CONSUME the held token)
+ * (consume_vendor_assets_per_voucher / consume_member_purchased_tokens).
+ * ESCROW AT SEND (migration 20270819350491, closing the readiness-council B1–B3
+ * money bugs; supersedes the soft-hold in 20270817214733): the send DEBITS the
+ * reach token up front; accept AND decline merely SETTLE the already-spent
+ * token (a "no" still costs the vendor the outreach — owner lock); only an
+ * unanswered offer past expires_at is REFUNDED (credited back as purchased
+ * tokens) by the sweep. This module is the thin seam over the RPCs:
+ *   • offer_creator_reach_hold      — send (DEBIT/escrow a reach token)
+ *   • respond_creator_offer         — accept/decline (settle; OFFER_EXPIRED past window)
  *   • link_creator_offer_deliverable— attach the crediting chapter later
- *   • sweep_expired_creator_offers  — release unanswered offers (refund)
+ *   • sweep_expired_creator_offers  — expire unanswered offers + REFUND the escrow
  *
  * The client is untyped (no generated Database generic), so `.from()` / `.rpc()`
  * on the new names typecheck as loose queries; we cast returned rows to the
@@ -49,6 +53,8 @@ export type VendorSentOffer = {
   creatorRateTerms: string;
   audienceRateTerms: string | null;
   status: OfferStatus;
+  /** Reach tokens CHARGED at send (escrow-at-send). Refunded as purchased
+   *  tokens if the offer expires unanswered; kept on accept AND decline. */
   tokensHeld: number;
   createdAt: string;
   respondedAt: string | null;
@@ -316,10 +322,12 @@ export async function fetchCreatorInfluence(
 }
 
 // ---------------------------------------------------------------------------
-// Cron-free expiry sweep — release every offer still 'pending' past its window
-// (refund the reservation; no debit ever happened). Mirrors
-// maybeSweepGhostedLeadHolds: a cheap in-memory pre-throttle + a durable daily
-// compare-and-swap on platform_settings so any vendor's visit sweeps the fleet.
+// Cron-free expiry sweep — flip every offer still 'pending' past its window to
+// 'expired' AND REFUND the escrowed reach tokens (credited back as purchased/
+// non-expiring tokens to whoever paid; exactly-once via refunded_at + the row
+// lock inside the RPC). Mirrors maybeSweepGhostedLeadHolds: a cheap in-memory
+// pre-throttle + a durable daily compare-and-swap on platform_settings so any
+// vendor's visit sweeps the fleet.
 // ---------------------------------------------------------------------------
 export async function sweepExpiredCreatorOffers(): Promise<number> {
   const admin = createAdminClient();

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import {
@@ -71,7 +72,7 @@ const resolveProfile = cache(async function resolveProfile(userSlugRaw: string) 
   const admin = createAdminClient();
   const { data: user } = await admin
     .from('users')
-    .select('user_id, display_name, slug')
+    .select('user_id, display_name, slug, public_profile_enabled')
     .ilike('slug', userSlug)
     .maybeSingle();
   if (!user) return null;
@@ -83,37 +84,13 @@ const resolveProfile = cache(async function resolveProfile(userSlugRaw: string) 
     .eq('user_id', user.user_id)
     .eq('member_type', 'couple');
   const eventIds = (memberships ?? []).map((m) => m.event_id as string);
-  if (eventIds.length === 0) return { user, events: [] as ProfileEvent[] };
+  const { data: events } =
+    eventIds.length === 0
+      ? { data: [] }
+      : await admin.from('events').select(EVENT_FIELDS).in('event_id', eventIds);
 
-  const { data: events } = await admin
-    .from('events')
-    .select(EVENT_FIELDS)
-    .in('event_id', eventIds);
-
-  return { user, events: (events ?? []) as ProfileEvent[] };
-});
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { userSlug } = await params;
-  const resolved = await resolveProfile(userSlug);
-  const name = resolved?.user.display_name?.trim() || 'Setnayan';
-  return {
-    title: `${name} · Setnayan`,
-    // Aggregation surface — the individual event pages carry the real SEO. Keep
-    // this out of the index to avoid thin-content duplication.
-    robots: { index: false, follow: true },
-  };
-}
-
-export default async function AccountProfilePage({ params }: Props) {
-  const { userSlug } = await params;
-  const resolved = await resolveProfile(userSlug);
-  if (!resolved) notFound();
-
-  const { user, events } = resolved;
-  const canonicalSlug = (user.slug as string | null) ?? userSlug;
-
-  const withSlug = events.filter((e): e is ProfileEvent & { slug: string } => !!e.slug);
+  const all = (events ?? []) as ProfileEvent[];
+  const withSlug = all.filter((e): e is ProfileEvent & { slug: string } => !!e.slug);
 
   // Mirror the /[slug] target's second gate: only event types whose profile
   // enables the public 'website' surface actually render there. Resolve once
@@ -124,26 +101,99 @@ export default async function AccountProfilePage({ params }: Props) {
     const profile = await resolveEventTypeProfile(et);
     websiteByType.set(et, surfaceEnabled(profile, 'website'));
   }
-  const hasWebsite = (e: ProfileEvent) => websiteByType.get(e.event_type ?? '') ?? false;
-
   const isPublicWebsite = (e: ProfileEvent) =>
-    resolveEffectiveVisibility(e) === 'public' && hasWebsite(e);
+    resolveEffectiveVisibility(e) === 'public' &&
+    (websiteByType.get(e.event_type ?? '') ?? false);
 
-  const ongoing = withSlug.filter((e) => !e.archived && isPublicWebsite(e));
+  // The single list of events this profile is ever allowed to surface — the
+  // effectively-public + website-enabled ones. Computed here so the page body
+  // AND generateMetadata agree on "has ≥1 public chapter" without recomputing.
+  const publicWebsiteEvents = withSlug.filter(isPublicWebsite);
 
-  // 1 ongoing → jump straight in.
-  if (ongoing.length === 1) {
+  return { user, publicWebsiteEvents };
+});
+
+// Owner-preview probe. Only ever called on the DORMANT path (profile disabled),
+// so the common enabled+public render never reads cookies and stays cacheable
+// under `revalidate`. The signed-in holder may preview their own hidden shell;
+// everyone else 404s.
+async function isSignedInHolder(ownerUserId: string): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return !!user && user.id === ownerUserId;
+  } catch {
+    return false;
+  }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { userSlug } = await params;
+  const resolved = await resolveProfile(userSlug);
+
+  // Neutral, name-free metadata unless the profile is BOTH opted-in AND has at
+  // least one public chapter. This keeps the account holder's real name out of
+  // the <title> for any enumerable slug (the name/existence oracle) and honors
+  // the noindex-unless-published rule.
+  const enabled = resolved?.user.public_profile_enabled === true;
+  const hasPublic = (resolved?.publicWebsiteEvents.length ?? 0) > 0;
+  if (!resolved || !enabled || !hasPublic) {
+    return {
+      title: 'Setnayan',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const name = resolved.user.display_name?.trim() || 'Setnayan';
+  return {
+    title: `${name} · Setnayan`,
+    // Aggregation surface — the individual event pages carry the real SEO. Keep
+    // this out of the index to avoid thin-content duplication, but allow follow
+    // so the (public) chapter links are crawled.
+    robots: { index: false, follow: true },
+  };
+}
+
+export default async function AccountProfilePage({ params }: Props) {
+  const { userSlug } = await params;
+  const resolved = await resolveProfile(userSlug);
+  if (!resolved) notFound();
+
+  const { user, publicWebsiteEvents } = resolved;
+  const canonicalSlug = (user.slug as string | null) ?? userSlug;
+
+  // #7b — per-account public/hidden gate. DORMANT by default: while the account
+  // hasn't opted in, the /u shell 404s for strangers so it's neither a public
+  // page nor a name/existence oracle. Only the signed-in holder may preview
+  // their own hidden shell (this is the ONLY branch that reads auth, so the
+  // opted-in public render stays cacheable under `revalidate`).
+  const enabled = user.public_profile_enabled === true;
+  const isOwnerPreview = enabled ? false : await isSignedInHolder(user.user_id);
+  if (!enabled && !isOwnerPreview) notFound();
+
+  const ongoing = publicWebsiteEvents.filter((e) => !e.archived);
+
+  // 1 ongoing → jump straight in (skip for the owner previewing their own
+  // hidden shell so they actually see the profile page they're checking).
+  if (ongoing.length === 1 && !isOwnerPreview) {
     redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
   }
 
-  const displayName = user.display_name?.trim() || 'Their celebrations';
-
-  // 0 ongoing → the couple's published stories (past public celebrations).
-  const editorials = ongoing.length === 0 ? withSlug.filter(isPublicWebsite) : [];
-
-  const listed = ongoing.length >= 2 ? ongoing : editorials;
+  // ongoing≥2 → the celebrations gallery; ongoing 0 → published stories (past
+  // public celebrations, incl. archived); the single-ongoing case only reaches
+  // here for the owner preview, where we still list it rather than redirect.
+  const listed = ongoing.length >= 2 ? ongoing : publicWebsiteEvents;
   const mode: 'gallery' | 'stories' | 'empty' =
     ongoing.length >= 2 ? 'gallery' : listed.length > 0 ? 'stories' : 'empty';
+
+  // Name-oracle fix: only surface the holder's real display_name when there is
+  // public published content (gallery/stories) — never on the empty state,
+  // where printing it would confirm "this slug exists and belongs to <name>".
+  const hasPublicContent = mode !== 'empty';
+  const displayName = user.display_name?.trim() || 'Celebrations';
+  const heading = hasPublicContent ? displayName : 'A Setnayan profile';
 
   const subtitle =
     mode === 'gallery'
@@ -157,8 +207,14 @@ export default async function AccountProfilePage({ params }: Props) {
       <style>{UPROF_CSS}</style>
 
       <div className="uprof-inner">
+        {isOwnerPreview ? (
+          <div className="uprof-preview" role="status">
+            Preview · your public profile is <strong>hidden</strong>. Turn it on in
+            Profile &amp; settings → URL &amp; handle to share it.
+          </div>
+        ) : null}
         <header className="uprof-head">
-          <h1 className="m-serif uprof-name">{displayName}</h1>
+          <h1 className="m-serif uprof-name">{heading}</h1>
           <span aria-hidden className="uprof-rule" />
           {subtitle ? <p className="uprof-sub">{subtitle}</p> : null}
         </header>
@@ -205,9 +261,9 @@ export default async function AccountProfilePage({ params }: Props) {
           </ul>
         ) : (
           <div className="uprof-empty">
-            <p className="uprof-empty-title">No public celebrations yet</p>
+            <p className="uprof-empty-title">Nothing public to show yet</p>
             <p className="uprof-empty-sub">
-              When {displayName.split(' ')[0]} launches an invitation, it will appear here.
+              When a celebration is published, it will appear here.
             </p>
           </div>
         )}
@@ -233,6 +289,17 @@ const UPROF_CSS = `
     padding: clamp(3rem, 9vw, 6rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
   }
   .uprof-inner { width: 100%; max-width: 760px; }
+
+  .uprof-preview {
+    margin: 0 0 1.5rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-md, 14px);
+    background: var(--m-ivory, #EDEAE0);
+    color: var(--m-slate, #4F535B);
+    font-size: 0.85rem;
+    text-align: center;
+  }
 
   .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
   .uprof-name {

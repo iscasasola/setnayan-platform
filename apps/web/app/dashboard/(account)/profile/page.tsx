@@ -38,7 +38,9 @@ import {
   updateLocalePreference,
   updatePersonalInfo,
   updatePlannerMode,
+  updatePublicProfileEnabled,
   updateRemindersEnabled,
+  updateUserSlug,
 } from './actions';
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import {
@@ -66,6 +68,9 @@ type Props = {
     deletion_requested?: string;
     deletion_cancelled?: string;
     face_forgotten?: string;
+    slug_saved?: string;
+    slug_error?: string;
+    public_profile_saved?: string;
   }>;
 };
 
@@ -101,7 +106,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, slug, public_profile_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -146,6 +151,16 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
+
+  // Public account handle (#7a/#7b). `slug` is backfilled for every account;
+  // `public_profile_enabled` gates whether /u/[slug] is reachable by strangers
+  // at all (dormant/off by default). The host is derived from the deploy URL so
+  // the preview matches production (falls back to the canonical apex).
+  const currentSlug = (profile?.slug ?? null) as string | null;
+  const publicProfileOn = (profile?.public_profile_enabled ?? false) as boolean;
+  const publicHost = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
+    .replace(/\/+$/, '')
+    .replace(/^https?:\/\//, '');
   // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
   // UI exposes EN/TL only; anything else falls back to EN in the toggle.
   const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
@@ -270,6 +285,15 @@ export default async function ProfilePage({ searchParams }: Props) {
         <FormFlash tone="success">
           Done — your face profile has been forgotten.
         </FormFlash>
+      ) : null}
+      {search.slug_saved ? (
+        <FormFlash tone="success">Your public handle has been updated.</FormFlash>
+      ) : null}
+      {search.slug_error ? (
+        <FormFlash tone="error">{decodeURIComponent(search.slug_error)}</FormFlash>
+      ) : null}
+      {search.public_profile_saved ? (
+        <FormFlash tone="success">Public profile setting saved.</FormFlash>
       ) : null}
 
       {/* Personal info */}
@@ -642,6 +666,122 @@ export default async function ProfilePage({ searchParams }: Props) {
           })}
         </div>
       </section>
+
+      {/* URL & Slug — public handle editor (#7a) + public-profile gate (#7b).
+          The handle is a public identifier derived from the account name, so
+          RA-10173 requires it be user-controllable; the toggle keeps the /u
+          showcase dormant until the owner opts in. Hidden for anon drafts —
+          they have no durable public identity to publish. */}
+      {isAnon ? null : (
+        <section id="url-slug" className="mt-10 space-y-4 scroll-mt-24">
+          <div className="space-y-1">
+            <h2 className="sn-sec">URL &amp; handle</h2>
+            <p className="text-sm text-ink/60">
+              Your public profile lives at{' '}
+              <span className="font-mono text-ink/80">
+                {publicHost}/u/{currentSlug ?? 'your-handle'}
+              </span>
+              . Change the handle any time — the old link keeps redirecting for
+              90 days.
+            </p>
+          </div>
+
+          <form action={updateUserSlug} className="sn-tile space-y-3">
+            <Field
+              label="Handle"
+              htmlFor="slug"
+              help="3–32 characters · lowercase letters, numbers, and hyphens only."
+            >
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 font-mono text-xs text-ink/50">
+                  {publicHost}/u/
+                </span>
+                <input
+                  id="slug"
+                  name="slug"
+                  maxLength={32}
+                  defaultValue={currentSlug ?? ''}
+                  placeholder="your-handle"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="input-field font-mono"
+                />
+              </div>
+            </Field>
+            <SubmitButton
+              className="button-secondary inline-flex items-center gap-2"
+              pendingLabel="Saving…"
+            >
+              Save handle
+            </SubmitButton>
+          </form>
+
+          <div className="space-y-1 pt-2">
+            <h3 className="text-sm font-semibold text-ink">Public profile page</h3>
+            <p className="text-sm text-ink/60">
+              A public profile turns{' '}
+              <span className="font-mono text-ink/80">{publicHost}/u/{currentSlug ?? 'your-handle'}</span>{' '}
+              into a shareable showcase of the celebrations you&rsquo;ve made
+              public. It&rsquo;s <span className="font-medium">off by default</span> — while
+              off, the page is hidden from everyone but you, and never appears in
+              search. This is separate from each event&rsquo;s own privacy setting;
+              your profile only ever lists events you&rsquo;ve already made public.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(
+              [
+                {
+                  key: 'false' as const,
+                  label: 'Off',
+                  tagline: 'Hidden · only you can see it · not in search',
+                },
+                {
+                  key: 'true' as const,
+                  label: 'On',
+                  tagline: 'Anyone with the link can view your public celebrations',
+                },
+              ]
+            ).map((opt) => {
+              const isActive = (opt.key === 'true') === publicProfileOn;
+              return (
+                <form key={opt.key} action={updatePublicProfileEnabled}>
+                  <input type="hidden" name="public_profile_enabled" value={opt.key} />
+                  <button
+                    type="submit"
+                    disabled={isActive}
+                    className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                      isActive
+                        ? 'border-terracotta bg-terracotta/5'
+                        : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                      {isActive ? (
+                        <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                          Active
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-ink/55">{opt.tagline}</span>
+                  </button>
+                </form>
+              );
+            })}
+          </div>
+          {publicProfileOn && currentSlug ? (
+            <Link
+              href={`/u/${currentSlug}`}
+              className="sn-chip sn-press w-fit"
+              prefetch={false}
+            >
+              Preview your public profile
+            </Link>
+          ) : null}
+        </section>
+      )}
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">

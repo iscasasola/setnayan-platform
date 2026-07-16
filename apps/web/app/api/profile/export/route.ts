@@ -42,6 +42,7 @@ export async function GET() {
     faceEnrollmentsRes,
     dependentsRes,
     godparentsRes,
+    communityMembershipsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -134,6 +135,14 @@ export async function GET() {
       .from('godparents')
       .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-17) — samahan memberships: the group's user-chosen
+    // name, the subject's role, and when they joined. No kind/category exists
+    // by design (owner 2026-07-17 — the platform never classifies groups).
+    supabase
+      .from('community_members')
+      .select('role, joined_at, communities(public_id, name)')
+      .eq('user_id', user.id)
+      .order('joined_at', { ascending: true }),
   ]);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
@@ -223,6 +232,8 @@ export async function GET() {
     // and handed-over history) + godparent edges. Consent stamps included.
     alaga_dependents: dependentsRes.data ?? [],
     alaga_godparents: godparentsRes.data ?? [],
+    // Samahan memberships — group name (user-chosen), role, joined_at.
+    samahan_memberships: communityMembershipsRes.data ?? [],
     not_included: [
       'audit_log (API access — no user-scoped access-log table in V1)',
       'face_vector embeddings (biometric raw data — metadata only is exported)',

@@ -3,11 +3,7 @@ import { UsersRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
-import {
-  fetchUserCommunities,
-  fetchSamahanSecondDegree,
-  COMMUNITY_KIND_LABEL,
-} from '@/lib/communities';
+import { fetchUserCommunities, fetchSamahanSecondDegree } from '@/lib/communities';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { proposeSamahanConnection } from '../actions';
 
@@ -44,8 +40,8 @@ export async function SamahanPeopleSection() {
           Samahan
         </h2>
         <p className="mt-1 text-sm text-ink/55">
-          The groups you belong to — barkada, parish, clan, org. The group itself is part of
-          your first degree; the people inside it are your second.
+          The groups you belong to — named by you, whatever they are. The group itself is part
+          of your first degree; the people inside it are your second.
         </p>
       </header>
 
@@ -61,9 +57,8 @@ export async function SamahanPeopleSection() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-ink">{c.name}</p>
                   <p className="truncate text-xs text-ink/55">
-                    {COMMUNITY_KIND_LABEL[c.kind]}
-                    {c.role === 'organizer' ? ' · organizer' : ''}
-                    {` · ${c.member_count} ${c.member_count === 1 ? 'member' : 'members'}`}
+                    {c.role === 'organizer' ? 'Organizer · ' : ''}
+                    {`${c.member_count} ${c.member_count === 1 ? 'member' : 'members'}`}
                   </p>
                 </div>
               </Link>
@@ -76,7 +71,7 @@ export async function SamahanPeopleSection() {
           <Link href="/dashboard/samahan/new" className="font-medium underline underline-offset-2 hover:text-ink">
             Create one
           </Link>{' '}
-          for your barkada, parish, or clan.
+          and name it whatever your group calls itself.
         </p>
       )}
 

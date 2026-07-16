@@ -6,8 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   generateCommunityInviteToken,
-  isCommunityKind,
-  type CommunityRole,
+    type CommunityRole,
 } from '@/lib/communities';
 
 // Samahan (Communities) — server actions for the minimal cut (PR-2 of 4).
@@ -56,14 +55,10 @@ async function fetchMemberCounts(
 
 export async function createCommunity(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim();
-  const kindRaw = String(formData.get('kind') ?? 'barkada');
   const description = String(formData.get('description') ?? '').trim();
 
   if (name.length < 2 || name.length > 80) {
     redirect('/dashboard/samahan/new?error=missing_name');
-  }
-  if (!isCommunityKind(kindRaw)) {
-    redirect('/dashboard/samahan/new?error=invalid_kind');
   }
   if (description.length > 280) {
     redirect('/dashboard/samahan/new?error=description_too_long');
@@ -85,7 +80,6 @@ export async function createCommunity(formData: FormData) {
     .from('communities')
     .insert({
       name,
-      kind: kindRaw,
       description: description || null,
       created_by: user.id,
     })

@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchPendingCommunityInvite,
-  COMMUNITY_KIND_LABEL,
 } from '@/lib/communities';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { acceptCommunityInvite } from './actions';
@@ -15,7 +14,7 @@ export const metadata = {
 };
 
 // Public samahan-invite accept page (plan §6) — mirrors /host/accept/[token].
-// Pre-join, the page shows name + kind + member COUNT only — never member
+// Pre-join, the page shows name + member COUNT only — never member
 // names (plan §9 no-roster-scraping rule). The token IS the secret, so the
 // lookup runs on the admin client (fetchPendingHostInvite precedent).
 
@@ -88,8 +87,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
     return (
       <Shell>
         <InviteHeader
-          kind={COMMUNITY_KIND_LABEL[invite.kind]}
-          memberCount={invite.member_count}
+                    memberCount={invite.member_count}
           name={invite.name}
         />
         <p className="text-center text-sm text-ink/65">
@@ -137,8 +135,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
   return (
     <Shell>
       <InviteHeader
-        kind={COMMUNITY_KIND_LABEL[invite.kind]}
-        memberCount={invite.member_count}
+                memberCount={invite.member_count}
         name={invite.name}
       />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -164,11 +161,9 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
 }
 
 function InviteHeader({
-  kind,
   memberCount,
   name,
 }: {
-  kind: string;
   memberCount: number;
   name: string;
 }) {
@@ -182,7 +177,7 @@ function InviteHeader({
         Join {name}?
       </h1>
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
-        {kind} · {memberCount} {memberCount === 1 ? 'member' : 'members'}
+        {memberCount} {memberCount === 1 ? 'member' : 'members'}
       </p>
     </header>
   );

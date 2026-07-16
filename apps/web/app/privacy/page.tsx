@@ -307,6 +307,20 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Samahan (groups)">
+          <p>
+            You can create or join a <em>samahan</em> — a group you and your people name
+            yourselves (a barkada, a clan, an org, anything). For each samahan we store
+            only the group&rsquo;s chosen name, an optional description, your role
+            (organizer or member), and when you joined. <strong>We do not classify or
+            categorize groups</strong> — the name is yours, and we attach no type,
+            affiliation, or category to it. Your display name is visible to fellow
+            members of the same samahan (that&rsquo;s what a group is), and never to
+            anyone outside it. Your memberships are included in your data export and are
+            removed when you leave a group or delete your account.
+          </p>
+        </Section>
+
         <Section title="What we do not collect">
           <ul className="ml-5 list-disc space-y-1">
             <li>Precise location for advertising, profiling, or cross-site tracking (photo/clip GPS is described above and stripped from outbound shares)</li>

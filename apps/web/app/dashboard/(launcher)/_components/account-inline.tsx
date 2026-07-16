@@ -82,7 +82,7 @@ export function PeopleInline() {
         <Facet
           icon={UsersRound}
           title="Samahan"
-          body="Your groups — barkada, parish, clan. Their members are your second degree."
+          body="Your groups — you name them. Their members are your second degree."
         />
       </div>
       {!live ? (

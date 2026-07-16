@@ -85,8 +85,15 @@ export default async function YearPage() {
   if (dependentPeopleEnabled()) {
     const { data: deps } = await supabase
       .from('dependents')
-      .select('dependent_id, name, birth_date, sex, religion');
-    const rows = (deps ?? []) as (DependentForMoments & { religion: string | null })[];
+      .select('dependent_id, name, birth_date, sex, religion, claimed_user_id');
+    // Exclude the row I CLAIMED as my own profile (post hand-over, owner =
+    // claimant) — my own debut isn't an "alaga moment". A former guardian's
+    // read-only history rows still nudge (their kid's birthday is still theirs
+    // to celebrate).
+    const rows = ((deps ?? []) as (DependentForMoments & {
+      religion: string | null;
+      claimed_user_id: string | null;
+    })[]).filter((d) => d.claimed_user_id !== user.id);
     dependentMoments = [
       ...buildDependentMoments(rows as DependentForMoments[], today),
       ...buildDependentRiteMoments(rows as DependentForRites[], today),

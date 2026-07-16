@@ -16,37 +16,17 @@ import {
 // typed rows, admin client ONLY where RLS is deliberately in the way
 // (cross-user display names + public token redemption).
 
-export type CommunityKind = 'barkada' | 'parish' | 'clan' | 'org' | 'other';
+// Kind taxonomy REMOVED (owner 2026-07-17: "there is no specific samahan —
+// they just name the group"). A samahan is only a user-chosen name; the app
+// never classifies it. Privacy by design: no structured affiliation field
+// (the old 'parish' kind read as a religious-affiliation signal, RA 10173
+// §3(l)-adjacent). Migration 20270819300000 drops the column.
 export type CommunityRole = 'organizer' | 'member';
-
-export const COMMUNITY_KINDS: readonly CommunityKind[] = [
-  'barkada',
-  'parish',
-  'clan',
-  'org',
-  'other',
-] as const;
-
-export const COMMUNITY_KIND_LABEL: Readonly<Record<CommunityKind, string>> = {
-  barkada: 'Barkada',
-  parish: 'Parish',
-  clan: 'Clan',
-  org: 'Org',
-  other: 'Other',
-};
-
-export function isCommunityKind(value: unknown): value is CommunityKind {
-  return (
-    typeof value === 'string' &&
-    (COMMUNITY_KINDS as readonly string[]).includes(value)
-  );
-}
 
 export type CommunityRow = {
   community_id: string;
   public_id: string;
   name: string;
-  kind: CommunityKind;
   description: string | null;
   archived: boolean;
   created_at: string;
@@ -100,7 +80,7 @@ export const fetchUserCommunities = cache(
       .select(
         `role,
          communities:community_id (
-           community_id, public_id, name, kind, description, archived, created_at
+           community_id, public_id, name, description, archived, created_at
          )`,
       )
       .eq('user_id', userId);
@@ -175,7 +155,7 @@ export async function fetchCommunity(
       supabase
         .from('communities')
         .select(
-          'community_id, public_id, name, kind, description, archived, created_at',
+          'community_id, public_id, name, description, archived, created_at',
         )
         .eq('community_id', communityId)
         .maybeSingle(),
@@ -362,7 +342,6 @@ export function generateCommunityInviteToken(): string {
 export type PendingCommunityInvite = {
   community_id: string;
   name: string;
-  kind: CommunityKind;
   member_count: number;
 };
 
@@ -372,8 +351,8 @@ export type CommunityInviteResolution =
 
 /**
  * Resolve a public invite token (admin client — the token IS the secret;
- * fetchPendingHostInvite precedent). Pre-join the page may show name + kind +
- * member COUNT only — never member names (plan §9 no-roster-scraping rule).
+ * fetchPendingHostInvite precedent). Pre-join the page may show name + member
+ * COUNT only — never member names (plan §9 no-roster-scraping rule).
  */
 export async function fetchPendingCommunityInvite(
   admin: SupabaseClient,
@@ -400,7 +379,7 @@ export async function fetchPendingCommunityInvite(
   const [{ data: community }, { count }] = await Promise.all([
     admin
       .from('communities')
-      .select('community_id, name, kind, archived')
+      .select('community_id, name, archived')
       .eq('community_id', row.community_id)
       .maybeSingle(),
     admin
@@ -412,7 +391,6 @@ export async function fetchPendingCommunityInvite(
   const c = community as {
     community_id: string;
     name: string;
-    kind: CommunityKind;
     archived: boolean;
   };
   if (c.archived) return { status: 'archived' };
@@ -422,7 +400,6 @@ export async function fetchPendingCommunityInvite(
     invite: {
       community_id: c.community_id,
       name: c.name,
-      kind: c.kind,
       member_count: count ?? 0,
     },
   };

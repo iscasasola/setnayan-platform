@@ -10,6 +10,8 @@ import {
   fetchThreadById,
 } from '@/lib/chat';
 import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
+import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
+import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
 import { isInquiryRevealed, inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
@@ -283,6 +285,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       ? await fetchLeadTrustActivePlanner(supabase, profile.vendor_profile_id, thread.event_id)
       : false;
 
+  // Founder-seat inquiry — the explicit, server-asserted founder signal
+  // (owner-locked 2026-07-16). Read from the founder_seats definer helper only
+  // (never profile text — impersonation guard), shown pre- AND post-accept: the
+  // vendor must know they're serving the people who built the app, and that
+  // accepting was/is token-free. Unlike the trust badge this is NOT flag-gated —
+  // pre-migration the RPC gracefully degrades to false.
+  const founderInquiry = await eventHostHoldsFounderSeat(supabase, thread.event_id);
+
   const headerPax = livePax ?? thread.pax_current;
   // paxProposals depends on livePax, so it's the one query that follows the batch.
   const paxProposals = await fetchVendorPaxProposals(paxAdmin, {
@@ -365,7 +375,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           >
             ‹ Messages
           </Link>
-          <p className="truncate text-base font-semibold text-ink">{headerLabel}</p>
+          <p className="truncate text-base font-semibold text-ink">
+            {headerLabel}
+            {founderInquiry ? (
+              <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                {FOUNDER_BADGE_LABEL}
+              </span>
+            ) : null}
+          </p>
           {event?.event_date ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {event.event_date}
@@ -586,6 +603,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 Active planner
               </span>
               An engaged couple who&rsquo;s already deep in planning.
+            </p>
+          ) : null}
+          {/* Founder-seat signal — server-asserted (founder_seats definer helper),
+              never profile-editable. The one badge that must be unmistakable:
+              this is the founders needing service, not a test or fake inquiry —
+              and accepting costs the vendor nothing. */}
+          {founderInquiry ? (
+            <p className="text-sm text-ink">
+              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                {FOUNDER_BADGE_LABEL}
+              </span>
+              {FOUNDER_INQUIRY_NOTE}
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">

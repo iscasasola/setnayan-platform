@@ -12,6 +12,11 @@ import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
+import {
+  FOUNDER_INQUIRY_NOTIFICATION_TITLE,
+  FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
+} from '@/lib/founder-seats';
 import {
   leadTokenHoldEnabled,
   acceptInquiryViaHold,
@@ -165,6 +170,14 @@ export async function notifyOtherParty(args: {
         args.eventId,
         args.vendorProfileId,
       );
+      // Founder-seat inquiry (owner-locked 2026-07-16): the vendor must get an
+      // EXPLICIT signal that this is a founder of the app needing service —
+      // and that accepting is token-free. Server-asserted (founder_seats
+      // definer helper via the admin client), so it survives the
+      // anonymization-until-accept pass below: the founder signal is the one
+      // identity fact the owner WANTS revealed pre-accept. Takes precedence
+      // over the returning-client copy when both apply.
+      const founderSeat = await eventHostHoldsFounderSeat(admin, args.eventId);
       // Anonymization-until-accept (Glass PR-6b · spec 2026-07-15): a first
       // couple→vendor message is a PRE-accept inquiry, so the notification (and
       // the email it triggers via emitNotification's allowlist) must NOT carry
@@ -178,12 +191,16 @@ export async function notifyOtherParty(args: {
       await emitNotification({
         userId: vendorRes.data.user_id,
         type: 'vendor_inquiry_received',
-        title: priorLocked
-          ? 'New booking inquiry — a returning client'
-          : 'New booking inquiry',
-        body: priorLocked
-          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
-          : args.body.slice(0, 200),
+        title: founderSeat
+          ? FOUNDER_INQUIRY_NOTIFICATION_TITLE
+          : priorLocked
+            ? 'New booking inquiry — a returning client'
+            : 'New booking inquiry',
+        body: founderSeat
+          ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
+          : priorLocked
+            ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+            : args.body.slice(0, 200),
         relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
       });
       return;

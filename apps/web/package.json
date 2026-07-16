@@ -24,6 +24,7 @@
     "host:face-models": "node scripts/host-face-models.mjs",
     "capture:demos": "node scripts/capture-demo-videos.mjs",
     "test:unit": "tsx --test \"lib/**/*.test.ts\"",
+    "test:component": "node --experimental-test-module-mocks --import tsx \"app/dashboard/[eventId]/seating/_components/seating-editor-delete.crash.test.mts\"",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },
@@ -78,6 +79,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@testing-library/dom": "10",
+    "@testing-library/react": "16",
     "@types/archiver": "^6.0.3",
     "@types/node": "^22.10.0",
     "@types/qrcode": "^1.5.6",
@@ -88,6 +91,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",
+    "jsdom": "25",
     "music-tempo": "^1.0.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",

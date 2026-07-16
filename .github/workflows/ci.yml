@@ -32,6 +32,9 @@ jobs:
       - name: Unit tests
         run: pnpm --filter @setnayan/web test:unit
 
+      - name: Component regression tests (jsdom)
+        run: pnpm --filter @setnayan/web test:component
+
   build:
     name: production build
     runs-on: ubuntu-latest

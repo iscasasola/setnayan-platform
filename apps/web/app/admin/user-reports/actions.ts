@@ -69,6 +69,16 @@ export async function resolveReport(formData: FormData) {
 
   // Side effects for the content-action lanes. Both target the reported photo
   // capture; a 'user' target means the target_id IS the guest id.
+  //
+  // 'chapter' targets (Storytellers council verdict 2026-07-16 · Phase S0):
+  // today they resolve via escalate/dismiss only (the queue UI offers no Hide
+  // for them — a chapter has no hidden_at, and unpublishing a creator's own
+  // page is an escalation call, not a one-click). PHASE S1 SEAM — once
+  // creator_chapters gains showcase_featured_at / showcase_feature_rank, the
+  // hide resolution for target_type='chapter' must ATOMICALLY clear
+  // showcase_featured_at (by public_id = report.target_id) in this same action
+  // so a hidden chapter can never ride out the ISR window on /realstories.
+  // Do NOT add those columns before S1.
   if (action === 'hide' && report.target_type === 'photo') {
     await admin
       .from('papic_guest_captures')

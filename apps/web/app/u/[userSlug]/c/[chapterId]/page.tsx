@@ -12,6 +12,8 @@ import { formatAudienceCount } from '@/lib/creator-audience';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components/chapter-embed-frame';
+import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { ReportPageButton } from '@/app/_components/report-page-button';
 
 // Creator "Adventure Chapter" — PUBLIC chapter detail (CP-3 / CP-4).
 //
@@ -215,6 +217,25 @@ export default async function ChapterDetailPage({ params }: Props) {
           </section>
         ) : null}
 
+        {/* Share doorway + report path (Storytellers council verdict
+            2026-07-16, Phase S0 safety floor). This whole page is the PUBLIC
+            branch — resolve() notFound()s anything unpublished or on a
+            non-public profile — so these never render on a private surface.
+            Kept as quiet chrome below the substrate, out of the chapter's own
+            aesthetic. */}
+        <div className="uchap-actions">
+          <ShareButtons
+            url={`${SITE_URL}/u/${canonicalSlug}/c/${chapter.public_id}`}
+            title={`${chapter.title} · ${creatorName}`}
+            image={`${SITE_URL}/api/og/u/${canonicalSlug}`}
+          />
+          <ReportPageButton
+            targetType="chapter"
+            targetId={chapter.public_id}
+            className="inline-flex"
+          />
+        </div>
+
         <footer className="uchap-foot">
           <a href="https://www.setnayan.com" className="uchap-foot-link">
             Made with Setnayan
@@ -393,6 +414,17 @@ const UCHAP_CSS = `
     transform: translateX(3px);
     color: var(--m-orange, #A9834B);
     opacity: 1;
+  }
+
+  .uchap-actions {
+    margin-top: clamp(2rem, 5vw, 3rem);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--m-line, #E2DED4);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
   }
 
   .uchap-foot { margin-top: clamp(2.5rem, 7vw, 4rem); text-align: center; }

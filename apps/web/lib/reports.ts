@@ -10,9 +10,12 @@ import { createClient } from '@/lib/supabase/server';
  * 20261108000000), where it resolves at /admin/user-reports alongside every
  * other report — no second moderation surface (solo-op red line).
  *
- * Public-page targets (added by migration 20270812329751):
+ * Public-page targets (migrations 20270812329751 + 20270817834616):
  *   • 'event'         — a public invitation page /[slug]; target_id = events.event_id
  *   • 'user_profile'  — a public profile page /u/[slug]; target_id = users.user_id
+ *   • 'chapter'       — a creator chapter page /u/[slug]/c/[public_id];
+ *                       target_id = creator_chapters.public_id (S89C-…).
+ *                       Storytellers council verdict 2026-07-16, Phase S0.
  *
  * The reporter is a public visitor who may be signed OUT (an invitation page is
  * public), so this runs server-side with the service-role client rather than
@@ -32,9 +35,9 @@ const REASONS = [
 ] as const;
 type Reason = (typeof REASONS)[number];
 
-// Only the two PUBLIC-page targets are fileable through this entry. Photo /
+// Only the PUBLIC-page targets are fileable through this entry. Photo /
 // user / ai_output reports have their own dedicated in-context paths.
-const PUBLIC_TARGETS = ['event', 'user_profile'] as const;
+const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter'] as const;
 type PublicTarget = (typeof PUBLIC_TARGETS)[number];
 
 export type FileReportInput = {
@@ -65,8 +68,9 @@ export async function fileReport(input: FileReportInput): Promise<FileReportResu
   const admin = createAdminClient();
 
   // Verify the target exists and resolve the event scope. An 'event' report is
-  // event-scoped (event_id set → the couple also sees it); a 'user_profile'
-  // report is not tied to any event (event_id stays NULL → admins only).
+  // event-scoped (event_id set → the couple also sees it); a 'user_profile' or
+  // 'chapter' report is not tied to any event (event_id stays NULL → admins
+  // only; guarded by user_reports_event_id_required_check).
   let eventId: string | null = null;
   if ((targetType as PublicTarget) === 'event') {
     const { data } = await admin
@@ -76,6 +80,17 @@ export async function fileReport(input: FileReportInput): Promise<FileReportResu
       .maybeSingle();
     if (!data) return { ok: false, error: 'invalid_target' };
     eventId = data.event_id as string;
+  } else if ((targetType as PublicTarget) === 'chapter') {
+    // The reportable surface is the LIVE chapter page — published only (a draft
+    // is never publicly reachable, so a "report" of one is a forged id).
+    const { data } = await admin
+      .from('creator_chapters')
+      .select('public_id')
+      .eq('public_id', targetId)
+      .eq('status', 'published')
+      .maybeSingle();
+    if (!data) return { ok: false, error: 'invalid_target' };
+    eventId = null;
   } else {
     const { data } = await admin
       .from('users')

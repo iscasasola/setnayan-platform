@@ -400,6 +400,23 @@ export default async function AdminUserReportsPage({
                           </SubmitButton>
                         </form>
                       )}
+                      {/* Chapter "hide" = unfeature (Storytellers PR-D · the
+                          S0 seam wired): the resolution atomically clears
+                          showcase_featured_at so the chapter drops off the
+                          /realstories shelf instantly; it stays published on
+                          the creator's own page. */}
+                      {r.target_type === 'chapter' && (
+                        <form action={resolveReport}>
+                          <input type="hidden" name="report_id" value={r.report_id} />
+                          <input type="hidden" name="action" value="hide" />
+                          <SubmitButton
+                            className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                            pendingLabel="Removing…"
+                          >
+                            <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove from Real Stories
+                          </SubmitButton>
+                        </form>
+                      )}
                       {/* Block resolves a GUEST uploader — only meaningful for
                           photo/user targets. An ai_output target is a Setnayan
                           AI generation; there is no uploader to block. */}

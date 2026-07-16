@@ -70,6 +70,7 @@ import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { GuestHubBar } from './_components/guest-hub-bar';
@@ -1930,6 +1931,18 @@ function PublicLanding({
       hideWatermark={proWatermarkHidden}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -2560,6 +2573,18 @@ function InvitationSite({
       hideWatermark={proWatermarkHidden}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}

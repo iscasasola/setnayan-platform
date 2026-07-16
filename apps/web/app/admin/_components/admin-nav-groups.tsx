@@ -245,6 +245,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/corrections',
       },
       {
+        // Data Privacy control board (RA 10173). One approval switch per
+        // privacy-sensitive capability (vendor guest capture, biometrics, geo,
+        // cross-event linkage, minors, faith). Approving records who/when — the
+        // audit trail for the NPC filing; feature gates read status='active'.
+        key: 'data-privacy',
+        label: 'Data Privacy',
+        href: '/admin/data-privacy',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/data-privacy',
+      },
+      {
         // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost
         // listings). Deterministic scoring of submitted reviews (velocity/burst,
         // rating anomaly, shared-device reviewer clusters) + placeholder /

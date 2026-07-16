@@ -119,6 +119,23 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // reaching them outside the app. Branded HTML + plaintext via the shared
   // renderer below. A scheduled T-minus reminder is a further follow-up.
   'appointment_reminder',
+  // Creator audience layer (2026-07-16). A followed account published a new
+  // chapter → their followers hear about it. UNLIKE every other allowlisted
+  // type this one is an ENGAGEMENT signal, not transactional, so its email is
+  // additionally gated on marketing consent (MARKETING_GATED_EMAIL_TYPES below)
+  // — the in-app notification always lands; the email only reaches followers who
+  // opted into marketing (RA 10173).
+  'new_chapter_from_followed',
+]);
+
+// Consent gate for the ENGAGEMENT (non-transactional) subset of the email
+// allowlist. V1's rule is "transactional emails send regardless of marketing
+// preference" — but a "someone you follow posted" email is marketing-adjacent,
+// so it additionally requires users.marketing_opt_in = TRUE. Membership here can
+// only SUPPRESS a send (an opted-out follower still gets the in-app notification),
+// never widen one.
+const MARKETING_GATED_EMAIL_TYPES: ReadonlySet<NotificationType> = new Set([
+  'new_chapter_from_followed',
 ]);
 
 export type EmitNotificationArgs = {
@@ -169,14 +186,26 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
       const admin = createAdminClient();
       const { data: recipient } = await admin
         .from('users')
-        .select('email')
+        .select('email, marketing_opt_in')
         .eq('user_id', userId)
         .maybeSingle();
+      // Engagement (non-transactional) types additionally require marketing
+      // consent. Transactional types are unaffected (they're not in the gated
+      // set). The in-app notification already landed above regardless; this only
+      // suppresses the EMAIL for opted-out followers (Web Push below is
+      // untouched — this type isn't push-enabled anyway).
+      const marketingConsentOk =
+        !MARKETING_GATED_EMAIL_TYPES.has(type) ||
+        recipient?.marketing_opt_in === true;
       // Anon-draft: skip the send when the recipient is still anonymous — their
       // address is the non-routable placeholder (anon+<uuid>@anon.setnayan.local)
       // and Resend would bounce. The in-app notification row already landed
       // above, so they see it the moment they secure their account (same uid).
-      if (recipient?.email && !isPlaceholderEmail(recipient.email)) {
+      if (
+        marketingConsentOk &&
+        recipient?.email &&
+        !isPlaceholderEmail(recipient.email)
+      ) {
         const appUrl =
           process.env.NEXT_PUBLIC_APP_URL ??
           'https://setnayan-platform-web.vercel.app';

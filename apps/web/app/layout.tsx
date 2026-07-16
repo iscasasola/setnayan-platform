@@ -372,7 +372,7 @@ const organizationJsonLd = {
     {
       '@type': 'ContactPoint',
       contactType: 'data protection officer',
-      email: 'dpo@setnayan.com',
+      email: 'iscasasolaii@gmail.com',
       areaServed: 'PH',
       availableLanguage: ['en', 'tl'],
     },

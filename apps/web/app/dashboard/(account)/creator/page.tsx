@@ -23,7 +23,7 @@ import {
   updateChapter,
 } from './actions';
 
-export const metadata = { title: 'Creator chapters' };
+export const metadata = { title: 'Your chapters' };
 
 type ChapterRow = {
   chapter_id: string;
@@ -61,11 +61,9 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('is_creator, display_name, slug, public_profile_enabled')
+    .select('display_name, slug, public_profile_enabled')
     .eq('user_id', user.id)
     .maybeSingle();
-
-  const isCreator = profile?.is_creator === true;
 
   const successKey = Object.keys(FLASH).find((k) => search[k]);
 
@@ -79,14 +77,15 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
       <header className="mb-6 space-y-2">
         <p className="sn-eye">
           <Clapperboard aria-hidden strokeWidth={1.75} />
-          Creator
+          Your story
         </p>
-        <h1 className="sn-h1">Adventure Chapters</h1>
+        <h1 className="sn-h1">Your Chapters</h1>
         <p className="text-base text-ink/65">
           A chapter embeds your finished edit — hosted on your own platform
           (YouTube, Instagram, or TikTok) — and wraps it with the raw substrate
           only Setnayan has: your Papic gallery, the itinerary, the vendors.
-          Your profile is a timeline of chapters, not a feed. Creators are free.
+          Publish one and your public profile becomes a timeline of chapters, not
+          a feed. Anyone can tell their story here — there&rsquo;s nothing to buy.
         </p>
       </header>
 
@@ -95,26 +94,12 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
       ) : null}
       {successKey ? <FormFlash tone="success">{FLASH[successKey]}</FormFlash> : null}
 
-      {!isCreator ? (
-        <section className="sn-tile mt-4 space-y-3">
-          <h2 className="sn-sec">Creator access required</h2>
-          <p className="text-sm text-ink/70">
-            Adventure Chapters are part of the{' '}
-            <span className="font-medium text-ink">Creator program</span> — a
-            free presence + distribution layer for wedding, travel, food, and
-            lifestyle creators. Your account isn&rsquo;t enrolled yet. Creator
-            access is granted by the Setnayan team while a self-apply flow is in
-            the works.
-          </p>
-        </section>
-      ) : (
-        <CreatorBody
-          supabase={supabase}
-          userId={user.id}
-          slug={profile?.slug ?? null}
-          publicProfileEnabled={profile?.public_profile_enabled !== false}
-        />
-      )}
+      <CreatorBody
+        supabase={supabase}
+        userId={user.id}
+        slug={profile?.slug ?? null}
+        publicProfileEnabled={profile?.public_profile_enabled !== false}
+      />
     </div>
   );
 }

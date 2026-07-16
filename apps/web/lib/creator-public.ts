@@ -126,6 +126,54 @@ export async function fetchPublishedChapterByPublicId(
   return chapter.embed_url ? chapter : null;
 }
 
+/**
+ * Resolve a PUBLISHED chapter by its public_id alone, together with its owner —
+ * for surfaces addressed by the chapter id without a profile slug (the
+ * /api/og/chapter/[publicId] share card). Applies the FULL public gate in one
+ * place: chapter published + carries an embed, AND the owner's profile is
+ * public, non-deleted, and slugged (the same conditions the chapter page's
+ * resolve() enforces via resolvePublicProfile). Anything short of that returns
+ * null — a chapter title / storyteller name is never surfaced for a page that
+ * isn't actually public.
+ */
+export async function fetchPublishedChapterForShare(publicId: string): Promise<{
+  chapter: PublicChapter;
+  ownerName: string;
+  ownerSlug: string;
+} | null> {
+  if (!publicId) return null;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('creator_chapters')
+    .select(`${CHAPTER_FIELDS}, user_id`)
+    .eq('public_id', publicId)
+    .eq('status', 'published')
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as Record<string, unknown>;
+  const chapter = mapRow(row);
+  if (!chapter.embed_url) return null;
+
+  const { data: owner } = await admin
+    .from('users')
+    .select('slug, display_name, public_profile_enabled, deleted_at')
+    .eq('user_id', row.user_id as string)
+    .maybeSingle();
+  const u = owner as {
+    slug: string | null;
+    display_name: string | null;
+    public_profile_enabled: boolean | null;
+    deleted_at: string | null;
+  } | null;
+  if (!u || u.public_profile_enabled !== true || u.deleted_at || !u.slug) return null;
+
+  return {
+    chapter,
+    ownerName: u.display_name?.trim() || 'A Setnayan storyteller',
+    ownerSlug: u.slug,
+  };
+}
+
 /** A shoppable substrate vendor card — a 0%-commission lead into /v/[slug]. */
 export type ShoppableVendor = {
   slug: string;

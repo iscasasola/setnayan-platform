@@ -71,8 +71,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = `${resolved.chapter.title} · ${name}`;
   // A chapter is a shareable surface, but the individual event/vendor pages carry
   // the real SEO — keep it out of the index, allow follow so the embed/vendor
-  // links are crawled. OG uses the account's personalized card (item #7c).
-  const canonicalSlug = resolved.user.slug ?? userSlug;
+  // links are crawled. OG uses the CHAPTER's own card (share-asset completion
+  // 2026-07-17) — title + storyteller byline + Storyteller badge over the
+  // YouTube-derived thumb — under the same public gate as this metadata (the
+  // route independently re-gates and 302s to the brand card when not public).
+  const ogImage = {
+    url: `${SITE_URL}/api/og/chapter/${resolved.chapter.public_id}`,
+    width: 1200,
+    height: 630,
+    alt: title,
+  };
   return {
     title,
     robots: { index: false, follow: true },
@@ -81,16 +89,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       siteName: 'Setnayan',
       locale: 'en_PH',
-      images: [
-        {
-          url: `${SITE_URL}/api/og/u/${canonicalSlug}`,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
+      images: [ogImage],
     },
-    twitter: { card: 'summary_large_image' as const },
+    twitter: { card: 'summary_large_image' as const, images: [ogImage.url] },
   };
 }
 

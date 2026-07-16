@@ -3,9 +3,12 @@
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
 import {
   isFenceEligible,
   isClaimEligible,
@@ -261,6 +264,74 @@ export async function revokeHandoverLink(formData: FormData): Promise<void> {
     .update({ claim_token: null, claim_token_purpose: null, claim_token_expires_at: null })
     .eq('dependent_id', dependentId)
     .eq('owner_user_id', user.id);
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
+}
+
+/**
+ * Email an alaga's ACTIVE hand-over/transfer link to a recipient the guardian
+ * names (owner request 2026-07-17 — copy-paste works, email is kinder). Guards:
+ * flag + owner via RLS-scoped read; requires a live token (mint first — this
+ * never mints). The recipient address is used once for the send and stored
+ * nowhere.
+ */
+export async function emailHandoverLink(formData: FormData): Promise<void> {
+  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  const dependentId = String(formData.get('dependent_id') ?? '').trim();
+  const recipient = String(formData.get('recipient') ?? '').trim().toLowerCase();
+  if (!dependentId) redirect('/dashboard/people');
+  if (!recipient || !recipient.includes('@')) redirect('/dashboard/people?error=email');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: row } = await supabase
+    .from('dependents')
+    .select('name, dependent_kind, claim_token, claim_token_purpose, claim_token_expires_at, handed_over_at')
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id)
+    .maybeSingle();
+  const live =
+    !!row &&
+    !row.handed_over_at &&
+    !!row.claim_token &&
+    !!row.claim_token_expires_at &&
+    new Date(row.claim_token_expires_at) > new Date();
+  if (!live) redirect('/dashboard/people?error=no_active_link');
+
+  const h = await headers();
+  const host = h.get('host') ?? 'www.setnayan.com';
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  const claimUrl = `${proto}://${host}/claim/${row.claim_token}`;
+  const isClaim = row.claim_token_purpose === 'claim';
+
+  const html = renderBrandedEmail({
+    heading: isClaim ? `Claim your profile, ${row.name}` : `Take over ${row.name}'s care`,
+    paragraphs: isClaim
+      ? [
+          `A guardian has kept your profile — your dates and milestones — inside their Setnayan account while you grew up.`,
+          `You're of age now: claiming it makes it yours. They'll keep the memories, read-only.`,
+        ]
+      : [
+          `A guardian on Setnayan wants to hand ${row.name}'s profile over to you.`,
+          `Accepting moves it into your account — their dates and celebrations become yours to keep.`,
+        ],
+    ctaLabel: isClaim ? 'Claim my profile' : `Take over ${row.name}'s care`,
+    ctaHref: claimUrl,
+    footnote: 'This link works once and expires in 7 days. If you weren’t expecting it, you can ignore this email.',
+  });
+  await sendEmail({
+    to: recipient,
+    subject: isClaim ? `${row.name}, your Setnayan profile is ready to claim` : `Take over ${row.name}'s care on Setnayan`,
+    text: isClaim
+      ? `A guardian has kept your profile inside their Setnayan account while you grew up. You're of age now — claiming it makes it yours.\n\nClaim it here (works once, expires in 7 days): ${claimUrl}`
+      : `A guardian on Setnayan wants to hand ${row.name}'s profile over to you. Accepting moves it into your account.\n\nAccept here (works once, expires in 7 days): ${claimUrl}`,
+    html,
+  });
+
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?saved=1');
 }

@@ -103,9 +103,12 @@ const remoteImagePatterns = [
 // `frame-src` is scoped narrowly to the video players we embed: same-origin
 // (the landing-page preview iframe) plus YouTube-nocookie / YouTube / Vimeo,
 // which the vendor "Featured videos" gallery + the Enterprise Films rack mount
-// as inline players. This directive only governs what WE embed — it does NOT
-// re-introduce the strict default-src/script-src the comment above deferred, so
-// the Babel-standalone keynote decks are unaffected. New embed origins later
+// as inline players — and Instagram / TikTok, whose /embed players back the
+// Creator "Adventure Chapter" embed (lib/creator-chapters.ts allowlist:
+// youtube|instagram|tiktok; every chapter iframe is additionally sandboxed).
+// This directive only governs what WE embed — it does NOT re-introduce the
+// strict default-src/script-src the comment above deferred, so the
+// Babel-standalone keynote decks are unaffected. New embed origins later
 // extend this one list.
 const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
@@ -119,7 +122,7 @@ const securityHeaders = [
   {
     key: 'Content-Security-Policy',
     value:
-      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
+      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com",
   },
 ];
 

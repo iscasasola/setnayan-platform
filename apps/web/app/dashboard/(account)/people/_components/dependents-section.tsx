@@ -24,11 +24,15 @@ import {
 } from '../dependent-actions';
 
 /**
- * "The ones you care for" — the dependent capture (Phase 3 family graph ·
- * flag-gated). Rendered only when dependentPeopleEnabled(). A dependent is a
- * person, a pet, or anything else. Only a PERSON carries a birthdate/religion +
- * the age fence (child <18 / elder >50); pets/other are just a name (+ optional
- * birthday). Milestones + godparents apply to the person case only.
+ * "Alaga" — the dependent capture (Phase 3 family graph · flag-gated).
+ * Product name owner-locked 2026-07-16: Alaga in all user-facing copy;
+ * "dependents" stays the technical/legal term (schema, RLS, counsel docs).
+ * Rendered only when dependentPeopleEnabled(). An alaga is a person, a pet, or
+ * anything else you care for — an account created inside your account, owned
+ * by you. Only a PERSON carries a birthdate/religion + the age fence (child
+ * <18 / elder >50) and can later claim the profile as their own account at 18;
+ * pets/other are just a name (+ optional birthday). Milestones + godparents
+ * apply to the person case only.
  */
 
 type DependentRow = {
@@ -96,11 +100,13 @@ export async function DependentsSection() {
     <section className="mt-10">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          The ones you care for
+          Alaga
         </h2>
         <p className="mt-1 text-sm text-ink/55">
-          A person, a pet, or anyone else. We store the names, dates, and events that matter — not
-          documents. Milestones and rites apply to a person you plan for (a child or an elder).
+          The ones you care for — a person, a pet, or anything else. Their profile lives inside
+          your account and belongs to you; a child&rsquo;s becomes their own at 18. We store the
+          names, dates, and events that matter — not documents. Milestones and rites apply to a
+          person you plan for (a child or an elder).
         </p>
       </header>
 
@@ -127,7 +133,7 @@ export async function DependentsSection() {
                         ? DEPENDENT_KIND_LABELS[d.dependent_kind]
                         : d.relationship
                           ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
-                          : 'Someone I care for'}
+                          : 'My alaga'}
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
@@ -256,7 +262,7 @@ export async function DependentsSection() {
         action={addDependent}
         className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
       >
-        <p className="text-sm font-medium text-ink">Add someone (or a pet)</p>
+        <p className="text-sm font-medium text-ink">Add an alaga</p>
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="dep_kind">
             What is this?

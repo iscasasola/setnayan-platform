@@ -5,8 +5,11 @@
  * star glyph + a Space Mono, uppercase, letter-spaced label. Luxurious-Filipino-
  * modern; reads on the light paper surfaces the /u profile + chapter pages use.
  *
- * The label is a single CONSTANT so the owner can flip 'Creator' → 'Kwentista'
- * (the council's Tagalog alternative) in one place without touching any surface.
+ * The label is a single CONSTANT so the owner can flip it in one place without
+ * touching any surface. FLIPPED 'Creator' → 'Storyteller' 2026-07-16 (owner
+ * ratification, Creator_Economy_Discount_Collab_Build_Plan: the badge word
+ * names the /realstories shelf, the card badge, the admin Studio tab, and the
+ * /storytellers redirect).
  *
  * Self-contained inline styles (referencing the --m-* / --font-* CSS vars) so
  * the badge is portable across surfaces that don't share a stylesheet — the /u
@@ -16,7 +19,7 @@
  * is_creator flag).
  */
 
-export const CREATOR_BADGE_LABEL = 'Creator';
+export const CREATOR_BADGE_LABEL = 'Storyteller';
 
 type Size = 'sm' | 'md';
 

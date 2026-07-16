@@ -27,11 +27,12 @@ import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public
 //   • 0 ongoing events → show the account's published stories (past public
 //     celebrations); empty-state when there are none.
 //
-// Creator overlay (CP-3, 2026-07-16): when the account is a creator
-// (users.is_creator), the profile ALSO renders a timeline of its published
-// "Adventure Chapters" (reverse-chronological cards → /u/[slug]/c/[id]) plus
-// the gold creator badge, and never auto-redirects into a single event — the
-// chapters are the point of the page.
+// Creator overlay (CP-3; user-native since 2026-07-16): creator is now a
+// USER-NATIVE capability — a profile that has published >=1 Adventure Chapter is
+// a creator, no is_creator flag. When the account has published chapters, the
+// profile ALSO renders a timeline of them (reverse-chronological cards →
+// /u/[slug]/c/[id]) plus the gold creator badge, and never auto-redirects into a
+// single event — the chapters are the point of the page.
 //
 // Only surfaces events the /[slug] target would actually render — mirrors BOTH
 // gates that page enforces: (a) effectively-public visibility (so 'unlisted' /
@@ -128,14 +129,13 @@ export default async function AccountProfilePage({ params }: Props) {
   const isOwnerPreview = enabled ? false : await isSignedInHolder(user.user_id);
   if (!enabled && !isOwnerPreview) notFound();
 
-  // Creator "Adventure Chapter" (CP-3): a creator's profile IS a timeline of
-  // their published chapters, not just an event picker. When the account is a
-  // creator we load the timeline and NEVER auto-redirect into a single event —
-  // the chapters are the point of the page.
-  const isCreator = user.is_creator === true;
-  const chapters: PublicChapter[] = isCreator
-    ? await fetchPublishedChapters(user.user_id)
-    : [];
+  // Creator "Adventure Chapter" (CP-3; user-native): a profile with published
+  // chapters IS a timeline of them, not just an event picker. Creator is now
+  // user-native — having >=1 published chapter is what makes the account a
+  // creator (no is_creator flag). We're already past the enabled/owner-preview
+  // gate, so load the timeline here; when it's non-empty we NEVER auto-redirect
+  // into a single event — the chapters are the point of the page.
+  const chapters: PublicChapter[] = await fetchPublishedChapters(user.user_id);
   const hasChapters = chapters.length > 0;
 
   const ongoing = publicWebsiteEvents.filter((e) => !e.archived);
@@ -143,7 +143,7 @@ export default async function AccountProfilePage({ params }: Props) {
   // 1 ongoing → jump straight in (skip for the owner previewing their own
   // hidden shell so they actually see the profile page they're checking, and
   // for creators whose profile is the chapter timeline).
-  if (ongoing.length === 1 && !isOwnerPreview && !isCreator) {
+  if (ongoing.length === 1 && !isOwnerPreview && !hasChapters) {
     redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
   }
 
@@ -182,7 +182,7 @@ export default async function AccountProfilePage({ params }: Props) {
         ) : null}
         <header className="uprof-head">
           <h1 className="m-serif uprof-name">{heading}</h1>
-          {isCreator && hasPublicContent ? (
+          {hasChapters ? (
             <div className="uprof-badge-row">
               <CreatorBadge size="md" />
             </div>
@@ -240,7 +240,7 @@ export default async function AccountProfilePage({ params }: Props) {
           </div>
         )}
 
-        {isCreator && hasChapters ? (
+        {hasChapters ? (
           <ChapterTimeline chapters={chapters} slug={canonicalSlug} />
         ) : null}
 

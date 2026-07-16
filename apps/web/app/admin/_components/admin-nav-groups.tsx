@@ -216,16 +216,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/account-deletions',
       },
       {
-        // Self-serve creator-program applications (Adventure Chapter · CP-1b).
-        // Non-creators apply from the creator dashboard; approving flips
-        // users.is_creator (free access — no SKU) and opens the creator surface.
-        key: 'creator-applications',
-        label: 'Creator applications',
-        href: '/admin/creator-applications',
-        icon: Clapperboard,
-        matchPrefix: '/admin/creator-applications',
-      },
-      {
         // UGC report queue (Apple 1.2 / Google Play UGC). Reports filed against
         // Papic guest gallery content land here for moderator review.
         key: 'user-reports',

@@ -28,11 +28,13 @@ import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components
 //     and vendor cards that link to the vendor's existing public page /v/[slug]
 //     (0% commission leads; read-only surfacing, no new inquiry flow here).
 //
-// Gate: the owner must be a public creator (is_creator && public_profile_enabled)
-// AND the chapter must be published. Reads run through the service-role admin
-// client (lib/creator-public) and filter in app code — the same public-read
-// pattern the /u profile uses; the chapter RLS (#3304) is defense-in-depth.
-// Draft/hidden preview is done from the creator dashboard, not this public page.
+// Gate (user-native since 2026-07-16): the owner's public profile must be
+// enabled AND the chapter must be published — a published chapter on a public
+// profile IS a creator surface (no is_creator flag). Reads run through the
+// service-role admin client (lib/creator-public) and filter in app code — the
+// same public-read pattern the /u profile uses; the chapter RLS is
+// defense-in-depth. Draft/hidden preview is done from the creator dashboard, not
+// this public page.
 
 export const revalidate = 60;
 
@@ -46,9 +48,9 @@ async function resolve(userSlug: string, chapterId: string) {
   const profile = await resolvePublicProfile(userSlug);
   if (!profile) return null;
   const { user } = profile;
-  const isPublicCreator =
-    user.is_creator === true && user.public_profile_enabled === true;
-  if (!isPublicCreator) return null;
+  // User-native: any public profile can carry chapters. Gate on the profile
+  // being public; the published-chapter check below is the "is a creator" test.
+  if (user.public_profile_enabled !== true) return null;
 
   const chapter = await fetchPublishedChapterByPublicId(user.user_id, chapterId);
   if (!chapter) return null;

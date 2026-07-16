@@ -3,9 +3,11 @@
  *
  * Reads run through the service-role admin client and filter in app code — the
  * SAME pattern app/u/[userSlug]/page.tsx uses for public reads. The
- * `creator_chapters` public-read RLS (#3304) is defense-in-depth, not the gate
- * we rely on here; callers MUST first confirm the owner is a public creator
- * (users.is_creator && public_profile_enabled) before surfacing anything.
+ * `creator_chapters` public-read RLS is defense-in-depth, not the gate we rely
+ * on here; callers MUST first confirm the owner's public profile is enabled
+ * (users.public_profile_enabled) before surfacing anything. Creator is
+ * user-native (2026-07-16): a published chapter on a public profile IS the
+ * creator signal — there is no is_creator flag.
  *
  * Red lines honored:
  *   • embed only — we return the stored NORMALIZED embed_url (produced by

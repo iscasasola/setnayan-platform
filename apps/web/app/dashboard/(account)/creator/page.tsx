@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Clapperboard, Globe, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, Clapperboard, Clock, Globe, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   CHAPTER_KINDS,
@@ -14,6 +14,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ChapterEmbedFrame } from './_components/chapter-embed-frame';
 import {
+  applyForCreator,
   createChapter,
   deleteChapter,
   publishChapter,
@@ -42,6 +43,14 @@ const FLASH: Record<string, string> = {
   published: 'Chapter published.',
   unpublished: 'Chapter moved back to draft.',
   deleted: 'Chapter deleted.',
+  applied: 'Application submitted — the Setnayan team will review it shortly.',
+};
+
+type ApplicationRow = {
+  status: 'pending' | 'approved' | 'rejected';
+  applied_at: string;
+  reviewed_at: string | null;
+  note: string | null;
 };
 
 type Props = {
@@ -93,17 +102,7 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
       {successKey ? <FormFlash tone="success">{FLASH[successKey]}</FormFlash> : null}
 
       {!isCreator ? (
-        <section className="sn-tile mt-4 space-y-3">
-          <h2 className="sn-sec">Creator access required</h2>
-          <p className="text-sm text-ink/70">
-            Adventure Chapters are part of the{' '}
-            <span className="font-medium text-ink">Creator program</span> — a
-            free presence + distribution layer for wedding, travel, food, and
-            lifestyle creators. Your account isn&rsquo;t enrolled yet. Creator
-            access is granted by the Setnayan team while a self-apply flow is in
-            the works.
-          </p>
-        </section>
+        <BecomeCreator supabase={supabase} userId={user.id} />
       ) : (
         <CreatorBody
           supabase={supabase}
@@ -113,6 +112,121 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Non-creator entry point: shows either the "Become a creator" apply form, or —
+ * once they've filed — the pending / approved / rejected state of their latest
+ * application. Reads through the authenticated client (RLS Pattern A), so a user
+ * only ever sees their OWN application. Approval is what flips `is_creator`; this
+ * branch never renders for an approved creator (the page already gates on that).
+ */
+async function BecomeCreator({
+  supabase,
+  userId,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+}) {
+  const { data } = await supabase
+    .from('creator_applications')
+    .select('status, applied_at, reviewed_at, note')
+    .eq('user_id', userId)
+    .order('applied_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const application = (data ?? null) as ApplicationRow | null;
+
+  const pending = application?.status === 'pending';
+  // A prior rejection doesn't lock the door — the applicant may re-apply.
+  const canApply = !application || application.status === 'rejected';
+
+  return (
+    <section className="sn-tile mt-4 space-y-4">
+      <div className="space-y-2">
+        <h2 className="sn-sec">Become a creator</h2>
+        <p className="text-sm text-ink/70">
+          The <span className="font-medium text-ink">Creator program</span> is a
+          free presence + distribution layer for wedding, travel, food, and
+          lifestyle creators. Your profile becomes a timeline of Adventure
+          Chapters — your finished edits, wrapped in the raw substrate only
+          Setnayan has. Creators are free; there&rsquo;s no subscription and
+          nothing to buy.
+        </p>
+      </div>
+
+      {pending ? (
+        <div className="rounded-tile border border-ink/10 bg-ink/[0.03] p-4">
+          <p className="flex items-center gap-2 text-sm font-medium text-ink">
+            <Clock aria-hidden className="h-4 w-4 text-ink/50" strokeWidth={1.75} />
+            Application in review
+          </p>
+          <p className="mt-1 text-sm text-ink/65">
+            You applied on {application.applied_at.slice(0, 10)}. The Setnayan
+            team reviews creator applications and will enable your creator surface
+            once approved.
+          </p>
+        </div>
+      ) : null}
+
+      {application?.status === 'rejected' ? (
+        <div className="rounded-tile border border-warn-200/60 bg-warn-50/50 p-4">
+          <p className="text-sm font-medium text-warn-900">
+            Your last application wasn&rsquo;t approved
+          </p>
+          {application.note ? (
+            <p className="mt-1 text-sm text-ink/70">
+              <span className="text-ink/45">Note from the team:</span>{' '}
+              {application.note}
+            </p>
+          ) : null}
+          <p className="mt-1 text-sm text-ink/65">
+            You&rsquo;re welcome to apply again below with more detail.
+          </p>
+        </div>
+      ) : null}
+
+      {canApply ? (
+        <form action={applyForCreator} className="space-y-4">
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink">
+              What do you make? (your pitch)
+            </span>
+            <textarea
+              name="pitch"
+              required
+              rows={4}
+              maxLength={2000}
+              placeholder="Tell us about the events you cover and why you'd be a great Setnayan creator."
+              className="input-field"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium text-ink">
+              Your platform links
+            </span>
+            <textarea
+              name="links"
+              rows={2}
+              maxLength={2000}
+              placeholder="YouTube · Instagram · TikTok · your site — one per line or comma-separated"
+              className="input-field"
+            />
+            <span className="block text-[11px] text-ink/55">
+              Where your finished work lives. Helps the team review faster.
+            </span>
+          </label>
+          <SubmitButton
+            className="button-primary inline-flex items-center justify-center gap-2"
+            pendingLabel="Submitting…"
+          >
+            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Apply to the creator program
+          </SubmitButton>
+        </form>
+      ) : null}
+    </section>
   );
 }
 

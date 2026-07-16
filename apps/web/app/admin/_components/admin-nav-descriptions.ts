@@ -43,6 +43,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   reviews: 'Review appeals awaiting a decision.',
   'concierge-abuse': 'Trial-cycling flags to review.',
   'account-deletions': 'Self-serve account-deletion requests to review.',
+  'creator-applications': 'Creator-program applications to approve or reject.',
   'user-reports': 'Reported guest-gallery content awaiting moderation.',
   'repost-watch':
     'Cross-vendor image matches flagged for review — detect only, never auto-takedown.',

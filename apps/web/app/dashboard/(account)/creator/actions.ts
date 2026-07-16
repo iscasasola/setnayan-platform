@@ -113,6 +113,58 @@ function readSubstrate(formData: FormData): Record<string, unknown> | undefined 
   return substrate;
 }
 
+/**
+ * Self-apply to the creator program. A NON-creator files a `creator_applications`
+ * row (status 'pending'); an admin reviews it in /admin/creator-applications and
+ * either approves (flips `users.is_creator`) or rejects. This action NEVER writes
+ * `is_creator` — the only grant path is the admin action. The insert goes through
+ * the authenticated client, so RLS Pattern A (`user_id = auth.uid()`) guarantees
+ * the applicant can only ever file a row for themselves.
+ */
+export async function applyForCreator(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Already a creator? Nothing to apply for.
+  const { data: profile } = await supabase
+    .from('users')
+    .select('is_creator')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (profile?.is_creator) {
+    revalidatePath(SURFACE);
+    redirect(SURFACE);
+  }
+
+  const pitchRaw = formData.get('pitch');
+  const pitch = typeof pitchRaw === 'string' ? pitchRaw.trim().slice(0, 2000) : '';
+  if (pitch.length < 10) {
+    fail('Tell us a little about what you make (at least a sentence).');
+  }
+  const linksRaw = formData.get('links');
+  const links =
+    typeof linksRaw === 'string' && linksRaw.trim()
+      ? linksRaw.trim().slice(0, 2000)
+      : null;
+
+  const { error } = await supabase
+    .from('creator_applications')
+    .insert({ user_id: user.id, pitch, links });
+  if (error) {
+    // Partial-unique index (one pending per user) → 23505 on a double-file.
+    if (error.code === '23505') {
+      fail('You already have an application in review.');
+    }
+    fail(error.message);
+  }
+
+  revalidatePath(SURFACE);
+  redirect(`${SURFACE}?applied=1`);
+}
+
 export async function createChapter(formData: FormData) {
   const { supabase, userId } = await requireCreator();
   const title = readTitle(formData);

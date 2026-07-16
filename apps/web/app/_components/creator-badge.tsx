@@ -36,7 +36,7 @@ export function CreatorBadge({
         alignItems: 'center',
         gap: '0.38em',
         padding: md ? '0.3em 0.72em' : '0.22em 0.6em',
-        borderRadius: '999px',
+        borderRadius: 'var(--m-r-full, 999px)',
         border:
           '1px solid color-mix(in srgb, var(--m-orange, #A9834B) 45%, transparent)',
         background:

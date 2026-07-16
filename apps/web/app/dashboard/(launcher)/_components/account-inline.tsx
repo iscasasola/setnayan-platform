@@ -1,8 +1,9 @@
 import type { ComponentType, ReactNode } from 'react';
 import {
   Users,
+  UsersRound,
   HeartHandshake,
-  UserPlus,
+  HandHeart,
   Images,
   Trophy,
   Infinity as InfinityIcon,
@@ -48,24 +49,25 @@ function ComingSoonNote({ children }: { children: ReactNode }) {
 }
 
 /**
- * People — mirrors /dashboard/people. Flags are OFF in production, so the honest
- * state is the "what will live here" preview; when connections/dependents flip
- * on, the note drops. (The full suggest→confirm flow still lives on the People
- * page for now — this inline peek describes it.)
+ * People — mirrors /dashboard/people. Owner degree model (2026-07-17): your
+ * FIRST degree = connections + alaga + samahan groups; the people INSIDE your
+ * samahans are your SECOND degree. The dependents flag is ON in production
+ * (owner 2026-07-16); the coming-soon note now covers only the counsel-gated
+ * connections flow.
  */
 export function PeopleInline() {
   const live = peopleConnectionsEnabled() || dependentPeopleEnabled();
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink/65">
-        Family, godparents, and friends — the people your celebrations connect. Each
-        one suggested from your events and confirmed by both sides.
+        Your first degree — the people you&rsquo;re connected to, your alaga, and your samahan
+        groups. The people inside your samahans are your second degree.
       </p>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-2">
         <Facet
           icon={Users}
-          title="Family"
-          body="Your closest — parent, sibling, child. The rest appear on their own."
+          title="Family & friends"
+          body="Your closest — suggested from your events, confirmed by both sides."
         />
         <Facet
           icon={HeartHandshake}
@@ -73,9 +75,14 @@ export function PeopleInline() {
           body="Godparents from your binyag, wedding, and confirmation roles."
         />
         <Facet
-          icon={UserPlus}
-          title="Friends"
-          body="Suggested from the people you’ve celebrated with."
+          icon={HandHeart}
+          title="Alaga"
+          body="The ones you care for — a child, a lolo, a pet. Their profile is yours until it's theirs."
+        />
+        <Facet
+          icon={UsersRound}
+          title="Samahan"
+          body="Your groups — barkada, parish, clan. Their members are your second degree."
         />
       </div>
       {!live ? (

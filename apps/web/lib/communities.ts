@@ -427,3 +427,66 @@ export async function fetchPendingCommunityInvite(
     },
   };
 }
+
+export type SamahanSecondDegreeEntry = {
+  display_name: string;
+  /** Names of the samahan(s) the viewer shares with this person. */
+  via: string[];
+};
+
+/**
+ * The viewer's SECOND-DEGREE people — co-members of their samahans (owner
+ * degree model 2026-07-17: connections + alaga + samahan GROUPS are first
+ * degree; the people INSIDE those samahans are second degree). Security
+ * posture mirrors fetchCommunityRoster:
+ *   1. membership rows via the USER client — community_roster_member_read RLS
+ *      already scopes to the caller's own communities;
+ *   2. names via the admin client, (user_id → display_name) ONLY, never email;
+ *   3. returned entries carry NO auth UUIDs.
+ */
+export async function fetchSamahanSecondDegree(
+  supabase: SupabaseClient,
+  admin: SupabaseClient,
+  userId: string,
+): Promise<SamahanSecondDegreeEntry[]> {
+  const communities = await fetchUserCommunities(supabase, userId);
+  const active = communities.filter((c) => !c.archived);
+  if (active.length === 0) return [];
+  const nameById = new Map(active.map((c) => [c.community_id, c.name]));
+
+  const { data, error } = await supabase
+    .from('community_members')
+    .select('community_id, user_id')
+    .in('community_id', active.map((c) => c.community_id));
+  if (error) {
+    logQueryError('fetchSamahanSecondDegree', error, { user_id: userId }, 'graceful_degrade');
+    return [];
+  }
+
+  const viaByUser = new Map<string, Set<string>>();
+  for (const r of (data ?? []) as Array<{ community_id: string; user_id: string }>) {
+    if (r.user_id === userId) continue;
+    const via = viaByUser.get(r.user_id) ?? new Set<string>();
+    const label = nameById.get(r.community_id);
+    if (label) via.add(label);
+    viaByUser.set(r.user_id, via);
+  }
+  if (viaByUser.size === 0) return [];
+
+  const names = new Map<string, string>();
+  const { data: nameRows } = await admin
+    .from('users')
+    .select('user_id, display_name')
+    .in('user_id', [...viaByUser.keys()]);
+  for (const r of (nameRows ?? []) as Array<{ user_id: string; display_name: string | null }>) {
+    const label = (r.display_name ?? '').trim();
+    if (label) names.set(r.user_id, label);
+  }
+
+  return [...viaByUser.entries()]
+    .map(([uid, via]) => ({
+      display_name: names.get(uid) ?? 'Member',
+      via: [...via].sort((a, b) => a.localeCompare(b)),
+    }))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+}

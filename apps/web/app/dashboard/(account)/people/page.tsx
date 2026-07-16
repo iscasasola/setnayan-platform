@@ -6,6 +6,7 @@ import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
 import { DependentsSection } from './_components/dependents-section';
+import { SamahanPeopleSection } from './_components/samahan-people-section';
 
 export const metadata = {
   title: 'People',
@@ -61,7 +62,10 @@ export default async function PeoplePage({
           The people you gather
         </p>
         <h1 className="sn-h1">People</h1>
-        <p className="text-base text-ink/65">Your family, godparents, and friends.</p>
+        <p className="text-base text-ink/65">
+          Your first degree — the people you&rsquo;re connected to, your alaga, and your samahan
+          groups. The people inside your samahans are your second degree.
+        </p>
       </header>
       {errorMsg ? (
         <p
@@ -75,6 +79,10 @@ export default async function PeoplePage({
         <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
       ) : null}
       {showDependents ? <DependentsSection /> : null}
+      {/* Samahan (owner degree model 2026-07-17): groups are FIRST degree
+          beside connections + alaga; their members are SECOND degree. Not
+          flag-gated — samahan is live product. */}
+      <SamahanPeopleSection />
     </div>
   );
 }

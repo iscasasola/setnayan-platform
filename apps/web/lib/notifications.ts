@@ -230,7 +230,14 @@ export type NotificationType =
   // In-app for every follower; email ONLY for followers who've opted into
   // marketing (MARKETING_GATED_EMAIL_TYPES in notification-emit) — this is an
   // engagement signal, not a transactional one, so it respects RA 10173 consent.
-  | 'new_chapter_from_followed';
+  | 'new_chapter_from_followed'
+  // Creator Economy discount-collab (2026-07-16, migration
+  // 20270817214733_vendor_creator_offers_collab_p1.sql). A vendor sent a
+  // creator a discount offer (→ creator, in-app only); the creator responded
+  // accept/decline (→ vendor). Both are transactional collab signals emitted
+  // from the offer server actions.
+  | 'creator_offer_received'
+  | 'creator_offer_responded';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -250,6 +257,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   inquiry_displaced: 'Inquiry released',
   force_majeure_filed: 'Force-majeure flag filed',
   new_chapter_from_followed: 'New chapter',
+  creator_offer_received: 'Discount offer',
+  creator_offer_responded: 'Offer answered',
   booking_confirmed: 'Booking confirmed',
   review_received: 'New review',
   booking_cancelled: 'Booking cancelled',
@@ -417,6 +426,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // (the audience-layer engagement signal) → sky, matching chat_message / the
   // informational register.
   new_chapter_from_followed: 'bg-sky-100 text-sky-900',
+  // Creator-collab signals — the same warm register as bookings/partnerships.
+  creator_offer_received: 'bg-amber-100 text-amber-900',
+  creator_offer_responded: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

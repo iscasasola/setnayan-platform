@@ -1966,8 +1966,18 @@ export function SeatingEditor({
   // mount (resolving the initial grid) and whenever tables / the room change.
   // Skipped DURING a wall drag (the canvas resizes every frame, which would
   // reshuffle un-anchored tables); re-resolves once on release via wallSettled.
+  //
+  // Also skipped while an optimistic mutation is in flight (`isPending`). Delete
+  // mutates the table SET via `useOptimistic` (applyTableOpt), which yields a
+  // fresh `tables` array reference on every render as the optimistic and base
+  // states settle. This effect keys off that reference AND writes `positions`,
+  // so an in-flight delete re-ran it → rewrote positions → re-rendered → re-ran
+  // every frame, exhausting React's update depth ("Something on our end didn't
+  // work" on delete — surfaced once the post-#3305 collision model began moving
+  // tables during the churn). The transient optimistic set is never worth
+  // re-placing; we re-resolve once cleanly when the mutation settles.
   useIsoLayoutEffect(() => {
-    if (wallDragRef.current) return;
+    if (wallDragRef.current || isPending) return;
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
     const shelf = venueScaled ? venueShelfBase(rect) : null;
@@ -2011,7 +2021,7 @@ export function SeatingEditor({
       return changed ? placed : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables, venueScaled, canvasW, wallSettled]);
+  }, [tables, venueScaled, canvasW, wallSettled, isPending]);
 
   // Council verdict § 6 — READ-ONLY mount audit. Saved anchors are NEVER
   // rearranged on load (the resolver above honours them verbatim); this just
@@ -2020,6 +2030,12 @@ export function SeatingEditor({
   // — Review" pill. Zero mutation. Runs on mount / settle / walkway change, not
   // per drag frame. `overlap` = body intersection · `tight` = gap < walkway.
   useIsoLayoutEffect(() => {
+    // Skipped while an optimistic mutation is in flight — same reason as the
+    // auto-place resolver above: an in-flight delete churns the `useOptimistic`
+    // `tables` reference every render, and recomputing + writing the audit map
+    // each time drove the same "Maximum update depth" loop. Re-audit once the
+    // mutation settles.
+    if (isPending) return;
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || !venueScaled) {
       setMountAudit((m) => (m.size === 0 ? m : new Map()));
@@ -2039,7 +2055,7 @@ export function SeatingEditor({
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables, venueScaled, canvasW, wallSettled, aisleM]);
+  }, [tables, venueScaled, canvasW, wallSettled, aisleM, isPending]);
 
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {

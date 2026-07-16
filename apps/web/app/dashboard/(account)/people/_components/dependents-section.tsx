@@ -52,6 +52,7 @@ type DependentRow = {
   shared_with_spouse: boolean;
   handed_over_at: string | null;
   claimed_user_id: string | null;
+  handed_over_by_user_id: string | null;
   claim_token: string | null;
   claim_token_purpose: string | null;
   claim_token_expires_at: string | null;
@@ -84,7 +85,7 @@ export async function DependentsSection() {
   // RLS now returns MY dependents + any my spouse marked shared (PR-G household).
   const { data } = await supabase
     .from('dependents')
-    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse, handed_over_at, claimed_user_id, claim_token, claim_token_purpose, claim_token_expires_at')
+    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse, handed_over_at, claimed_user_id, handed_over_by_user_id, claim_token, claim_token_purpose, claim_token_expires_at')
     .order('created_at', { ascending: true });
   const dependents = (data ?? []) as DependentRow[];
   const today = manilaToday();
@@ -135,11 +136,14 @@ export async function DependentsSection() {
             const band = isPersonRow && d.birth_date ? fenceBand(d.birth_date, today) : null;
             const next = isPersonRow && d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
             const mine = d.owner_user_id === myUserId;
-            // Hand-over states (owner-locked 2026-07-16): a handed-over row is
-            // read-only history for the guardian; a claimed row is the adult's
-            // own data. Link mint: person needs age ≥18 proof; pet/other always.
+            // Hand-over states (owner-locked 2026-07-16): a claim is a TRUE
+            // ownership transfer — the claimant becomes owner (full control,
+            // incl. erasure); the former guardian keeps read-only history via
+            // handed_over_by. Link mint: person needs age ≥18 proof; pet/other
+            // always.
             const handedOver = !!d.handed_over_at;
             const claimedByMe = d.claimed_user_id === myUserId;
+            const fromMe = d.handed_over_by_user_id === myUserId;
             const canMintLink =
               mine && !handedOver && (!isPersonRow || isClaimEligible(d.birth_date, today));
             const linkActive =
@@ -166,11 +170,31 @@ export async function DependentsSection() {
                     </p>
                   </div>
                   {handedOver ? (
-                    <span className="shrink-0 rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
-                      {claimedByMe
-                        ? 'Your own profile'
-                        : `Their own account since ${fmt(d.handed_over_at!.slice(0, 10))}`}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
+                        {claimedByMe
+                          ? 'Your own profile'
+                          : `Their own account since ${fmt(d.handed_over_at!.slice(0, 10))}`}
+                      </span>
+                      {claimedByMe ? (
+                        // The claimant owns the record now — RA 10173 erasure
+                        // is theirs to exercise (the former guardian cannot).
+                        <ConfirmForm
+                          action={deleteDependent}
+                          title="Erase this record?"
+                          message={`Permanently erase your profile record${fromMe ? '' : ' (your former guardian will lose their copy too)'}? This cannot be undone.`}
+                          confirmLabel="Erase"
+                        >
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <button
+                            type="submit"
+                            className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
+                          >
+                            Erase
+                          </button>
+                        </ConfirmForm>
+                      ) : null}
+                    </div>
                   ) : mine ? (
                     <ConfirmForm
                       action={deleteDependent}
@@ -250,8 +274,10 @@ export async function DependentsSection() {
                   </form>
                 ) : null}
 
-                {/* Godparents (ninong / ninang) — only meaningful for a child */}
-                {band === 'child' ? (
+                {/* Godparents (ninong / ninang) — editable while a child is
+                    under guardianship; read-only to the claimed adult (their
+                    own baptismal record, via godparents_subject_read RLS). */}
+                {band === 'child' || (claimedByMe && gps.length > 0) ? (
                   <div className="mt-3 border-t border-ink/10 pt-3">
                     <p className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-ink/40">
                       Ninong &amp; ninang
@@ -267,7 +293,7 @@ export async function DependentsSection() {
                               {g.godparent_name}
                               {g.role ? <span className="text-ink/40"> · {g.role}</span> : null}
                             </span>
-                            {mine ? (
+                            {mine && band === 'child' ? (
                               <ConfirmForm
                                 action={deleteGodparent}
                                 title="Remove godparent?"
@@ -288,7 +314,7 @@ export async function DependentsSection() {
                         ))}
                       </ul>
                     ) : null}
-                    {mine ? (
+                    {mine && band === 'child' ? (
                       <form action={addGodparent} className="mt-2 flex flex-wrap items-end gap-2">
                         <input type="hidden" name="dependent_id" value={d.dependent_id} />
                         <input

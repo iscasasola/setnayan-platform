@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
@@ -26,6 +27,7 @@ import {
   setDependentSharing,
   createHandoverLink,
   revokeHandoverLink,
+  emailHandoverLink,
 } from '../dependent-actions';
 
 /**
@@ -170,6 +172,16 @@ export async function DependentsSection() {
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
+                    {/* Debut happens FROM the alaga (owner 2026-07-17): when the
+                        next milestone is their debut (18 F / 21 M), open the door. */}
+                    {isPersonRow && !handedOver && next && next.age === (d.sex === 'male' ? 21 : 18) ? (
+                      <Link
+                        href="/onboarding/debut"
+                        className="mt-1 inline-block text-xs font-medium text-gold-deep underline-offset-2 hover:underline"
+                      >
+                        Plan {d.name}&rsquo;s debut →
+                      </Link>
+                    ) : null}
                   </div>
                   {handedOver ? (
                     <div className="flex shrink-0 items-center gap-2">
@@ -241,6 +253,23 @@ export async function DependentsSection() {
                             pendingLabel="Revoking…"
                           >
                             Revoke
+                          </SubmitButton>
+                        </form>
+                        <form action={emailHandoverLink} className="flex w-full items-center gap-2 sm:w-auto">
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <input
+                            type="email"
+                            name="recipient"
+                            required
+                            placeholder={isPersonRow ? `${d.name}'s email` : "New keeper's email"}
+                            aria-label={`Email the ${isPersonRow ? 'hand-over' : 'transfer'} link for ${d.name}`}
+                            className="input-field h-8 flex-1 py-1 text-xs sm:max-w-[13rem]"
+                          />
+                          <SubmitButton
+                            className="button-secondary h-8 px-3 py-1 text-xs"
+                            pendingLabel="Sending…"
+                          >
+                            Email it
                           </SubmitButton>
                         </form>
                       </div>

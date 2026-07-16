@@ -45,6 +45,13 @@ function back(msg: string): never {
 
 /** Map the DB RPC's RAISE codes to plain-language vendor copy. */
 function humanizeOfferError(message: string): string {
+  // PR-C: the RPC gate tightened to PRO-AND-UP (owner ratification decision #4,
+  // 2026-07-16). The old TIER_FREE_NO_REACH mapping is kept for a stale-deploy
+  // window where the previous RPC is still live.
+  if (message.includes('TIER_BELOW_PRO_NO_REACH'))
+    return 'Creator collabs are a Pro-and-up feature. Upgrade your plan to offer discounts to storytellers.';
+  if (message.includes('CREATOR_OFFERS_OFF'))
+    return 'This creator isn’t accepting vendor offers right now.';
   if (message.includes('TIER_FREE_NO_REACH'))
     return 'Free vendors can’t spend reach tokens. Upgrade your plan to offer discounts to creators.';
   if (message.includes('INSUFFICIENT_WALLET_BALANCES'))

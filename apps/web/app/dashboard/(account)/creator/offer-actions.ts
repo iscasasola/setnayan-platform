@@ -108,7 +108,9 @@ export async function declineCreatorOffer(formData: FormData) {
 }
 
 /** Attach (or re-attach) a published chapter as the deliverable of an accepted
- *  offer — the creator may publish the crediting chapter after accepting. */
+ *  offer — the creator may publish the crediting chapter after accepting.
+ *  PR-C: the RPC now stamps `fulfilled_at` (linking the crediting chapter IS
+ *  fulfillment — the whole outcome model, no clawback) and the vendor is told. */
 export async function linkCreatorOfferDeliverable(formData: FormData) {
   const { supabase } = await ensureUser();
   const offerId = readString(formData, 'offer_id');
@@ -121,6 +123,58 @@ export async function linkCreatorOfferDeliverable(formData: FormData) {
   });
   if (error) back(error.message);
 
+  // Tell the vendor the collab is FULFILLED (deliverable linked). Best-effort;
+  // reuses the existing offer-lifecycle notification type.
+  try {
+    const { data: offer } = await supabase
+      .from('vendor_creator_offers')
+      .select('vendor_id')
+      .eq('offer_id', offerId)
+      .maybeSingle();
+    const vendorId = (offer as { vendor_id?: string } | null)?.vendor_id;
+    if (vendorId) {
+      const { data: vendor } = await supabase
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle();
+      const founderUserId = (vendor as { user_id?: string } | null)?.user_id;
+      if (founderUserId) {
+        await emitNotification({
+          userId: founderUserId,
+          type: 'creator_offer_responded',
+          title: 'A creator fulfilled your collab',
+          body: 'They linked the published chapter crediting your shop. See it under My Shop → Creators.',
+          relatedUrl: '/vendor-dashboard/creators',
+        });
+      }
+    }
+  } catch {
+    /* best-effort — the link already landed */
+  }
+
   revalidatePath(PANEL_PATH);
   redirect(`${PANEL_PATH}?linked=1`);
+}
+
+/**
+ * Creator "accept vendor offers" toggle (PR-C · RA-10173 must-plan — an
+ * unsolicited offers inbox is the fastest way to make a user feel farmed).
+ * Default ON; turning it OFF (a) hides the creator from the vendor Creators
+ * browse and (b) makes offer_creator_reach_hold raise CREATOR_OFFERS_OFF —
+ * the server-side floor. Self-update on the RLS client (same pattern as the
+ * profile marketing_opt_in toggle).
+ */
+export async function setCreatorAcceptsOffers(formData: FormData) {
+  const { supabase, user } = await ensureUser();
+  const enabled = formData.get('accepts_offers') === 'on';
+
+  const { error } = await supabase
+    .from('users')
+    .update({ creator_accepts_offers: enabled } as Record<string, unknown>)
+    .eq('user_id', user.id);
+  if (error) back('Couldn’t save that preference. Please try again.');
+
+  revalidatePath(PANEL_PATH);
+  redirect(`${PANEL_PATH}?${enabled ? 'offers_on' : 'offers_off'}=1`);
 }

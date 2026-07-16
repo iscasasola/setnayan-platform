@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isPubliclyVisible, parseVisibility } from '@/lib/vendor-visibility';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { fetchInquiriesDrivenForCreators } from '@/lib/inquiry-attribution';
 
 /**
  * Creator Economy — vendor↔creator DISCOUNT COLLAB loop (P1) · app seam.
@@ -42,6 +43,10 @@ export type EligibleCreator = {
   followersCount: number;
   viewCount: number;
   chapterCount: number;
+  /** PR-C — the ONE influence metric: distinct events whose chapter-attributed
+   *  inquiry a vendor unlocked (self-owned-vendor unlocks excluded). Raw
+   *  integer; surfaces render nothing at 0. */
+  inquiriesDriven: number;
 };
 
 /** A vendor's own sent offer (their Creators surface). */
@@ -59,6 +64,14 @@ export type VendorSentOffer = {
   createdAt: string;
   respondedAt: string | null;
   expiresAt: string;
+  /**
+   * PR-C fulfillment state: non-null when the creator linked the crediting
+   * PUBLISHED chapter as the deliverable. fulfilled/unfulfilled is the WHOLE
+   * outcome model — no clawback (owner paper-lock): an unfulfilled collab is
+   * simply visible, and the vendor doesn't offer again.
+   */
+  fulfilledAt: string | null;
+  deliverableChapterId: string | null;
 };
 
 /** An incoming offer in the creator's inbox. */
@@ -139,19 +152,30 @@ export async function fetchEligibleCreators(opts?: {
   const creatorIds = [...counts.keys()];
   if (creatorIds.length === 0) return [];
 
+  // PR-C: creators who turned "accept vendor offers" OFF are HIDDEN from browse
+  // (the server-side floor is offer_creator_reach_hold's CREATOR_OFFERS_OFF).
+  // .neq keeps pre-migration rows (column absent → PostgREST error is caught by
+  // the loose client returning an error → data null → empty browse; the column
+  // ships in the same PR's migration, so this is a same-deploy window only).
   const { data: userRows } = await admin
     .from('users')
-    .select('user_id, display_name, slug, followers_count, profile_view_count, public_profile_enabled')
+    .select('user_id, display_name, slug, followers_count, profile_view_count, public_profile_enabled, creator_accepts_offers')
     .in('user_id', creatorIds)
-    .eq('public_profile_enabled', true);
+    .eq('public_profile_enabled', true)
+    .neq('creator_accepts_offers', false);
 
-  const out: EligibleCreator[] = ((userRows ?? []) as Array<{
+  const rows = (userRows ?? []) as Array<{
     user_id: string;
     display_name: string | null;
     slug: string | null;
     followers_count: number | null;
     profile_view_count: number | null;
-  }>)
+  }>;
+
+  // PR-C — "inquiries driven" joins the browse card (raw number, no bands).
+  const driven = await fetchInquiriesDrivenForCreators(rows.map((u) => u.user_id));
+
+  const out: EligibleCreator[] = rows
     .map((u) => ({
       userId: u.user_id,
       displayName: u.display_name?.trim() || 'A Setnayan creator',
@@ -159,6 +183,7 @@ export async function fetchEligibleCreators(opts?: {
       followersCount: Number(u.followers_count ?? 0),
       viewCount: Number(u.profile_view_count ?? 0),
       chapterCount: counts.get(u.user_id) ?? 0,
+      inquiriesDriven: driven.get(u.user_id) ?? 0,
     }))
     .filter((c) => c.followersCount >= minReach);
 
@@ -179,7 +204,7 @@ export async function fetchVendorSentOffers(
   const { data } = await supabase
     .from('vendor_creator_offers')
     .select(
-      'offer_id, creator_user_id, creator_rate_terms, audience_rate_terms, status, reach_tokens_held, created_at, responded_at, expires_at',
+      'offer_id, creator_user_id, creator_rate_terms, audience_rate_terms, status, reach_tokens_held, created_at, responded_at, expires_at, fulfilled_at, deliverable_chapter_id',
     )
     .eq('vendor_id', vendorProfileId)
     .order('created_at', { ascending: false });
@@ -194,6 +219,8 @@ export async function fetchVendorSentOffers(
     created_at: string;
     responded_at: string | null;
     expires_at: string;
+    fulfilled_at: string | null;
+    deliverable_chapter_id: string | null;
   }>;
   if (rows.length === 0) return [];
 
@@ -223,6 +250,8 @@ export async function fetchVendorSentOffers(
       createdAt: r.created_at,
       respondedAt: r.responded_at,
       expiresAt: r.expires_at,
+      fulfilledAt: r.fulfilled_at ?? null,
+      deliverableChapterId: r.deliverable_chapter_id ?? null,
     };
   });
 }

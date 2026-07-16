@@ -54,6 +54,20 @@ export type ChatThreadRow = {
    * avg_response_minutes in lib/vendor-activity.ts.
    */
   vendor_first_reply_at: string | null;
+  /**
+   * Creator Economy PR-C (migration 20270819553697) — inquiry provenance,
+   * PRIVATE to the vendor. `referring_chapter_id` = CTA-click attribution (the
+   * chapter whose Book CTA started the thread); `inquiry_source` = the owner's
+   * source taxonomy (NULL = Website Inquiry — see lib/inquiry-source.ts);
+   * `is_returning` = the returning-customer companion flag. All optional so a
+   * pre-migration DB degrades to no chips.
+   */
+  referring_chapter_id?: string | null;
+  inquiry_source?: string | null;
+  is_returning?: boolean | null;
+  /** The inquirer (thread opener) — powers the vendor-side "creator collab
+   *  active" marker (PR-C). Base-table column; optional for older mappers. */
+  created_by_user_id?: string | null;
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
@@ -143,7 +157,7 @@ export type ChatMessageRow = {
 };
 
 const THREAD_SELECT =
-  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at';
+  'thread_id,public_id,event_id,vendor_profile_id,created_by_user_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at,referring_chapter_id,inquiry_source,is_returning';
 
 /**
  * Count of message threads with at least one unread message for the current

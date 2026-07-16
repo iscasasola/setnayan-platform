@@ -15,6 +15,7 @@ import {
   type CreatorInfluenceVendor,
 } from '@/lib/creator-offers';
 import { formatAudienceCount } from '@/lib/creator-audience';
+import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
 
@@ -152,6 +153,15 @@ export default async function AccountProfilePage({ params }: Props) {
     ? await fetchCreatorInfluence(user.user_id)
     : [];
 
+  // "Inquiries driven" (Creator Economy PR-C) — the ONE public influence metric
+  // (owner paper-lock: raw integer, the word is "inquiries" never "bookings",
+  // renders NOTHING at 0). Aggregate-only: the count of distinct events whose
+  // chapter-attributed inquiry a vendor unlocked, self-owned-vendor unlocks
+  // excluded. No tiers, no bands.
+  const inquiriesDriven = hasChapters
+    ? await fetchCreatorInquiriesDriven(user.user_id)
+    : 0;
+
   const ongoing = publicWebsiteEvents.filter((e) => !e.archived);
 
   // 1 ongoing → jump straight in (skip for the owner previewing their own
@@ -221,6 +231,18 @@ export default async function AccountProfilePage({ params }: Props) {
                 <strong>{formatAudienceCount(user.profile_view_count)}</strong>{' '}
                 {user.profile_view_count === 1 ? 'view' : 'views'}
               </span>
+              {/* PR-C — renders NOTHING at 0 (no fake influence). */}
+              {inquiriesDriven > 0 ? (
+                <>
+                  <span aria-hidden className="uprof-stat-dot">
+                    &middot;
+                  </span>
+                  <span className="uprof-stat">
+                    <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
+                    {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+                  </span>
+                </>
+              ) : null}
               {/* Follow — the client island renders only for a signed-in
                   visitor viewing someone else's profile (never self/signed-out). */}
               <FollowButton

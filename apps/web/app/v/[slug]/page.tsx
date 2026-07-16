@@ -147,6 +147,9 @@ type Props = {
     utm_campaign?: string;
     utm?: string;
     src?: string;
+    // Creator Economy PR-C — a chapter Book CTA referral (chapter public_id).
+    // Server-validated in startServiceInquiry before any attribution stamp.
+    ref_chapter?: string;
   }>;
 };
 
@@ -2221,6 +2224,17 @@ export async function renderVendorBySlug({
               // bouncing on the server `not_secured` guard. Secured users and
               // signed-out visitors are unaffected.
               viewerIsAnonymous={user?.is_anonymous ?? false}
+              // Creator Economy PR-C — provenance carried from the arrival URL:
+              // ?ref_chapter=… (a chapter's Book CTA; server-validated before
+              // stamping 'influencer' attribution) and ?src=editorial (a
+              // /realstories credit chip → 'Editorial Inquiry'). Absent both,
+              // the inquiry stays the NULL/'website' default.
+              referringChapterPublicId={
+                typeof search.ref_chapter === 'string' && search.ref_chapter
+                  ? search.ref_chapter
+                  : null
+              }
+              inquirySource={search.src === 'editorial' ? 'editorial' : null}
             />
           ) : null}
 

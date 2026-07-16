@@ -237,7 +237,13 @@ export type NotificationType =
   // accept/decline (→ vendor). Both are transactional collab signals emitted
   // from the offer server actions.
   | 'creator_offer_received'
-  | 'creator_offer_responded';
+  | 'creator_offer_responded'
+  // Creator Economy PR-C (migration 20270819553697). The creator's payoff loop:
+  // a vendor UNLOCKED (spent a lead token on) an inquiry that came through the
+  // creator's chapter Book CTA. In-app only — not on the email allowlist, so no
+  // email fires regardless of consent; the tray row is the whole delivery.
+  // Recipient = the chapter's creator; body names the chapter, never the couple.
+  | 'chapter_drove_inquiry';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -259,6 +265,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   new_chapter_from_followed: 'New chapter',
   creator_offer_received: 'Discount offer',
   creator_offer_responded: 'Offer answered',
+  chapter_drove_inquiry: 'Your chapter drove an inquiry',
   booking_confirmed: 'Booking confirmed',
   review_received: 'New review',
   booking_cancelled: 'Booking cancelled',
@@ -429,6 +436,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // Creator-collab signals — the same warm register as bookings/partnerships.
   creator_offer_received: 'bg-amber-100 text-amber-900',
   creator_offer_responded: 'bg-amber-100 text-amber-900',
+  // The creator's payoff signal ("inquiries driven" ticked up) — same warm
+  // collab register as the offer pair.
+  chapter_drove_inquiry: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

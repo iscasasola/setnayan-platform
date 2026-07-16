@@ -14,6 +14,7 @@ import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components/chapter-embed-frame';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { ReportPageButton } from '@/app/_components/report-page-button';
+import { fetchAudienceRatesForCreatorVendors } from '@/lib/inquiry-attribution';
 
 // Creator "Adventure Chapter" — PUBLIC chapter detail (CP-3 / CP-4).
 //
@@ -116,6 +117,19 @@ export default async function ChapterDetailPage({ params }: Props) {
   const hasSubstrate =
     !!itinerary || !!papic_gallery_id || vendors.length > 0;
 
+  // Creator Economy PR-C — the viewer promo. For each shoppable vendor with an
+  // ACCEPTED collab (this chapter's creator ↔ that vendor) carrying an audience
+  // rate, surface "Viewer promo: {terms}" + the ratified disclosure at the Book
+  // CTA. WHITELIST: only audience_rate_terms is read — creator_rate_terms never
+  // renders publicly (owner paper-lock 2026-07-16).
+  const audienceRates =
+    vendors.length > 0
+      ? await fetchAudienceRatesForCreatorVendors(
+          user.user_id,
+          vendors.map((v) => v.vendorProfileId),
+        )
+      : new Map<string, string>();
+
   return (
     <main className="uchap">
       <style>{UCHAP_CSS}</style>
@@ -181,37 +195,71 @@ export default async function ChapterDetailPage({ params }: Props) {
               <div className="uchap-block">
                 <p className="uchap-block-label">Vendors — shoppable</p>
                 <ul className="uchap-vendors">
-                  {vendors.map((v) => (
-                    <li key={v.slug}>
-                      <Link href={`/v/${v.slug}`} className="uchap-vendor">
-                        {v.logoUrl ? (
-                          <span className="uchap-vendor-logo">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={v.logoUrl}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              className="uchap-vendor-logo-img"
-                            />
+                  {vendors.map((v) => {
+                    // Viewer promo (PR-C) — the vendor's audience rate from
+                    // the ACCEPTED collab with this chapter's creator.
+                    // audience_rate_terms ONLY; never the creator rate.
+                    const promo = audienceRates.get(v.vendorProfileId) ?? null;
+                    return (
+                      <li key={v.slug} className="uchap-vendor-cell">
+                        <Link href={`/v/${v.slug}`} className="uchap-vendor">
+                          {v.logoUrl ? (
+                            <span className="uchap-vendor-logo">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={v.logoUrl}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                className="uchap-vendor-logo-img"
+                              />
+                            </span>
+                          ) : (
+                            <span className="uchap-vendor-logo uchap-vendor-logo--empty" aria-hidden>
+                              {v.name.charAt(0)}
+                            </span>
+                          )}
+                          <span className="uchap-vendor-body">
+                            <span className="uchap-vendor-name">{v.name}</span>
+                            {v.city ? (
+                              <span className="uchap-vendor-city">{v.city}</span>
+                            ) : null}
                           </span>
-                        ) : (
-                          <span className="uchap-vendor-logo uchap-vendor-logo--empty" aria-hidden>
-                            {v.name.charAt(0)}
+                          <span aria-hidden className="uchap-vendor-chev">
+                            &rsaquo;
                           </span>
-                        )}
-                        <span className="uchap-vendor-body">
-                          <span className="uchap-vendor-name">{v.name}</span>
-                          {v.city ? (
-                            <span className="uchap-vendor-city">{v.city}</span>
+                        </Link>
+                        {/* Book CTA — the CTA-click attribution doorway. The
+                            ref_chapter param rides to /v/[slug], threads into
+                            the existing inquiry composer, and is validated
+                            server-side before 'influencer' is stamped. Sibling
+                            link, never nested in the card anchor. */}
+                        <div className="uchap-vendor-book">
+                          {promo ? (
+                            <p className="uchap-vendor-promo">
+                              Viewer promo: {promo}
+                            </p>
                           ) : null}
-                        </span>
-                        <span aria-hidden className="uchap-vendor-chev">
-                          &rsaquo;
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                          <Link
+                            href={`/v/${v.slug}?ref_chapter=${chapter.public_id}`}
+                            className="uchap-vendor-book-cta"
+                          >
+                            Book through this chapter
+                          </Link>
+                          {promo ? (
+                            // Ratified viewer disclosure (simplest-approach
+                            // verdict §6 — exact copy; RA-10173 must-plan).
+                            <p className="uchap-vendor-disclosure">
+                              This storyteller partnered with {v.name}. Book
+                              through this chapter and {v.name} honors the promo
+                              shown — the discount is offered and settled by the
+                              vendor directly.
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ) : null}
@@ -402,6 +450,34 @@ const UCHAP_CSS = `
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .uchap-vendor-cell { display: flex; flex-direction: column; gap: 0.45rem; }
+  .uchap-vendor-book { display: flex; flex-direction: column; gap: 0.3rem; padding: 0 0.25rem; }
+  .uchap-vendor-promo {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--m-orange-2, #8A6B39);
+  }
+  .uchap-vendor-book-cta {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--m-r-full, 999px);
+    background: var(--m-ink, #1B1A17);
+    color: var(--m-paper, #FBFBFA);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity .15s;
+  }
+  .uchap-vendor-book-cta:hover { opacity: .85; }
+  .uchap-vendor-disclosure {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: var(--m-slate-2, #6A6E76);
   }
   .uchap-vendor-chev {
     flex: 0 0 auto;

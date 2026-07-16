@@ -26,8 +26,10 @@ type ReportRow = {
   public_id: string;
   reporter_user_id: string | null;
   reporter_guest_id: string | null;
-  event_id: string;
-  target_type: 'photo' | 'comment' | 'user' | 'ai_output';
+  // NULL for a public-profile report (target_type='user_profile') — that report
+  // is not tied to any event, so only admins see it (couple RLS keys on event).
+  event_id: string | null;
+  target_type: 'photo' | 'comment' | 'user' | 'ai_output' | 'event' | 'user_profile';
   target_id: string;
   reason: string;
   details: string | null;
@@ -68,12 +70,17 @@ const TARGET_PHRASE: Record<ReportRow['target_type'], string> = {
   comment: 'a comment',
   user: 'a user',
   ai_output: 'an AI-generated result',
+  // Public-page targets (social-share follow-through #8 / profile #7c).
+  event: 'this event page',
+  user_profile: 'a public profile',
 };
 const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   photo: 'photo',
   comment: 'comment',
   user: 'user',
   ai_output: 'AI output',
+  event: 'event page',
+  user_profile: 'profile',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -114,7 +121,9 @@ export default async function AdminUserReportsPage({
 
   // Resolve context: event names, reporter names, and a thumbnail for each
   // photo target. One parallel batch keyed on the visible page.
-  const eventIds = Array.from(new Set(rows.map((r) => r.event_id)));
+  const eventIds = Array.from(
+    new Set(rows.map((r) => r.event_id).filter((v): v is string => Boolean(v))),
+  );
   const reporterIds = Array.from(
     new Set(rows.map((r) => r.reporter_user_id).filter((v): v is string => Boolean(v))),
   );
@@ -177,10 +186,11 @@ export default async function AdminUserReportsPage({
           <h1 className="text-2xl font-semibold tracking-tight">User reports</h1>
         </div>
         <p className="text-sm text-ink/65">
-          Reports filed against guest gallery content (Papic) and Setnayan AI
-          output (Play GenAI policy). Hide the photo, block the uploader for
-          that event, escalate for owner/legal review, or dismiss. The latest
-          200 matching the filter, newest first.
+          Reports filed against guest gallery content (Papic), Setnayan AI
+          output (Play GenAI policy), and public pages (an invitation page or
+          a profile). Hide the photo, block the uploader for that event,
+          escalate for owner/legal review, or dismiss. The latest 200 matching
+          the filter, newest first.
         </p>
       </header>
 
@@ -260,11 +270,23 @@ export default async function AdminUserReportsPage({
                     <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
                   </div>
                   <p className="text-sm text-ink/80">
-                    {reporter} reported {TARGET_PHRASE[r.target_type] ?? `a ${r.target_type}`} in{' '}
-                    <span className="font-medium">{eventName.get(r.event_id) ?? 'an event'}</span>
+                    {reporter} reported {TARGET_PHRASE[r.target_type] ?? `a ${r.target_type}`}
+                    {r.event_id ? (
+                      <>
+                        {' in '}
+                        <span className="font-medium">
+                          {eventName.get(r.event_id) ?? 'an event'}
+                        </span>
+                      </>
+                    ) : null}
                     {' · '}
                     <span className="text-ink/50">{relativeTime(r.created_at)}</span>
                   </p>
+                  {(r.target_type === 'event' || r.target_type === 'user_profile') && (
+                    <p className="font-mono text-[10px] text-ink/45">
+                      {r.target_type === 'event' ? 'event' : 'user'} {r.target_id}
+                    </p>
+                  )}
                   {r.target_type === 'ai_output' && (
                     <p className="font-mono text-[10px] text-ink/45">
                       generation {r.target_id}

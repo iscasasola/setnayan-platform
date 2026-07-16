@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { renderReel, type RenderClip } from '@/lib/reel-render';
 import { defaultCameraMove } from '@/lib/stories-camera-move';
-import { TEASER_FOOTER, TEASER_PALETTE } from '@/lib/creator-teaser';
+import { TEASER_FOOTER, TEASER_PALETTE } from '@/lib/creator-teaser-shared';
 import { prepareChapterTeaser, finalizeChapterTeaser } from '../actions';
 
 type Phase = 'idle' | 'preparing' | 'rendering' | 'uploading' | 'done' | 'error';

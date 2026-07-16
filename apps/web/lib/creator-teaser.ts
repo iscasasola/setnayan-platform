@@ -19,39 +19,28 @@
 // no BYO audio can ever reach it.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BeatGrid } from './stories-templates';
 import { fetchPapicGallery, type GalleryPhoto } from './papic-gallery';
 import { pickOwnedReelMusic } from './guest-stories';
+import {
+  TEASER_MAX_PHOTOS,
+  TEASER_MIN_PHOTOS,
+  TEASER_TARGET_SEC,
+  type TeaserPlan,
+  type TeaserPlanPhoto,
+} from './creator-teaser-shared';
 
-/** Target teaser length — a "few seconds". */
-export const TEASER_TARGET_SEC = 6;
-/** A teaser needs enough frames to read as a montage, not a slideshow. */
-export const TEASER_MIN_PHOTOS = 3;
-/** Cap so a 100-photo gallery still yields a tight few-second cut. */
-export const TEASER_MAX_PHOTOS = 8;
-/** The "made with Setnayan" hook, baked into every frame + the end card. */
-export const TEASER_FOOTER = 'Made with Setnayan';
-/** Brand palette (obsidian · gold · mulberry · black) for the render template. */
-export const TEASER_PALETTE: readonly [string, string, string, string] = [
-  '#0F0F0F',
-  '#C9A14B',
-  '#8B1E3F',
-  '#000000',
-];
-
-export type TeaserPlanPhoto = { clipId: string; url: string };
-
-export type TeaserPlan = {
-  canRender: boolean;
-  /** Human-readable reason the teaser can't be built yet (null when it can). */
-  reason: string | null;
-  photos: TeaserPlanPhoto[];
-  /** Presigned owned-catalogue track URL, or null → the teaser renders silent. */
-  musicUrl: string | null;
-  beatGrid: BeatGrid | null;
-  musicLabel: string | null;
-  targetSec: number;
-};
+// Client-safe constants + plan types live in lib/creator-teaser-shared.ts
+// (pure data — importable from client components without dragging the
+// server-only readers below into the bundle). Re-exported here so server
+// callers keep a single import point.
+export {
+  TEASER_FOOTER,
+  TEASER_MAX_PHOTOS,
+  TEASER_MIN_PHOTOS,
+  TEASER_PALETTE,
+  TEASER_TARGET_SEC,
+} from './creator-teaser-shared';
+export type { TeaserPlan, TeaserPlanPhoto } from './creator-teaser-shared';
 
 /**
  * The chapter's Papic gallery is keyed by the substrate's `papic_gallery_id`

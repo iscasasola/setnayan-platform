@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft, HeartHandshake } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { COMMUNITY_KINDS, COMMUNITY_KIND_LABEL } from '@/lib/communities';
+import { } from '@/lib/communities';
 import { createCommunity } from '../actions';
 
 export const metadata = {
@@ -15,7 +15,6 @@ export const metadata = {
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give the samahan a name (2–80 characters).',
-  invalid_kind: 'Pick one of the samahan kinds.',
   description_too_long: 'Keep the description under 280 characters.',
 };
 
@@ -75,25 +74,6 @@ export default async function NewSamahanPage({
           />
         </div>
 
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-ink">Kind</legend>
-          <div className="flex flex-wrap gap-2">
-            {COMMUNITY_KINDS.map((kind) => (
-              <label key={kind} className="cursor-pointer">
-                <input
-                  className="peer sr-only"
-                  defaultChecked={kind === 'barkada'}
-                  name="kind"
-                  type="radio"
-                  value={kind}
-                />
-                <span className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/60 transition peer-checked:border-terracotta-500 peer-checked:text-ink peer-checked:ring-1 peer-checked:ring-terracotta-500 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink/40">
-                  {COMMUNITY_KIND_LABEL[kind]}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
 
         <div className="space-y-1.5">
           <label

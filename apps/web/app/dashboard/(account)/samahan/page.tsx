@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchUserCommunities,
-  COMMUNITY_KIND_LABEL,
   type CommunityWithRole,
 } from '@/lib/communities';
 
@@ -106,7 +105,7 @@ export default async function SamahanIndexPage({
   );
 }
 
-/** One samahan row — the launcher SpaceRow idiom (initial chip · name · kind
+/** One samahan row — the launcher SpaceRow idiom (initial chip · name
  *  badge · role + member count metaline · jump arrow). */
 function CommunityRow({ community }: { community: CommunityWithRole }) {
   const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
@@ -123,9 +122,6 @@ function CommunityRow({ community }: { community: CommunityWithRole }) {
         <span className="flex items-center gap-2">
           <span className="truncate text-sm font-bold text-ink">
             {community.name}
-          </span>
-          <span className="shrink-0 rounded-full border border-ink/10 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            {COMMUNITY_KIND_LABEL[community.kind]}
           </span>
         </span>
         <span className="mt-0.5 block font-mono text-xs text-ink/55">

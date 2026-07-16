@@ -20,7 +20,6 @@ import {
   fetchCommunityRoster,
   fetchInviteToken,
   fetchViewerEventIds,
-  COMMUNITY_KIND_LABEL,
   type CommunityEventRow,
   type CommunityRosterEntry,
 } from '@/lib/communities';
@@ -132,7 +131,7 @@ export default async function SamahanSpacePage({
       </Link>
 
       {/* Header band — glass panel: initial chip w/ gold RING (jewelry, not
-          paint), serif name, kind badge + public_id in mono, member/event
+          paint), serif name + public_id in mono, member/event
           metaline. */}
       <div className="mb-6 rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         <div className="flex items-center gap-4">
@@ -144,9 +143,6 @@ export default async function SamahanSpacePage({
               {community.name}
             </h1>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em]">
-              <span className="rounded-full border border-ink/10 bg-cream px-2 py-0.5 text-ink/55">
-                {COMMUNITY_KIND_LABEL[community.kind]}
-              </span>
               <span className="text-ink/45">{community.public_id}</span>
             </p>
           </div>

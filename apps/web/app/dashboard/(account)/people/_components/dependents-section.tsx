@@ -160,11 +160,13 @@ export async function DependentsSection() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink">{d.name}</p>
                     <p className="truncate text-xs text-ink/55">
-                      {d.dependent_kind && d.dependent_kind !== 'person'
-                        ? DEPENDENT_KIND_LABELS[d.dependent_kind]
-                        : d.relationship
-                          ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
-                          : 'My alaga'}
+                      {claimedByMe
+                        ? 'You'
+                        : d.dependent_kind && d.dependent_kind !== 'person'
+                          ? DEPENDENT_KIND_LABELS[d.dependent_kind]
+                          : d.relationship
+                            ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
+                            : 'My alaga'}
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>

@@ -2,7 +2,9 @@
  * Unit suite for the dependent age fence + age-out (the load-bearing safety
  * logic of the counsel-gated dependent layer). Invariants: only <18 or >50 are
  * storable (18–50 blocked → invite, never register); a child record hands over
- * at 18 (F) / 21 (M); elder records never hand over.
+ * at 18 for everyone (owner-locked 2026-07-16 — PH age of majority, RA 6809;
+ * the 18 F / 21 M split lives only in the debut MILESTONE ladder); elder
+ * records never auto-hand-over.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,16 +39,16 @@ test('isFenceEligible: child + elder yes, blocked no', () => {
   assert.equal(isFenceEligible('1995-01-01', TODAY), false);
 });
 
-test('handOverAge: female 18, male 21, unknown 18', () => {
+test('handOverAge: 18 for everyone regardless of sex', () => {
   assert.equal(handOverAge('female'), 18);
-  assert.equal(handOverAge('male'), 21);
+  assert.equal(handOverAge('male'), 18);
   assert.equal(handOverAge(null), 18);
 });
 
-test('shouldHandOver: a girl hands over at 18, a boy at 21', () => {
+test('shouldHandOver: everyone hands over at 18', () => {
   assert.equal(shouldHandOver('2008-07-12', 'female', TODAY), true); // turned 18
-  assert.equal(shouldHandOver('2008-07-12', 'male', TODAY), false); // 18, boy waits for 21
-  assert.equal(shouldHandOver('2005-07-12', 'male', TODAY), true); // turned 21
+  assert.equal(shouldHandOver('2008-07-12', 'male', TODAY), true); // turned 18 — same age, no debut wait
+  assert.equal(shouldHandOver('2008-07-13', 'male', TODAY), false); // still 17
 });
 
 test('shouldHandOver: an elder never hands over', () => {

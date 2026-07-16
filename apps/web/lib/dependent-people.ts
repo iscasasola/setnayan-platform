@@ -91,15 +91,19 @@ export function isFenceEligible(birthISO: string, todayISO: string): boolean {
   return band === 'child' || band === 'elder';
 }
 
-/** The age a dependent record hands over to its own account: female 18, male 21. */
-export function handOverAge(sex: DependentSex | null | undefined): number {
-  return sex === 'male' ? 21 : 18;
+/**
+ * The age a dependent record hands over to its own account: 18 for everyone
+ * (owner-locked 2026-07-16 — PH age of majority, RA 6809). Distinct from the
+ * debut MILESTONE ladder (18 F / 21 M), which is a celebration, not ownership.
+ */
+export function handOverAge(_sex: DependentSex | null | undefined): number {
+  return 18;
 }
 
 /**
  * Should this <18 record hand over to the person's own account now? True once
- * the person reaches their hand-over age (their last debut milestone). Elder
- * (>50) records never hand over.
+ * the person turns 18 (age of majority — not the debut age). Elder (>50)
+ * records never auto-hand-over.
  */
 export function shouldHandOver(
   birthISO: string,

@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ImageIcon,
   ShieldCheck,
+  Megaphone,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -16,6 +17,7 @@ import { loadRecapCoupleSummary } from '@/lib/auto-recap';
 import { getDriveOAuthConfig } from '@/lib/papic-drive';
 import { publishRecap, unpublishRecap } from './actions';
 import { RecapDriveNudge } from './_components/recap-drive-nudge';
+import { RecapSocialFeatureToggle } from './_components/recap-social-feature-toggle';
 
 // Iteration 0012 Papic — Auto-Recap (couple-side management surface).
 //
@@ -40,7 +42,7 @@ export default async function CoupleRecapPage({
   if (!user) redirect('/login');
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name')
+    .select('event_id, display_name, recap_social_optout_at')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -175,6 +177,26 @@ export default async function CoupleRecapPage({
                 )}
               </SubmitButton>
             </form>
+          </div>
+        </div>
+      </section>
+
+      {/* Featuring on Setnayan's own socials — the couple's opt-out (#2) */}
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+            <Megaphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-ink">Featuring on Setnayan&rsquo;s socials</h2>
+            <p className="mt-1 mb-3 text-sm text-ink/60">
+              Sometimes we love to share a couple&rsquo;s recap on Setnayan&rsquo;s own Facebook and
+              Instagram. It&rsquo;s on by default — but it&rsquo;s always your call.
+            </p>
+            <RecapSocialFeatureToggle
+              eventId={eventId}
+              allowed={!event.recap_social_optout_at}
+            />
           </div>
         </div>
       </section>

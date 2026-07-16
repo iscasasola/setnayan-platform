@@ -88,6 +88,34 @@ export async function publishRecap(formData: FormData): Promise<void> {
   });
 }
 
+/**
+ * Social follow-through #2 — the couple's per-event opt-out of Setnayan
+ * featuring their published recap on Setnayan's OWN Facebook / Instagram.
+ * `allowed` = the checkbox state on the recap manager: checked → Setnayan MAY
+ * feature (clear recap_social_optout_at); unchecked → opt OUT (stamp it now).
+ * Default is allowed (NULL). Honored by BOTH the compose and dispatch gates in
+ * lib/social/*; if a post already went live, the existing admin Social Queue
+ * take-down (24h SLA) handles removal — this only governs future dispatch.
+ */
+export async function setRecapSocialFeatureAllowed(
+  eventId: string,
+  allowed: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const clean = eventId?.trim();
+  if (!clean) return { ok: false, error: 'missing_event' };
+  await requireCouple(clean);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ recap_social_optout_at: allowed ? null : new Date().toISOString() })
+    .eq('event_id', clean);
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+
+  revalidatePath(`/dashboard/${clean}/studio/papic/recap`);
+  return { ok: true };
+}
+
 export async function unpublishRecap(formData: FormData): Promise<void> {
   const eventId = eventIdFrom(formData);
   await requireCouple(eventId);

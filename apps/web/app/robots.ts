@@ -7,6 +7,7 @@ const ALLOWED_PATHS = [
   '/v/',
   '/explore',
   '/vendors',
+  '/creators',
   '/help',
   '/realstories',
   '/tl', // Taglish locale subpath (Taglish ≈ tl; localization first slice — /tl/about live)

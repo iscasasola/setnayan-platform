@@ -1,5 +1,5 @@
 /**
- * CreatorBadge — the visual seal for an `is_creator` account (owner sign-off,
+ * CreatorBadge — the visual seal for a public storyteller (owner sign-off,
  * 2026-07-16 build plan). NOT a loud "verified" checkmark: a compact, tasteful
  * GOLD pill in the atelier gold token (--m-orange #A9834B), a small four-point
  * star glyph + a Space Mono, uppercase, letter-spaced label. Luxurious-Filipino-
@@ -11,7 +11,9 @@
  * Self-contained inline styles (referencing the --m-* / --font-* CSS vars) so
  * the badge is portable across surfaces that don't share a stylesheet — the /u
  * header, the timeline cards, and the chapter-detail header all render it the
- * same way. Render ONLY when users.is_creator === true (callers gate).
+ * same way. Creator is USER-NATIVE (2026-07-16): render when the account has
+ * published >=1 public chapter — a public storyteller (callers gate; there is no
+ * is_creator flag).
  */
 
 export const CREATOR_BADGE_LABEL = 'Creator';

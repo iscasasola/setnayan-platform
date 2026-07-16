@@ -42,10 +42,6 @@ export type PublicProfileUser = {
   display_name: string | null;
   slug: string | null;
   public_profile_enabled: boolean | null;
-  /** Creator-program access flag (Adventure Chapter, CP-1). When TRUE the /u
-   *  profile renders the account's published chapters as a timeline + the
-   *  creator badge. */
-  is_creator: boolean | null;
 };
 
 export type ResolvedPublicProfile = {
@@ -70,7 +66,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
   const admin = createAdminClient();
   const { data: user } = await admin
     .from('users')
-    .select('user_id, display_name, slug, public_profile_enabled, is_creator')
+    .select('user_id, display_name, slug, public_profile_enabled')
     .ilike('slug', userSlug)
     .maybeSingle();
   if (!user) return null;

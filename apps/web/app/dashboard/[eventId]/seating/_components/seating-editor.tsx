@@ -88,17 +88,15 @@ import {
   guestTier,
   removedSeatSet,
   roleTier,
-  rectChainSnap,
   rotatePoint,
-  roundKissSnap,
   nextTableName,
-  serpentineChainSnap,
   obbOf,
   checkPlacement,
   penetrationDepth,
   layoutViolations,
   legalJoinPose,
   isLegalJoint,
+  atLegalJoint,
   chainableShapes,
   stageZone,
   TABLE_TYPE_CATALOG,
@@ -138,7 +136,6 @@ import {
   lockAndFill,
   removeSeatingConstraint,
   toggleSeatLock,
-  linkTables,
   publishSeating,
   saveBooths,
   saveFloorPlan,
@@ -644,7 +641,6 @@ export function SeatingEditor({
   }, [highlightId]);
   // Link-mode: started from a table's popup; the NEXT table tapped on the
   // canvas joins it into one named unit (identity + QR only).
-  const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
   // Exclusive editor lock (PR 2 · owner lock 2026-06-13): ONE editor per event,
   // co-owners included. We attempt to acquire on mount; if a live peer already
   // holds it we drop to view-only and surface a "Take over editing" button. A
@@ -1427,96 +1423,10 @@ export function SeatingEditor({
     });
   };
 
-  // Link two tables into one grouped unit / break a unit apart. Grouped tables
-  // share a name + ONE printed QR sign AND behave as one on the floor — they
-  // move and rotate together (Keynote-style). Seating math stays per-table.
-  const doLinkTables = (fromId: string, toId: string) => {
-    setLinkingFrom(null);
-    if (!canEdit) return;
-    const fromLabel = tableLabelById.get(fromId) ?? 'the first table';
-    const toLabel = tableLabelById.get(toId) ?? 'the second table';
-    // Council verdict § 2 Gesture 2 — pull-to-join: the chain icon no longer
-    // links in place. B animates to the nearest oracle-valid legal joint on A
-    // and only then links (a weld is always at an exact legal pose). Cross-family
-    // or no-room → refuse (the server re-validates too). Skipped when they're
-    // already the same unit.
-    //
-    // Runs on the FREE board too (fix 2026-07-16): the weld was formerly gated
-    // on `venueScaled`, so on a board with no venue dimensions the chain icon
-    // grouped the two tables IN PLACE — serpentines linked wherever they sat and
-    // visibly overlapped (owner-reported "serpentine link tables still overlap").
-    // Every helper the weld needs has a free-board path already — `legalJoinPose`
-    // is pure px, `gapPxNow()` falls back to COLLIDE_GAP, `poseAt`/`scaleOf`
-    // resolve scale 1 when `pxPerMeter` is null — so the guard was purely
-    // over-restrictive. The drag-snap gesture never had this gate, which is why
-    // dragging one wedge onto another already welded on the free board but the
-    // chain-icon link did not.
-    const from = tables.find((t) => t.table_id === fromId);
-    const to = tables.find((t) => t.table_id === toId);
-    const rect = canvasRef.current?.getBoundingClientRect();
-    let weldMove: { xPct: number; yPct: number; rot: number } | null = null;
-    if (
-      from &&
-      to &&
-      rect &&
-      rect.width > 0 &&
-      chainableShapes(shapeHintFor(from.table_type), shapeHintFor(to.table_type)) &&
-      (from.link_group_id == null || from.link_group_id !== to.link_group_id)
-    ) {
-      const anchorPose = poseAt(from, (positions[fromId] ?? { x: 50, y: 50 }).x, (positions[fromId] ?? { x: 50, y: 50 }).y, rect);
-      const moverCur = positions[toId] ?? { x: 50, y: 50 };
-      const moverPose = poseAt(to, moverCur.x, moverCur.y, rect);
-      const cand = legalJoinPose(anchorPose, moverPose, Math.max(rect.width, rect.height));
-      if (!cand) {
-        setNotice(`No open end on “${fromLabel}” to join “${toLabel}” — try the other table.`);
-        return;
-      }
-      // Oracle-check the welded pose vs every THIRD party (anchor exempt).
-      const ghost: WorldPose = { ...moverPose, x: cand.x, y: cand.y, rot: cand.rot };
-      const posFor = (o: EventTableRow, i: number) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
-      const thirdParties = othersFor(to, rect, posFor).filter((p) => p.tableId !== fromId);
-      if (!checkPlacement(ghost, { others: thirdParties, zones: zonesFor(rect) }, { gapPx: gapPxNow() }).valid) {
-        setNotice(`No room at that end — drag “${toLabel}” closer to “${fromLabel}” first.`);
-        return;
-      }
-      weldMove = { xPct: (cand.x / rect.width) * 100, yPct: (cand.y / rect.height) * 100, rot: cand.rot };
-    }
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('lock_id', lock.lockId ?? '');
-    fd.set('table_id_a', fromId);
-    fd.set('table_id_b', toId);
-    startTransition(async () => {
-      try {
-        if (weldMove) {
-          // Snap B onto the legal joint, persist its pose, THEN link.
-          setPositions((p) => ({ ...p, [toId]: { x: weldMove!.xPct, y: weldMove!.yPct } }));
-          setRotById((m) => ({ ...m, [toId]: weldMove!.rot }));
-          const fp = new FormData();
-          fp.set('event_id', eventId);
-          fp.set('lock_id', lock.lockId ?? '');
-          fp.set('table_id', toId);
-          fp.set('x_pos', String(weldMove.xPct));
-          fp.set('y_pos', String(weldMove.yPct));
-          await updateTablePosition(fp);
-          const fr = new FormData();
-          fr.set('event_id', eventId);
-          fr.set('lock_id', lock.lockId ?? '');
-          fr.set('table_id', toId);
-          fr.set('rotation_deg', String(weldMove.rot));
-          await updateTableRotation(fr);
-        }
-        await linkTables(fd);
-        setNotice(
-          `Grouped — “${fromLabel}” and “${toLabel}” are now one unit “${fromLabel} & ${toLabel}” that moves and rotates together, with one printed QR sign. Rename it from any member; Break apart to separate them.`,
-        );
-      } catch (err) {
-        if (!handleLockLost(err)) {
-          setNotice(`Couldn't link “${fromLabel}” and “${toLabel}” — please try again.`);
-        }
-      }
-    });
-  };
+  // Break a legacy grouped unit apart. CREATING a link is deferred to a future
+  // PR (owner 2026-07-16 — this PR connects tables by drag-snap POSITIONING, not
+  // by linking); `doLinkTables` / the link gestures are retired. Existing
+  // `link_group_id` data is left intact and can still be un-grouped here.
   const doUnlink = (tableId: string) => {
     if (!canEdit) return;
     const fd = new FormData();
@@ -1914,8 +1824,10 @@ export function SeatingEditor({
     const posFor = (o: EventTableRow, i: number) =>
       positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
     const others = othersFor(t, rect, posFor).filter((op) => {
-      if (pose.linkGroupId != null && pose.linkGroupId === op.linkGroupId) return false; // same unit
-      if (op.shape === pose.shape && isLegalJoint(op, jp, ppm)) return false; // valid weld/kiss
+      // A clean geometric joint (chain-class, coincident ends, tangent-continuous)
+      // is valid adjacency — not a collision. No link needed. `jp` carries the
+      // candidate rotation being tested.
+      if (atLegalJoint(jp, op)) return false;
       return true;
     });
     return !checkPlacement(pose, { others, zones: zonesFor(rect) }, { gapPx: gapPxNow() }).valid;
@@ -2427,16 +2339,9 @@ export function SeatingEditor({
                 snap = cand;
               }
             }
-          } else if (movingShape === 'round') {
-            catchR = 36;
-            snap = roundKissSnap(
-              dragPx,
-              footprintPx(movingEarly).w / 2,
-              tables
-                .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'round')
-                .map((o) => ({ ...pxOf(o), radius: footprintPx(o).w / 2 })),
-            );
           }
+          // Round / sweetheart / king DON'T snap — they're standalone furniture
+          // (owner 2026-07-16): drag freely and collide like any solid table.
           if (snap) {
             const nx = Math.max(lo, Math.min(hi, (snap.x / rect.width) * 100));
             const ny = Math.max(lo, Math.min(hi, (snap.y / rect.height) * 100));
@@ -2700,9 +2605,16 @@ export function SeatingEditor({
       if (d.kind === 'table') {
         // A linked unit moved as one — every member's position changed.
         const moved = groupMemberIds(d.id);
+        // Connective snap (owner 2026-07-16 — positioning, NOT linking): if this
+        // drag snapped onto a neighbour's end, the ANCHOR is now part of the
+        // connection too. Persist BOTH tables' own coordinates via the ordinary
+        // move path (mark dirty → Save), so the join survives reload from each
+        // table's own x/y/rotation — no link_group_id is written, they stay two
+        // independent tables that simply sit connected.
         setDirty((s) => {
           const n = new Set(s);
           moved.forEach((id) => n.add(id));
+          if (weld && weld.moverId === d.id) n.add(weld.anchorId);
           return n;
         });
         // The chain snap rotated the wedge to fit the joint — persist it once.
@@ -2710,28 +2622,12 @@ export function SeatingEditor({
           const t = tables.find((x) => x.table_id === d.id);
           if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
         }
-        // Weld model (§ 2): a drag that snapped onto a compatible neighbour LINKS
-        // the two into one rigid unit on release (snap is link). Cross-group /
-        // already-linked is a no-op inside doLinkTables → linkTables (server
-        // re-validates same-family + legal joint). Skipped when they're already
-        // members of the same unit.
-        if (weld && weld.moverId === d.id) {
-          const mover = tables.find((t) => t.table_id === weld.moverId);
-          const anchor = tables.find((t) => t.table_id === weld.anchorId);
-          const sameUnit =
-            mover?.link_group_id != null && mover.link_group_id === anchor?.link_group_id;
-          if (mover && anchor && !sameUnit) doLinkTables(weld.anchorId, weld.moverId);
-        }
       } else if (d.kind === 'booth') setBoothsDirty(true);
       else setFloorDirty(true);
     } else if (d && d.kind === 'table' && !pickedId && !pickedGroupId) {
-      if (linkingFrom && d.id !== linkingFrom) {
-        // Link-mode: this tap joins the two tables into one named unit.
-        doLinkTables(linkingFrom, d.id);
-      } else {
-        // A tap (no drag) on a table selects it → opens the popup toolbar.
-        setHighlightId((id) => (id === d.id ? null : d.id));
-      }
+      // A tap (no drag) on a table selects it → opens the popup toolbar.
+      // (Tap-to-link is retired — linking is deferred to a future PR.)
+      setHighlightId((id) => (id === d.id ? null : d.id));
     } else if (d && d.kind === 'booth') {
       // A tap (no drag) on a booth opens its type picker (place-then-pick) —
       // for a blank pin OR to re-type an existing one.
@@ -4471,27 +4367,6 @@ export function SeatingEditor({
           </div>
         ) : null}
 
-        {linkingFrom ? (
-          <div className="flex items-center gap-3 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
-            <Link2 className="h-4 w-4 shrink-0 text-terracotta-700" />
-            <span className="min-w-0 flex-1 truncate">
-              Grouping{' '}
-              <span className="font-semibold text-ink">
-                {tableLabelById.get(linkingFrom) ?? 'table'}
-              </span>{' '}
-              — tap another table to group them into one unit that moves and rotates together.
-            </span>
-            <button
-              type="button"
-              onClick={() => setLinkingFrom(null)}
-              className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
-              aria-label="Cancel linking"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
         {notice ? (
           <div className="flex items-center gap-3 rounded-xl border border-warn-300 bg-warn-50 px-3 py-2 text-sm text-warn-900 shadow-lg">
             <span className="min-w-0 flex-1">{notice}</span>
@@ -5672,6 +5547,9 @@ export function SeatingEditor({
                       >
                         <UserPlus className="h-5 w-5" /> Seat
                       </button>
+                      {/* Legacy grouped units can still be broken apart; creating
+                          a link is deferred (owner 2026-07-16 — connect by drag
+                          snap, not by linking). */}
                       {st.link_group_id ? (
                         <button
                           type="button"
@@ -5682,20 +5560,7 @@ export function SeatingEditor({
                         >
                           <Unlink className="h-5 w-5" />
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLinkingFrom(st.table_id);
-                            setHighlightId(null);
-                          }}
-                          aria-label="Group with another table"
-                          title="Group with another table — tap the other table next; they'll move and rotate as one"
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/60 hover:bg-ink/5"
-                        >
-                          <Link2 className="h-5 w-5" />
-                        </button>
-                      )}
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setHighlightId(null)}
@@ -5893,6 +5758,8 @@ export function SeatingEditor({
                 >
                   <UserPlus className="h-4 w-4" />
                 </button>
+                {/* Creating a link is deferred (owner 2026-07-16); legacy groups
+                    can still be broken apart. */}
                 {st.link_group_id ? (
                   <button
                     type="button"
@@ -5903,20 +5770,7 @@ export function SeatingEditor({
                   >
                     <Unlink className="h-4 w-4" />
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLinkingFrom(st.table_id);
-                      setHighlightId(null);
-                    }}
-                    aria-label="Group with another table"
-                    title="Group with another table — tap the other table next; they'll move and rotate as one"
-                    className="rounded-lg p-1.5 text-ink/60 hover:bg-ink/5"
-                  >
-                    <Link2 className="h-4 w-4" />
-                  </button>
-                )}
+                ) : null}
                 <div className="flex items-center gap-0.5 rounded-lg border border-ink/15 px-0.5">
                   <button
                     type="button"

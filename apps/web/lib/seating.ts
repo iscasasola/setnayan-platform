@@ -2419,38 +2419,8 @@ export function rectChainSnap(
   return best;
 }
 
-// Breathing room added to a round-table kiss so the snapped distance stays
-// just OUTSIDE the editor's collision threshold (footprints + 10px gap) —
-// a kissed pair must survive the mount-time resolver untouched.
-export const ROUND_KISS_GAP = 11;
-
-// Edge-to-edge snap for round tables: pull the dragged centre onto the line
-// of centres at kiss distance. radius = footprint box half-width (chair ring
-// + pad, scaled), so chairs clear by construction. Direction is preserved —
-// the couple chooses WHERE around the anchor the table sits.
-export function roundKissSnap(
-  dragPx: { x: number; y: number },
-  radiusA: number,
-  neighbours: Array<{ x: number; y: number; radius: number }>,
-  tolPx = 36,
-): { x: number; y: number } | null {
-  let best: { x: number; y: number } | null = null;
-  let bestD = tolPx * tolPx;
-  for (const b of neighbours) {
-    const dx = dragPx.x - b.x;
-    const dy = dragPx.y - b.y;
-    const len = Math.hypot(dx, dy);
-    if (len < 1) continue; // dropped dead-centre — no direction to kiss along
-    const kiss = radiusA + b.radius + ROUND_KISS_GAP;
-    const cand = { x: b.x + (dx / len) * kiss, y: b.y + (dy / len) * kiss };
-    const d = (cand.x - dragPx.x) ** 2 + (cand.y - dragPx.y) ** 2;
-    if (d < bestD) {
-      bestD = d;
-      best = cand;
-    }
-  }
-  return best;
-}
+// (Round tables are standalone furniture — owner 2026-07-16. The former
+// "round kiss" snap is retired: two rounds never connect and always collide.)
 
 // ---------------------------------------------------------------------------
 // Footprint collision (owner-reported 2026-07-15: tables — rounds, serpentines —
@@ -2897,23 +2867,22 @@ export type Violation = {
 export type OracleWorld = { others: WorldPose[]; zones: OracleZone[] };
 export type OracleParams = { gapPx: number };
 
-// Rotation slack for the pairwise weld-exemption test — looser than the strict
-// link-CREATE tolerance so sub-pixel float drift on a saved joint never
-// un-exempts a genuinely welded seam.
-const JOINT_EXEMPT_ROT_TOL_DEG = 6;
+// Rotation slack for the joint-adjacency test — a hair looser than the strict
+// snap tolerance so sub-pixel float drift on a persisted joint never turns a
+// clean connection into a phantom overlap.
+const JOINT_ADJ_ROT_TOL_DEG = 6;
 
-// Are two tables DIRECTLY welded — same link group AND sitting at a legal joint
-// with EACH OTHER? This is the collision exemption (fix 2026-07-16): membership
-// alone is NOT enough. The verdict assumed "same group ⇒ always at a legal joint
-// (rigid by construction)", but that invariant was violable — a third table
-// stacked into a group, a legacy in-place link, or drift left same-group tables
-// grossly overlapping yet invisibly exempt. Exempting only directly-welded pairs
-// means a groupmate a table is NOT welded to still collides: a 3-table run
-// exempts each adjacent seam but flags a member stacked off-axis; two parallel
-// rows in one group still collide. A genuine seam stays exempt (tips coincide →
-// legalJoinPose returns a candidate ≈ the mover's own pose).
-export function directlyWelded(a: WorldPose, b: WorldPose): boolean {
-  if (a.linkGroupId == null || a.linkGroupId !== b.linkGroupId) return false;
+// Are two tables cleanly CONNECTED at a legal joint, by GEOMETRY alone (no
+// link_group_id, no stored state)? Owner ruling 2026-07-16: connection is
+// positional, not a link — two INDEPENDENT chain-class tables snapped end-to-end
+// (coincident ends, tangent-continuous, seam de-duplicated) sit body-to-body,
+// which is valid ADJACENCY, not an overlap. The oracle recognises this straight
+// from the poses: chain-class shapes whose current poses match a `legalJoinPose`
+// candidate within a tight, size-relative tolerance + rotation. This REPLACES
+// the deleted link-group exemption — nothing is exempted by membership; a pose
+// is either at a real legal joint or it collides. Round/sweetheart/king never
+// qualify (not chain-class) so two rounds shoved together always collide.
+export function atLegalJoint(a: OraclePose, b: OraclePose): boolean {
   if (!chainableShapes(a.shape, b.shape)) return false;
   const ra = obbOf(a).bc.r;
   const rb = obbOf(b).bc.r;
@@ -2923,16 +2892,16 @@ export function directlyWelded(a: WorldPose, b: WorldPose): boolean {
   if (!cand) return false;
   const tol = Math.max(6, 0.1 * Math.min(ra, rb));
   if (Math.hypot(cand.x - a.x, cand.y - a.y) > tol) return false;
-  if (a.shape === 'round') return true; // a kiss has no rotation constraint
   const dRot = Math.abs(((cand.rot - a.rot + 540) % 360) - 180);
-  return dRot <= JOINT_EXEMPT_ROT_TOL_DEG;
+  return dRot <= JOINT_ADJ_ROT_TOL_DEG;
 }
 
-// THE ORACLE. A pose vs all non-groupmates + zones, keeping `gapPx` clear.
-// `valid` iff the pose fully clears the aisle everywhere; violations grade the
-// failure — 'overlap' = true body intersection, 'tight' = gap < aisle but no
-// body overlap. Only DIRECTLY-WELDED members (same group AT a legal joint) are
-// exempt — a groupmate a table is not welded to still collides.
+// THE ORACLE. A pose vs all others + zones, keeping `gapPx` clear. `valid` iff
+// the pose fully clears the aisle everywhere; violations grade the failure —
+// 'overlap' = true body intersection, 'tight' = gap < aisle but no body overlap.
+// The ONE sanctioned contact is a clean geometric joint (`atLegalJoint`) — two
+// chain-class tables snapped end-to-end are valid adjacency; everything else,
+// including two shoved rounds, collides.
 export function checkPlacement(
   pose: WorldPose,
   world: OracleWorld,
@@ -2946,7 +2915,7 @@ export function checkPlacement(
     if (other.tableId === pose.tableId) continue;
     // Sanctioned contact = a DIRECT weld (same group AT a legal joint), not
     // blanket group membership.
-    if (directlyWelded(pose, other)) continue;
+    if (atLegalJoint(pose, other)) continue;
     const fo = obbOf(other);
     const body = footprintsOverlap(fp, fo, 0);
     if (body > 0) {
@@ -2989,7 +2958,7 @@ export function penetrationDepth(pose: WorldPose, world: OracleWorld): number {
   let depth = 0;
   for (const other of world.others) {
     if (other.tableId === pose.tableId) continue;
-    if (directlyWelded(pose, other)) continue;
+    if (atLegalJoint(pose, other)) continue;
     const d = footprintsOverlap(fp, obbOf(other), 0);
     if (d > depth) depth = d;
   }
@@ -3022,7 +2991,7 @@ export function layoutViolations(
 // legalJoinPose — the single source of truth for BOTH snapping and join
 // validation. Given an anchor and a mover (at its drag/current centre), returns
 // the EXACT snapped pose for a legal joint or null. Reuses the existing snap
-// generators (serpentineChainSnap / rectChainSnap / roundKissSnap); the joint
+// generators (serpentineChainSnap / rectChainSnap); the joint
 // is legal by construction (only ±sweep / 180° / flush-collinear / kiss poses
 // are ever produced), so the rotation constraint is automatic.
 // ---------------------------------------------------------------------------
@@ -3043,24 +3012,20 @@ function rectHalfLenPx(p: JoinPose): number {
   const footW = g.box.w * p.scale;
   return (g.hub.w / 2) * (footW / g.box.w);
 }
-function roundRadiusPx(p: JoinPose): number {
-  return (tableGeometry('round', Math.max(1, p.capacity)).box.w / 2) * p.scale;
-}
 const rectishShape = (s: TableShapeHint) => s === 'long_banquet' || s === 'family_head';
-// A shape that chains END-TO-END: straight banquet runs and serpentine curves.
-// Owner directive 2026-07-16 ("long and serpentine should also be able to link"):
-// any two chain-class shapes may weld — banquet↔banquet, serpentine↔serpentine,
-// AND banquet↔serpentine (a straight section flowing into a curved one). Round
-// tables keep their SEPARATE same-family kiss join (never mixing with a chain
-// shape); sweetheart never joins.
+// A shape that CONNECTS end-to-end: straight banquet runs + serpentine curves.
+// Owner rulings 2026-07-16: (1) "long and serpentine should also be able to
+// [connect]" — any two chain-class shapes connect, cross-family included
+// (banquet↔banquet, serpentine↔serpentine, banquet↔serpentine). (2) ROUND is
+// standalone furniture — NON-connectable (the old "round kiss" is REMOVED). A
+// round can never combine into one table, so two rounds simply collide. King +
+// sweetheart are likewise standalone.
 const chainClassShape = (s: TableShapeHint) => s === 'serpentine' || rectishShape(s);
 
-// The linkable-set rule (supersedes the verdict's "cross-family rejected"):
-// two shapes may weld iff both are chain-class (any mix), or both are round.
+// The connectable-set rule: two shapes snap/join end-to-end iff BOTH are
+// chain-class (any mix). Round, sweetheart, king → false (standalone, collide).
 export function chainableShapes(a: TableShapeHint, b: TableShapeHint): boolean {
-  if (chainClassShape(a) && chainClassShape(b)) return true;
-  if (a === 'round' && b === 'round') return true;
-  return false;
+  return chainClassShape(a) && chainClassShape(b);
 }
 
 const norm360 = (deg: number) => ((deg % 360) + 360) % 360;
@@ -3161,20 +3126,8 @@ export function legalJoinPose(
       tolPx,
     );
   }
-  if (anchor.shape === 'round' && mover.shape === 'round') {
-    const snap = roundKissSnap(
-      drag,
-      roundRadiusPx(mover),
-      [{ x: anchor.x, y: anchor.y, radius: roundRadiusPx(anchor) }],
-      tolPx,
-    );
-    return snap ? { x: snap.x, y: snap.y, rot: mover.rot } : null;
-  }
-  // Cross-family chain (rect-ish ↔ serpentine).
-  if (chainClassShape(anchor.shape) && chainClassShape(mover.shape)) {
-    return crossChainSnap(anchor, mover, tolPx);
-  }
-  return null; // sweetheart never chains
+  // Cross-family connect (rect-ish ↔ serpentine).
+  return crossChainSnap(anchor, mover, tolPx);
 }
 
 // Are two tables ALREADY in a legal joint at their current poses? Used to

@@ -24,14 +24,19 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { tierCaps } from '@/lib/vendor-tier-caps';
+import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { resolveVendorDisplayName } from '@/lib/vendors';
 
 /**
  * A credited vendor surfaced on a Real Story card (Style-Twin Discovery): the
  * couples who love a story can tap straight through to the marketplace vendors
- * who made it. Only Pro/Enterprise credited vendors with a public business_slug
- * appear (the same tier gate as the /[slug] editorial "Team Behind the Day" —
- * Free/Verified are excluded), so every chip deep-links to a real /v/[slug].
+ * who made it. Credit is FREE for every tier (Simplicity Canon rule 2,
+ * owner-ratified 2026-07-16: "you never pay to be named in a story" — the old
+ * Pro/Enterprise editorialTagged gate is retired); the only requirement is a
+ * public business_slug, so every chip deep-links to a real /v/[slug]. The
+ * displayed name respects the hybrid-anonymity mechanic
+ * (resolveVendorDisplayName) — an unrevealed Free/Verified vendor is credited
+ * under their screen name, never their hidden true name.
  */
 export type ShowcaseVendorCredit = {
   name: string;
@@ -262,11 +267,13 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     }
 
     // Style-Twin Discovery — batch-fetch the credited vendors behind each story
-    // so cards can deep-link to /v/[slug]. Same tier gate as the /[slug]
-    // editorial credit (Pro/Enterprise WITH a public business_slug; Free/Verified
-    // excluded). One round trip across all stories (no N+1), deduped + capped
-    // per card. Best-effort: any failure leaves vendors=[] and the card still
-    // renders (the credits are a discovery affordance, not load-bearing).
+    // so cards can deep-link to /v/[slug]. Credit is FREE for every tier
+    // (Simplicity Canon rule 2 · 2026-07-16 — the editorialTagged cap is now
+    // true across the matrix); the only hard requirement is a public
+    // business_slug to link. One round trip across all stories (no N+1),
+    // deduped + capped per card. Best-effort: any failure leaves vendors=[]
+    // and the card still renders (the credits are a discovery affordance, not
+    // load-bearing).
     const evList = events;
     const creditsByEvent = new Map<string, ShowcaseVendorCredit[]>();
     if (evList.length > 0) {
@@ -285,7 +292,9 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       if (profileIds.length > 0) {
         const { data: profs } = await admin
           .from('vendor_profiles')
-          .select('vendor_profile_id, business_name, business_slug, logo_url, tier_state')
+          .select(
+            'vendor_profile_id, business_name, business_slug, logo_url, tier_state, name_revealed_at, screen_name, services, location_city',
+          )
           .in('vendor_profile_id', profileIds);
         // Resolve each eligible profile's logo once (not per story).
         const profMap = new Map<string, ShowcaseVendorCredit>();
@@ -297,14 +306,29 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
               business_slug: string | null;
               logo_url: string | null;
               tier_state: string | null;
+              name_revealed_at: string | null;
+              screen_name: string | null;
+              services: string[] | null;
+              location_city: string | null;
             }>
           ).map(async (p) => {
-            // Editorial "tagged" showcase credit (logo + slug link) = the
-            // editorialTagged cap (Pro/Enterprise). Reads the SSOT cap instead
-            // of hardcoding the tiers — same result, no magic strings.
+            // The SSOT cap (now always true — rule 2) kept as the read so any
+            // future owner reversal is one matrix edit; the slug is the only
+            // hard gate (no /v page → nothing to link).
             if (!tierCaps(p.tier_state).editorialTagged || !p.business_slug) return;
             profMap.set(p.vendor_profile_id, {
-              name: p.business_name?.trim() || 'Vendor',
+              // Hybrid anonymity: an unrevealed Free/Verified vendor is
+              // credited under their screen name — the chip must never reveal
+              // a name their own /v page still hides.
+              name: resolveVendorDisplayName({
+                business_name: p.business_name,
+                name_revealed_at: p.name_revealed_at ?? null,
+                primary_canonical_service: p.services?.[0] ?? null,
+                location_city: p.location_city,
+                services: p.services ?? null,
+                screen_name: p.screen_name ?? null,
+                isPaidTier: isTrueNameTier(p.tier_state ?? null),
+              }),
               slug: p.business_slug,
               logoUrl: p.logo_url ? await displayUrlForStoredAsset(p.logo_url) : null,
             });

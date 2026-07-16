@@ -49,9 +49,15 @@ export type GalleryItem = {
   witnessAttribution?: string | null;
   services?: string[] | null;    // ['Papic', 'Panood', 'Monogram', 'Setnayan AI']
   editionNumber?: number | null; // Vol. I, No. X
-  // Style-Twin Discovery: credited Pro/Enterprise vendors behind the story,
-  // rendered as tappable chips below the card that deep-link to /v/[slug].
+  // Style-Twin Discovery: credited vendors behind the story, rendered as
+  // tappable chips below the card that deep-link to /v/[slug]. (Credit is
+  // FREE for every visible vendor — Simplicity Canon rule 2, 2026-07-16.)
   vendors?: VendorChip[] | null;
+  // Cross-rail (Storytellers PR-D): this event also has a linked PUBLISHED
+  // creator chapter — "Watch the storyteller's cut" chip below the card
+  // (sibling link, never a nested anchor). Null/absent → no chip, byte-
+  // identical render to the pre-chapter page.
+  storytellerCutHref?: string | null;
 };
 
 export type VendorChip = { name: string; slug: string; logoUrl: string | null };
@@ -301,15 +307,29 @@ function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: st
     </Link>
     {/* Style-Twin Discovery — tap straight through to the vendors who made this
         story. Sibling of the card Link (never a nested anchor); only real
-        stories carry credits, so sample tiles render nothing here. */}
-    {item.vendors && item.vendors.length > 0 ? (
+        stories carry credits, so sample tiles render nothing here. The
+        storyteller's-cut chip (cross-rail, PR-D) rides the same row. */}
+    {(item.vendors && item.vendors.length > 0) || item.storytellerCutHref ? (
       <div className="mt-2 flex flex-wrap items-center gap-1.5 px-0.5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-          Team
-        </span>
-        {item.vendors.map((v) => (
-          <VendorCreditChip key={v.slug} vendor={v} />
-        ))}
+        {item.vendors && item.vendors.length > 0 ? (
+          <>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+              Team
+            </span>
+            {item.vendors.map((v) => (
+              <VendorCreditChip key={v.slug} vendor={v} />
+            ))}
+          </>
+        ) : null}
+        {item.storytellerCutHref ? (
+          <Link
+            href={item.storytellerCutHref}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-white hover:text-ink"
+          >
+            <Play aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            Watch the storyteller&rsquo;s cut
+          </Link>
+        ) : null}
       </div>
     ) : null}
     </div>

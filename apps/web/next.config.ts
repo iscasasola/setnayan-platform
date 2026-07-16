@@ -339,6 +339,15 @@ const nextConfig: NextConfig = {
       // asset URLs. Marketplace subpaths (`/vendors/*` → /explore) are handled
       // separately in middleware.ts.
       { source: '/for-vendors', destination: '/vendors', permanent: true },
+      // 2026-07-16 — Storytellers hub (PR-D · council verdict): /storytellers
+      // is a SPEAKABLE WORD, not a page — it redirects into the "From Our
+      // Storytellers" shelf on the single stories hub, so creators/marketing
+      // (and the /pricing "Creators — Free" callout) have a link target with
+      // zero second page to maintain. Never indexable on its own. TEMPORARY
+      // (307) on purpose: the verdict's Phase S4 leaves room for a future
+      // standalone page once chapter volume outgrows the shelf — a permanent
+      // redirect would be cached against that promotion.
+      { source: '/storytellers', destination: '/realstories#storytellers', permanent: false },
     ];
   },
   async rewrites() {

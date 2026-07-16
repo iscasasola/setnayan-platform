@@ -142,6 +142,24 @@ function yt(id: string): NormalizedEmbed {
   return { provider: 'youtube', embedUrl: `https://www.youtube-nocookie.com/embed/${id}` };
 }
 
+/**
+ * Derive a YouTube poster/thumbnail URL from a STORED (already-normalized)
+ * embed_url. V1 thumbnail rule (owner-ratified 2026-07-16, Storytellers
+ * council decision #6): thumbnails are YouTube-derived ONLY — a chapter whose
+ * normalized embed is not the canonical youtube-nocookie shape returns null
+ * and is simply NOT FEATURABLE on the /realstories Storytellers shelf (a
+ * curation rule enforced in the admin feature action, not a schema change).
+ * Pure + side-effect-free, like everything else in this module.
+ */
+export function youtubeThumbFromEmbedUrl(embedUrl: string | null | undefined): string | null {
+  if (typeof embedUrl !== 'string' || embedUrl.length === 0) return null;
+  const m = /^https:\/\/www\.youtube-nocookie\.com\/embed\/([A-Za-z0-9_-]{11})$/.exec(
+    embedUrl.trim(),
+  );
+  if (!m) return null;
+  return `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+}
+
 export const EMBED_PROVIDER_LABEL: Record<EmbedProvider, string> = {
   youtube: 'YouTube',
   instagram: 'Instagram',

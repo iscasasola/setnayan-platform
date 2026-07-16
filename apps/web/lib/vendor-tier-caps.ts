@@ -64,7 +64,16 @@ export interface TierCaps {
   importCustomerTokenCost: number;
   /** Portfolio photo cap. Infinity = unlimited. */
   portfolioPhotos: number;
-  /** Eligible to be tagged in editorial. */
+  /**
+   * Eligible to be tagged in editorial (the showcase credit chip — logo +
+   * /v/[slug] link). RETIRED AS A TIER DISTINCTION 2026-07-16 (owner-ratified
+   * Simplicity Canon rule 2, Creator_Economy_Discount_Collab_Build_Plan:
+   * "Being credited in a story is always free — editorial or chapter, any
+   * tier. You never pay to be named in a story."). Now TRUE for every tier;
+   * kept as a field so the matrix shape (and any external read) is unchanged.
+   * Pro keeps its other perks. Name display still respects the hybrid-
+   * anonymity mechanic at the read sites (resolveVendorDisplayName).
+   */
   editorialTagged: boolean;
   /** Review star average is counted/shown. */
   reviewStarsCounted: boolean;
@@ -140,7 +149,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false,
     performanceAdvanced: false,
     soloBusinessTools: false,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: false,
     reviewCommentsViewable: false,
     website: 'basic',
@@ -174,7 +183,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -206,7 +215,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',

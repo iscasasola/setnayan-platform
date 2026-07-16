@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-13 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-16 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -127,10 +127,13 @@ export default function PrivacyPage() {
         <Section title="Biometric data (facial recognition)">
           <p>
             Certain optional features — such as automatically matching you to
-            event photos — can process facial-geometry data derived from a
-            selfie you choose to provide (a &ldquo;face vector&rdquo;, a
-            mathematical representation of facial features). We process this
-            sensitive personal information only:
+            event photos so your tagged pictures reach you — can process
+            facial-geometry data derived from a selfie you choose to provide (a
+            &ldquo;face vector&rdquo;, a mathematical representation of facial
+            features). You might be offered enrollment when you RSVP, from a
+            guest photo page during the event, or at an on-site check-in — and it
+            is always your choice. We process this sensitive personal information
+            only:
           </p>
           <ul className="ml-5 mt-2 list-disc space-y-1">
             <li>
@@ -150,6 +153,13 @@ export default function PrivacyPage() {
             You may withdraw consent at any time, which permanently deletes your
             face vector and enrolled selfie. If you never enroll a selfie, we
             collect no biometric data about you.
+          </p>
+          <p className="pt-2">
+            A single, account-wide face profile that would carry across your
+            events is <strong>not active</strong> — it is turned off pending our
+            Data Protection Officer&rsquo;s review. Until it is enabled and
+            separately disclosed here, all face matching stays scoped to the one
+            event you consented to.
           </p>
         </Section>
 
@@ -214,9 +224,92 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Photos and videos — location data and guest capture">
+          <p>
+            When photos and short clips are captured at an event (for example
+            through Papic, our in-app camera feature), the original file can
+            carry the device metadata a camera normally records, which{' '}
+            <strong>may include the GPS coordinates</strong> of where the shot
+            was taken. Originals are stored privately in our object storage for
+            the couple.
+          </p>
+          <p className="pt-2">
+            <strong>We strip location from what leaves the app.</strong> When a
+            photo is downloaded or shared out, we remove its EXIF/GPS metadata
+            first so the copy you send does not reveal where it was taken; if
+            that strip cannot complete for a given file, we drop the file rather
+            than release a location-bearing original. (Video clips retain their
+            embedded metadata for now while we finish the equivalent strip; we
+            will update this notice as that rolls out.)
+          </p>
+          <p className="pt-2">
+            <strong>Guest capture is consent-gated.</strong> If you take photos
+            as a guest, a photo only becomes eligible for the couple&rsquo;s
+            public showcase when <em>two</em> gates are met: you opt in at
+            capture time (off by default, never pre-checked) <em>and</em> the
+            couple approves it. You can leave the opt-in off and still have your
+            photos delivered privately to the couple.
+          </p>
+          <p className="pt-2">
+            <strong>FaceBlock.</strong> A guest who does not want to appear on an
+            event&rsquo;s live photo wall can turn on FaceBlock. We then generate
+            a server-side copy with detected faces blurred into the pixels and
+            only that blurred copy may be projected — the wall fails closed, so
+            if the safe copy is not ready the photo is withheld. You can opt out
+            of the live wall this way at any time.
+          </p>
+        </Section>
+
+        <Section title="Featuring your event on Setnayan&rsquo;s own social channels">
+          <p>
+            Setnayan may feature finished work from real events — such as a
+            published event recap, or a consented artifact like an animated
+            monogram, save-the-date, event website, personal reel, or LED
+            design — on Setnayan&rsquo;s own social channels (for example our
+            Facebook, Instagram, or TikTok) to showcase what the platform makes.
+            This is optional and governed by consent:
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              <strong>Per-artifact consent.</strong> A specific artifact is only
+              eligible after you grant consent for that item, and you choose how
+              you are credited — by first names only, or fully anonymously. You
+              can revoke a consent at any time.
+            </li>
+            <li>
+              <strong>Recap re-posts are opt-out.</strong> For the automatic
+              re-post of a published recap, we honor a one-tap opt-out on your
+              recap manager; a recap is never composed for our social queue when
+              you have opted out, and it is never posted at all if your event
+              page is private.
+            </li>
+            <li>
+              <strong>After the event only.</strong> Featuring happens only after
+              your event has taken place — never before or during it.
+            </li>
+            <li>
+              We never post your guest list, RSVP data, budget, chat history, or
+              raw photo feed, and we never sell these artifacts.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="Minors, dependents, and religious information">
+          <p>
+            Where you optionally provide family details (see &ldquo;Optional
+            personalization &amp; family details&rdquo; above) — including a
+            dependent&rsquo;s information or a religion — we collect it only with
+            your consent, as the responsible adult, and use it solely to run your
+            events and reminders. Some of these features are still gated and not
+            enabled by default. <strong>We never surface a minor&rsquo;s details
+            or anyone&rsquo;s religion on a public page, in search, or in any
+            social feature.</strong>
+          </p>
+        </Section>
+
         <Section title="What we do not collect">
           <ul className="ml-5 list-disc space-y-1">
-            <li>Location beyond the city-level information vendors choose to share</li>
+            <li>Precise location for advertising, profiling, or cross-site tracking (photo/clip GPS is described above and stripped from outbound shares)</li>
             <li>Advertising identifiers, third-party cookies, or cross-site tracking signals</li>
           </ul>
         </Section>
@@ -227,6 +320,57 @@ export default function PrivacyPage() {
             name and date — never your email or personal name unless you choose to share.
             This is a load-bearing product rule.
           </p>
+        </Section>
+
+        <Section title="Anti-fraud &amp; trust integrity">
+          <p>
+            To keep our marketplace signals honest — reviews, ratings, badges,
+            and &ldquo;most-booked&rdquo; counts — we run automated checks that
+            detect and prevent manipulation, such as fake or duplicate accounts
+            created to inflate a vendor&rsquo;s reputation. To spot rings of
+            accounts controlled by one person or household, we analyze signals we
+            already hold (device and browser signals, the address on your
+            account, and the payment-sender identity on your transactions) so
+            duplicate reviews and bookings are counted once, not many times.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis.</strong> We rely on legitimate interest (RA
+            10173 § 12(f)) — preventing fraud and protecting the integrity of the
+            marketplace for couples and honest vendors. We use only data we have
+            already collected for other purposes; there is no new collection for
+            this.
+          </p>
+          <p className="pt-2">
+            <strong>Automated decisions &amp; your right to object.</strong> At a
+            high fraud-risk score a vendor&rsquo;s listing may be automatically
+            and <em>reversibly</em> hidden while we review — no data is deleted,
+            and one review by our team reverses it. Permanent action (removing a
+            vendor&rsquo;s reviews or banning an account) is never automatic; it
+            requires two separate team members to confirm. If you are a vendor
+            affected by an automated suspension or enforcement action, you may
+            object and request a review through our{' '}
+            <Link href="/help" className="text-terracotta hover:underline">
+              Help Center
+            </Link>{' '}
+            or by contacting our Data Protection Officer (above). These rights
+            are under RA 10173 § 16(c) (right to object) and § 34 (automated
+            processing).
+          </p>
+          <p className="pt-2">
+            <strong>What we do not do here:</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>We do not capture or use your IP address for this.</li>
+            <li>
+              These groupings, signals, and scores are strictly internal — no
+              couple or vendor can view them, and they are never sold, shared,
+              used for advertising, or used to rank or promote vendors.
+            </li>
+            <li>
+              The evidence we store is non-identifying — counts and ratios, not
+              your name, address, or raw identifiers.
+            </li>
+          </ul>
         </Section>
 
         <Section title="Public Event Summary (post-event editorial)">
@@ -284,7 +428,15 @@ export default function PrivacyPage() {
           <ul className="ml-5 list-disc space-y-1">
             <li>
               <strong>Right to access:</strong> download a JSON archive of your data anytime
-              from <Link href="/dashboard/profile" className="text-terracotta hover:underline">your profile</Link>.
+              from <Link href="/dashboard/profile" className="text-terracotta hover:underline">your profile</Link>{' '}
+              (served by our <code className="font-mono text-[12px]">/api/profile/export</code> endpoint).
+              The export includes your face-enrollment consent records but not
+              the raw face-vector embeddings themselves.
+            </li>
+            <li>
+              <strong>Right to withdraw biometric consent (face-forget):</strong>{' '}
+              if you enrolled a selfie for photo matching, you can withdraw at any
+              time; we permanently delete your face vector and enrolled selfie.
             </li>
             <li>
               <strong>Right to erasure:</strong> the same profile page has an

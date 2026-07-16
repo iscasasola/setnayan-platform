@@ -1273,6 +1273,7 @@ const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
   { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
   { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
   { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
+  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
   // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepGhostedLeadHolds } from '@/lib/lead-token-holds';
+import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -264,6 +265,10 @@ export default async function VendorDashboardLayout({
   // cron). The RPC is global + idempotent, so any vendor's visit sweeps every
   // vendor's ghosts; a no-op when the hold feature is off. Never throws.
   after(() => maybeSweepGhostedLeadHolds().catch(() => {}));
+  // Expired creator-offer sweep (Creator Economy P1) — CRON-FREE, same pattern:
+  // an unanswered discount offer past its window RELEASES the vendor's held reach
+  // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
+  after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

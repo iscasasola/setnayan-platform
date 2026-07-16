@@ -103,6 +103,33 @@ export async function eventHostIsInternal(
 }
 
 /**
+ * Does a FOUNDER-SEAT holder host this event?
+ *
+ * Founder seats (owner-locked 2026-07-16 · migration 20270818135217) are up to
+ * 10 owner-granted platform-founder accounts — Ice + Cale first — whose events
+ * have "all features already paid for". Deliberately a SEPARATE designation
+ * from is_internal (§10a): internal is the team/ops flag and may later cover
+ * non-founder staff, while the vendor-facing "founder of the app" claim must
+ * only ever be true for owner-granted seats. eventSkuActive() ORs this in,
+ * and the vendor thread badge + inquiry notification read it as the
+ * server-asserted (impersonation-proof) founder signal.
+ *
+ * Same host-scoping + graceful-degrade contract as eventHostIsInternal (the
+ * SECURITY DEFINER fn event_host_holds_founder_seat mirrors
+ * event_host_is_internal's host definition exactly).
+ */
+export async function eventHostHoldsFounderSeat(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('event_host_holds_founder_seat', {
+    p_event_id: eventId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
  * Batch companion to eventHasCompGrant — every SKU the event's host comp grants
  * cover. all_services → the full live catalog; specific_skus → just those codes.
  * Empty array on no comp / any error. See migration 20270322000000.
@@ -524,6 +551,11 @@ export async function eventSkuActive(
   // migration 20270806100000. Checked LAST so the common external-couple path
   // pays for one extra RPC only when nothing else already granted the SKU.
   if (await eventHostIsInternal(supabase, eventId)) return true;
+
+  // Founder-seat-hosted events likewise own EVERY SKU — "all features are
+  // already paid for" on every owner-granted founder seat (owner-locked
+  // 2026-07-16 · migration 20270818135217). Same last-position reasoning.
+  if (await eventHostHoldsFounderSeat(supabase, eventId)) return true;
 
   return false;
 }

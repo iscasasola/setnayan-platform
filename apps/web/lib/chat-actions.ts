@@ -11,6 +11,7 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
+import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
 import {
@@ -419,6 +420,17 @@ export async function acceptInquiry(formData: FormData) {
     // responsiveness/conversion stats (response_rate_pct, inquiry_to_booking_pct)
     // off the request path (cron-free; after() runs post-response).
     after(() => triggerVendorActivityRecompute(thread.vendor_profile_id));
+
+    // Creator Economy PR-C (req #3a) — accepting an ATTRIBUTED thread is the
+    // unlock that ticks the creator's "inquiries driven": tell them (in-app
+    // only; the type isn't email-allowlisted). Covers BOTH unlock paths — the
+    // direct burn and the hold (the hold's vendor_event_unlocks row also lands
+    // at accept; its token settles later on genuine reply). Fail-soft, off the
+    // request path. The spend_source='lead_unlock' ledger tag is stamped inside
+    // the RPCs themselves (migration 20270819553697), never here.
+    if (thread.referring_chapter_id) {
+      after(() => notifyChapterDroveInquiry(thread));
+    }
   }
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {

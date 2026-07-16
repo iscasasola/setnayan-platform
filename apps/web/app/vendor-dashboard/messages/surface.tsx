@@ -14,6 +14,10 @@ import {
   isInquiryRevealed,
 } from '@/lib/inquiry-mask.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
+import {
+  inquirySourceLabel,
+  RETURNING_CUSTOMER_LABEL,
+} from '@/lib/inquiry-source';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { RevealList } from '@/app/_components/reveal-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -102,25 +106,43 @@ export default async function VendorMessagesPage() {
               ) : null
             }
             extra={
-              returning ? (
-                <>
-                  <span
-                    className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
-                    title={
-                      returning.resync_flat
-                        ? 'A client you previously locked — accepting costs just 1 token'
-                        : 'A client you previously locked'
-                    }
-                  >
-                    Returning client
+              <>
+                {/* Inquiry-source chip (PR-C · owner taxonomy) — shown for any
+                    NON-default origin (a "Website Inquiry" chip on every row
+                    would be noise; the thread header always shows the resolved
+                    label). is_returning is the companion chip — it rides along
+                    even when the pending-only returningFlags block below is
+                    absent (accepted threads). */}
+                {t.inquiry_source ? (
+                  <span className="ml-1 mt-0.5 inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+                    {inquirySourceLabel(t.inquiry_source)}
                   </span>
-                  <p className="mt-0.5 truncate text-xs text-ink/65">
-                    Booked you for{' '}
-                    {returning.prior_event_display_name ?? 'a previous event'}
-                    {returning.resync_flat ? ' · accepting costs just 1 token' : ''}
-                  </p>
-                </>
-              ) : null
+                ) : null}
+                {t.is_returning && !returning ? (
+                  <span className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                    {RETURNING_CUSTOMER_LABEL}
+                  </span>
+                ) : null}
+                {returning ? (
+                  <>
+                    <span
+                      className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
+                      title={
+                        returning.resync_flat
+                          ? 'A client you previously locked — accepting costs just 1 token'
+                          : 'A client you previously locked'
+                      }
+                    >
+                      Returning client
+                    </span>
+                    <p className="mt-0.5 truncate text-xs text-ink/65">
+                      Booked you for{' '}
+                      {returning.prior_event_display_name ?? 'a previous event'}
+                      {returning.resync_flat ? ' · accepting costs just 1 token' : ''}
+                    </p>
+                  </>
+                ) : null}
+              </>
             }
             timestampLine={
               <>

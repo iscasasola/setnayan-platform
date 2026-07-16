@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-16 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-17 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -371,6 +371,25 @@ export default function PrivacyPage() {
               your name, address, or raw identifiers.
             </li>
           </ul>
+        </Section>
+
+        <Section title="Storyteller chapters — inquiry referrals and source labels">
+          <p>
+            When you contact a vendor after tapping &ldquo;Book through this
+            chapter&rdquo; on a storyteller&rsquo;s public chapter, we record
+            which chapter referred your inquiry so the vendor can honor the promo
+            that chapter advertised and the storyteller&rsquo;s public profile
+            can show an aggregate count of inquiries their chapters have driven.
+            We also label each inquiry with how it reached the vendor (for
+            example: their website, a Setnayan recommendation, a storyteller
+            chapter, an editorial feature, or a returning customer). These labels
+            and the referral are visible only to you and the vendor on your
+            conversation — they are never public. The only public figure derived
+            from them is the storyteller&rsquo;s aggregate
+            &ldquo;inquiries driven&rdquo; number, which never identifies you,
+            your event, or your conversation. Any discount is offered and settled
+            by the vendor directly; Setnayan never handles the money.
+          </p>
         </Section>
 
         <Section title="Public Event Summary (post-event editorial)">

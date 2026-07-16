@@ -756,6 +756,9 @@ export async function commitOnboardingWedding(
             eventId: insertedEvent.event_id,
             groupId,
             count: perCategory,
+            // PR-C source taxonomy: the onboarding "reach my best matches"
+            // fan-out is the Auto Build Recommendation surface.
+            inquirySource: 'auto_build',
           }),
         ),
       );

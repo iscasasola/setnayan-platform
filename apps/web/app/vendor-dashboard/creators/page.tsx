@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { VendorTierGate } from '../_components/tier-gate';
 import { formatAudienceCount } from '@/lib/creator-audience';
 import {
   fetchEligibleCreators,
@@ -51,6 +54,23 @@ export default async function VendorCreatorsPage({
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
+  // PRO-AND-UP (owner ratification decision #4, 2026-07-16 — Market Intel
+  // precedent; supersedes P1's `tier != 'free'`). Unconditional like the RPC's
+  // own TIER_BELOW_PRO_NO_REACH floor — a sub-Pro vendor sees the upsell, not
+  // the browse. `custom` ranks above enterprise, so isTierAtLeast('pro')
+  // admits pro/enterprise/custom exactly.
+  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  if (!isTierAtLeast(tier, 'pro')) {
+    return (
+      <VendorTierGate
+        feature="Creator collabs"
+        requiredTier="pro"
+        blurb="Browse Setnayan storytellers, offer them your promo for a credited feature inside a trusted story, and see the inquiries their chapters drive to you. You keep 100% of every booking."
+        icon={<Clapperboard aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      />
+    );
+  }
+
   const minReach = Math.max(0, Number.parseInt(search.minReach ?? '0', 10) || 0);
 
   const [creators, sentOffers] = await Promise.all([
@@ -78,12 +98,10 @@ export default async function VendorCreatorsPage({
         </p>
         <h1 className="sn-h1">Creators</h1>
         <p className="text-base text-ink/65">
-          Offer a discount to a creator — a Setnayan account telling their story
-          in published chapters — and earn a credited feature inside a trusted
-          story. Sending an offer spends a{' '}
-          <span className="font-medium text-ink/80">reach token</span> (held, and
-          refunded automatically if they don’t respond). You keep 100% of any
-          booking — the discount settles off-platform between you two.
+          {/* Ratified vendor one-breath copy (simplest-approach verdict §6). */}
+          Spend one token to offer a storyteller your promo — they publish their
+          story crediting you for free, and anyone who books you through it gets
+          the deal you chose. You keep 100%.
         </p>
       </header>
 
@@ -92,7 +110,7 @@ export default async function VendorCreatorsPage({
       ) : null}
       {search.sent ? (
         <FormFlash tone="success">
-          Offer sent — a reach token is held until the creator responds.
+          Offer sent — 1 token spent; refunded only if no reply in 14 days.
         </FormFlash>
       ) : null}
 
@@ -152,10 +170,27 @@ export default async function VendorCreatorsPage({
                       </p>
                     ) : null}
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${STATUS_STYLE[o.status]}`}
-                  >
-                    {STATUS_LABEL[o.status]}
+                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${STATUS_STYLE[o.status]}`}
+                    >
+                      {STATUS_LABEL[o.status]}
+                    </span>
+                    {/* PR-C fulfillment state — fulfilled/unfulfilled + the
+                        discount↔chapter link is the WHOLE outcome model (no
+                        clawback): an unfulfilled collab is simply visible, and
+                        you don't offer again. */}
+                    {o.status === 'accepted' ? (
+                      o.fulfilledAt ? (
+                        <span className="rounded-full bg-success-100 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-success-800">
+                          Fulfilled · chapter linked
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-amber-900">
+                          Unfulfilled · awaiting chapter
+                        </span>
+                      )
+                    ) : null}
                   </span>
                 </div>
               </li>
@@ -225,6 +260,16 @@ function CreatorCard({
             {c.followersCount === 1 ? 'follower' : 'followers'} ·{' '}
             {formatAudienceCount(c.viewCount)} views · {c.chapterCount}{' '}
             {c.chapterCount === 1 ? 'chapter' : 'chapters'}
+            {/* PR-C — the one influence metric; renders nothing at 0. */}
+            {c.inquiriesDriven > 0 ? (
+              <>
+                {' · '}
+                <span className="font-medium text-ink/80">
+                  {formatAudienceCount(c.inquiriesDriven)}{' '}
+                  {c.inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+                </span>
+              </>
+            ) : null}
           </p>
         </div>
       </div>
@@ -263,19 +308,18 @@ function CreatorCard({
                 placeholder="e.g. 10% off for anyone booking through your chapter"
                 className="input-field"
               />
-              {/* Honest dormant-field label (readiness verdict 2026-07-16 ·
-                  B6, owner-ratified): nothing viewer-facing consumes this
-                  until chapter booking (PR-C) ships — say so instead of
-                  letting it look like a live promo. Keep the field. */}
+              {/* LIVE as of PR-C: the Book CTA on chapters that credit you
+                  shows these terms to viewers, and quoting an attributed
+                  inquiry pre-labels the discount line "Viewer promo". */}
               <span className="block text-[11px] text-ink/55">
-                Viewer promo — activates when chapter booking ships; the
-                storyteller sees these terms now.
+                Viewer promo — shown at the Book CTA on chapters that credit
+                you; anyone booking through the chapter sees these terms.
               </span>
             </label>
             <p className="text-[11px] text-ink/50">
-              Sending spends 1 reach token (held until they respond; refunded if
-              they don’t). Discounts settle off-platform — Setnayan never touches
-              the money.
+              {/* Ratified send-time token copy (verdict §3 "one line of copy"). */}
+              1 token; refunded only if no reply in 14 days. Discounts settle
+              off-platform — Setnayan never touches the money.
             </p>
             <SubmitButton
               className="button-primary inline-flex items-center gap-2"

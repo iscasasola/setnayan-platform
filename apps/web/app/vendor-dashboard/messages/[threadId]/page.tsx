@@ -55,6 +55,15 @@ import {
   InquiryOutcomeCapture,
   type OutcomeReasonOption,
 } from './_components/inquiry-outcome-capture';
+import {
+  inquirySourceLabel,
+  RETURNING_CUSTOMER_LABEL,
+} from '@/lib/inquiry-source';
+import {
+  fetchThreadAttribution,
+  fetchInquirerCollabActive,
+  type ThreadAttribution,
+} from '@/lib/inquiry-attribution';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -277,6 +286,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
 
+  // ── Creator Economy PR-C · inquiry provenance (PRIVATE to the vendor) ──────
+  // The source chip (owner's taxonomy; NULL = "Website Inquiry"), the returning
+  // companion chip, the "Referred by [Storyteller] · via [chapter]" block with
+  // the promised audience rate, and the "creator collab active" marker (the
+  // INQUIRER holds an accepted collab with THIS vendor → agreed creator rate
+  // applies). All fail-soft/pre-migration-safe.
+  const sourceChipLabel = inquirySourceLabel(thread.inquiry_source ?? null);
+  const [attribution, inquirerCollabActive] = await Promise.all([
+    thread.referring_chapter_id
+      ? fetchThreadAttribution(thread)
+      : Promise.resolve<ThreadAttribution | null>(null),
+    fetchInquirerCollabActive(
+      profile.vendor_profile_id,
+      thread.created_by_user_id ?? null,
+    ),
+  ]);
+
   // Phase D — lead trust badge (fake-inquiry protection · "informed accept").
   // Flag-gated + pending-only + fail-soft. "Active planner" is a purely positive
   // cue (real engagement) — a new couple simply has no badge, never a warning.
@@ -383,6 +409,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               </span>
             ) : null}
           </p>
+          {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
+              vendor; NULL resolves to "Website Inquiry". The returning flag is
+              a COMPANION chip: it combines with any origin, never replaces it. */}
+          <p className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+              {sourceChipLabel}
+            </span>
+            {thread.is_returning ? (
+              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                {RETURNING_CUSTOMER_LABEL}
+              </span>
+            ) : null}
+          </p>
           {event?.event_date ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {event.event_date}
@@ -410,6 +449,62 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           />
         </div>
       </header>
+
+      {/* Creator Economy PR-C — the influencer-referral context (vendor-private).
+          Names the storyteller + chapter behind this inquiry and restates the
+          audience rate the vendor promised, so the promo is honored at quote
+          time. The collab-active marker below covers the OTHER money moment:
+          the inquirer themself holds an accepted collab → creator rate. */}
+      {attribution ? (
+        <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 p-4 text-sm text-ink">
+          <p>
+            <span className="mr-1.5 inline-block rounded-full bg-amber-200/70 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
+              Influencer Recommendation
+            </span>
+            Referred by{' '}
+            {attribution.creatorSlug ? (
+              <Link
+                href={`/u/${attribution.creatorSlug}`}
+                className="font-semibold hover:underline"
+              >
+                {attribution.creatorName}
+              </Link>
+            ) : (
+              <span className="font-semibold">{attribution.creatorName}</span>
+            )}{' '}
+            · via{' '}
+            {attribution.creatorSlug ? (
+              <Link
+                href={`/u/${attribution.creatorSlug}/c/${attribution.chapterPublicId}`}
+                className="italic hover:underline"
+              >
+                {attribution.chapterTitle}
+              </Link>
+            ) : (
+              <span className="italic">{attribution.chapterTitle}</span>
+            )}
+          </p>
+          {attribution.audienceRateTerms ? (
+            <p className="mt-1 text-ink/75">
+              You promised their viewers:{' '}
+              <span className="font-medium text-ink">
+                {attribution.audienceRateTerms}
+              </span>{' '}
+              — honor it when you quote. The discount settles off-platform;
+              Setnayan never touches the money.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {inquirerCollabActive ? (
+        <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 p-4 text-sm text-ink">
+          <span className="mr-1.5 inline-block rounded-full bg-amber-200/70 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
+            Creator collab active
+          </span>
+          This inquirer holds an accepted collab with you — your agreed creator
+          rate applies.
+        </div>
+      ) : null}
 
       {/* Pending surcharge confirms (Adaptive Pax Pricing Phase 5) — the count
           moved a booked service's cost; nothing changes until the vendor taps
@@ -522,6 +617,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               coupleName={coupleLabel}
               packages={proposalPackages}
               paymentMethods={proposalPaymentMethods}
+              // PR-C — quoting an attributed thread surfaces the promised
+              // audience rate and labels the discount line "Viewer promo" so
+              // the customer quote (/proposals/[publicId]) reflects it.
+              viewerPromo={
+                attribution?.audienceRateTerms
+                  ? {
+                      terms: attribution.audienceRateTerms,
+                      creatorName: attribution.creatorName,
+                    }
+                  : null
+              }
             />
           </div>
           {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active

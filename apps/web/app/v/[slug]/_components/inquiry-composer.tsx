@@ -139,6 +139,18 @@ type Props = {
    * visitor still falls through to the server `not_signed_in` → /login path).
    */
   viewerIsAnonymous?: boolean;
+  /**
+   * Creator Economy PR-C — the `?ref_chapter=` public_id the viewer arrived
+   * with (a chapter's Book CTA). Threaded through to startServiceInquiry,
+   * which VALIDATES it server-side before stamping CTA-click attribution.
+   */
+  referringChapterPublicId?: string | null;
+  /**
+   * Inquiry-source taxonomy (owner 2026-07-17) — a caller-declared, enum-
+   * validated origin for live non-chapter sources (e.g. 'editorial' when the
+   * viewer arrived via a /realstories credit chip). null = website default.
+   */
+  inquirySource?: string | null;
 };
 
 type ModalState =
@@ -174,6 +186,8 @@ export function InquiryComposer({
   existingThreadId,
   existingThreadHref,
   viewerIsAnonymous = false,
+  referringChapterPublicId = null,
+  inquirySource = null,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -293,6 +307,9 @@ export function InquiryComposer({
           specialRequest: specialRequest.trim() || null,
           autoSend,
         },
+        // Creator Economy PR-C — provenance (server-validated before stamping).
+        referringChapterPublicId,
+        inquirySource,
       });
       if (result.status === 'ok') {
         setModal({ kind: 'sent' });
@@ -338,6 +355,9 @@ export function InquiryComposer({
         // auto-opts into the vendor's other "also ask about" services.
         alsoServiceIds: [],
         requirements: carry,
+        // Creator Economy PR-C — provenance (server-validated before stamping).
+        referringChapterPublicId,
+        inquirySource,
       });
       if (result.status === 'ok') {
         setAutoState({

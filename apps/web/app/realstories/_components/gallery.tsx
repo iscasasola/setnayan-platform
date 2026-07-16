@@ -317,7 +317,9 @@ function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: st
               Team
             </span>
             {item.vendors.map((v) => (
-              <VendorCreditChip key={v.slug} vendor={v} />
+              // srcTag='editorial' — an inquiry sent from the vendor page this
+              // chip opens is labeled "Editorial Inquiry" (PR-C source taxonomy).
+              <VendorCreditChip key={v.slug} vendor={v} srcTag="editorial" />
             ))}
           </>
         ) : null}

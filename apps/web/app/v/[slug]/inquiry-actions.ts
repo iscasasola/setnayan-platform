@@ -37,6 +37,12 @@ import {
   isPersistableCanonicalService,
 } from '@/lib/requirements-capture';
 import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
+import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
+import {
+  resolveReferringChapter,
+  resolveIsReturning,
+  stampThreadProvenance,
+} from '@/lib/inquiry-attribution';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -86,6 +92,23 @@ export async function startServiceInquiry(input: {
     /** "Auto-send to my next inquiries" → event_vendor_preferences.auto_send. */
     autoSend?: boolean;
   };
+  /**
+   * Creator Economy PR-C — CTA-click attribution. The chapter public_id
+   * (S89C-…) carried by the Book CTA (`/v/[slug]?ref_chapter=…`). Validated
+   * server-side (published chapter · public profile · substrate credits THIS
+   * vendor) before anything is stamped; a forged/stale value degrades to an
+   * ordinary website inquiry. Stamped only on a BRAND-NEW thread — the chapter
+   * whose CTA STARTED the thread keeps the credit (owner paper-lock).
+   */
+  referringChapterPublicId?: string | null;
+  /**
+   * Inquiry-source taxonomy (owner 2026-07-17). Caller-declared origin for
+   * NON-chapter sources whose trigger surface is live (e.g. 'editorial' from a
+   * /realstories credit chip). Validated against the enum; 'influencer' is
+   * derived from a VALIDATED referral only, never trusted from this field.
+   * Omitted/null = website default (stored NULL).
+   */
+  inquirySource?: InquirySource | string | null;
 }): Promise<StartServiceInquiryResult> {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
@@ -247,6 +270,29 @@ export async function startServiceInquiry(input: {
       .from('chat_threads')
       .update({ pax_at_inquiry: livePax })
       .eq('thread_id', threadId);
+  }
+
+  // ── Creator Economy PR-C · provenance stamp (brand-NEW threads only) ───────
+  // CTA-click attribution lock: the chapter whose Book CTA STARTED the thread
+  // gets the credit — a resumed thread keeps its original provenance untouched.
+  // A validated chapter referral wins ('influencer'); otherwise an enum-valid
+  // caller-declared source (e.g. 'editorial') is stored; otherwise NULL =
+  // Website Inquiry. is_returning is a companion flag computed from the same
+  // returning=1-token signal the token bands used. All best-effort.
+  if (!isExisting) {
+    const [referral, returning] = await Promise.all([
+      resolveReferringChapter(input.referringChapterPublicId, vendorProfileId),
+      resolveIsReturning(vendorProfileId, eventId),
+    ]);
+    const declaredSource =
+      isInquirySource(input.inquirySource) && input.inquirySource !== 'influencer'
+        ? input.inquirySource
+        : null;
+    await stampThreadProvenance(threadId, {
+      referringChapterId: referral?.chapterId ?? null,
+      inquirySource: referral ? 'influencer' : declaredSource,
+      isReturning: returning,
+    });
   }
 
   // Only post the inquiry note when the thread has no messages yet — a resumed

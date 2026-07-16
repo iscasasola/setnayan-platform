@@ -21,6 +21,7 @@ import {
   fetchNullServiceBookedCount,
   fetchBookedBySource,
   fetchViewsBySource,
+  fetchInquiriesBySource,
   FUNNEL_MIN_N,
 } from '@/lib/vendor-funnel';
 import {
@@ -214,6 +215,9 @@ export default async function PerformanceHome({
     viewsBySourceMonth,
     bookedBySourceDay,
     viewsBySourceDay,
+    inquiriesBySourceYear,
+    inquiriesBySourceMonth,
+    inquiriesBySourceDay,
     marketRegionRow,
   ] = await Promise.all([
     safeRead(
@@ -283,6 +287,17 @@ export default async function PerformanceHome({
       : Promise.resolve([]),
     canAdvanced
       ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'views_by_source_day')
+      : Promise.resolve([]),
+    // Inquiries by source (Creator Economy PR-C — the owner's inquiry-source
+    // taxonomy on chat_threads). Same three windows; NULL folds into 'website'.
+    canAdvanced
+      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'inquiries_by_source_year')
+      : Promise.resolve([]),
+    canAdvanced
+      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'inquiries_by_source_month')
+      : Promise.resolve([]),
+    canAdvanced
+      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'inquiries_by_source_day')
       : Promise.resolve([]),
     // HQ region → market label for the Demand Radar (the market-intel section
     // folded into §4 from the retired /demand fold, owner 2026-07-12).
@@ -489,6 +504,12 @@ export default async function PerformanceHome({
       mode === 'year' ? bookedBySourceYear : mode === 'month' ? bookedBySourceMonth : bookedBySourceDay;
     const views =
       mode === 'year' ? viewsBySourceYear : mode === 'month' ? viewsBySourceMonth : viewsBySourceDay;
+    const inquiriesSlices =
+      mode === 'year'
+        ? inquiriesBySourceYear
+        : mode === 'month'
+          ? inquiriesBySourceMonth
+          : inquiriesBySourceDay;
     const nullExcluded =
       mode === 'year' ? nullExcludedYear : mode === 'month' ? nullExcludedMonth : nullExcludedDay;
     const serviceBooked =
@@ -546,6 +567,17 @@ export default async function PerformanceHome({
             blurb={`Where your top-of-funnel traffic comes from (${label}). Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
             slices={views}
             emptyText="No profile views in this window yet."
+          />
+        </Reanimate>
+        {/* Inquiry-source taxonomy (Creator Economy PR-C · owner 2026-07-17):
+            what TYPE of customer sent each inquiry — Website · First Pick ·
+            Auto Build · Influencer · Editorial · … Vendor-private. */}
+        <Reanimate>
+          <SourceBreakdown
+            title="What type of customer inquires"
+            blurb={`How each inquiry reached you (${label}) — website, recommendations, storyteller chapters, editorial features. Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
+            slices={inquiriesSlices}
+            emptyText="No inquiries in this window yet."
           />
         </Reanimate>
       </div>

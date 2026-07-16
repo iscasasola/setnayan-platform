@@ -132,6 +132,12 @@ export type ShoppableVendor = {
   name: string;
   city: string | null;
   logoUrl: string | null;
+  /**
+   * Internal vendor id (PR-C) — used SERVER-SIDE ONLY to join the chapter's
+   * accepted collab offers for the viewer-promo line (audience_rate_terms
+   * whitelist). Never rendered; the public link target stays /v/[slug].
+   */
+  vendorProfileId: string;
 };
 
 /**
@@ -152,11 +158,12 @@ export async function resolveShoppableVendors(
   const { data } = await admin
     .from('vendor_profiles')
     .select(
-      'public_id, business_name, business_slug, logo_url, location_city, public_visibility, name_revealed_at, tier_state, services, screen_name',
+      'vendor_profile_id, public_id, business_name, business_slug, logo_url, location_city, public_visibility, name_revealed_at, tier_state, services, screen_name',
     )
     .or(`business_slug.in.(${ids.join(',')}),public_id.in.(${ids.join(',')})`);
 
   const rows = (data ?? []) as Array<{
+    vendor_profile_id: string;
     public_id: string | null;
     business_name: string | null;
     business_slug: string | null;
@@ -197,6 +204,7 @@ export async function resolveShoppableVendors(
       }),
       city: r.location_city,
       logoUrl: r.logo_url,
+      vendorProfileId: r.vendor_profile_id,
     });
   }
   return out;

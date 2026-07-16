@@ -33,6 +33,7 @@ import {
   acceptCreatorOffer,
   declineCreatorOffer,
   linkCreatorOfferDeliverable,
+  setCreatorAcceptsOffers,
 } from './offer-actions';
 
 export const metadata = { title: 'Your chapters' };
@@ -59,6 +60,9 @@ const FLASH: Record<string, string> = {
   accepted: 'Offer accepted — the vendor was notified.',
   declined: 'Offer declined.',
   linked: 'Chapter linked as the deliverable.',
+  offers_on: 'Vendor offers turned on — vendors can offer you a promo again.',
+  offers_off:
+    'Vendor offers turned off — you’re hidden from vendor browse and new offers are blocked.',
 };
 
 type Props = {
@@ -75,9 +79,14 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('display_name, slug, public_profile_enabled')
+    .select('display_name, slug, public_profile_enabled, creator_accepts_offers')
     .eq('user_id', user.id)
     .maybeSingle();
+  // PR-C opt-out toggle — default ON (only an explicit FALSE reads as off, so a
+  // pre-migration row degrades to the default).
+  const acceptsOffers =
+    (profile as { creator_accepts_offers?: boolean | null } | null)
+      ?.creator_accepts_offers !== false;
 
   const successKey = Object.keys(FLASH).find((k) => search[k]);
 
@@ -107,6 +116,32 @@ export default async function CreatorChaptersPage({ searchParams }: Props) {
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>
       ) : null}
       {successKey ? <FormFlash tone="success">{FLASH[successKey]}</FormFlash> : null}
+
+      {/* Creator solicitation opt-out (PR-C · RA-10173 must-plan). Default ON.
+          OFF = hidden from the vendor Creators browse + offer_creator_reach_hold
+          blocks new offers server-side (CREATOR_OFFERS_OFF). Existing offers in
+          the inbox are unaffected. */}
+      <section className="sn-tile mb-8 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">Accept vendor offers</p>
+          <p className="text-xs text-ink/60">
+            {acceptsOffers
+              ? 'Vendors can offer you a promo in exchange for a chapter crediting them. Turn this off to stop new offers.'
+              : 'You’re not receiving vendor offers — you’re hidden from vendor browse and new offers are blocked.'}
+          </p>
+        </div>
+        <form action={setCreatorAcceptsOffers}>
+          {acceptsOffers ? null : (
+            <input type="hidden" name="accepts_offers" value="on" />
+          )}
+          <SubmitButton
+            className="button-secondary"
+            pendingLabel="Saving…"
+          >
+            {acceptsOffers ? 'Turn off' : 'Turn back on'}
+          </SubmitButton>
+        </form>
+      </section>
 
       <CreatorBody
         supabase={supabase}

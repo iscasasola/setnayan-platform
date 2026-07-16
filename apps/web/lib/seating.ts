@@ -6,6 +6,37 @@ import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibil
 // the RoleSet type is imported type-only so there is no runtime import cycle.
 import { WEDDING_ROLE_SET, type RoleSet } from './role-sets';
 
+// ===========================================================================
+// INVARIANT — Seat-plan coordinate contract (v2, 2026-07-16)
+// (Seat_Plan_2D3D_Sync_Council_Verdict_2026-07-16 · § 2. The single statement
+//  of record — ONE interpretation of the shared columns, consumed identically
+//  by the List, the 2D Plan and the 3D Plan.)
+//
+//  1. `event_tables.x_pos / y_pos` = the table's visual-bbox CENTRE, as PERCENT
+//     of the ROOM BOX — x = % of room width (m), y = % of room length (m).
+//     Top-left origin; +x east/right; +y south/down ≡ 3D +z (NO y-flip).
+//     Values may exceed 0–100 (free auto-grow); the server clamp −300..900 is
+//     unchanged.
+//  2. The room box ALWAYS has metre dimensions: `venue_width_m × venue_length_m`
+//     when both set and > 0, else `DEFAULT_ROOM_M = {w:20, d:30}`. The room box
+//     is the coordinate DENOMINATOR and is NEVER content-dependent — auto-grow
+//     is a viewport/display concern (`contentBoundsM`), never a change to what a
+//     percent means.
+//  3. `rotation_deg` = degrees CLOCKWISE in the y-down plan view; 3D applies
+//     `rotation.y = −deg·π/180` (`rotationWorldY`). ONE conversion site.
+//  4. Body geometry is ONE metric family: local px geometry from
+//     `tableGeometry(type, capacity)` uniformly scaled by
+//     `TABLE_FOOTPRINT_M[type] / geo.box.w` (`metricGeometry` — the ONLY body
+//     source). Serpentine canonical (cap ≥ 2): Ri≈0.789 m · Ro≈1.183 m · tip
+//     rm≈0.986 m · sweep 104° · bbox≈1.864 m · S-bend centre≈1.618 m ·
+//     continue-circle≈1.314 m.
+//  5. Rows with NULL x/y get client-only homes from ONE shared resolver
+//     (`resolveHomePcts`); homes are NEVER persisted.
+//  6. Percent↔world: `x_m = (xPct/100 − 0.5)·room.w`, `z_m = (yPct/100 − 0.5)·
+//     room.d`, and its exact inverse (`pctToWorldM` / `worldToPctM`). Nothing
+//     else converts.
+// ===========================================================================
+
 // Catalog locked 2026-05-09 (CLAUDE.md decision log § "0008 Seating Chart
 // table catalog locked at 13 entries" + same-day "0008 serpentine geometry
 // locked" refinement). Realigned 2026-05-22 from the 2026-05-13 drift —
@@ -92,6 +123,29 @@ export type SeatAssignmentRow = {
   locked?: boolean;
 };
 
+// Read-time coordinate/capacity healing (Sync verdict § 4 + render-crash guard
+// c, 2026-07-16). A malformed persisted row — NaN/Infinity coords from a bad
+// legacy write, an absurd out-of-clamp position, a non-integer/non-positive
+// capacity — must render DEGRADED, never crash a `useMemo`/`new Array(n)`
+// between hooks (React #310). These NEVER force-rearrange a valid saved room:
+// a finite in-range coord is returned verbatim, only genuinely broken values
+// heal. A NaN coord becomes NULL → the row falls to a resolved grid home
+// (`resolveHomePcts`) instead of projecting to NaN world metres.
+export function sanitizePersistedCoord(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null; // NaN/±Infinity → unplaced (resolved home)
+  return Math.max(-300, Math.min(900, n)); // absurd → the server safety clamp
+}
+// `new Array(capacity)` throws RangeError on a negative/fractional value and
+// OOMs on an absurd one — occupantsFor + every seat-array path depend on a sane
+// integer. Real tables are ≤ 16 seats; anything past 100 is a broken row.
+export function sanitizeCapacity(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) return 1;
+  return Math.min(n, 100);
+}
+
 export async function fetchTables(
   supabase: SupabaseClient,
   eventId: string,
@@ -106,16 +160,23 @@ export async function fetchTables(
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchTables failed: ${error.message}`);
   // Defensive defaults so the editor + PDF work even before the rotation/
-  // removed-seats migration is applied (the columns just read as 0 / []).
-  return (data ?? []).map((t) => ({
-    ...(t as EventTableRow),
-    rotation_deg: (t as EventTableRow).rotation_deg ?? 0,
-    removed_seats: (t as EventTableRow).removed_seats ?? [],
-    qr_token: (t as EventTableRow).qr_token ?? '',
-    qr_published_at: (t as EventTableRow).qr_published_at ?? null,
-    link_group_id: (t as EventTableRow).link_group_id ?? null,
-    link_group_label: (t as EventTableRow).link_group_label ?? null,
-  }));
+  // removed-seats migration is applied (the columns just read as 0 / []), plus
+  // read-time coord/capacity healing so a malformed row degrades, never crashes.
+  return (data ?? []).map((t) => {
+    const r = t as EventTableRow;
+    return {
+      ...r,
+      capacity: sanitizeCapacity(r.capacity),
+      x_pos: sanitizePersistedCoord(r.x_pos),
+      y_pos: sanitizePersistedCoord(r.y_pos),
+      rotation_deg: Number.isFinite(Number(r.rotation_deg)) ? (r.rotation_deg ?? 0) : 0,
+      removed_seats: r.removed_seats ?? [],
+      qr_token: r.qr_token ?? '',
+      qr_published_at: r.qr_published_at ?? null,
+      link_group_id: r.link_group_id ?? null,
+      link_group_label: r.link_group_label ?? null,
+    };
+  });
 }
 
 export async function fetchAssignments(
@@ -3148,6 +3209,294 @@ export function isLegalJoint(
   if (mover.shape === 'round') return true; // kiss has no rotation constraint
   const dRot = Math.abs(((cand.rot - mover.rot + 540) % 360) - 180);
   return dRot <= JOIN_ROT_TOL_DEG;
+}
+
+// ===========================================================================
+// SHARED PROJECTION API (contract v2 · Seat_Plan_2D3D_Sync_Council_Verdict
+// 2026-07-16 · § 3). The ONE percent↔world map, room-box denominator, rotation
+// convention, metric body geometry, metric joint validator, null-row resolver
+// and canvas-letterbox fit — consumed identically by the List, the 2D editor,
+// the 3D lab, `actions.ts` and the proof suite. Pure, server-safe, no React,
+// no three. `lib/seating-3d.ts` keeps thin re-exports so its consumers compile.
+// ===========================================================================
+
+/** The free-board default room, in metres (MOVED here from seating-3d.ts). */
+export const DEFAULT_ROOM_M = { w: 20, d: 30 } as const;
+
+/** The room box (metres) — the coordinate DENOMINATOR (contract § 2). Venue dims
+ *  when both set and > 0, else the default board. `isDefault` = the free board. */
+export function roomBoxM(floor: {
+  venue_width_m?: number | null;
+  venue_length_m?: number | null;
+}): { w: number; d: number; isDefault: boolean } {
+  const w = floor.venue_width_m;
+  const d = floor.venue_length_m;
+  if (w != null && d != null && w > 0 && d > 0) return { w, d, isDefault: false };
+  return { w: DEFAULT_ROOM_M.w, d: DEFAULT_ROOM_M.d, isDefault: true };
+}
+
+/** percent (0–100, top-left origin) → centred world metres (origin room centre).
+ *  THE linear map (contract § 6). Returns {x, z} to match the 3D convention. */
+export function pctToWorldM(
+  xPct: number,
+  yPct: number,
+  room: { w: number; d: number },
+): { x: number; z: number } {
+  return { x: (xPct / 100 - 0.5) * room.w, z: (yPct / 100 - 0.5) * room.d };
+}
+
+/** The EXACT inverse of `pctToWorldM` (world metres → percent). */
+export function worldToPctM(
+  x: number,
+  z: number,
+  room: { w: number; d: number },
+): { xPct: number; yPct: number } {
+  return { xPct: (x / room.w + 0.5) * 100, yPct: (z / room.d + 0.5) * 100 };
+}
+
+/** The single rotation-conversion site (contract § 3): plan-view degrees
+ *  (clockwise, y-down) → the 3D group's `rotation.y` (radians). */
+export function rotationWorldY(deg: number): number {
+  return (-deg * Math.PI) / 180;
+}
+
+/** Metres-per-local-geometry-unit for a table type — the uniform shrink that
+ *  maps `tableGeometry(...).box.w` onto its real chair-inclusive footprint. */
+export function metricScale(type: TableType, capacity: number): number {
+  const geo = tableGeometry(shapeHintFor(type), Math.max(1, capacity));
+  return TABLE_FOOTPRINT_M[type] / geo.box.w;
+}
+
+// The serpentine band is capacity-independent (2026-05-09 lock: ONE 104° band).
+// box.w is stable for cap ≥ 2 (chairs fill the widest spread); we anchor the
+// metric family to cap 5 so a single band serves every serpentine on every
+// surface (mirrors seating-3d's cached `serpentineBand`).
+const SERP_REF_CAP = 5;
+
+/** The ONE body-geometry source (contract § 4): `tableGeometry` uniformly scaled
+ *  to metres. Round/banquet/sweetheart return `box` + `outlineM`; serpentine
+ *  additionally returns the recentred metric tips + the band radii — the shared
+ *  numbers `lib/seating-3d.ts` derives its whole serpentine family from, so 2D,
+ *  3D, the mesh, the snap and the server validator speak ONE family. */
+export function metricGeometry(
+  type: TableType,
+  capacity: number,
+): {
+  box: { w: number; d: number };
+  outlineM: Vec2[];
+  tipsM?: { plus: Vec2; minus: Vec2 };
+  bandM?: { ri: number; ro: number; rm: number; sweepDeg: number; chairGap: number };
+} {
+  const shape = shapeHintFor(type);
+  const geo = tableGeometry(shape, Math.max(1, capacity));
+  const s = TABLE_FOOTPRINT_M[type] / geo.box.w;
+  const box = { w: geo.box.w * s, d: geo.box.h * s };
+  const outlineM = (geo.outline ?? []).map((p) => ({ x: p.x * s, y: p.y * s }));
+  if (shape === 'serpentine') {
+    // Anchor the band to the capacity-independent reference scale so tips/radii
+    // don't drift by a hair across capacities (box.w is stable for cap ≥ 2).
+    const refGeo = tableGeometry('serpentine', SERP_REF_CAP);
+    const rs = TABLE_FOOTPRINT_M[type] / refGeo.box.w;
+    const f = serpentineFrame();
+    return {
+      box,
+      outlineM,
+      tipsM: {
+        plus: { x: f.endPlus.x * rs, y: f.endPlus.y * rs },
+        minus: { x: f.endMinus.x * rs, y: f.endMinus.y * rs },
+      },
+      bandM: {
+        ri: SERP_RI * rs,
+        ro: SERP_RO * rs,
+        rm: ((SERP_RI + SERP_RO) / 2) * rs,
+        sweepDeg: SERPENTINE_SWEEP_DEG,
+        chairGap: (CHAIR_PX / 2 + 4) * rs,
+      },
+    };
+  }
+  return { box, outlineM };
+}
+
+/** A pose in METRES (position + degrees + metric render scale). The metric twin
+ *  of `OraclePose` — `legalJoinPose`/`serpentineChainSnap`/`rectChainSnap` are
+ *  unit-agnostic (local geometry × `scale` → world), so feeding metric x/y and a
+ *  metric `scale` yields metric output with ppm folded to 1. */
+export type PoseM = {
+  shape: TableShapeHint;
+  capacity: number;
+  x: number; // metres
+  y: number; // metres (the plan-view down axis ≡ 3D +z)
+  rot: number; // degrees, y-down clockwise
+  scale: number; // metres per local geometry unit (metricScale)
+};
+
+/** Build a `PoseM` for a persisted row at its percent position (contract §§ 4,6). */
+export function metricPoseM(
+  row: { table_type: TableType; capacity: number; rotation_deg?: number | null },
+  xPct: number,
+  yPct: number,
+  room: { w: number; d: number },
+): PoseM {
+  const w = pctToWorldM(xPct, yPct, room);
+  return {
+    shape: shapeHintFor(row.table_type),
+    capacity: row.capacity,
+    x: w.x,
+    y: w.z,
+    rot: row.rotation_deg ?? 0,
+    scale: metricScale(row.table_type, row.capacity),
+  };
+}
+
+/** The metric wrapper over `legalJoinPose` (ppm folded to 1). Given a metric
+ *  anchor + mover, the EXACT snapped joint pose (metres) or null past `tolM`. The
+ *  3D snap routes through THIS, so its output passes `validateChainJointM` by
+ *  construction. */
+export function legalJoinPoseM(
+  anchor: PoseM,
+  mover: PoseM,
+  tolM = Math.max(0.6, JOIN_TOL_M * 12),
+): { x: number; y: number; rot: number } | null {
+  return legalJoinPose(anchor, mover, tolM);
+}
+
+/** Are two metric poses ALREADY at a legal joint (within `JOIN_TOL_M` = 5 cm +
+ *  the rotation tolerance)? The pose check inside `linkTables`, extracted and
+ *  metric-native — server, 2D, 3D and tests all call THIS (no NOMINAL_W bridge,
+ *  no `venueW && venueL` guard: the free board validates too). */
+export function validateChainJointM(a: PoseM, b: PoseM): boolean {
+  if (!chainableShapes(a.shape, b.shape)) return false;
+  const cand = legalJoinPoseM(a, b);
+  if (!cand) return false;
+  if (Math.hypot(cand.x - b.x, cand.y - b.y) > JOIN_TOL_M) return false;
+  if (b.shape === 'round') return true; // kiss has no rotation constraint
+  const dRot = Math.abs(((cand.rot - b.rot + 540) % 360) - 180);
+  return dRot <= JOIN_ROT_TOL_DEG;
+}
+
+/** Minimal row shape the null-row resolver + editor/lab projection need. */
+export type ProjectTableRow = {
+  table_id: string;
+  table_type: TableType;
+  capacity: number;
+  x_pos: number | null;
+  y_pos: number | null;
+  rotation_deg?: number | null;
+};
+
+/** The ONE null-row home resolver (contract § 5). Rows with NULL x/y get a
+ *  deterministic grid home from `defaultTablePosition` at their row index — the
+ *  SAME homes the 2D editor's grid fallback and the 3D lab loader consume, so an
+ *  un-positioned table sits identically in both. Homes are never persisted. */
+export function resolveHomePcts(
+  rows: ReadonlyArray<Pick<ProjectTableRow, 'table_id' | 'x_pos' | 'y_pos'>>,
+  room: { w: number; d: number; isDefault: boolean },
+): Map<string, { x: number; y: number }> {
+  const spread = room.isDefault; // free board spreads outward; sized room packs
+  const out = new Map<string, { x: number; y: number }>();
+  rows.forEach((r, i) => {
+    if (r.x_pos == null || r.y_pos == null) {
+      out.set(r.table_id, defaultTablePosition(i, rows.length, spread));
+    }
+  });
+  return out;
+}
+
+/** Letterbox a room box into a measured cell — the largest room-aspect rectangle
+ *  that fits (contract § 2 behaviour: the free board letterboxes to the room's
+ *  aspect EXACTLY like a sized room, so `pxPerMeter` is always defined and the
+ *  percent space is isotropic). `pxPerMeter` is EXACT (unfloored) so the
+ *  projection stays canvas-independent; the display may pixel-snap separately. */
+export function fitRoomToCell(
+  room: { w: number; d: number },
+  cellW: number,
+  cellH: number,
+): { canvasW: number; canvasH: number; pxPerMeter: number } {
+  const ratio = room.w / room.d;
+  let w = cellW;
+  let h = w / ratio;
+  if (h > cellH) {
+    h = cellH;
+    w = h * ratio;
+  }
+  return { canvasW: w, canvasH: h, pxPerMeter: w / room.w };
+}
+
+/** Canvas px → percent, against a room-aspect letterbox fit. Isotropic because
+ *  the canvas carries the room aspect (`canvasW/room.w === canvasH/room.d`), so
+ *  the per-axis divide is canvas-size-INVARIANT (the Gun-B bug class dies here). */
+export function canvasPxToPctM(
+  px: Vec2,
+  fit: { canvasW: number; canvasH: number },
+): { xPct: number; yPct: number } {
+  return { xPct: (px.x / fit.canvasW) * 100, yPct: (px.y / fit.canvasH) * 100 };
+}
+
+/** The exact inverse of `canvasPxToPctM` (percent → canvas px). */
+export function pctToCanvasPxM(
+  xPct: number,
+  yPct: number,
+  fit: { canvasW: number; canvasH: number },
+): Vec2 {
+  return { x: (xPct / 100) * fit.canvasW, y: (yPct / 100) * fit.canvasH };
+}
+
+/** The 2D editor's world projection, modelled through its REAL render seam:
+ *  a table renders at `left:xPct%`/`top:yPct%` of the room-aspect letterboxed
+ *  canvas, so its world metres = the letterbox px position mapped back through
+ *  `pxPerMeter`. Threads canvas px genuinely (anti-tautology, § 6 T8) yet equals
+ *  `pctToWorldM(xPct, yPct, room)` for ANY canvas width — the isotropy proof. */
+export function editorWorldPose(
+  row: { x_pos: number | null; y_pos: number | null },
+  floor: { venue_width_m?: number | null; venue_length_m?: number | null },
+  canvasWpx: number,
+): { x: number; z: number } {
+  const room = roomBoxM(floor);
+  const fit = fitRoomToCell(room, canvasWpx, (canvasWpx * room.d) / room.w);
+  const xPct = row.x_pos ?? 0;
+  const yPct = row.y_pos ?? 0;
+  const px = pctToCanvasPxM(xPct, yPct, fit);
+  return {
+    x: (px.x - fit.canvasW / 2) / fit.pxPerMeter,
+    z: (px.y - fit.canvasH / 2) / fit.pxPerMeter,
+  };
+}
+
+/** A pose to persist atomically at a connective weld (position + rotation). */
+export type WeldPose = { tableId: string; xPct: number; yPct: number; rotationDeg: number };
+
+/** The atomic weld batch (Sync verdict § 5 · GUN C). A connective snap persists
+ *  the MOVER pose + the ANCHOR pose in ONE round trip — never the mover's
+ *  rotation alone (the half-persisted state the owner screenshotted). Pure so the
+ *  editor, the 3D lab and `commitWeld` build the identical batch; de-dupes if the
+ *  same id appears twice. */
+export function weldCommitBatch(mover: WeldPose, anchor: WeldPose): WeldPose[] {
+  return anchor.tableId === mover.tableId ? [mover] : [mover, anchor];
+}
+
+/** Display envelope (metres) for a set of tables — VIEWPORT ONLY (contract § 2):
+ *  the world bbox of the placed tables (+ a footprint margin) or the room itself
+ *  when empty. NEVER a change to the percent denominator (that stays `roomBoxM`);
+ *  this is only how the camera/fit knows how far to frame an auto-grown board. */
+export function contentBoundsM(
+  rows: ReadonlyArray<{ x_pos: number | null; y_pos: number | null }>,
+  room: { w: number; d: number },
+): { w: number; d: number } {
+  const pts = rows.filter((r) => r.x_pos != null && r.y_pos != null);
+  if (pts.length === 0) return { w: room.w, d: room.d };
+  const M = 2; // metre margin per table for its footprint + chairs
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const r of pts) {
+    const p = pctToWorldM(r.x_pos!, r.y_pos!, room);
+    minX = Math.min(minX, p.x - M);
+    maxX = Math.max(maxX, p.x + M);
+    minZ = Math.min(minZ, p.z - M);
+    maxZ = Math.max(maxZ, p.z + M);
+  }
+  return { w: Math.max(room.w, maxX - minX), d: Math.max(room.d, maxZ - minZ) };
 }
 
 // ---------------------------------------------------------------------------

@@ -93,6 +93,7 @@ import {
   deleteTable,
   updateTablePosition,
   updateTableRotation,
+  commitWeld,
   updateTableType,
   updateTableLabel,
   publishSeating,
@@ -130,6 +131,7 @@ import {
   penetrationDepth as oraclePenetrationDepth,
   stageZone,
   legalJoinPose,
+  weldCommitBatch,
 } from '@/lib/seating';
 import type {
   KeepApartRule,
@@ -565,6 +567,32 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const [walking, setWalking] = useState(false);
   const walkInput = useRef<WalkInput>({ moveX: 0, moveZ: 0, lookDX: 0, lookDY: 0, pinch: 0 });
   const [notice, setNotice] = useState<string | null>(null);
+  // Unsaved-2D-changes marker (Sync verdict 2026-07-16 · § 5 · GUN C · door
+  // audit). The 2D editor stamps `seating-dirty:{eventId}` in localStorage while
+  // it holds unsaved layout changes; if a co-host arrives here via the SPA-nav /
+  // hub-tile / direct-URL door, the 3D lab makes that staleness VISIBLE (never
+  // silent) with a non-blocking banner. Cleared automatically when the editor
+  // saves (the marker vanishes → live-refresh repaints). Re-checked on focus so
+  // a save in the other tab clears the banner promptly.
+  const [staleDirty, setStaleDirty] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      try {
+        setStaleDirty(!!localStorage.getItem(`seating-dirty:${eventId}`));
+      } catch {
+        setStaleDirty(false);
+      }
+    };
+    check();
+    window.addEventListener('focus', check);
+    window.addEventListener('storage', check);
+    const id = setInterval(check, 2000);
+    return () => {
+      window.removeEventListener('focus', check);
+      window.removeEventListener('storage', check);
+      clearInterval(id);
+    };
+  }, [eventId]);
   // Tapped booth → its vendor card (booth-kit slice 4). Booths stay read-only
   // fixtures in the lab; the card is inspect-only here ("View vendor profile"
   // CTA — the couple already booked them — and no walk-to button).
@@ -666,9 +694,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // useFrame to tint its ground ring (gold = valid, warm-red = escaping) with
   // zero React churn, exactly like dragRef itself.
   const dragValidRef = useRef(true);
-  // `commitDrag` (defined below) auto-links a serpentine into its chain on snap,
-  // but `doLink` is defined further down — a ref bridges the forward reference.
-  const doLinkRef = useRef<((aId: string, bId: string) => void) | null>(null);
+  // (Sync verdict 2026-07-16 · § 5 · GUN C: the drag-snap no longer auto-links —
+  // `commitWeld` persists the pose, linking is the explicit affordance only — so
+  // the old `doLinkRef` forward-reference bridge for snap-link is retired.)
 
   // ── Placement-oracle bridge (directive 2026-07-16 · "manipulation parity") ──
   // 3D move + rotate validate through the SAME pure oracle as the 2D editor
@@ -1037,30 +1065,34 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       ),
     );
     if (canEdit) {
-      const fd = new FormData();
-      fd.set('event_id', eventId);
-      fd.set('lock_id', lock.lockId ?? '');
-      fd.set('table_id', d.id);
-      fd.set('x_pos', String(xPct));
-      fd.set('y_pos', String(yPct));
-      void persist(() => updateTablePosition(fd));
-      // A serpentine that snapped into a chain also rotated into the joint —
-      // persist that through the dedicated rotation action (position + rotation
-      // are separate server writes, mirroring the rotate control).
-      if (snappedRotDeg !== null) {
-        const rd = new FormData();
-        rd.set('event_id', eventId);
-        rd.set('lock_id', lock.lockId ?? '');
-        rd.set('table_id', d.id);
-        rd.set('rotation_deg', String(snappedRotDeg));
-        void persist(() => updateTableRotation(rd));
+      const anchor = snapNeighbourId ? tablesById.get(snapNeighbourId) : undefined;
+      if (snappedRotDeg !== null && anchor) {
+        // ATOMIC WELD (Sync verdict 2026-07-16 · § 5 · GUN C). The snap changed
+        // this table's position AND rotation; persist BOTH — plus the anchor's
+        // pose — in ONE round trip via `commitWeld`, so the DB never holds a
+        // half-applied weld. commitWeld does NOT write link_group_id (positioning,
+        // NOT linking — the old snap-then-`doLink` is REMOVED; linking now happens
+        // ONLY via the explicit arm-link affordance → the one server validator).
+        const batch = weldCommitBatch(
+          { tableId: d.id, xPct, yPct, rotationDeg: snappedRotDeg },
+          { tableId: anchor.id, xPct: anchor.xPct, yPct: anchor.yPct, rotationDeg: anchor.rotationDeg },
+        );
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('lock_id', lock.lockId ?? '');
+        fd.set('poses', JSON.stringify(batch));
+        void persist(() => commitWeld(fd));
+      } else {
+        // Plain move — position only (rotation unchanged), the deferred-free path.
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('lock_id', lock.lockId ?? '');
+        fd.set('table_id', d.id);
+        fd.set('x_pos', String(xPct));
+        fd.set('y_pos', String(yPct));
+        void persist(() => updateTablePosition(fd));
       }
     }
-    // Snap AND link (owner 2026-07-10, ref photo): a snapped serpentine JOINS
-    // its neighbour's chain as ONE unit — moves together + one printed QR, and
-    // more segments extend the same group. doLink merges into an existing group
-    // if the neighbour is already chained.
-    if (snapNeighbourId) doLinkRef.current?.(d.id, snapNeighbourId);
   }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById, venueScaled, oraclePose, oracleZones]);
 
   useEffect(() => {
@@ -1788,10 +1820,6 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     },
     [canEdit, tablesById, tables, eventId, lock.lockId, persist, router],
   );
-  // Bridge for commitDrag's snap-then-link (doLink is defined after it).
-  useEffect(() => {
-    doLinkRef.current = doLink;
-  }, [doLink]);
 
   // Manual arm-link (tap A then tap B) — 2D-parity "pull-to-join": the mover (B)
   // ANIMATES to the nearest oracle-valid legal joint on the anchor (A) via the
@@ -2600,6 +2628,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         lockStatus={lock.status}
         onTakeOver={lock.acquire}
         notice={notice}
+        staleDirty={staleDirty}
         onDismissNotice={() => setNotice(null)}
         onAddTable={addTable}
         onAutoSeat={autoSeatAll}
@@ -4688,6 +4717,7 @@ function Hud({
   lockStatus,
   onTakeOver,
   notice,
+  staleDirty,
   onDismissNotice,
   onAddTable,
   onAutoSeat,
@@ -4759,6 +4789,7 @@ function Hud({
   lockStatus: string;
   onTakeOver: () => void;
   notice: string | null;
+  staleDirty: boolean;
   onDismissNotice: () => void;
   onAddTable: () => void;
   onAutoSeat: () => void;
@@ -4868,6 +4899,14 @@ function Hud({
           Centerpieces
         </button>
       </div>
+
+      {/* Unsaved-2D-changes banner (Sync verdict § 5 · GUN C door audit —
+          visible, never silent staleness at every door into the lab) */}
+      {staleDirty ? (
+        <div className={`pointer-events-none absolute left-1/2 top-28 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-amber-100 ${glass}`}>
+          <span>Unsaved 2D changes aren&rsquo;t shown here — return to the editor to save.</span>
+        </div>
+      ) : null}
 
       {/* Save-error / view-only notice */}
       {notice ? (

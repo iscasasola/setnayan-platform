@@ -13,7 +13,9 @@ import { Wordmark } from '@/app/_components/brand-marks';
 /**
  * Account-scoped chrome — route group `(account)` (URL-transparent), covering
  * the non-event account SPOKES: profile · people · library (Memories Hub) ·
- * setnayan-ai · notifications · year · create-event · api-keys · life-flash.
+ * setnayan-ai · notifications · year · create-event · api-keys · life-flash ·
+ * creator (Storyteller chapters — doorway'd from the launcher Spaces tile +
+ * the account menu per the 2026-07-16 creator readiness verdict B4).
  *
  * CHROME-LESS, launcher-consistent (owner 2026-07-13: tapping Profile "goes to a
  * user-home with a side bar … an old menu … not [designed for] the … user

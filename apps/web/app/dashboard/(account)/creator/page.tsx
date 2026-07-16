@@ -427,12 +427,23 @@ function ChapterCard({
       )}
 
       {published && slug ? (
+        /* Truthful build state (readiness verdict 2026-07-16 · B5): the public
+           chapter timeline renders on /u TODAY — the old "ships in a later
+           update" line was a reverse fake door telling creators publishing was
+           inert. Link the live page. */
         <p className="text-xs text-ink/55">
           <Globe aria-hidden className="mr-1 inline h-3 w-3" strokeWidth={1.75} />
-          Lives on your profile timeline at{' '}
-          <span className="font-mono text-ink/70">/u/{slug}</span>
-          {publicProfileEnabled ? '' : ' (your public profile is currently hidden)'}
-          . The public timeline itself ships in a later update.
+          Live on your public page —{' '}
+          <Link
+            href={`/u/${slug}`}
+            className="font-mono text-ink/70 underline decoration-ink/25 underline-offset-2 hover:text-ink"
+          >
+            /u/{slug}
+          </Link>
+          {publicProfileEnabled
+            ? ''
+            : ' (your public profile is currently hidden, so only you can see it)'}
+          .
         </p>
       ) : null}
 
@@ -465,16 +476,25 @@ function ChapterCard({
             </SubmitButton>
           </form>
         ) : (
-          <form action={publishChapter}>
-            <input type="hidden" name="chapter_id" value={c.chapter_id} />
-            <SubmitButton
-              className="button-primary inline-flex items-center gap-1"
-              pendingLabel="Publishing…"
-            >
-              <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Publish
-            </SubmitButton>
-          </form>
+          <>
+            <form action={publishChapter}>
+              <input type="hidden" name="chapter_id" value={c.chapter_id} />
+              <SubmitButton
+                className="button-primary inline-flex items-center gap-1"
+                pendingLabel="Publishing…"
+              >
+                <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Publish
+              </SubmitButton>
+            </form>
+            {/* Publish-time expectation (readiness verdict 2026-07-16 · B5):
+                say what publish DOES — live public page + possible Real
+                Stories featuring — so nobody is surprised either way. */}
+            <span className="min-w-0 max-w-xs text-[11px] leading-snug text-ink/50">
+              Published chapters are visible on your public page right away;
+              Setnayan may feature standout chapters on Real Stories.
+            </span>
+          </>
         )}
         <form action={deleteChapter} className="ml-auto">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
@@ -568,7 +588,7 @@ function ChapterFields({
           <input
             name="vendor_ids"
             defaultValue={(substrate?.vendor_ids ?? []).join(', ')}
-            placeholder="optional — comma-separated (shoppable in a later update)"
+            placeholder="optional — comma-separated; shown as vendor cards on your published chapter"
             className="input-field"
           />
         </label>

@@ -10,6 +10,7 @@ import {
   Wand2,
   AlertCircle,
   Users,
+  Clapperboard,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -444,6 +445,24 @@ export default async function LauncherPage({
     attendedCount = null;
   }
 
+  // STORYTELLER doorway signal — does this account already author chapters?
+  // Real head-count on the user's own creator_chapters rows (owner-scoped RLS).
+  // ≥1 chapter → the Spaces tile shows a plain "Your Story" doorway row;
+  // 0 chapters → the "Become a Storyteller" promo row IS the doorway (creator
+  // readiness verdict 2026-07-16 B4 + the owner's home-promo requirement —
+  // exactly ONE entry either way). Graceful-degrade to 0 (promo renders)
+  // rather than the error boundary.
+  let chapterCount = 0;
+  try {
+    const { count, error } = await supabase
+      .from('creator_chapters')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    if (!error) chapterCount = count ?? 0;
+  } catch {
+    chapterCount = 0;
+  }
+
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
@@ -628,6 +647,17 @@ export default async function LauncherPage({
       href: '/dashboard/people',
       kind: 'action',
       icon: 'users',
+    },
+    {
+      id: 'action-your-story',
+      label: 'Your Story',
+      sublabel:
+        chapterCount > 0
+          ? `${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · Storyteller`
+          : 'Become a Storyteller — publish your events as chapters',
+      href: '/dashboard/creator',
+      kind: 'action',
+      icon: 'clapperboard',
     },
     {
       id: 'action-profile',
@@ -957,6 +987,29 @@ export default async function LauncherPage({
                   />
                 ))}
                 <CreateSamahanRow />
+              </div>
+              {/* STORYTELLER — the ONE doorway to /dashboard/creator (readiness
+                  verdict 2026-07-16 B4: the funnel had no entry anywhere; the
+                  wayfinding rule — a page ships with its doorway). Zero
+                  chapters → the "Become a Storyteller" promo row (owner
+                  requirement) sells it in a line and IS the doorway; ≥1
+                  chapter → it collapses to a plain "Your Story" row. Honest
+                  copy only — nothing unbuilt, no earnings, no tiers. */}
+              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
+                Storyteller
+              </p>
+              <div className="mt-1">
+                {chapterCount > 0 ? (
+                  <SpaceRow
+                    href="/dashboard/creator"
+                    icon={Clapperboard}
+                    title="Your Story"
+                    subtitle={`${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · your public page`}
+                    tone="default"
+                  />
+                ) : (
+                  <BecomeStorytellerRow />
+                )}
               </div>
             </div>
           </div>
@@ -1466,6 +1519,43 @@ function CreateSamahanRow() {
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-bold text-[color:var(--sn-ink-500)] group-hover:text-ink">
         Create a Samahan
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
+      />
+    </Link>
+  );
+}
+
+/**
+ * The "Become a Storyteller" promo row — the owner-required home promo that IS
+ * the /dashboard/creator doorway while the user has zero chapters (it collapses
+ * to a plain "Your Story" SpaceRow once they author one). SpaceRow layout, but
+ * the selling line WRAPS instead of truncating — it has to carry the pitch.
+ * HONEST scope only (readiness verdict 2026-07-16): everything named here is
+ * live today — public chapters on /u, followers + views, shoppable vendor
+ * credits, vendor exclusive-rate offers. No viewer promo, no earnings, no
+ * tier names.
+ */
+function BecomeStorytellerRow() {
+  return (
+    <Link
+      href="/dashboard/creator"
+      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[color:var(--sn-gold-100)] text-[color:var(--sn-gold-700)]">
+        <Clapperboard aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-ink">
+          Become a Storyteller
+        </span>
+        <span className="block text-xs leading-snug text-ink/55">
+          Publish your events as public chapters on your own page — gather
+          followers, feature your vendors, and vendors can offer you exclusive
+          rates.
+        </span>
       </span>
       <ArrowUpRight
         aria-hidden

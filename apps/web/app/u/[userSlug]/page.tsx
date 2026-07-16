@@ -10,6 +10,9 @@ import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { CHAPTER_KIND_LABEL } from '@/lib/creator-chapters';
 import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public';
+import { formatAudienceCount } from '@/lib/creator-audience';
+import { ViewBeacon } from '@/app/u/_components/view-beacon';
+import { FollowButton } from '@/app/u/_components/follow-button';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -173,6 +176,13 @@ export default async function AccountProfilePage({ params }: Props) {
     <main className="uprof">
       <style>{UPROF_CSS}</style>
 
+      {/* Audience view beacon — counts a genuinely-public profile view out of
+          band (keeps this page ISR-cacheable). No-op on the owner-preview of a
+          hidden profile (the RPC self-gates to public_profile_enabled). */}
+      {enabled && hasPublicContent ? (
+        <ViewBeacon kind="profile" id={user.user_id} />
+      ) : null}
+
       <div className="uprof-inner">
         {isOwnerPreview ? (
           <div className="uprof-preview" role="status">
@@ -185,6 +195,27 @@ export default async function AccountProfilePage({ params }: Props) {
           {hasChapters ? (
             <div className="uprof-badge-row">
               <CreatorBadge size="md" />
+            </div>
+          ) : null}
+          {hasPublicContent ? (
+            <div className="uprof-audience">
+              <span className="uprof-stat">
+                <strong>{formatAudienceCount(user.followers_count)}</strong>{' '}
+                {user.followers_count === 1 ? 'follower' : 'followers'}
+              </span>
+              <span aria-hidden className="uprof-stat-dot">
+                &middot;
+              </span>
+              <span className="uprof-stat">
+                <strong>{formatAudienceCount(user.profile_view_count)}</strong>{' '}
+                {user.profile_view_count === 1 ? 'view' : 'views'}
+              </span>
+              {/* Follow — the client island renders only for a signed-in
+                  visitor viewing someone else's profile (never self/signed-out). */}
+              <FollowButton
+                followedUserId={user.user_id}
+                className="uprof-follow"
+              />
             </div>
           ) : null}
           <span aria-hidden className="uprof-rule" />
@@ -311,6 +342,10 @@ function ChapterTimeline({
                 <span className="uprof-tl-kicker">
                   <span className="uprof-tl-kind">{CHAPTER_KIND_LABEL[c.kind]}</span>
                   {date ? <span className="uprof-tl-date">{date}</span> : null}
+                  <span className="uprof-tl-views">
+                    {formatAudienceCount(c.view_count)}{' '}
+                    {c.view_count === 1 ? 'view' : 'views'}
+                  </span>
                 </span>
                 <span className="m-serif uprof-tl-title">{c.title}</span>
                 <span className="uprof-tl-cue">
@@ -363,6 +398,48 @@ const UPROF_CSS = `
     justify-content: center;
     margin-top: 1rem;
   }
+  .uprof-audience {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 0.7rem;
+    margin-top: 1rem;
+  }
+  .uprof-stat {
+    font-size: 0.9rem;
+    color: var(--m-slate, #4F535B);
+  }
+  .uprof-stat strong {
+    color: var(--m-ink, #1B1A17);
+    font-weight: 600;
+  }
+  .uprof-stat-dot {
+    color: var(--m-slate-2, #6A6E76);
+    opacity: 0.6;
+  }
+  .uprof-follow {
+    margin-left: 0.3rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.34rem 0.95rem;
+    border: 1px solid var(--m-orange, #A9834B);
+    border-radius: var(--m-r-full, 999px);
+    background: var(--m-orange, #A9834B);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s cubic-bezier(.2,.7,.2,1), opacity .15s, background .15s, color .15s;
+  }
+  .uprof-follow:hover { transform: translateY(-1px); }
+  .uprof-follow:disabled { opacity: 0.6; cursor: default; transform: none; }
+  .uprof-follow[data-following='1'] {
+    background: #fff;
+    color: var(--m-ink, #1B1A17);
+    border-color: var(--m-line, #E2DED4);
+  }
+
   .uprof-rule {
     display: block;
     width: 44px;
@@ -532,6 +609,11 @@ const UPROF_CSS = `
   .uprof-tl-date {
     font-size: 0.78rem;
     color: var(--m-slate-2, #6A6E76);
+  }
+  .uprof-tl-views {
+    font-size: 0.72rem;
+    color: var(--m-slate-2, #6A6E76);
+    opacity: 0.85;
   }
   .uprof-tl-title {
     font-size: clamp(1.15rem, 3vw, 1.4rem);

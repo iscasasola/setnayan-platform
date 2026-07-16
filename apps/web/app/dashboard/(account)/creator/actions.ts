@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -8,6 +9,7 @@ import {
   normalizeEmbed,
   type ChapterKind,
 } from '@/lib/creator-chapters';
+import { notifyFollowersOfNewChapter } from '@/lib/creator-notify';
 
 const SURFACE = '/dashboard/creator';
 
@@ -157,15 +159,19 @@ export async function publishChapter(formData: FormData) {
   const chapterId = formData.get('chapter_id');
   if (typeof chapterId !== 'string' || !chapterId) fail('Missing chapter.');
 
-  // A chapter's core IS the embedded edit — never publish an empty one.
+  // A chapter's core IS the embedded edit — never publish an empty one. Also
+  // read status + identity so we only fan out to followers on a genuine
+  // draft→published transition (re-publishing an already-live chapter must not
+  // re-notify).
   const { data: row } = await supabase
     .from('creator_chapters')
-    .select('embed_url')
+    .select('embed_url, status, public_id, title')
     .eq('chapter_id', chapterId)
     .eq('user_id', userId)
     .maybeSingle();
   if (!row) fail('Chapter not found.');
   if (!row.embed_url) fail('Add the embedded edit before publishing.');
+  const wasDraft = row.status !== 'published';
 
   const { error } = await supabase
     .from('creator_chapters')
@@ -177,6 +183,18 @@ export async function publishChapter(formData: FormData) {
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
   if (error) fail(error.message);
+
+  // Notify followers — only on the first publish, fire-and-forget (never blocks
+  // the redirect). No-op when the author has no followers or a hidden profile.
+  if (wasDraft) {
+    after(() =>
+      notifyFollowersOfNewChapter({
+        authorUserId: userId,
+        chapterPublicId: row.public_id as string,
+        chapterTitle: (row.title as string) ?? '',
+      }),
+    );
+  }
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?published=1`);

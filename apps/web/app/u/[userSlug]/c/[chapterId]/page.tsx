@@ -8,7 +8,9 @@ import {
   type ShoppableVendor,
 } from '@/lib/creator-public';
 import { CHAPTER_KIND_LABEL, EMBED_PROVIDER_LABEL } from '@/lib/creator-chapters';
+import { formatAudienceCount } from '@/lib/creator-audience';
 import { CreatorBadge } from '@/app/_components/creator-badge';
+import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components/chapter-embed-frame';
 
 // Creator "Adventure Chapter" — PUBLIC chapter detail (CP-3 / CP-4).
@@ -115,6 +117,11 @@ export default async function ChapterDetailPage({ params }: Props) {
     <main className="uchap">
       <style>{UCHAP_CSS}</style>
 
+      {/* Audience view beacon — counts one public chapter view out of band,
+          keeping this page ISR-cacheable. The RPC self-gates to published +
+          public, and a first-party cookie dedups refresh-spam. */}
+      <ViewBeacon kind="chapter" id={chapter.public_id} />
+
       <article className="uchap-inner">
         <div className="uchap-top">
           <Link href={`/u/${canonicalSlug}`} className="uchap-back">
@@ -132,6 +139,10 @@ export default async function ChapterDetailPage({ params }: Props) {
               </span>
             ) : null}
             {date ? <span className="uchap-date">{date}</span> : null}
+            <span className="uchap-views">
+              {formatAudienceCount(chapter.view_count)}{' '}
+              {chapter.view_count === 1 ? 'view' : 'views'}
+            </span>
           </div>
           <h1 className="m-serif uchap-title">{chapter.title}</h1>
         </header>
@@ -260,7 +271,7 @@ const UCHAP_CSS = `
     text-transform: uppercase;
     color: var(--m-orange-2, #8A6B39);
   }
-  .uchap-provider, .uchap-date {
+  .uchap-provider, .uchap-date, .uchap-views {
     font-size: 0.8rem;
     color: var(--m-slate-2, #6A6E76);
   }

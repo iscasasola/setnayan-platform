@@ -463,7 +463,7 @@ const UCHAP_CSS = `
     display: inline-flex;
     align-items: center;
     padding: 0.45rem 0.9rem;
-    border-radius: 999px;
+    border-radius: var(--m-r-full, 999px);
     background: var(--m-ink, #1B1A17);
     color: var(--m-paper, #FBFBFA);
     font-size: 0.8rem;

@@ -384,7 +384,7 @@ const UPROF_CSS = `
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     border: 1px solid var(--m-line, #E2DED4);
-    border-radius: 999px;
+    border-radius: var(--m-r-full, 999px);
     background: #fff;
     color: var(--m-ink, #1B1A17);
     font-size: 0.85rem;

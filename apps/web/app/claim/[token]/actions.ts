@@ -11,12 +11,15 @@ import { claimBirthdateCutoff } from '@/lib/dependent-people';
  * Redeem an alaga hand-over link (owner-locked 2026-07-16 ownership rule).
  * Two purposes, both redeemed as ONE conditional UPDATE through the service
  * role — atomic, so a raced/expired/revoked token simply matches zero rows:
- *  - 'claim' (person, ≥18): stamps handed_over_at + claimed_user_id. The row
- *    stays with the guardian read-only (RLS freezes their pen); the person now
- *    owns their data. The age proof is re-checked IN the UPDATE's WHERE
- *    (birth_date ≤ today − 18y, Manila) — the link being minted is not trusted.
- *  - 'rehome' (pet/other): owner_user_id moves to the redeemer; spouse-sharing
- *    resets (the old household's consent doesn't travel).
+ *  - 'claim' (person, ≥18): a TRUE ownership transfer — owner_user_id moves to
+ *    the claimant (full control incl. RA 10173 erasure; the row now lives and
+ *    dies with THEIR account) and the guardian is stamped into
+ *    handed_over_by_user_id (read-only history — keeps the memories, loses the
+ *    pen). The age proof is re-checked IN the UPDATE's WHERE (birth_date ≤
+ *    today − 18y, Manila) — the link being minted is not trusted.
+ *  - 'rehome' (pet/other): owner_user_id moves to the redeemer with no
+ *    former-guardian stamp (care transfers whole). Spouse-sharing resets in
+ *    both paths (the old household's consent doesn't travel).
  */
 export async function claimAlaga(formData: FormData): Promise<void> {
   if (!dependentPeopleEnabled()) redirect('/');
@@ -46,6 +49,9 @@ export async function claimAlaga(formData: FormData): Promise<void> {
       .update({
         handed_over_at: nowISO,
         claimed_user_id: user.id,
+        owner_user_id: user.id,
+        handed_over_by_user_id: row.owner_user_id,
+        shared_with_spouse: false,
         claim_token: null,
         claim_token_purpose: null,
         claim_token_expires_at: null,
@@ -57,6 +63,13 @@ export async function claimAlaga(formData: FormData): Promise<void> {
       .gt('claim_token_expires_at', nowISO)
       .select('dependent_id');
     if (!updated?.length) redirect(`/claim/${token}?error=invalid`);
+    // Godparent edges follow the profile — while guardian-owned their
+    // ON DELETE CASCADE would erase the adult's ninong/ninang record with the
+    // GUARDIAN's account. Post-claim they belong to the subject.
+    await admin
+      .from('godparents')
+      .update({ owner_user_id: user.id })
+      .eq('dependent_id', row.dependent_id);
   } else if (row.claim_token_purpose === 'rehome') {
     const { data: updated } = await admin
       .from('dependents')

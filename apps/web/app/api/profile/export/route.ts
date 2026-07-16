@@ -40,6 +40,8 @@ export async function GET() {
     ordersRes,
     paymentsRes,
     faceEnrollmentsRes,
+    dependentsRes,
+    godparentsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -107,6 +109,30 @@ export async function GET() {
         'enrollment_id, event_id, source, consent_at, consent_source, ' +
           'revoked_at, quality_score, vector_model, created_at, updated_at',
       )
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
+    // stores as a guardian, what they claimed as their own profile, and what
+    // they handed over (read-only history). Spouse-SHARED rows the OTHER
+    // guardian owns are deliberately excluded — that's the other guardian's
+    // stored data, not the subject's. Active claim_token values are excluded
+    // (a live token is redeemable — exporting it would leak a bearer secret);
+    // the consent stamps ARE included (durable RA 10173 proof).
+    supabase
+      .from('dependents')
+      .select(
+        'public_id, dependent_kind, name, birth_date, sex, religion, relationship, ' +
+          'shared_with_spouse, birth_date_consent_at, religion_consent_at, ' +
+          'handed_over_at, owner_user_id, claimed_user_id, handed_over_by_user_id, created_at, updated_at',
+      )
+      .or(
+        `owner_user_id.eq.${user.id},claimed_user_id.eq.${user.id},handed_over_by_user_id.eq.${user.id}`,
+      )
+      .order('created_at', { ascending: true }),
+    // Godparent (ninong/ninang) edges — the subject's own rows as guardian
+    // plus, via godparents_subject_read, the edges on a profile they claimed.
+    supabase
+      .from('godparents')
+      .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
       .order('created_at', { ascending: true }),
   ]);
 
@@ -193,9 +219,14 @@ export async function GET() {
     // Biometric CONSENT metadata only — raw face_vector embeddings are
     // intentionally excluded from the export.
     face_enrollments: faceEnrollmentsRes.data ?? [],
+    // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
+    // and handed-over history) + godparent edges. Consent stamps included.
+    alaga_dependents: dependentsRes.data ?? [],
+    alaga_godparents: godparentsRes.data ?? [],
     not_included: [
       'audit_log (API access — no user-scoped access-log table in V1)',
       'face_vector embeddings (biometric raw data — metadata only is exported)',
+      'active alaga claim_token values (live bearer secrets — never exported)',
     ],
   };
 

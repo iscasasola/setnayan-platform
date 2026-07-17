@@ -84,6 +84,12 @@ export const FRAME_KINDS = [
 ] as const;
 export type StudioFrameKind = (typeof FRAME_KINDS)[number];
 export const MAX_FRAMES = 2;
+// Starting-point presets (council verdict §3) — provenance ONLY: `preset`
+// records which card seeded the design (analytics/`Duo repaired` etc.);
+// rendering never reads it. One field, not two (absorbed the separate
+// `layout?` proposal).
+export const PRESET_KEYS = ['duo', 'interlocked', 'stacked', 'framed-duo', 'solo-ring', 'blank'] as const;
+export type StudioPresetKey = (typeof PRESET_KEYS)[number];
 // The reveal-animation kinds offered in the studio's "Animate the reveal" panel.
 // Exported so the live player (app/_components/studio-reveal-player.tsx) imports
 // the ONE allowlist. handwriting/trace/droplet = paper.js/SVG draw-on; gold =
@@ -91,6 +97,12 @@ export const MAX_FRAMES = 2;
 // (owner 2026-06-23 — gold/molten are reveal KINDS in this panel, not a separate feature.)
 export const ANIM_KINDS = ['handwriting', 'trace', 'droplet', 'gold', 'molten'] as const;
 export type StudioAnimKind = (typeof ANIM_KINDS)[number];
+// Reveal tempo presets (council verdict §5.4): named chips that WRITE
+// dur/smooth/delay — the stored numbers stay canonical (wire format
+// untouched); `preset` only remembers which chip is lit ('custom' after any
+// fine-tune slider touch).
+export const ANIM_TEMPOS = ['quick', 'classic', 'ceremonial', 'custom'] as const;
+export type StudioAnimTempo = (typeof ANIM_TEMPOS)[number];
 
 export type StudioLetterState = {
   tx: number;
@@ -153,7 +165,9 @@ export type StudioConfig = {
   strokes: StudioStroke[];
   syms: StudioSymbol[];
   frames?: StudioFrame[];
-  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number };
+  /** Starting-point provenance — which preset card seeded this design. */
+  preset?: StudioPresetKey;
+  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number; preset?: StudioAnimTempo };
 };
 
 // Bounds — generous but finite; the studio works around a 150-unit glyph size
@@ -282,6 +296,11 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       };
     });
 
+  const preset =
+    typeof o.preset === 'string' && (PRESET_KEYS as readonly string[]).includes(o.preset)
+      ? (o.preset as StudioPresetKey)
+      : undefined;
+
   let anim: StudioConfig['anim'];
   if (o.anim && typeof o.anim === 'object') {
     const a = o.anim as Record<string, unknown>;
@@ -290,6 +309,9 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       dur: num(a.dur, 1, 15, 6),
       smooth: num(a.smooth, 0, 1, 0.9),
       delay: num(a.delay, 0, 2, 0.3),
+      ...(typeof a.preset === 'string' && (ANIM_TEMPOS as readonly string[]).includes(a.preset)
+        ? { preset: a.preset as StudioAnimTempo }
+        : {}),
     };
   }
 
@@ -305,6 +327,7 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     strokes,
     syms,
     ...(frames.length ? { frames } : {}),
+    ...(preset ? { preset } : {}),
     ...(anim ? { anim } : {}),
   };
   if (JSON.stringify(cfg).length > MAX_CONFIG_BYTES) return null;

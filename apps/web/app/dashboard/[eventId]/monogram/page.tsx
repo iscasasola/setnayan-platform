@@ -43,6 +43,7 @@ type Props = {
   searchParams: Promise<{
     studio?: string;
     studio_error?: string;
+    upload_error?: string;
   }>;
 };
 
@@ -102,7 +103,19 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   // studio mark exists (re-editable config present + a custom svg).
   const studioConfig = sanitizeStudioConfig(event.monogram_studio_config);
   const hasStudio = Boolean(studioConfig && event.monogram_custom_svg);
-  const studioNotice = STUDIO_NOTICES[sp.studio_error ?? ''] ?? STUDIO_NOTICES[sp.studio ?? ''] ?? null;
+  // Notices are split by destination so an error lands in the section the
+  // action redirects to (gap audit 2026-07-17): studio flows show inside the
+  // Vector Studio; upload flows (upload success keys + upload_error) show in
+  // the Upload section, where the redirect anchor #upload-mark scrolls them.
+  const isUploadKey = (k?: string) => k === 'upload-saved' || k === 'upload-cleared';
+  const studioNotice =
+    STUDIO_NOTICES[sp.studio_error ?? ''] ??
+    (isUploadKey(sp.studio) ? null : STUDIO_NOTICES[sp.studio ?? '']) ??
+    null;
+  const uploadNotice =
+    STUDIO_NOTICES[sp.upload_error ?? ''] ??
+    (isUploadKey(sp.studio) ? STUDIO_NOTICES[sp.studio ?? ''] : null) ??
+    null;
 
   // Free/paid honesty line (council verdict 2026-07-17 §5.3): the studio's
   // "Animate the reveal" panel previews all five kinds free, but the LIVE site
@@ -191,6 +204,9 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         eventId={eventId}
         hasUpload={typeof event.monogram_uploaded_svg === 'string' && Boolean(event.monogram_uploaded_svg)}
         monogramText={monogram.text}
+        notice={uploadNotice}
+        ownsAnimated={ownsAnimated}
+        animatedPricePhp={animatedPricePhp}
       />
 
       {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).

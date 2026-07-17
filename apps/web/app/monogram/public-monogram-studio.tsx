@@ -124,15 +124,17 @@ export function PublicMonogramStudio() {
     track('public_monogram_uploaded', { traced: res.traced, elements: res.elements });
   }
 
+  // Keyed on previewKind alone so the reduced-motion gold/molten path (which
+  // opens the overlay with no animInfo) still auto-dismisses (gap audit 2026-07-17).
   useEffect(() => {
-    if (!previewKind || !previewAnim) return;
+    if (!previewKind) return;
     const t = window.setTimeout(
       () => {
         setPreviewKind(null);
         setPreviewSvg(null);
         setPreviewAnim(null);
       },
-      Math.round(previewAnim.dur * 1000) + 4500,
+      previewAnim ? Math.round(previewAnim.dur * 1000) + 4500 : 5000,
     );
     return () => window.clearTimeout(t);
   }, [previewKind, previewAnim]);
@@ -370,7 +372,7 @@ export function PublicMonogramStudio() {
           <span className="text-xs text-[#5F5E5A]">SVG or transparent PNG — we trace it into animatable pieces, free</span>
           <input
             type="file"
-            accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp"
+            accept=".svg,.png,.webp,.jpg,.jpeg,image/svg+xml,image/png,image/webp,image/jpeg"
             className="sr-only"
             data-testid="public-upload-input"
             onChange={(e) => void onUploadFile(e.target.files?.[0])}

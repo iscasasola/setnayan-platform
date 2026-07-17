@@ -290,7 +290,7 @@ export const STUDIO_HTML_V2 = `
       <div class="box" id="animbox">
         <p class="lab" style="margin:0">Animate the reveal</p>
         <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="droplet">Bloom</button><button type="button" class="tg" data-an="petalfall">Petal Fall</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="tg" data-an="flip3d">Medallion Turn</button></div>
-        <p class="cap off" id="moltennote" style="margin:0">Molten Gold needs a newer phone — older ones see Gold Turn instead.</p>
+        <p class="cap off" id="moltennote" style="margin:0">Molten Gold needs a newer phone — older ones see the Medallion Turn instead.</p>
         <div class="row" id="tempo"><span class="lab2" style="margin-right:2px">Tempo</span><button type="button" class="tg" data-tp="quick">Quick</button><button type="button" class="tg on" data-tp="classic">Classic</button><button type="button" class="tg" data-tp="ceremonial">Ceremonial</button></div>
         <div class="collapsible" id="finetune">
           <div class="animhdr" id="fthdr"><p class="lab" style="margin:0">Fine-tune<span class="chev">▸</span></p></div>

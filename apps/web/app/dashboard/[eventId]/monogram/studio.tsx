@@ -79,16 +79,20 @@ export function VectorStudio({
   const [swEl, setSwEl] = useState<HTMLElement | null>(null);
 
   // The portal preview auto-dismisses after the reveal has finished + settled,
-  // returning the canvas — the preview is a moment, not a mode.
+  // returning the canvas — the preview is a moment, not a mode. Keyed on
+  // previewKind ALONE: under prefers-reduced-motion the gold/molten path opens
+  // the overlay with no animInfo (previewAnim stays null), so requiring it left
+  // the overlay stuck open with only the ✕ (gap audit 2026-07-17). Falls back
+  // to a fixed dismissal when the duration is unknown.
   useEffect(() => {
-    if (!previewKind || !previewAnim) return;
+    if (!previewKind) return;
     const t = window.setTimeout(
       () => {
         setPreviewKind(null);
         setPreviewSvg(null);
         setPreviewAnim(null);
       },
-      Math.round(previewAnim.dur * 1000) + 4500,
+      previewAnim ? Math.round(previewAnim.dur * 1000) + 4500 : 5000,
     );
     return () => window.clearTimeout(t);
   }, [previewKind, previewAnim]);

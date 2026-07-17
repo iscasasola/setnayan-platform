@@ -6,6 +6,7 @@ import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { StudioRevealPlayer } from '@/app/_components/studio-reveal-player';
 import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { saveUploadedMarkAction, clearUploadedMarkAction } from './upload-actions';
+import { formatPhp } from '@/lib/orders';
 
 /**
  * <UploadMark> — "upload your own mark" on the Monogram Maker (owner
@@ -35,11 +36,20 @@ export function UploadMark({
   eventId,
   hasUpload,
   monogramText,
+  notice,
+  ownsAnimated,
+  animatedPricePhp,
 }: {
   eventId: string;
   /** An uploaded mark is currently live (events.monogram_uploaded_svg set). */
   hasUpload: boolean;
   monogramText: string;
+  /** Upload-flow status banner (success/error), routed here by page.tsx. */
+  notice?: { tone: 'ok' | 'error'; text: string } | null;
+  /** Whether the couple owns the paid Animated Monogram (gates the LIVE reveal). */
+  ownsAnimated?: boolean;
+  /** Catalog price for the honesty line when unowned; null hides the price. */
+  animatedPricePhp?: number | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -72,11 +82,24 @@ export function UploadMark({
         </p>
         <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Already have a mark?</h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Upload an SVG or a transparent-background PNG. We decipher it into its pieces — each piece
-          becomes an element every reveal can animate — and it takes over as your monogram everywhere.
-          EPS/AI files can&rsquo;t be read by browsers; export them as SVG or PNG first.
+          Upload an SVG, a transparent-background PNG, or a scan. We decipher it into its pieces — each
+          piece becomes an element every reveal can animate — and it takes over as your monogram
+          everywhere. EPS/AI files can&rsquo;t be read by browsers; export them as SVG or PNG first.
         </p>
       </header>
+
+      {notice ? (
+        <p
+          role="status"
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            notice.tone === 'ok'
+              ? 'border-success-200 bg-success-50 text-success-800'
+              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
+          }`}
+        >
+          {notice.text}
+        </p>
+      ) : null}
 
       {hasUpload ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3">
@@ -106,7 +129,7 @@ export function UploadMark({
         <input
           ref={fileRef}
           type="file"
-          accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp"
+          accept=".svg,.png,.webp,.jpg,.jpeg,image/svg+xml,image/png,image/webp,image/jpeg"
           className="sr-only"
           data-testid="upload-mark-input"
           onChange={(e) => void onFile(e.target.files?.[0])}
@@ -171,6 +194,21 @@ export function UploadMark({
               ↻ Replay
             </button>
           </div>
+
+          {/* The free/paid line, said where the reveal is chosen — matching the
+              studio's §5.3 honesty (gap audit 2026-07-17): the pick previews
+              free, but plays live for guests only with Animated Monogram. */}
+          {ownsAnimated ? (
+            <p className="text-xs text-success-800">The reveal you pick here plays live on your wedding website.</p>
+          ) : (
+            <p className="text-xs text-ink/60">
+              Previewing the reveal is free — guests see it play live with{' '}
+              <a href="#animated-monogram" className="font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-700">
+                Animated Monogram{animatedPricePhp != null ? ` · ${formatPhp(animatedPricePhp)}` : ''}
+              </a>
+              . Your mark still shows everywhere without it.
+            </p>
+          )}
 
           <form action={saveUploadedMarkAction} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="event_id" value={eventId} />

@@ -27,6 +27,7 @@ import {
 } from '@/app/_components/account-switcher/account-switcher';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { eventInitials } from '@/lib/event-initials';
+import { EventMonogram } from '@/app/_components/event-monogram';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -317,6 +318,16 @@ export default async function EventLayout({ children, params }: Props) {
   // the type label — never render no trigger.
   const plaqueName =
     ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
+  // The couple's EFFECTIVE mark for the plaque chip — same `uploaded ?? custom`
+  // precedence every other surface resolves (hero, QR centre, save-the-date).
+  // Both columns are already in this layout's select; only the chip ignored them.
+  const plaqueMarkSvg =
+    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? (event.monogram_uploaded_svg as string)
+      : null) ??
+    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? (event.monogram_custom_svg as string)
+      : null);
   const homeLabel = 'Home · all your events';
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
@@ -381,10 +392,34 @@ export default async function EventLayout({ children, params }: Props) {
             identity={
               <SwitcherPlaqueTrigger
                 data={switcherData}
-                chip={eventInitials(
-                  plaqueName,
-                  (event.monogram_text as string | null) ?? null,
-                )}
+                chip={
+                  // The plaque chip shows the couple's REAL mark when they have
+                  // one — restoring the owner lock 2026-06-15 ("show the custom
+                  // SVG everywhere … the chrome icon matches the website hero;
+                  // no letters-in-chrome / SVG-on-hero split"), which the
+                  // Plaque-as-Menu redesign (#3282) regressed by hardcoding
+                  // text initials. The council locked the plaque's INTERACTION
+                  // grammar, not its chip content — the vendor doorway already
+                  // passes a <VendorAvatar> here, so a component chip is the
+                  // established pattern. EventMonogram brings its own cream
+                  // tile + object-contain, so the mark reads at 36px instead of
+                  // going dark-on-bronze. Precedence mirrors every other
+                  // surface: uploaded ?? custom. No mark → initials, unchanged.
+                  plaqueMarkSvg ? (
+                    <EventMonogram
+                      event={{
+                        display_name: event.display_name as string | null,
+                        monogram_text: event.monogram_text as string | null,
+                        monogram_color: event.monogram_color as string | null,
+                        monogram_custom_svg: plaqueMarkSvg,
+                      }}
+                      size="md"
+                      shape="square"
+                    />
+                  ) : (
+                    eventInitials(plaqueName, (event.monogram_text as string | null) ?? null)
+                  )
+                }
                 title={plaqueName}
                 metaLine={eventPlaqueMeta}
                 ariaLabel={`${plaqueName} — account menu`}

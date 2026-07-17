@@ -1,28 +1,23 @@
 /**
- * /login — full-bleed cinematic sign-in (mockup "1c · Full-bleed · sign-in
- * rail", owner 2026-07-01). A photographic hero panel (the homepage hero frame)
- * on the left carrying the brand headline + a floating pill nav, with a frosted
- * obsidian sign-in rail on the right. Mobile collapses to the headline over a
- * bottom-anchored rail.
+ * /login — the standalone destination for a hard load / refresh / deep-link /
+ * SEO crawl / server redirect (e.g. bounced off a protected route) of /login.
  *
- * This is the STANDALONE page — the destination for a hard load / refresh /
- * deep-link / SEO crawl of /login. The soft-navigation experience (the rail
- * sliding in OVER the page you were on) is the intercepted route at
- * app/@modal/(.)login, which reuses the same LoginHero + SignInRail.
- *
- * Design note: the dark treatment is the OBSIDIAN end of the existing Clean
- * Editorial palette (var(--m-ink) #1B1A17), not a separate dark theme — so it
- * coexists with the light-locked app surface. See globals.css `.sn-login`.
+ * ONE LOGIN EVERYWHERE (owner 2026-07-18 "we only want 1 login … that popup and
+ * dimming the background anywhere"): this renders the SAME greige "Sign in to
+ * Setnayan." card visitors see from the marketing top-nav — via the shared
+ * SignInCardModal — instead of a bespoke full-page layout. The soft-navigation
+ * experience (the intercepted app/@modal/(.)login overlay) renders the identical
+ * card. Only dismiss differs: there's no interception to pop and no live page
+ * behind, so close/Escape/backdrop go home (dismissHref="/"), and the dim sits
+ * over a paper base.
  *
  * The auth wiring (signInWithPassword server action, OAuth gating, the
- * error/check_email/ready/next searchParams contract + safeNext()) is unchanged
- * — it now lives in ./_components/login-data.ts (shared with the intercepted
- * route) and ./_components/sign-in-rail.tsx, per
- * [[feedback_setnayan_button_preservation]].
+ * error/check_email/ready/next searchParams contract + safeNext()) is unchanged —
+ * it lives in ./_components/login-data.ts (shared with the intercepted route)
+ * and ./_components/sign-in-card.tsx, per [[feedback_setnayan_button_preservation]].
  */
 import type { Metadata } from 'next';
-import { LoginHero } from './_components/login-hero';
-import { SignInRail } from './_components/sign-in-rail';
+import { SignInCardModal } from './_components/sign-in-card-modal';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
 
 export const metadata: Metadata = {
@@ -38,16 +33,23 @@ export default async function LoginPage({
   searchParams: Promise<LoginSearchParams>;
 }) {
   const params = await searchParams;
-  const { heroImageUrl, ...rail } = await getLoginView(params);
+  const view = await getLoginView(params);
 
+  // A paper base under the translucent greige dim so a hard load never flashes a
+  // stark void behind the backdrop before the card settles.
   return (
-    <main className="sn-login-page">
-      <div className="sn-login sn-login--enter">
-        <LoginHero heroImageUrl={heroImageUrl} />
-        <aside className="sn-login-rail">
-          <SignInRail {...rail} />
-        </aside>
-      </div>
+    <main style={{ minHeight: '100dvh', background: 'var(--m-paper)' }}>
+      <SignInCardModal
+        dismissHref="/"
+        next={view.next}
+        signupHref={view.signupHref}
+        showOAuth={view.showOAuth}
+        desktopOAuth={view.desktopOAuth}
+        errorMessage={view.errorMessage}
+        justSignedUpEmail={view.justSignedUpEmail}
+        readyEmail={view.readyEmail}
+        prefilledEmail={view.prefilledEmail}
+      />
     </main>
   );
 }

@@ -2580,6 +2580,29 @@ html.hr-snap {
   font-size: 12.5px;
   color: var(--hr-grey);
 }
+/* Sign-in status banners — only rendered when the card is THE /login surface
+   (a failed sign-in redirects to /login?error=…, and the signup flow lands here
+   with ?check_email / ?ready). On the marketing-nav overlay these are always
+   absent (it opens on '/'), so the card looks unchanged there. */
+.home-reskin-ov .hr-si-banner {
+  margin: 2px 0;
+  padding: 10px 13px;
+  border-radius: var(--hr-r10);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hr-ink);
+  background: rgba(169, 131, 75, 0.08);
+  border: 1px solid var(--hr-line);
+}
+.home-reskin-ov .hr-si-banner--error {
+  color: #8a2b2b;
+  background: rgba(190, 60, 60, 0.09);
+  border-color: rgba(190, 60, 60, 0.26);
+}
+.home-reskin-ov .hr-si-banner-em {
+  font-weight: 600;
+  color: var(--hr-ink);
+}
 .home-reskin-ov .hr-vb-stat {
   font-size: 13.5px;
   color: var(--hr-ink);

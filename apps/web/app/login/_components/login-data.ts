@@ -1,12 +1,11 @@
 /**
  * Shared server-side view model for the /login surface.
  *
- * WHY: the sign-in UI now renders in TWO places that must stay byte-for-byte in
- * sync — the standalone full-page `/login` (hard load / refresh / SEO) and the
- * intercepted overlay (`app/@modal/(.)login`, the frosted rail that slides in
- * over the homepage on soft navigation). Both need the identical params
- * contract, OAuth-visibility gating, and hero image. Computing it once here
- * keeps the two entry points from drifting.
+ * WHY: the sign-in UI renders in places that must stay in sync — the standalone
+ * `/login` page (hard load / refresh / SEO / redirect) and the intercepted
+ * overlay (`app/@modal/(.)login`, on soft navigation). Both render the shared
+ * greige SignInCard and need the identical params contract + OAuth-visibility
+ * gating. Computing it once here keeps the entry points from drifting.
  *
  * PRESERVED from the prior /login/page.tsx (per [[feedback_setnayan_button_preservation]]):
  *   - searchParams contract: error / check_email / ready / next.
@@ -17,7 +16,6 @@
 import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
-import { fetchPublishedHeroVideo } from '@/lib/hero-video';
 
 export type LoginSearchParams = {
   error?: string;
@@ -42,8 +40,6 @@ export type LoginView = {
   signupHref: string;
   showOAuth: boolean;
   desktopOAuth: boolean;
-  /** First frame of the published homepage hero video, or null → CSS gradient. */
-  heroImageUrl: string | null;
 };
 
 export async function getLoginView(params: LoginSearchParams): Promise<LoginView> {
@@ -69,18 +65,6 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
   const desktopOAuth = showOAuth && shell === 'desktop';
 
-  // Reuse the owner-uploaded homepage hero as the left-panel photo so /login
-  // shares the marketing site's hero imagery. Fails open to a gradient (the
-  // scene renders fine with heroImageUrl = null) so a missing/unpublished hero
-  // never breaks the sign-in surface.
-  let heroImageUrl: string | null = null;
-  try {
-    const hero = await fetchPublishedHeroVideo();
-    heroImageUrl = hero?.frameUrls?.[0] ?? null;
-  } catch {
-    heroImageUrl = null;
-  }
-
   return {
     errorMessage,
     justSignedUpEmail,
@@ -90,6 +74,5 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
     signupHref,
     showOAuth,
     desktopOAuth,
-    heroImageUrl,
   };
 }

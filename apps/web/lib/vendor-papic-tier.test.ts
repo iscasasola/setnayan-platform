@@ -17,8 +17,6 @@ import {
   baseTierFromProvenance,
   resolveVendorPapicTier,
   tierReadout,
-  VENDOR_PAPIC_UNLI_UPGRADE_PHP,
-  VENDOR_PAPIC_UNLI_UPGRADE_SKU,
   type VendorAcceptProvenance,
 } from './vendor-papic-tier';
 
@@ -151,9 +149,4 @@ test('tierReadout: human badge strings', () => {
   assert.equal(tierReadout('lite'), 'Papic Lite · 20 photos');
   assert.equal(tierReadout('ltd'), 'Papic Ltd · 70 pts · photos + video');
   assert.equal(tierReadout('unli'), 'Papic Unli · unlimited');
-});
-
-test('constants: the +₱50 event-scoped Unli upgrade', () => {
-  assert.equal(VENDOR_PAPIC_UNLI_UPGRADE_PHP, 50);
-  assert.equal(VENDOR_PAPIC_UNLI_UPGRADE_SKU, 'VENDOR_PAPIC_UNLI_UPGRADE');
 });

@@ -19,7 +19,6 @@ import {
   extendUserAiSubscription,
 } from '@/lib/setnayan-ai-subscription';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
-import { VENDOR_PAPIC_UNLI_UPGRADE_SKU } from '@/lib/vendor-papic-tier';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -81,48 +80,6 @@ async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<vo
 
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
-  // VENDOR_PAPIC_UNLI_UPGRADE (owner 2026-07-18) → the +₱50 event-scoped Papic
-  // Unli upgrade. On payment, upsert the vendor's per-(vendor,event) grant to
-  // tier='unli' so the on-the-day capture lane becomes unlimited for THAT event.
-  // The context lacks vendorProfileId, so read it off the order (its insert
-  // stamped orders.vendor_profile_id). Idempotent upsert on (vendor,event).
-  // (The legacy photo_cap/clip_cap columns don't model capture-points; the
-  //  authoritative budget is the tier — unli = unlimited — in lib/vendor-papic-tier.)
-  [VENDOR_PAPIC_UNLI_UPGRADE_SKU]: async (ctx) => {
-    if (!ctx.eventId) return;
-    const { data: order } = await ctx.admin
-      .from('orders')
-      .select('vendor_profile_id')
-      .eq('order_id', ctx.orderId)
-      .maybeSingle();
-    const vpid =
-      (order as { vendor_profile_id: string | null } | null)?.vendor_profile_id ?? null;
-    if (!vpid) return;
-    await ctx.admin.from('vendor_papic_capture_grants').upsert(
-      {
-        vendor_profile_id: vpid,
-        event_id: ctx.eventId,
-        tier: 'unli',
-        photo_cap: 999_999,
-        clip_cap: 999_999,
-        upgrade_order_id: ctx.orderId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'vendor_profile_id,event_id' },
-    );
-    await appendLedger(ctx.admin, {
-      order_id: ctx.orderId,
-      event_type: 'service_activated',
-      actor_user_id: ctx.actorUserId,
-      actor_role: 'admin',
-      metadata: {
-        service_key: ctx.serviceKey,
-        event_id: ctx.eventId,
-        vendor_profile_id: vpid,
-        tier: 'unli',
-      },
-    });
-  },
   // 'concierge_complete' (TODAYS_FOCUS) → wedding-anchored concierge state machine.
   concierge_complete: async (ctx) => {
     if (!ctx.eventId) return;

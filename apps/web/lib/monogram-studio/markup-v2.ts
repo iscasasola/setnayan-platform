@@ -114,6 +114,13 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .pcard{-webkit-appearance:none;appearance:none;flex:0 0 auto;scroll-snap-align:start;border:1px solid var(--line2);background:#fff;border-radius:12px;padding:7px 8px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:88px;}
 .vsroot .vs .pcard.on{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);}
 .vsroot .vs .pthumb{width:66px;height:48px;background-size:contain;background-repeat:no-repeat;background-position:center;}
+.vsroot .vs .collapsible .animhdr{display:flex;align-items:center;cursor:pointer;user-select:none;}
+.vsroot .vs .collapsible .animhdr .chev{margin-left:auto;color:var(--gold-deep);font-size:13px;transition:transform .2s;}
+.vsroot .vs .collapsible.open .animhdr .chev{transform:rotate(90deg);}
+.vsroot .vs .collapsible .animbody{display:none;flex-direction:column;gap:10px;margin-top:11px;}
+.vsroot .vs .collapsible.open .animbody{display:flex;}
+.vsroot .vs .replaybtn{position:absolute;right:12px;bottom:12px;z-index:2;-webkit-appearance:none;appearance:none;border:1px solid var(--line2);background:rgba(251,251,250,.92);border-radius:999px;padding:8px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;box-shadow:0 1px 6px rgba(30,34,41,.10);}
+.vsroot .vs .replaybtn.off{display:none;}
 .vsroot .vs .drawtoggle{-webkit-appearance:none;appearance:none;border:1px dashed var(--gold)!important;background:#FBF6EA!important;border-radius:10px;padding:10px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--gold-deep)!important;cursor:pointer;text-align:left;}
 .vsroot .vs .drawtoggle.on{background:#1E2229!important;color:#FBFBFA!important;border-style:solid;border-color:#1E2229!important;}
 .vsroot .vs .shelfnote{font-size:12px;color:var(--ink-soft);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;}
@@ -136,6 +143,7 @@ export const STUDIO_HTML_V2 = `
     <canvas id="cv"></canvas>
     <div class="load" id="load">Loading the typeface…</div>
     <div class="zoom" id="zoom">100%</div>
+    <button type="button" class="replaybtn off" id="replay">↻ Replay</button>
     <p class="hint" id="hint">Tap any letter to move it</p>
   </div>
   <div class="panel">
@@ -242,10 +250,17 @@ export const STUDIO_HTML_V2 = `
     <div class="vtab off" id="tab-reveal">
       <div class="box" id="animbox">
         <p class="lab" style="margin:0">Animate the reveal</p>
-        <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Droplet</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="mini play" id="play">Play</button></div>
-        <div><div class="lab2"><span>Speed · drawing pace</span><span id="dur_v">6.0s</span></div><div class="gaprow"><span class="ro">Fast</span><input type="range" id="dur" min="10" max="150" step="5" value="60" aria-label="Animation speed"><span class="ro">Slow</span></div></div>
-        <div><div class="lab2"><span>Delay · between letter starts</span><span id="dl_v">0.3s</span></div><div class="gaprow"><span class="ro">0s</span><input type="range" id="dl" min="0" max="20" step="1" value="3" aria-label="Delay between letter starts"><span class="ro">2s</span></div></div>
-        <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90" aria-label="Animation smoothness"><span class="ro">Silky</span></div></div>
+        <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Bloom</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="mini play" id="play">Play</button></div>
+        <p class="cap off" id="moltennote" style="margin:0">Molten Gold needs a newer phone — older ones see Gold Turn instead.</p>
+        <div class="row" id="tempo"><span class="lab2" style="margin-right:2px">Tempo</span><button type="button" class="tg" data-tp="quick">Quick</button><button type="button" class="tg on" data-tp="classic">Classic</button><button type="button" class="tg" data-tp="ceremonial">Ceremonial</button></div>
+        <div class="collapsible" id="finetune">
+          <div class="animhdr" id="fthdr"><p class="lab" style="margin:0">Fine-tune<span class="chev">▸</span></p></div>
+          <div class="animbody">
+            <div><div class="lab2"><span>Speed · drawing pace</span><span id="dur_v">6.0s</span></div><div class="gaprow"><span class="ro">Fast</span><input type="range" id="dur" min="10" max="150" step="5" value="60" aria-label="Animation speed"><span class="ro">Slow</span></div></div>
+            <div><div class="lab2"><span>Delay · between letter starts</span><span id="dl_v">0.3s</span></div><div class="gaprow"><span class="ro">0s</span><input type="range" id="dl" min="0" max="20" step="1" value="3" aria-label="Delay between letter starts"><span class="ro">2s</span></div></div>
+            <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90" aria-label="Animation smoothness"><span class="ro">Silky</span></div></div>
+          </div>
+        </div>
         <p class="cap" style="margin:0"><b>Animate the reveal</b> picks how your monogram appears on your website.</p>
       </div>
     </div>

@@ -623,3 +623,101 @@ test('ledger integrity: every reach debit is tagged creator_offer', async () => 
   );
   assert.equal(Number(r.rows[0]!.n), 0, 'no untagged influencer spend');
 });
+
+// ─── (e) attribution integrity: provenance columns are write-locked ─────────
+// PR-C money-path review G1 — the guard_thread_provenance_columns BEFORE UPDATE
+// trigger (migration 20270820292403). referring_chapter_id / inquiry_source /
+// is_returning may be stamped ONLY by a privileged caller (the service-role
+// admin client, i.e. stampThreadProvenance). A thread party PATCHing them via
+// PostgREST (the FOR-ALL chat_threads_member_write policy lets them UPDATE the
+// row) has the forgery neutralized — the columns revert to their OLD value
+// while every other column edit still lands.
+
+/** Set the JWT role claim the harness's auth.role() reads (Supabase seam). */
+async function setAuthRole(role: string | null): Promise<void> {
+  await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role ?? '']);
+}
+
+test('provenance guard: service-role first-stamp lands; a thread party PATCH is reverted', async () => {
+  // Fixture — a couple, their event, and a thread to the pro vendor. The real
+  // upsert path (apps/web/app/v/[slug]/inquiry-actions.ts) creates the thread
+  // WITHOUT any provenance column, exactly as this INSERT does.
+  const couple = await createUser('guard-couple@loop.test');
+  // Non-wedding type so the fixture needn't satisfy the wedding-fields
+  // consistency check — the provenance guard is event-type agnostic.
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type)
+     VALUES ('Guard Test Event', 'birthday') RETURNING event_id`,
+  );
+  const eventId = ev.rows[0]!.event_id;
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, couple],
+  );
+  const th = await db.query<{ thread_id: string }>(
+    `INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_by_user_id)
+     VALUES ($1, $2, $3) RETURNING thread_id`,
+    [eventId, F.vendor, couple],
+  );
+  const threadId = th.rows[0]!.thread_id;
+
+  // 1. The legit first-stamp: stampThreadProvenance runs on the SERVICE-ROLE
+  //    admin client (auth.role()='service_role') → privileged → the stamp lands.
+  await setAuthUid(db, null);
+  await setAuthRole('service_role');
+  await db.exec(`SET ROLE service_role`);
+  await db.query(
+    `UPDATE public.chat_threads
+        SET referring_chapter_id = $2, inquiry_source = 'influencer', is_returning = TRUE
+      WHERE thread_id = $1
+        AND referring_chapter_id IS NULL
+        AND inquiry_source IS NULL`,
+    [threadId, F.creatorChapterId],
+  );
+  await db.exec(`RESET ROLE`);
+  const stamped = (
+    await db.query<{ rc: string | null; src: string | null; ret: boolean }>(
+      `SELECT referring_chapter_id AS rc, inquiry_source AS src, is_returning AS ret
+         FROM public.chat_threads WHERE thread_id = $1`,
+      [threadId],
+    )
+  ).rows[0]!;
+  assert.equal(stamped.rc, F.creatorChapterId, 'service-role first-stamp lands');
+  assert.equal(stamped.src, 'influencer', 'inquiry_source stamped');
+  assert.equal(stamped.ret, true, 'is_returning stamped');
+
+  // 2. A thread party (the couple member) tries to FORGE the provenance while
+  //    also touching a non-guarded column (pax_current). RLS permits the UPDATE
+  //    (member-write), so we can prove the TRIGGER — not RLS — protects the
+  //    columns: pax_current changes, the three provenance columns do NOT.
+  await setAuthUid(db, couple);
+  await setAuthRole('authenticated');
+  await db.exec(`SET ROLE authenticated`);
+  const forged = await db.query(
+    `UPDATE public.chat_threads
+        SET referring_chapter_id = NULL,
+            inquiry_source = 'website',
+            is_returning = FALSE,
+            pax_current = 123
+      WHERE thread_id = $1`,
+    [threadId],
+  );
+  await db.exec(`RESET ROLE`);
+  assert.equal(forged.affectedRows, 1, 'RLS allowed the member UPDATE (row matched)');
+  const after = (
+    await db.query<{ rc: string | null; src: string | null; ret: boolean; pax: number | null }>(
+      `SELECT referring_chapter_id AS rc, inquiry_source AS src, is_returning AS ret, pax_current AS pax
+         FROM public.chat_threads WHERE thread_id = $1`,
+      [threadId],
+    )
+  ).rows[0]!;
+  assert.equal(after.pax, 123, 'non-guarded column DID change → the write landed');
+  assert.equal(after.rc, F.creatorChapterId, 'referring_chapter_id forgery reverted');
+  assert.equal(after.src, 'influencer', 'inquiry_source forgery reverted');
+  assert.equal(after.ret, true, 'is_returning forgery reverted');
+
+  // Reset the harness identity for any later tests.
+  await setAuthRole(null);
+  await setAuthUid(db, null);
+});

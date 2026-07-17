@@ -39,4 +39,10 @@ exception is preserved. The replay-only screen-name patch in
 `replay-migrations.ts` is removed (this migration supersedes it); the harness now
 replays the REAL migrations end-to-end with no shim.
 
+Also folds in one unrelated stale-test-drift fix so the DB suite is fully green:
+`creator-loop.db.test.ts` asserted the free-tier reach gate raises
+`TIER_FREE_NO_REACH`, but PR-C's Pro-and-up gate (migration `20270819553697`)
+renamed it — a below-Pro vendor now raises `TIER_BELOW_PRO_NO_REACH` (still
+correctly rejected, just the new error name). Assertion updated.
+
 SPEC IMPACT: None (bugfix; found by the creator-loop replay harness).

@@ -83,6 +83,36 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Self-declared information (and what we verify)">
+          <p>
+            Setnayan is a self-service platform, and most of what we hold about
+            an account is <strong>self-declared</strong> — you provide your
+            profile, your event details, the vendors you name, and your story
+            yourself. We do <strong>not</strong> require a government ID and do
+            not independently verify that this information is accurate; you
+            control it and are responsible for keeping it correct. You can view,
+            correct, or delete it at any time from your profile or the relevant
+            event page.
+          </p>
+          <p className="pt-2">
+            We verify identity <strong>only where this notice says so</strong>.
+            The main case is <strong>vendor identity verification</strong>: a
+            vendor shown as verified has had that credential checked separately.
+            (Third-party identity-verification providers are not yet active — see
+            &ldquo;Regulatory posture&rdquo; above.)
+          </p>
+          <p className="pt-2">
+            Where content involves <strong>other people</strong> — for example a
+            photo, likeness, or detail you upload about a guest or a third party —
+            we rely on the uploader&rsquo;s confirmation that they have the right
+            to share it, together with the event&rsquo;s own consent controls
+            (such as guest photo consent and couple approval for any public
+            showcase, described below). This does not change the separate,
+            explicit consent we require before processing biometric face data or
+            other sensitive personal information covered in their own sections.
+          </p>
+        </Section>
+
         <Section title="What we collect">
           <ul className="ml-5 list-disc space-y-1">
             <li>Account info — email, password (hashed), display name, optional phone + profile photo URL</li>

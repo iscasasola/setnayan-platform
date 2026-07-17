@@ -140,6 +140,47 @@ export default function TermsPage() {
         </ul>
       </LegalSection>
 
+      <LegalSection title="Your information & the content you share">
+        <p>
+          Setnayan is a self-service platform. The information you put in — your
+          profile, your event details, the vendors you name, your story, and the
+          people you add — is <strong>self-provided</strong>. We don&rsquo;t ask
+          for a government ID and we don&rsquo;t independently verify that it&rsquo;s
+          true. It&rsquo;s yours to enter and yours to keep accurate.
+        </p>
+        <ul className="ml-5 mt-2 list-disc space-y-1">
+          <li>
+            You&rsquo;re responsible for the accuracy of what you provide, and
+            for keeping it up to date.
+          </li>
+          <li>
+            You <strong>warrant that you have the right to share</strong> any
+            content you upload or publish — including photos, likenesses, names,
+            or details that belong to or depict other people. If you don&rsquo;t
+            have that right, please don&rsquo;t upload it.
+          </li>
+          <li>
+            For any event or guest media you choose to make public, you confirm
+            you have the necessary permissions from the people shown in it.
+          </li>
+          <li>
+            You agree not to impersonate anyone or misrepresent who you are or
+            who you&rsquo;re acting for.
+          </li>
+        </ul>
+        <p className="pt-2">
+          Because we don&rsquo;t verify self-provided information, others should
+          treat it as user-supplied rather than confirmed by Setnayan. The one
+          exception is <strong>vendor identity verification</strong>: where a
+          vendor is shown as verified, we&rsquo;ve checked that credential
+          separately, as described for vendors below and in our{' '}
+          <Link href="/privacy" className="text-terracotta hover:underline">
+            privacy policy
+          </Link>
+          .
+        </p>
+      </LegalSection>
+
       <LegalSection title="Vendors">
         <ul className="ml-5 list-disc space-y-1">
           <li>Vendor profiles are published only when you choose to make them visible.</li>

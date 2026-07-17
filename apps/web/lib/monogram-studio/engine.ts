@@ -1373,13 +1373,24 @@ export function mountStudio(opts) {
       return;
     }
     if (preset === 'flip3d') {
-      // owner 2026-07-17 "3d rotating reveals" — the canvas fakes a Y-axis spin
-      // with a cosine scaleX (paper is 2D); the LIVE player does real CSS
-      // rotateY, so the website gets the true 3D turn.
+      // owner 2026-07-17 "3D doesn't feel 3D enough" — the 2D canvas can't do
+      // real perspective, so it sells the illusion with the classic trio:
+      // cosine scaleX (the turn) + a decaying shear (the off-axis lean) + a
+      // zoom-in (depth), topped with a specular light sweep as the mark lands.
+      // The LIVE player does true CSS rotate3d with perspective + shadow.
       layer.activate();
       const grp = new paper.Group(items);
-      const gc = grp.bounds.center;
-      let prevS = 1;
+      const gb = grp.bounds.clone();
+      const gc = gb.center;
+      let prevS = 1,
+        prevSh = 0,
+        prevZ = 1;
+      const sweep = new paper.Path.Rectangle({
+        rectangle: new paper.Rectangle(gb.x - gb.width, gb.y - 60, Math.max(30, gb.width * 0.22), gb.height + 120),
+        insert: true,
+      });
+      sweep.fillColor = new paper.Color(1, 1, 1, 0);
+      sweep.rotate(16);
       view.onFrame = function (ev) {
         try {
           if (t0 === null) t0 = ev.time;
@@ -1387,17 +1398,40 @@ export function mountStudio(opts) {
           const e = eased(p);
           const theta = (1 - e) * Math.PI * 2.5; // 450° spin-in
           let sx = Math.cos(theta);
-          if (Math.abs(sx) < 0.04) sx = sx < 0 ? -0.04 : 0.04;
+          if (Math.abs(sx) < 0.05) sx = sx < 0 ? -0.05 : 0.05;
+          const sh = Math.sin(theta) * 0.14 * (1 - e); // perspective lean, decays to 0
+          const z = 0.8 + 0.2 * e; // depth zoom
           grp.scale(sx / prevS, 1, gc);
+          try {
+            grp.shear(sh - prevSh, 0, gc);
+          } catch (x2) {}
+          grp.scale(z / prevZ, z / prevZ, gc);
           prevS = sx;
-          grp.opacity = Math.min(1, 0.2 + e);
+          prevSh = sh;
+          prevZ = z;
+          grp.opacity = Math.min(1, 0.15 + e);
+          // specular sweep: a soft light bar crosses the mark as it lands
+          const w = (p - 0.55) / 0.3;
+          if (w > 0 && w < 1) {
+            sweep.opacity = Math.sin(w * Math.PI) * 0.22;
+            sweep.position = new paper.Point(gb.x + gb.width * w, gc.y);
+          } else {
+            sweep.opacity = 0;
+          }
+          sweep.fillColor = new paper.Color(1, 1, 1, 1);
           if (p >= 1) {
             endAnim(function () {
+              try {
+                sweep.remove();
+              } catch (x3) {}
               full();
             });
           }
         } catch (x) {
           endAnim(function () {
+            try {
+              sweep.remove();
+            } catch (x3) {}
             full();
           });
         }

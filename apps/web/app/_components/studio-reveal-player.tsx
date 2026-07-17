@@ -104,14 +104,41 @@ function DrawOnSvg({
     // whole mark. The studio canvas can only fake this (2D engine); the live
     // site gets the true perspective spin.
     if (kind === 'flip3d') {
-      host.style.perspective = '900px';
-      const spinMs = Math.max(600, dur * 1000);
+      // Physical 3D (owner: "3D doesn't feel 3D enough"): tighter perspective,
+      // a TILTED spin axis (pure rotateY reads flat), depth zoom, and a
+      // drop-shadow that starts loose and lands tight — the light does the
+      // selling. Spring-ish landing via an overshooting bezier.
+      host.style.perspective = '650px';
+      host.style.perspectiveOrigin = '50% 40%';
+      const spinMs = Math.max(700, dur * 1000);
       const a = svgEl.animate(
         [
-          { transform: 'rotateY(450deg) scale(0.7)', opacity: 0.15 },
-          { transform: 'rotateY(0deg) scale(1)', opacity: 1 },
+          {
+            transform: 'rotate3d(0.24, 1, 0, 520deg) scale(0.62) translateZ(-120px)',
+            opacity: 0.08,
+            filter: 'drop-shadow(0 26px 28px rgba(20,17,28,0.30)) brightness(1.15)',
+            offset: 0,
+          },
+          {
+            transform: 'rotate3d(0.24, 1, 0, 180deg) scale(0.88) translateZ(-30px)',
+            opacity: 0.9,
+            filter: 'drop-shadow(0 14px 18px rgba(20,17,28,0.24)) brightness(1.25)',
+            offset: 0.58,
+          },
+          {
+            transform: 'rotate3d(0.24, 1, 0, -8deg) scale(1.02) translateZ(0)',
+            opacity: 1,
+            filter: 'drop-shadow(0 5px 8px rgba(20,17,28,0.18)) brightness(1.05)',
+            offset: 0.86,
+          },
+          {
+            transform: 'rotate3d(0.24, 1, 0, 0deg) scale(1) translateZ(0)',
+            opacity: 1,
+            filter: 'drop-shadow(0 2px 3px rgba(20,17,28,0.12)) brightness(1)',
+            offset: 1,
+          },
         ],
-        { duration: spinMs, easing: smooth > 0.5 ? 'cubic-bezier(.3,.05,.2,1)' : 'ease-out', fill: 'both' },
+        { duration: spinMs, easing: smooth > 0.5 ? 'cubic-bezier(.22,.9,.24,1)' : 'ease-out', fill: 'both' },
       );
       return () => {
         try {

@@ -97,6 +97,12 @@ export type StudioPresetKey = (typeof PRESET_KEYS)[number];
 // (owner 2026-06-23 — gold/molten are reveal KINDS in this panel, not a separate feature.)
 export const ANIM_KINDS = ['handwriting', 'trace', 'droplet', 'gold', 'molten'] as const;
 export type StudioAnimKind = (typeof ANIM_KINDS)[number];
+// Reveal tempo presets (council verdict §5.4): named chips that WRITE
+// dur/smooth/delay — the stored numbers stay canonical (wire format
+// untouched); `preset` only remembers which chip is lit ('custom' after any
+// fine-tune slider touch).
+export const ANIM_TEMPOS = ['quick', 'classic', 'ceremonial', 'custom'] as const;
+export type StudioAnimTempo = (typeof ANIM_TEMPOS)[number];
 
 export type StudioLetterState = {
   tx: number;
@@ -161,7 +167,7 @@ export type StudioConfig = {
   frames?: StudioFrame[];
   /** Starting-point provenance — which preset card seeded this design. */
   preset?: StudioPresetKey;
-  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number };
+  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number; preset?: StudioAnimTempo };
 };
 
 // Bounds — generous but finite; the studio works around a 150-unit glyph size
@@ -303,6 +309,9 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       dur: num(a.dur, 1, 15, 6),
       smooth: num(a.smooth, 0, 1, 0.9),
       delay: num(a.delay, 0, 2, 0.3),
+      ...(typeof a.preset === 'string' && (ANIM_TEMPOS as readonly string[]).includes(a.preset)
+        ? { preset: a.preset as StudioAnimTempo }
+        : {}),
     };
   }
 

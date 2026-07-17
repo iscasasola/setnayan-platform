@@ -153,6 +153,14 @@ export function mountStudio(opts) {
   // Starting-point provenance (§3) — which preset card seeded this design.
   // Analytics only; rendering never reads it.
   let presetKey = null;
+  // Reveal tempo (§5.4): the lit chip. The stored dur/smooth/delay numbers
+  // stay canonical — 'custom' after any fine-tune slider touch.
+  const ANIM_TEMPOS = {
+    quick: { dur: 3, delay: 0.15, smooth: 0.7 },
+    classic: { dur: 6, delay: 0.3, smooth: 0.9 },
+    ceremonial: { dur: 10, delay: 0.6, smooth: 1 },
+  };
+  let animTempo = 'classic';
   let pts = new Map(),
     mode = null,
     Bz = {},
@@ -1338,7 +1346,7 @@ export function mountStudio(opts) {
       crossBox.style.display = 'none';
       selBox.style.display = 'none';
       if (eh) eh.style.display = '';
-      if (ro) ro.textContent = 'Tap a letter · tap a crossing · open Preview to animate.';
+      if (ro) ro.textContent = 'Tap a letter · tap a crossing · pick a reveal to animate.';
     }
   }
   function toV(e) {
@@ -1442,6 +1450,24 @@ export function mountStudio(opts) {
     $('dl_v').textContent = animDelay.toFixed(1) + 's';
     $('smooth').value = Math.round(animSmooth * 100);
     $('sm_v').textContent = Math.round(animSmooth * 100) + '%';
+    reflectTempoUI();
+  }
+  function inferTempo() {
+    // A saved config without the marker: light the chip whose numbers match.
+    for (const key in ANIM_TEMPOS) {
+      const t = ANIM_TEMPOS[key];
+      if (Math.abs(t.dur - animDur) < 0.01 && Math.abs(t.delay - animDelay) < 0.01 && Math.abs(t.smooth - animSmooth) < 0.01) return key;
+    }
+    return 'custom';
+  }
+  function reflectTempoUI() {
+    const tempoEl = $('tempo');
+    if (tempoEl)
+      [].forEach.call(tempoEl.querySelectorAll('[data-tp]'), function (c) {
+        c.classList.toggle('on', c.dataset.tp === animTempo);
+      });
+    const note = $('moltennote');
+    if (note) note.classList.toggle('off', anim !== 'molten'); // §5.6 — disclose the degrade
   }
 
   /* ── Frame shelf UI (v2 Frame tab · #frameshelf) ─────────────────────────
@@ -2182,6 +2208,12 @@ export function mountStudio(opts) {
         selSym = null;
         onPreviewKind(null, null); // D3: leaving a tab dismisses the gold/molten overlay
         full();
+        // §5.7 — the Reveal tab is the Finish step: entering it plays the
+        // current reveal once (tap-to-skip shipped in PR-1 makes this safe),
+        // and the on-canvas Replay shows only here.
+        const rp = $('replay');
+        if (rp) rp.classList.toggle('off', t !== 'reveal');
+        if (t === 'reveal') play(anim);
       };
       v2 = {
         // Tap-selecting a letter/crossing surfaces its editor boxes, which live
@@ -2217,6 +2249,31 @@ export function mountStudio(opts) {
       buildShelf(); // the Frame tab's pattern shelf (§4)
       // (the starting-points strip builds at the end of derive() — it needs
       // the letters, which don't exist yet at bindUI time)
+      // ── Reveal tempo chips (§5.4): each writes dur/smooth/delay and plays.
+      const tempoEl = $('tempo');
+      if (tempoEl)
+        tempoEl.addEventListener('click', function (e) {
+          const b = e.target.closest('[data-tp]');
+          if (!b || animating) return;
+          const t = ANIM_TEMPOS[b.dataset.tp];
+          if (!t) return;
+          animTempo = b.dataset.tp;
+          animDur = t.dur;
+          animDelay = t.delay;
+          animSmooth = t.smooth;
+          reflectAnimUI();
+          play(anim);
+        });
+      const fthdr = $('fthdr');
+      if (fthdr)
+        fthdr.addEventListener('click', function () {
+          $('finetune').classList.toggle('open');
+        });
+      const replay = $('replay');
+      if (replay)
+        replay.addEventListener('click', function () {
+          if (!animating) play(anim);
+        });
     }
     $('animbox').addEventListener('click', function (e) {
       const b = e.target.closest('button');
@@ -2230,20 +2287,27 @@ export function mountStudio(opts) {
         [].forEach.call(this.querySelectorAll('[data-an]'), function (c) {
           c.classList.toggle('on', c === b);
         });
+        reflectTempoUI(); // molten note visibility tracks the picked kind
         play(anim);
       }
     });
     $('dur').addEventListener('input', function () {
       animDur = parseInt(this.value, 10) / 10;
       $('dur_v').textContent = animDur.toFixed(1) + 's';
+      animTempo = 'custom'; // fine-tuned by hand → no chip stays lit
+      reflectTempoUI();
     });
     $('dl').addEventListener('input', function () {
       animDelay = parseInt(this.value, 10) / 10;
       $('dl_v').textContent = animDelay.toFixed(1) + 's';
+      animTempo = 'custom';
+      reflectTempoUI();
     });
     $('smooth').addEventListener('input', function () {
       animSmooth = parseInt(this.value, 10) / 100;
       $('sm_v').textContent = this.value + '%';
+      animTempo = 'custom';
+      reflectTempoUI();
     });
     $('palette').addEventListener('click', function (e) {
       const b = e.target.closest('[data-sym]');
@@ -2541,6 +2605,7 @@ export function mountStudio(opts) {
         animDur = cfg.anim.dur ?? animDur;
         animSmooth = cfg.anim.smooth ?? animSmooth;
         animDelay = cfg.anim.delay ?? animDelay;
+        animTempo = cfg.anim.preset || inferTempo();
         reflectAnimUI();
       }
       const apply2 = function () {
@@ -2605,7 +2670,7 @@ export function mountStudio(opts) {
       }),
       frames: cpFrames(frames),
       preset: presetKey || undefined,
-      anim: { kind: anim, dur: animDur, smooth: animSmooth, delay: animDelay },
+      anim: { kind: anim, dur: animDur, smooth: animSmooth, delay: animDelay, preset: animTempo },
     };
   }
   function buildExportSVG() {

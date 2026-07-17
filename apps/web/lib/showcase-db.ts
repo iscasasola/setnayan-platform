@@ -81,6 +81,12 @@ export type ShowcaseEntry = {
   // real couple consented. Real editorials are always isSample=false (they pass
   // G4 grace + G5 consent).
   isSample: boolean;
+  // Stories SEARCH (P4+ · volume-gated facets): the canonical service categories
+  // of the credited vendors behind this story — powers the "service/vendor
+  // category" facet on the hub. Derived from the SAME already-public credit pool
+  // (event_vendors → vendor_profiles.services) that renders the Team chips; no
+  // new query, no new schema, and only ever the vendors already shown.
+  serviceCategories: string[];
 };
 
 const GRACE_DAYS = 30;
@@ -97,7 +103,7 @@ function monthYear(iso: string | null): string | null {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
-function deriveCity(venueName: string | null, venueAddress: string | null): string | null {
+export function deriveCity(venueName: string | null, venueAddress: string | null): string | null {
   const addr = venueAddress?.trim();
   if (addr) {
     const parts = addr.split(',').map((p) => p.trim()).filter(Boolean);
@@ -276,6 +282,9 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // load-bearing).
     const evList = events;
     const creditsByEvent = new Map<string, ShowcaseVendorCredit[]>();
+    // Stories SEARCH facet index — the credited vendors' canonical service
+    // categories per event, aggregated from the SAME credit query below.
+    const categoriesByEvent = new Map<string, Set<string>>();
     if (evList.length > 0) {
       const { data: links } = await admin
         .from('event_vendors')
@@ -298,6 +307,8 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           .in('vendor_profile_id', profileIds);
         // Resolve each eligible profile's logo once (not per story).
         const profMap = new Map<string, ShowcaseVendorCredit>();
+        // Canonical service categories per credited profile (facet source).
+        const servicesByProfile = new Map<string, string[]>();
         await Promise.all(
           (
             (profs ?? []) as Array<{
@@ -316,6 +327,12 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
             // future owner reversal is one matrix edit; the slug is the only
             // hard gate (no /v page → nothing to link).
             if (!tierCaps(p.tier_state).editorialTagged || !p.business_slug) return;
+            if (Array.isArray(p.services) && p.services.length > 0) {
+              servicesByProfile.set(
+                p.vendor_profile_id,
+                p.services.map((s) => s.trim()).filter(Boolean),
+              );
+            }
             profMap.set(p.vendor_profile_id, {
               // Hybrid anonymity: an unrevealed Free/Verified vendor is
               // credited under their screen name — the chip must never reveal
@@ -341,6 +358,14 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           if (list.length < 4 && !list.some((c) => c.slug === credit.slug)) {
             list.push(credit);
             creditsByEvent.set(r.event_id, list);
+          }
+          // Facet index: fold this credited vendor's canonical categories in
+          // (all credited vendors count, not just the ≤4 shown chips).
+          const svcs = servicesByProfile.get(r.linked_vendor_profile_id);
+          if (svcs && svcs.length > 0) {
+            const set = categoriesByEvent.get(r.event_id) ?? new Set<string>();
+            for (const s of svcs) set.add(s);
+            categoriesByEvent.set(r.event_id, set);
           }
         }
       }
@@ -369,6 +394,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           ? await displayUrlForStoredAsset(e.landing_page_hero_video_r2_key)
           : null,
         isSample: e.is_sample === true,
+        serviceCategories: Array.from(categoriesByEvent.get(e.event_id) ?? []),
       })),
     );
   } catch {

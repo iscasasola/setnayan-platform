@@ -7,6 +7,8 @@ import {
   type EmbedProvider,
   CHAPTER_KIND_LABEL,
 } from '@/lib/creator-chapters';
+import { deriveCity } from '@/lib/showcase-db';
+import { isPubliclyVisible, parseVisibility } from '@/lib/vendor-visibility';
 
 // ============================================================================
 // Storytellers — cross-creator chapter loaders (PR-D · council verdict
@@ -266,6 +268,132 @@ export async function loadFeaturedChaptersCreditingVendor(vendorKeys: {
   } catch {
     return [];
   }
+}
+
+// ============================================================================
+// Stories SEARCH facet metadata (P4+ · volume-gated) — city + service
+// categories for a set of ALREADY-FEATURED chapters.
+// ============================================================================
+// Enriches the public shelf tiles with the two extra facet axes the hub search
+// needs (kind is already on the tile). PLACE = the chapter's linked event city
+// (deriveCity over the same venue fields the editorial loader reads); SERVICE =
+// the canonical categories of the chapter's credited substrate vendors,
+// resolved to PUBLIC vendor_profiles exactly like the shoppable-card + backlink
+// loaders. Read-only over the already-public pool; NO new schema. Best-effort:
+// any failure leaves that axis empty (the chapter is still searchable by the
+// axes that did resolve). Called ONLY in search mode (pool ≥ the display gate),
+// so the default hub render runs none of these queries.
+
+export type ChapterSearchMeta = { city: string | null; serviceCategories: string[] };
+
+// Vendor keys are creator-typed (a business_slug or public_id). Restrict to the
+// safe id charset before they touch a PostgREST .or()/.in() filter string.
+const SAFE_KEY = /^[A-Za-z0-9_-]+$/;
+
+export async function loadChapterSearchMeta(
+  chapters: ReadonlyArray<{ publicId: string; eventId: string | null }>,
+): Promise<Map<string, ChapterSearchMeta>> {
+  const out = new Map<string, ChapterSearchMeta>();
+  if (chapters.length === 0) return out;
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return out;
+  }
+
+  // 1 · PLACE — the linked event's city, via the same venue-derivation the
+  // editorial loader uses. Batch one query over all linked events.
+  const cityByEvent = new Map<string, string | null>();
+  const eventIds = Array.from(
+    new Set(chapters.map((c) => c.eventId).filter((id): id is string => Boolean(id))),
+  );
+  if (eventIds.length > 0) {
+    try {
+      const { data } = await admin
+        .from('events')
+        .select('event_id, venue_name, venue_address')
+        .in('event_id', eventIds);
+      for (const e of (data ?? []) as {
+        event_id: string;
+        venue_name: string | null;
+        venue_address: string | null;
+      }[]) {
+        cityByEvent.set(e.event_id, deriveCity(e.venue_name, e.venue_address));
+      }
+    } catch {
+      /* place axis stays empty */
+    }
+  }
+
+  // 2 · SERVICE — the credited substrate vendors' canonical categories. Read the
+  // featured chapters' substrate, collect the vendor keys, resolve to PUBLIC
+  // profiles, and fold each chapter's vendors' `services` into a category set.
+  const categoriesByChapter = new Map<string, Set<string>>();
+  try {
+    const publicIds = chapters.map((c) => c.publicId);
+    const { data: subRows } = await admin
+      .from('creator_chapters')
+      .select('public_id, substrate')
+      .in('public_id', publicIds);
+    const vendorKeysByChapter = new Map<string, string[]>();
+    const allKeys = new Set<string>();
+    for (const r of (subRows ?? []) as { public_id: string; substrate: unknown }[]) {
+      const sub = r.substrate as { vendor_ids?: unknown } | null;
+      const ids = Array.isArray(sub?.vendor_ids) ? (sub!.vendor_ids as unknown[]) : [];
+      const keys = ids
+        .filter((v): v is string => typeof v === 'string')
+        .map((v) => v.trim())
+        .filter((v) => SAFE_KEY.test(v));
+      if (keys.length > 0) {
+        vendorKeysByChapter.set(r.public_id, keys);
+        for (const k of keys) allKeys.add(k);
+      }
+    }
+    if (allKeys.size > 0) {
+      const ids = Array.from(allKeys);
+      const { data: profs } = await admin
+        .from('vendor_profiles')
+        .select('public_id, business_slug, public_visibility, services')
+        .or(`business_slug.in.(${ids.join(',')}),public_id.in.(${ids.join(',')})`);
+      // key (slug or public_id) → canonical categories, PUBLIC profiles only.
+      const servicesByKey = new Map<string, string[]>();
+      for (const p of (profs ?? []) as {
+        public_id: string | null;
+        business_slug: string | null;
+        public_visibility: string | null;
+        services: string[] | null;
+      }[]) {
+        // Only publicly-visible vendors feed a public facet (never leak a
+        // hidden/suspended profile's category) — same gate as the shoppable-card
+        // + backlink loaders (lib/creator-public.ts).
+        if (!isPubliclyVisible(parseVisibility(p.public_visibility))) continue;
+        const svcs = Array.isArray(p.services)
+          ? p.services.map((s) => s.trim()).filter(Boolean)
+          : [];
+        if (svcs.length === 0) continue;
+        if (p.business_slug) servicesByKey.set(p.business_slug, svcs);
+        if (p.public_id) servicesByKey.set(p.public_id, svcs);
+      }
+      for (const [publicId, keys] of vendorKeysByChapter) {
+        const set = new Set<string>();
+        for (const k of keys) {
+          for (const s of servicesByKey.get(k) ?? []) set.add(s);
+        }
+        if (set.size > 0) categoriesByChapter.set(publicId, set);
+      }
+    }
+  } catch {
+    /* service axis stays empty */
+  }
+
+  for (const c of chapters) {
+    out.set(c.publicId, {
+      city: c.eventId ? cityByEvent.get(c.eventId) ?? null : null,
+      serviceCategories: Array.from(categoriesByChapter.get(c.publicId) ?? []),
+    });
+  }
+  return out;
 }
 
 // ============================================================================

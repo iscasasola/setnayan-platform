@@ -8,6 +8,7 @@ import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
+import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -123,6 +124,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
   after(() => maybeRunRetentionSweep().catch(() => {}));
   after(() => maybeRunPapicFullResDrop().catch(() => {}));
+  // Daily cleanup of abandoned anonymous-draft accounts + their events (RA 10173
+  // data-minimization) — anon-onboarding hardening PR-3. No-op until the feature
+  // flag is on and a draft ages past the TTL. Own legal-hold + is_anonymous
+  // re-confirm inside; never throws.
+  after(() => maybeRunAnonDraftSweep().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

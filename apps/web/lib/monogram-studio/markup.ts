@@ -49,10 +49,15 @@ export const STUDIO_CSS = `
 .vsroot .vs .tg.on{background:#5C2542!important;color:#FBFBFA!important;border-color:#5C2542!important;}
 .vsroot .vs .tg.lg{font-family:'Cardo',serif;font-style:italic;font-size:17px;padding:4px 16px;}
 .vsroot .vs .tg.symg{font-size:17px;padding:6px 12px;color:#5C2542!important;}
-.vsroot .vs .sw{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
+/* ONE swatch language (owner 2026-07-17 "i do not want oblong color
+   palettes" — applied to v1 too, since prod shows v1 until the flag flips):
+   every colour control is the same 36px circle with the gold ring. width/
+   height/min/max pinned because the app's global 44px touch-target
+   min-height stretches unpinned swatches into vertical ovals. */
+.vsroot .vs .sw{-webkit-appearance:none;appearance:none;width:36px;height:36px;min-width:36px;max-width:36px;min-height:36px;max-height:36px;border-radius:50%;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
 .vsroot .vs .sw.sel{box-shadow:0 0 0 2px #FBFBFA,0 0 0 3.5px var(--gold);}
-.vsroot .vs .bg{-webkit-appearance:none;appearance:none;width:34px;height:26px;border-radius:7px;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
-.vsroot .vs .bg.sel{box-shadow:0 0 0 2px #FBFBFA,0 0 0 3.5px var(--mulberry);}
+.vsroot .vs .bg{-webkit-appearance:none;appearance:none;width:36px;height:36px;min-width:36px;max-width:36px;min-height:36px;max-height:36px;border-radius:50%;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
+.vsroot .vs .bg.sel{box-shadow:0 0 0 2px #FBFBFA,0 0 0 3.5px var(--gold);}
 .vsroot .vs .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px;flex-wrap:wrap;}
 .vsroot .vs .ro{font-family:'DM Mono',ui-monospace,monospace;font-size:11.5px;color:var(--ink-soft);}
 .vsroot .vs .btns{display:flex;gap:8px;flex-wrap:wrap;}
@@ -71,7 +76,7 @@ export const STUDIO_CSS = `
 .vsroot .vs .crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .vsroot .vs .ckey{font-family:'DM Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);width:58px;flex:none;}
 .vsroot .vs .swrow{gap:7px;}
-.vsroot .vs .cust{display:inline-flex;width:30px;height:30px;border-radius:50%;border:1px dashed var(--gold);overflow:hidden;cursor:pointer;padding:0;flex:none;}
+.vsroot .vs .cust{display:inline-flex;width:36px;height:36px;min-height:36px;max-height:36px;border-radius:50%;border:1px dashed var(--gold);overflow:hidden;cursor:pointer;padding:0;flex:none;}
 .vsroot .vs .cust input[type=color]{width:150%;height:150%;border:none;padding:0;margin:-25%;cursor:pointer;background:none;}
 .vsroot .vs .cust input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
 .vsroot .vs .cust input[type=color]::-webkit-color-swatch{border:none;}
@@ -185,7 +190,7 @@ export const STUDIO_HTML = `
           <button type="button" class="bg" data-c="#F6ECEC" style="background:#F6ECEC" aria-label="Blush"></button>
           <button type="button" class="bg" data-c="#E7ECE3" style="background:#E7ECE3" aria-label="Sage"></button>
           <button type="button" class="bg" data-c="#1E2229" style="background:#1E2229" aria-label="Dark"></button>
-          <button type="button" class="bg clr" data-c="transparent" style="background:conic-gradient(#dcdcdc 90deg,#fff 0 180deg,#dcdcdc 0 270deg,#fff 0) 0 0/12px 12px" aria-label="Clear (transparent)"></button>
+          <button type="button" class="bg clr" data-c="transparent" style="background:conic-gradient(#dcdcdc 90deg,#fff 0 180deg,#dcdcdc 0 270deg,#fff 0) 0 0/8px 8px" aria-label="Clear (transparent)"></button>
         </div>
         <label class="cust" title="Custom backdrop colour"><input type="color" id="bg_custom" value="#FBFBFA" aria-label="Custom backdrop colour"></label>
       </div>

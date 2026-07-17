@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { Download, ImageDown, ArrowRight, Loader2 } from 'lucide-react';
+import { Download, ImageDown, ArrowRight, Loader2, UploadCloud } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
 import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
@@ -11,6 +11,7 @@ import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
 import { sanitizeStudioSvg, type StudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
+import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -98,6 +99,30 @@ export function PublicMonogramStudio() {
   const [previewSvg, setPreviewSvg] = useState<string | null>(null);
   const [previewAnim, setPreviewAnim] = useState<StudioAnim | null>(null);
   const [swEl, setSwEl] = useState<HTMLElement | null>(null);
+  // "Upload your own" (owner 2026-07-17): decode/trace in the browser, preview
+  // reveals on the REAL uploaded mark via the same portal, download the vector.
+  const [uploaded, setUploaded] = useState<{ svg: string; elements: number; traced: boolean } | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function onUploadFile(file: File | undefined) {
+    if (!file || uploadBusy) return;
+    setUploadBusy(true);
+    setUploadError(null);
+    const res = await fileToMarkSvg(file);
+    setUploadBusy(false);
+    if (!res.ok) {
+      setUploadError(res.error);
+      setUploaded(null);
+      return;
+    }
+    setUploaded(res);
+    // preview immediately — the portal plays the real player on the real mark
+    setPreviewKind('handwriting');
+    setPreviewSvg(res.svg);
+    setPreviewAnim({ kind: 'handwriting', dur: 6, smooth: 0.9, delay: 0.3 });
+    track('public_monogram_uploaded', { traced: res.traced, elements: res.elements });
+  }
 
   useEffect(() => {
     if (!previewKind || !previewAnim) return;
@@ -332,6 +357,58 @@ export function PublicMonogramStudio() {
       <p className="mt-2 text-center text-xs text-[#5F5E5A]">
         Free to download — crisp vector SVG or a transparent PNG, both scale to any size.
       </p>
+
+      {/* ── Upload your own (owner 2026-07-17): SVG/transparent-PNG in, vector
+          elements out, reveals previewed on the real mark. ── */}
+      <div className="mx-auto mt-6 max-w-[460px] rounded-2xl border border-dashed border-[#C5A059]/60 bg-white/60 px-5 py-4 text-center">
+        <label className="inline-flex cursor-pointer flex-col items-center gap-1">
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#1E2229]">
+            <UploadCloud aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={2} />
+            {uploadBusy ? 'Deciphering…' : 'Or upload your own mark'}
+          </span>
+          <span className="text-xs text-[#5F5E5A]">SVG or transparent PNG — we trace it into animatable pieces, free</span>
+          <input
+            type="file"
+            accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp"
+            className="sr-only"
+            data-testid="public-upload-input"
+            onChange={(e) => void onUploadFile(e.target.files?.[0])}
+          />
+        </label>
+        {uploadError ? <p className="mt-2 text-xs text-[#9B3B2E]">{uploadError}</p> : null}
+        {uploaded ? (
+          <div className="mt-3 space-y-2" data-testid="public-upload-panel">
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#8C6932]" data-testid="public-upload-elements">
+              {uploaded.traced
+                ? `Deciphered into ${uploaded.elements} ${uploaded.elements === 1 ? 'piece' : 'pieces'}`
+                : `${uploaded.elements} vector ${uploaded.elements === 1 ? 'element' : 'elements'}`}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {(['handwriting', 'droplet', 'petalfall', 'flip3d'] as StudioAnimKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setPreviewKind(k);
+                    setPreviewSvg(uploaded.svg);
+                    setPreviewAnim({ kind: k, dur: 6, smooth: 0.9, delay: 0.3 });
+                  }}
+                  className="rounded-full border border-[#1E2229]/15 bg-white px-3 py-1.5 text-xs font-medium text-[#1E2229]/75 hover:bg-[#1E2229]/5"
+                >
+                  {k === 'handwriting' ? 'Handwriting' : k === 'droplet' ? 'Bloom' : k === 'petalfall' ? 'Petal Fall' : 'Medallion Turn'}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => downloadBlob(new Blob([uploaded.svg], { type: 'image/svg+xml' }), 'setnayan-mark-traced.svg')}
+                className="rounded-full bg-[#1E2229] px-3 py-1.5 text-xs font-semibold text-[#FBFBFA] hover:opacity-90"
+              >
+                Download vector
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div className="mx-auto mt-7 max-w-[460px] rounded-2xl border border-[#C5A059]/40 bg-[#FBF6EA] px-5 py-5 text-center">
         <p className="font-serif text-lg text-[#1E2229]">Make it your wedding&rsquo;s monogram</p>

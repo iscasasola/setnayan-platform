@@ -10,6 +10,8 @@ import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
+import { UploadMark } from './upload-mark';
+import { MarkEverywhere } from './mark-everywhere';
 import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -52,6 +54,8 @@ const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   render: { tone: 'error', text: 'That design could not be saved — please adjust and retry.' },
   save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
+  'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
+  'upload-cleared': { tone: 'ok', text: 'Removed the upload — back to your studio mark.' },
 };
 
 export default async function MonogramMakerPage({ params, searchParams }: Props) {
@@ -71,7 +75,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_studio_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -109,8 +113,15 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     ? null
     : ((await formatV2Sku(ANIMATED_MONOGRAM_SERVICE_KEY).catch(() => null))?.price_php ?? null);
 
+  // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
+  // right after a successful save — studio or upload — on the EFFECTIVE mark.
+  const effectiveSvg =
+    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg) || customSvg;
+  const showEverywhere = (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
+
   return (
     <section className="space-y-6">
+      {showEverywhere && effectiveSvg ? <MarkEverywhere svg={effectiveSvg} /> : null}
       <Link
         href={`/dashboard/${eventId}/studio`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
@@ -172,6 +183,15 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           </span>
         </p>
       )}
+
+      {/* ── Upload your own mark (owner 2026-07-17 — overrides the benchmark
+          council's §9 upload deferral). Writes the long-dormant
+          monogram_uploaded_svg, which outranks every other mark on the hero. ── */}
+      <UploadMark
+        eventId={eventId}
+        hasUpload={typeof event.monogram_uploaded_svg === 'string' && Boolean(event.monogram_uploaded_svg)}
+        monogramText={monogram.text}
+      />
 
       {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
           Owned → live confirmation + preview; unowned → before/after + buy. ── */}

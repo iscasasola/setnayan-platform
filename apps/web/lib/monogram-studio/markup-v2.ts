@@ -129,6 +129,13 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .replaybtn{position:absolute;right:12px;bottom:12px;z-index:2;-webkit-appearance:none;appearance:none;border:1px solid var(--line2);background:rgba(251,251,250,.92);border-radius:999px;padding:8px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;box-shadow:0 1px 6px rgba(30,34,41,.10);}
 .vsroot .vs .replaybtn.off{display:none;}
 .vsroot .vs .playwide{width:100%;justify-content:center;padding:12px 14px;font-size:13.5px;font-weight:600;border-radius:10px;}
+.vsroot .vs .moodrow{display:flex;flex-wrap:wrap;gap:6px;}
+.vsroot .vs .mood{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;gap:6px;border:1px solid #D9D2C4;background:#fff;border-radius:999px;padding:6px 11px 6px 7px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:11.5px;font-weight:600;color:#5F5E5A;cursor:pointer;}
+.vsroot .vs .mood.on{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);color:#1E2229;}
+.vsroot .vs .mood .dots{display:inline-flex;}
+.vsroot .vs .mood .dots i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(30,34,41,.15);display:inline-block;}
+.vsroot .vs .mood .dots i + i{margin-left:-5px;}
+.vsroot .vs .weaveglint{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;pointer-events:none;z-index:6;background:radial-gradient(circle,#fff8e7 0%,rgba(197,160,89,.9) 35%,rgba(197,160,89,0) 70%);}
 .vsroot .vs .drawtoggle{-webkit-appearance:none;appearance:none;border:1px dashed var(--gold)!important;background:#FBF6EA!important;border-radius:10px;padding:10px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--gold-deep)!important;cursor:pointer;text-align:left;}
 .vsroot .vs .drawtoggle.on{background:#1E2229!important;color:#FBFBFA!important;border-style:solid;border-color:#1E2229!important;}
 .vsroot .vs .shelfnote{font-size:12px;color:var(--ink-soft);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;}
@@ -179,18 +186,9 @@ export const STUDIO_HTML_V2 = `
         <div id="crossgap" style="display:none"><div class="lab2"><span>Gap · top letter <b id="cg_name"></b> (0 = none)</span><span id="cg_v"></span></div><input type="range" id="cg" min="0" max="14" step="1" aria-label="Gap under the top letter"></div>
       </div>
       <div><p class="lab">Names</p><input class="names" id="names" type="text" value="Maria &amp; Juan" autocomplete="off" aria-label="Names — the initials come from here"></div>
-      <div><p class="lab">Font · 8</p><div class="row" id="fonts">
-        <button type="button" class="chip sel" data-f="cardo">Cardo</button>
-        <button type="button" class="chip" data-f="gilda">Gilda</button>
-        <button type="button" class="chip" data-f="playfairsc">Playfair</button>
-        <button type="button" class="chip" data-f="marcellus">Marcellus</button>
-        <button type="button" class="chip" data-f="yeseva">Yeseva</button>
-        <button type="button" class="chip" data-f="cinzeldec">Cinzel Dec</button>
-        <button type="button" class="chip" data-f="script">Vibes</button>
-        <button type="button" class="chip" data-f="pinyon">Pinyon</button>
-      </div></div>
       <div class="box">
         <p class="lab">Colours</p>
+        <div id="moods"></div>
         <div class="crow">
           <span class="ckey">Ink</span>
           <div class="row swrow" id="inks">
@@ -231,6 +229,22 @@ export const STUDIO_HTML_V2 = `
           <label class="cust" title="Custom backdrop colour"><input type="color" id="bg_custom" value="#FBFBFA" aria-label="Custom backdrop colour"></label>
         </div>
         <p class="cap">Backdrop is just your working canvas — your saved monogram is always transparent.</p>
+      </div>
+      <div class="collapsible" id="refine">
+        <div class="animhdr" id="refinehdr"><p class="lab" style="margin:0">Refine · typeface &amp; finer control<span class="chev">▸</span></p></div>
+        <div class="animbody">
+          <div><p class="lab">Font · 8</p><div class="row" id="fonts">
+            <button type="button" class="chip sel" data-f="cardo">Cardo</button>
+            <button type="button" class="chip" data-f="gilda">Gilda</button>
+            <button type="button" class="chip" data-f="playfairsc">Playfair</button>
+            <button type="button" class="chip" data-f="marcellus">Marcellus</button>
+            <button type="button" class="chip" data-f="yeseva">Yeseva</button>
+            <button type="button" class="chip" data-f="cinzeldec">Cinzel Dec</button>
+            <button type="button" class="chip" data-f="script">Vibes</button>
+            <button type="button" class="chip" data-f="pinyon">Pinyon</button>
+          </div></div>
+          <p class="cap" style="margin:0">Tap a letter on the canvas for its own controls — rotate, tilt, flip, outline, weave.</p>
+        </div>
       </div>
     </div>
 

@@ -71,7 +71,7 @@ function DrawOnSvg({
   className,
 }: {
   svg: string | null;
-  kind: 'handwriting' | 'trace' | 'droplet';
+  kind: 'handwriting' | 'trace' | 'droplet' | 'petalfall' | 'flip3d';
   dur: number;
   smooth: number;
   delay: number;
@@ -100,6 +100,28 @@ function DrawOnSvg({
     // Reduced motion / no animatable paths → leave the static filled mark.
     if (reduced || !paths.length || typeof paths[0]?.getTotalLength !== 'function') return;
 
+    // flip3d — the REAL 3D turn (owner 2026-07-17): one CSS rotateY on the
+    // whole mark. The studio canvas can only fake this (2D engine); the live
+    // site gets the true perspective spin.
+    if (kind === 'flip3d') {
+      host.style.perspective = '900px';
+      const spinMs = Math.max(600, dur * 1000);
+      const a = svgEl.animate(
+        [
+          { transform: 'rotateY(450deg) scale(0.7)', opacity: 0.15 },
+          { transform: 'rotateY(0deg) scale(1)', opacity: 1 },
+        ],
+        { duration: spinMs, easing: smooth > 0.5 ? 'cubic-bezier(.3,.05,.2,1)' : 'ease-out', fill: 'both' },
+      );
+      return () => {
+        try {
+          a.cancel();
+        } catch {
+          /* noop */
+        }
+      };
+    }
+
     // eased() mirror: more `smooth` → softer in/out (the engine's smoothstep blend).
     const easing = smooth > 0.66 ? 'cubic-bezier(.45,.05,.25,1)' : smooth > 0.33 ? 'ease-in-out' : 'linear';
     const durMs = Math.max(400, dur * 1000);
@@ -116,6 +138,29 @@ function DrawOnSvg({
       // trace draws ALL paths together (one global progress); handwriting + droplet
       // stagger start-to-start by `delay` (engine semantics).
       const startDelay = kind === 'trace' ? 0 : i * staggerMs;
+
+      if (kind === 'petalfall') {
+        // every piece drifts down with a little spin and settles (owner
+        // 2026-07-17 "wreath falling in like petals into place").
+        const seed = ((i * 137.5) % 100) / 100;
+        p.style.transformBox = 'fill-box';
+        p.style.transformOrigin = 'center';
+        p.style.fill = fill;
+        p.style.opacity = '0';
+        anims.push(
+          p.animate(
+            [
+              {
+                opacity: 0,
+                transform: `translate(${(seed - 0.5) * 60}px, ${-(80 + seed * 120)}px) rotate(${(seed - 0.5) * 80}deg)`,
+              },
+              { opacity: 1, transform: 'none' },
+            ],
+            { duration: durMs, delay: startDelay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
+          ),
+        );
+        return;
+      }
 
       if (kind === 'droplet') {
         // a growing fill-in per path (no stroke) — ink "drops" into shape.

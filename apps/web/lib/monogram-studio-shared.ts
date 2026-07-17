@@ -102,7 +102,11 @@ export type StudioPresetKey = (typeof PRESET_KEYS)[number];
 // the ONE allowlist. handwriting/trace/droplet = paper.js/SVG draw-on; gold =
 // flowing-gold turn (CSS GoldMonogramReveal); molten = WebGL MoltenMonogramReveal.
 // (owner 2026-06-23 — gold/molten are reveal KINDS in this panel, not a separate feature.)
-export const ANIM_KINDS = ['handwriting', 'trace', 'droplet', 'gold', 'molten'] as const;
+export const ANIM_KINDS = ['handwriting', 'trace', 'droplet', 'gold', 'molten', 'petalfall', 'flip3d'] as const;
+// petalfall (owner 2026-07-17 "wreath falling in like petals into place"):
+// every piece drifts down and settles with a little spin. flip3d (owner "3d
+// rotating reveals"): the whole mark spins in — the live player uses real CSS
+// rotateY; the studio canvas fakes it with a cosine scaleX (2D engine).
 export type StudioAnimKind = (typeof ANIM_KINDS)[number];
 // Reveal tempo presets (council verdict §5.4): named chips that WRITE
 // dur/smooth/delay — the stored numbers stay canonical (wire format
@@ -119,6 +123,12 @@ export type StudioLetterState = {
   outline: number;
   clean: boolean;
   strength: number;
+  /** Letter transforms (owner 2026-07-17 "flip, tilt in perspective, rotate"):
+   *  rot = degrees, skew = horizontal shear degrees (the perspective lean —
+   *  paper is affine, so shear is the honest tilt), flipX = mirror. */
+  rot?: number;
+  skew?: number;
+  flipX?: boolean;
 };
 export type StudioStrokePoint = { x: number; y: number; pr: number };
 export type StudioStroke = {
@@ -229,6 +239,9 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       outline: num(e.outline, 0, 60, 3),
       clean: Boolean(e.clean),
       strength: num(e.strength, 0, 1, 0.3),
+      rot: num(e.rot, -180, 180, 0),
+      skew: num(e.skew, -30, 30, 0),
+      flipX: Boolean(e.flipX),
     };
   });
 

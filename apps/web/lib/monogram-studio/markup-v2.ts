@@ -159,8 +159,10 @@ export const STUDIO_HTML_V2 = `
         <p class="lab">Editing letter <b id="selname">J</b></p>
         <div><div class="lab2"><span>Outline · outside</span><span id="o_out">3</span></div><input type="range" id="s_outline" min="0" max="16" step="1" value="3" aria-label="Outline thickness"></div>
         <div><div class="lab2"><span>Cut gap · when on top (0 = none)</span><span id="o_gap">6</span></div><input type="range" id="s_gap" min="0" max="14" step="1" value="6" aria-label="Cut gap when this letter is on top"></div>
+        <div><div class="lab2"><span>Rotate</span><span id="o_rot">0°</span></div><input type="range" id="s_rot" min="-180" max="180" step="1" value="0" aria-label="Letter rotation"></div>
+        <div><div class="lab2"><span>Tilt · perspective lean</span><span id="o_skew">0°</span></div><input type="range" id="s_skew" min="-30" max="30" step="1" value="0" aria-label="Letter tilt"></div>
         <div><div class="lab2"><span>Finish · auto-clean</span><span></span></div><div class="gaprow"><button type="button" class="tg" id="s_clean">Auto-clean ✗</button><input type="range" id="s_strength" min="0" max="100" step="1" value="30" aria-label="Auto-clean strength"></div></div>
-        <div class="row"><button type="button" class="tg" id="s_front">Bring to front</button><button type="button" class="tg" id="s_back">Send to back</button></div>
+        <div class="row"><button type="button" class="tg" id="s_flip">⇋ Flip</button><button type="button" class="tg" id="s_front">Bring to front</button><button type="button" class="tg" id="s_back">Send to back</button></div>
       </div>
       <div class="box" id="cross" style="display:none">
         <p class="lab" id="crosslab">This crossing</p>
@@ -250,7 +252,7 @@ export const STUDIO_HTML_V2 = `
     <div class="vtab off" id="tab-reveal">
       <div class="box" id="animbox">
         <p class="lab" style="margin:0">Animate the reveal</p>
-        <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Bloom</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="mini play" id="play">Play</button></div>
+        <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Bloom</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="tg" data-an="petalfall">Petal Fall</button><button type="button" class="tg" data-an="flip3d">3D Turn</button><button type="button" class="mini play" id="play">Play</button></div>
         <p class="cap off" id="moltennote" style="margin:0">Molten Gold needs a newer phone — older ones see Gold Turn instead.</p>
         <div class="row" id="tempo"><span class="lab2" style="margin-right:2px">Tempo</span><button type="button" class="tg" data-tp="quick">Quick</button><button type="button" class="tg on" data-tp="classic">Classic</button><button type="button" class="tg" data-tp="ceremonial">Ceremonial</button></div>
         <div class="collapsible" id="finetune">

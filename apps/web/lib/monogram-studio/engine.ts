@@ -197,7 +197,9 @@ export function mountStudio(opts) {
   function snap() {
     return {
       st: st.map(function (s) {
-        return Object.assign({}, s);
+        const o = Object.assign({}, s);
+        o.rot = (((o.rot || 0) % 360) + 540) % 360 - 180; // wrap like D8
+        return o;
       }),
       order: order.slice(),
       pstate: Object.assign({}, pstate),
@@ -360,7 +362,7 @@ export function mountStudio(opts) {
   }
   function initState() {
     st = letters.map(function (_, i) {
-      return { tx: offX(i), ty: 0, scale: i === 1 ? 0.62 : 1, gap: 6, outline: 3, clean: false, strength: 0.3 };
+      return { tx: offX(i), ty: 0, scale: i === 1 ? 0.62 : 1, gap: 6, outline: 3, clean: false, strength: 0.3, rot: 0, skew: 0, flipX: false };
     });
     order = letters.map(function (_, i) {
       return i;
@@ -394,6 +396,15 @@ export function mountStudio(opts) {
     const p = base[i].clone();
     p.pivot = p.bounds.center;
     p.scale(st[i].scale);
+    // Owner 2026-07-17 "flip, tilt in perspective, rotate" — all affine, so
+    // they compose cleanly BEFORE the boolean pipeline sees the path.
+    if (st[i].flipX) p.scale(-1, 1);
+    if (st[i].skew) {
+      try {
+        p.shear(Math.tan((st[i].skew * Math.PI) / 180), 0);
+      } catch (e) {}
+    }
+    if (st[i].rot) p.rotate(st[i].rot);
     p.position = new paper.Point(st[i].tx, st[i].ty);
     return p;
   }
@@ -1285,6 +1296,79 @@ export function mountStudio(opts) {
       };
       return;
     }
+    if (preset === 'petalfall') {
+      // owner 2026-07-17 "like the wreath falling in like petals into place" —
+      // every piece drifts down with a little spin and settles, staggered.
+      layer.activate();
+      const nnp = items.length;
+      const per = nnp > 1 ? D * 0.45 : D;
+      const stag = nnp > 1 ? Math.min(DL, (D - per) / (nnp - 1)) : 0;
+      const precs = items.map(function (it, i) {
+        const fin = it.position.clone();
+        const seed = ((i * 137.5) % 100) / 100; // deterministic per-piece jitter
+        it.opacity = 0;
+        return { it: it, fin: fin, drop: 110 + seed * 170, dx: (seed - 0.5) * 90, rot: (seed - 0.5) * 100, prev: 0 };
+      });
+      view.onFrame = function (ev) {
+        try {
+          if (t0 === null) t0 = ev.time;
+          const t = ev.time - t0;
+          let done = true;
+          precs.forEach(function (r, i) {
+            const local = (t - i * stag) / per;
+            if (local < 1) done = false;
+            const ec = eased(Math.min(1, Math.max(0, local)));
+            r.it.opacity = Math.min(1, ec * 1.6);
+            r.it.position = new paper.Point(r.fin.x + r.dx * (1 - ec), r.fin.y - r.drop * (1 - ec));
+            const target = r.rot * (1 - ec);
+            r.it.rotate(target - r.prev);
+            r.prev = target;
+          });
+          if (done || t > D + 4) {
+            endAnim(function () {
+              full();
+            });
+          }
+        } catch (x) {
+          endAnim(function () {
+            full();
+          });
+        }
+      };
+      return;
+    }
+    if (preset === 'flip3d') {
+      // owner 2026-07-17 "3d rotating reveals" — the canvas fakes a Y-axis spin
+      // with a cosine scaleX (paper is 2D); the LIVE player does real CSS
+      // rotateY, so the website gets the true 3D turn.
+      layer.activate();
+      const grp = new paper.Group(items);
+      const gc = grp.bounds.center;
+      let prevS = 1;
+      view.onFrame = function (ev) {
+        try {
+          if (t0 === null) t0 = ev.time;
+          const p = Math.min(1, (ev.time - t0) / D);
+          const e = eased(p);
+          const theta = (1 - e) * Math.PI * 2.5; // 450° spin-in
+          let sx = Math.cos(theta);
+          if (Math.abs(sx) < 0.04) sx = sx < 0 ? -0.04 : 0.04;
+          grp.scale(sx / prevS, 1, gc);
+          prevS = sx;
+          grp.opacity = Math.min(1, 0.2 + e);
+          if (p >= 1) {
+            endAnim(function () {
+              full();
+            });
+          }
+        } catch (x) {
+          endAnim(function () {
+            full();
+          });
+        }
+      };
+      return;
+    }
     const recs = items.map(function (o) {
       const tr = o.clone();
       tr.fillColor = null;
@@ -1452,6 +1536,19 @@ export function mountStudio(opts) {
       const cb = $('s_clean');
       cb.classList.toggle('on', s.clean);
       cb.textContent = s.clean ? 'Auto-clean ✓' : 'Auto-clean ✗';
+      const rotEl = $('s_rot');
+      if (rotEl) {
+        const rw = Math.round((((s.rot || 0) % 360) + 540) % 360 - 180);
+        rotEl.value = rw;
+        $('o_rot').textContent = rw + '°';
+      }
+      const skEl = $('s_skew');
+      if (skEl) {
+        skEl.value = Math.round(s.skew || 0);
+        $('o_skew').textContent = Math.round(s.skew || 0) + '°';
+      }
+      const flEl = $('s_flip');
+      if (flEl) flEl.classList.toggle('on', Boolean(s.flipX));
       if (ro) ro.textContent = 'Editing ' + letters[sel] + ' · ' + Math.round(s.scale * 100) + '%';
     } else {
       crossBox.style.display = 'none';
@@ -1949,7 +2046,26 @@ export function mountStudio(opts) {
           Math.round(f.tx) +
           '" aria-label="Frame horizontal offset"></div>'
         : '') +
-      '<p class="cap" style="margin:0">Auto-fits your letters · uses your outline colour · sits behind the letters.</p>' +
+      '<div class="crow"><span class="ckey">Colour</span><div class="row swrow" id="ff_cols">' +
+      ['#C5A059', '#E6D2A2', '#8C6932', '#C9CDD2', '#5C2542', '#1E2229', '#B07A86']
+        .map(function (cH) {
+          return (
+            '<button type="button" class="sw' +
+            (f.c.toLowerCase() === cH.toLowerCase() ? ' sel' : '') +
+            '" data-fc="' +
+            cH +
+            '" style="background:' +
+            cH +
+            '" aria-label="Frame colour ' +
+            cH +
+            '"></button>'
+          );
+        })
+        .join('') +
+      '</div><label class="cust" title="Custom frame colour"><input type="color" id="ff_cust" value="' +
+      (/^#[0-9a-fA-F]{6}$/.test(f.c) ? f.c : '#C5A059') +
+      '" aria-label="Custom frame colour"></label></div>' +
+      '<p class="cap" style="margin:0">Auto-fits your letters · sits behind the letters.</p>' +
       '</div>';
     wireFrameSlider('ff_scale', f, function (g, v) {
       g.scale = v / 100;
@@ -1986,6 +2102,28 @@ export function mountStudio(opts) {
         g.tx = v;
       }, 'ff_off_v');
     }
+    const cols = $('ff_cols');
+    if (cols)
+      cols.addEventListener('click', function (e) {
+        const b = e.target.closest('[data-fc]');
+        if (!b) return;
+        pushUndo();
+        f.c = b.dataset.fc;
+        drawFrames();
+        try {
+          view.update();
+        } catch (x) {}
+        reflectShelf();
+      });
+    const cust = $('ff_cust');
+    if (cust)
+      cust.addEventListener('input', function () {
+        f.c = this.value;
+        drawFrames();
+        try {
+          view.update();
+        } catch (x) {}
+      });
   }
   function wireFrameSlider(id, f, set, vid, fmt) {
     const el = $(id);
@@ -2122,7 +2260,8 @@ export function mountStudio(opts) {
         mode = 'resize';
         pts.get(e.pointerId).hitSel = true; // D6: the handle counts as the letter
         const c = hit[sel].bounds.center;
-        Bh = { c: c, r0: pp.getDistance(c) || 1, s0: st[sel].scale };
+        const sv = pp.subtract(c);
+        Bh = { c: c, r0: pp.getDistance(c) || 1, s0: st[sel].scale, a0: Math.atan2(sv.y, sv.x), rot0: st[sel].rot || 0 };
         e.preventDefault();
         return;
       }
@@ -2195,6 +2334,10 @@ export function mountStudio(opts) {
       } else if (mode === 'resize' && sel != null) {
         const pp2 = view.viewToProject(vp);
         st[sel].scale = Math.max(0.3, Math.min(5, Bh.s0 * (pp2.getDistance(Bh.c) / Bh.r0)));
+        // the gold dot now also ROTATES, exactly like the symbol handle —
+        // finally making the old copy's promise true (owner 2026-07-17)
+        const v2r = pp2.subtract(Bh.c);
+        st[sel].rot = Bh.rot0 + ((Math.atan2(v2r.y, v2r.x) - Bh.a0) * 180) / Math.PI;
         fast();
       } else if (mode === 'zoom' && pts.size >= 2) {
         const a = arrV();
@@ -2321,6 +2464,9 @@ export function mountStudio(opts) {
       s.tx = offX(hi);
       s.ty = 0;
       s.scale = hi === 1 ? 0.62 : 1;
+      s.rot = 0;
+      s.skew = 0;
+      s.flipX = false;
       full();
     });
     // v1-only chrome: the Arrange|Draw toggle + the collapsible animate header.
@@ -2589,6 +2735,35 @@ export function mountStudio(opts) {
       st[sel].clean = !st[sel].clean;
       full();
     });
+    // Letter transforms (v2 selbox only — elements absent on v1)
+    const sRot = $('s_rot');
+    if (sRot) {
+      sRot.addEventListener('input', function () {
+        if (sel == null) return;
+        st[sel].rot = parseInt(this.value, 10);
+        $('o_rot').textContent = this.value + '°';
+        full();
+      });
+      wireSlider(sRot);
+    }
+    const sSkew = $('s_skew');
+    if (sSkew) {
+      sSkew.addEventListener('input', function () {
+        if (sel == null) return;
+        st[sel].skew = parseInt(this.value, 10);
+        $('o_skew').textContent = this.value + '°';
+        full();
+      });
+      wireSlider(sSkew);
+    }
+    const sFlip = $('s_flip');
+    if (sFlip)
+      sFlip.addEventListener('click', function () {
+        if (sel == null) return;
+        pushUndo();
+        st[sel].flipX = !st[sel].flipX;
+        full();
+      });
     $('s_front').addEventListener('click', function () {
       if (sel == null) return;
       pushUndo();

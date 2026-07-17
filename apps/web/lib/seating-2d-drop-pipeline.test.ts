@@ -25,6 +25,12 @@ import {
   footprintsOverlap,
   obbOf,
   dropAccepted,
+  // NEW (owner 2026-07-17): the 2D editor's marker release (stage / dance /
+  // cocktail) now routes through the SAME shared zone-drop rule — the bypass this
+  // editor left open (only `kind === 'table'` ever validated).
+  zoneDropViolation,
+  zoneDropAccepted,
+  stageZone,
   legalJoinPose,
   type WorldPose,
   type OracleZone,
@@ -158,4 +164,29 @@ test('(e) a welded GROUP with an invalid release returns as a UNIT (both members
   const res = simulateDrop([aStart, bStart], [aDrop, bDrop], [third], NO_ZONES, PARAMS);
   assert.equal(res.accepted, false, 'if ANY member collides, the whole unit is refused');
   assert.deepEqual(res.persisted, [aStart, bStart], 'the WHOLE unit returns to its start poses');
+});
+
+// ── (f) THE 2D MARKER BYPASS, in pixel space (owner 2026-07-17) ────────────────
+// The 2D editor already DRAGGED the stage / dance / cocktail markers, but only
+// `kind === 'table'` releases ever hit the oracle — a marker could be dropped
+// straight onto a table. Now marker release routes through `zoneDropViolation`,
+// pixel-space parity with the 3D lab's `placeZoneAt`.
+const ROOM_W_PX = 800; // 20 m × 40 px/m
+const ROOM_H_PX = 1200; // 30 m × 40 px/m
+function stagePx(xPx: number, yPx: number): OracleZone {
+  return stageZone(
+    { stage_x: (xPx / ROOM_W_PX) * 100, stage_y: (yPx / ROOM_H_PX) * 100, stage_w: 24, stage_h: 16 },
+    { width: ROOM_W_PX, height: ROOM_H_PX },
+  );
+}
+
+test('(f) dragging the STAGE marker onto a table is now refused + names it (the 2D marker bypass, fixed)', () => {
+  const t = roundPx('t9', ANCHOR_X, CY);
+  const stage = stagePx(ANCHOR_X, CY); // stage dropped on top of the table
+  const hit = zoneDropViolation(stage, [t], [], PARAMS);
+  assert.ok(hit, 'a stage-over-a-table release is a violation in the 2D editor too');
+  assert.equal(hit!.otherId, 't9', 'the refusal names the specific table');
+  assert.equal(zoneDropAccepted(stage, [t], [], PARAMS), false);
+  // Moved to a clear corner → accepted.
+  assert.equal(zoneDropAccepted(stagePx(140, 120), [t], [], PARAMS), true);
 });

@@ -37,12 +37,18 @@
  * a fit-frame transform (like the 2D editor's) is the documented follow-up.
  */
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { SeatingViewSegment } from '@/app/dashboard/[eventId]/seating/_components/seating-frame';
+import {
+  DropConfirmBubble,
+  type DropConfirmState,
+} from '@/app/dashboard/[eventId]/seating/_components/drop-confirm-bubble';
 import {
   Figure,
   SitController,
@@ -129,7 +135,9 @@ import {
   tableGeometry,
   checkPlacement as oracleCheckPlacement,
   layoutViolations as oracleLayoutViolations,
-  dropAccepted,
+  firstDropViolation,
+  zoneDropViolation,
+  zoneDisplayName,
   firstFreeRoundSpawnPct,
   stageZone,
   legalJoinPose,
@@ -142,6 +150,7 @@ import type {
   TableType,
   WorldPose as OracleWorldPose,
   OracleZone,
+  DropHit,
 } from '@/lib/seating';
 
 // Cinematic Tier B (Fable §3.5) — the program's ONLY new dependency
@@ -563,6 +572,23 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  // Direct-drag for the floor zones (owner 2026-07-17 · universal draggability):
+  // stage / dance floor / entrance drag on a ground-plane raycast like tables. A
+  // live preview ring follows the pointer (read in useFrame → zero React churn);
+  // the zone jumps to the confirmed spot on release. Precision buttons remain.
+  const [draggingZone, setDraggingZone] = useState<'stage' | 'dance' | 'entrance' | null>(null);
+  const zoneDragRef = useRef<{ zone: 'stage' | 'dance' | 'entrance'; x: number; z: number } | null>(null);
+  const zoneDragValidRef = useRef(true);
+  // The universal confirm-on-drop bubble (owner 2026-07-17). Shared component,
+  // both projections. `dropConfirm` positions it; `pendingDropRef` holds the
+  // commit (✓) + revert (✗) closures out of render so the bubble stays light.
+  const [dropConfirm, setDropConfirm] = useState<DropConfirmState | null>(null);
+  const pendingDropRef = useRef<{ commit: () => void; revert: () => void } | null>(null);
+  // Last pointer client position — the confirm bubble anchors at the drop point.
+  const lastPointerRef = useRef<{ cx: number; cy: number }>({ cx: 0, cy: 0 });
+  // The lab surface (fullscreen target + the bubble's positioning container).
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [camBusy, setCamBusy] = useState(false);
   // Game-pad "walk the room" mode (Play only). The on-screen sticks write into
   // walkInput each frame; WalkController reads it to drive the camera.
@@ -990,6 +1016,58 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     return out;
   }, [mode, seats, guestById, tablesById, room, movingGuests, dancingGuests, crowd, walker]);
 
+  // ── Confirm-on-drop bubble helpers (owner 2026-07-17) ────────────────────────
+  // The bubble anchors at the drop point in wrapper-relative coords; it flips
+  // toward the interior near the right / top edges so it never clips or occludes.
+  const bubbleAnchor = useCallback(() => {
+    const rect = wrapperRef.current?.getBoundingClientRect();
+    const { cx, cy } = lastPointerRef.current;
+    if (!rect) return { x: cx, y: cy, flipX: false, flipY: false };
+    const x = cx - rect.left;
+    const y = cy - rect.top;
+    return { x, y, flipX: x > rect.width - 260, flipY: y < 150 };
+  }, []);
+  // A VALID drop asks "Drop here?" — the element is already placed optimistically,
+  // so ✓ persists (commit) and ✗ / Esc reverts (the snap-back). One gate for
+  // tables AND zones.
+  const askConfirmDrop = useCallback(
+    (commit: () => void, revert: () => void) => {
+      pendingDropRef.current = { commit, revert };
+      setDropConfirm({ kind: 'confirm', ...bubbleAnchor() });
+    },
+    [bubbleAnchor],
+  );
+  // An INVALID drop names what it hit (the element already snapped back). The
+  // silent snap-back is superseded by this named refusal (directive 2026-07-17).
+  const showRejectDrop = useCallback(
+    (hit: DropHit) => {
+      pendingDropRef.current = null;
+      const name = hit.otherId
+        ? tablesById.get(hit.otherId)?.label ?? 'another table'
+        : hit.zoneId
+          ? zoneDisplayName(hit.zoneId)
+          : 'another element';
+      const message =
+        hit.kind === 'tight'
+          ? `Too close to ${name} — needs ${WALKWAY_M} m clear.`
+          : `This area intersects with ${name} — please choose a different area.`;
+      setDropConfirm({ kind: 'reject', message, ...bubbleAnchor() });
+    },
+    [bubbleAnchor, tablesById],
+  );
+  const onDropConfirm = useCallback(() => {
+    const p = pendingDropRef.current;
+    pendingDropRef.current = null;
+    setDropConfirm(null);
+    p?.commit();
+  }, []);
+  const onDropCancel = useCallback(() => {
+    const p = pendingDropRef.current;
+    pendingDropRef.current = null;
+    setDropConfirm(null);
+    p?.revert();
+  }, []);
+
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
     dragRef.current = null;
@@ -1053,63 +1131,83 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const ys = members.map((m) => m.yPct);
       const ddx = Math.max(lo - Math.min(...xs), Math.min(hi - Math.max(...xs), xPct - dragged.xPct));
       const ddy = Math.max(lo - Math.min(...ys), Math.min(hi - Math.max(...ys), yPct - dragged.yPct));
-      // One commit rule, shared helper (directive 2026-07-17): the unit returns as
-      // a UNIT unless every member clears the oracle at the shared delta. Members
-      // are exempt from each other via their legal joints (checkPlacement's
+      // A tap (no real drag) → not a move: don't prompt, leave the unit put.
+      if (Math.abs(ddx) < 0.25 && Math.abs(ddy) < 0.25) return;
+      // One commit rule, shared helper (directive 2026-07-17): the unit is accepted
+      // only if every member clears the oracle at the shared delta. Members are
+      // exempt from each other via their legal joints (checkPlacement's
       // atLegalJoint), so only collisions with NON-members / zones / the walkway
       // block the drop. Sized room only; the free board is place-anywhere. Invalid
-      // → no setTables → the whole unit eases back to its start pose (snap-back).
+      // → snap back + name what it hit; valid → place optimistically + confirm.
+      const memberIds = new Set(members.map((m) => m.id));
       if (venueScaled) {
-        const memberIds = new Set(members.map((m) => m.id));
         const others = tables.filter((t) => !memberIds.has(t.id)).map((t) => oraclePose(t, t.xPct, t.yPct));
         const movedPoses = members.map((m) => oraclePose(m, m.xPct + ddx, m.yPct + ddy));
-        if (!dropAccepted(movedPoses, others, oracleZones(), { gapPx: WALKWAY_M })) {
-          setNotice(`No room there — needs ${WALKWAY_M} m clear. The linked group returned to its spot.`);
+        const hit = firstDropViolation(movedPoses, others, oracleZones(), { gapPx: WALKWAY_M });
+        if (hit) {
+          showRejectDrop(hit); // no setTables → the whole unit eases back to start
           return;
         }
       }
+      const startSnap = new Map(members.map((m) => [m.id, { xPct: m.xPct, yPct: m.yPct }] as const));
       setTables((prev) =>
-        prev.map((t) => (t.linkGroupId === groupId ? { ...t, xPct: t.xPct + ddx, yPct: t.yPct + ddy } : t)),
+        prev.map((t) => (memberIds.has(t.id) ? { ...t, xPct: t.xPct + ddx, yPct: t.yPct + ddy } : t)),
       );
-      if (canEdit) {
-        for (const m of members) {
-          const fd = new FormData();
-          fd.set('event_id', eventId);
-          fd.set('lock_id', lock.lockId ?? '');
-          fd.set('table_id', m.id);
-          fd.set('x_pos', String(m.xPct + ddx));
-          fd.set('y_pos', String(m.yPct + ddy));
-          void persist(() => updateTablePosition(fd));
-        }
-      }
+      askConfirmDrop(
+        () => {
+          if (!canEdit) return;
+          for (const m of members) {
+            const fd = new FormData();
+            fd.set('event_id', eventId);
+            fd.set('lock_id', lock.lockId ?? '');
+            fd.set('table_id', m.id);
+            fd.set('x_pos', String(m.xPct + ddx));
+            fd.set('y_pos', String(m.yPct + ddy));
+            void persist(() => updateTablePosition(fd));
+          }
+        },
+        () =>
+          setTables((prev) =>
+            prev.map((t) => {
+              const s = startSnap.get(t.id);
+              return s ? { ...t, xPct: s.xPct, yPct: s.yPct } : t;
+            }),
+          ),
+      );
       return;
     }
 
-    // Single table → validate the exact release pose. Snapped serp is exempt.
+    // A tap (no real drag) with no snap → not a move: skip the confirm entirely
+    // (mirrors the 2D editor's `d.moved` guard, so a select-tap never prompts).
+    if (
+      snappedRotDeg === null &&
+      dragged &&
+      Math.abs(xPct - dragged.xPct) < 0.25 &&
+      Math.abs(yPct - dragged.yPct) < 0.25
+    ) {
+      return;
+    }
+
+    // Single table → validate the exact release pose. A snapped serpentine is a
+    // sanctioned join (valid by construction, links on drop) → it commits directly,
+    // no confirm gate; every other drop asks "Drop here?" or names its refusal.
     if (venueScaled && dragged && snappedRotDeg === null) {
       const others = tables.filter((t) => t.id !== d.id).map((t) => oraclePose(t, t.xPct, t.yPct));
-      if (!dropAccepted([oraclePose(dragged, xPct, yPct)], others, oracleZones(), { gapPx: WALKWAY_M })) {
-        setNotice(`No room there — needs ${WALKWAY_M} m clear. Returned to its spot.`);
+      const hit = firstDropViolation([oraclePose(dragged, xPct, yPct)], others, oracleZones(), { gapPx: WALKWAY_M });
+      if (hit) {
+        showRejectDrop(hit);
         return; // NO drop → state keeps the start pose → the mesh eases back home.
       }
     }
 
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === d.id
-          ? { ...t, xPct, yPct, ...(snappedRotDeg !== null ? { rotationDeg: snappedRotDeg } : {}) }
-          : t,
-      ),
-    );
-    if (canEdit) {
+    const persistSingle = () => {
+      if (!canEdit) return;
       const anchor = snapNeighbourId ? tablesById.get(snapNeighbourId) : undefined;
       if (snappedRotDeg !== null && anchor) {
         // ATOMIC WELD (Sync verdict 2026-07-16 · § 5 · GUN C). The snap changed
         // this table's position AND rotation; persist BOTH — plus the anchor's
         // pose — in ONE round trip via `commitWeld`, so the DB never holds a
-        // half-applied weld. commitWeld does NOT write link_group_id (positioning,
-        // NOT linking — the old snap-then-`doLink` is REMOVED; linking now happens
-        // ONLY via the explicit arm-link affordance → the one server validator).
+        // half-applied weld. commitWeld does NOT write link_group_id.
         const batch = weldCommitBatch(
           { tableId: d.id, xPct, yPct, rotationDeg: snappedRotDeg },
           { tableId: anchor.id, xPct: anchor.xPct, yPct: anchor.yPct, rotationDeg: anchor.rotationDeg },
@@ -1129,26 +1227,47 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         fd.set('y_pos', String(yPct));
         void persist(() => updateTablePosition(fd));
       }
-    }
-  }, [room, floor, canEdit, eventId, lock.lockId, persist, tables, tablesById, venueScaled, oraclePose, oracleZones]);
+    };
 
-  useEffect(() => {
-    // Commit on pointerup AND on interruptions (pointercancel / window blur):
-    // on touch, a system gesture (scroll, back-swipe, app switch) fires
-    // pointercancel with no pointerup, which would otherwise leave the table
-    // glued to the finger and OrbitControls disabled until reload.
-    const up = () => {
-      if (dragRef.current) commitDrag();
-    };
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-    window.addEventListener('blur', up);
-    return () => {
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-      window.removeEventListener('blur', up);
-    };
-  }, [commitDrag]);
+    // Place optimistically so the mesh holds at the drop pose while we ask.
+    const startX = dragged?.xPct;
+    const startY = dragged?.yPct;
+    const startRot = dragged?.rotationDeg;
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === d.id
+          ? { ...t, xPct, yPct, ...(snappedRotDeg !== null ? { rotationDeg: snappedRotDeg } : {}) }
+          : t,
+      ),
+    );
+    if (snappedRotDeg !== null) {
+      persistSingle(); // sanctioned join → commit directly (no confirm gate)
+      return;
+    }
+    askConfirmDrop(persistSingle, () =>
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === d.id && startX != null && startY != null
+            ? { ...t, xPct: startX, yPct: startY, ...(startRot != null ? { rotationDeg: startRot } : {}) }
+            : t,
+        ),
+      ),
+    );
+  }, [
+    room,
+    floor,
+    canEdit,
+    eventId,
+    lock.lockId,
+    persist,
+    tables,
+    tablesById,
+    venueScaled,
+    oraclePose,
+    oracleZones,
+    askConfirmDrop,
+    showRejectDrop,
+  ]);
 
   // Clear any selection when leaving Build so it doesn't linger into Play.
   useEffect(() => {
@@ -1208,20 +1327,115 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     },
     [canEdit, eventId, lock.lockId, persist, floorExtras],
   );
-  // Move a floor zone to a tapped point (pct), optimistic + persist.
-  const moveZone = useCallback(
-    (zone: 'stage' | 'dance' | 'entrance', xPct: number, yPct: number) => {
-      const next: Lab3DFloor =
-        zone === 'stage'
-          ? { ...floor, stage: { ...floor.stage, xPct, yPct } }
-          : zone === 'dance'
-            ? { ...floor, dance: { ...floor.dance, xPct, yPct } }
-            : { ...floor, entrance: { ...floor.entrance, xPct, yPct } };
-      setFloor(next);
-      saveFloor(next);
-    },
-    [floor, saveFloor],
+  // The next floor with a zone recentred (pure — no state/persist).
+  const moveZoneFloor = useCallback(
+    (zone: 'stage' | 'dance' | 'entrance', xPct: number, yPct: number): Lab3DFloor =>
+      zone === 'stage'
+        ? { ...floor, stage: { ...floor.stage, xPct, yPct } }
+        : zone === 'dance'
+          ? { ...floor, dance: { ...floor.dance, xPct, yPct } }
+          : { ...floor, entrance: { ...floor.entrance, xPct, yPct } },
+    [floor],
   );
+  // A moved zone's oracle footprint at a new pct centre (stage keeps its
+  // sweetheart-exempt flag via stageZone; dance is a plain no-go rect).
+  const zoneFootprintAt = useCallback(
+    (zone: 'stage' | 'dance', xPct: number, yPct: number): OracleZone =>
+      zone === 'stage'
+        ? stageZone(
+            { stage_x: xPct, stage_y: yPct, stage_w: floor.stage.wPct, stage_h: floor.stage.hPct },
+            { width: room.w, height: room.d },
+          )
+        : {
+            id: 'dance',
+            x: (xPct / 100) * room.w,
+            y: (yPct / 100) * room.d,
+            w: (floor.dance.wPct / 100) * room.w,
+            h: (floor.dance.hPct / 100) * room.d,
+          },
+    [floor.stage, floor.dance, room],
+  );
+  // THE ZONE DROP RULE (owner 2026-07-17 · universal draggability): the stage /
+  // dance footprint must clear every table (a sweetheart may sit on the stage) and
+  // every OTHER zone at the walkway gap — the mirror of the table drop rule, one
+  // shared helper (`zoneDropViolation`). The entrance carries no footprint (no
+  // existing collision semantics) → place-anywhere, but it still confirms-on-drop.
+  const zoneDropHit = useCallback(
+    (zone: 'stage' | 'dance' | 'entrance', xPct: number, yPct: number): DropHit | null => {
+      if (!venueScaled || zone === 'entrance') return null;
+      const mz = zoneFootprintAt(zone, xPct, yPct);
+      const tablePoses = tables.map((t) => oraclePose(t, t.xPct, t.yPct));
+      const otherZones = oracleZones().filter((z) => z.id !== mz.id);
+      return zoneDropViolation(mz, tablePoses, otherZones, { gapPx: WALKWAY_M });
+    },
+    [venueScaled, zoneFootprintAt, tables, oraclePose, oracleZones],
+  );
+  // Place a zone at a pct spot — the SHARED path for both the direct drag and the
+  // "Move stage/dance/entrance" tap-to-place button. Invalid → named refusal
+  // (nothing moves). Valid → move optimistically + confirm-on-drop (✓ persists,
+  // ✗ reverts to the start floor). Routes stage/dance/entrance through the SAME
+  // `dropAccepted`-class rule the tables use — the bypass #3362 left open.
+  const placeZoneAt = useCallback(
+    (zone: 'stage' | 'dance' | 'entrance', xPct: number, yPct: number) => {
+      if (!canEdit) return;
+      const hit = zoneDropHit(zone, xPct, yPct);
+      if (hit) {
+        showRejectDrop(hit);
+        return;
+      }
+      const startFloor = floor;
+      const next = moveZoneFloor(zone, xPct, yPct);
+      setFloor(next);
+      askConfirmDrop(
+        () => saveFloor(next),
+        () => setFloor(startFloor),
+      );
+    },
+    [canEdit, zoneDropHit, floor, moveZoneFloor, askConfirmDrop, showRejectDrop, saveFloor],
+  );
+  // Release of a direct zone drag → clamp to the walls, then the shared placeZoneAt.
+  const commitZoneDrag = useCallback(() => {
+    const zd = zoneDragRef.current;
+    zoneDragRef.current = null;
+    setDraggingZone(null);
+    if (!zd) return;
+    const clampPct = (v: number) => Math.max(2, Math.min(98, v));
+    const xPct = clampPct((zd.x / room.w + 0.5) * 100);
+    const yPct = clampPct((zd.z / room.d + 0.5) * 100);
+    // A tap on the grip (no real drag) → not a move: don't prompt.
+    const cur = zd.zone === 'stage' ? floor.stage : zd.zone === 'dance' ? floor.dance : floor.entrance;
+    if (Math.abs(xPct - cur.xPct) < 0.25 && Math.abs(yPct - cur.yPct) < 0.25) return;
+    placeZoneAt(zd.zone, xPct, yPct);
+  }, [room, floor, placeZoneAt]);
+
+  useEffect(() => {
+    // Commit on pointerup AND on interruptions (pointercancel / window blur):
+    // on touch, a system gesture (scroll, back-swipe, app switch) fires
+    // pointercancel with no pointerup, which would otherwise leave the element
+    // glued to the finger and OrbitControls disabled until reload. Captures the
+    // pointer's client position so the confirm bubble anchors at the drop point.
+    const up = (e: Event) => {
+      const pe = e as PointerEvent;
+      if (typeof pe.clientX === 'number' && typeof pe.clientY === 'number') {
+        lastPointerRef.current = { cx: pe.clientX, cy: pe.clientY };
+      }
+      if (zoneDragRef.current) commitZoneDrag();
+      else if (dragRef.current) commitDrag();
+    };
+    const track = (e: PointerEvent) => {
+      lastPointerRef.current = { cx: e.clientX, cy: e.clientY };
+    };
+    window.addEventListener('pointermove', track);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    window.addEventListener('blur', up);
+    return () => {
+      window.removeEventListener('pointermove', track);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      window.removeEventListener('blur', up);
+    };
+  }, [commitDrag, commitZoneDrag]);
   // Resize the stage / dance floor (percent of room), clamped 2–100.
   const resizeZone = useCallback(
     (zone: 'stage' | 'dance', dW: number, dD: number) => {
@@ -1248,6 +1462,20 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   const onFloorMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
+      // Direct zone drag (owner 2026-07-17) — the stage / dance / entrance follows
+      // the pointer via a preview ring (read in useFrame → zero churn); the same
+      // per-frame gold/red validity as tables, resolved at COMMIT through the
+      // shared zone-drop rule. Takes precedence over the table drag branch.
+      const zd = zoneDragRef.current;
+      if (zd) {
+        const zx = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
+        const zz = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
+        zd.x = zx;
+        zd.z = zz;
+        const p = worldToPct(zx, zz);
+        zoneDragValidRef.current = zoneDropHit(zd.zone, p.x, p.y) === null;
+        return;
+      }
       const d = dragRef.current;
       if (!d) return;
       const rawX = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
@@ -1300,7 +1528,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const p = worldToPct(rawX, rawZ);
       dragValidRef.current = oracleCheckPlacement(oraclePose(dragged, p.x, p.y), world, params).valid;
     },
-    [room, venueScaled, tablesById, tables, oraclePose, oracleZones, worldToPct],
+    [room, venueScaled, tablesById, tables, oraclePose, oracleZones, worldToPct, zoneDropHit],
   );
 
   // Tap-the-dance-floor (Play): send the nearest seated guest out to dance. They
@@ -1393,11 +1621,12 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       // R3F fires this native `click` even after a drag (orbit OR table move).
       // `e.delta` is the pointer's pixel travel — ignore anything that moved.
       if (e.delta > 4) return;
-      // Floor-edit "move" mode: drop the armed zone at the tapped spot.
+      // Floor-edit "move" mode: drop the armed zone at the tapped spot — through
+      // the SHARED placeZoneAt (validate → named refusal or confirm-on-drop).
       if (placeZone) {
         const xPct = Math.max(2, Math.min(98, (e.point.x / room.w + 0.5) * 100));
         const yPct = Math.max(2, Math.min(98, (e.point.z / room.d + 0.5) * 100));
-        moveZone(placeZone, xPct, yPct);
+        placeZoneAt(placeZone, xPct, yPct);
         setPlaceZone(null);
         return;
       }
@@ -1411,7 +1640,52 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       }
       if (mode === 'build') setSelectedId(null);
     },
-    [mode, placeZone, room, moveZone, floor, sendDancer],
+    [mode, placeZone, room, placeZoneAt, floor, sendDancer],
+  );
+
+  // ── Fullscreen (owner 2026-07-17 · Lab chrome rules) ─────────────────────────
+  // Explicit control ONLY: the bottom-right button + a double-tap on the OUTSIDE
+  // area (the dark surround beyond the venue floor). No gesture inside the room
+  // fullscreens — a stray double-tap on the room is swallowed (the accidental-
+  // fullscreen guard, since the lab has no other requestFullscreen path).
+  const toggleFullscreen = useCallback(() => {
+    const el = wrapperRef.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => void;
+    };
+    const active = document.fullscreenElement ?? doc.webkitFullscreenElement;
+    try {
+      if (active) (document.exitFullscreen ?? doc.webkitExitFullscreen)?.call(document);
+      else if (el) (el.requestFullscreen ?? el.webkitRequestFullscreen)?.call(el);
+    } catch {
+      /* blocked / unsupported — no-op */
+    }
+  }, []);
+  useEffect(() => {
+    const sync = () => {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      setIsFullscreen(!!(document.fullscreenElement ?? doc.webkitFullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      document.removeEventListener('webkitfullscreenchange', sync);
+    };
+  }, []);
+  // Double-tap on the OUTSIDE area (raycast on the catcher plane, but beyond the
+  // venue rectangle → the dark surround) toggles fullscreen. Inside the room a
+  // double-tap does nothing.
+  const onOutsideDoubleClick = useCallback(
+    (e: ThreeEvent<MouseEvent>) => {
+      const outside = Math.abs(e.point.x) > room.w / 2 || Math.abs(e.point.z) > room.d / 2;
+      if (outside) {
+        e.stopPropagation();
+        toggleFullscreen();
+      }
+    },
+    [room, toggleFullscreen],
   );
 
   // Oracle-valid spawn for a NEW table (sized room): spiral out from room centre
@@ -2275,6 +2549,24 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     [linkArmId, weldLink, placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
   );
 
+  // Pointer-down on a zone grip → start a direct zone drag (owner 2026-07-17).
+  // The drag-START pose is the zone's persisted spot (unchanged during drag) so
+  // an invalid or cancelled release just returns it. onFloorMove drives it;
+  // commitZoneDrag validates + confirms on release.
+  const onZoneGripDown = useCallback(
+    (zone: 'stage' | 'dance' | 'entrance') => {
+      if (!canEdit || mode !== 'build') return;
+      setSelectedId(null);
+      setPlaceZone(null);
+      const src = zone === 'stage' ? floor.stage : zone === 'dance' ? floor.dance : floor.entrance;
+      const w = pctToWorld(src.xPct, src.yPct, room);
+      zoneDragRef.current = { zone, x: w.x, z: w.z };
+      zoneDragValidRef.current = true;
+      setDraggingZone(zone);
+    },
+    [canEdit, mode, floor, room],
+  );
+
   // A guest-list tap: an UNSEATED guest walks in; a SEATED guest enters or
   // completes a swap selection.
   const onGuestTap = useCallback(
@@ -2327,7 +2619,10 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   }, [walker, tokenByGuest]);
 
   return (
-    <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl border border-ink/10 bg-[#11131a]">
+    <div
+      ref={wrapperRef}
+      className="relative h-[82vh] w-full overflow-hidden rounded-2xl border border-ink/10 bg-[#11131a]"
+    >
       <Canvas
         shadows
         dpr={[1, 1.5]}
@@ -2462,7 +2757,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             ghosts={ghostBooths}
             room={room}
             palette={palette}
-            interactive={mode === 'play' || (!placeZone && !selectedId && !draggingId)}
+            interactive={mode === 'play' || (!placeZone && !selectedId && !draggingId && !draggingZone)}
           />
         ) : null}
 
@@ -2480,16 +2775,35 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             booth={b}
             room={room}
             onTap={setOpenBooth}
-            enabled={mode === 'play' || (!placeZone && !selectedId && !draggingId)}
+            enabled={mode === 'play' || (!placeZone && !selectedId && !draggingId && !draggingZone)}
           />
         ))}
 
-        {/* Invisible floor catcher for drag-move + tap-to-drop + deselect. */}
+        {/* Direct-drag grips for the floor zones (owner 2026-07-17 · universal
+            draggability). Invisible pads over the stage / dance / entrance; a
+            pointer-down starts the drag (the catcher's onFloorMove drives it), the
+            preview ring shows valid/invalid, release confirms-on-drop. Build +
+            editable only, and not while a table placement / zone-move is armed. */}
+        {mode === 'build' && canEdit && !placeZone && !selectedId && !draggingId ? (
+          <ZoneDragGrips
+            floor={floor}
+            room={room}
+            onGripDown={onZoneGripDown}
+            activeZone={draggingZone}
+          />
+        ) : null}
+        {draggingZone ? (
+          <ZoneDragPreview posRef={zoneDragRef} validRef={zoneDragValidRef} />
+        ) : null}
+
+        {/* Invisible floor catcher for drag-move + tap-to-drop + deselect.
+            Double-tap on the OUTSIDE area (beyond the venue rect) → fullscreen. */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, 0]}
           onPointerMove={onFloorMove}
           onClick={onFloorClick}
+          onDoubleClick={onOutsideDoubleClick}
         >
           <planeGeometry args={[room.w * 3, room.d * 3]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -2548,7 +2862,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         )}
         <OrbitControls
           makeDefault
-          enabled={!draggingId && !camBusy && !walking}
+          enabled={!draggingId && !draggingZone && !camBusy && !walking}
           enableDamping={!reduced}
           dampingFactor={0.08}
           minDistance={6}
@@ -2558,6 +2872,27 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           target={[0, 0.5, 0]}
         />
       </Canvas>
+
+      {/* Explicit fullscreen control (owner 2026-07-17 · Lab chrome rules) —
+          bottom-right, ≥44px, kit glass; motion respects reduced-motion (a plain
+          color transition only). The double-tap-outside gesture mirrors it. */}
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
+        title={isFullscreen ? 'Exit full screen' : 'Full screen'}
+        className="pointer-events-auto absolute bottom-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
+      >
+        {isFullscreen ? (
+          <Minimize2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+        ) : (
+          <Maximize2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+        )}
+      </button>
+
+      {/* Universal confirm-on-drop bubble (owner 2026-07-17) — anchored at the
+          drop point over the live canvas. Shared component with the 2D editor. */}
+      <DropConfirmBubble state={dropConfirm} onConfirm={onDropConfirm} onCancel={onDropCancel} />
 
       {/* Booth vendor card (bottom sheet / side drawer) — 2D chrome outside the
           Canvas, shared Sheet conventions. Inspect-only in the lab: no walk-to,
@@ -2622,6 +2957,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       ) : null}
 
       <Hud
+        viewSegment={
+          <SeatingViewSegment
+            active="3d"
+            onSelect={(target) => {
+              if (target === '2d') router.push(`/dashboard/${eventId}/seating`);
+              else if (target === 'list') router.push(`/dashboard/${eventId}/seating?view=list`);
+            }}
+          />
+        }
         mode={mode}
         setMode={setMode}
         canEdit={canEdit}
@@ -4726,9 +5070,92 @@ function FloorPanel({
   );
 }
 
+/* ----------------------- Direct zone drag (3D) --------------------------- */
+
+// Invisible drag grips over the stage / dance floor / entrance (owner 2026-07-17
+// · universal draggability). A pointer-down starts the direct zone drag; the
+// floor catcher's onFloorMove then drives it and release confirms-on-drop. The
+// pads float just above the floor so the ray reaches them before the ground
+// catcher. Only mounted in Build + editable (the parent gates that).
+function ZoneDragGrips({
+  floor,
+  room,
+  onGripDown,
+  activeZone,
+}: {
+  floor: Lab3DFloor;
+  room: { w: number; d: number };
+  onGripDown: (zone: 'stage' | 'dance' | 'entrance') => void;
+  activeZone: 'stage' | 'dance' | 'entrance' | null;
+}) {
+  const zones: Array<{ key: 'stage' | 'dance' | 'entrance'; xPct: number; yPct: number; wPct: number; hPct: number }> = [
+    { key: 'stage', xPct: floor.stage.xPct, yPct: floor.stage.yPct, wPct: floor.stage.wPct, hPct: floor.stage.hPct },
+  ];
+  if (floor.dance.enabled)
+    zones.push({ key: 'dance', xPct: floor.dance.xPct, yPct: floor.dance.yPct, wPct: floor.dance.wPct, hPct: floor.dance.hPct });
+  if (floor.entrance.enabled)
+    zones.push({ key: 'entrance', xPct: floor.entrance.xPct, yPct: floor.entrance.yPct, wPct: 8, hPct: 8 });
+  return (
+    <>
+      {zones.map((z) => {
+        const c = pctToWorld(z.xPct, z.yPct, room);
+        const w = Math.max(0.9, (z.wPct / 100) * room.w);
+        const d = Math.max(0.9, (z.hPct / 100) * room.d);
+        return (
+          <mesh
+            key={z.key}
+            position={[c.x, 0.5, c.z]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onGripDown(z.key);
+            }}
+          >
+            <planeGeometry args={[w, d]} />
+            {/* Near-zero opacity so the pad is invisible but still ray-picked. */}
+            <meshBasicMaterial transparent opacity={activeZone === z.key ? 0 : 0.001} depthWrite={false} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+// The live preview ring for a zone drag — follows the drag position (read from a
+// ref in useFrame → zero React churn), GOLD when the release would be valid,
+// warm-RED while it would be refused. The zone itself jumps to the confirmed
+// spot on release (the tables' per-frame ring, applied to zones).
+function ZoneDragPreview({
+  posRef,
+  validRef,
+}: {
+  posRef: React.MutableRefObject<{ zone: 'stage' | 'dance' | 'entrance'; x: number; z: number } | null>;
+  validRef: React.MutableRefObject<boolean>;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+  const colors = useMemo(() => ({ ok: new THREE.Color('#d8b45a'), bad: new THREE.Color('#d9534f') }), []);
+  useFrame(() => {
+    const g = ref.current;
+    const p = posRef.current;
+    if (!g || !p) return;
+    g.position.set(p.x, 0.08, p.z);
+    if (matRef.current) matRef.current.color.copy(validRef.current ? colors.ok : colors.bad);
+  });
+  return (
+    <group ref={ref}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.7, 0.95, 40]} />
+        <meshBasicMaterial ref={matRef} transparent opacity={0.85} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
 /* -------------------------------- HUD (2D) -------------------------------- */
 
 function Hud({
+  viewSegment,
   mode,
   setMode,
   canEdit,
@@ -4799,6 +5226,7 @@ function Hud({
   printHref,
   tableCount,
 }: {
+  viewSegment: ReactNode;
   mode: 'build' | 'play';
   setMode: (m: 'build' | 'play') => void;
   canEdit: boolean;
@@ -4875,21 +5303,27 @@ function Hud({
   const [confirmArrange, setConfirmArrange] = useState(false);
   return (
     <>
-      {/* Top bar: mode toggle + prototype badge */}
+      {/* Top bar: the LIST | 2D | 3D view segment STACKED above the mode toggle
+          (owner 2026-07-17 · chrome overlap fix) so they never crowd each other,
+          + the prototype badge on the right. The left column below starts at
+          top-28 to clear this two-row stack at every viewport size. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
-        <div className={`pointer-events-auto flex items-center gap-1 p-1 ${glass}`}>
-          {(['build', 'play'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`rounded-xl px-3.5 py-1.5 text-sm font-medium capitalize transition ${
-                mode === m ? 'bg-white text-ink' : 'text-white/80 hover:bg-white/10'
-              }`}
-            >
-              {m === 'build' ? 'Build' : 'Play'}
-            </button>
-          ))}
+        <div className="pointer-events-none flex flex-col items-start gap-2">
+          {viewSegment ? <div className="pointer-events-auto">{viewSegment}</div> : null}
+          <div className={`pointer-events-auto flex items-center gap-1 p-1 ${glass}`}>
+            {(['build', 'play'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`rounded-xl px-3.5 py-1.5 text-sm font-medium capitalize transition ${
+                  mode === m ? 'bg-white text-ink' : 'text-white/80 hover:bg-white/10'
+                }`}
+              >
+                {m === 'build' ? 'Build' : 'Play'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className={`pointer-events-auto px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider ${glass} ${canEdit ? 'text-white/80' : 'text-amber-200'}`}>
           {canEdit ? 'Editing · saves to 2D' : lockStatus === 'acquiring' ? 'Connecting…' : 'View only'}
@@ -4940,7 +5374,7 @@ function Hud({
       ) : null}
 
       {/* Left: guest list (Play) or build controls (Build) */}
-      <div className="absolute bottom-4 left-4 top-20 flex w-64 flex-col gap-3">
+      <div className="absolute bottom-4 left-4 top-28 flex w-64 flex-col gap-3">
         {mode === 'build' ? (
           <div className={`p-3 ${glass}`}>
             <p className="mb-2 text-sm font-medium">Build</p>

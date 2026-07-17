@@ -11,6 +11,8 @@ export type ConfiguratorModule = {
   enabled: boolean;
   /** Behind the DPO/NPC consent ruling — shown but not switchable yet. */
   counselGated?: boolean;
+  /** Optional derived-state badge (e.g. the Papic tier: "Papic Ltd · 70 pts"). */
+  readout?: string;
 };
 
 /**
@@ -100,6 +102,14 @@ export function ModuleConfigurator({
                     <span className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
                       {m.label}
                     </span>
+                    {m.readout ? (
+                      <span
+                        className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ background: 'var(--m-line)', color: 'var(--m-slate-2)' }}
+                      >
+                        {m.readout}
+                      </span>
+                    ) : null}
                     {gated ? (
                       <span
                         className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"

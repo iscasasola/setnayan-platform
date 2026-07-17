@@ -280,12 +280,26 @@ export async function startServiceInquiry(input: {
   // Website Inquiry. is_returning is a companion flag computed from the same
   // returning=1-token signal the token bands used. All best-effort.
   if (!isExisting) {
-    const [referral, returning] = await Promise.all([
+    const [resolvedReferral, returning] = await Promise.all([
       resolveReferringChapter(input.referringChapterPublicId, vendorProfileId),
       resolveIsReturning(vendorProfileId, eventId),
     ]);
+    // Self-referral guard (G2, PR-C money-path review): a creator must not tick
+    // their OWN "inquiries driven" count by inquiring through their own chapter's
+    // Book CTA. When the credited chapter belongs to the inquirer, DROP the
+    // referral (treat as a normal Website inquiry) — never error the inquiry.
+    const referral =
+      resolvedReferral && resolvedReferral.creatorUserId === user.id
+        ? null
+        : resolvedReferral;
+    // Caller-declared source is only honored for enum values whose trigger
+    // surface the SERVER doesn't own: 'influencer' is derived from a validated
+    // referral, and 'degree' is unwired (server-set only) — reject both if a
+    // client supplies them.
     const declaredSource =
-      isInquirySource(input.inquirySource) && input.inquirySource !== 'influencer'
+      isInquirySource(input.inquirySource) &&
+      input.inquirySource !== 'influencer' &&
+      input.inquirySource !== 'degree'
         ? input.inquirySource
         : null;
     await stampThreadProvenance(threadId, {

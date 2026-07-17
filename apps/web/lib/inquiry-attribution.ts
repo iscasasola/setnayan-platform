@@ -348,12 +348,13 @@ export async function fetchInquiriesDrivenForCreators(
     // 2. Attributed threads over those chapters.
     const { data: threads } = await admin
       .from('chat_threads')
-      .select('event_id, vendor_profile_id, referring_chapter_id')
+      .select('event_id, vendor_profile_id, referring_chapter_id, created_by_user_id')
       .in('referring_chapter_id', [...chapterOwner.keys()]);
     const threadRows = (threads ?? []) as Array<{
       event_id: string;
       vendor_profile_id: string;
       referring_chapter_id: string;
+      created_by_user_id: string | null;
     }>;
     if (threadRows.length === 0) return out;
 
@@ -390,6 +391,10 @@ export async function fetchInquiriesDrivenForCreators(
       const creator = chapterOwner.get(t.referring_chapter_id);
       if (!creator) continue;
       if (vendorOwner.get(t.vendor_profile_id) === creator) continue; // guard 1
+      // Guard 2b (G2 defense-in-depth) — a creator self-referring through their
+      // own chapter never ticks their own count, even if a legacy/forged row
+      // slipped a self-referral stamp past the action-level drop.
+      if (t.created_by_user_id && t.created_by_user_id === creator) continue;
       let set = eventsByCreator.get(creator);
       if (!set) {
         set = new Set<string>();

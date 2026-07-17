@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { allowAnonMint } from '@/lib/anon-mint-throttle';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   syncEventSongPicks,
@@ -336,6 +337,12 @@ export async function commitOnboardingWedding(
     // trigger migration — both owner go-live steps; until then the flag stays
     // OFF and we fall through to the unchanged not_authenticated contract.
     if (anonOnboardingEnabled()) {
+      // Per-IP flood guard: anonymous sign-in mints a real account + event from
+      // nothing, so cap it per IP before minting. Fail-open on a missing IP or
+      // infra error (see allowAnonMint) so a real couple is never locked out.
+      if (!(await allowAnonMint(createAdminClient()))) {
+        return { ok: false, error: 'rate_limited' };
+      }
       const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
         // Global Supabase captcha also gates anonymous sign-in. Token comes from
         // the funnel client (mintTurnstileToken); empty → {} → no-op.

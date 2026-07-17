@@ -6,6 +6,8 @@ import { Check, Undo2, Wand2 } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
+import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
+import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
 import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
 import { saveStudioAction, clearStudioAction } from './studio-actions';
@@ -96,7 +98,10 @@ export function VectorStudio({
     // imperatively removes the subtree from React's vdom entirely, so no re-render
     // can clobber the engine's nodes. (The engine also self-guards its async
     // callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
-    root.innerHTML = STUDIO_HTML;
+    // monogram_studio_v2 (council verdict §2): the flag picks which editor DOM
+    // is injected — v1 stays byte-identical when OFF. NEXT_PUBLIC_, so the
+    // value is inlined at build time and identical on server + client.
+    root.innerHTML = monogramStudioV2Enabled() ? STUDIO_HTML_V2 : STUDIO_HTML;
     // The canvas wrapper (.sw2) is the portal host for the gold/molten overlay.
     setSwEl(root.querySelector<HTMLElement>('.sw2'));
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
@@ -177,7 +182,7 @@ export function VectorStudio({
       id="vector-studio"
       className="vsroot scroll-mt-24 space-y-4"
     >
-      <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: monogramStudioV2Enabled() ? STUDIO_CSS_V2 : STUDIO_CSS }} />
 
       <header className="space-y-1.5">
         <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
@@ -265,7 +270,17 @@ export function VectorStudio({
 
       {exportError ? <p className="text-sm text-terracotta-700">{exportError}</p> : null}
 
-      <form action={saveStudioAction} className="flex flex-wrap items-center gap-3">
+      {/* v2 (§2.3): the save form rides a bottom-sticky bar on phones so "Save
+          as my monogram" is always a thumb away — desktop and v1 stay static.
+          React territory, outside the inert editor subtree. */}
+      <form
+        action={saveStudioAction}
+        className={
+          monogramStudioV2Enabled()
+            ? 'sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center gap-3 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none'
+            : 'flex flex-wrap items-center gap-3'
+        }
+      >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="svg" ref={svgRef} />
         <input type="hidden" name="config" ref={cfgRef} />

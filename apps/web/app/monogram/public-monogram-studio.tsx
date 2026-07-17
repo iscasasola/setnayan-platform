@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Download, ImageDown, ArrowRight, Loader2 } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
+import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
+import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
 import { sanitizeStudioSvg, type StudioConfig } from '@/lib/monogram-studio-shared';
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
 
@@ -111,7 +113,10 @@ export function PublicMonogramStudio() {
     // re-render can clobber the engine's nodes. (The engine also self-guards its
     // async callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
     // (owner 2026-06-19 "it is not loading properly".)
-    root.innerHTML = STUDIO_HTML;
+    // monogram_studio_v2 (council verdict §2): the flag picks which editor DOM
+    // is injected — v1 stays byte-identical when OFF. Same flag as the
+    // dashboard studio; the markup module is shared so both flip together.
+    root.innerHTML = monogramStudioV2Enabled() ? STUDIO_HTML_V2 : STUDIO_HTML;
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch — e.g. a stale cached build), don't sit on "Loading the
     // typeface…" forever. Surface a clear refresh prompt instead.
@@ -219,7 +224,7 @@ export function PublicMonogramStudio() {
 
   return (
     <div className="vsroot">
-      <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: monogramStudioV2Enabled() ? STUDIO_CSS_V2 : STUDIO_CSS }} />
       {/* The editor markup is injected imperatively by the effect (see above), so
           React leaves this container empty and never re-touches the subtree. */}
       <div ref={rootRef} className="vs" />

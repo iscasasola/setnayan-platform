@@ -16,6 +16,12 @@ const FENCE_ERROR: Record<string, string> = {
   fence: 'You can only add a child (under 18) or an elder (over 50). For anyone else, invite them to Setnayan instead.',
   name: 'Please add a name.',
   birthdate: 'Please add a valid birthday.',
+  email: 'Please enter a valid email address.',
+  no_active_link: 'Create the hand-over link first, then email it.',
+  email_not_configured:
+    'Email isn’t set up yet — an admin needs to add the Resend key in Admin → Integrations. The copy-link button still works.',
+  email_send_failed: 'The email didn’t send — try again, or copy the link instead.',
+  not_of_age: 'They can claim their profile once they turn 18.',
 };
 
 /**

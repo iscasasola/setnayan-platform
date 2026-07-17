@@ -3048,6 +3048,69 @@ export function layoutViolations(
   return out;
 }
 
+// ── Monotone-escape drag decision core (shared by the pointer pipelines) ──────
+// The invariant a live drag must keep: a table can move to a fully-valid pose,
+// or — if it STARTED violating (a legacy overlap, or the walkway was widened) —
+// to a pose no DEEPER than where it began (+ ε plateau); never deeper, never a
+// fresh overlap. The reference depth is the pose the drag STARTED from, captured
+// ONCE (`dragEscapeBaseline`) and held for the whole gesture.
+//
+// Why a captured baseline and not the running pose: recomputing the reference
+// from the current pose every frame (the pre-2026-07-17 3D-lab bug) lets a slow
+// *continuous* drag ratchet inward — each frame is `≤ prevDepth + ε`, but
+// `prevDepth` grows every frame, so the ceiling walks all the way through the
+// neighbour (owner's live "round table on top of the other" figure-8). The 2D
+// editor masked the same running-reference code because it grid-snaps the
+// pointer to 0.5 m steps — a 0.5 m jump can't stay within ε — while the 3D lab
+// feeds a continuous raycast, exposing it. Anchoring to the START depth bounds
+// total penetration at `startDepth + ε` for the entire drag, in either surface.
+export type DragEscapeBaseline = { startValid: boolean; startDepth: number };
+
+export function dragEscapeBaseline(
+  pose: WorldPose,
+  world: OracleWorld,
+  params: OracleParams,
+): DragEscapeBaseline {
+  const valid = checkPlacement(pose, world, params).valid;
+  return { startValid: valid, startDepth: valid ? 0 : penetrationDepth(pose, world) };
+}
+
+// May `pose` be SETTLED under the escape rule, given the drag's fixed baseline?
+// A table that started fully valid must stay fully valid (refuse ALL invalid);
+// one that started violating may rest only at a pose whose body penetration does
+// not exceed where it began (+ ε).
+export function escapeAccepts(
+  pose: WorldPose,
+  world: OracleWorld,
+  params: OracleParams,
+  base: DragEscapeBaseline,
+  epsM: number,
+): boolean {
+  if (checkPlacement(pose, world, params).valid) return true;
+  if (base.startValid) return false; // a clean table must keep the walkway
+  return penetrationDepth(pose, world) <= base.startDepth + epsM; // stuck → non-worsening
+}
+
+// Resolve ONE drag frame: try the desired pose, then an axis-separated slide
+// (X-only, then Y-only) so a table glides along an obstacle to the next gap,
+// else hold at the current pose. Returns the pct centre to move to. `poseFor`
+// builds a world-pose from a pct centre (the caller owns table geometry/scale).
+export function resolveDragStep(
+  poseFor: (xPct: number, yPct: number) => WorldPose,
+  desired: { x: number; y: number },
+  cur: { x: number; y: number },
+  world: OracleWorld,
+  params: OracleParams,
+  base: DragEscapeBaseline,
+  epsM: number,
+): { x: number; y: number } {
+  const ok = (x: number, y: number) => escapeAccepts(poseFor(x, y), world, params, base, epsM);
+  if (ok(desired.x, desired.y)) return { x: desired.x, y: desired.y };
+  if (ok(desired.x, cur.y)) return { x: desired.x, y: cur.y }; // slide along X
+  if (ok(cur.x, desired.y)) return { x: cur.x, y: desired.y }; // slide along Y
+  return { x: cur.x, y: cur.y }; // fully boxed in → hold at the last accepted pose
+}
+
 // The first oracle-valid centre for a NEW round_10 table, spiralling out from the
 // room centre until the SHARED oracle clears every existing table + zone. The
 // footprint is CHAIR-INCLUSIVE by construction — `round_10` scale is

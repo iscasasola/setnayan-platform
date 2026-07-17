@@ -10,6 +10,7 @@ import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
+import { UploadMark } from './upload-mark';
 import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -52,6 +53,8 @@ const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   render: { tone: 'error', text: 'That design could not be saved — please adjust and retry.' },
   save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
+  'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
+  'upload-cleared': { tone: 'ok', text: 'Removed the upload — back to your studio mark.' },
 };
 
 export default async function MonogramMakerPage({ params, searchParams }: Props) {
@@ -71,7 +74,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_studio_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -172,6 +175,15 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           </span>
         </p>
       )}
+
+      {/* ── Upload your own mark (owner 2026-07-17 — overrides the benchmark
+          council's §9 upload deferral). Writes the long-dormant
+          monogram_uploaded_svg, which outranks every other mark on the hero. ── */}
+      <UploadMark
+        eventId={eventId}
+        hasUpload={typeof event.monogram_uploaded_svg === 'string' && Boolean(event.monogram_uploaded_svg)}
+        monogramText={monogram.text}
+      />
 
       {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
           Owned → live confirmation + preview; unowned → before/after + buy. ── */}

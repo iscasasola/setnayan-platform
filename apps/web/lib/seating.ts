@@ -3111,6 +3111,38 @@ export function resolveDragStep(
   return { x: cur.x, y: cur.y }; // fully boxed in → hold at the last accepted pose
 }
 
+// ── THE DROP RULE (owner 2026-07-17 · "undroppable when overlap") ─────────────
+// An invalid drop is NO drop: the pointer follows freely in-drag (the warm-red
+// ring is the per-frame warning), and enforcement lives HERE, at release. This
+// SUPERSEDES the monotone-escape COMMIT semantics (escapeAccepts + settle-to-
+// last-valid) — a release the oracle rejects is not settled anywhere; the caller
+// persists nothing and animates the element(s) back to the drag-START pose.
+//
+// `moved` is the pose(s) being placed on release: a single table, or every
+// member of a welded/connective unit translated as a rigid body. `others` are
+// the poses NOT moving. A drop is accepted iff EVERY moved pose is oracle-valid
+// (`checkPlacement`, chair-inclusive, zones, walkway) against everything else —
+// where "everything else" includes the OTHER moved members, so a unit's own
+// legal joints are recognised (via `atLegalJoint`) and never self-collide, while
+// a connective SNAP pose is valid by construction (it sits on a legal joint).
+//
+// Legacy healing is preserved BY CONSTRUCTION: a violating table's drag-start
+// pose is its current spot; dragging OUT to a valid pose is an accepted drop;
+// any invalid release returns it exactly to start — so no table can ever get
+// MORE stuck. ONE rule, both projections (2D editor + 3D lab).
+export function dropAccepted(
+  moved: WorldPose[],
+  others: WorldPose[],
+  zones: OracleZone[],
+  params: OracleParams,
+): boolean {
+  if (moved.length === 0) return true;
+  return moved.every((p) => {
+    const rest = others.concat(moved.filter((m) => m.tableId !== p.tableId));
+    return checkPlacement(p, { others: rest, zones }, params).valid;
+  });
+}
+
 // The first oracle-valid centre for a NEW round_10 table, spiralling out from the
 // room centre until the SHARED oracle clears every existing table + zone. The
 // footprint is CHAIR-INCLUSIVE by construction — `round_10` scale is

@@ -323,7 +323,7 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
     ctaHref: claimUrl,
     footnote: 'This link works once and expires in 7 days. If you weren’t expecting it, you can ignore this email.',
   });
-  await sendEmail({
+  const sent = await sendEmail({
     to: recipient,
     subject: isClaim ? `${row.name}, your Setnayan profile is ready to claim` : `Take over ${row.name}'s care on Setnayan`,
     text: isClaim
@@ -331,6 +331,13 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
       : `A guardian on Setnayan wants to hand ${row.name}'s profile over to you. Accepting moves it into your account.\n\nAccept here (works once, expires in 7 days): ${claimUrl}`,
     html,
   });
+  // Surface a real outcome — a missing Resend key or a provider error must not
+  // read as "sent" (the guardian would wait on an email that never left).
+  if (!sent.ok) {
+    redirect(
+      `/dashboard/people?error=${sent.reason === 'not_configured' ? 'email_not_configured' : 'email_send_failed'}`,
+    );
+  }
 
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?saved=1');

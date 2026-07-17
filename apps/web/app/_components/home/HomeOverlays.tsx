@@ -31,11 +31,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
-import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
-import { signInWithPassword } from '@/app/login/actions';
-import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
+import { SignInCard } from '@/app/login/_components/sign-in-card';
 import type { PricingData } from './pricing-data';
 import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
@@ -358,10 +355,10 @@ function SignInOverlay({
   onClose: () => void;
   oauth: SignInOAuth;
 }) {
-  // No explicit `next`: '/' lets signInWithPassword route to the account home
-  // by account_type (couple → /dashboard, vendor → /vendor-dashboard, …) —
-  // same default the /login page passes when arrived at without a ?next.
-  const next = '/';
+  // The nav popup and /login now render the SAME greige card (SignInCard) —
+  // owner 2026-07-18 "we only want 1 login". `next='/'` lets signInWithPassword
+  // route to the account home by account_type (couple → /dashboard, vendor →
+  // /vendor-dashboard, …); no status banners here since this always opens on '/'.
   return (
     <OverlayShell
       id="signin"
@@ -370,81 +367,13 @@ function SignInOverlay({
       label="Sign in"
       cardStyle={{ maxWidth: 460 }}
     >
-      <div className="hr-ov-eyebrow">Welcome back</div>
-      <h2 className="hr-ov-title">Sign in to Setnayan.</h2>
-      <p className="hr-ov-sub">
-        One account for couples and vendors. Pick up right where you left off.
-      </p>
-
-      {/* OAuth above the email form — same placement + components as /login.
-          Shell-gated server-side; desktop gets the loopback variant. */}
-      {oauth.show ? (
-        <div className="hr-si-oauth">
-          {oauth.desktop ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} />}
-        </div>
-      ) : null}
-
-      {oauth.show ? (
-        <div className="hr-si-or">
-          <span>or continue with email</span>
-        </div>
-      ) : null}
-
-      <form action={signInWithPassword} className="hr-si-form">
-        <input type="hidden" name="next" value={next} />
-        <TurnstileField action="login" />
-        <div className="hr-si-field">
-          <label htmlFor="hr-si-email" className="hr-si-label">
-            Email
-          </label>
-          <input
-            id="hr-si-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            placeholder="you@setnayan.com"
-            required
-            className="hr-si-input"
-          />
-        </div>
-        <div className="hr-si-field">
-          <label htmlFor="hr-si-password" className="hr-si-label">
-            Password
-          </label>
-          <input
-            id="hr-si-password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            required
-            className="hr-si-input"
-          />
-        </div>
-        {/* "Stay signed in" defaults CHECKED — explicit opt-out only (matches
-            /login; the server action downgrades sb-* cookies to session-only
-            when unchecked). */}
-        <div className="hr-si-row">
-          <label htmlFor="hr-si-remember" className="hr-si-remember">
-            <input id="hr-si-remember" name="remember" type="checkbox" defaultChecked />
-            <span>Stay signed in</span>
-          </label>
-          <Link href="/forgot-password" className="hr-si-link" onClick={onClose}>
-            Forgot password?
-          </Link>
-        </div>
-        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…">
-          Continue
-        </SubmitButton>
-      </form>
-
-      <div className="hr-si-foot">
-        No account yet?{' '}
-        <Link href="/signup" className="hr-si-link" onClick={onClose}>
-          Create one, free
-        </Link>
-      </div>
+      <SignInCard
+        next="/"
+        signupHref="/signup"
+        showOAuth={oauth.show}
+        desktopOAuth={oauth.desktop}
+        onNavigate={onClose}
+      />
     </OverlayShell>
   );
 }

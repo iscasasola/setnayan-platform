@@ -154,6 +154,10 @@ export function mountStudio(opts) {
     redoStack = [],
     preGesture = null,
     preSlider = null;
+  // v2 markup handle (monogram_studio_v2 · council verdict §2) — set by bindUI
+  // when the injected DOM carries the Letters·Frame·Reveal tabs (markup-v2).
+  // Stays null on the v1 markup, where every v2 branch is inert.
+  let v2 = null;
 
   function cpPts(a) {
     return a.map(function (q) {
@@ -1341,6 +1345,9 @@ export function mountStudio(opts) {
           sel = null;
         }
       }
+      // v2: a tap-select surfaces the letter/crossing editor — its boxes live
+      // in the Letters tab, so jump there with the selection kept (inert on v1).
+      if (!moved && v2 && !drawMode && (sel != null || selPair)) v2.ensureLetters();
       if (didModify && preGesture) {
         undoStack.push(preGesture);
         if (undoStack.length > 80) undoStack.shift();
@@ -1416,24 +1423,90 @@ export function mountStudio(opts) {
       s.scale = hi === 1 ? 0.62 : 1;
       full();
     });
-    $('modes').addEventListener('click', function (e) {
-      const b = e.target.closest('.tg');
-      if (!b || animating) return;
-      drawMode = b.dataset.m === 'draw';
-      [].forEach.call(this.children, function (c) {
-        c.classList.toggle('on', c === b);
+    // v1-only chrome: the Arrange|Draw toggle + the collapsible animate header.
+    // Absent on the v2 markup (tabs replace both) — feature-detect, never assume.
+    const modesEl = $('modes');
+    if (modesEl)
+      modesEl.addEventListener('click', function (e) {
+        const b = e.target.closest('.tg');
+        if (!b || animating) return;
+        drawMode = b.dataset.m === 'draw';
+        [].forEach.call(this.children, function (c) {
+          c.classList.toggle('on', c === b);
+        });
+        sel = null;
+        selPair = null;
+        selSym = null;
+        // D3: switching modes dismisses the gold/molten React overlay — before
+        // this, the WebGL preview sat over the canvas with no way out.
+        onPreviewKind(null, null);
+        full();
       });
-      sel = null;
-      selPair = null;
-      selSym = null;
-      // D3: switching modes dismisses the gold/molten React overlay — before
-      // this, the WebGL preview sat over the canvas with no way out.
-      onPreviewKind(null, null);
-      full();
-    });
-    $('animhdr').addEventListener('click', function () {
-      $('animbox').classList.toggle('open');
-    });
+    const animHdr = $('animhdr');
+    if (animHdr)
+      animHdr.addEventListener('click', function () {
+        $('animbox').classList.toggle('open');
+      });
+    // ── v2 markup (monogram_studio_v2 · council verdict §2): Letters · Frame ·
+    // Reveal section tabs. drawMode is true ONLY while "✎ Draw your own" is
+    // open inside the Frame tab — Letters/Reveal canvas taps arrange, never
+    // stroke. On the v1 markup (#vtabs absent) this whole block is inert.
+    const vtabs = $('vtabs');
+    if (vtabs) {
+      let curTab = 'letters';
+      let drawOpen = false;
+      const showTab = function (t, keepSel) {
+        curTab = t;
+        [].forEach.call(vtabs.querySelectorAll('[data-vt]'), function (b) {
+          const on = b.dataset.vt === t;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        ['letters', 'frame', 'reveal'].forEach(function (k) {
+          const p = $('tab-' + k);
+          if (p) p.classList.toggle('off', k !== t);
+        });
+        drawMode = t === 'frame' && drawOpen;
+        if (!keepSel) {
+          sel = null;
+          selPair = null;
+        }
+        selSym = null;
+        onPreviewKind(null, null); // D3: leaving a tab dismisses the gold/molten overlay
+        full();
+      };
+      v2 = {
+        // Tap-selecting a letter/crossing surfaces its editor boxes, which live
+        // in the Letters tab — jump there, keeping the selection. No-op when
+        // the couple is already on Letters.
+        ensureLetters: function () {
+          if (curTab !== 'letters') showTab('letters', true);
+        },
+      };
+      vtabs.addEventListener('click', function (e) {
+        const b = e.target.closest('[data-vt]');
+        if (!b || animating) return;
+        showTab(b.dataset.vt, false);
+      });
+      const dt = $('drawtoggle');
+      const tools = $('drawtools');
+      if (dt)
+        dt.addEventListener('click', function () {
+          if (animating) return;
+          drawOpen = !drawOpen;
+          dt.classList.toggle('on', drawOpen);
+          if (tools) tools.classList.toggle('off', !drawOpen);
+          drawMode = curTab === 'frame' && drawOpen;
+          selSym = null;
+          full();
+        });
+      const more = $('more');
+      const morebox = $('morebox');
+      if (more && morebox)
+        more.addEventListener('click', function () {
+          morebox.classList.toggle('off');
+        });
+    }
     $('animbox').addEventListener('click', function (e) {
       const b = e.target.closest('button');
       if (!b) return;

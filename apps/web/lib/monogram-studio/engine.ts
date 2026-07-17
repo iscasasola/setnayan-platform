@@ -186,7 +186,7 @@ export function mountStudio(opts) {
   }
   function cpFrames(a) {
     return (a || []).map(function (f) {
-      return { kind: f.kind, c: f.c, inset: f.inset, scale: f.scale, tx: f.tx, ty: f.ty, thick: f.thick, count: f.count, gap: f.gap, dbl: !!f.dbl };
+      return { kind: f.kind, c: f.c, inset: f.inset, scale: f.scale, tx: f.tx, ty: f.ty, thick: f.thick, count: f.count, gap: f.gap, dbl: !!f.dbl, weave: !!f.weave };
     });
   }
   function cpSyms(a) {
@@ -511,10 +511,23 @@ export function mountStudio(opts) {
     { kind: 'sampaguita', label: 'Sampaguita' },
     { kind: 'corner-lines', label: 'Corner lines' },
     { kind: 'corner-flourish', label: 'Corner flourish' },
+    { kind: 'sprigs', label: 'Side sprigs' },
+    { kind: 'cardinal-marks', label: 'Cardinal marks' },
+    { kind: 'sparkle-duo', label: 'Sparkle pair' },
   ];
+  const ACCENT_KINDS = ['sprigs', 'cardinal-marks', 'sparkle-duo'];
+  // Band-shaped enclosures — the kinds whose crossings can WEAVE (owner
+  // 2026-07-17 "frames that can intertwine"). Organic kinds (laurel/wreath/
+  // sampaguita) just layer.
+  const BAND_KINDS = ['ring', 'double-ring', 'open-ring', 'diamond', 'cartouche', 'arch', 'scallop'];
   function frameClass(kind) {
-    return kind.indexOf('corner-') === 0 ? 'corner' : 'enclosure';
+    if (kind.indexOf('corner-') === 0) return 'corner';
+    if (ACCENT_KINDS.indexOf(kind) >= 0) return 'accent';
+    return 'enclosure';
   }
+  // Owner override 2026-07-17: two enclosures may stack (and weave); corners
+  // and accents keep one slot each.
+  const FRAME_CLASS_CAP = { enclosure: 2, corner: 1, accent: 1 };
   function frameDefaults(kind) {
     const f = { kind: kind, c: outlineHex && outlineHex !== 'none' ? outlineHex : GOLD, inset: 24, scale: 1, tx: 0, ty: 0, thick: 6, count: 12, gap: 24, dbl: false };
     if (kind === 'laurel') { f.count = 18; f.thick = 7; }
@@ -523,6 +536,9 @@ export function mountStudio(opts) {
     if (kind === 'scallop') { f.count = 22; }
     if (kind === 'open-ring') { f.gap = 60; }
     if (kind === 'corner-lines' || kind === 'corner-flourish') { f.gap = 46; f.thick = 5; f.inset = 34; }
+    if (kind === 'sprigs') { f.thick = 6; f.inset = 30; f.count = 3; }
+    if (kind === 'cardinal-marks') { f.thick = 7; f.inset = 40; }
+    if (kind === 'sparkle-duo') { f.thick = 8; f.inset = 36; }
     return f;
   }
   function annulus(cx, cy, ro, ri, col) {
@@ -663,6 +679,44 @@ export function mountStudio(opts) {
         }
         fill(new paper.Path.Circle({ center: [x, y], radius: S * 0.16, insert: false }));
       }
+    } else if (k === 'sprigs') {
+      // mirrored three-leaf sprigs at the sides — fanning up and outward
+      const S = Math.max(10, th * 2.4);
+      const n = Math.max(2, Math.min(5, Math.round(f.count)));
+      [-1, 1].forEach(function (sx) {
+        const bx = cx + sx * (b.width / 2 + f.inset * f.scale);
+        for (let i = 0; i < n; i++) {
+          const t = n === 1 ? 0 : i / (n - 1) - 0.5; // -0.5..0.5 fan
+          const deg = sx > 0 ? 35 + t * 60 : -35 - t * 60;
+          out.push(leafAt(bx + sx * Math.abs(t) * S * 0.8, cy - t * S * 1.5, deg, S, col));
+        }
+        const d = new paper.Path.Circle({ center: [bx, cy + S * 0.95], radius: Math.max(1.5, th * 0.35), insert: false });
+        fill(d);
+      });
+    } else if (k === 'cardinal-marks') {
+      // small diamonds at N·E·S·W on the enclosure radius
+      const S = Math.max(4, th * 1.5);
+      [0, 90, 180, 270].forEach(function (deg) {
+        const rad = (deg * Math.PI) / 180;
+        const m = new paper.Path.RegularPolygon({
+          center: [cx + R * Math.cos(rad), cy + R * Math.sin(rad)],
+          sides: 4,
+          radius: S,
+          insert: false,
+        });
+        fill(m);
+      });
+    } else if (k === 'sparkle-duo') {
+      // a four-point sparkle at NE + its echo at SW — asymmetric accent
+      const S = Math.max(10, th * 2.6);
+      const dx2 = b.width / 2 + f.inset * f.scale,
+        dy2 = b.height / 2 + f.inset * f.scale;
+      const s1 = symBuilder('sparkle', S);
+      s1.position = new paper.Point(cx + dx2, cy - dy2);
+      fill(s1);
+      const s2 = symBuilder('sparkle', S * 0.6);
+      s2.position = new paper.Point(cx - dx2, cy + dy2);
+      fill(s2);
     } else if (k === 'corner-lines' || k === 'corner-flourish') {
       const inset = f.inset * f.scale;
       const ix = b.x - inset,
@@ -726,14 +780,71 @@ export function mountStudio(opts) {
     frameCacheKey = key;
     frameLayer.removeChildren();
     if (!frames.length) return;
-    frames.forEach(function (f) {
+    const built = frames.map(function (f) {
       try {
-        buildFramePaths(f, b).forEach(function (p) {
-          frameLayer.addChild(p);
-        });
+        return buildFramePaths(f, b);
       } catch (e) {
-        /* a bad recipe never takes the canvas down */
+        return []; // a bad recipe never takes the canvas down
       }
+    });
+    // ── Intertwine (owner 2026-07-17): when two BAND enclosures overlap and
+    // weave is on, alternate over/under at each crossing lobe — the letters'
+    // dilate-and-subtract cut applied frame-to-frame.
+    const bandIdx = [];
+    frames.forEach(function (f, i) {
+      if (frameClass(f.kind) === 'enclosure' && BAND_KINDS.indexOf(f.kind) >= 0) bandIdx.push(i);
+    });
+    if (bandIdx.length >= 2 && (frames[bandIdx[0]].weave || frames[bandIdx[1]].weave)) {
+      try {
+        const uniteAll = function (paths) {
+          let u = null;
+          paths.forEach(function (q) {
+            u = u ? u.unite(q) : q;
+          });
+          return u;
+        };
+        let A = uniteAll(built[bandIdx[0]]);
+        let B = uniteAll(built[bandIdx[1]]);
+        if (A && B) {
+          const inter = A.intersect(B, { insert: false });
+          const lobes = (inter.className === 'CompoundPath' ? inter.children.slice() : [inter]).filter(function (l) {
+            return l && Math.abs(l.area || 0) > 1;
+          });
+          if (lobes.length) {
+            const mid = A.bounds.center.add(B.bounds.center).divide(2);
+            lobes.sort(function (l1, l2) {
+              return (
+                Math.atan2(l1.bounds.center.y - mid.y, l1.bounds.center.x - mid.x) -
+                Math.atan2(l2.bounds.center.y - mid.y, l2.bounds.center.x - mid.x)
+              );
+            });
+            const gapW = Math.max(2.5, Math.min(frames[bandIdx[0]].thick, frames[bandIdx[1]].thick) * 0.55);
+            lobes.forEach(function (lobe, i) {
+              const cutter = dilate(lobe.clone(), gapW);
+              try {
+                if (i % 2 === 0) B = B.subtract(cutter);
+                else A = A.subtract(cutter);
+              } catch (e) {}
+            });
+            A.fillColor = new paper.Color(frames[bandIdx[0]].c);
+            A.strokeColor = null;
+            B.fillColor = new paper.Color(frames[bandIdx[1]].c);
+            B.strokeColor = null;
+            built[bandIdx[0]] = [A];
+            built[bandIdx[1]] = [B];
+          }
+          try {
+            inter.remove();
+          } catch (e) {}
+        }
+      } catch (e) {
+        /* weave failure degrades to the plain stack */
+      }
+    }
+    built.forEach(function (paths) {
+      paths.forEach(function (p) {
+        frameLayer.addChild(p);
+      });
     });
   }
   function decor() {
@@ -1718,10 +1829,30 @@ export function mountStudio(opts) {
       selFrame = null;
     } else {
       const cls = frameClass(kind);
-      for (let i = frames.length - 1; i >= 0; i--) {
-        if (frameClass(frames[i].kind) === cls) frames.splice(i, 1);
+      const cap = FRAME_CLASS_CAP[cls] || 1;
+      const sameClass = [];
+      frames.forEach(function (f, i) {
+        if (frameClass(f.kind) === cls) sameClass.push(i);
+      });
+      // at cap → the OLDEST of the class makes room
+      while (sameClass.length >= cap) frames.splice(sameClass.shift(), 1);
+      const nf = frameDefaults(kind);
+      // Owner 2026-07-17 "frames that can intertwine": a SECOND band enclosure
+      // lands offset from the first and pre-woven — instantly interlocked;
+      // pull the Offset slider to 0 for a concentric stack instead.
+      const other = frames.filter(function (f) {
+        return frameClass(f.kind) === 'enclosure' && BAND_KINDS.indexOf(f.kind) >= 0;
+      })[0];
+      if (other && BAND_KINDS.indexOf(kind) >= 0) {
+        const spread = Math.max(30, (lettersBounds ? Math.max(lettersBounds.width, lettersBounds.height) : FS) * 0.28);
+        if (!other.tx && !nf.tx) {
+          other.tx = -spread;
+          nf.tx = spread;
+        }
+        other.weave = true;
+        nf.weave = true;
       }
-      frames.push(frameDefaults(kind));
+      frames.push(nf);
       selFrame = frames.length - 1;
     }
     drawFrames();
@@ -1752,8 +1883,14 @@ export function mountStudio(opts) {
     const label = FRAME_DEFS.filter(function (d) {
       return d.kind === f.kind;
     })[0];
-    const showCount = ['laurel', 'wreath', 'sampaguita', 'scallop'].indexOf(f.kind) >= 0;
+    const showCount = ['laurel', 'wreath', 'sampaguita', 'scallop', 'sprigs'].indexOf(f.kind) >= 0;
     const showGap = ['open-ring', 'double-ring', 'corner-lines', 'corner-flourish'].indexOf(f.kind) >= 0;
+    const bandEnclosures = frames.filter(function (g) {
+      return frameClass(g.kind) === 'enclosure' && BAND_KINDS.indexOf(g.kind) >= 0;
+    });
+    const twoBands = bandEnclosures.length >= 2;
+    const showWeave = twoBands && BAND_KINDS.indexOf(f.kind) >= 0;
+    const weaveOn = twoBands && bandEnclosures.every(function (g) { return g.weave; });
     ap.innerHTML =
       '<div class="box" style="margin-top:10px">' +
       '<div class="row">' +
@@ -1802,6 +1939,16 @@ export function mountStudio(opts) {
           f.gap +
           '" aria-label="Frame opening"></div>'
         : '') +
+      (showWeave
+        ? '<div class="row"><button type="button" class="tg' +
+          (weaveOn ? ' on' : '') +
+          '" id="ff_weave">⤫ Weave the two frames</button></div>' +
+          '<div><div class="lab2"><span>Offset ↔ · slide the frames apart or together</span><span id="ff_off_v">' +
+          Math.round(f.tx) +
+          '</span></div><input type="range" id="ff_off" min="-220" max="220" step="2" value="' +
+          Math.round(f.tx) +
+          '" aria-label="Frame horizontal offset"></div>'
+        : '') +
       '<p class="cap" style="margin:0">Auto-fits your letters · uses your outline colour · sits behind the letters.</p>' +
       '</div>';
     wireFrameSlider('ff_scale', f, function (g, v) {
@@ -1820,6 +1967,25 @@ export function mountStudio(opts) {
       wireFrameSlider('ff_gp', f, function (g, v) {
         g.gap = v;
       }, 'ff_gp_v');
+    if (showWeave) {
+      const wv = $('ff_weave');
+      if (wv)
+        wv.addEventListener('click', function () {
+          pushUndo();
+          const on = !weaveOn;
+          bandEnclosures.forEach(function (g) {
+            g.weave = on;
+          });
+          drawFrames();
+          try {
+            view.update();
+          } catch (x) {}
+          reflectShelf();
+        });
+      wireFrameSlider('ff_off', f, function (g, v) {
+        g.tx = v;
+      }, 'ff_off_v');
+    }
   }
   function wireFrameSlider(id, f, set, vid, fmt) {
     const el = $(id);

@@ -33,13 +33,20 @@ import {
   penetrationDepth,
   footprintsOverlap,
   obbOf,
-  // NEW — the extracted, testable decision core the pointer pipeline calls.
+  // The extracted, testable decision core the OLD monotone-escape pipeline called
+  // (kept as pure primitives; the editors no longer wire them — see § (D)).
   dragEscapeBaseline,
   escapeAccepts,
   resolveDragStep,
+  // NEW — the snap-back COMMIT rule the pointer pipelines call on release
+  // (owner 2026-07-17 · "undroppable when overlap"). `legalJoinPose` builds the
+  // welded-pair pose for the group test.
+  dropAccepted,
+  legalJoinPose,
   type WorldPose,
   type OracleWorld,
   type OracleParams,
+  type OracleZone,
   type TableType,
   type TableShapeHint,
 } from './seating';
@@ -241,4 +248,112 @@ test('(C) escapeAccepts judges against the fixed baseline (deeper-than-start is 
   // shuffle / heal-out is fine).
   const bandXPct = 50 + (3.0 / ROOM.w) * 100; // tight but no body overlap
   assert.equal(escapeAccepts(labRoundPose('mover', bandXPct, 50), world, params, base, EPS_M), true);
+});
+
+// ===========================================================================
+// (D) SNAP-BACK DROP RULE (owner 2026-07-17 · "undroppable when overlap").
+//     Supersedes the monotone-escape COMMIT semantics above: the in-drag pose
+//     follows the pointer freely, and enforcement lives at RELEASE. `commitDrag`
+//     (3D lab) / `onCanvasPointerUp` (2D editor) both call the SAME pure
+//     `dropAccepted` rule — valid release persists, invalid release is NO drop
+//     and returns to the drag-START pose (the mesh eases back / the CSS bounces
+//     back). This models that exact commit at the pipeline level. The 2D twin is
+//     `seating-2d-drop-pipeline.test.ts` (same rule, pixel space → parity).
+// ===========================================================================
+
+const PARAMS: OracleParams = { gapPx: WALKWAY_M };
+const NO_ZONES: OracleZone[] = [];
+
+// THE commit: valid → persist the release pose(s); invalid → persist the START
+// pose(s) (in the editors: don't write; state already holds start → animate back).
+function simulateDrop(
+  start: WorldPose[],
+  drop: WorldPose[],
+  others: WorldPose[],
+  zones: OracleZone[],
+  params: OracleParams,
+): { accepted: boolean; persisted: WorldPose[] } {
+  const accepted = dropAccepted(drop, others, zones, params);
+  return { accepted, persisted: accepted ? drop : start };
+}
+const xAt = (metresFromCentre: number) => 50 + (metresFromCentre / ROOM.w) * 100;
+
+test('(D)(a) drop OVER another table is refused — the persisted pose EQUALS the drag START (nothing written)', () => {
+  const anchor = labRoundPose('anchor', 50, 50);
+  const start = labRoundPose('mover', xAt(4.0), 50); // 4 m clear → a valid start
+  assert.equal(checkPlacement(start, { others: [anchor], zones: NO_ZONES }, PARAMS).valid, true);
+  const drop = labRoundPose('mover', 50, 50); // released dead-centre on the anchor
+  assert.ok(overlapWith(anchor, 50, 50) > 1.0, 'precondition: the release deeply overlaps the anchor');
+
+  const res = simulateDrop([start], [drop], [anchor], NO_ZONES, PARAMS);
+  assert.equal(res.accepted, false, 'an overlapping release is NOT accepted');
+  assert.deepEqual(res.persisted, [start], 'write equals origin — the table returns to its drag-start pose');
+});
+
+test('(D)(b) a valid release PERSISTS exactly the dropped pose', () => {
+  const anchor = labRoundPose('anchor', 50, 50);
+  const start = labRoundPose('mover', xAt(4.0), 50);
+  const drop = labRoundPose('mover', xAt(4.6), 50); // slid further out — still clears the walkway
+  assert.equal(checkPlacement(drop, { others: [anchor], zones: NO_ZONES }, PARAMS).valid, true);
+
+  const res = simulateDrop([start], [drop], [anchor], NO_ZONES, PARAMS);
+  assert.equal(res.accepted, true);
+  assert.deepEqual(res.persisted, [drop], 'a legal drop is written as-is');
+});
+
+test('(D)(c) a legacy-overlapping table dragged OUT to a valid pose PERSISTS (healing works)', () => {
+  const anchor = labRoundPose('anchor', 50, 50);
+  const start = labRoundPose('mover', xAt(1.7), 50); // deep legacy overlap = its drag-start spot
+  assert.equal(checkPlacement(start, { others: [anchor], zones: NO_ZONES }, PARAMS).valid, false);
+  const drop = labRoundPose('mover', xAt(4.0), 50); // dragged fully clear
+
+  const res = simulateDrop([start], [drop], [anchor], NO_ZONES, PARAMS);
+  assert.equal(res.accepted, true, 'a violating table CAN escape to a valid pose');
+  assert.deepEqual(res.persisted, [drop], 'the heal is written — no table can get MORE stuck');
+});
+
+test('(D)(d) a legacy-overlapping table dropped at ANOTHER invalid spot returns to ITS start (never stucker)', () => {
+  const anchor = labRoundPose('anchor', 50, 50);
+  const start = labRoundPose('mover', xAt(1.7), 50); // its own legacy-overlap spot
+  assert.equal(checkPlacement(start, { others: [anchor], zones: NO_ZONES }, PARAMS).valid, false);
+  const drop = labRoundPose('mover', xAt(1.0), 50); // dragged EVEN DEEPER — still invalid
+  assert.equal(checkPlacement(drop, { others: [anchor], zones: NO_ZONES }, PARAMS).valid, false);
+
+  const res = simulateDrop([start], [drop], [anchor], NO_ZONES, PARAMS);
+  assert.equal(res.accepted, false);
+  assert.deepEqual(res.persisted, [start], 'returns to its OWN start, not the deeper spot');
+});
+
+test('(D)(e) a welded GROUP with an invalid release returns as a UNIT (both members to their starts)', () => {
+  // A genuine connective unit: two serpentines snapped tip-to-tip (a legal joint),
+  // so `dropAccepted` exempts them from each other (atLegalJoint) — the join is
+  // valid by construction. Build it via the same `legalJoinPose` the editors use.
+  const serpScale = scaleOfTable('serpentine', 'serpentine', 5);
+  const mk = (id: string, x: number, y: number, rot: number): WorldPose => ({
+    tableId: id, shape: 'serpentine', capacity: 5, x, y, rot, scale: serpScale, linkGroupId: 'unit',
+  });
+  const aStart = mk('a', 5, 15, 0);
+  const cand = legalJoinPose(
+    { shape: 'serpentine', capacity: 5, x: aStart.x, y: aStart.y, rot: 0, scale: serpScale },
+    { shape: 'serpentine', capacity: 5, x: 7, y: 15, rot: 0, scale: serpScale },
+    12,
+  );
+  assert.ok(cand, 'the two serpentines form a legal joint');
+  const bStart = mk('b', cand!.x, cand!.y, cand!.rot);
+  // The welded pair alone is oracle-clean (sibling exempt via the legal joint).
+  assert.equal(dropAccepted([aStart, bStart], [], NO_ZONES, PARAMS), true, 'a welded pair is valid by construction');
+
+  // Rigidly shift the unit +7 m in x and drop a third round table exactly where
+  // member `a` lands — so the release collides even though the joint is clean.
+  const aDrop = mk('a', aStart.x + 7, aStart.y, 0);
+  const bDrop = mk('b', bStart.x + 7, bStart.y, cand!.rot);
+  const third = { ...labRoundPose('third', 50, 50), x: aDrop.x, y: aDrop.y };
+  assert.ok(
+    footprintsOverlap(obbOf(aDrop), obbOf(third), 0) > 0.5,
+    'precondition: the shifted unit overlaps the third table',
+  );
+
+  const res = simulateDrop([aStart, bStart], [aDrop, bDrop], [third], NO_ZONES, PARAMS);
+  assert.equal(res.accepted, false, 'if ANY member collides, the whole unit is refused');
+  assert.deepEqual(res.persisted, [aStart, bStart], 'the WHOLE unit returns to its start poses');
 });

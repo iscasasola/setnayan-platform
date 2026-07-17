@@ -129,9 +129,7 @@ import {
   tableGeometry,
   checkPlacement as oracleCheckPlacement,
   layoutViolations as oracleLayoutViolations,
-  dragEscapeBaseline,
-  escapeAccepts,
-  resolveDragStep,
+  dropAccepted,
   firstFreeRoundSpawnPct,
   stageZone,
   legalJoinPose,
@@ -144,7 +142,6 @@ import type {
   TableType,
   WorldPose as OracleWorldPose,
   OracleZone,
-  DragEscapeBaseline,
 } from '@/lib/seating';
 
 // Cinematic Tier B (Fable §3.5) — the program's ONLY new dependency
@@ -696,22 +693,19 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // Live world-space drag target (avoids a React re-render every pointer move).
   const dragRef = useRef<{ id: string; x: number; z: number } | null>(null);
   // Live legality of the current drag pose — read INSIDE the dragged TableMesh's
-  // useFrame to tint its ground ring (gold = valid, warm-red = escaping) with
+  // useFrame to tint its ground ring (gold = valid, warm-red = invalid) with
   // zero React churn, exactly like dragRef itself.
   const dragValidRef = useRef(true);
-  // MONOTONE-ESCAPE BASELINE (owner 2026-07-17 · "round table on top of the
-  // other"). The escape rule must judge every frame against the pose the drag
-  // STARTED from — captured ONCE here and held for the whole gesture — never the
-  // running pose. A running reference lets a slow *continuous* raycast drag
-  // ratchet ε deeper each frame (the ceiling `prevDepth + ε` walks inward) and
-  // drives a round clean through its neighbour; the commit then persists it with
-  // no single-table re-check. Anchoring here bounds total penetration at
-  // `startDepth + ε` for the entire drag. Captured lazily on the first
-  // `onFloorMove` (dragRef still holds the stored start pose there), cleared at
-  // pointer-down + commit. `lastValidPctRef` is the settle-to-last-valid target
-  // for the release guard (§ commitDrag). See lib/seating.ts `dragEscapeBaseline`.
-  const dragBaselineRef = useRef<DragEscapeBaseline | null>(null);
-  const lastValidPctRef = useRef<{ x: number; y: number } | null>(null);
+  // SNAP-BACK DROP RULE (owner 2026-07-17 · "undroppable when overlap"). The
+  // in-drag table follows the finger FREELY (dragRef); the warm-red ring is the
+  // per-frame warning; enforcement lives at COMMIT. On release, `commitDrag`
+  // validates the drop through the shared `dropAccepted` oracle — valid persists,
+  // invalid is NO drop: we simply don't setTables, so the mesh's useFrame lerp
+  // eases it straight back to `home` (the drag-START pose still in React state) =
+  // the animated snap-back, instant under reduced motion. This REPLACES the
+  // monotone-escape drag baseline + settle-to-last-valid release guard entirely
+  // (owner 2026-07-17 · "supersedes settle-to-last-valid"), so no `dragBaselineRef`
+  // / `lastValidPctRef` are kept — there is no intermediate settle spot anymore.
   // (Sync verdict 2026-07-16 · § 5 · GUN C: the drag-snap no longer auto-links —
   // `commitWeld` persists the pose, linking is the explicit affordance only — so
   // the old `doLinkRef` forward-reference bridge for snap-link is retired.)
@@ -998,13 +992,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   const commitDrag = useCallback(() => {
     const d = dragRef.current;
-    // Snapshot the escape baseline + last fully-valid pose BEFORE clearing them —
-    // the single-table release guard below re-validates the drop against them.
-    const dropBaseline = dragBaselineRef.current;
-    const dropLastValid = lastValidPctRef.current;
     dragRef.current = null;
-    dragBaselineRef.current = null;
-    lastValidPctRef.current = null;
     setDraggingId(null);
     if (!d) return;
     // Venue-sized rooms store 0–100% (clamp to the walls); the free auto-grow
@@ -1045,13 +1033,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     const xPct = clampPct((dropX / room.w + 0.5) * 100);
     const yPct = clampPct((dropZ / room.d + 0.5) * 100);
 
-    // Validity is the shared oracle's job now (directive 2026-07-16): a single
-    // table's drop is ALREADY oracle-valid — the monotone-escape drag can't leave
-    // it overlapping or blocking the walkway — so it needs no re-check here. A
-    // SNAPPED serpentine is a sanctioned join (it links on drop). Only the linked-
-    // UNIT move, which translates as a rigid body without a per-frame oracle pass,
-    // is validated below against the same oracle before it commits. The old disc-
-    // based checkPlacement fork (bounding circles, stage-sweetheart rule) is gone.
+    // SNAP-BACK DROP RULE (owner 2026-07-17 · "undroppable when overlap"). An
+    // invalid release is NO drop: the shared `dropAccepted` oracle decides, and
+    // on refusal we persist NOTHING and don't setTables — the dragged table's (or
+    // the whole unit's) mesh eases back to `home`, its drag-START pose still held
+    // in React state, which IS the animated snap-back (instant under reduced
+    // motion). A SNAPPED serpentine is a sanctioned join (valid by construction,
+    // links on drop) and is exempt. Free board is place-anywhere (no metric aisle).
 
     // Linked unit → translate every member by the same delta (move as one).
     const groupId = dragged?.linkGroupId ?? null;
@@ -1065,23 +1053,18 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const ys = members.map((m) => m.yPct);
       const ddx = Math.max(lo - Math.min(...xs), Math.min(hi - Math.max(...xs), xPct - dragged.xPct));
       const ddy = Math.max(lo - Math.min(...ys), Math.min(hi - Math.max(...ys), yPct - dragged.yPct));
-      // Same oracle as the 2D editor: reject the unit move if any member would
-      // BODY-overlap a NON-member table or a zone at the shared delta (siblings are
-      // exempt via link_group_id — a rigid unit is meant to touch). Sized room
-      // only; the free board is place-anywhere. Body overlap (gap 0) is the bar —
-      // a parked unit may rest tighter than the walkway, but never through another
-      // table or the dance floor.
+      // One commit rule, shared helper (directive 2026-07-17): the unit returns as
+      // a UNIT unless every member clears the oracle at the shared delta. Members
+      // are exempt from each other via their legal joints (checkPlacement's
+      // atLegalJoint), so only collisions with NON-members / zones / the walkway
+      // block the drop. Sized room only; the free board is place-anywhere. Invalid
+      // → no setTables → the whole unit eases back to its start pose (snap-back).
       if (venueScaled) {
         const memberIds = new Set(members.map((m) => m.id));
         const others = tables.filter((t) => !memberIds.has(t.id)).map((t) => oraclePose(t, t.xPct, t.yPct));
-        const zones = oracleZones();
-        const world = { others, zones };
-        const hits = members.some((m) => {
-          const pose = oraclePose(m, m.xPct + ddx, m.yPct + ddy);
-          return oracleCheckPlacement(pose, world, { gapPx: 0 }).violations.some((v) => v.kind === 'overlap');
-        });
-        if (hits) {
-          setNotice('No room there — the linked group would overlap another table or a zone.');
+        const movedPoses = members.map((m) => oraclePose(m, m.xPct + ddx, m.yPct + ddy));
+        if (!dropAccepted(movedPoses, others, oracleZones(), { gapPx: WALKWAY_M })) {
+          setNotice(`No room there — needs ${WALKWAY_M} m clear. The linked group returned to its spot.`);
           return;
         }
       }
@@ -1102,31 +1085,19 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       return;
     }
 
-    // RELEASE GUARD (owner 2026-07-17). Belt-and-suspenders: a single table's
-    // drop must never PERSIST a pose the escape rule would reject relative to
-    // where the drag BEGAN. onFloorMove already holds dragRef to that invariant,
-    // but the wall-clamp above can nudge the committed pct — so re-judge the
-    // exact drop against the drag-start baseline and, if it somehow worsened,
-    // settle to the last fully-valid pose seen during the drag (else hold the
-    // start pose). A SNAPPED serpentine is a sanctioned join and is exempt.
-    let commitX = xPct;
-    let commitY = yPct;
-    if (venueScaled && dragged && snappedRotDeg === null && dropBaseline) {
-      const world = {
-        others: tables.filter((t) => t.id !== d.id).map((t) => oraclePose(t, t.xPct, t.yPct)),
-        zones: oracleZones(),
-      };
-      if (!escapeAccepts(oraclePose(dragged, commitX, commitY), world, { gapPx: WALKWAY_M }, dropBaseline, 0.02)) {
-        const fallback = dropLastValid ?? { x: dragged.xPct, y: dragged.yPct };
-        commitX = clampPct(fallback.x);
-        commitY = clampPct(fallback.y);
+    // Single table → validate the exact release pose. Snapped serp is exempt.
+    if (venueScaled && dragged && snappedRotDeg === null) {
+      const others = tables.filter((t) => t.id !== d.id).map((t) => oraclePose(t, t.xPct, t.yPct));
+      if (!dropAccepted([oraclePose(dragged, xPct, yPct)], others, oracleZones(), { gapPx: WALKWAY_M })) {
+        setNotice(`No room there — needs ${WALKWAY_M} m clear. Returned to its spot.`);
+        return; // NO drop → state keeps the start pose → the mesh eases back home.
       }
     }
 
     setTables((prev) =>
       prev.map((t) =>
         t.id === d.id
-          ? { ...t, xPct: commitX, yPct: commitY, ...(snappedRotDeg !== null ? { rotationDeg: snappedRotDeg } : {}) }
+          ? { ...t, xPct, yPct, ...(snappedRotDeg !== null ? { rotationDeg: snappedRotDeg } : {}) }
           : t,
       ),
     );
@@ -1140,7 +1111,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         // NOT linking — the old snap-then-`doLink` is REMOVED; linking now happens
         // ONLY via the explicit arm-link affordance → the one server validator).
         const batch = weldCommitBatch(
-          { tableId: d.id, xPct: commitX, yPct: commitY, rotationDeg: snappedRotDeg },
+          { tableId: d.id, xPct, yPct, rotationDeg: snappedRotDeg },
           { tableId: anchor.id, xPct: anchor.xPct, yPct: anchor.yPct, rotationDeg: anchor.rotationDeg },
         );
         const fd = new FormData();
@@ -1154,8 +1125,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         fd.set('event_id', eventId);
         fd.set('lock_id', lock.lockId ?? '');
         fd.set('table_id', d.id);
-        fd.set('x_pos', String(commitX));
-        fd.set('y_pos', String(commitY));
+        fd.set('x_pos', String(xPct));
+        fd.set('y_pos', String(yPct));
         void persist(() => updateTablePosition(fd));
       }
     }
@@ -1311,45 +1282,23 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           return;
         }
       }
-      // MONOTONE ESCAPE (2D editor § 4, same oracle). A CLEAN table stays fully
-      // legal — an axis-separated slide glides it along an obstacle to the next
-      // gap. A table that STARTS violating (a legacy overlap, or the walkway grew)
-      // may move only to a valid pose OR one whose max body penetration doesn't
-      // grow past ε = 2 cm above where THE DRAG BEGAN — always out, never deeper.
-      // The reference is the drag-START pose (dragBaselineRef, captured on the
-      // first frame — dragRef still holds the stored start pose here), never the
-      // running pose: a running reference lets a slow continuous drag ratchet ε
-      // deeper every frame and drive a round clean through its neighbour (owner
-      // 2026-07-17). See lib/seating.ts `dragEscapeBaseline` / `resolveDragStep`.
+      // FREE FOLLOW + per-frame warning (owner 2026-07-17 · snap-back drop rule).
+      // The dragged table follows the pointer 1:1 — no escape constraint holds it
+      // out of an overlap mid-drag. Validity is per-frame FEEDBACK only: gold ring
+      // when the current pose clears the shared oracle, warm-red while it doesn't,
+      // so refusal is legible BEFORE release. Enforcement moved to COMMIT — an
+      // invalid release is NO drop (commitDrag snaps it back to the start pose).
+      // This replaces the monotone-escape resolver (dragEscapeBaseline /
+      // resolveDragStep), which is retired from the pipeline.
       const world = {
         others: tables.filter((t) => t.id !== d.id).map((t) => oraclePose(t, t.xPct, t.yPct)),
         zones: oracleZones(),
       };
       const params = { gapPx: WALKWAY_M };
-      const epsM = 0.02;
-      const desired = worldToPct(rawX, rawZ);
-      const cur = worldToPct(d.x, d.z);
-      if (!dragBaselineRef.current) {
-        // First frame of this drag → cur IS the stored start pose. Anchor here.
-        dragBaselineRef.current = dragEscapeBaseline(oraclePose(dragged, cur.x, cur.y), world, params);
-        if (dragBaselineRef.current.startValid) lastValidPctRef.current = { x: cur.x, y: cur.y };
-      }
-      const base = dragBaselineRef.current;
-      const next = resolveDragStep(
-        (xPct, yPct) => oraclePose(dragged, xPct, yPct),
-        desired,
-        cur,
-        world,
-        params,
-        base,
-        epsM,
-      );
-      const w = pctToWorld(next.x, next.y, room);
-      d.x = w.x;
-      d.z = w.z;
-      const nextValid = oracleCheckPlacement(oraclePose(dragged, next.x, next.y), world, params).valid;
-      dragValidRef.current = nextValid;
-      if (nextValid) lastValidPctRef.current = { x: next.x, y: next.y }; // settle target for release
+      d.x = rawX;
+      d.z = rawZ;
+      const p = worldToPct(rawX, rawZ);
+      dragValidRef.current = oracleCheckPlacement(oraclePose(dragged, p.x, p.y), world, params).valid;
     },
     [room, venueScaled, tablesById, tables, oraclePose, oracleZones, worldToPct],
   );
@@ -2318,10 +2267,9 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       if (!t) return;
       const w = pctToWorld(t.xPct, t.yPct, room);
       dragRef.current = { id, x: w.x, z: w.z };
-      // Fresh gesture → drop any prior escape baseline; onFloorMove captures the
-      // new one on its first frame (from this stored start pose).
-      dragBaselineRef.current = null;
-      lastValidPctRef.current = null;
+      // The drag-START pose is simply the table's persisted pose in React state
+      // (`t.xPct/yPct`) — untouched during the drag — so an invalid release just
+      // eases the mesh back to `home`. Nothing to capture at pointer-down.
       setDraggingId(id);
     },
     [linkArmId, weldLink, placingGroupId, seatGroupAt, placingGuestId, guestById, sendGuest, tableSwapArmed, tableSwapFirst, swapTables, mode, canEdit, room, tablesById],
@@ -3354,10 +3302,11 @@ function TableMesh({
     () => new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.6, transparent: true, opacity: 0.16 }),
     [palette.wall],
   );
-  // Drag-feedback ground ring (directive 2026-07-16): a subtle GOLD ring while
-  // the pose is oracle-valid, a warm-RED ring while it's escaping an overlap (the
-  // table also refuses to settle — monotone-escape holds it). Colour is driven
-  // from dragValidRef inside useFrame so there's zero React churn per frame.
+  // Drag-feedback ground ring (owner 2026-07-17 · snap-back drop rule): a subtle
+  // GOLD ring while the pose is oracle-valid, a warm-RED ring while it's INVALID
+  // (over an overlap / walkway breach) — the per-frame warning that this release
+  // would be refused. Colour is driven from dragValidRef inside useFrame so
+  // there's zero React churn per frame.
   const ringMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const ringColors = useMemo(
     () => ({ ok: new THREE.Color('#d8b45a'), bad: new THREE.Color('#d9534f') }),
@@ -3390,7 +3339,7 @@ function TableMesh({
     const targetX = dragging && dragRef.current ? dragRef.current.x : home.x;
     const targetZ = dragging && dragRef.current ? dragRef.current.z : home.z;
     // Tint the drag ring live (both motion branches) — gold when the oracle says
-    // the pose is legal, warm-red while it's escaping.
+    // the pose is legal, warm-red while it's invalid (the release would snap back).
     if (dragging && ringMatRef.current) {
       ringMatRef.current.color.copy(dragValidRef.current ? ringColors.ok : ringColors.bad);
     }
@@ -3429,9 +3378,9 @@ function TableMesh({
 
   return (
     <group ref={ref} position={[home.x, 0, home.z]} onPointerDown={handleDown}>
-      {/* Drag-feedback ground ring — gold (valid) / warm-red (escaping). Only
-          while this table is being dragged; never raycasts (drags pass through
-          to the floor plane). */}
+      {/* Drag-feedback ground ring — gold (valid) / warm-red (invalid → snaps
+          back on release). Only while this table is being dragged; never raycasts
+          (drags pass through to the floor plane). */}
       {dragging ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]} raycast={() => null}>
           <ringGeometry args={[Math.max(0.05, ringR - 0.07), ringR, 56]} />

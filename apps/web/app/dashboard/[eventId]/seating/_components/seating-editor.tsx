@@ -93,7 +93,7 @@ import {
   nextTableName,
   obbOf,
   checkPlacement,
-  penetrationDepth,
+  dropAccepted,
   layoutViolations,
   legalJoinPose,
   isLegalJoint,
@@ -161,6 +161,7 @@ import { useSeatingPresence } from './use-seating-presence';
 import { useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -372,6 +373,21 @@ export function SeatingEditor({
     sy: number;
     moved: boolean;
   } | null>(null);
+  // SNAP-BACK DROP RULE (owner 2026-07-17 · "undroppable when overlap"). The
+  // dragged table (or linked unit) follows the pointer FREELY; enforcement is at
+  // RELEASE — an invalid drop is NO drop and returns to the drag-START pose.
+  //  · `dragStartRef` — the moved unit's start pose(s), captured once per gesture
+  //    (the shared #3358 baseline pattern, extended to carry the full pose set),
+  //    so the release can restore exactly where the drag began.
+  //  · `dragInvalid` — per-frame legality of the current drag pose; drives the
+  //    warm-red ring/tint so refusal is legible BEFORE release (gold when valid).
+  //  · `snapBackIds` — tables mid-return; they get the kit-ease left/top
+  //    transition (~280 ms) instead of the usual 140 ms so the bounce-back reads
+  //    as a deliberate refusal (instant under reduced motion).
+  const dragStartRef = useRef<Record<string, LocalPos> | null>(null);
+  const [dragInvalid, setDragInvalid] = useState(false);
+  const [snapBackIds, setSnapBackIds] = useState<ReadonlySet<string>>(() => new Set());
+  const reducedMotion = usePrefersReducedMotion();
   const [isPending, startTransition] = useTransition();
 
   // Floor-plan kit (all coords/sizes are percent of the canvas): a resizable
@@ -2354,6 +2370,24 @@ export function SeatingEditor({
     const d = dragRef.current;
     if (d) {
       if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
+      if (!d.moved) {
+        // First real movement of THIS gesture — snapshot the moved unit's START
+        // pose(s) while `positions` still holds the pre-drag layout, so an invalid
+        // release can return it exactly to where the drag began (snap-back rule).
+        if (d.kind === 'table') {
+          const unit = groupMemberIds(d.id);
+          const start: Record<string, LocalPos> = {};
+          for (const id of unit) {
+            const i = tables.findIndex((t) => t.table_id === id);
+            start[id] = positions[id] ?? defaultGrid(i, tables.length, !venueScaled);
+          }
+          dragStartRef.current = start;
+        } else {
+          dragStartRef.current = null;
+        }
+        setDragInvalid(false);
+        setSnapBackIds((s) => (s.size ? new Set() : s)); // a fresh drag clears any prior snap-back
+      }
       d.moved = true;
       if (!rect || rect.width === 0) return;
       const sx = e.clientX - rect.left;
@@ -2587,44 +2621,24 @@ export function SeatingEditor({
           if (gy === null) ay = Math.round(ay / gridY) * gridY;
         }
         guidesRef.current = { x: gx, y: gy };
-        // Council verdict § 4 — slide + MONOTONE ESCAPE (replaces the old
-        // "already stuck → drag free" disjunct, root cause 2). In a sized room a
-        // table can't be dropped overlapping another table, the dance floor, the
-        // cocktail room or a booth — the oracle keeps the metric walkway clear.
-        // A CLEAN table must stay fully legal (axis-separated slide glides it
-        // along an obstacle to the nearest gap). A table that STARTS violating
-        // (legacy save, or the walkway was widened) may move only to a fully-
-        // valid pose OR one whose max body penetration does NOT increase beyond
-        // ε = 2 cm (plateau allowance) — out is always possible, deeper never.
-        // So you can always rescue a stuck table but can never worsen or seed a
-        // new overlap. The STAGE is not an obstacle. The free board keeps
-        // place-anywhere (a metric walkway is meaningless without a metre scale).
+        // FREE FOLLOW + per-frame warning (owner 2026-07-17 · snap-back drop
+        // rule, supersedes the monotone-escape slide/§4). The table follows the
+        // pointer 1:1 — no escape constraint holds it out of an overlap mid-drag.
+        // In a sized room we run the shared oracle purely for FEEDBACK: the drag
+        // ring/tint goes warm-red the moment the current pose fails, so refusal is
+        // legible BEFORE release. Enforcement moved to onCanvasPointerUp — an
+        // invalid release is NO drop and snaps back to the drag-start pose. The
+        // free board is place-anywhere (a metric walkway is meaningless without a
+        // metre scale), so it never flags.
         const posFor = (o: EventTableRow, i: number) =>
           positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
-        const cur = positions[d.id] ?? { x, y };
-        if (!venueScaled || !movingEarly) {
-          setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
-        } else {
+        setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
+        if (venueScaled && movingEarly) {
           const world = { others: othersFor(movingEarly, rect, posFor), zones: zonesFor(rect) };
-          const params = { gapPx: gapPxNow() };
-          const curPose = poseAt(movingEarly, cur.x, cur.y, rect);
-          const curValid = checkPlacement(curPose, world, params).valid;
-          const curDepth = curValid ? 0 : penetrationDepth(curPose, world);
-          const epsPx = pxPerMeter ? 0.02 * pxPerMeter : 2;
-          const accept = (px: number, py: number): boolean => {
-            const p = poseAt(movingEarly, px, py, rect);
-            if (checkPlacement(p, world, params).valid) return true;
-            if (curValid) return false; // a clean table must keep the walkway
-            return penetrationDepth(p, world) <= curDepth + epsPx; // stuck → non-worsening
-          };
-          if (accept(ax, ay)) {
-            setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
-          } else if (accept(ax, cur.y)) {
-            setPositions((p) => ({ ...p, [d.id]: { x: ax, y: cur.y } })); // slide along X
-          } else if (accept(cur.x, ay)) {
-            setPositions((p) => ({ ...p, [d.id]: { x: cur.x, y: ay } })); // slide along Y
-          }
-          // else fully boxed in → hold at cur (apply nothing)
+          const valid = checkPlacement(poseAt(movingEarly, ax, ay, rect), world, { gapPx: gapPxNow() }).valid;
+          setDragInvalid((cur) => (cur === !valid ? cur : !valid));
+        } else if (dragInvalid) {
+          setDragInvalid(false);
         }
       } else if (d.kind === 'stage') {
         // Wall-snap only in a sized (walled) room; a free board has no walls.
@@ -2723,6 +2737,64 @@ export function SeatingEditor({
       if (d.kind === 'table') {
         // A linked unit moved as one — every member's position changed.
         const moved = groupMemberIds(d.id);
+        // SNAP-BACK DROP RULE (owner 2026-07-17 · "undroppable when overlap").
+        // Validate the RELEASE through the shared `dropAccepted` oracle. A WELD
+        // snap is a sanctioned join (valid by construction) → always drops. In a
+        // sized room, otherwise, an invalid release is NO drop: return the moved
+        // unit (single table or whole welded group) to its drag-START pose with a
+        // kit-eased bounce, persist nothing, mark nothing dirty. Legacy healing is
+        // preserved — the start pose is the table's own spot, so dragging OUT to a
+        // valid pose sticks and any invalid release just returns it (never stucker).
+        const rectSnap = canvasRef.current?.getBoundingClientRect();
+        let dropInvalid = false;
+        if (!weld && venueScaled && rectSnap && rectSnap.width > 0) {
+          const rectWH = { width: rectSnap.width, height: rectSnap.height };
+          const memberSet = new Set(moved);
+          const poseOfId = (id: string): WorldPose => {
+            const idx = tables.findIndex((x) => x.table_id === id);
+            const t = tables[idx]!;
+            const p = positions[id] ?? defaultGrid(idx, tables.length, !venueScaled);
+            return poseAt(t, p.x, p.y, rectWH);
+          };
+          const movedPoses = moved.map(poseOfId);
+          const others = tables
+            .filter((o) => !memberSet.has(o.table_id))
+            .map((o) => poseOfId(o.table_id));
+          dropInvalid = !dropAccepted(movedPoses, others, zonesFor(rectWH), { gapPx: gapPxNow() });
+        }
+        if (dropInvalid) {
+          const start = dragStartRef.current;
+          if (start) {
+            setPositions((p) => {
+              const n = { ...p };
+              for (const id of moved) if (start[id]) n[id] = start[id]!;
+              return n;
+            });
+          }
+          setDragInvalid(false);
+          setSnapBackIds(new Set(moved));
+          setNotice(
+            `No room there — needs ${aisleM.toFixed(1)} m clear. ${
+              moved.length > 1 ? 'The linked group returned' : 'Returned'
+            } to its spot.`,
+          );
+          // Drop the kit-ease flag once the bounce-back has played (instant under
+          // reduced motion, where the transition is suppressed anyway).
+          const clearing = moved;
+          window.setTimeout(() => {
+            setSnapBackIds((s) => {
+              if (!s.size) return s;
+              const n = new Set(s);
+              for (const id of clearing) n.delete(id);
+              return n;
+            });
+          }, 340);
+          if (e) pointersRef.current.delete(e.pointerId);
+          if (pointersRef.current.size < 2) pinchRef.current = null;
+          if (pointersRef.current.size === 0) panStartRef.current = null;
+          bumpOverlay((v) => v + 1);
+          return;
+        }
         const moverPos = positions[d.id];
         const anchorTable = weld ? tables.find((x) => x.table_id === weld.anchorId) : undefined;
         const anchorPos = weld ? positions[weld.anchorId] : undefined;
@@ -5824,6 +5896,13 @@ export function SeatingEditor({
             const dragging =
               dragId === t.table_id ||
               (dragGroupId != null && t.link_group_id === dragGroupId);
+            // Snap-back drop rule (owner 2026-07-17): `snappingBack` = this table
+            // (or its unit) is mid-return after an invalid drop → give it the kit-
+            // ease bounce (instant under reduced motion). `showInvalidRing` = it's
+            // being dragged over an oracle-rejected pose → warm-red the ring so the
+            // refusal is legible BEFORE release.
+            const snappingBack = snapBackIds.has(t.table_id);
+            const showInvalidRing = dragging && dragInvalid;
             // Linked tables render under the UNIT's name (number when it has one).
             const displayLabel = t.link_group_label ?? t.table_label;
             const num = displayLabel.match(/\d+/)?.[0] ?? '';
@@ -5863,10 +5942,31 @@ export function SeatingEditor({
                   width: detail ? geo.box.w : geo.hub.w + 12,
                   height: detail ? geo.box.h : geo.hub.h + 12,
                   transform: `translate(-50%, -50%) scale(${tableScale})`,
-                  transition: dragging ? 'none' : 'left 140ms ease, top 140ms ease',
+                  transition: dragging
+                    ? 'none'
+                    : snappingBack
+                      ? reducedMotion
+                        ? 'none'
+                        : 'left 280ms cubic-bezier(0.2,0.7,0.2,1), top 280ms cubic-bezier(0.2,0.7,0.2,1)'
+                      : 'left 140ms ease, top 140ms ease',
                   zIndex: dragging ? 30 : 20,
                 }}
               >
+                {/* warm-red invalid-drop ring — while this table (or its unit) is
+                    dragged over an oracle-rejected pose, so the "no room here"
+                    refusal is legible before release (owner 2026-07-17). */}
+                {showInvalidRing ? (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+                    style={{
+                      width: geo.hub.w + 20,
+                      height: geo.hub.h + 20,
+                      borderColor: '#d9534f',
+                      boxShadow: '0 0 0 3px rgba(217,83,79,0.18)',
+                    }}
+                  />
+                ) : null}
                 {/* group-tint halo */}
                 {halo ? (
                   <span

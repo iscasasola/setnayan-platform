@@ -4,13 +4,13 @@
  * SignInCard — THE single Setnayan login (owner 2026-07-18 "we only want 1
  * login … that popup and dimming the background anywhere"). This is the light
  * greige "Sign in to Setnayan." card visitors already see from the marketing
- * top-nav; it is now ALSO what renders at /login and in the intercepted overlay,
- * so every entry point shows the same login.
+ * top-nav; it is now ALSO what renders at /login (and on any redirect there), so
+ * every entry point shows the same login.
  *
  * Rendered inside a `.home-reskin-ov` > `.hr-ov-card` shell (the greige glass
  * modal). Two shells drive it:
  *   • the marketing nav — OverlayShell in HomeOverlays.tsx (state-driven popup);
- *   • routes — SignInCardModal (/login page + app/@modal/(.)login overlay).
+ *   • the /login route — SignInCardModal.
  * Styling is the `.hr-*` set in home-reskin.css, scoped under `.home-reskin-ov`.
  *
  * It renders the SAME OAuth row + email/password form as before, wired to the

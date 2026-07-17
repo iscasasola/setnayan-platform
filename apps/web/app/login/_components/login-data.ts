@@ -1,11 +1,12 @@
 /**
  * Shared server-side view model for the /login surface.
  *
- * WHY: the sign-in UI renders in places that must stay in sync — the standalone
- * `/login` page (hard load / refresh / SEO / redirect) and the intercepted
- * overlay (`app/@modal/(.)login`, on soft navigation). Both render the shared
- * greige SignInCard and need the identical params contract + OAuth-visibility
- * gating. Computing it once here keeps the entry points from drifting.
+ * WHY: the sign-in UI renders in more than one place that must stay in sync —
+ * the `/login` route (hard load / refresh / SEO / redirect) and the marketing
+ * top-nav overlay (HomeOverlays). Both render the shared greige SignInCard and
+ * need the identical params contract + OAuth-visibility gating. Computing it
+ * once here keeps them from drifting. (The /login route reads all of it; the
+ * marketing overlay uses the OAuth-visibility bits + next='/'.)
  *
  * PRESERVED from the prior /login/page.tsx (per [[feedback_setnayan_button_preservation]]):
  *   - searchParams contract: error / check_email / ready / next.

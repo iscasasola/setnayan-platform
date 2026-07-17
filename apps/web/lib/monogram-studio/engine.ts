@@ -1090,8 +1090,10 @@ export function mountStudio(opts) {
       c.strokeColor = null;
       layer.addChild(c);
     });
-    updateLettersBounds();
-    drawFrames();
+    // fast() runs on EVERY drag tick — never rebuild frames here. A letter
+    // drag with a weave/scallop applied was re-running boolean geometry per
+    // pixel ("dragging ink is lagging"). Frames hold still during the gesture
+    // and re-fit once on release (full() → drawFrames).
     decor();
     drawStrokes();
     zoomEl.textContent = Math.round(view.zoom * 100) + '%';

@@ -24,12 +24,15 @@
  * Two files are unapplyable on a FRESH database by construction and are
  * skipped with reasons (see ALLOWED_SKIP).
  *
- * REPLAY-ONLY patch (documented, not shipped code): the 20260714000000
- * screen-name backfill mints ids per (city, canonical_service) but builds the
- * UNIQUE slug from (city, display_label); two unmapped service keys share the
- * 'Wedding Vendor' fallback label and collide on a fresh replay. The patch
- * aligns the sequence namespace to the display label. (Latent-bug note filed
- * with the owner — the same collision can fail a real vendor INSERT in prod.)
+ * SCREEN-NAME COLLISION (historical note): the 20260714000000 screen-name
+ * generator minted ids per (city, canonical_service) but built the UNIQUE slug
+ * from (city, display_label); two unmapped service keys share the 'Wedding
+ * Vendor' fallback label and could collide, failing a real vendor INSERT in
+ * prod. This was originally worked around here with a replay-only SQL patch.
+ * That patch is GONE: migration 20270820111851_fix_screen_name_slug_collision_
+ * namespace.sql is the real prod fix (mints in the slug's own (city, display)
+ * namespace + bounded uniqueness retry), so the replay now runs the REAL
+ * migrations end-to-end with no screen-name shim.
  */
 
 import { PGlite } from '@electric-sql/pglite';
@@ -192,14 +195,6 @@ function preprocess(sql: string): string {
   return sql;
 }
 
-function patchScreenName(sql: string): string {
-  // Replay-only collision fix for the 20260714000000 backfill — see header.
-  return sql.replace(
-    'v_id := public.next_screen_name_id(v_city, v_canonical);',
-    'v_id := public.next_screen_name_id(v_city, v_display);',
-  );
-}
-
 export type ReplayResult = {
   db: PGlite;
   applied: number;
@@ -220,8 +215,7 @@ export async function createReplayedDb(): Promise<ReplayResult> {
     .sort();
 
   async function applyOne(f: string): Promise<void> {
-    let sql = preprocess(fs.readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
-    if (f === '20260714000000_v2_screen_name_reveal_mechanic.sql') sql = patchScreenName(sql);
+    const sql = preprocess(fs.readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
     if (f === '20260705000000_provision_owner_vendor_and_remove_prefilled.sql') {
       // Re-insert the owner AFTER on_auth_user_created exists so the REAL
       // trigger provisions the public.users profile row, exactly like prod.

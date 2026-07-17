@@ -375,9 +375,11 @@ test('offer gates: FORBIDDEN / TIER_FREE / SELF_OFFER / MISSING_TERMS / NOT_A_CR
   await setAuthUid(db, F.stranger);
   await expectRaise(SEND, [F.vendor, F.creator, '20% creator rate'], 'FORBIDDEN');
 
-  // free-tier vendors cannot spend reach tokens
+  // below-Pro vendors cannot spend reach tokens (PR-C Pro-and-up gate,
+  // migration 20270819553697, renamed the P1 free-only TIER_FREE_NO_REACH →
+  // TIER_BELOW_PRO_NO_REACH: pro/enterprise/custom only)
   await setAuthUid(db, F.freeFounder);
-  await expectRaise(SEND, [F.freeVendor, F.creator, '20% creator rate'], 'TIER_FREE_NO_REACH');
+  await expectRaise(SEND, [F.freeVendor, F.creator, '20% creator rate'], 'TIER_BELOW_PRO_NO_REACH');
 
   await setAuthUid(db, F.founder);
   // empty terms

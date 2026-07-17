@@ -60,6 +60,30 @@ const STROKE_STYLES = ['broad', 'pointed', 'monoline', 'brush'] as const;
 const MIRROR_MODES = ['off', 'v', 'h', '4'] as const;
 const SYM_KINDS = ['dot', 'ring', 'diamond', 'triangle', 'star', 'sparkle', 'heart', 'leaf'] as const;
 const CROSS_ACTIONS = ['cut', 'merge', 'delete'] as const;
+// Parametric frame patterns (council verdict 2026-07-17 §4/§6): every frame is
+// a compact RECIPE the engine's frameBuilder turns into filled paper.js
+// geometry at render/export time — recipes, never baked stroke data, so frames
+// stay re-editable and the SVG-sanitizer path is unchanged. 12 kinds; the two
+// corner-* kinds are the "corner set" class, everything else is an enclosure
+// (stack rule: ≤ MAX_FRAMES, at most one of each class — enforced in the
+// engine's shelf; the sanitizer only bounds). sampaguita + laurel are the
+// unconditional Filipino-identity keeps.
+export const FRAME_KINDS = [
+  'ring',
+  'double-ring',
+  'open-ring',
+  'diamond',
+  'cartouche',
+  'arch',
+  'scallop',
+  'laurel',
+  'wreath',
+  'sampaguita',
+  'corner-lines',
+  'corner-flourish',
+] as const;
+export type StudioFrameKind = (typeof FRAME_KINDS)[number];
+export const MAX_FRAMES = 2;
 // The reveal-animation kinds offered in the studio's "Animate the reveal" panel.
 // Exported so the live player (app/_components/studio-reveal-player.tsx) imports
 // the ONE allowlist. handwriting/trace/droplet = paper.js/SVG draw-on; gold =
@@ -95,6 +119,27 @@ export type StudioSymbol = {
   mode: (typeof MIRROR_MODES)[number];
   c: string;
 };
+export type StudioFrame = {
+  kind: StudioFrameKind;
+  /** Frame colour — defaults to the mark's outline colour in the shelf UI. */
+  c: string;
+  /** Breathing room between the letter bounds and the frame (auto-fit inset). */
+  inset: number;
+  /** Multiplier on the auto-fit size (1 = exact auto-fit). */
+  scale: number;
+  /** Config-only in v1 — no drag handles yet; kept so handles can land later
+   *  without a data-model delta (council verdict §8.19). */
+  tx: number;
+  ty: number;
+  /** Band/rule thickness. */
+  thick: number;
+  /** Repeat count (leaves · petals · scallop bumps); ignored by plain rules. */
+  count: number;
+  /** Pattern-specific gap (open-ring opening · double-ring spacing · corner size). */
+  gap: number;
+  /** Double variant where the pattern supports it. */
+  dbl: boolean;
+};
 export type StudioConfig = {
   text: string;
   font: StudioFontKey;
@@ -107,6 +152,7 @@ export type StudioConfig = {
   pstate: Record<string, (typeof CROSS_ACTIONS)[number]>;
   strokes: StudioStroke[];
   syms: StudioSymbol[];
+  frames?: StudioFrame[];
   anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number };
 };
 
@@ -217,6 +263,25 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     };
   });
 
+  const framesRaw = Array.isArray(o.frames) ? o.frames.slice(0, MAX_FRAMES) : [];
+  const frames: StudioFrame[] = framesRaw
+    .filter((f) => f && typeof f === 'object')
+    .map((f) => {
+      const e = f as Record<string, unknown>;
+      return {
+        kind: oneOf(e.kind, FRAME_KINDS, 'ring'),
+        c: hex(e.c, outlineColor === 'none' ? '#C5A059' : outlineColor),
+        inset: num(e.inset, -60, 200, 24),
+        scale: num(e.scale, 0.05, 12, 1),
+        tx: num(e.tx, -COORD, COORD, 0),
+        ty: num(e.ty, -COORD, COORD, 0),
+        thick: num(e.thick, 1, 40, 6),
+        count: num(e.count, 3, 96, 12),
+        gap: num(e.gap, 0, 160, 24),
+        dbl: Boolean(e.dbl),
+      };
+    });
+
   let anim: StudioConfig['anim'];
   if (o.anim && typeof o.anim === 'object') {
     const a = o.anim as Record<string, unknown>;
@@ -228,7 +293,20 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     };
   }
 
-  const cfg: StudioConfig = { text, font, ink, outlineColor, bg, st, order, pstate, strokes, syms, ...(anim ? { anim } : {}) };
+  const cfg: StudioConfig = {
+    text,
+    font,
+    ink,
+    outlineColor,
+    bg,
+    st,
+    order,
+    pstate,
+    strokes,
+    syms,
+    ...(frames.length ? { frames } : {}),
+    ...(anim ? { anim } : {}),
+  };
   if (JSON.stringify(cfg).length > MAX_CONFIG_BYTES) return null;
   return cfg;
 }

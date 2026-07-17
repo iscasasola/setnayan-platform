@@ -112,6 +112,7 @@ export function mountStudio(opts) {
   let view,
     layer,
     penLayer,
+    frameLayer,
     FS,
     ink,
     inkHex,
@@ -141,6 +142,14 @@ export function mountStudio(opts) {
   let syms = [],
     selSym = null,
     symHitPaths = [];
+  // Parametric frame patterns (council verdict §4) — compact recipes rendered
+  // to filled geometry on frameLayer (below the letters). lettersBounds feeds
+  // the auto-fit; frameCacheKey skips rebuilds while nothing frame-relevant
+  // changed (booleans like scallop are too dear to re-run per drag frame).
+  let frames = [],
+    selFrame = null,
+    lettersBounds = null,
+    frameCacheKey = '';
   let pts = new Map(),
     mode = null,
     Bz = {},
@@ -164,6 +173,11 @@ export function mountStudio(opts) {
       return { x: q.x, y: q.y, pr: q.pr };
     });
   }
+  function cpFrames(a) {
+    return (a || []).map(function (f) {
+      return { kind: f.kind, c: f.c, inset: f.inset, scale: f.scale, tx: f.tx, ty: f.ty, thick: f.thick, count: f.count, gap: f.gap, dbl: !!f.dbl };
+    });
+  }
   function cpSyms(a) {
     return a.map(function (s) {
       return { kind: s.kind, tx: s.tx, ty: s.ty, scale: s.scale, rot: s.rot, mode: s.mode, c: s.c };
@@ -180,6 +194,7 @@ export function mountStudio(opts) {
         return { w: s.w, nib: s.nib, style: s.style, c: s.c, mode: s.mode, pts: cpPts(s.pts) };
       }),
       syms: cpSyms(syms),
+      frames: cpFrames(frames),
     };
   }
   function restore(s) {
@@ -192,9 +207,11 @@ export function mountStudio(opts) {
       return { w: o.w, nib: o.nib, style: o.style, c: o.c, mode: o.mode, pts: cpPts(o.pts) };
     });
     syms = cpSyms(s.syms || []);
+    frames = cpFrames(s.frames || []);
     sel = null;
     selPair = null;
     selSym = null;
+    selFrame = null;
   }
   function pushUndo() {
     undoStack.push(snap());
@@ -212,6 +229,7 @@ export function mountStudio(opts) {
     restore(undoStack.pop());
     full();
     updU();
+    reflectShelf();
   }
   function doRedo() {
     if (!redoStack.length) return;
@@ -219,6 +237,7 @@ export function mountStudio(opts) {
     restore(redoStack.pop());
     full();
     updU();
+    reflectShelf();
   }
 
   // Match the view's project-space size to the canvas host's rendered box so
@@ -246,6 +265,11 @@ export function mountStudio(opts) {
     proj = paper.project;
     layer = paper.project.activeLayer;
     penLayer = new paper.Layer();
+    // Frames render BELOW the letters — letters win over rules (§4.4, the whole
+    // point of open-ring); strokes/symbols stay ABOVE letters exactly as
+    // before. Canonical export order: frames → letters → strokes → syms.
+    frameLayer = new paper.Layer();
+    proj.insertLayer(0, frameLayer);
     layer.activate();
     // Size the paper.js view to the canvas's ACTUAL rendered box (the .sw2
     // host obeys the CSS — full-width on mobile, a tall two-column preview on
@@ -453,6 +477,250 @@ export function mountStudio(opts) {
     p.position = new paper.Point(sm.tx, sm.ty);
     return p;
   }
+
+  /* ── Parametric frame patterns (council verdict §4) ──────────────────────
+   * frameBuilder-family: every pattern is generated from a compact recipe —
+   * NEVER stored stroke data — as FILLED geometry (the export walk keeps only
+   * filled children, §4.5), auto-fitted to the letter bounds. sampaguita +
+   * laurel are the Filipino-identity keeps. */
+  const FRAME_DEFS = [
+    { kind: 'ring', label: 'Ring' },
+    { kind: 'double-ring', label: 'Double ring' },
+    { kind: 'open-ring', label: 'Open ring' },
+    { kind: 'diamond', label: 'Diamond' },
+    { kind: 'cartouche', label: 'Cartouche' },
+    { kind: 'arch', label: 'Arch' },
+    { kind: 'scallop', label: 'Scallop' },
+    { kind: 'laurel', label: 'Laurel' },
+    { kind: 'wreath', label: 'Wreath' },
+    { kind: 'sampaguita', label: 'Sampaguita' },
+    { kind: 'corner-lines', label: 'Corner lines' },
+    { kind: 'corner-flourish', label: 'Corner flourish' },
+  ];
+  function frameClass(kind) {
+    return kind.indexOf('corner-') === 0 ? 'corner' : 'enclosure';
+  }
+  function frameDefaults(kind) {
+    const f = { kind: kind, c: outlineHex && outlineHex !== 'none' ? outlineHex : GOLD, inset: 24, scale: 1, tx: 0, ty: 0, thick: 6, count: 12, gap: 24, dbl: false };
+    if (kind === 'laurel') { f.count = 18; f.thick = 7; }
+    if (kind === 'wreath') { f.count = 26; f.thick = 7; }
+    if (kind === 'sampaguita') { f.count = 10; }
+    if (kind === 'scallop') { f.count = 22; }
+    if (kind === 'open-ring') { f.gap = 60; }
+    if (kind === 'corner-lines' || kind === 'corner-flourish') { f.gap = 46; f.thick = 5; f.inset = 34; }
+    return f;
+  }
+  function annulus(cx, cy, ro, ri, col) {
+    const cp = new paper.CompoundPath({
+      children: [
+        new paper.Path.Circle({ center: [cx, cy], radius: Math.max(1, ro), insert: false }),
+        new paper.Path.Circle({ center: [cx, cy], radius: Math.max(0.5, ri), insert: false }),
+      ],
+      insert: false,
+    });
+    cp.fillRule = 'evenodd';
+    cp.fillColor = col;
+    cp.strokeColor = null;
+    return cp;
+  }
+  function leafAt(x, y, deg, S, col) {
+    const l = symBuilder('leaf', S);
+    l.rotate(deg);
+    l.position = new paper.Point(x, y);
+    l.fillColor = col;
+    l.strokeColor = null;
+    return l;
+  }
+  function buildFramePaths(f, b) {
+    const col = new paper.Color(f.c);
+    const cx = b.center.x + f.tx,
+      cy = b.center.y + f.ty;
+    const base = Math.max(b.width, b.height) / 2;
+    const R = Math.max(8, (base + f.inset) * f.scale);
+    const th = Math.max(1, f.thick);
+    const k = f.kind;
+    const out = [];
+    const fill = function (p) {
+      p.fillColor = col;
+      p.strokeColor = null;
+      out.push(p);
+    };
+    if (k === 'ring') {
+      out.push(annulus(cx, cy, R + th, R, col));
+    } else if (k === 'double-ring') {
+      out.push(annulus(cx, cy, R + th, R, col));
+      const g2 = Math.max(2, f.gap * 0.15);
+      out.push(annulus(cx, cy, R + th + g2 + Math.max(1, th * 0.5), R + th + g2, col));
+    } else if (k === 'open-ring') {
+      const ring = annulus(cx, cy, R + th, R, col);
+      const ang = (Math.min(120, Math.max(12, f.gap)) * Math.PI) / 180;
+      const far = (R + th) * 2;
+      const wedge = new paper.Path({ insert: false });
+      wedge.moveTo(new paper.Point(cx, cy));
+      wedge.lineTo(new paper.Point(cx + far * Math.cos(-Math.PI / 2 - ang / 2), cy + far * Math.sin(-Math.PI / 2 - ang / 2)));
+      wedge.lineTo(new paper.Point(cx + far * Math.cos(-Math.PI / 2 + ang / 2), cy + far * Math.sin(-Math.PI / 2 + ang / 2)));
+      wedge.closePath();
+      try {
+        fill(ring.subtract(wedge));
+      } catch (e) {
+        out.push(ring);
+      }
+    } else if (k === 'diamond') {
+      const cp = new paper.CompoundPath({
+        children: [
+          new paper.Path.RegularPolygon({ center: [cx, cy], sides: 4, radius: R * 1.3 + th, insert: false }),
+          new paper.Path.RegularPolygon({ center: [cx, cy], sides: 4, radius: R * 1.3, insert: false }),
+        ],
+        insert: false,
+      });
+      cp.fillRule = 'evenodd';
+      fill(cp);
+    } else if (k === 'cartouche') {
+      const inset = f.inset * f.scale;
+      const ix = b.x - inset,
+        iy = b.y - inset,
+        iw = b.width + 2 * inset,
+        ih = b.height + 2 * inset;
+      const rad = Math.min(iw, ih) * 0.18;
+      const cp = new paper.CompoundPath({
+        children: [
+          new paper.Path.Rectangle({ rectangle: new paper.Rectangle(ix - th, iy - th, iw + 2 * th, ih + 2 * th), radius: rad + th, insert: false }),
+          new paper.Path.Rectangle({ rectangle: new paper.Rectangle(ix, iy, iw, ih), radius: rad, insert: false }),
+        ],
+        insert: false,
+      });
+      cp.fillRule = 'evenodd';
+      fill(cp);
+    } else if (k === 'arch') {
+      const crown = cy - R * 0.18;
+      const solid = function (r) {
+        const c = new paper.Path.Circle({ center: [cx, crown], radius: r, insert: false });
+        const rect = new paper.Path.Rectangle({ rectangle: new paper.Rectangle(cx - r, crown, 2 * r, R * 1.18), insert: false });
+        return c.unite(rect);
+      };
+      try {
+        fill(solid(R + th).subtract(solid(R)));
+      } catch (e) {
+        out.push(annulus(cx, cy, R + th, R, col));
+      }
+    } else if (k === 'scallop') {
+      const n = Math.max(6, Math.round(f.count));
+      const rb = Math.max(3, ((Math.PI * R) / n) * 0.85);
+      try {
+        let solid = new paper.Path.Circle({ center: [cx, cy], radius: R, insert: false });
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          solid = solid.unite(new paper.Path.Circle({ center: [cx + R * Math.cos(a), cy + R * Math.sin(a)], radius: rb, insert: false }));
+        }
+        fill(solid.subtract(new paper.Path.Circle({ center: [cx, cy], radius: Math.max(1, R - th), insert: false })));
+      } catch (e) {
+        out.push(annulus(cx, cy, R + th, R, col));
+      }
+    } else if (k === 'laurel' || k === 'wreath') {
+      const n = Math.max(6, Math.round(f.count));
+      const S = Math.max(10, th * 2.6);
+      const openTop = k === 'laurel'; // classic laurel breathes at the top
+      const a0 = openTop ? -Math.PI / 2 + 0.55 : 0;
+      const span = openTop ? Math.PI * 2 - 1.1 : Math.PI * 2;
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (i / (openTop ? Math.max(1, n - 1) : n)) * span;
+        const deg = (a * 180) / Math.PI + 90 + (i % 2 ? 24 : -24);
+        out.push(leafAt(cx + R * Math.cos(a), cy + R * Math.sin(a), deg, S, col));
+      }
+      if (openTop) {
+        const tie = new paper.Path.Circle({ center: [cx, cy + R], radius: Math.max(2, th * 0.6), insert: false });
+        fill(tie);
+      }
+    } else if (k === 'sampaguita') {
+      const n = Math.max(4, Math.round(f.count));
+      const S = Math.max(8, th * 1.9 + 4);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const x = cx + R * Math.cos(a),
+          y = cy + R * Math.sin(a);
+        for (let p = 0; p < 5; p++) {
+          const pdeg = (p / 5) * 360 + (a * 180) / Math.PI;
+          const prad = (pdeg * Math.PI) / 180;
+          const petal = new paper.Path.Ellipse({ center: [0, 0], radius: [S * 0.5, S * 0.2], insert: false });
+          petal.rotate(pdeg);
+          petal.position = new paper.Point(x + S * 0.42 * Math.cos(prad), y + S * 0.42 * Math.sin(prad));
+          fill(petal);
+        }
+        fill(new paper.Path.Circle({ center: [x, y], radius: S * 0.16, insert: false }));
+      }
+    } else if (k === 'corner-lines' || k === 'corner-flourish') {
+      const inset = f.inset * f.scale;
+      const ix = b.x - inset,
+        iy = b.y - inset,
+        iw = b.width + 2 * inset,
+        ih = b.height + 2 * inset;
+      const L = Math.max(10, f.gap * 0.8 + 12);
+      const corners = [
+        [ix, iy, 1, 1],
+        [ix + iw, iy, -1, 1],
+        [ix, iy + ih, 1, -1],
+        [ix + iw, iy + ih, -1, -1],
+      ];
+      corners.forEach(function (c) {
+        const x = c[0],
+          y = c[1],
+          sx = c[2],
+          sy = c[3];
+        if (k === 'corner-lines') {
+          const hx = sx > 0 ? x : x - L;
+          const vy = sy > 0 ? y : y - L;
+          fill(new paper.Path.Rectangle({ rectangle: new paper.Rectangle(hx, y - th / 2, L, th), insert: false }));
+          fill(new paper.Path.Rectangle({ rectangle: new paper.Rectangle(x - th / 2, vy, th, L), insert: false }));
+          if (f.dbl) {
+            const off = th * 2.5;
+            const hx2 = sx > 0 ? x + off : x - L * 0.72 - off;
+            const vy2 = sy > 0 ? y + off : y - L * 0.72 - off;
+            fill(new paper.Path.Rectangle({ rectangle: new paper.Rectangle(hx2, y - th / 2 + sy * off, L * 0.72, th * 0.55), insert: false }));
+            fill(new paper.Path.Rectangle({ rectangle: new paper.Rectangle(x - th / 2 + sx * off, vy2, th * 0.55, L * 0.72), insert: false }));
+          }
+        } else {
+          // flourish: a quarter-arc band curling INTO the frame area + leaf + dot
+          try {
+            const band = annulus(x, y, L * 0.8, Math.max(1, L * 0.8 - th), col);
+            const qx = sx > 0 ? x : x - L,
+              qy = sy > 0 ? y : y - L;
+            const quad = new paper.Path.Rectangle({ rectangle: new paper.Rectangle(qx, qy, L, L), insert: false });
+            fill(band.intersect(quad));
+          } catch (e) {
+            /* skip the arc, keep leaf + dot */
+          }
+          out.push(leafAt(x + sx * L * 0.95, y + sy * L * 0.4, sx * sy > 0 ? 45 : -45, Math.max(8, th * 2.2), col));
+          fill(new paper.Path.Circle({ center: [x + sx * L * 0.4, y + sy * L * 0.95], radius: Math.max(1.5, th * 0.45), insert: false }));
+        }
+      });
+    }
+    return out;
+  }
+  function drawFrames() {
+    if (!frameLayer) return;
+    const b =
+      lettersBounds ||
+      new paper.Rectangle(new paper.Point(-FS * 0.8, -FS * 0.55), new paper.Point(FS * 0.8, FS * 0.55));
+    // Rebuild only when a frame recipe or the (coarsely bucketed) letter bounds
+    // changed — scallop/arch run real booleans and must not re-run per drag tick.
+    const key =
+      JSON.stringify(cpFrames(frames)) +
+      '|' +
+      [Math.round(b.x / 8), Math.round(b.y / 8), Math.round(b.width / 8), Math.round(b.height / 8)].join(',');
+    if (key === frameCacheKey && (frames.length === 0 || frameLayer.children.length)) return;
+    frameCacheKey = key;
+    frameLayer.removeChildren();
+    if (!frames.length) return;
+    frames.forEach(function (f) {
+      try {
+        buildFramePaths(f, b).forEach(function (p) {
+          frameLayer.addChild(p);
+        });
+      } catch (e) {
+        /* a bad recipe never takes the canvas down */
+      }
+    });
+  }
   function decor() {
     if (drawMode || animating) return;
     if (selPair) {
@@ -650,9 +918,18 @@ export function mountStudio(opts) {
       c.strokeColor = null;
       layer.addChild(c);
     });
+    updateLettersBounds();
+    drawFrames();
     decor();
     drawStrokes();
     zoomEl.textContent = Math.round(view.zoom * 100) + '%';
+  }
+  function updateLettersBounds() {
+    lettersBounds = null;
+    hit.forEach(function (p) {
+      if (!p) return;
+      lettersBounds = lettersBounds ? lettersBounds.unite(p.bounds) : p.bounds.clone();
+    });
   }
   function full() {
     layer.activate();
@@ -761,6 +1038,8 @@ export function mountStudio(opts) {
     groups.forEach(function (g) {
       drawShape(g.fp, st[g.front].outline);
     });
+    updateLettersBounds();
+    drawFrames();
     decor();
     drawStrokes();
     zoomEl.textContent = Math.round(view.zoom * 100) + '%';
@@ -812,15 +1091,22 @@ export function mountStudio(opts) {
     selPair = null;
     selSym = null;
     full();
-    const lyr = [],
+    const frm = [],
+      lyr = [],
       pen = [];
+    frameLayer.children.forEach(function (c) {
+      if (c.fillColor) frm.push(c);
+    });
     layer.children.forEach(function (c) {
       if (c.fillColor) lyr.push(c);
     });
     penLayer.children.forEach(function (c) {
       if (c.fillColor) pen.push(c);
     });
-    const items = lyr.concat(pen);
+    // Frames draw first, then letters, then pen/symbols — the reveal builds the
+    // stage before the initials arrive (frame-first choreography as the default
+    // order; the full seq/acts model stays P2).
+    const items = frm.concat(lyr).concat(pen);
     if (!items.length) return;
     animating = true;
     let t0 = null;
@@ -1149,6 +1435,234 @@ export function mountStudio(opts) {
     $('dl_v').textContent = animDelay.toFixed(1) + 's';
     $('smooth').value = Math.round(animSmooth * 100);
     $('sm_v').textContent = Math.round(animSmooth * 100) + '%';
+  }
+
+  /* ── Frame shelf UI (v2 Frame tab · #frameshelf) ─────────────────────────
+   * Engine-owned DOM like the rest of the inert editor. Tap a pattern card to
+   * apply it auto-fitted; tap it again to remove. Stack rule (§4.4): ≤2 frames
+   * — one enclosure + one corner set; a new frame replaces its class slot.
+   * Thumbnails are generated procedurally from the same builders around a
+   * canned two-bar "M·J" silhouette, lazily on idle. Absent on v1 → all no-op. */
+  function buildShelf() {
+    const shelf = $('frameshelf');
+    if (!shelf) return;
+    shelf.innerHTML =
+      '<p class="lab" style="margin:0 0 2px">Frame patterns · tap to apply</p>' +
+      '<div class="fcards">' +
+      FRAME_DEFS.map(function (d) {
+        return (
+          '<button type="button" class="fcard" data-fk="' +
+          d.kind +
+          '"><span class="fthumb" data-ft="' +
+          d.kind +
+          '"></span><span class="fname">' +
+          d.label +
+          '</span></button>'
+        );
+      }).join('') +
+      '</div><div id="fapplied"></div>';
+    shelf.addEventListener('click', onShelfClick);
+    scheduleThumbs();
+    reflectShelf();
+  }
+  function onShelfClick(e) {
+    if (animating) return;
+    const del = e.target.closest('[data-fdel]');
+    if (del) {
+      pushUndo();
+      frames.splice(+del.dataset.fdel, 1);
+      selFrame = null;
+      drawFrames();
+      try {
+        view.update();
+      } catch (x) {}
+      reflectShelf();
+      return;
+    }
+    const selBtn = e.target.closest('[data-fsel]');
+    if (selBtn) {
+      selFrame = +selBtn.dataset.fsel;
+      reflectShelf();
+      return;
+    }
+    const card = e.target.closest('.fcard');
+    if (!card) return;
+    const kind = card.dataset.fk;
+    pushUndo();
+    let existing = -1;
+    frames.forEach(function (f, i) {
+      if (f.kind === kind) existing = i;
+    });
+    if (existing >= 0) {
+      frames.splice(existing, 1); // tap the applied pattern again → remove (§4.6)
+      selFrame = null;
+    } else {
+      const cls = frameClass(kind);
+      for (let i = frames.length - 1; i >= 0; i--) {
+        if (frameClass(frames[i].kind) === cls) frames.splice(i, 1);
+      }
+      frames.push(frameDefaults(kind));
+      selFrame = frames.length - 1;
+    }
+    drawFrames();
+    try {
+      view.update();
+    } catch (x) {}
+    reflectShelf();
+  }
+  function reflectShelf() {
+    const shelf = $('frameshelf');
+    if (!shelf) return;
+    [].forEach.call(shelf.querySelectorAll('.fcard'), function (c) {
+      c.classList.toggle(
+        'on',
+        frames.some(function (f) {
+          return f.kind === c.dataset.fk;
+        }),
+      );
+    });
+    const ap = $('fapplied');
+    if (!ap) return;
+    if (!frames.length) {
+      ap.innerHTML = '<p class="cap" style="margin:6px 0 0">No frame yet — tap a pattern above, then fine-tune it here. Add "✎ Draw your own" strokes on top anytime.</p>';
+      return;
+    }
+    if (selFrame == null || selFrame >= frames.length) selFrame = frames.length - 1;
+    const f = frames[selFrame];
+    const label = FRAME_DEFS.filter(function (d) {
+      return d.kind === f.kind;
+    })[0];
+    const showCount = ['laurel', 'wreath', 'sampaguita', 'scallop'].indexOf(f.kind) >= 0;
+    const showGap = ['open-ring', 'double-ring', 'corner-lines', 'corner-flourish'].indexOf(f.kind) >= 0;
+    ap.innerHTML =
+      '<div class="box" style="margin-top:10px">' +
+      '<div class="row">' +
+      frames
+        .map(function (g, i) {
+          const gl = FRAME_DEFS.filter(function (d) {
+            return d.kind === g.kind;
+          })[0];
+          return (
+            '<button type="button" class="tg' +
+            (i === selFrame ? ' on' : '') +
+            '" data-fsel="' +
+            i +
+            '">' +
+            (gl ? gl.label : g.kind) +
+            ' <b data-fdel="' +
+            i +
+            '" aria-label="Remove this frame">×</b></button>'
+          );
+        })
+        .join('') +
+      '</div>' +
+      '<div><div class="lab2"><span>Size · ' +
+      (label ? label.label : f.kind) +
+      '</span><span id="ff_scale_v">' +
+      Math.round(f.scale * 100) +
+      '%</span></div><input type="range" id="ff_scale" min="50" max="220" step="1" value="' +
+      Math.round(f.scale * 100) +
+      '" aria-label="Frame size"></div>' +
+      '<div><div class="lab2"><span>Thickness</span><span id="ff_th_v">' +
+      f.thick +
+      '</span></div><input type="range" id="ff_th" min="1" max="40" step="1" value="' +
+      f.thick +
+      '" aria-label="Frame thickness"></div>' +
+      (showCount
+        ? '<div><div class="lab2"><span>Repeats</span><span id="ff_ct_v">' +
+          f.count +
+          '</span></div><input type="range" id="ff_ct" min="3" max="48" step="1" value="' +
+          f.count +
+          '" aria-label="Frame repeats"></div>'
+        : '') +
+      (showGap
+        ? '<div><div class="lab2"><span>Opening / spread</span><span id="ff_gp_v">' +
+          f.gap +
+          '</span></div><input type="range" id="ff_gp" min="0" max="160" step="1" value="' +
+          f.gap +
+          '" aria-label="Frame opening"></div>'
+        : '') +
+      '<p class="cap" style="margin:0">Auto-fits your letters · uses your outline colour · sits behind the letters.</p>' +
+      '</div>';
+    wireFrameSlider('ff_scale', f, function (g, v) {
+      g.scale = v / 100;
+    }, 'ff_scale_v', function (v) {
+      return v + '%';
+    });
+    wireFrameSlider('ff_th', f, function (g, v) {
+      g.thick = v;
+    }, 'ff_th_v');
+    if (showCount)
+      wireFrameSlider('ff_ct', f, function (g, v) {
+        g.count = v;
+      }, 'ff_ct_v');
+    if (showGap)
+      wireFrameSlider('ff_gp', f, function (g, v) {
+        g.gap = v;
+      }, 'ff_gp_v');
+  }
+  function wireFrameSlider(id, f, set, vid, fmt) {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', function () {
+      const v = parseInt(this.value, 10);
+      set(f, v);
+      const lv = $(vid);
+      if (lv) lv.textContent = fmt ? fmt(v) : String(v);
+      drawFrames();
+      try {
+        view.update();
+      } catch (x) {}
+    });
+    wireSlider(el); // one undo entry per slider gesture (snap() carries frames)
+  }
+  function scheduleThumbs() {
+    const run = function () {
+      try {
+        buildThumbs();
+      } catch (e) {}
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2500 });
+    else setTimeout(run, 500);
+  }
+  function buildThumbs() {
+    const shelf = $('frameshelf');
+    if (destroyed || !shelf || !paper.project) return;
+    // Canned "M·J" silhouette bounds — thumbnails show the pattern's shape, not
+    // the live mark (live-mark thumbs are P2 polish per the verdict).
+    const b = new paper.Rectangle(new paper.Point(-55, -40), new paper.Point(55, 40));
+    FRAME_DEFS.forEach(function (d) {
+      const slot = shelf.querySelector('[data-ft="' + d.kind + '"]');
+      if (!slot) return;
+      const f = frameDefaults(d.kind);
+      f.c = '#8C6932';
+      const tmp = new paper.Group({ insert: false });
+      const s1 = new paper.Path.Rectangle({ rectangle: new paper.Rectangle(-38, -22, 30, 44), radius: 6, insert: false });
+      const s2 = new paper.Path.Rectangle({ rectangle: new paper.Rectangle(8, -22, 30, 44), radius: 6, insert: false });
+      s1.fillColor = new paper.Color('#D9D2C4');
+      s2.fillColor = new paper.Color('#D9D2C4');
+      tmp.addChild(s1);
+      tmp.addChild(s2);
+      try {
+        buildFramePaths(f, b).forEach(function (p) {
+          tmp.addChild(p);
+        });
+      } catch (e) {}
+      let inner = '';
+      try {
+        inner = new XMLSerializer().serializeToString(tmp.exportSVG({ asString: false }));
+      } catch (e) {}
+      const bb = tmp.bounds;
+      tmp.remove();
+      if (!inner) return;
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' +
+        [Math.round(bb.x - 6), Math.round(bb.y - 6), Math.round(bb.width + 12), Math.round(bb.height + 12)].join(' ') +
+        '">' +
+        inner +
+        '</svg>';
+      slot.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '")';
+    });
   }
 
   function bindUI() {
@@ -1506,6 +2020,7 @@ export function mountStudio(opts) {
         more.addEventListener('click', function () {
           morebox.classList.toggle('off');
         });
+      buildShelf(); // the Frame tab's pattern shelf (§4)
     }
     $('animbox').addEventListener('click', function (e) {
       const b = e.target.closest('button');
@@ -1841,10 +2356,13 @@ export function mountStudio(opts) {
             })
           : [];
         syms = Array.isArray(cfg.syms) ? cpSyms(cfg.syms) : [];
+        frames = Array.isArray(cfg.frames) ? cpFrames(cfg.frames) : [];
+        selFrame = null;
         undoStack = [];
         redoStack = [];
         updU();
         full();
+        reflectShelf();
       };
       if (cfg.font && cfg.font !== fontKey && FONTS[cfg.font]) {
         fontKey = cfg.font;
@@ -1880,6 +2398,7 @@ export function mountStudio(opts) {
         s.rot = ((s.rot % 360) + 540) % 360 - 180;
         return s;
       }),
+      frames: cpFrames(frames),
       anim: { kind: anim, dur: animDur, smooth: animSmooth, delay: animDelay },
     };
   }
@@ -1894,7 +2413,12 @@ export function mountStudio(opts) {
     selSym = null;
     drawMode = false;
     full();
+    // Canonical export order (§4.4): frames → letters → strokes → syms. The
+    // fill-only walk holds for frames too — every frame path is filled geometry.
     const items = [];
+    frameLayer.children.forEach(function (c) {
+      if (c.fillColor) items.push(c);
+    });
     layer.children.forEach(function (c) {
       if (c.fillColor) items.push(c);
     });

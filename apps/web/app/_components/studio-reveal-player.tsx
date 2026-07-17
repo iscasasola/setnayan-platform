@@ -103,7 +103,12 @@ function DrawOnSvg({
     // eased() mirror: more `smooth` → softer in/out (the engine's smoothstep blend).
     const easing = smooth > 0.66 ? 'cubic-bezier(.45,.05,.25,1)' : smooth > 0.33 ? 'ease-in-out' : 'linear';
     const durMs = Math.max(400, dur * 1000);
-    const staggerMs = Math.max(0, delay) * 1000;
+    // Normalized stagger budget (council verdict §5.5): the SPAN of start times
+    // is capped at one act duration, so 6 paths or 200 land on the same clock —
+    // a frame pattern's repeated paths (a wreath is dozens) can no longer
+    // stretch a 6s reveal into minutes. Small marks keep the chosen delay.
+    const rawStaggerMs = Math.max(0, delay) * 1000;
+    const staggerMs = paths.length > 1 ? Math.min(rawStaggerMs, durMs / (paths.length - 1)) : 0;
     const anims: Animation[] = [];
 
     paths.forEach((p, i) => {

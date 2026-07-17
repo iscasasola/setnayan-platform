@@ -20,7 +20,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { ChevronDown, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Loader2, type LucideIcon } from 'lucide-react';
 
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -187,7 +187,14 @@ export function BarMenu({
           />
           <div
             role="menu"
-            onClick={() => set(false)}
+            // Verdict §5.1 — close ONLY on a leaf action (an element flagged
+            // `data-close`, e.g. MenuRow). Steppers, radios, checkboxes and text
+            // inputs inside the body carry no `data-close`, so a click on them
+            // keeps the menu open (Arrange's walkway stepper, the Share menu's
+            // photo-visibility radios). Fixes the container-level close bug.
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('[data-close]')) set(false);
+            }}
             className={`absolute ${
               align === 'right' ? 'right-0' : 'left-0'
             } z-40 mt-1 ${width} overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg`}
@@ -228,6 +235,7 @@ export function MenuRow({
   href,
   target,
   emphasized,
+  keepOpen,
 }: {
   icon: LucideIcon;
   label: string;
@@ -238,6 +246,10 @@ export function MenuRow({
   href?: string;
   target?: string;
   emphasized?: boolean;
+  // Verdict §5.1 — a leaf action closes its BarMenu (via `data-close`). Radio-
+  // like rows (the Share menu's photo-visibility picks) pass keepOpen so the
+  // menu survives the click for the next choice.
+  keepOpen?: boolean;
 }) {
   const inner = (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
@@ -256,15 +268,23 @@ export function MenuRow({
   const cls = `flex w-full items-start gap-2.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04] disabled:cursor-not-allowed disabled:opacity-40 ${
     emphasized ? 'bg-terracotta/[0.06]' : ''
   }`;
+  const closeAttr = keepOpen ? {} : { 'data-close': '' };
   if (href) {
     return (
-      <a role="menuitem" href={href} target={target} className={cls}>
+      <a role="menuitem" href={href} target={target} className={cls} {...closeAttr}>
         {inner}
       </a>
     );
   }
   return (
-    <button type="button" role="menuitem" onClick={onClick} disabled={disabled} className={cls}>
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className={cls}
+      {...closeAttr}
+    >
       {inner}
     </button>
   );
@@ -291,6 +311,7 @@ export function SaveStatusChip({
   disabled?: boolean;
 }) {
   const dirty = state === 'dirty' || state === 'error';
+  const clickable = dirty;
   const label =
     state === 'saving'
       ? 'Saving…'
@@ -301,27 +322,40 @@ export function SaveStatusChip({
           : savedAt
             ? `Saved · ${savedAt}`
             : 'Saved';
+  // Verdict §5.6 — tiered, permanent. Saved is quiet muted text; "N unsaved" is
+  // ink/70 + a dot (calm, NOT the terracotta loud state); Saving shows a
+  // spinner; Retry is the ONLY warm/loud state. Gold stays on Auto Arrange.
+  const tone =
+    state === 'error'
+      ? 'cursor-pointer border-warn-400/60 bg-warn-50 text-warn-800 hover:border-warn-500'
+      : state === 'dirty'
+        ? 'cursor-pointer border-ink/20 bg-cream text-ink/70 hover:border-ink/35'
+        : 'border-ink/12 bg-cream text-ink/55';
+  const leading =
+    state === 'saving' ? (
+      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+    ) : state === 'error' ? (
+      <AlertTriangle className="h-3 w-3" aria-hidden />
+    ) : state === 'dirty' ? (
+      <span className="h-1.5 w-1.5 rounded-full bg-ink/60" aria-hidden />
+    ) : (
+      <Check className="h-3 w-3 text-ink/40" aria-hidden />
+    );
   return (
     <button
       type="button"
-      onClick={dirty ? onSave : undefined}
+      onClick={clickable ? onSave : undefined}
       disabled={disabled || state === 'saving' || (!dirty && state === 'saved')}
       title={
-        dirty
-          ? 'Unsaved layout changes — click to save (⌘S)'
-          : 'All layout changes saved'
+        dirty ? 'Unsaved layout changes — click to save (⌘S)' : 'All layout changes saved'
       }
+      aria-label={label}
       aria-live="polite"
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-mono text-[11px] transition-colors ${
-        dirty
-          ? 'cursor-pointer border-terracotta/50 bg-terracotta/5 text-terracotta hover:border-terracotta'
-          : 'border-ink/12 bg-cream text-ink/55'
-      } disabled:cursor-default`}
+      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 font-mono text-[11px] transition-colors sm:px-3 ${tone} disabled:cursor-default`}
     >
-      {dirty ? (
-        <span className="h-1.5 w-1.5 rounded-full bg-terracotta" />
-      ) : null}
-      <span className="whitespace-nowrap">{label}</span>
+      {leading}
+      {/* Phone: condense to the leading glyph/dot; the label re-appears at sm+. */}
+      <span className="hidden whitespace-nowrap sm:inline">{label}</span>
     </button>
   );
 }

@@ -2704,13 +2704,6 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         selectedType={selectedId ? tablesById.get(selectedId)?.type ?? null : null}
         onChangeType={changeTableType}
         selectedLinked={selectedId ? Boolean(tablesById.get(selectedId)?.linkGroupId) : false}
-        linkArmed={linkArmId != null}
-        onArmLink={() => {
-          setPlacingGroupId(null);
-          setPlacingGuestId(null);
-          setPlaceZone(null);
-          setLinkArmId(selectedId);
-        }}
         onBreakApart={breakApart}
         onPublish={publishPlan}
         printHref={`/dashboard/${eventId}/seating/print`}
@@ -4776,8 +4769,6 @@ function Hud({
   selectedType,
   onChangeType,
   selectedLinked,
-  linkArmed,
-  onArmLink,
   onBreakApart,
   onPublish,
   printHref,
@@ -4848,8 +4839,6 @@ function Hud({
   selectedType: string | null;
   onChangeType: (newType: string) => void;
   selectedLinked: boolean;
-  linkArmed: boolean;
-  onArmLink: () => void;
   onBreakApart: () => void;
   onPublish: () => void;
   printHref: string;
@@ -5071,6 +5060,12 @@ function Hud({
                     </option>
                   ))}
                 </select>
+                {/* §4 — seated-guard copy (parity with the 2D shape picker): a
+                    shape change resets capacity, and guests in chairs the new
+                    shape lacks return to the unseated pool. */}
+                <p className="mt-1 text-[10px] leading-snug text-white/45">
+                  Changing shape resets seats — anyone in a chair the new shape doesn&apos;t have goes back to unseated.
+                </p>
                 <select
                   value=""
                   disabled={!canEdit}
@@ -5089,26 +5084,17 @@ function Hud({
                     </option>
                   ))}
                 </select>
-                {canEdit ? (
-                  selectedLinked ? (
-                    <button
-                      type="button"
-                      onClick={onBreakApart}
-                      className="mt-1.5 w-full rounded-lg bg-white/10 py-1.5 text-sm text-white transition hover:bg-white/20"
-                    >
-                      Break apart
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={onArmLink}
-                      className={`mt-1.5 w-full rounded-lg py-1.5 text-sm transition ${
-                        linkArmed ? 'bg-amber-400/30 text-white ring-1 ring-amber-300/60' : 'bg-white/10 text-white hover:bg-white/20'
-                      }`}
-                    >
-                      {linkArmed ? 'Tap another table to link…' : 'Link to another table'}
-                    </button>
-                  )
+                {/* §6.1 — "Link to another table" (creator UI for a removed
+                    feature, owner 2026-07-16) is DELETED. Break apart stays for
+                    legacy groups; the linkTables action is untouched. */}
+                {canEdit && selectedLinked ? (
+                  <button
+                    type="button"
+                    onClick={onBreakApart}
+                    className="mt-1.5 w-full rounded-lg bg-white/10 py-1.5 text-sm text-white transition hover:bg-white/20"
+                  >
+                    Break apart
+                  </button>
                 ) : null}
                 {canEdit ? (
                   <p className="mt-1.5 text-[10px] leading-snug text-white/45">Tap a chair to remove or restore it.</p>

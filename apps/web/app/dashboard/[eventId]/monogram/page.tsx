@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
@@ -10,6 +10,9 @@ import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
+import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
@@ -97,6 +100,15 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const hasStudio = Boolean(studioConfig && event.monogram_custom_svg);
   const studioNotice = STUDIO_NOTICES[sp.studio_error ?? ''] ?? STUDIO_NOTICES[sp.studio ?? ''] ?? null;
 
+  // Free/paid honesty line (council verdict 2026-07-17 §5.3): the studio's
+  // "Animate the reveal" panel previews all five kinds free, but the LIVE site
+  // plays the pick only with the paid Animated Monogram — say so where the
+  // choice is made. Price from the admin catalog only (owner rule 2026-06-14).
+  const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
+  const animatedPricePhp = ownsAnimated
+    ? null
+    : ((await formatV2Sku(ANIMATED_MONOGRAM_SERVICE_KEY).catch(() => null))?.price_php ?? null);
+
   return (
     <section className="space-y-6">
       <Link
@@ -138,6 +150,28 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         hasStudio={hasStudio}
         notice={studioNotice}
       />
+
+      {/* ── The free/paid line, said where the choice is made (§5.3): a React
+          sibling below the studio card — React never reaches into the inert
+          editor subtree. Owned → confirmation; unowned → the honest gate +
+          catalog price, anchored to the buy section below. ── */}
+      {ownsAnimated ? (
+        <p className="inline-flex items-center gap-2 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+          <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          The reveal you pick in the studio plays live on your wedding website.
+        </p>
+      ) : (
+        <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/70">
+          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+          <span>
+            Previewing reveals in the studio is always free — guests see your pick live with{' '}
+            <a href="#animated-monogram" className="font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-700">
+              Animated Monogram{animatedPricePhp != null ? ` · ${formatPhp(animatedPricePhp)}` : ''}
+            </a>
+            .
+          </span>
+        </p>
+      )}
 
       {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
           Owned → live confirmation + preview; unowned → before/after + buy. ── */}

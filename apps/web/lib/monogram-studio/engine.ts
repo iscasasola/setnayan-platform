@@ -50,6 +50,11 @@ export function mountStudio(opts) {
   // overlay (the StudioRevealPlayer portal) — the benchmark's one-implementation
   // preview. False/absent → the legacy canvas acts run for draw-on kinds.
   const portalPreview = Boolean(opts.portalPreview);
+  // App-frame mode (owner 2026-07-17 "imagespace … draggable, like the
+  // Photoshop app"): the editor fills a fixed frame, so there is no page
+  // beneath the canvas to scroll — a background finger PANS the artboard
+  // again, and the canvas owns every touch gesture.
+  const appFrame = Boolean(opts.appFrame);
 
   const GOLD = '#C5A059';
   const CHECKER =
@@ -2563,10 +2568,10 @@ export function mountStudio(opts) {
             hint.style.opacity = '0';
           } else {
             sel = null;
-            // D5: on touch the background is the page's scroll surface (the
-            // touchstart guard above didn't claim it) — a background tap still
-            // deselects, but never pans the artboard out from under a scroll.
-            mode = e.pointerType === 'touch' ? 'bgtap' : 'pan';
+            // In the app frame the canvas IS the surface — a background finger
+            // pans the imagespace (Photoshop grammar). Outside it (v1 page
+            // flow), touch background stays the page's scroll surface (D5).
+            mode = e.pointerType === 'touch' && !appFrame ? 'bgtap' : 'pan';
             lastV = vp;
             hint.style.opacity = '0';
           }
@@ -2742,6 +2747,11 @@ export function mountStudio(opts) {
       'touchstart',
       function (e) {
         if (!view || animating) return;
+        if (appFrame) {
+          // the frame owns every gesture — nothing beneath to scroll
+          e.preventDefault();
+          return;
+        }
         if (e.touches.length > 1) {
           e.preventDefault();
           return;

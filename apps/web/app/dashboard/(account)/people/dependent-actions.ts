@@ -287,6 +287,9 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft boundary: emailing a claim/handover link reaches a third party —
+  // a native anonymous principal must secure their plan first.
+  if (user.is_anonymous) redirect('/signup?next=/dashboard/people');
 
   const { data: row } = await supabase
     .from('dependents')

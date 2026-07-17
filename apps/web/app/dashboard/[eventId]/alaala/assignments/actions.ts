@@ -15,23 +15,49 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function createAssignment(
+/**
+ * Kwento assignment mutations write via the service-role client (RLS bypass)
+ * and can email a guest, so they must confirm the caller actually hosts the
+ * event — this couple-membership check was missing (an IDOR) — and is not a
+ * native anonymous draft principal (anon-draft users can't email third parties
+ * until they secure their plan).
+ */
+async function requireCoupleForKwento(
   eventId: string,
-  momentKey: KwentoMomentKey,
-  guestId: string,
-): Promise<ActionResult> {
+): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not authenticated' };
+  if (user.is_anonymous) {
+    return { ok: false, error: 'Secure your account to assign storytellers.' };
+  }
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) return { ok: false, error: 'Not authorized for this event.' };
+  return { ok: true, userId: user.id };
+}
+
+export async function createAssignment(
+  eventId: string,
+  momentKey: KwentoMomentKey,
+  guestId: string,
+): Promise<ActionResult> {
+  const auth = await requireCoupleForKwento(eventId);
+  if (!auth.ok) return auth;
 
   const admin = createAdminClient();
   const { error } = await admin.from('kwento_assignments').insert({
     event_id: eventId,
     moment_key: momentKey,
     assigned_guest_id: guestId,
-    assigned_by_user_id: user.id,
+    assigned_by_user_id: auth.userId,
   });
 
   if (error) {
@@ -52,11 +78,8 @@ export async function removeAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Not authenticated' };
+  const auth = await requireCoupleForKwento(eventId);
+  if (!auth.ok) return auth;
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -78,6 +101,9 @@ export async function nudgeAssignee(assignmentId: string): Promise<ActionResult>
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not authenticated' };
+  if (user.is_anonymous) {
+    return { ok: false, error: 'Secure your account to nudge storytellers.' };
+  }
 
   const admin = createAdminClient();
 
@@ -88,6 +114,17 @@ export async function nudgeAssignee(assignmentId: string): Promise<ActionResult>
     .maybeSingle();
 
   if (readErr || !row) return { ok: false, error: 'Assignment not found' };
+
+  // Authorize against the assignment's own event — previously any authenticated
+  // user could nudge (email) any guest by enumerating assignment ids.
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', row.event_id as string)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) return { ok: false, error: 'Not authorized for this event.' };
   if ((row.nudge_count as number) >= MAX_NUDGES) {
     return { ok: false, error: `Nudge limit reached (${MAX_NUDGES} per assignment)` };
   }

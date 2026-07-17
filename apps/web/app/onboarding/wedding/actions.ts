@@ -25,6 +25,7 @@ import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
+import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -348,6 +349,15 @@ export async function commitOnboardingWedding(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
+  // 2026-07-12). The shipped guard lived only in create-event's server action;
+  // this commit path could walk past it (council 2026-07-17 recon: an existing
+  // bypass). A freshly-minted anonymous user has no prior events by
+  // construction, so the read is skipped for them.
+  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
+    return { ok: false, error: 'wedding_exists' };
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --

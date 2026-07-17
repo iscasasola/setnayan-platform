@@ -189,8 +189,12 @@ export default function PrivacyPage() {
               <strong>Event honoree details</strong> — for some event types (for
               example a christening or a gender reveal) the person the event is
               for is not the account holder; the details you enter about them —
-              which may include a child&rsquo;s birth date and gender, or an
-              expected due date — are stored as part of your event.
+              which may include the celebrant&rsquo;s first name
+              (&ldquo;Para kanino?&rdquo;), a child&rsquo;s birth date and
+              gender, or an expected due date — are stored as part of your
+              event. The celebrant&rsquo;s first name is used only to keep
+              their celebrations organized; it is never shown on public pages
+              or to vendors.
             </li>
             <li>
               <strong>Guest RSVP details</strong> — when your guests reply we

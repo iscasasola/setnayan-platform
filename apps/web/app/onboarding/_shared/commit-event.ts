@@ -17,6 +17,7 @@ import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
+import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 
 export async function commitOnboardingEvent(
@@ -50,6 +51,18 @@ export async function commitOnboardingEvent(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  // Life-event cardinality (2026-07-17): one IN-PLANNING life event per
+  // (account × type × honoree). The generic onboarding collects no honoree yet,
+  // so a life-type commit contends for the per-type singleton slot; lifestyle
+  // types return null immediately. Anonymous drafts have no prior events by
+  // construction but run the guard anyway (it's one indexed read).
+  const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
+    eventType: payload.eventType,
+  });
+  if (blockingLifeEvent) {
+    return { ok: false, error: 'life_event_exists' };
   }
 
   // Resolve the profile for a sensible display-name fallback + to confirm the type

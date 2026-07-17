@@ -1779,14 +1779,95 @@ export function mountStudio(opts) {
    * overlays on a fresh initState() (exactly the shape applyConfig restores).
    * At least three ship with a crossing decision already applied so the
    * interlock engine is visible before anyone has to understand it. */
+  // 12 named, art-directed Styles (benchmark verdict §1 — "the Minted/Zola
+  // named-style pattern: font pairing, optical spacing, weave gaps, frame
+  // stack, and palette PRE-SOLVED per style"). Filipino names, one tap each.
+  // Legacy preset keys stay valid for saved `preset` provenance.
   const PRESET_DEFS = [
-    { key: 'duo', label: 'Duo', three: true },
-    { key: 'interlocked', label: 'Interlocked', three: true },
-    { key: 'stacked', label: 'Stacked', three: true },
-    { key: 'framed-duo', label: 'Framed duo', three: true },
-    { key: 'solo-ring', label: 'Solo ring', three: false },
-    { key: 'blank', label: 'Blank', three: null }, // fits both
+    { key: 'alon', label: 'Alon', three: true, font: 'script', ink: '#1E2229', outline: 'none', base: 'interlocked' },
+    { key: 'sampaguita-style', label: 'Sampaguita', three: true, font: 'cardo', ink: '#5C2542', outline: '#C5A059', base: 'duo', frames: ['sampaguita'] },
+    { key: 'habi', label: 'Habi', three: true, font: 'cardo', ink: '#1E2229', outline: '#C5A059', base: 'interlocked', frames: ['ring', 'diamond'], weave: true },
+    { key: 'balangay', label: 'Balangay', three: true, font: 'cinzeldec', ink: '#1E2229', outline: '#8C6932', base: 'duo', frames: ['diamond'] },
+    { key: 'araw', label: 'Araw', three: true, font: 'yeseva', ink: '#8C6932', outline: '#C5A059', base: 'duo', frames: ['open-ring', 'cardinal-marks'] },
+    { key: 'kapilya', label: 'Kapilya', three: true, font: 'playfairsc', ink: '#5C2542', outline: '#E6D2A2', base: 'stacked', frames: ['arch'] },
+    { key: 'perlas', label: 'Perlas', three: true, font: 'marcellus', ink: '#1E2229', outline: '#C9CDD2', base: 'duo', frames: ['double-ring'] },
+    { key: 'hardin', label: 'Hardin', three: true, font: 'gilda', ink: '#6E7B66', outline: '#C5A059', base: 'duo', frames: ['wreath'] },
+    { key: 'lazo', label: 'Lazo', three: true, font: 'pinyon', ink: '#5C2542', outline: 'none', base: 'interlocked', frames: ['sparkle-duo'] },
+    { key: 'tala', label: 'Tala', three: true, font: 'cinzeldec', ink: '#2A3A5E', outline: '#E6D2A2', base: 'duo', frames: ['ring', 'sparkle-duo'] },
+    { key: 'payneta', label: 'Payneta', three: true, font: 'playfairsc', ink: '#B07A86', outline: '#1E2229', base: 'duo', frames: ['cartouche', 'corner-flourish'] },
+    { key: 'kandila', label: 'Kandila', three: true, font: 'gilda', ink: '#1E2229', outline: '#C5A059', base: 'stacked', frames: ['corner-lines'] },
+    { key: 'solo-ring', label: 'Solo ring', three: false, font: 'cardo', ink: '#5C2542', outline: '#C5A059', base: 'solo', frames: ['ring'] },
+    { key: 'blank', label: 'Blank', three: null, base: 'blank' }, // fits both — start from scratch, last
   ];
+  // legacy provenance keys (pre-Styles saves) → nearest style geometry
+  const LEGACY_PRESET_BASE = { duo: 'duo', interlocked: 'interlocked', stacked: 'stacked', 'framed-duo': 'duo' };
+  // 8 pre-balanced palette moods (benchmark §2): couples pick a MOOD, not a
+  // hex — ink + outline solved together so contrast always lands. The custom
+  // colour dots stay as the fine layer below.
+  const MOODS = [
+    { key: 'inkgold', label: 'Ink & Gold', ink: '#1E2229', outline: '#C5A059' },
+    { key: 'winecream', label: 'Wine & Cream', ink: '#5C2542', outline: '#E6D2A2' },
+    { key: 'mulberrygold', label: 'Mulberry & Gold', ink: '#5C2542', outline: '#C5A059' },
+    { key: 'forestbrass', label: 'Forest & Brass', ink: '#6E7B66', outline: '#8C6932' },
+    { key: 'navychampagne', label: 'Navy & Champagne', ink: '#2A3A5E', outline: '#E6D2A2' },
+    { key: 'roseink', label: 'Rose & Ink', ink: '#B07A86', outline: '#1E2229' },
+    { key: 'obsidiansilver', label: 'Obsidian & Silver', ink: '#1E2229', outline: '#C9CDD2' },
+    { key: 'allgold', label: 'All Gold', ink: '#8C6932', outline: '#C5A059' },
+  ];
+  function buildMoods() {
+    const slot = $('moods');
+    if (!slot) return;
+    slot.innerHTML =
+      '<div class="moodrow">' +
+      MOODS.map(function (mo) {
+        return (
+          '<button type="button" class="mood" data-mood="' +
+          mo.key +
+          '"><span class="dots"><i style="background:' +
+          mo.ink +
+          '"></i><i style="background:' +
+          mo.outline +
+          '"></i></span>' +
+          mo.label +
+          '</button>'
+        );
+      }).join('') +
+      '</div>';
+    slot.addEventListener('click', function (ev) {
+      const b = ev.target.closest('[data-mood]');
+      if (!b || animating) return;
+      const mo = MOODS.filter(function (x) {
+        return x.key === b.dataset.mood;
+      })[0];
+      if (!mo) return;
+      inkHex = mo.ink;
+      ink = new paper.Color(inkHex);
+      outlineHex = mo.outline;
+      reflectSwatch('inks', inkHex);
+      reflectSwatch('outs', outlineHex);
+      syncColorInput('ink_custom', inkHex);
+      syncColorInput('out_custom', outlineHex);
+      // frames follow the mood's metal by default
+      frames.forEach(function (f) {
+        f.c = mo.outline === 'none' ? f.c : mo.outline;
+      });
+      drawFrames();
+      full();
+      reflectMoods();
+      reflectShelf();
+    });
+    reflectMoods();
+  }
+  function reflectMoods() {
+    const slot = $('moods');
+    if (!slot) return;
+    [].forEach.call(slot.querySelectorAll('[data-mood]'), function (b) {
+      const mo = MOODS.filter(function (x) {
+        return x.key === b.dataset.mood;
+      })[0];
+      b.classList.toggle('on', Boolean(mo && mo.ink === inkHex && mo.outline === outlineHex));
+    });
+  }
   /** Deterministic interlock bisect (§3.1): nudge the letters' half-offset
    *  until the overlap area lands in an 8–14% band of the union area — font-
    *  proof, using the same intersect the render pipeline runs. */
@@ -1827,39 +1908,59 @@ export function mountStudio(opts) {
     } catch (e) {}
     return best;
   }
-  function presetState(key) {
-    const three = letters.length === 3;
-    if (key === 'duo' && three) {
-      // "Duo repaired": today's layout with a tuned ampersand + tighter spacing.
-      return { st: [{ tx: -FS * 0.3 }, { scale: 0.52, ty: FS * 0.02 }, { tx: FS * 0.3 }] };
-    }
-    if (key === 'interlocked' && three) {
+  function baseLayout(base, three) {
+    // Can't-leave-ugly invariant (verdict §2): the weave cut-gap scales with
+    // the letters' visual weight (glyph scale is the deterministic proxy) —
+    // computed at build, never a slider.
+    const gapFor = function (scale) {
+      return Math.max(4, Math.min(10, Math.round(6 * scale)));
+    };
+    if (base === 'interlocked' && three) {
       const dx = interlockOffset();
       return {
-        st: [{ tx: -dx }, { scale: 0.32, ty: FS * 0.44 }, { tx: dx }],
-        pstate: { '0-2': 'cut' }, // pre-woven — R rides over L with the cut gap
+        st: [{ tx: -dx, gap: gapFor(1) }, { scale: 0.32, ty: FS * 0.44 }, { tx: dx, gap: gapFor(1) }],
+        pstate: { '0-2': 'cut' },
       };
     }
-    if (key === 'stacked' && three) {
+    if (base === 'stacked' && three) {
       return {
         st: [
-          { tx: 0, ty: -FS * 0.3, scale: 0.85 },
+          { tx: 0, ty: -FS * 0.3, scale: 0.85, gap: gapFor(0.85) },
           { scale: 0.4 },
-          { tx: 0, ty: FS * 0.3, scale: 0.85 },
+          { tx: 0, ty: FS * 0.3, scale: 0.85, gap: gapFor(0.85) },
         ],
-        pstate: { '0-1': 'merge', '1-2': 'merge' }, // one connected column
+        pstate: { '0-1': 'merge', '1-2': 'merge' },
       };
     }
-    if (key === 'framed-duo' && three) {
-      return {
-        st: [{ tx: -FS * 0.3 }, { scale: 0.52 }, { tx: FS * 0.3 }],
-        frames: [frameDefaults('ring')], // compiles to a frames[] recipe — never baked strokes
-      };
+    if (base === 'duo' && three) {
+      return { st: [{ tx: -FS * 0.3 }, { scale: 0.52, ty: FS * 0.02 }, { tx: FS * 0.3 }] };
     }
-    if (key === 'solo-ring' && !three) {
-      return { frames: [frameDefaults('ring')] };
+    return {}; // solo / blank
+  }
+  function presetState(key) {
+    const three = letters.length === 3;
+    const def = PRESET_DEFS.filter(function (d) {
+      return d.key === key;
+    })[0];
+    const base = def ? def.base : LEGACY_PRESET_BASE[key] || 'blank';
+    const ps = baseLayout(base, three);
+    if (def && def.frames) {
+      ps.frames = def.frames.map(function (fk) {
+        return frameDefaults(fk);
+      });
+      if (def.weave && ps.frames.length >= 2) {
+        // the Habi showcase: two offset band enclosures, pre-woven
+        const spread = FS * 0.5;
+        ps.frames[0].tx = -spread * 0.4;
+        ps.frames[1].tx = spread * 0.4;
+        ps.frames[0].weave = true;
+        ps.frames[1].weave = true;
+      }
     }
-    return {}; // blank — a fresh initState
+    if (def && def.font) ps.font = def.font;
+    if (def && def.ink) ps.ink = def.ink;
+    if (def && typeof def.outline !== 'undefined') ps.outline = def.outline;
+    return ps;
   }
   function applyPresetState(ps) {
     initState();
@@ -1875,14 +1976,45 @@ export function mountStudio(opts) {
     }
     if (ps.pstate) pstate = Object.assign({}, ps.pstate);
     if (ps.frames) frames = cpFrames(ps.frames);
+    if (ps.ink) {
+      inkHex = ps.ink;
+      ink = new paper.Color(inkHex);
+      reflectSwatch('inks', inkHex);
+      syncColorInput('ink_custom', inkHex);
+    }
+    if (typeof ps.outline !== 'undefined') {
+      outlineHex = ps.outline;
+      reflectSwatch('outs', outlineHex);
+      if (outlineHex !== 'none') syncColorInput('out_custom', outlineHex);
+    }
   }
   function applyPreset(key) {
     pushUndo();
-    applyPresetState(presetState(key));
-    presetKey = key;
-    full();
-    reflectShelf();
-    reflectPresetStrip();
+    const ps = presetState(key);
+    const finish = function () {
+      applyPresetState(ps);
+      presetKey = key;
+      full();
+      reflectShelf();
+      reflectPresetStrip();
+      reflectMoods();
+    };
+    // styles pre-solve the FACE too — swap it before the layout applies
+    if (ps.font && ps.font !== fontKey && FONTS[ps.font]) {
+      loadFont(ps.font, function (f) {
+        if (!f) {
+          finish();
+          return;
+        }
+        font = f;
+        fontKey = ps.font;
+        reflectFontChip(fontKey);
+        buildBase();
+        finish();
+      });
+      return;
+    }
+    finish();
   }
   function buildPresetStrip() {
     const strip = $('presetstrip');
@@ -1892,7 +2024,7 @@ export function mountStudio(opts) {
       return d.three === null || d.three === three;
     });
     strip.innerHTML =
-      '<p class="lab" style="margin:0 0 2px">Start from</p><div class="pstrip">' +
+      '<p class="lab" style="margin:0 0 2px">Styles · your initials, twelve ways</p><div class="pstrip">' +
       defs
         .map(function (d) {
           return (
@@ -1938,27 +2070,64 @@ export function mountStudio(opts) {
   function buildPresetThumbs() {
     const strip = $('presetstrip');
     if (destroyed || !strip || !view || !font) return;
-    // Transient apply → export → restore, all SYNCHRONOUS — paper paints on
-    // rAF, so intermediate states never reach the screen (the same trick
-    // buildExportSVG itself relies on). Single mounted engine only (§8.15) —
-    // and the thumbs show the couple's ACTUAL initials, per §3.1.
-    const keep = snap();
-    const keepPreset = presetKey;
-    const keepSel = sel,
-      keepPair = selPair;
-    [].forEach.call(strip.querySelectorAll('.pcard'), function (card) {
-      applyPresetState(presetState(card.dataset.pk));
-      const svg = buildExportSVG();
-      const slot = card.querySelector('.pthumb');
-      if (svg && slot) slot.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '")';
+    // Thumbnails render the couple's ACTUAL initials in each style's OWN face
+    // (§3.1). Cards are grouped by typeface; each chunk loads its face once,
+    // then runs the synchronous transient apply → export → restore (paper
+    // paints on rAF, so intermediate states never reach the screen). Chunks
+    // chain on idle so a slow face never blocks the editor.
+    const cards = [].slice.call(strip.querySelectorAll('.pcard'));
+    const byFont = {};
+    cards.forEach(function (card) {
+      const def = PRESET_DEFS.filter(function (d) {
+        return d.key === card.dataset.pk;
+      })[0];
+      const fk = def && def.font && FONTS[def.font] ? def.font : fontKey;
+      (byFont[fk] = byFont[fk] || []).push(card);
     });
-    restore(keep);
-    presetKey = keepPreset;
-    sel = keepSel;
-    selPair = keepPair;
-    full();
-    reflectShelf();
-    reflectPresetStrip();
+    const homeFont = fontKey;
+    const chunks = Object.keys(byFont);
+    const runChunk = function (idx) {
+      if (destroyed || idx >= chunks.length) return;
+      const fk = chunks[idx];
+      loadFont(fk, function (f) {
+        if (destroyed) return;
+        if (f) {
+          const keep = snap();
+          const keepPreset = presetKey;
+          const keepSel = sel,
+            keepPair = selPair;
+          const keepFont = font,
+            keepKey = fontKey;
+          font = f;
+          fontKey = fk;
+          buildBase();
+          byFont[fk].forEach(function (card) {
+            applyPresetState(presetState(card.dataset.pk));
+            const svg = buildExportSVG();
+            const slot = card.querySelector('.pthumb');
+            if (svg && slot) slot.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '")';
+          });
+          font = keepFont;
+          fontKey = keepKey;
+          buildBase();
+          restore(keep);
+          presetKey = keepPreset;
+          sel = keepSel;
+          selPair = keepPair;
+          full();
+          reflectShelf();
+          reflectPresetStrip();
+          reflectMoods();
+        }
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(function () { runChunk(idx + 1); }, { timeout: 2500 });
+        else setTimeout(function () { runChunk(idx + 1); }, 250);
+      });
+    };
+    // home-font chunk first so the visible default cards fill immediately
+    chunks.sort(function (a, b) {
+      return a === homeFont ? -1 : b === homeFont ? 1 : 0;
+    });
+    runChunk(0);
   }
 
   function buildShelf() {
@@ -2698,6 +2867,7 @@ export function mountStudio(opts) {
         refineHdr.addEventListener('click', function () {
           $('refine').classList.toggle('open');
         });
+      buildMoods(); // the 8 pre-balanced palette moods (§2)
       buildShelf(); // the Frame tab's pattern shelf (§4)
       // (the starting-points strip builds at the end of derive() — it needs
       // the letters, which don't exist yet at bindUI time)
@@ -3006,6 +3176,7 @@ export function mountStudio(opts) {
       selSwatch(this, b);
       syncColorInput('ink_custom', inkHex);
       full();
+      reflectMoods();
     });
     $('ink_custom').addEventListener('input', function () {
       inkHex = this.value;

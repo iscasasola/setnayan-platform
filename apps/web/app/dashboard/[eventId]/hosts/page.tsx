@@ -21,8 +21,10 @@ import {
   type ModeratorPermissions,
   type RoleSubtype,
 } from '@/lib/event-moderators';
-import { inviteHost, revokeHostInvite, removeHost, setDelegateBudget } from './actions';
+import { revokeHostInvite, removeHost, setDelegateBudget } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
+import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
 export const metadata = { title: 'Hosts · Setnayan' };
 
@@ -179,6 +181,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const justRevoked = search.invite_revoked === '1';
   const grantUpdated = search.grant_updated === '1';
   const hostRemoved = search.host_removed === '1';
+  const consentGateEnabled = isCoordinatorConsentGateEnabled();
 
   // Build the share URL with a localhost-safe fallback. In production this
   // resolves to https://www.setnayan.com via SITE_URL; locally to localhost.
@@ -277,7 +280,11 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   <p className="text-sm font-medium text-ink">{c.vendor_name}</p>
                   <p className="font-mono text-xs text-ink/55">{c.contact_email}</p>
                 </div>
-                <form action={inviteHost}>
+                <ConsentGatedInviteForm
+                  enabled={consentGateEnabled}
+                  forceCoordinator
+                  coordinatorLabel={c.vendor_name}
+                >
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="invitation_email" value={c.contact_email ?? ''} />
                   <input type="hidden" name="role_subtype" value="wedding_planner_external" />
@@ -289,7 +296,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   >
                     Invite as delegate
                   </SubmitButton>
-                </form>
+                </ConsentGatedInviteForm>
               </li>
             ))}
           </ul>
@@ -551,7 +558,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           </p>
         </header>
 
-        <form action={inviteHost} className="space-y-4">
+        <ConsentGatedInviteForm enabled={consentGateEnabled} className="space-y-4">
           <input type="hidden" name="event_id" value={eventId} />
 
           <label className="flex flex-col gap-1">
@@ -603,7 +610,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           <SubmitButton pendingLabel="Inviting…" className="button-primary h-11 px-5">
             Send invitation
           </SubmitButton>
-        </form>
+        </ConsentGatedInviteForm>
       </section>
     </section>
   );

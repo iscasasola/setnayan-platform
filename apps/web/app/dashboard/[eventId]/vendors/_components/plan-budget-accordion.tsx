@@ -59,6 +59,7 @@ import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-
 import { ChangePickButton } from './accordion-lock';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { AccordionBuildButton } from './accordion-build';
+import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button';
 import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
 import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
@@ -1705,6 +1706,16 @@ function VendorCardAtom({
           }
         />
       )}
+
+      {/* "Contact vendor" — open (or resume) the couple↔vendor thread for THIS
+          event, stamping inquiry_source='shortlist' (completes the 9-source
+          taxonomy · owner 2026-07-17). Shown only for a marketplace-connected
+          shortlist pick with no inquiry yet — once a thread exists, inquiry_status
+          is set (NOT NULL DEFAULT 'pending') and the status badge above speaks for
+          it. Server dedupes on the UNIQUE(event_id, vendor_profile_id) thread. */}
+      {!locked && pick.marketplace_business_name && !pick.inquiry_status ? (
+        <ContactShortlistVendorButton eventId={eventId} vendorId={pick.vendor_id} />
+      ) : null}
 
       {/* One-time helper under the first card — demystifies "Add to build"
           (owner 2026-06-04, reworded for the build-pick model). */}

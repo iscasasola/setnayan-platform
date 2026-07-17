@@ -315,6 +315,65 @@ export async function fetchCreatorInbox(
 }
 
 // ---------------------------------------------------------------------------
+// User-home "Your creator benefits" (owner req #6 · plan 2026-07-16) — the
+// creator's OWN active (accepted) collabs: the vendor offers they hold. This is
+// the PRIVATE, self-only counterpart of fetchCreatorInfluence (which is the
+// public aggregate on /u). It reads creator_rate_terms — the private "your rate"
+// they were offered — so it runs on the caller's RLS-scoped client (a creator
+// reads only offers addressed to them; canonical vendor_creator_offers RLS).
+// These are DISCOUNT benefits the vendor settles off-platform — never earnings,
+// never cash from Setnayan. Vendor identity resolves on the admin client (same
+// public-name path as fetchCreatorInbox).
+// ---------------------------------------------------------------------------
+export type ActiveCreatorCollab = {
+  offerId: string;
+  vendorName: string;
+  vendorSlug: string | null;
+  vendorLogoUrl: string | null;
+  /** The creator-rate terms THIS vendor offered them (their own booking). */
+  creatorRateTerms: string;
+};
+
+export async function fetchActiveCreatorCollabs(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ActiveCreatorCollab[]> {
+  const { data } = await supabase
+    .from('vendor_creator_offers')
+    .select('offer_id, vendor_id, creator_rate_terms, responded_at')
+    .eq('creator_user_id', userId)
+    .eq('status', 'accepted')
+    .order('responded_at', { ascending: false });
+  const rows = (data ?? []) as Array<{
+    offer_id: string;
+    vendor_id: string;
+    creator_rate_terms: string;
+  }>;
+  if (rows.length === 0) return [];
+
+  const vendorIds = [...new Set(rows.map((r) => r.vendor_id))];
+  const admin = createAdminClient();
+  const { data: vendors } = await admin
+    .from('vendor_profiles')
+    .select(VENDOR_NAME_FIELDS)
+    .in('vendor_profile_id', vendorIds);
+  const byId = new Map(
+    ((vendors ?? []) as VendorNameRow[]).map((v) => [v.vendor_profile_id, v]),
+  );
+
+  return rows.map((r) => {
+    const v = byId.get(r.vendor_id);
+    return {
+      offerId: r.offer_id,
+      vendorName: v ? displayNameFor(v) : 'A Setnayan vendor',
+      vendorSlug: v?.business_slug ?? null,
+      vendorLogoUrl: v?.logo_url ?? null,
+      creatorRateTerms: r.creator_rate_terms,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Public "creator influence" — accepted partnerships (partnered vendors), an
 // AGGREGATE for the /u profile. Admin client; app-code gates to publicly-visible
 // vendors. Never exposes the offer terms or the offer graph — only the fact of a

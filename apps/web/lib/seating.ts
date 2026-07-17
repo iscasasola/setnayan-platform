@@ -3048,6 +3048,53 @@ export function layoutViolations(
   return out;
 }
 
+// The first oracle-valid centre for a NEW round_10 table, spiralling out from the
+// room centre until the SHARED oracle clears every existing table + zone. The
+// footprint is CHAIR-INCLUSIVE by construction — `round_10` scale is
+// `TABLE_FOOTPRINT_M.round_10 / geo.box.w`, so `obbOf` yields the 2.8 m-diameter
+// (r = 1.4 m) disc that spans the seat ring, exactly the disc the 2D editor and
+// the 3D drag path validate against. Returns percent-of-room coords, or null when
+// the room is too dense (caller falls back to the client grid). Extracted from the
+// 3D lab's inline spawn so CREATE parity is a tested invariant, not component-local
+// logic: any candidate it returns has passed `checkPlacement(...).valid`, so it can
+// never seed a round-vs-round overlap (owner 2026-07-17 · 3D round-collision audit).
+export function firstFreeRoundSpawnPct(
+  others: WorldPose[],
+  zones: OracleZone[],
+  room: { w: number; d: number },
+  gapPx: number,
+): { x: number; y: number } | null {
+  const geo = tableGeometry('round', 10);
+  const scale = TABLE_FOOTPRINT_M.round_10 / geo.box.w;
+  const ok = (xPct: number, yPct: number): boolean => {
+    const pose: WorldPose = {
+      tableId: '__new__',
+      shape: 'round',
+      capacity: 10,
+      x: (xPct / 100) * room.w,
+      y: (yPct / 100) * room.d,
+      rot: 0,
+      scale,
+      linkGroupId: null,
+    };
+    return checkPlacement(pose, { others, zones }, { gapPx }).valid;
+  };
+  const baseX = 50;
+  const baseY = 55; // below the top-centre stage default
+  if (ok(baseX, baseY)) return { x: baseX, y: baseY };
+  const stepPct = 4;
+  for (let ring = 1; ring <= 48; ring++) {
+    for (let deg = 0; deg < 360; deg += 18) {
+      const a = (deg * Math.PI) / 180;
+      const nx = baseX + Math.cos(a) * ring * stepPct;
+      const ny = baseY + Math.sin(a) * ring * stepPct;
+      if (nx < 2 || nx > 98 || ny < 2 || ny > 98) continue;
+      if (ok(nx, ny)) return { x: nx, y: ny };
+    }
+  }
+  return null; // dense room → let the client grid fallback place it
+}
+
 // ---------------------------------------------------------------------------
 // legalJoinPose — the single source of truth for BOTH snapping and join
 // validation. Given an anchor and a mover (at its drag/current centre), returns

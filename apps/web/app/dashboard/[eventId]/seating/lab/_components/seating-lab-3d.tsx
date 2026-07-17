@@ -129,6 +129,8 @@ import {
   tableGeometry,
   checkPlacement as oracleCheckPlacement,
   penetrationDepth as oraclePenetrationDepth,
+  layoutViolations as oracleLayoutViolations,
+  firstFreeRoundSpawnPct,
   stageZone,
   legalJoinPose,
   weldCommitBatch,
@@ -785,6 +787,25 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     [tables, oraclePose, oracleZones],
   );
 
+  // READ-ONLY legacy-overlap flag (owner 2026-07-17 · 3D round-collision audit).
+  // Saved anchors are NEVER force-moved on load, so a room persisted before the
+  // shared oracle (e.g. a pre-#3307 round-vs-round "kiss") can sit body-deep in
+  // an overlap that the CURRENT create + drag paths would refuse. The 2D editor
+  // already surfaces these via its mount audit (`layoutViolations`); this is the
+  // 3D twin — the SAME pure audit over the SAME chair-inclusive poses + zones +
+  // walkway, so both projections flag the identical set. Pure `useMemo` (no
+  // setState → no update-depth churn); recomputes only when the tables/room/zones
+  // change, never per frame. The flagged tables render a warm-red ground ring
+  // (see `TableMesh`), and the monotone-escape drag (§ MONOTONE ESCAPE above) lets
+  // the user drag the overlapped table APART to heal it. Build mode only — Play is
+  // a cinematic walkthrough with no editing affordance.
+  const violatingIds = useMemo<Set<string>>(() => {
+    if (!venueScaled || mode !== 'build') return new Set();
+    const poses = tables.map((t) => oraclePose(t, t.xPct, t.yPct));
+    const rows = oracleLayoutViolations(poses, oracleZones(), WALKWAY_M);
+    return new Set(rows.map((r) => r.tableId));
+  }, [venueScaled, mode, tables, oraclePose, oracleZones]);
+
   const entranceWorld = useMemo<Vec2>(() => {
     const e = floor.entrance.enabled ? floor.entrance : { xPct: 50, yPct: 96 };
     return pctToWorld(e.xPct, e.yPct, room);
@@ -1399,37 +1420,11 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   // 2026-07-16). Free board → null (place-anywhere; the client grid resolves it).
   const spawnRoundPct = useCallback((): { x: number; y: number } | null => {
     if (!venueScaled) return null;
-    const geo = tableGeometry('round', 10);
-    const scale = (TABLE_FOOTPRINT_M.round_10 ?? geo.box.w) / geo.box.w;
+    // Shared pure spiral (lib/seating.firstFreeRoundSpawnPct) — chair-inclusive
+    // round_10 footprint, gated on the SAME oracle as the drag path, so a new
+    // table can never spawn into a round-vs-round overlap (CREATE parity).
     const others = tables.map((o) => oraclePose(o, o.xPct, o.yPct));
-    const zones = oracleZones();
-    const ok = (xPct: number, yPct: number): boolean => {
-      const pose: OracleWorldPose = {
-        tableId: '__new__',
-        shape: 'round',
-        capacity: 10,
-        x: (xPct / 100) * room.w,
-        y: (yPct / 100) * room.d,
-        rot: 0,
-        scale,
-        linkGroupId: null,
-      };
-      return oracleCheckPlacement(pose, { others, zones }, { gapPx: WALKWAY_M }).valid;
-    };
-    const baseX = 50;
-    const baseY = 55; // below the top-centre stage default
-    if (ok(baseX, baseY)) return { x: baseX, y: baseY };
-    const stepPct = 4;
-    for (let ring = 1; ring <= 48; ring++) {
-      for (let deg = 0; deg < 360; deg += 18) {
-        const a = (deg * Math.PI) / 180;
-        const nx = baseX + Math.cos(a) * ring * stepPct;
-        const ny = baseY + Math.sin(a) * ring * stepPct;
-        if (nx < 2 || nx > 98 || ny < 2 || ny > 98) continue;
-        if (ok(nx, ny)) return { x: nx, y: ny };
-      }
-    }
-    return null; // dense room → let the client grid fallback place it
+    return firstFreeRoundSpawnPct(others, oracleZones(), room, WALKWAY_M);
   }, [venueScaled, tables, oraclePose, oracleZones, room]);
 
   // Add a table → createTable (lock-gated) at an oracle-valid spawn, then refresh
@@ -2429,6 +2424,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
             palette={palette}
             selected={selectedId === t.id}
             dragging={draggingId === t.id}
+            violating={violatingIds.has(t.id)}
             dragRef={dragRef}
             dragValidRef={dragValidRef}
             interactive={mode === 'build' && canEdit}
@@ -3175,6 +3171,7 @@ function TableMesh({
   palette,
   selected,
   dragging,
+  violating,
   dragRef,
   dragValidRef,
   interactive,
@@ -3192,6 +3189,11 @@ function TableMesh({
   palette: Lab3DPalette;
   selected: boolean;
   dragging: boolean;
+  /** CURRENT saved pose fails the shared oracle (legacy persisted overlap / too
+   *  tight) — draws a static read-only warm-red ground ring so a pre-oracle
+   *  round-vs-round overlap is VISIBLE. Suppressed while dragging (the live drag
+   *  ring supersedes). Same audit the 2D editor's mount pill uses. */
+  violating: boolean;
   dragRef: React.MutableRefObject<{ id: string; x: number; z: number } | null>;
   /** Live legality of the current drag (gold ✓ / warm-red ✗ ground ring). */
   dragValidRef: React.MutableRefObject<boolean>;
@@ -3382,6 +3384,24 @@ function TableMesh({
             color="#d8b45a"
             transparent
             opacity={0.9}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ) : null}
+      {/* Legacy-overlap flag — a static, read-only warm-red ground ring on a
+          table whose CURRENT saved pose fails the shared oracle (a pre-oracle
+          round-vs-round overlap that survived because saved anchors are never
+          force-moved). Purely a marker; no movement, never raycasts. The drag
+          ring supersedes it (a violating table being dragged shows the live
+          gold/red drag feedback instead). Same set the 2D mount audit flags. */}
+      {violating && !dragging ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.028, 0]} raycast={() => null}>
+          <ringGeometry args={[Math.max(0.05, ringR - 0.12), ringR + 0.05, 56]} />
+          <meshBasicMaterial
+            color="#d9534f"
+            transparent
+            opacity={0.85}
             depthWrite={false}
             side={THREE.DoubleSide}
           />

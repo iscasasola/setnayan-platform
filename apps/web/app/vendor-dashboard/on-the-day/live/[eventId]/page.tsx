@@ -9,6 +9,7 @@ import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { resolveModules, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { FloorClock } from './_components/floor-clock';
 import { LiveReviews } from '../../_components/live-reviews';
@@ -40,6 +41,9 @@ function moduleHref(id: DayOfModuleId, eventId: string): string | null {
     case 'live_reviews':
       return null; // rendered inline below
     case 'vendor_papic':
+      // Counsel-gated: the link is filtered out below unless the capability is
+      // live (isVendorPapicCaptureEnabled); the page itself also fail-closes.
+      return `/vendor-dashboard/on-the-day/live/${eventId}/papic`;
     case 'guest_delivery':
       return null; // counsel-gated — not launched here yet
   }
@@ -139,10 +143,16 @@ export default async function VendorOnTheDayLivePage({
   const invited = brief?.pax.invited ?? 0;
   const attending = brief?.pax.attending ?? 0;
 
-  // Quick-link tiles for enabled modules that route to their own surface.
+  // Quick-link tiles for enabled modules that route to their own surface. The
+  // counsel-gated Papic capture tool only appears when its Data Privacy control
+  // is approved; otherwise it stays dark (the module card shows "Needs setup").
+  const papicEnabled = await isVendorPapicCaptureEnabled();
   const linkModules = modules
     .map((m) => ({ mod: m, href: moduleHref(m.id, eventId) }))
-    .filter((x): x is { mod: (typeof modules)[number]; href: string } => x.href != null);
+    .filter(
+      (x): x is { mod: (typeof modules)[number]; href: string } =>
+        x.href != null && !(x.mod.id === 'vendor_papic' && !papicEnabled),
+    );
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 sm:px-6">

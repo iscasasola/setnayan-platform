@@ -723,16 +723,22 @@ async function ConfigureEventView({
   const papicIdx = modules.findIndex((m) => m.id === 'vendor_papic');
   const papicModule = papicIdx >= 0 ? modules[papicIdx] : undefined;
   if (papicModule && (await isVendorPapicCaptureEnabled())) {
+    // Capability approved by the DPO control → the module is no longer
+    // "Needs setup": unlock its toggle and badge the vendor's DERIVED tier —
+    // Ltd if they accepted the inquiry with a token (or a founder couple),
+    // else Lite. While the control is OFF, it stays counsel-gated/locked.
+    let readout: string | undefined;
     try {
       const tier = await deriveVendorPapicTier(
         createAdminClient(),
         vendorProfileId,
         booking.eventId,
       );
-      modules[papicIdx] = { ...papicModule, readout: tierReadout(tier) };
+      readout = tierReadout(tier);
     } catch {
       /* readout is decorative — omit on any failure */
     }
+    modules[papicIdx] = { ...papicModule, counselGated: false, readout };
   }
   const family = resolveDayOfFamily(services, eventTiles);
   const dateLabel = fmtDate(booking.bookedDate);

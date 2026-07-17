@@ -81,9 +81,16 @@ export const FRAME_KINDS = [
   'sampaguita',
   'corner-lines',
   'corner-flourish',
+  // accent class (owner 2026-07-17 "accent frames also") — small ornaments that
+  // layer WITH an enclosure + corners, not instead of them.
+  'sprigs',
+  'cardinal-marks',
+  'sparkle-duo',
 ] as const;
 export type StudioFrameKind = (typeof FRAME_KINDS)[number];
-export const MAX_FRAMES = 2;
+// Owner override 2026-07-17 ("frames that can intertwine"): up to TWO
+// enclosures (weavable where their bands cross) + one corner set + one accent.
+export const MAX_FRAMES = 4;
 // Starting-point presets (council verdict §3) — provenance ONLY: `preset`
 // records which card seeded the design (analytics/`Duo repaired` etc.);
 // rendering never reads it. One field, not two (absorbed the separate
@@ -151,6 +158,10 @@ export type StudioFrame = {
   gap: number;
   /** Double variant where the pattern supports it. */
   dbl: boolean;
+  /** Intertwine (owner 2026-07-17): where two enclosure BANDS cross, weave
+   *  them over/under alternately — the letters' cut-gap trick applied frame
+   *  to frame. Meaningful only while two band enclosures are applied. */
+  weave?: boolean;
 };
 export type StudioConfig = {
   text: string;
@@ -293,6 +304,7 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
         count: num(e.count, 3, 96, 12),
         gap: num(e.gap, 0, 160, 24),
         dbl: Boolean(e.dbl),
+        ...(e.weave ? { weave: true } : {}),
       };
     });
 

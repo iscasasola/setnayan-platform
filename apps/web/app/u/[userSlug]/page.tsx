@@ -8,6 +8,7 @@ import { formatEventDate } from '@/lib/events';
 import { ReportPageButton } from '@/app/_components/report-page-button';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { CreatorBadge } from '@/app/_components/creator-badge';
+import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import { CHAPTER_KIND_LABEL } from '@/lib/creator-chapters';
 import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public';
 import {
@@ -240,6 +241,12 @@ export default async function AccountProfilePage({ params }: Props) {
                   <span className="uprof-stat">
                     <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
                     {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+                    {/* P3 tier band — a rendering of the SAME number, not a
+                        second metric; hides at 0 alongside the line itself. */}
+                    <CreatorTierChip
+                      inquiriesDriven={inquiriesDriven}
+                      className="uprof-tier-chip"
+                    />
                   </span>
                 </>
               ) : null}
@@ -544,6 +551,9 @@ const UPROF_CSS = `
   .uprof-stat-dot {
     color: var(--m-slate-2, #6A6E76);
     opacity: 0.6;
+  }
+  .uprof-tier-chip {
+    margin-left: 0.4rem;
   }
   .uprof-follow {
     margin-left: 0.3rem;

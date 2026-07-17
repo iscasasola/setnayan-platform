@@ -3,6 +3,11 @@ import { loadStorytellerCandidatesForAdmin } from '@/lib/storytellers';
 import { setChapterFeatured, setChapterRank } from '@/app/admin/storytellers/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import {
+  fetchInfluencerAnalyticsForAdmin,
+  ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS,
+  type InfluencerAnalytics,
+} from '@/lib/creator-analytics';
 
 /**
  * StorytellersSurface — the chapter-featuring body of the tabbed /admin/studio
@@ -38,7 +43,10 @@ export async function StorytellersSurface({
   const ok = okRaw ? decodeURIComponent(okRaw) : null;
   const error = errorRaw ? decodeURIComponent(errorRaw) : null;
 
-  const result = await loadStorytellerCandidatesForAdmin();
+  const [result, analytics] = await Promise.all([
+    loadStorytellerCandidatesForAdmin(),
+    fetchInfluencerAnalyticsForAdmin(),
+  ]);
   const rows = result.ok ? result.rows : [];
   const featuredCount = rows.filter((r) => r.featured).length;
 
@@ -83,6 +91,11 @@ export async function StorytellersSurface({
           {error}
         </div>
       ) : null}
+
+      {/* Influencer analytics (P3) — read-only platform aggregate, gated to
+          >=25 attributed unlocked inquiries. Ledger facts + aggregate-only:
+          never who booked, no "discount given". */}
+      <InfluencerAnalyticsPanel analytics={analytics} />
 
       {/* Migration-not-applied state — the featuring columns don't exist yet. */}
       {!result.ok && result.reason === 'migration' ? (
@@ -278,6 +291,118 @@ export async function StorytellersSurface({
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Influencer analytics — read-only platform aggregate (Creator Economy P3).
+// Below the >=25 attributed-unlock gate it shows a plain "not enough activity
+// yet" state with the progress toward the gate; above it, the platform-wide
+// influencer token spend + top creators + vendor participation. Aggregate-only:
+// no couple/event is ever named. No "discount given" — off-platform, unknowable.
+// ---------------------------------------------------------------------------
+function InfluencerAnalyticsPanel({
+  analytics: a,
+}: {
+  analytics: InfluencerAnalytics;
+}) {
+  const totalInfluencerTokens = a.reachTokensSpent + a.leadUnlockTokensSpent;
+  return (
+    <section className="mb-8 rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+      <header className="mb-4 space-y-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+          Influencer analytics · platform-wide
+        </p>
+        <h2 className="text-lg font-semibold text-ink">
+          How storytellers drive business
+        </h2>
+      </header>
+
+      {!a.unlocked ? (
+        /* Gated "not enough activity yet" state — shows progress, no numbers. */
+        <div className="rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] p-5 text-sm text-ink/60">
+          <p className="font-medium text-ink/80">Not enough activity yet.</p>
+          <p className="mt-1">
+            Influencer analytics unlock once storytellers have driven{' '}
+            <strong className="text-ink">{ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}</strong>{' '}
+            attributed, vendor-unlocked inquiries platform-wide. So far:{' '}
+            <strong className="text-ink">{a.totalInquiriesDriven}</strong> of{' '}
+            {ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Aggregate stat row — ledger facts only. */}
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <AdminStat label="Inquiries driven" value={a.totalInquiriesDriven} />
+            <AdminStat label="Influencer tokens spent" value={totalInfluencerTokens} />
+            <AdminStat label="Participating vendors" value={a.participatingVendorCount} />
+            <AdminStat label="Active storytellers" value={a.activeCreatorCount} />
+          </dl>
+          <p className="text-xs text-ink/50">
+            Influencer token spend splits into{' '}
+            <strong className="text-ink/70">{a.reachTokensSpent}</strong> reach
+            (vendor→creator offers) +{' '}
+            <strong className="text-ink/70">{a.leadUnlockTokensSpent}</strong>{' '}
+            lead-unlock (unlocking a creator-referred inquiry). Discounts settle
+            off-platform and are never shown.
+          </p>
+
+          {/* Top creators by inquiries driven — aggregate names only. */}
+          {a.topCreators.length > 0 ? (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-ink">
+                Top storytellers by inquiries driven
+              </h3>
+              <div className="overflow-hidden rounded-xl border border-ink/10">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-ink/10 bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+                    <tr>
+                      <th className="px-4 py-2.5 font-medium">Storyteller</th>
+                      <th className="px-4 py-2.5 text-right font-medium">
+                        Inquiries driven
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/8">
+                    {a.topCreators.map((c) => (
+                      <tr key={c.creatorUserId}>
+                        <td className="px-4 py-2.5 text-ink">
+                          {c.creatorSlug ? (
+                            <Link
+                              href={`/u/${c.creatorSlug}`}
+                              className="hover:text-terracotta hover:underline"
+                            >
+                              {c.creatorName}
+                            </Link>
+                          ) : (
+                            c.creatorName
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono tabular-nums text-ink">
+                          {c.inquiriesDriven}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdminStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3">
+      <dt className="text-[11px] uppercase tracking-[0.1em] text-ink/45">{label}</dt>
+      <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-ink">
+        {value}
+      </dd>
     </div>
   );
 }

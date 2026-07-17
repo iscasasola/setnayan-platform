@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Clapperboard, Send, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, BarChart3, Clapperboard, Send, Sparkles, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -9,12 +9,17 @@ import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VendorTierGate } from '../_components/tier-gate';
 import { formatAudienceCount } from '@/lib/creator-audience';
+import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import {
   fetchEligibleCreators,
   fetchVendorSentOffers,
   type EligibleCreator,
   type VendorSentOffer,
 } from '@/lib/creator-offers';
+import {
+  fetchVendorCreatorRoi,
+  type VendorCreatorRoiRow,
+} from '@/lib/creator-analytics';
 import { sendCreatorOffer } from './actions';
 
 export const metadata = { title: 'Creators · Vendor' };
@@ -73,9 +78,12 @@ export default async function VendorCreatorsPage({
 
   const minReach = Math.max(0, Number.parseInt(search.minReach ?? '0', 10) || 0);
 
-  const [creators, sentOffers] = await Promise.all([
+  const [creators, sentOffers, roi] = await Promise.all([
     fetchEligibleCreators({ minReach, limit: 60 }),
     fetchVendorSentOffers(supabase, profile.vendor_profile_id),
+    // P3 per-creator ROI — ledger facts only (inquiries driven · reach tokens
+    // spent · collab status). NO "discount given" (settles off-platform).
+    fetchVendorCreatorRoi(supabase, profile.vendor_profile_id),
   ]);
 
   // Creators this vendor already has an OUTSTANDING (pending) offer to — hide
@@ -199,6 +207,43 @@ export default async function VendorCreatorsPage({
         </section>
       ) : null}
 
+      {/* Per-creator ROI (P3) — ledger facts for the creators you've collab'd
+          with: the inquiries their chapters drove, the reach tokens you spent
+          reaching them, and where each collab stands. NO "discount given" — that
+          settles off-platform between you and the creator, so Setnayan can't
+          (and won't) report it. Renders only once you've sent an offer. */}
+      {roi.length > 0 ? (
+        <section className="mb-10 space-y-3">
+          <h2 className="sn-sec inline-flex items-center gap-2">
+            <BarChart3 aria-hidden className="h-4 w-4 text-ink/50" strokeWidth={1.75} />
+            Your collab ROI
+          </h2>
+          <p className="text-[12.5px] text-ink/55">
+            Inquiries driven is each creator&rsquo;s all-time public number (the
+            inquiries their chapters drove that a vendor unlocked). Reach tokens
+            spent is what you paid to reach them. Discounts settle off-platform,
+            so they&rsquo;re not shown here.
+          </p>
+          <div className="overflow-x-auto rounded-tile border border-ink/10 bg-white">
+            <table className="w-full min-w-[34rem] text-left text-sm">
+              <thead className="border-b border-ink/10 bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Creator</th>
+                  <th className="px-4 py-3 text-right font-medium">Inquiries driven</th>
+                  <th className="px-4 py-3 text-right font-medium">Reach tokens spent</th>
+                  <th className="px-4 py-3 font-medium">Collab</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/8">
+                {roi.map((r) => (
+                  <RoiRow key={r.creatorUserId} row={r} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       {/* Eligible creators */}
       <section className="space-y-3">
         <h2 className="sn-sec">
@@ -268,6 +313,12 @@ function CreatorCard({
                   {formatAudienceCount(c.inquiriesDriven)}{' '}
                   {c.inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
                 </span>
+                {/* P3 tier band — a rendering of the number above (Nano/Micro/
+                    Macro/Mega); hides at 0 alongside the line itself. */}
+                <CreatorTierChip
+                  inquiriesDriven={c.inquiriesDriven}
+                  className="ml-1.5 align-middle"
+                />
               </>
             ) : null}
           </p>
@@ -332,5 +383,58 @@ function CreatorCard({
         </details>
       )}
     </div>
+  );
+}
+
+// ROI status chip reuses the sent-offer status vocabulary. An accepted +
+// fulfilled collab reads "Fulfilled"; accepted-but-unfulfilled reads "Awaiting
+// chapter" — the whole outcome model (no clawback).
+function roiStatusLabel(row: VendorCreatorRoiRow): string {
+  if (row.collabStatus === 'accepted') {
+    return row.fulfilled ? 'Fulfilled · chapter linked' : 'Accepted · awaiting chapter';
+  }
+  return STATUS_LABEL[row.collabStatus];
+}
+
+function roiStatusStyle(row: VendorCreatorRoiRow): string {
+  if (row.collabStatus === 'accepted' && !row.fulfilled) {
+    return 'bg-amber-100 text-amber-900';
+  }
+  return STATUS_STYLE[row.collabStatus];
+}
+
+function RoiRow({ row }: { row: VendorCreatorRoiRow }) {
+  return (
+    <tr>
+      <td className="px-4 py-3 align-top">
+        <p className="text-sm font-medium text-ink">
+          {row.creatorSlug ? (
+            <Link href={`/u/${row.creatorSlug}`} className="hover:underline">
+              {row.creatorName}
+            </Link>
+          ) : (
+            row.creatorName
+          )}
+        </p>
+      </td>
+      <td className="px-4 py-3 text-right align-top">
+        <span className="inline-flex items-center justify-end gap-1.5 font-mono text-sm tabular-nums text-ink">
+          {formatAudienceCount(row.inquiriesDriven)}
+          {/* Same tier band as the browse card + /u — a rendering of the number
+              to its left; hides at 0. */}
+          <CreatorTierChip inquiriesDriven={row.inquiriesDriven} />
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right align-top font-mono text-sm tabular-nums text-ink">
+        {formatAudienceCount(row.reachTokensSpent)}
+      </td>
+      <td className="px-4 py-3 align-top">
+        <span
+          className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${roiStatusStyle(row)}`}
+        >
+          {roiStatusLabel(row)}
+        </span>
+      </td>
+    </tr>
   );
 }

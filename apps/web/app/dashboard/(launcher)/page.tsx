@@ -51,6 +51,7 @@ import { PhotosTab } from '../(account)/library/_components/photos-tab';
 import { Expandable } from './_components/expandable';
 import { CountUp } from '@/app/_components/count-up';
 import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
+import { CreatorBenefits } from './_components/creator-benefits';
 import {
   HomeCommandBar,
   type HomeCommandItem,
@@ -883,6 +884,17 @@ export default async function LauncherPage({
           </div>
 
           <div className="space-y-3 sm:space-y-4">
+            {/* YOUR CREATOR BENEFITS — the storyteller who already holds active
+                vendor collabs (owner req #6, plan 2026-07-16). Self-fetching +
+                null-returning: renders ONLY once this user has ≥1 accepted
+                collab, so it's invisible for everyone else (the "Become a
+                Storyteller" promo below covers non-creators). Deterministic —
+                active offers + the same /u reach numbers, no LLM, and worded as
+                "offers/benefits", never earnings. */}
+            <Suspense fallback={null}>
+              <CreatorBenefits userId={user.id} />
+            </Suspense>
+
             {/* SETNAYAN AI · THE WATCH — the deterministic aggregate of
                 everything waiting on the user (pay · approve · message ·
                 overdue), per event. Sums, not an LLM (Rule 1). Desktop-only

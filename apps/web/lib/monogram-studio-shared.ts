@@ -95,7 +95,28 @@ export const MAX_FRAMES = 4;
 // records which card seeded the design (analytics/`Duo repaired` etc.);
 // rendering never reads it. One field, not two (absorbed the separate
 // `layout?` proposal).
-export const PRESET_KEYS = ['duo', 'interlocked', 'stacked', 'framed-duo', 'solo-ring', 'blank'] as const;
+export const PRESET_KEYS = [
+  // legacy starting points (pre-Styles saves)
+  'duo',
+  'interlocked',
+  'stacked',
+  'framed-duo',
+  // the 12 named Styles (benchmark §1) + solo/blank
+  'alon',
+  'sampaguita-style',
+  'habi',
+  'balangay',
+  'araw',
+  'kapilya',
+  'perlas',
+  'hardin',
+  'lazo',
+  'tala',
+  'payneta',
+  'kandila',
+  'solo-ring',
+  'blank',
+] as const;
 export type StudioPresetKey = (typeof PRESET_KEYS)[number];
 // The reveal-animation kinds offered in the studio's "Animate the reveal" panel.
 // Exported so the live player (app/_components/studio-reveal-player.tsx) imports

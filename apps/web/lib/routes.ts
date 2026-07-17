@@ -321,6 +321,7 @@ export const routes = {
     },
     apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
+    checklist: (eventId: string) => `/dashboard/${eventId}/checklist`,
     contracts: {
       index: (eventId: string) => `/dashboard/${eventId}/contracts`,
       detail: (eventId: string, contractId: string) => `/dashboard/${eventId}/contracts/${contractId}`,

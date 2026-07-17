@@ -2693,6 +2693,11 @@ export function mountStudio(opts) {
         more.addEventListener('click', function () {
           morebox.classList.toggle('off');
         });
+      const refineHdr = $('refinehdr');
+      if (refineHdr)
+        refineHdr.addEventListener('click', function () {
+          $('refine').classList.toggle('open');
+        });
       buildShelf(); // the Frame tab's pattern shelf (§4)
       // (the starting-points strip builds at the end of derive() — it needs
       // the letters, which don't exist yet at bindUI time)
@@ -2821,6 +2826,41 @@ export function mountStudio(opts) {
       drawStrokes();
       syncUI();
     });
+    // The ONE branded micro-interaction (benchmark §1): flipping a weave gets a
+    // 120ms gold glint at the crossing + a haptic tick — and nothing else does.
+    function weaveGlint() {
+      try {
+        if (!selPair || !view) return;
+        const rg = regions.filter(function (r) {
+          return selPair && r.i === selPair.i && r.j === selPair.j;
+        })[0];
+        if (!rg) return;
+        const vp = view.projectToView(rg.r.bounds.center);
+        const hostEl = cv.parentElement;
+        if (!hostEl) return;
+        const g = document.createElement('div');
+        g.className = 'weaveglint';
+        g.style.left = vp.x + 'px';
+        g.style.top = vp.y + 'px';
+        hostEl.appendChild(g);
+        const a = g.animate(
+          [
+            { opacity: 0, transform: 'scale(0.35)' },
+            { opacity: 1, transform: 'scale(1.25)', offset: 0.45 },
+            { opacity: 0, transform: 'scale(1.6)' },
+          ],
+          { duration: 120, easing: 'ease-out', fill: 'both' },
+        );
+        const done = function () {
+          try {
+            g.remove();
+          } catch (x) {}
+        };
+        a.onfinish = done;
+        a.oncancel = done;
+        if (navigator.vibrate) navigator.vibrate(10);
+      } catch (e) {}
+    }
     crossBox.addEventListener('click', function (e) {
       const b = e.target.closest('button');
       if (!b || !selPair) return;
@@ -2828,6 +2868,7 @@ export function mountStudio(opts) {
         pushUndo();
         pstate[pkey(selPair.i, selPair.j)] = b.dataset.act;
         full();
+        weaveGlint();
       } else if (b.dataset.topk) {
         const top = +b.dataset.topk;
         const other = top === selPair.i ? selPair.j : selPair.i;

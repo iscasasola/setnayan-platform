@@ -62,9 +62,11 @@ const SKU_CODE = 'ANIMATED_MONOGRAM';
 const STUDIO_REVEAL_LABELS: Record<StudioAnimKind, string> = {
   handwriting: 'Handwriting',
   trace: 'Trace',
-  droplet: 'Droplet',
+  droplet: 'Bloom',
   gold: 'Gold Turn',
   molten: 'Molten Gold',
+  petalfall: 'Petal Fall',
+  flip3d: '3D Turn',
 };
 
 /**
@@ -164,8 +166,8 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
             <>
               Your monogram already opens your wedding website. This upgrade makes it
               draw itself in — playing the reveal you picked in the studio above
-              (Handwriting, Trace, Droplet, Gold Turn, or Molten Gold) the moment a
-              guest lands.
+              (Handwriting, Trace, Bloom, Gold Turn, Molten Gold, Petal Fall, or
+              the 3D Turn) the moment a guest lands.
             </>
           ) : (
             <>

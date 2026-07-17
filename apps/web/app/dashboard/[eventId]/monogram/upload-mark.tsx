@@ -124,13 +124,13 @@ export function UploadMark({
           </p>
 
           <div
-            className="mx-auto h-56 max-w-[320px]"
+            className={`mx-auto h-56 max-w-[320px]${
+              revealKind === 'molten' || revealKind === 'flip3d' ? ' rounded-2xl p-4' : ''
+            }`}
             style={
               revealKind === 'molten' || revealKind === 'flip3d'
                 ? {
                     background: 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)',
-                    borderRadius: 16,
-                    padding: 16,
                   }
                 : undefined
             }

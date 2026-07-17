@@ -59,6 +59,15 @@ export type StartServiceInquiryResult =
 export async function startServiceInquiry(input: {
   vendorProfileId: string;
   /**
+   * Event-scoped callers (the couple's shortlist / build workspace, which is
+   * bound to ONE event) pass the explicit event this inquiry belongs to. It is
+   * VALIDATED against the caller's own couple events — a non-owned / unknown id
+   * resolves to `no_event`, never a cross-event write. Omitted → the couple's
+   * primary event (events[0]), the public-profile composer default.
+   * (owner 2026-07-17 — shortlist inquiry-source wiring.)
+   */
+  eventId?: string | null;
+  /**
    * Who initiated this call. 'manual' (default) = the couple pressed Inquire in
    * the composer → subject to the Phase-A velocity gate. 'system' = a legitimate
    * batch fan-out (the pending-pick dispatcher flushing saved picks) → exempt, so
@@ -128,10 +137,17 @@ export async function startServiceInquiry(input: {
   // uid + event, so nothing is lost). Dormant unless anon-draft is live.
   if (user.is_anonymous) return { status: 'not_secured' };
 
-  // Primary event — the public-profile composer targets the couple's single
-  // active event. Multi-event hosts pick the event explicitly on the dashboard.
+  // Event resolution. An event-scoped caller (shortlist / build workspace) may
+  // pass an explicit event — HONORED only after validating the couple actually
+  // hosts it (a forged / non-owned id resolves to no_event, never a cross-event
+  // write). No explicit event → the public-profile composer default: the
+  // couple's primary / single active event. Multi-event hosts pick the event
+  // explicitly on the dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
-  const eventId = events[0]?.event_id ?? null;
+  const requestedEventId = String(input.eventId ?? '').trim();
+  const eventId = requestedEventId
+    ? (events.find((e) => e.event_id === requestedEventId)?.event_id ?? null)
+    : (events[0]?.event_id ?? null);
   if (!eventId) return { status: 'no_event' };
 
   const admin = createAdminClient();

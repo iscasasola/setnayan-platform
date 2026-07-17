@@ -19,11 +19,15 @@
  *                held-picks flush)
  *   website    — the bare /v/[slug] composer (left NULL — the default)
  *
+ * Wired in PR-D (owner 2026-07-17 — completes the 9-source taxonomy):
+ *   shortlist  — the couple's shortlist/build workspace "Contact vendor" on a
+ *                marketplace pick (event-scoped: contactShortlistVendor →
+ *                startServiceInquiry with the CURRENT event).
+ *   favorites  — the saved-vendors (Library) "Contact" link (→ /v?src=favorites;
+ *                the profile composer resolves the event + service, single path).
+ *
  * UNWIRED (enum value + label only — no trigger surface exists; no fake
  * stamping, per the owner's taxonomy note):
- *   shortlist  — no shortlist/saved-workspace surface creates inquiries today
- *                (Merkado/shortlist surfaces are read-only over thread status)
- *   favorites  — the saved-vendors/favorites lists never create inquiries
  *   degree     — "Degree Recommendation": the vendor was surfaced because
  *                someone within 5 degrees of the inquirer's connection tree has
  *                USED or FAVORITED the vendor; FRIENDS count as FIRST-DEGREE

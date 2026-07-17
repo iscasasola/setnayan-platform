@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Download, ImageDown, ArrowRight, Loader2 } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
 import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
 import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
-import { sanitizeStudioSvg, type StudioConfig } from '@/lib/monogram-studio-shared';
+import { sanitizeStudioSvg, type StudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
+import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -90,6 +92,25 @@ export function PublicMonogramStudio() {
   const [ready, setReady] = useState(false);
   const [pngBusy, setPngBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Universal portal preview (benchmark §3): the same live-site player renders
+  // every reveal over the canvas — the free studio previews the real thing.
+  const [previewKind, setPreviewKind] = useState<StudioAnimKind | null>(null);
+  const [previewSvg, setPreviewSvg] = useState<string | null>(null);
+  const [previewAnim, setPreviewAnim] = useState<StudioAnim | null>(null);
+  const [swEl, setSwEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!previewKind || !previewAnim) return;
+    const t = window.setTimeout(
+      () => {
+        setPreviewKind(null);
+        setPreviewSvg(null);
+        setPreviewAnim(null);
+      },
+      Math.round(previewAnim.dur * 1000) + 4500,
+    );
+    return () => window.clearTimeout(t);
+  }, [previewKind, previewAnim]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -117,6 +138,7 @@ export function PublicMonogramStudio() {
     // is injected — v1 stays byte-identical when OFF. Same flag as the
     // dashboard studio; the markup module is shared so both flip together.
     root.innerHTML = monogramStudioV2Enabled() ? STUDIO_HTML_V2 : STUDIO_HTML;
+    setSwEl(root.querySelector<HTMLElement>('.sw2'));
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch — e.g. a stale cached build), don't sit on "Loading the
     // typeface…" forever. Surface a clear refresh prompt instead.
@@ -141,7 +163,20 @@ export function PublicMonogramStudio() {
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig: null }) as StudioApi;
+        api = mountStudio({
+          root,
+          paper,
+          opentype,
+          PaperOffset,
+          initialConfig: null,
+          portalPreview: true,
+          onPreviewKind: (kind: StudioAnimKind | null, svgStr: string | null, animInfo?: StudioAnim) => {
+            if (!alive) return;
+            setPreviewKind(kind);
+            setPreviewSvg(svgStr);
+            setPreviewAnim(animInfo ?? null);
+          },
+        }) as StudioApi;
         apiRef.current = api;
         setReady(true);
         window.clearTimeout(failTimer);
@@ -228,6 +263,44 @@ export function PublicMonogramStudio() {
       {/* The editor markup is injected imperatively by the effect (see above), so
           React leaves this container empty and never re-touches the subtree. */}
       <div ref={rootRef} className="vs" />
+
+      {/* Reveal preview portal — the IDENTICAL live-site player over the canvas. */}
+      {swEl && previewKind
+        ? createPortal(
+            <div
+              className="absolute inset-0 z-[5]"
+              style={{
+                background:
+                  previewKind === 'molten' || previewKind === 'flip3d' || previewKind === 'gold'
+                    ? 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)'
+                    : '#FBFBFA',
+              }}
+            >
+              <div className="absolute inset-[8%]">
+                <StudioRevealPlayer
+                  key={`${previewKind}-${previewAnim?.dur ?? 0}-${previewAnim?.delay ?? 0}`}
+                  svg={previewSvg}
+                  monogram="M & J"
+                  anim={previewAnim ?? { kind: previewKind, dur: 6, smooth: 0.9, delay: 0.3 }}
+                  allowWebgl={false}
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Close the reveal preview"
+                onClick={() => {
+                  setPreviewKind(null);
+                  setPreviewSvg(null);
+                  setPreviewAnim(null);
+                }}
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/10 text-base leading-none text-[#1E2229]/70 backdrop-blur-sm transition-colors hover:bg-black/20"
+              >
+                ✕
+              </button>
+            </div>,
+            swEl,
+          )
+        : null}
 
       {error ? <p className="mt-3 text-center text-sm text-[#9B3B2E]">{error}</p> : null}
 

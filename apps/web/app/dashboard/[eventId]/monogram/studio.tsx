@@ -10,6 +10,8 @@ import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
 import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
 import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
+import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
+import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { saveStudioAction, clearStudioAction } from './studio-actions';
 
 /**
@@ -71,9 +73,25 @@ export function VectorStudio({
   // paper.js canvas, so it calls onPreviewKind and we portal the REAL shipping
   // component (GoldMonogramReveal / MoltenMonogramInline) over the canvas. This is
   // WYSIWYG with the live surfaces (same components). null = canvas kinds (no overlay).
-  const [previewKind, setPreviewKind] = useState<'gold' | 'molten' | null>(null);
+  const [previewKind, setPreviewKind] = useState<StudioAnimKind | null>(null);
   const [previewSvg, setPreviewSvg] = useState<string | null>(null);
+  const [previewAnim, setPreviewAnim] = useState<StudioAnim | null>(null);
   const [swEl, setSwEl] = useState<HTMLElement | null>(null);
+
+  // The portal preview auto-dismisses after the reveal has finished + settled,
+  // returning the canvas — the preview is a moment, not a mode.
+  useEffect(() => {
+    if (!previewKind || !previewAnim) return;
+    const t = window.setTimeout(
+      () => {
+        setPreviewKind(null);
+        setPreviewSvg(null);
+        setPreviewAnim(null);
+      },
+      Math.round(previewAnim.dur * 1000) + 4500,
+    );
+    return () => window.clearTimeout(t);
+  }, [previewKind, previewAnim]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -134,11 +152,14 @@ export function VectorStudio({
           PaperOffset,
           initialConfig,
           initialNames,
-          // gold/molten → render the real React component over the canvas; null → clear it.
-          onPreviewKind: (kind: 'gold' | 'molten' | null, svg: string | null) => {
+          // Universal portal preview (benchmark §3): EVERY reveal kind renders
+          // the identical live-site player over the canvas; null clears it.
+          portalPreview: true,
+          onPreviewKind: (kind: StudioAnimKind | null, svg: string | null, animInfo?: StudioAnim) => {
             if (!alive) return;
             setPreviewKind(kind);
             setPreviewSvg(svg);
+            setPreviewAnim(animInfo ?? null);
           },
         }) as StudioApi;
         apiRef.current = api;
@@ -243,14 +264,27 @@ export function VectorStudio({
             <div
               className="absolute inset-0 z-[5]"
               style={{
+                // metal reveals stage on dark; draw-on reveals keep the paper
                 background:
-                  'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)',
+                  previewKind === 'molten' || previewKind === 'flip3d' || previewKind === 'gold'
+                    ? 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)'
+                    : '#FBFBFA',
               }}
             >
-              {previewKind === 'gold' ? (
+              {previewKind === 'molten' ? (
+                <MoltenMonogramInline markSvg={previewSvg} monogram={initialNames ?? 'M & J'} />
+              ) : previewKind === 'gold' && !previewAnim ? (
                 <GoldMonogramReveal markSvg={previewSvg} monogram={initialNames ?? 'M & J'} inline />
               ) : (
-                <MoltenMonogramInline markSvg={previewSvg} monogram={initialNames ?? 'M & J'} />
+                <div className="absolute inset-[8%]">
+                  <StudioRevealPlayer
+                    key={`${previewKind}-${previewAnim?.dur ?? 0}-${previewAnim?.delay ?? 0}`}
+                    svg={previewSvg}
+                    monogram={initialNames ?? 'M & J'}
+                    anim={previewAnim ?? { kind: previewKind, dur: 6, smooth: 0.9, delay: 0.3 }}
+                    allowWebgl={false}
+                  />
+                </div>
               )}
               <button
                 type="button"
@@ -258,6 +292,7 @@ export function VectorStudio({
                 onClick={() => {
                   setPreviewKind(null);
                   setPreviewSvg(null);
+                  setPreviewAnim(null);
                 }}
                 className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base leading-none text-white/85 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
               >

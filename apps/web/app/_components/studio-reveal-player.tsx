@@ -48,18 +48,216 @@ export function StudioRevealPlayer({
   allowWebgl?: boolean;
   className?: string;
 }) {
-  if (anim.kind === 'gold') {
+  // Menu merge (benchmark verdict §4): Trace is a Quick-tempo Handwriting
+  // alias; Gold Turn is absorbed by the Medallion Turn. Saved configs with the
+  // old keys upgrade automatically — the wire format never changed.
+  let kind: StudioAnimKind = anim.kind;
+  let dur = anim.dur;
+  if (kind === 'trace') {
+    kind = 'handwriting';
+    dur = Math.min(dur, 3.5);
+  }
+  if (kind === 'gold') kind = 'flip3d';
+  if (kind === 'molten') {
+    // WebGL only where permitted (one live context); elsewhere degrade to the
+    // Medallion Turn (svg marks) or the CSS gold turn (text fallback).
+    if (allowWebgl) return <MoltenMonogramInline markSvg={svg} monogram={monogram} />;
+    if (svg) return <MedallionTurn svg={svg} dur={dur} smooth={anim.smooth} className={className} />;
     return <GoldMonogramReveal markSvg={svg} monogram={monogram} inline className={className} />;
   }
-  if (anim.kind === 'molten') {
-    // WebGL only where permitted (one live context); elsewhere degrade to Gold Turn.
-    return allowWebgl ? (
-      <MoltenMonogramInline markSvg={svg} monogram={monogram} />
-    ) : (
-      <GoldMonogramReveal markSvg={svg} monogram={monogram} inline className={className} />
-    );
+  if (kind === 'flip3d') {
+    // The Medallion Turn (verdict §3) needs real paths; text-only fallback
+    // lockups keep the CSS gold turn.
+    if (svg) return <MedallionTurn svg={svg} dur={dur} smooth={anim.smooth} className={className} />;
+    return <GoldMonogramReveal markSvg={svg} monogram={monogram} inline className={className} />;
   }
-  return <DrawOnSvg svg={svg} kind={anim.kind} dur={anim.dur} smooth={anim.smooth} delay={anim.delay} className={className} />;
+  return <DrawOnSvg svg={svg} kind={kind as 'handwriting' | 'droplet' | 'petalfall'} dur={dur} smooth={anim.smooth} delay={anim.delay} className={className} />;
+}
+
+/**
+ * MedallionTurn — the benchmark verdict §3 prescription, verbatim: parent
+ * perspective 750px (600 mobile) with a raised origin; a compound
+ * rotateX(8°)+rotateY(−78°→0) turn on the 48-point spring; an angle-driven
+ * brightness track (1.0 → 0.72 → 1.06 catch → 1.0); the specular sweep clipped
+ * to the letterforms during the final traverse; a 4-copy translateZ thickness
+ * stack in deep bronze (the medallion rim); intra-mark parallax when the
+ * export carries <g data-mlayer> groups (frames −8px · letters 0 · pen +6px);
+ * a breathing contact shadow; one sparkle ping 200ms after rest; Ceremonial
+ * tempo adds a dim echo sweep. CSS/WAAPI only — no WebGL.
+ */
+function MedallionTurn({
+  svg,
+  dur,
+  smooth,
+  className,
+}: {
+  svg: string;
+  dur: number;
+  smooth: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = ref.current;
+    if (!host || !svg) return;
+    const reduced =
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
+    const isMobile =
+      typeof window !== 'undefined' && (window.matchMedia?.('(max-width: 640px)').matches ?? false);
+
+    const { holdMs } = holdsFor(dur);
+    const turnMs = Math.max(650, Math.round(dur * 183)); // ≈1100ms at the Classic 6s
+    const spring = springEasing();
+
+    host.innerHTML = '';
+    host.style.position = 'relative';
+    host.style.width = '100%';
+    host.style.height = '100%';
+    host.style.perspective = isMobile ? '600px' : '750px';
+    host.style.perspectiveOrigin = '50% 35%';
+
+    // breathing contact shadow — anchors the medallion to a floor
+    const shadow = document.createElement('div');
+    shadow.style.cssText =
+      'position:absolute;left:15%;right:15%;bottom:2%;height:10%;border-radius:50%;' +
+      'background:radial-gradient(ellipse at center, rgba(10,8,16,0.9) 0%, rgba(10,8,16,0) 70%);' +
+      'filter:blur(13px);opacity:0.17;transform:scaleX(0.95);';
+    host.appendChild(shadow);
+
+    const turn = document.createElement('div');
+    turn.style.cssText =
+      'position:absolute;inset:0 0 8% 0;transform-style:preserve-3d;will-change:transform;';
+    host.appendChild(turn);
+
+    const layerDiv = (inner: string, z: number, filter?: string) => {
+      const d = document.createElement('div');
+      d.style.cssText = `position:absolute;inset:0;transform:translateZ(${z}px);${filter ? `filter:${filter};` : ''}`;
+      d.innerHTML = inner;
+      const el = d.querySelector('svg');
+      if (el) {
+        el.setAttribute('width', '100%');
+        el.setAttribute('height', '100%');
+        (el as unknown as HTMLElement).style.cssText = 'display:block;width:100%;height:100%;overflow:visible;';
+      }
+      return d;
+    };
+
+    // thickness stack — 4 deep-bronze copies behind the face (§3.5)
+    for (let z = 4; z >= 1; z--) {
+      turn.appendChild(layerDiv(svg, -z, 'brightness(0.42) sepia(0.7) saturate(1.6) opacity(0.9)'));
+    }
+
+    // face — split into parallax layers when the export carries them (§3.8)
+    const faceSvgs: SVGSVGElement[] = [];
+    let split: { z: number; markup: string }[] | null = null;
+    try {
+      const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      const root = doc.documentElement;
+      const groups = Array.from(root.children).filter(
+        (c) => c.tagName === 'g' && c.getAttribute('data-mlayer'),
+      );
+      if (groups.length >= 2) {
+        const shellOpen = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${root.getAttribute('viewBox') ?? ''}">`;
+        const zFor: Record<string, number> = { frames: -8, letters: 0, pen: 6 };
+        split = groups.map((g) => ({
+          z: zFor[g.getAttribute('data-mlayer') ?? 'letters'] ?? 0,
+          markup: shellOpen + new XMLSerializer().serializeToString(g) + '</svg>',
+        }));
+      }
+    } catch {
+      split = null;
+    }
+    (split ?? [{ z: 0, markup: svg }]).forEach((L) => {
+      const d = layerDiv(L.markup, L.z);
+      turn.appendChild(d);
+      const el = d.querySelector('svg');
+      if (el) faceSvgs.push(el as SVGSVGElement);
+    });
+
+    if (reduced) {
+      turn.style.transform = 'none';
+      shadow.style.opacity = '0.28';
+      return;
+    }
+
+    const anims: Animation[] = [];
+    // the turn — hold at −78°, spring to rest (§3.9 beat structure)
+    turn.style.transform = 'rotateX(8deg) rotateY(-78deg)';
+    anims.push(
+      turn.animate(
+        [
+          { transform: 'rotateX(8deg) rotateY(-78deg)' },
+          { transform: 'rotateX(8deg) rotateY(0deg)' },
+        ],
+        { duration: turnMs, delay: holdMs, easing: smooth > 0.5 ? spring : 'ease-out', fill: 'both' },
+      ),
+    );
+    // angle-driven light (§3.3) — the single biggest upgrade
+    faceSvgs.forEach((el) => {
+      anims.push(
+        el.animate(
+          [
+            { filter: 'brightness(0.78)', offset: 0 },
+            { filter: 'brightness(0.72)', offset: 0.3 },
+            { filter: 'brightness(1.06)', offset: 0.88 },
+            { filter: 'brightness(1)', offset: 1 },
+          ],
+          { duration: turnMs, delay: holdMs, easing: 'ease-in-out', fill: 'both' },
+        ),
+      );
+    });
+    // breathing contact shadow (§3.6)
+    anims.push(
+      shadow.animate(
+        [
+          { transform: 'scaleX(0.98)', opacity: 0.15, filter: 'blur(14px)' },
+          { transform: 'scaleX(0.55)', opacity: 0.35, filter: 'blur(6px)' },
+        ],
+        { duration: turnMs, delay: holdMs, easing: smooth > 0.5 ? spring : 'ease-out', fill: 'both' },
+      ),
+    );
+    // specular traverse at 55–74% of the turn, clipped to the letterforms (§3.4)
+    const faceMain = faceSvgs[faceSvgs.length - 1];
+    if (faceMain) {
+      runSpecularSweep(faceMain, {
+        delayMs: holdMs + Math.round(turnMs * 0.55),
+        durMs: Math.round(turnMs * 0.34),
+        strong: true,
+      });
+      // Ceremonial: a dim echo sweep at +1.2s (§3.9)
+      if (dur > 8) runSpecularSweep(faceMain, { delayMs: holdMs + turnMs + 1200, durMs: 900 });
+    }
+    // one 4px sparkle ping, 200ms after rest (§3.9)
+    const spark = document.createElement('div');
+    spark.style.cssText =
+      'position:absolute;left:56%;top:38%;width:4px;height:4px;border-radius:50%;' +
+      'background:#fff8e7;box-shadow:0 0 8px 2px rgba(255,246,220,0.9);opacity:0;pointer-events:none;';
+    host.appendChild(spark);
+    anims.push(
+      spark.animate(
+        [
+          { opacity: 0, transform: 'scale(0.4)' },
+          { opacity: 1, transform: 'scale(1.4)', offset: 0.4 },
+          { opacity: 0, transform: 'scale(0.6)' },
+        ],
+        { duration: 480, delay: holdMs + turnMs + 200, easing: 'ease-out', fill: 'both' },
+      ),
+    );
+
+    return () => {
+      anims.forEach((a) => {
+        try {
+          a.cancel();
+        } catch {
+          /* noop */
+        }
+      });
+    };
+  }, [svg, dur, smooth]);
+
+  return <div ref={ref} className={className} aria-hidden style={{ width: '100%', height: '100%' }} />;
 }
 
 /** handwriting/trace/droplet — DOM-SVG draw-on of the mark's own paths. */
@@ -72,7 +270,7 @@ function DrawOnSvg({
   className,
 }: {
   svg: string | null;
-  kind: 'handwriting' | 'trace' | 'droplet' | 'petalfall' | 'flip3d';
+  kind: 'handwriting' | 'droplet' | 'petalfall';
   dur: number;
   smooth: number;
   delay: number;
@@ -106,56 +304,6 @@ function DrawOnSvg({
     const { holdMs } = holdsFor(dur);
     const spring = springEasing();
 
-    // flip3d — the REAL 3D turn (owner 2026-07-17): one CSS rotateY on the
-    // whole mark. The studio canvas can only fake this (2D engine); the live
-    // site gets the true perspective spin.
-    if (kind === 'flip3d') {
-      // Physical 3D (owner: "3D doesn't feel 3D enough"): tighter perspective,
-      // a TILTED spin axis (pure rotateY reads flat), depth zoom, and a
-      // drop-shadow that starts loose and lands tight — the light does the
-      // selling. Spring-ish landing via an overshooting bezier.
-      host.style.perspective = '650px';
-      host.style.perspectiveOrigin = '50% 40%';
-      const spinMs = Math.max(700, dur * 1000);
-      const a = svgEl.animate(
-        [
-          {
-            transform: 'rotate3d(0.24, 1, 0, 520deg) scale(0.62) translateZ(-120px)',
-            opacity: 0.08,
-            filter: 'drop-shadow(0 26px 28px rgba(20,17,28,0.30)) brightness(1.15)',
-            offset: 0,
-          },
-          {
-            transform: 'rotate3d(0.24, 1, 0, 180deg) scale(0.88) translateZ(-30px)',
-            opacity: 0.9,
-            filter: 'drop-shadow(0 14px 18px rgba(20,17,28,0.24)) brightness(1.25)',
-            offset: 0.58,
-          },
-          {
-            transform: 'rotate3d(0.24, 1, 0, -8deg) scale(1.02) translateZ(0)',
-            opacity: 1,
-            filter: 'drop-shadow(0 5px 8px rgba(20,17,28,0.18)) brightness(1.05)',
-            offset: 0.86,
-          },
-          {
-            transform: 'rotate3d(0.24, 1, 0, 0deg) scale(1) translateZ(0)',
-            opacity: 1,
-            filter: 'drop-shadow(0 2px 3px rgba(20,17,28,0.12)) brightness(1)',
-            offset: 1,
-          },
-        ],
-        { duration: spinMs, delay: holdMs, easing: smooth > 0.5 ? spring : 'ease-out', fill: 'both' },
-      );
-      runSpecularSweep(svgEl, { delayMs: holdMs + spinMs + 80, durMs: 700, strong: true });
-      return () => {
-        try {
-          a.cancel();
-        } catch {
-          /* noop */
-        }
-      };
-    }
-
     // eased() mirror: more `smooth` → softer in/out (the engine's smoothstep blend).
     const easing = smooth > 0.66 ? 'cubic-bezier(.45,.05,.25,1)' : smooth > 0.33 ? 'ease-in-out' : 'linear';
     const durMs = Math.max(400, dur * 1000);
@@ -169,9 +317,8 @@ function DrawOnSvg({
 
     paths.forEach((p, i) => {
       const fill = p.getAttribute('fill') || 'currentColor';
-      // trace draws ALL paths together (one global progress); handwriting + droplet
-      // stagger start-to-start by `delay` (engine semantics).
-      const startDelay = holdMs + (kind === 'trace' ? 0 : i * staggerMs);
+      // handwriting + droplet stagger start-to-start by `delay` (engine semantics).
+      const startDelay = holdMs + i * staggerMs;
 
       if (kind === 'petalfall') {
         // every piece drifts down with a little spin and settles (owner
@@ -216,7 +363,7 @@ function DrawOnSvg({
         return;
       }
 
-      // handwriting / trace — stroke the outline on, then ink the fill in.
+      // handwriting — stroke the outline on, then ink the fill in.
       let len = 0;
       try {
         len = p.getTotalLength();
@@ -232,7 +379,7 @@ function DrawOnSvg({
       }
       p.style.fill = fill;
       p.style.fillOpacity = '0';
-      p.style.stroke = kind === 'trace' ? GOLD : fill;
+      p.style.stroke = fill;
       p.style.strokeWidth = '1.4';
       p.style.strokeDasharray = String(len);
       p.style.strokeDashoffset = String(len);
@@ -260,7 +407,7 @@ function DrawOnSvg({
     // The shared specular pass — the light crosses the finished mark
     // (handwriting: after the last stroke · bloom: at full open · petal fall:
     // 300ms after the final piece lands).
-    const actSpan = kind === 'trace' ? durMs : durMs + staggerMs * Math.max(0, paths.length - 1);
+    const actSpan = durMs + staggerMs * Math.max(0, paths.length - 1);
     runSpecularSweep(svgEl, { delayMs: holdMs + actSpan + (kind === 'petalfall' ? 300 : 120), durMs: 700 });
 
     return () => {

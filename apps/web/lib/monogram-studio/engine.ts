@@ -46,6 +46,10 @@ export function mountStudio(opts) {
   // overlay over <canvas id=cv>. play() calls this with (kind, svg) for gold/
   // molten, and (null, null) to clear the overlay when a canvas kind plays.
   const onPreviewKind = opts.onPreviewKind || function () {};
+  // Host capability: true when the host renders EVERY reveal kind in its
+  // overlay (the StudioRevealPlayer portal) — the benchmark's one-implementation
+  // preview. False/absent → the legacy canvas acts run for draw-on kinds.
+  const portalPreview = Boolean(opts.portalPreview);
 
   const GOLD = '#C5A059';
   const CHECKER =
@@ -1248,6 +1252,20 @@ export function mountStudio(opts) {
   }
   function play(preset) {
     preset = preset || anim;
+    // Universal portal preview (benchmark §3: "the preview becomes a promise"):
+    // when the host can render the IDENTICAL live-site player over the canvas,
+    // hand every kind to the overlay — one implementation, zero studio-vs-live
+    // drift. The paper.js canvas acts survive as the reduced-motion fallback.
+    let reduced = false;
+    try {
+      reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) {}
+    if (portalPreview && !reduced) {
+      anim = preset;
+      const ex = getExport();
+      onPreviewKind(preset, ex && ex.svg ? ex.svg : null, { kind: preset, dur: animDur, smooth: animSmooth, delay: animDelay });
+      return;
+    }
     // gold/molten are React components → hand off to the host overlay, never run
     // the paper.js loop for them (it can't render a CSS turn or a WebGL shader).
     if (preset === 'gold' || preset === 'molten') {
@@ -1718,8 +1736,11 @@ export function mountStudio(opts) {
     });
   }
   function reflectAnimUI() {
+    // Menu merge (benchmark §4): saved 'trace' configs light Handwriting,
+    // saved 'gold' configs light the Medallion Turn — wire keys unchanged.
+    const disp = anim === 'trace' ? 'handwriting' : anim === 'gold' ? 'flip3d' : anim;
     [].forEach.call($('animbox').querySelectorAll('[data-an]'), function (c) {
-      c.classList.toggle('on', c.dataset.an === anim);
+      c.classList.toggle('on', c.dataset.an === disp);
     });
     $('dur').value = Math.round(animDur * 10);
     $('dur_v').textContent = animDur.toFixed(1) + 's';
@@ -3139,25 +3160,33 @@ export function mountStudio(opts) {
     selSym = null;
     drawMode = false;
     full();
-    // Canonical export order (§4.4): frames → letters → strokes → syms. The
-    // fill-only walk holds for frames too — every frame path is filled geometry.
-    const items = [];
-    frameLayer.children.forEach(function (c) {
-      if (c.fillColor) items.push(c);
-    });
-    layer.children.forEach(function (c) {
-      if (c.fillColor) items.push(c);
-    });
-    penLayer.children.forEach(function (c) {
-      if (c.fillColor) items.push(c);
-    });
-    let out = null;
-    if (items.length) {
-      const clones = items.map(function (c) {
-        return c.clone();
+    // Canonical export order (§4.4): frames → letters → strokes → syms — now
+    // exported as THREE <g data-mlayer> groups so the Medallion Turn can give
+    // frames/letters/accents different depths (intra-mark parallax, benchmark
+    // verdict §3.8). Pure structure: <g> + data-* pass the SVG sanitizer;
+    // pre-group saved marks simply render without parallax.
+    const collect = function (lyr) {
+      const arr = [];
+      lyr.children.forEach(function (c) {
+        if (c.fillColor) arr.push(c);
       });
-      const grp = new paper.Group(clones);
-      const b = grp.bounds;
+      return arr;
+    };
+    const layers = [
+      { name: 'frames', items: collect(frameLayer) },
+      { name: 'letters', items: collect(layer) },
+      { name: 'pen', items: collect(penLayer) },
+    ];
+    let out = null;
+    const total = layers.reduce(function (n, L) {
+      return n + L.items.length;
+    }, 0);
+    if (total) {
+      const groups = layers.map(function (L) {
+        return { name: L.name, grp: new paper.Group(L.items.map(function (c) { return c.clone(); })) };
+      });
+      const allGrp = new paper.Group(groups.map(function (g) { return g.grp; }));
+      const b = allGrp.bounds;
       const pad = Math.max(b.width, b.height) * 0.06 + 6;
       const x = b.x - pad,
         y = b.y - pad,
@@ -3165,12 +3194,16 @@ export function mountStudio(opts) {
         h = b.height + 2 * pad;
       let inner = '';
       try {
-        const node = grp.exportSVG({ asString: false });
-        inner = new XMLSerializer().serializeToString(node);
+        groups.forEach(function (g) {
+          if (!g.grp.children.length) return;
+          const node = g.grp.exportSVG({ asString: false });
+          inner +=
+            '<g data-mlayer="' + g.name + '">' + new XMLSerializer().serializeToString(node) + '</g>';
+        });
       } catch (e) {
         inner = '';
       }
-      grp.remove();
+      allGrp.remove();
       if (inner && w > 0 && h > 0) {
         const R = function (v) {
           return Math.round(v * 100) / 100;

@@ -26,6 +26,7 @@ import { useEffect, useRef } from 'react';
 import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { GoldMonogramReveal } from './gold-monogram-reveal';
 import { MoltenMonogramInline } from './molten-monogram-inline';
+import { springEasing, holdsFor, runSpecularSweep } from '@/lib/monogram-studio/choreography';
 
 export type StudioAnim = { kind: StudioAnimKind; dur: number; smooth: number; delay: number };
 
@@ -100,6 +101,11 @@ function DrawOnSvg({
     // Reduced motion / no animatable paths → leave the static filled mark.
     if (reduced || !paths.length || typeof paths[0]?.getTotalLength !== 'function') return;
 
+    // House choreography (council verdict §4): an entry HOLD before every act,
+    // spring landings, and the shared specular pass after the act completes.
+    const { holdMs } = holdsFor(dur);
+    const spring = springEasing();
+
     // flip3d — the REAL 3D turn (owner 2026-07-17): one CSS rotateY on the
     // whole mark. The studio canvas can only fake this (2D engine); the live
     // site gets the true perspective spin.
@@ -138,8 +144,9 @@ function DrawOnSvg({
             offset: 1,
           },
         ],
-        { duration: spinMs, easing: smooth > 0.5 ? 'cubic-bezier(.22,.9,.24,1)' : 'ease-out', fill: 'both' },
+        { duration: spinMs, delay: holdMs, easing: smooth > 0.5 ? spring : 'ease-out', fill: 'both' },
       );
+      runSpecularSweep(svgEl, { delayMs: holdMs + spinMs + 80, durMs: 700, strong: true });
       return () => {
         try {
           a.cancel();
@@ -164,7 +171,7 @@ function DrawOnSvg({
       const fill = p.getAttribute('fill') || 'currentColor';
       // trace draws ALL paths together (one global progress); handwriting + droplet
       // stagger start-to-start by `delay` (engine semantics).
-      const startDelay = kind === 'trace' ? 0 : i * staggerMs;
+      const startDelay = holdMs + (kind === 'trace' ? 0 : i * staggerMs);
 
       if (kind === 'petalfall') {
         // every piece drifts down with a little spin and settles (owner
@@ -183,7 +190,8 @@ function DrawOnSvg({
               },
               { opacity: 1, transform: 'none' },
             ],
-            { duration: durMs, delay: startDelay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
+            // spring landing (house choreography) — pieces SETTLE, not stop
+            { duration: durMs, delay: startDelay, easing: spring, fill: 'both' },
           ),
         );
         return;
@@ -201,7 +209,8 @@ function DrawOnSvg({
               { opacity: 0, transform: 'scale(0.6)' },
               { opacity: 1, transform: 'scale(1)' },
             ],
-            { duration: durMs, delay: startDelay, easing, fill: 'both' },
+            // spring landing (house choreography)
+            { duration: durMs, delay: startDelay, easing: spring, fill: 'both' },
           ),
         );
         return;
@@ -247,6 +256,12 @@ function DrawOnSvg({
         ),
       );
     });
+
+    // The shared specular pass — the light crosses the finished mark
+    // (handwriting: after the last stroke · bloom: at full open · petal fall:
+    // 300ms after the final piece lands).
+    const actSpan = kind === 'trace' ? durMs : durMs + staggerMs * Math.max(0, paths.length - 1);
+    runSpecularSweep(svgEl, { delayMs: holdMs + actSpan + (kind === 'petalfall' ? 300 : 120), durMs: 700 });
 
     return () => {
       anims.forEach((a) => {

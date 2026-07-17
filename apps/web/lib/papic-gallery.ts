@@ -201,3 +201,96 @@ export async function fetchPapicGallery(
     })),
   );
 }
+
+// ── TEASER-scoped read (creator "Adventure Chapter" owned-music teaser) ──────
+
+/** One geo-stripped, consent-cleared teaser frame — id + a presigned display URL. */
+export type TeaserFrame = { id: string; url: string };
+
+/** Teaser frame pull default cap (a small montage; the plan builder slices lower). */
+const TEASER_FRAME_LIMIT = 24;
+
+/**
+ * PUBLIC-surface Papic frame set for the creator owned-music TEASER — deliberately
+ * SEPARATE from fetchPapicGallery (the couple's auth-bound dashboard gallery). The
+ * teaser is a shareable, Setnayan-hosted clip, so this read mirrors the couple-RECAP
+ * path's public gates EXACTLY (app/[slug]/_components/editorial/data.ts):
+ *
+ *   • SEAT captures (papic_photos) — excluded when moderation-withheld
+ *     (nsfw_blocked / consent_withheld / faceblock_withheld) or couple-hidden.
+ *     'unscreened' fails OPEN, same as the recap's photo/gallery reads.
+ *   • GUEST captures (papic_guest_captures) — the DOUBLE consent gate the Alaala
+ *     public showcase enforces: consent_to_public = TRUE (the guest opted in) AND
+ *     couple_approved_for_showcase = TRUE (the couple picked it) AND not hidden.
+ *     This table carries NO NSFW moderation_state — the two gates ARE its public
+ *     gate, so an unconsented / unapproved guest shot can NEVER reach the teaser.
+ *
+ * GEO (RA 10173 · CLAUDE.md "geo stripped on outbound shares"): a frame's `url` is
+ * ALWAYS a metadata-stripped display/thumb derivative — NEVER the geo-bearing
+ * r2_object_key original. A frame with no such derivative is SKIPPED (no
+ * fall-through to the original), so the teaser can only ever ship geo-free bytes.
+ *
+ * Photos only (the teaser is a photo montage). Runs under the caller's RLS-bound
+ * client — same discipline as fetchPapicGallery — so a creator can only pull from
+ * a gallery they actually have access to. Never throws: any read error degrades to
+ * [] (the plan builder then renders canRender:false gracefully).
+ */
+export async function fetchTeaserFrames(
+  supabase: SupabaseClient,
+  eventId: string,
+  limit = TEASER_FRAME_LIMIT,
+): Promise<TeaserFrame[]> {
+  const [seatRes, guestRes] = await Promise.all([
+    supabase
+      .from('papic_photos')
+      .select('photo_id, display_r2_key, thumb_r2_key, captured_at, moderation_state, hidden_at')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .order('captured_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('papic_guest_captures')
+      .select('capture_id, display_r2_key, thumb_r2_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('media_type', 'photo')
+      // Double consent gate — mirrors the recap's guest-capture public read.
+      .eq('consent_to_public', true)
+      .eq('couple_approved_for_showcase', true)
+      .is('hidden_at', null)
+      .order('captured_at', { ascending: false })
+      .limit(limit),
+  ]);
+
+  // Graceful-degrade: a missing table/column (pre-migration) → drop that source.
+  const seatRows = seatRes.error ? [] : (seatRes.data ?? []);
+  const guestRows = guestRes.error ? [] : (guestRes.data ?? []);
+
+  type Pre = { id: string; ref: string | null; capturedAt: string };
+  const pre: Pre[] = [
+    ...seatRows.map((r) => ({
+      id: r.photo_id as string,
+      // DISPLAY/THUMB derivative ONLY — never r2_object_key (the geo-bearing
+      // original). A null ref (no derivative yet) drops the frame below.
+      ref: (r.display_r2_key as string | null) ?? (r.thumb_r2_key as string | null) ?? null,
+      capturedAt: r.captured_at as string,
+    })),
+    ...guestRows.map((r) => ({
+      id: r.capture_id as string,
+      ref: (r.display_r2_key as string | null) ?? (r.thumb_r2_key as string | null) ?? null,
+      capturedAt: r.captured_at as string,
+    })),
+  ]
+    .filter((p): p is Pre & { ref: string } => Boolean(p.ref))
+    .sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime())
+    .slice(0, limit);
+
+  const frames = await Promise.all(
+    pre.map(async (p) => ({
+      id: p.id,
+      url: await displayUrlForStoredAsset(p.ref as string),
+    })),
+  );
+  return frames.filter((f): f is TeaserFrame => Boolean(f.url));
+}

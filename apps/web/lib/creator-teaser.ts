@@ -19,7 +19,7 @@
 // no BYO audio can ever reach it.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchPapicGallery, type GalleryPhoto } from './papic-gallery';
+import { fetchTeaserFrames, type TeaserFrame } from './papic-gallery';
 import { pickOwnedReelMusic } from './guest-stories';
 import {
   TEASER_MAX_PHOTOS,
@@ -56,9 +56,12 @@ export function readChapterGalleryEventId(
 
 /**
  * Build the teaser render plan for a chapter. `supabase` MUST be the caller's
- * RLS-bound client — `fetchPapicGallery` runs under RLS, so a creator can only
+ * RLS-bound client — `fetchTeaserFrames` runs under RLS, so a creator can only
  * pull frames from a Papic gallery they actually have access to (a foreign
- * event id simply returns no rows). Never throws — degrades to canRender:false.
+ * event id simply returns no rows). On top of RLS, `fetchTeaserFrames` applies
+ * the couple-RECAP path's PUBLIC consent gates (moderation-cleared seat photos +
+ * double-consent-cleared guest photos) and hands back only geo-STRIPPED display
+ * derivatives. Never throws — degrades to canRender:false.
  */
 export async function buildChapterTeaserPlan(
   supabase: SupabaseClient,
@@ -82,23 +85,28 @@ export async function buildChapterTeaserPlan(
     };
   }
 
-  let gallery: GalleryPhoto[];
+  // CONSENT + GEO gate (fetchTeaserFrames): the teaser is a PUBLIC shareable clip,
+  // so frames come back already filtered to the recap path's public gates —
+  // moderation-cleared SEAT photos + double-consent-cleared GUEST photos — and each
+  // url is a geo-STRIPPED display/thumb derivative (never the raw geo-bearing
+  // original). Zero cleared frames → the teaser renders with none (canRender:false
+  // below), and NEVER falls back to unapproved / geo-bearing guest media.
+  let frames: TeaserFrame[];
   try {
-    gallery = await fetchPapicGallery(supabase, eventId);
+    frames = await fetchTeaserFrames(supabase, eventId);
   } catch {
-    gallery = [];
+    frames = [];
   }
 
-  const photos: TeaserPlanPhoto[] = gallery
-    .filter((p) => p.kind === 'photo' && typeof p.url === 'string' && p.url)
+  const photos: TeaserPlanPhoto[] = frames
     .slice(0, TEASER_MAX_PHOTOS)
-    .map((p) => ({ clipId: p.id, url: p.url as string }));
+    .map((f) => ({ clipId: f.id, url: f.url }));
 
   if (photos.length < TEASER_MIN_PHOTOS) {
     return {
       ...base,
       canRender: false,
-      reason: `Need at least ${TEASER_MIN_PHOTOS} photos in that Papic gallery to build a teaser — found ${photos.length}. (Only galleries you have access to can be used.)`,
+      reason: `Need at least ${TEASER_MIN_PHOTOS} showcase-approved photos in that Papic gallery to build a teaser — found ${photos.length}. (Only consent-cleared frames from galleries you have access to can be used.)`,
     };
   }
 

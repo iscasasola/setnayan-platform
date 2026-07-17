@@ -174,12 +174,24 @@ export async function fetchPublishedChapterForShare(publicId: string): Promise<{
   };
 }
 
-/** A shoppable substrate vendor card — a 0%-commission lead into /v/[slug]. */
+/**
+ * A substrate vendor surfaced behind a chapter. `linked` is the RELATIONSHIP
+ * gate (CP-4 · GAP-3): TRUE only when a real creator↔vendor relationship backs
+ * the mention — an accepted vendor_creator_offers collab with this chapter's
+ * creator, OR a genuine booking tying the vendor to the chapter's event. Only a
+ * `linked` vendor is rendered as a shoppable/bookable card (a 0%-commission lead
+ * into /v/[slug]); an UNLINKED vendor (the creator merely typed the id, no
+ * relationship) renders as PLAIN TEXT — no link, no Book CTA — so the page never
+ * manufactures a commercial affordance a vendor never agreed to. `slug` is null
+ * for an unlinked vendor with no linkable target.
+ */
 export type ShoppableVendor = {
-  slug: string;
+  slug: string | null;
   name: string;
   city: string | null;
   logoUrl: string | null;
+  /** Real-relationship gate — see the type doc. Drives card-vs-text rendering. */
+  linked: boolean;
   /**
    * Internal vendor id (PR-C) — used SERVER-SIDE ONLY to join the chapter's
    * accepted collab offers for the viewer-promo line (audience_rate_terms
@@ -188,16 +200,33 @@ export type ShoppableVendor = {
   vendorProfileId: string;
 };
 
+/** Server-side context that establishes whether a substrate vendor is REAL. */
+export type ShoppableVendorContext = {
+  /** The chapter owner (creator). Matched against vendor_creator_offers.creator_user_id. */
+  creatorUserId: string | null | undefined;
+  /** The chapter's event (substrate.papic_gallery_id) — the booking anchor. */
+  eventId?: string | null;
+};
+
 /**
  * Resolve the substrate's `vendor_ids` (creator-typed — either a business_slug
- * or a public_id) into linkable, PUBLICLY-VISIBLE vendor cards (CP-4). Hidden /
- * archived vendors are dropped (never leak a suspended profile), and the name
- * respects the hybrid-anonymity mechanic via resolveVendorDisplayName. Order
- * follows the creator's input. Read-only surfacing — no inquiry flow here; the
- * card links to the vendor's existing public page (0% commission lead).
+ * or a public_id) into PUBLICLY-VISIBLE vendor entries (CP-4). Hidden / archived
+ * vendors are dropped (never leak a suspended profile), and the name respects the
+ * hybrid-anonymity mechanic via resolveVendorDisplayName. Order follows the
+ * creator's input.
+ *
+ * GAP-3 (relationship gate): each entry is flagged `linked` ONLY when a real
+ * creator↔vendor relationship exists — an ACCEPTED vendor_creator_offers collab
+ * between this chapter's creator and the vendor, OR a genuine booking tying the
+ * vendor to the chapter's event (event_vendors.linked_vendor_profile_id). The
+ * page renders a shoppable/bookable card ONLY for `linked` vendors; unlinked ones
+ * render as plain text. A self-asserted vendor_id with no relationship can no
+ * longer manufacture a Setnayan-looking "book this vendor" affordance. Read-only
+ * surfacing — no inquiry flow here.
  */
 export async function resolveShoppableVendors(
   vendorIds: string[] | undefined,
+  context: ShoppableVendorContext = { creatorUserId: null },
 ): Promise<ShoppableVendor[]> {
   const ids = (vendorIds ?? []).map((s) => s.trim()).filter(Boolean).slice(0, 50);
   if (ids.length === 0) return [];
@@ -224,23 +253,37 @@ export async function resolveShoppableVendors(
     screen_name: string | null;
   }>;
 
-  // Index by both keys so we can preserve the creator's input order.
+  // Index by both keys so we can preserve the creator's input order. A vendor with
+  // no business_slug is still INCLUDED (it can render as plain text) — the slug is
+  // only required to LINK, not to name.
   const byKey = new Map<string, (typeof rows)[number]>();
+  const visibleProfileIds: string[] = [];
   for (const r of rows) {
     if (!isPubliclyVisible(parseVisibility(r.public_visibility))) continue;
-    if (!r.business_slug) continue; // no linkable /v/[slug] target
     if (r.business_slug) byKey.set(r.business_slug, r);
     if (r.public_id) byKey.set(r.public_id, r);
+    visibleProfileIds.push(r.vendor_profile_id);
   }
+
+  // RELATIONSHIP gate — which of these vendors actually has a real tie to this
+  // creator / this chapter's event. Fail-closed: any read error → the set stays
+  // empty → those vendors downgrade to plain text (never a fake shoppable card).
+  const linkedProfileIds = await resolveLinkedVendorProfileIds(
+    admin,
+    visibleProfileIds,
+    context,
+  );
 
   const out: ShoppableVendor[] = [];
   const seen = new Set<string>();
   for (const id of ids) {
     const r = byKey.get(id);
-    if (!r || !r.business_slug || seen.has(r.business_slug)) continue;
-    seen.add(r.business_slug);
+    if (!r || seen.has(r.vendor_profile_id)) continue;
+    seen.add(r.vendor_profile_id);
+    const linked = Boolean(r.business_slug) && linkedProfileIds.has(r.vendor_profile_id);
     out.push({
-      slug: r.business_slug,
+      // Only a linked vendor exposes its /v/[slug] link target.
+      slug: linked ? r.business_slug : null,
       name: resolveVendorDisplayName({
         business_name: r.business_name,
         name_revealed_at: r.name_revealed_at ?? null,
@@ -252,8 +295,62 @@ export async function resolveShoppableVendors(
       }),
       city: r.location_city,
       logoUrl: r.logo_url,
+      linked,
       vendorProfileId: r.vendor_profile_id,
     });
   }
   return out;
+}
+
+/**
+ * The subset of `profileIds` that carry a REAL relationship for GAP-3's card
+ * gate: an ACCEPTED vendor_creator_offers collab with `creatorUserId`, OR a
+ * booking on `eventId` (event_vendors.linked_vendor_profile_id). Best-effort —
+ * each read is independently wrapped; an error contributes nothing (fail-closed).
+ */
+async function resolveLinkedVendorProfileIds(
+  admin: ReturnType<typeof createAdminClient>,
+  profileIds: string[],
+  context: ShoppableVendorContext,
+): Promise<Set<string>> {
+  const linked = new Set<string>();
+  const ids = [...new Set(profileIds.filter(Boolean))];
+  if (ids.length === 0) return linked;
+
+  // 1. Accepted creator↔vendor collab (the offer row IS the relationship).
+  const creatorUserId = context.creatorUserId?.trim?.() || context.creatorUserId || null;
+  if (creatorUserId) {
+    try {
+      const { data } = await admin
+        .from('vendor_creator_offers')
+        .select('vendor_id')
+        .eq('creator_user_id', creatorUserId)
+        .eq('status', 'accepted')
+        .in('vendor_id', ids);
+      for (const row of (data ?? []) as Array<{ vendor_id: string }>) {
+        if (row.vendor_id) linked.add(row.vendor_id);
+      }
+    } catch {
+      /* fail-closed — no collab evidence */
+    }
+  }
+
+  // 2. Genuine booking tying the vendor to the chapter's event.
+  const eventId = context.eventId?.trim() || null;
+  if (eventId) {
+    try {
+      const { data } = await admin
+        .from('event_vendors')
+        .select('linked_vendor_profile_id')
+        .eq('event_id', eventId)
+        .in('linked_vendor_profile_id', ids);
+      for (const row of (data ?? []) as Array<{ linked_vendor_profile_id: string | null }>) {
+        if (row.linked_vendor_profile_id) linked.add(row.linked_vendor_profile_id);
+      }
+    } catch {
+      /* fail-closed — no booking evidence */
+    }
+  }
+
+  return linked;
 }

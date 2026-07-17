@@ -110,6 +110,10 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .fcard.on{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);}
 .vsroot .vs .fthumb{width:58px;height:46px;background-size:contain;background-repeat:no-repeat;background-position:center;}
 .vsroot .vs .fname{font-family:var(--font-space-mono),ui-monospace,monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);text-align:center;}
+.vsroot .vs .pstrip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.vsroot .vs .pcard{-webkit-appearance:none;appearance:none;flex:0 0 auto;scroll-snap-align:start;border:1px solid var(--line2);background:#fff;border-radius:12px;padding:7px 8px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:88px;}
+.vsroot .vs .pcard.on{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);}
+.vsroot .vs .pthumb{width:66px;height:48px;background-size:contain;background-repeat:no-repeat;background-position:center;}
 .vsroot .vs .drawtoggle{-webkit-appearance:none;appearance:none;border:1px dashed var(--gold)!important;background:#FBF6EA!important;border-radius:10px;padding:10px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--gold-deep)!important;cursor:pointer;text-align:left;}
 .vsroot .vs .drawtoggle.on{background:#1E2229!important;color:#FBFBFA!important;border-style:solid;border-color:#1E2229!important;}
 .vsroot .vs .shelfnote{font-size:12px;color:var(--ink-soft);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;}

@@ -84,6 +84,12 @@ export const FRAME_KINDS = [
 ] as const;
 export type StudioFrameKind = (typeof FRAME_KINDS)[number];
 export const MAX_FRAMES = 2;
+// Starting-point presets (council verdict §3) — provenance ONLY: `preset`
+// records which card seeded the design (analytics/`Duo repaired` etc.);
+// rendering never reads it. One field, not two (absorbed the separate
+// `layout?` proposal).
+export const PRESET_KEYS = ['duo', 'interlocked', 'stacked', 'framed-duo', 'solo-ring', 'blank'] as const;
+export type StudioPresetKey = (typeof PRESET_KEYS)[number];
 // The reveal-animation kinds offered in the studio's "Animate the reveal" panel.
 // Exported so the live player (app/_components/studio-reveal-player.tsx) imports
 // the ONE allowlist. handwriting/trace/droplet = paper.js/SVG draw-on; gold =
@@ -153,6 +159,8 @@ export type StudioConfig = {
   strokes: StudioStroke[];
   syms: StudioSymbol[];
   frames?: StudioFrame[];
+  /** Starting-point provenance — which preset card seeded this design. */
+  preset?: StudioPresetKey;
   anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number };
 };
 
@@ -282,6 +290,11 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       };
     });
 
+  const preset =
+    typeof o.preset === 'string' && (PRESET_KEYS as readonly string[]).includes(o.preset)
+      ? (o.preset as StudioPresetKey)
+      : undefined;
+
   let anim: StudioConfig['anim'];
   if (o.anim && typeof o.anim === 'object') {
     const a = o.anim as Record<string, unknown>;
@@ -305,6 +318,7 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     strokes,
     syms,
     ...(frames.length ? { frames } : {}),
+    ...(preset ? { preset } : {}),
     ...(anim ? { anim } : {}),
   };
   if (JSON.stringify(cfg).length > MAX_CONFIG_BYTES) return null;

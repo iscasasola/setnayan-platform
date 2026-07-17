@@ -150,6 +150,9 @@ export function mountStudio(opts) {
     selFrame = null,
     lettersBounds = null,
     frameCacheKey = '';
+  // Starting-point provenance (§3) — which preset card seeded this design.
+  // Analytics only; rendering never reads it.
+  let presetKey = null;
   let pts = new Map(),
     mode = null,
     Bz = {},
@@ -342,6 +345,10 @@ export function mountStudio(opts) {
     redoStack = [];
     updU();
     full();
+    // The strip's card set depends on letters.length (duo vs solo presets), so
+    // it must (re)build AFTER the letters exist — bindUI runs before the first
+    // derive, when letters is still []. No-op on the v1 markup.
+    buildPresetStrip();
   }
   function initState() {
     st = letters.map(function (_, i) {
@@ -1443,6 +1450,193 @@ export function mountStudio(opts) {
    * — one enclosure + one corner set; a new frame replaces its class slot.
    * Thumbnails are generated procedurally from the same builders around a
    * canned two-bar "M·J" silhouette, lazily on idle. Absent on v1 → all no-op. */
+  /* ── Starting points (council verdict §3 · PR-5) ─────────────────────────
+   * Each preset is a GENERATOR computed from the couple's actual letters —
+   * overlays on a fresh initState() (exactly the shape applyConfig restores).
+   * At least three ship with a crossing decision already applied so the
+   * interlock engine is visible before anyone has to understand it. */
+  const PRESET_DEFS = [
+    { key: 'duo', label: 'Duo', three: true },
+    { key: 'interlocked', label: 'Interlocked', three: true },
+    { key: 'stacked', label: 'Stacked', three: true },
+    { key: 'framed-duo', label: 'Framed duo', three: true },
+    { key: 'solo-ring', label: 'Solo ring', three: false },
+    { key: 'blank', label: 'Blank', three: null }, // fits both
+  ];
+  /** Deterministic interlock bisect (§3.1): nudge the letters' half-offset
+   *  until the overlap area lands in an 8–14% band of the union area — font-
+   *  proof, using the same intersect the render pipeline runs. */
+  function interlockOffset() {
+    if (!base[0] || !base[2]) return FS * 0.22;
+    let a = null,
+      c = null;
+    let best = FS * 0.22;
+    try {
+      a = base[0].clone();
+      a.pivot = a.bounds.center;
+      c = base[2].clone();
+      c.pivot = c.bounds.center;
+      const areaA = Math.abs(a.area),
+        areaC = Math.abs(c.area);
+      let lo = 2,
+        hi = ((a.bounds.width + c.bounds.width) / 2) * 0.95;
+      for (let it = 0; it < 14; it++) {
+        const dx = (lo + hi) / 2;
+        a.position = new paper.Point(-dx, 0);
+        c.position = new paper.Point(dx, 0);
+        let ratio = 0;
+        try {
+          const inter = a.intersect(c, { insert: false });
+          const ia = Math.abs(inter.area || 0);
+          inter.remove();
+          ratio = ia / Math.max(1, areaA + areaC - ia);
+        } catch (e) {}
+        best = dx;
+        if (ratio > 0.14) lo = dx; // too deep — pull apart
+        else if (ratio < 0.08) hi = dx; // barely touching — push together
+        else break;
+      }
+    } catch (e) {}
+    try {
+      if (a) a.remove();
+      if (c) c.remove();
+    } catch (e) {}
+    return best;
+  }
+  function presetState(key) {
+    const three = letters.length === 3;
+    if (key === 'duo' && three) {
+      // "Duo repaired": today's layout with a tuned ampersand + tighter spacing.
+      return { st: [{ tx: -FS * 0.3 }, { scale: 0.52, ty: FS * 0.02 }, { tx: FS * 0.3 }] };
+    }
+    if (key === 'interlocked' && three) {
+      const dx = interlockOffset();
+      return {
+        st: [{ tx: -dx }, { scale: 0.32, ty: FS * 0.44 }, { tx: dx }],
+        pstate: { '0-2': 'cut' }, // pre-woven — R rides over L with the cut gap
+      };
+    }
+    if (key === 'stacked' && three) {
+      return {
+        st: [
+          { tx: 0, ty: -FS * 0.3, scale: 0.85 },
+          { scale: 0.4 },
+          { tx: 0, ty: FS * 0.3, scale: 0.85 },
+        ],
+        pstate: { '0-1': 'merge', '1-2': 'merge' }, // one connected column
+      };
+    }
+    if (key === 'framed-duo' && three) {
+      return {
+        st: [{ tx: -FS * 0.3 }, { scale: 0.52 }, { tx: FS * 0.3 }],
+        frames: [frameDefaults('ring')], // compiles to a frames[] recipe — never baked strokes
+      };
+    }
+    if (key === 'solo-ring' && !three) {
+      return { frames: [frameDefaults('ring')] };
+    }
+    return {}; // blank — a fresh initState
+  }
+  function applyPresetState(ps) {
+    initState();
+    strokes = [];
+    syms = [];
+    selSym = null;
+    frames = [];
+    selFrame = null;
+    if (ps.st) {
+      st = st.map(function (sSt, i) {
+        return ps.st[i] ? Object.assign({}, sSt, ps.st[i]) : sSt;
+      });
+    }
+    if (ps.pstate) pstate = Object.assign({}, ps.pstate);
+    if (ps.frames) frames = cpFrames(ps.frames);
+  }
+  function applyPreset(key) {
+    pushUndo();
+    applyPresetState(presetState(key));
+    presetKey = key;
+    full();
+    reflectShelf();
+    reflectPresetStrip();
+  }
+  function buildPresetStrip() {
+    const strip = $('presetstrip');
+    if (!strip) return;
+    const three = letters.length === 3;
+    const defs = PRESET_DEFS.filter(function (d) {
+      return d.three === null || d.three === three;
+    });
+    strip.innerHTML =
+      '<p class="lab" style="margin:0 0 2px">Start from</p><div class="pstrip">' +
+      defs
+        .map(function (d) {
+          return (
+            '<button type="button" class="pcard" data-pk="' +
+            d.key +
+            '"><span class="pthumb" data-pt="' +
+            d.key +
+            '"></span><span class="fname">' +
+            d.label +
+            '</span></button>'
+          );
+        })
+        .join('') +
+      '</div>';
+    if (!strip.dataset.wired) {
+      strip.dataset.wired = '1';
+      strip.addEventListener('click', function (e) {
+        if (animating) return;
+        const b2 = e.target.closest('.pcard');
+        if (!b2) return;
+        applyPreset(b2.dataset.pk);
+      });
+    }
+    schedulePresetThumbs();
+    reflectPresetStrip();
+  }
+  function reflectPresetStrip() {
+    const strip = $('presetstrip');
+    if (!strip) return;
+    [].forEach.call(strip.querySelectorAll('.pcard'), function (c) {
+      c.classList.toggle('on', c.dataset.pk === presetKey);
+    });
+  }
+  function schedulePresetThumbs() {
+    const run = function () {
+      try {
+        buildPresetThumbs();
+      } catch (e) {}
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 3000 });
+    else setTimeout(run, 600);
+  }
+  function buildPresetThumbs() {
+    const strip = $('presetstrip');
+    if (destroyed || !strip || !view || !font) return;
+    // Transient apply → export → restore, all SYNCHRONOUS — paper paints on
+    // rAF, so intermediate states never reach the screen (the same trick
+    // buildExportSVG itself relies on). Single mounted engine only (§8.15) —
+    // and the thumbs show the couple's ACTUAL initials, per §3.1.
+    const keep = snap();
+    const keepPreset = presetKey;
+    const keepSel = sel,
+      keepPair = selPair;
+    [].forEach.call(strip.querySelectorAll('.pcard'), function (card) {
+      applyPresetState(presetState(card.dataset.pk));
+      const svg = buildExportSVG();
+      const slot = card.querySelector('.pthumb');
+      if (svg && slot) slot.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '")';
+    });
+    restore(keep);
+    presetKey = keepPreset;
+    sel = keepSel;
+    selPair = keepPair;
+    full();
+    reflectShelf();
+    reflectPresetStrip();
+  }
+
   function buildShelf() {
     const shelf = $('frameshelf');
     if (!shelf) return;
@@ -2021,6 +2215,8 @@ export function mountStudio(opts) {
           morebox.classList.toggle('off');
         });
       buildShelf(); // the Frame tab's pattern shelf (§4)
+      // (the starting-points strip builds at the end of derive() — it needs
+      // the letters, which don't exist yet at bindUI time)
     }
     $('animbox').addEventListener('click', function (e) {
       const b = e.target.closest('button');
@@ -2212,9 +2408,14 @@ export function mountStudio(opts) {
       strokes = [];
       syms = [];
       selSym = null;
+      frames = [];
+      selFrame = null;
+      presetKey = null;
       view.zoom = 1;
       view.center = new paper.Point(0, 0);
       full();
+      reflectShelf();
+      reflectPresetStrip();
     });
     $('inks').addEventListener('click', function (e) {
       const b = e.target.closest('.sw');
@@ -2273,6 +2474,7 @@ export function mountStudio(opts) {
         });
         buildBase();
         full();
+        schedulePresetThumbs(); // new face → the starting points re-render in it
       });
     });
     // D1 guard: derive() hard-resets every letter's state AND the undo history,
@@ -2309,6 +2511,7 @@ export function mountStudio(opts) {
         pstate = Object.assign({}, prevPstate);
       }
       full();
+      buildPresetStrip(); // new initials → refit the cards + regenerate thumbs
     });
   }
 
@@ -2358,11 +2561,13 @@ export function mountStudio(opts) {
         syms = Array.isArray(cfg.syms) ? cpSyms(cfg.syms) : [];
         frames = Array.isArray(cfg.frames) ? cpFrames(cfg.frames) : [];
         selFrame = null;
+        presetKey = typeof cfg.preset === 'string' ? cfg.preset : null;
         undoStack = [];
         redoStack = [];
         updU();
         full();
         reflectShelf();
+        reflectPresetStrip();
       };
       if (cfg.font && cfg.font !== fontKey && FONTS[cfg.font]) {
         fontKey = cfg.font;
@@ -2399,6 +2604,7 @@ export function mountStudio(opts) {
         return s;
       }),
       frames: cpFrames(frames),
+      preset: presetKey || undefined,
       anim: { kind: anim, dur: animDur, smooth: animSmooth, delay: animDelay },
     };
   }

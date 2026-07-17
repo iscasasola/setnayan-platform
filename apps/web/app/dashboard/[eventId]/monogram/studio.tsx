@@ -186,7 +186,7 @@ export function VectorStudio({
         </p>
         <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Design your mark from scratch</h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Your real initials, freely composed — drag to move, pinch to size, twist to rotate, weave or merge
+          Your real initials, freely composed — drag to move, resize with the gold handle, weave or merge
           where they cross, and frame them with a mirrored pen. Save it and it becomes your monogram everywhere:
           your dashboard, QR codes, wedding website, and save-the-date.
         </p>
@@ -230,9 +230,9 @@ export function VectorStudio({
 
       {/* Gold/Molten reveal preview — portaled over the paper.js canvas (.sw2) on
           the reveal's own dark stage so the metal reads. The SAME shipping
-          components render here and on the live website (WYSIWYG). Selecting a
-          canvas kind (handwriting/trace/droplet) clears previewKind → overlay
-          unmounts → the canvas shows again. */}
+          components render here and on the live website (WYSIWYG). Ways out:
+          the ✕ below, switching Arrange/Draw (engine clears via onPreviewKind),
+          or picking a canvas kind (handwriting/trace/droplet). */}
       {swEl && previewKind
         ? createPortal(
             <div
@@ -247,6 +247,17 @@ export function VectorStudio({
               ) : (
                 <MoltenMonogramInline markSvg={previewSvg} monogram={initialNames ?? 'M & J'} />
               )}
+              <button
+                type="button"
+                aria-label="Close the reveal preview"
+                onClick={() => {
+                  setPreviewKind(null);
+                  setPreviewSvg(null);
+                }}
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base leading-none text-white/85 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+              >
+                ✕
+              </button>
             </div>,
             swEl,
           )

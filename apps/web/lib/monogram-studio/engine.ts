@@ -293,19 +293,21 @@ export function mountStudio(opts) {
       if (p) p.remove();
     });
   }
-  function derive() {
-    const v = (namesEl.value || '').trim(),
+  function computeLetters(value) {
+    const v = (value || '').trim(),
       parts = v.split(/\s*(?:&|\+|\band\b)\s*/i).filter(Boolean);
-    let L = 'M',
-      R = 'J';
-    if (parts.length >= 2) {
-      L = parts[0][0];
-      R = parts[1][0];
-      letters = [(L || 'M').toUpperCase(), '&', (R || 'J').toUpperCase()];
-    } else if (parts.length === 1) {
-      L = parts[0][0] || 'M';
-      letters = [L.toUpperCase()];
-    } else letters = ['M', '&', 'J'];
+    // Array.from splits by code point, so an emoji/surrogate-pair first
+    // character stays one glyph instead of half a surrogate.
+    const first = function (s, dflt) {
+      const ch = Array.from(s || '')[0];
+      return (ch || dflt).toUpperCase();
+    };
+    if (parts.length >= 2) return [first(parts[0], 'M'), '&', first(parts[1], 'J')];
+    if (parts.length === 1) return [first(parts[0], 'M')];
+    return ['M', '&', 'J'];
+  }
+  function derive() {
+    letters = computeLetters(namesEl.value);
     buildBase();
     initState();
     undoStack = [];
@@ -638,6 +640,7 @@ export function mountStudio(opts) {
     order.forEach(function (i) {
       const p = lp(i);
       hit[i] = p;
+      if (!p) return; // a glyph the face can't render — skip, never throw
       const c = p.clone();
       c.fillColor = ink;
       c.strokeColor = null;
@@ -680,8 +683,14 @@ export function mountStudio(opts) {
       const r = find(i);
       (gmap[r] = gmap[r] || []).push(i);
     }
-    const groups = Object.keys(gmap).map(function (r) {
-      const mem = gmap[r];
+    const groupList = [];
+    Object.keys(gmap).forEach(function (r) {
+      // Drop members whose glyph failed to build (hit[m] null) — an exotic
+      // character must degrade to "that letter is missing", not a blank canvas.
+      const mem = gmap[r].filter(function (m) {
+        return hit[m];
+      });
+      if (!mem.length) return;
       let path = hit[mem[0]].clone();
       for (let m = 1; m < mem.length; m++) {
         try {
@@ -698,8 +707,9 @@ export function mountStudio(opts) {
       mem.forEach(function (x) {
         if (order.indexOf(x) > order.indexOf(fr)) fr = x;
       });
-      return { mem: mem, path: path, z: z, front: fr };
+      groupList.push({ mem: mem, path: path, z: z, front: fr });
     });
+    const groups = groupList;
     const groupOf = {};
     groups.forEach(function (g) {
       g.mem.forEach(function (m) {
@@ -828,7 +838,10 @@ export function mountStudio(opts) {
       const dur = nn > 1 ? D * 0.45 : D;
       // Delay = seconds AFTER one element STARTS before the next starts (a pure
       // start-to-start stagger), not after it finishes. DL=0 → all start together.
-      const stag = DL;
+      // D4 cap: the stagger shrinks when many items would blow the budget, so
+      // the WHOLE run always lands within the chosen duration — a mirrored
+      // frame of 160 paths can no longer stretch a 6s reveal into ~50s.
+      const stag = nn > 1 ? Math.min(DL, (D - dur) / (nn - 1)) : 0;
       view.onFrame = function (ev) {
         try {
           if (t0 === null) t0 = ev.time;
@@ -843,7 +856,7 @@ export function mountStudio(opts) {
             r.grp.insertChild(0, cir);
             r.grp.clipped = true;
           });
-          if (done || t > D + nn * DL + 4) {
+          if (done || t > D + 4) {
             endAnim(function () {
               full();
             });
@@ -910,7 +923,9 @@ export function mountStudio(opts) {
       const per = nn2 > 1 ? D * 0.4 : D;
       // Delay = seconds AFTER one letter STARTS before the next starts (a pure
       // start-to-start stagger), not after it finishes. DL=0 → all draw together.
-      const step = DL;
+      // D4 cap: shrink the stagger when the item count would blow the budget so
+      // the whole run stays within the chosen duration (see droplet above).
+      const step = nn2 > 1 ? Math.min(DL, (D - per) / (nn2 - 1)) : 0;
       view.onFrame = function (ev) {
         try {
           if (t0 === null) t0 = ev.time;
@@ -936,7 +951,7 @@ export function mountStudio(opts) {
             if (local < 1) done = false;
           });
           if (!shown) nib.visible = false;
-          if (done || t > D + nn2 * DL + 4) {
+          if (done || t > D + 4) {
             endAnim(function () {
               recs.forEach(function (r) {
                 try {
@@ -1134,17 +1149,26 @@ export function mountStudio(opts) {
 
   function bindUI() {
     cv.addEventListener('pointerdown', function (e) {
-      if (animating) return;
+      if (animating) {
+        // D4 tap-to-skip: a reveal must never hold the editor hostage — any
+        // tap finishes it instantly (full() rebuilds the final frame).
+        endAnim(function () {
+          full();
+        });
+        return;
+      }
       cv.setPointerCapture(e.pointerId);
       const vp = toV(e),
         pp = view.viewToProject(vp);
-      pts.set(e.pointerId, { v: vp });
+      pts.set(e.pointerId, { v: vp, hitSel: false });
       downV = vp;
       moved = false;
       if (drawMode) {
         if (pts.size === 1) {
           if (selSym != null && symHitPaths[selSym] && pp.getDistance(symCorner()) < 14 / view.zoom) {
-            pushUndo();
+            // D7: snapshot now, push only if the handle actually moves —
+            // grabbing without dragging must not mint a no-op undo entry.
+            preGesture = snap();
             mode = 'symhandle';
             const sc = symHitPaths[selSym].bounds.center,
               sv = pp.subtract(sc);
@@ -1154,7 +1178,9 @@ export function mountStudio(opts) {
           }
           const sh = symHit(pp);
           if (sh != null) {
-            pushUndo();
+            // D7: selecting a symbol isn't a modification — defer the undo
+            // push to pointerup, and only when the symbol actually moved.
+            preGesture = snap();
             selSym = sh;
             mode = 'symmove';
             lastP = pp;
@@ -1190,6 +1216,7 @@ export function mountStudio(opts) {
       preGesture = snap();
       if (sel != null && hit[sel] && pp.getDistance(corner()) < 14 / view.zoom && pts.size === 1) {
         mode = 'resize';
+        pts.get(e.pointerId).hitSel = true; // D6: the handle counts as the letter
         const c = hit[sel].bounds.center;
         Bh = { c: c, r0: pp.getDistance(c) || 1, s0: st[sel].scale };
         e.preventDefault();
@@ -1202,15 +1229,20 @@ export function mountStudio(opts) {
           selPair = null;
           mode = 'move';
           lastP = pp;
+          pts.get(e.pointerId).hitSel = true; // D6: this finger owns the letter
           hint.style.opacity = '0';
           fast();
         } else if (hi != null) {
           mode = 'move';
           sel = hi;
           lastP = pp;
+          pts.get(e.pointerId).hitSel = true;
         } else {
           sel = null;
-          mode = 'pan';
+          // D5: on touch the background is the page's scroll surface (the
+          // touchstart guard above didn't claim it) — a background tap still
+          // deselects, but never pans the artboard out from under a scroll.
+          mode = e.pointerType === 'touch' ? 'bgtap' : 'pan';
           lastV = vp;
           hint.style.opacity = '0';
         }
@@ -1272,17 +1304,28 @@ export function mountStudio(opts) {
     });
     function up(e) {
       if (animating) return;
-      pts.delete(e.pointerId);
+      const had = pts.delete(e.pointerId);
       try {
         cv.releasePointerCapture(e.pointerId);
       } catch (x) {}
+      // A pointer we never tracked (e.g. the tap-to-skip tap above) must not
+      // replay stale gesture state as a selection or an undo entry.
+      if (!had) return;
       if (drawMode) {
         if (mode === 'draw') {
           cur = null;
           drawStrokes();
         } else if (mode === 'symmove' || mode === 'symhandle') {
+          // D7: the symbol gesture becomes an undo entry only if it moved.
+          if (moved && preGesture) {
+            undoStack.push(preGesture);
+            if (undoStack.length > 80) undoStack.shift();
+            redoStack = [];
+            updU();
+          }
           drawStrokes();
         }
+        preGesture = null;
         if (pts.size === 0) mode = null;
         return;
       }
@@ -1293,7 +1336,7 @@ export function mountStudio(opts) {
           sel = null;
         } else if (mode === 'move' && sel != null) {
           selPair = null;
-        } else if (mode === 'pan') {
+        } else if (mode === 'pan' || mode === 'bgtap') {
           selPair = null;
           sel = null;
         }
@@ -1309,8 +1352,16 @@ export function mountStudio(opts) {
         mode = null;
         full();
       } else if (pts.size === 1 && sel != null) {
-        mode = 'move';
-        lastP = view.viewToProject(arrV()[0]);
+        // D6: after a staggered pinch-lift, only re-enter letter-drag when the
+        // surviving finger is the one that actually started on the selected
+        // letter — otherwise the letter jumped under an innocent zoom finger.
+        const rem = pts.values().next().value;
+        if (rem && rem.hitSel) {
+          mode = 'move';
+          lastP = view.viewToProject(arrV()[0]);
+        } else {
+          mode = null;
+        }
       }
     }
     cv.addEventListener('pointerup', up);
@@ -1319,11 +1370,38 @@ export function mountStudio(opts) {
       'wheel',
       function (e) {
         if (animating) return;
+        // D5: plain wheel/two-finger-swipe keeps scrolling the PAGE — the tall
+        // desktop canvas was a scroll trap. Zoom only on Ctrl/Cmd+wheel (which
+        // is also what a trackpad pinch emits).
+        if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
         zoomAt(view.zoom * (1 - e.deltaY * 0.0015), toV(e));
         if (zt) clearTimeout(zt);
         fast();
         zt = setTimeout(full, 180);
+      },
+      { passive: false },
+    );
+    // D5 (touch): the canvas CSS is now touch-action:pan-y, so a background
+    // swipe scrolls the page like anywhere else. This non-passive touchstart
+    // claims the gesture (preventDefault → no scroll) ONLY when the touch
+    // lands on something the studio drags — a letter, a crossing, a handle, a
+    // symbol, any multi-touch pinch, or anything at all in draw mode.
+    cv.addEventListener(
+      'touchstart',
+      function (e) {
+        if (!view || animating) return;
+        if (e.touches.length > 1) {
+          e.preventDefault();
+          return;
+        }
+        const t = e.touches[0];
+        if (!t) return;
+        const pp = view.viewToProject(toV(t));
+        let claim = drawMode; // draw mode: every touch is a stroke/symbol interaction
+        if (!claim && sel != null && hit[sel] && pp.getDistance(corner()) < 20 / view.zoom) claim = true;
+        if (!claim && (topHit(pp) != null || pairAt(pp))) claim = true;
+        if (claim) e.preventDefault();
       },
       { passive: false },
     );
@@ -1348,6 +1426,9 @@ export function mountStudio(opts) {
       sel = null;
       selPair = null;
       selSym = null;
+      // D3: switching modes dismisses the gold/molten React overlay — before
+      // this, the WebGL preview sat over the canvas with no way out.
+      onPreviewKind(null, null);
       full();
     });
     $('animhdr').addEventListener('click', function () {
@@ -1515,6 +1596,10 @@ export function mountStudio(opts) {
     undoBtn.addEventListener('click', doUndo);
     redoBtn.addEventListener('click', doRedo);
     keyHandler = function (e) {
+      // D11: typing in the Names field (or any input) keeps its NATIVE text
+      // undo — the canvas only owns Cmd/Ctrl+Z outside form fields.
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const m = e.metaKey || e.ctrlKey;
       if (m && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
@@ -1602,7 +1687,41 @@ export function mountStudio(opts) {
         full();
       });
     });
-    namesEl.addEventListener('input', derive);
+    // D1 guard: derive() hard-resets every letter's state AND the undo history,
+    // which turned any Names keystroke (a typo fix, a trailing space) into
+    // unrecoverable data loss. The guard lives HERE, not inside derive() —
+    // applyConfig() deliberately calls derive() and depends on its full reset.
+    namesEl.addEventListener('input', function () {
+      const next = computeLetters(namesEl.value);
+      if (
+        next.length === letters.length &&
+        next.every(function (ch, i) {
+          return ch === letters[i];
+        })
+      )
+        return; // same initials — typing elsewhere in the names never rebuilds
+      pushUndo(); // ONE undoable step (the pre-change design), stacks survive
+      const prevLetters = letters,
+        prevSt = st,
+        prevOrder = order,
+        prevPstate = pstate,
+        sameShape = next.length === prevLetters.length;
+      letters = next;
+      buildBase();
+      initState();
+      // Keep each surviving letter's arrangement: same index + same glyph →
+      // the couple's placement/scale/weave work persists across the rename.
+      st = letters.map(function (ch, i) {
+        return prevLetters[i] === ch && prevSt[i] ? Object.assign({}, prevSt[i]) : st[i];
+      });
+      if (sameShape) {
+        // Same letter count → indices (and so crossing keys) still mean the
+        // same pairs; keep z-order and weave/merge decisions too.
+        order = prevOrder.slice();
+        pstate = Object.assign({}, prevPstate);
+      }
+      full();
+    });
   }
 
   // ── config restore ──
@@ -1682,7 +1801,12 @@ export function mountStudio(opts) {
       strokes: strokes.map(function (s) {
         return { w: s.w, nib: s.nib, style: s.style, c: s.c, mode: s.mode, pts: cpPts(s.pts) };
       }),
-      syms: cpSyms(syms),
+      syms: cpSyms(syms).map(function (s) {
+        // D8: the drag handle accumulates turns; wrap to (-180, 180] so the
+        // sanitizer's [-360, 360] clamp can never rotate a reloaded symbol.
+        s.rot = ((s.rot % 360) + 540) % 360 - 180;
+        return s;
+      }),
       anim: { kind: anim, dur: animDur, smooth: animSmooth, delay: animDelay },
     };
   }

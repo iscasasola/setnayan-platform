@@ -60,3 +60,29 @@ it; error banner renders server-side (auth errors also surface via the app-wide
 SPEC IMPACT: None. Presentation/architecture unification of the existing login;
 no schema, SKU, pricing, route contract, or auth-flow change. Owner design
 decision logged at the bottom of the corpus DECISION_LOG.md.
+
+## 2026-07-18 · chore(login): full login-surface audit + dead-obsidian cleanup
+
+Owner follow-up: "delete the other login designs and make sure all login
+connects to that." A whole-app audit of every login surface (169 entry points /
+forms / modals / guards across `apps/web`) confirmed **all 159 real entry points
+already reach the one greige card** — every `/login` link + every auth-guard
+redirect. Cleaned up the remnants the audit surfaced:
+
+- Removed the dead `variant="dark"` OAuth path from `oauth-button-row.tsx` +
+  `desktop-oauth-buttons.tsx` — the light-on-dark treatment existed only for the
+  deleted obsidian sign-in rail; zero call sites pass `dark` (every consumer uses
+  the default light). The `dark` prop, `BTN_DARK`, and the obsidian-rail comments
+  are gone; the light rendering is byte-identical.
+- Scrubbed stale `app/@modal/(.)login` interceptor references from the docstrings
+  of `sign-in-card.tsx`, `sign-in-card-modal.tsx`, `login/page.tsx`, and
+  `login-data.ts` (the interceptor was removed earlier in this PR).
+
+Surfaced to owner, NOT changed here: (1) `public/keynote/components/login-signup.jsx`
+— an orphaned static design-deck mockup of a separate login+signup screen (no
+actions/hrefs, not loaded by any keynote HTML); recommend deleting but it's a
+deck artifact. (2) The onboarding "Your plan is ready" account gate renders its
+own inline "Continue with Google" (signup/account-creation, conversion-optimized);
+its "Already have an account? Sign in" link already points to `/login`.
+
+SPEC IMPACT: None. Dead-code + docs cleanup; no behavior change.

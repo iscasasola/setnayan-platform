@@ -18,21 +18,12 @@ const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
 
 const BTN_LIGHT =
   'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
-const BTN_DARK =
-  'flex w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:border-white/30 hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:cursor-not-allowed disabled:opacity-60';
 
-export function DesktopOAuthButtons({
-  next,
-  variant = 'light',
-}: {
-  next: string;
-  /** Match OAuthButtonRow — 'dark' renders the light-on-dark rail treatment. */
-  variant?: 'light' | 'dark';
-}) {
+export function DesktopOAuthButtons({ next }: { next: string }) {
   const [pending, setPending] = useState<DesktopOAuthProvider | null>(null);
   if (!GOOGLE_ENABLED && !APPLE_ENABLED) return null;
-  const BTN = variant === 'dark' ? BTN_DARK : BTN_LIGHT;
-  const appleFill = variant === 'dark' ? '#FFFFFF' : '#000000';
+  const BTN = BTN_LIGHT;
+  const appleFill = '#000000';
 
   const run = (provider: DesktopOAuthProvider) => {
     setPending(provider);

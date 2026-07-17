@@ -2,12 +2,10 @@
 
 /**
  * SignInCardModal — the greige sign-in card as a full-route surface: the dimmed
- * `.home-reskin-ov` backdrop + `.hr-ov-card` shell around <SignInCard>. Used by
- * BOTH route entry points to /login so a redirect / refresh / deep-link shows
- * the exact same popup the marketing nav does (owner 2026-07-18 "1 login …
- * dimming the background anywhere"):
- *   • the standalone page app/login/page.tsx — pass dismissHref="/";
- *   • the intercepted overlay app/@modal/(.)login — omit dismissHref.
+ * `.home-reskin-ov` backdrop + `.hr-ov-card` shell around <SignInCard>. Renders
+ * the /login route (app/login/page.tsx) so a redirect / refresh / deep-link
+ * shows the exact same popup the marketing nav does — one login everywhere
+ * (owner 2026-07-18 "1 login … dimming the background anywhere").
  *
  * Rendered INLINE (not portaled) and without a mount gate so the form is
  * server-rendered and works even before/without JS (the server action posts via
@@ -17,11 +15,11 @@
  * styles correctly outside the marketing `.home-reskin` tree.
  *
  * DISMISS (close button · backdrop click · Escape via useModalA11y):
- *   • dismissHref set (standalone) → router.push(dismissHref). NOT router.back(),
- *     which would return to the protected page that redirected here and bounce
- *     straight back to /login — a close loop.
- *   • dismissHref omitted (intercepted) → router.back(), popping the interception
- *     back onto the page you were on.
+ *   • dismissHref set — the /login page passes "/" → router.push("/"). It must
+ *     NOT be router.back(), which would return to the protected page that
+ *     redirected here and bounce straight back to /login — a close loop.
+ *   • dismissHref omitted → router.back() (kept as the generic default for any
+ *     future overlay-over-a-page caller; the /login route never relies on it).
  */
 import { useRef } from 'react';
 import { useRouter } from 'next/navigation';

@@ -5,16 +5,14 @@
  * ONE LOGIN EVERYWHERE (owner 2026-07-18 "we only want 1 login … that popup and
  * dimming the background anywhere"): this renders the SAME greige "Sign in to
  * Setnayan." card visitors see from the marketing top-nav — via the shared
- * SignInCardModal — instead of a bespoke full-page layout. The soft-navigation
- * experience (the intercepted app/@modal/(.)login overlay) renders the identical
- * card. Only dismiss differs: there's no interception to pop and no live page
- * behind, so close/Escape/backdrop go home (dismissHref="/"), and the dim sits
- * over a paper base.
+ * SignInCardModal — instead of a bespoke full-page layout. Close/Escape/backdrop
+ * go home (dismissHref="/") since there's no page behind on a hard load, and the
+ * dim sits over a paper base.
  *
  * The auth wiring (signInWithPassword server action, OAuth gating, the
  * error/check_email/ready/next searchParams contract + safeNext()) is unchanged —
- * it lives in ./_components/login-data.ts (shared with the intercepted route)
- * and ./_components/sign-in-card.tsx, per [[feedback_setnayan_button_preservation]].
+ * it lives in ./_components/login-data.ts and ./_components/sign-in-card.tsx, per
+ * [[feedback_setnayan_button_preservation]].
  */
 import type { Metadata } from 'next';
 import { SignInCardModal } from './_components/sign-in-card-modal';

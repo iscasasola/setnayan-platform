@@ -49,6 +49,11 @@ export type GalleryItem = {
   witnessAttribution?: string | null;
   services?: string[] | null;    // ['Papic', 'Panood', 'Monogram', 'Setnayan AI']
   editionNumber?: number | null; // Vol. I, No. X
+  // Stories SEARCH (P4+ · volume-gated facets): the credited vendors' canonical
+  // service categories behind this story — the "service/vendor category" facet.
+  // Read-only over the already-public credit pool; unused by the tile itself
+  // (the Team chips render vendor names, this drives the facet index only).
+  serviceCategories?: string[] | null;
   // Style-Twin Discovery: credited vendors behind the story, rendered as
   // tappable chips below the card that deep-link to /v/[slug]. (Credit is
   // FREE for every visible vendor — Simplicity Canon rule 2, 2026-07-16.)
@@ -169,7 +174,7 @@ function BoomerangVideo({ src, poster, alt }: { src: string; poster: string | nu
 
 type TileSize = 'cover' | 'loved' | 'card';
 
-function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: string }) {
+export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: string }) {
   const minH =
     size === 'cover'
       ? 'min-h-[320px] sm:min-h-[460px]'

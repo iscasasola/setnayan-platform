@@ -2,9 +2,19 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ALL_REAL_WEDDINGS } from '@/lib/real-weddings';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
-import { loadFeaturedChapters, loadChapterCutsForEvents } from '@/lib/storytellers';
+import {
+  loadFeaturedChapters,
+  loadChapterCutsForEvents,
+  loadChapterSearchMeta,
+} from '@/lib/storytellers';
 import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
 import { StorytellersShelf } from './_components/storytellers-shelf';
+import {
+  StoriesSearch,
+  type EditorialSearchItem,
+  type ChapterSearchItem,
+} from './_components/stories-search';
+import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 
 // /realstories — THE single public stories hub (iteration 0046 + Storytellers
 // PR-D, council verdict 2026-07-16): two named, visually distinct shelves on
@@ -71,12 +81,18 @@ export const metadata: Metadata = {
 // DB-backed (consent-gated showcases) → ISR. Degrades to samples gracefully.
 export const revalidate = 3600;
 
+// Load both shelves deep enough that the search display gate
+// (STORIES_SEARCH_MIN_POOL) is actually reachable — two shelves capped at the
+// default 24 could never sum past ~48. Harmless below the gate (there are a
+// handful of items today), and it lets the editorial cascade show more editions.
+const LOAD_LIMIT = 60;
+
 export default async function RealStoriesIndexPage() {
   // Both shelves load in parallel; each degrades independently ([] on any
   // failure / pre-migration DB), so neither voice can break the other.
   const [showcases, featuredChapters] = await Promise.all([
-    loadPublishedShowcases(),
-    loadFeaturedChapters(),
+    loadPublishedShowcases(LOAD_LIMIT),
+    loadFeaturedChapters(LOAD_LIMIT),
   ]);
   // Cross-rail (editorial → chapter): "Watch the storyteller's cut" chips for
   // editorial cards whose event has a linked PUBLISHED chapter. A join over
@@ -122,6 +138,8 @@ export default async function RealStoriesIndexPage() {
         witnessAttribution: w.witnessAttribution ?? null,
         services: w.services ?? null,
         editionNumber: w.editionNumber ?? null,
+        // Samples credit no marketplace vendors → no service facet values.
+        serviceCategories: [],
       }))
     : showcases.map((s) => ({
         href: s.href,
@@ -140,15 +158,57 @@ export default async function RealStoriesIndexPage() {
         // through instead of hardcoding false. Real consented editorials are
         // always isSample=false.
         isSample: s.isSample,
-        searchText: `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''}`.toLowerCase(),
+        searchText:
+          `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''} ${s.serviceCategories.join(' ')}`.toLowerCase(),
+        // Kept null so the below-gate Chronicle tile is byte-identical (no new
+        // milestone pill). The Wedding milestone the search facet needs is
+        // supplied only on the search items below (every consented editorial in
+        // this loader is an events.event_type = 'wedding' row).
         eventType: null,
         witnessQuote: null,
         witnessAttribution: null,
         services: null,
         editionNumber: null,
+        // Credited vendors' canonical categories → the service facet axis.
+        serviceCategories: s.serviceCategories,
         // Cross-rail chip — the storyteller's cut of this same event, if any.
         storytellerCutHref: chapterCutByEvent.get(s.eventId) ?? null,
       }));
+
+  // ── Stories SEARCH display gate (P4+ · volume-gated) ─────────────────────
+  // The place/service/kind facet UI mounts ONLY when the already-public
+  // featured+curated pool (editorials on the page + featured chapters) crosses
+  // STORIES_SEARCH_MIN_POOL. Below it, the hub keeps its shelf layout — a search
+  // box over a dozen items reads as a dead platform. Today: a handful of items
+  // ⇒ gate closed ⇒ this whole block is inert and the render below is unchanged.
+  const searchMode = items.length + featuredChapters.length >= STORIES_SEARCH_MIN_POOL;
+
+  // Facet metadata (city + credited-vendor categories) for the featured
+  // chapters — resolved ONLY in search mode, so the default render runs none of
+  // these extra queries. Read-only over the same already-public pool.
+  const chapterMeta = searchMode
+    ? await loadChapterSearchMeta(
+        featuredChapters.map((c) => ({ publicId: c.publicId, eventId: c.eventId })),
+      )
+    : null;
+
+  const editorialSearchItems: EditorialSearchItem[] = items.map((it) => ({
+    ...it,
+    // Milestone facet: samples already carry their own eventType; real
+    // consented editorials are all weddings (this loader's event_type filter),
+    // so fall back to 'Wedding' when the tile-level pill was left off above.
+    eventType: it.eventType ?? 'Wedding',
+    serviceCategories: it.serviceCategories ?? [],
+  }));
+  const chapterSearchItems: ChapterSearchItem[] = featuredChapters.map((c) => {
+    const meta = chapterMeta?.get(c.publicId);
+    return {
+      ...c,
+      city: meta?.city ?? null,
+      serviceCategories: meta?.serviceCategories ?? [],
+      editorialHref: c.eventId ? editorialHrefByEvent.get(c.eventId) ?? null : null,
+    };
+  });
 
   const itemListElements = items.map((it, i) => ({
     '@type': 'ListItem' as const,
@@ -212,14 +272,27 @@ export default async function RealStoriesIndexPage() {
           </p>
         </div>
 
-        <RealStoriesGallery items={items} />
+        {searchMode ? (
+          /* At volume — one faceted browser over BOTH shelves (place · service
+             · milestone). Editorial results keep the Chronicle tile; chapter
+             results keep the byline tile — spanning facets, distinct voices. */
+          <StoriesSearch
+            editorials={editorialSearchItems}
+            chapters={chapterSearchItems}
+          />
+        ) : (
+          <>
+            <RealStoriesGallery items={items} />
 
-        {/* "From Our Storytellers" — renders NOTHING (not even a heading) with
-            zero featured chapters; the editorial cascade above is untouched. */}
-        <StorytellersShelf
-          items={featuredChapters}
-          editorialHrefByEvent={editorialHrefByEvent}
-        />
+            {/* "From Our Storytellers" — renders NOTHING (not even a heading)
+                with zero featured chapters; the editorial cascade above is
+                untouched. */}
+            <StorytellersShelf
+              items={featuredChapters}
+              editorialHrefByEvent={editorialHrefByEvent}
+            />
+          </>
+        )}
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

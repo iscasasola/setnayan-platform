@@ -113,7 +113,14 @@ export default async function ChapterDetailPage({ params }: Props) {
     : null;
 
   const { itinerary, papic_gallery_id, vendor_ids } = chapter.substrate;
-  const vendors: ShoppableVendor[] = await resolveShoppableVendors(vendor_ids);
+  // GAP-3: pass the relationship context so a vendor is only rendered as a
+  // shoppable/bookable card when a real tie exists (accepted collab with THIS
+  // creator, or a booking on THIS chapter's event). Unrelated self-asserted
+  // vendor_ids come back `linked:false` and render as plain text.
+  const vendors: ShoppableVendor[] = await resolveShoppableVendors(vendor_ids, {
+    creatorUserId: user.user_id,
+    eventId: papic_gallery_id ?? null,
+  });
   const hasSubstrate =
     !!itinerary || !!papic_gallery_id || vendors.length > 0;
 
@@ -193,15 +200,37 @@ export default async function ChapterDetailPage({ params }: Props) {
 
             {vendors.length > 0 ? (
               <div className="uchap-block">
-                <p className="uchap-block-label">Vendors — shoppable</p>
+                <p className="uchap-block-label">Vendors</p>
                 <ul className="uchap-vendors">
                   {vendors.map((v) => {
+                    // GAP-3 — a shoppable/bookable card renders ONLY for a vendor
+                    // with a real relationship (accepted collab with this creator
+                    // or a booking on this event). An unlinked, self-asserted
+                    // vendor mention renders as PLAIN TEXT: no /v/[slug] link, no
+                    // Book CTA, no manufactured commercial affordance.
+                    if (!v.linked || !v.slug) {
+                      return (
+                        <li key={v.vendorProfileId} className="uchap-vendor-cell">
+                          <div className="uchap-vendor uchap-vendor--text">
+                            <span className="uchap-vendor-logo uchap-vendor-logo--empty" aria-hidden>
+                              {v.name.charAt(0)}
+                            </span>
+                            <span className="uchap-vendor-body">
+                              <span className="uchap-vendor-name">{v.name}</span>
+                              {v.city ? (
+                                <span className="uchap-vendor-city">{v.city}</span>
+                              ) : null}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    }
                     // Viewer promo (PR-C) — the vendor's audience rate from
                     // the ACCEPTED collab with this chapter's creator.
                     // audience_rate_terms ONLY; never the creator rate.
                     const promo = audienceRates.get(v.vendorProfileId) ?? null;
                     return (
-                      <li key={v.slug} className="uchap-vendor-cell">
+                      <li key={v.vendorProfileId} className="uchap-vendor-cell">
                         <Link href={`/v/${v.slug}`} className="uchap-vendor">
                           {v.logoUrl ? (
                             <span className="uchap-vendor-logo">
@@ -417,6 +446,14 @@ const UCHAP_CSS = `
     transform: translateY(-2px);
     border-color: var(--m-orange, #A9834B);
     box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
+  }
+  /* Plain-text (unlinked) vendor — a name the creator mentioned, with no
+     relationship. Non-interactive: no lift, no pointer, no hover accent. */
+  .uchap-vendor--text { cursor: default; }
+  .uchap-vendor--text:hover {
+    transform: none;
+    border-color: var(--m-line, #E2DED4);
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
   }
   .uchap-vendor-logo {
     flex: 0 0 auto;

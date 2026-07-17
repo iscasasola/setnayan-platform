@@ -31,6 +31,9 @@ import {
   type ResolvedModule,
 } from '@/lib/vendor-dayof-modules';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { deriveVendorPapicTier } from '@/lib/vendor-papic-grants';
+import { tierReadout } from '@/lib/vendor-papic-tier';
 import {
   fetchVendorTeam,
   enrichTeamWithUsers,
@@ -40,7 +43,7 @@ import {
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
-import { ModuleConfigurator } from './_components/module-configurator';
+import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker } from './_components/event-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 
@@ -705,13 +708,32 @@ async function ConfigureEventView({
 
   const override = await fetchDayOfOverride(supabase, vendorProfileId, booking.eventId);
   const resolved = resolveModules(services, eventTiles, override);
-  const modules = resolved.map((m) => ({
+  const modules: ConfiguratorModule[] = resolved.map((m) => ({
     id: m.id,
     label: m.label,
     blurb: m.blurb,
     enabled: m.enabled,
     counselGated: m.counselGated,
   }));
+
+  // Papic capture (counsel-gated): when the capability is live, badge the module
+  // card with the vendor's DERIVED tier for this booking — Ltd if they accepted
+  // the inquiry with a token (or a founder couple), else Lite. Off → no read, no
+  // badge; the "Needs setup" chip stands until the DPO/NPC control is approved.
+  const papicIdx = modules.findIndex((m) => m.id === 'vendor_papic');
+  const papicModule = papicIdx >= 0 ? modules[papicIdx] : undefined;
+  if (papicModule && (await isVendorPapicCaptureEnabled())) {
+    try {
+      const tier = await deriveVendorPapicTier(
+        createAdminClient(),
+        vendorProfileId,
+        booking.eventId,
+      );
+      modules[papicIdx] = { ...papicModule, readout: tierReadout(tier) };
+    } catch {
+      /* readout is decorative — omit on any failure */
+    }
+  }
   const family = resolveDayOfFamily(services, eventTiles);
   const dateLabel = fmtDate(booking.bookedDate);
 

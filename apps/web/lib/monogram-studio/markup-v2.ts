@@ -121,6 +121,7 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .collapsible.open .animbody{display:flex;}
 .vsroot .vs .replaybtn{position:absolute;right:12px;bottom:12px;z-index:2;-webkit-appearance:none;appearance:none;border:1px solid var(--line2);background:rgba(251,251,250,.92);border-radius:999px;padding:8px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;box-shadow:0 1px 6px rgba(30,34,41,.10);}
 .vsroot .vs .replaybtn.off{display:none;}
+.vsroot .vs .playwide{width:100%;justify-content:center;padding:12px 14px;font-size:13.5px;font-weight:600;border-radius:10px;}
 .vsroot .vs .drawtoggle{-webkit-appearance:none;appearance:none;border:1px dashed var(--gold)!important;background:#FBF6EA!important;border-radius:10px;padding:10px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--gold-deep)!important;cursor:pointer;text-align:left;}
 .vsroot .vs .drawtoggle.on{background:#1E2229!important;color:#FBFBFA!important;border-style:solid;border-color:#1E2229!important;}
 .vsroot .vs .shelfnote{font-size:12px;color:var(--ink-soft);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;}
@@ -252,7 +253,7 @@ export const STUDIO_HTML_V2 = `
     <div class="vtab off" id="tab-reveal">
       <div class="box" id="animbox">
         <p class="lab" style="margin:0">Animate the reveal</p>
-        <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Bloom</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="tg" data-an="petalfall">Petal Fall</button><button type="button" class="tg" data-an="flip3d">3D Turn</button><button type="button" class="mini play" id="play">Play</button></div>
+        <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Bloom</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="tg" data-an="petalfall">Petal Fall</button><button type="button" class="tg" data-an="flip3d">3D Turn</button></div>
         <p class="cap off" id="moltennote" style="margin:0">Molten Gold needs a newer phone — older ones see Gold Turn instead.</p>
         <div class="row" id="tempo"><span class="lab2" style="margin-right:2px">Tempo</span><button type="button" class="tg" data-tp="quick">Quick</button><button type="button" class="tg on" data-tp="classic">Classic</button><button type="button" class="tg" data-tp="ceremonial">Ceremonial</button></div>
         <div class="collapsible" id="finetune">
@@ -263,6 +264,7 @@ export const STUDIO_HTML_V2 = `
             <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90" aria-label="Animation smoothness"><span class="ro">Silky</span></div></div>
           </div>
         </div>
+        <button type="button" class="mini play playwide" id="play">▶&nbsp; Play the reveal</button>
         <p class="cap" style="margin:0"><b>Animate the reveal</b> picks how your monogram appears on your website.</p>
       </div>
     </div>

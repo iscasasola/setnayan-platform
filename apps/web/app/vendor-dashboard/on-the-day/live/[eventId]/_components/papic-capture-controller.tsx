@@ -1,28 +1,18 @@
 'use client';
 
-import { useCallback, useRef, useState, useTransition } from 'react';
-import {
-  Camera,
-  Loader2,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  Video,
-} from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { Camera, Loader2, RefreshCw, ShieldCheck, Video } from 'lucide-react';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import type { VendorPapicTier } from '@/lib/vendor-papic-tier';
-import {
-  startVendorPapicUnliUpgrade,
-  type StartUnliUpgradeResult,
-} from '../../../papic-upgrade-actions';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
 // hold = ≤5s clip, Ltd/Unli only) → the server-side capture route enforces the
-// tier's capture-point budget. Lite is photos-only; +₱50 upgrades this event to
-// Unli. Kept deliberately simple vs the couple seat surface (no offline queue,
-// no face tag) — the vendor is working, so the shutter stays responsive by
-// firing uploads without blocking, and the server budget is the hard gate.
+// tier's capture-point budget. Lite is photos-only; Ltd (and an admin-comped
+// Unli) allow clips. Kept deliberately simple vs the couple seat surface (no
+// offline queue, no face tag) — the vendor is working, so the shutter stays
+// responsive by firing uploads without blocking, and the server budget is the
+// hard gate.
 
 const HOLD_MS = 260; // press longer than this → start recording
 const CLIP_MAX_MS = 5000; // 5-SECOND HARD CAP — corpus lock
@@ -151,7 +141,7 @@ export function PapicCaptureController({
             }
             flash('You’re out of shots for this event.');
           } else if (json.error === 'video_not_allowed') {
-            flash('Video is on Papic Ltd — upgrade to shoot clips.');
+            flash('Papic Lite is photos only.');
           } else if (json.error === 'consent_required') {
             flash('Consent is required before capturing.');
           } else {
@@ -388,8 +378,6 @@ export function PapicCaptureController({
           </span>
         </div>
       </div>
-
-      <UpgradePanel eventId={eventId} tier={tier} outOfPoints={outOfPoints} allowVideo={allowVideo} />
     </div>
   );
 }
@@ -435,82 +423,6 @@ function TierMeter({
           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--m-ink)' }} />
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function UpgradePanel({
-  eventId,
-  tier,
-  outOfPoints,
-  allowVideo,
-}: {
-  eventId: string;
-  tier: VendorPapicTier;
-  outOfPoints: boolean;
-  allowVideo: boolean;
-}) {
-  const [pending, startTransition] = useTransition();
-  const [result, setResult] = useState<StartUnliUpgradeResult | null>(null);
-
-  if (tier === 'unli') return null;
-
-  function buy() {
-    startTransition(async () => {
-      setResult(await startVendorPapicUnliUpgrade(eventId));
-    });
-  }
-
-  const showBanner = outOfPoints || !allowVideo;
-
-  return (
-    <div className="sn-tile" style={{ borderColor: outOfPoints ? 'var(--m-orange-3)' : undefined }}>
-      <div className="flex items-start gap-2">
-        <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {outOfPoints ? 'Out of shots — go Unli' : 'Go Papic Unli'}
-          </p>
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            {showBanner
-              ? 'Unlimited photos and video for this event — ₱50.'
-              : 'Unlimited photos and video for this event, if you need it — ₱50.'}
-          </p>
-
-          {result && result.ok && 'alreadyUnli' in result && result.alreadyUnli ? (
-            <p className="mt-2 text-xs font-medium" style={{ color: 'var(--m-ink)' }}>
-              You’re already on Unli for this event. Reopen the tool to refresh.
-            </p>
-          ) : result && result.ok ? (
-            <div className="mt-2 rounded-lg p-2.5 text-xs" style={{ background: 'var(--m-line)' }}>
-              <p style={{ color: 'var(--m-ink)' }}>
-                Pay <strong>₱{result.amountPhp}</strong> using reference{' '}
-                <strong className="font-mono">{result.referenceCode}</strong>. Unli unlocks once the
-                Setnayan team confirms your payment.
-              </p>
-            </div>
-          ) : result && !result.ok ? (
-            <p className="mt-2 text-xs" style={{ color: 'var(--sn-danger, #b42318)' }}>
-              {result.error === 'disabled'
-                ? 'Papic capture isn’t active yet.'
-                : 'Couldn’t start the upgrade — try again.'}
-            </p>
-          ) : null}
-
-          {!(result && result.ok) ? (
-            <button
-              type="button"
-              onClick={buy}
-              disabled={pending}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-              style={{ background: 'var(--m-ink)' }}
-            >
-              {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
-              Upgrade to Unli · ₱50
-            </button>
-          ) : null}
-        </div>
-      </div>
     </div>
   );
 }

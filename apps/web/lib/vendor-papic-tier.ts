@@ -8,8 +8,10 @@
  *   • Accepted by SPENDING a lead token, OR a FOUNDER-comped (token-free) accept
  *     → Papic Ltd (70 capture points, photos + 5-second clips).
  *   • Any other accept (no token) → Papic Lite (20 points, PHOTOS-ONLY, no video).
- * On top of the free tier, the vendor may pay +₱50 to upgrade ONE booked event to
- * Papic Unli (unlimited). The upgrade is event-bound and non-transferable.
+ * Unli (unlimited) stays a latent tier an admin can comp (a grant row with
+ * tier='unli'); the vendor-facing +₱50 self-serve upgrade was DROPPED
+ * (owner 2026-07-18 — "not allow upgrade +50 if it is difficult"), which removes
+ * the whole apply-then-pay / order-reconciliation path.
  *
  * Capture-points currency (owner 2026-07-17): 1 photo = 1 pt · 1×5s clip = 3 pts.
  *
@@ -24,13 +26,6 @@
 
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';
-
-/** The +₱50 event-scoped upgrade to Unli. Priced in PHP (last-resort fallback;
- *  the live price is admin-managed on the retail catalog like other SKUs). */
-export const VENDOR_PAPIC_UNLI_UPGRADE_PHP = 50;
-
-/** orders.service_key marker for the Unli upgrade (its own key — never PAPIC_CAMERAS). */
-export const VENDOR_PAPIC_UNLI_UPGRADE_SKU = 'VENDOR_PAPIC_UNLI_UPGRADE';
 
 /** Points a single capture costs. 1 photo = 1 pt · 1×5s clip = 3 pts. */
 export const VENDOR_PAPIC_POINTS: Record<VendorPapicMedia, number> = {

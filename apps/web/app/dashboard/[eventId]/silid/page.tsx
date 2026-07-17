@@ -37,8 +37,9 @@ export const dynamic = 'force-dynamic';
  * doorway, which closes the wayfinding gap the 2026-07-18 audit found (7 of 13
  * free tools were buried outside the nav).
  *
- * NEW SURFACE, FLAG-DARK: gated behind NEXT_PUBLIC_SILID='true' so the live
- * Studio (../studio) is byte-untouched until this is switched on. Reuses the
+ * NEW SURFACE, FLAG-DARK IN PROD: shown on every Vercel PREVIEW deploy (so the
+ * owner can review it on the PR) but 404 in PRODUCTION until NEXT_PUBLIC_SILID
+ * is switched on — the live Studio (../studio) stays byte-untouched. Reuses the
  * proven Studio data layer wholesale — live admin-catalog prices (never
  * hardcoded), bundle-aware ownership, roadmap-aware recommendations, event-type
  * surface gating — so the open pricing/naming decisions don't block it: prices
@@ -137,9 +138,13 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
 }
 
 export default async function SilidPage({ params }: Props) {
-  // Flag-dark: this new surface stays 404 until NEXT_PUBLIC_SILID is switched on,
-  // so the live Studio is unaffected in prod.
-  if (process.env.NEXT_PUBLIC_SILID !== 'true') notFound();
+  // Flag-dark in PRODUCTION: 404 until NEXT_PUBLIC_SILID is switched on, so the
+  // live Studio is unaffected. Always visible on Vercel PREVIEW deploys
+  // (VERCEL_ENV==='preview') so the owner can review the PR without setting env
+  // vars — production is never 'preview', so prod stays dark.
+  const silidOn =
+    process.env.NEXT_PUBLIC_SILID === 'true' || process.env.VERCEL_ENV === 'preview';
+  if (!silidOn) notFound();
 
   const { eventId } = await params;
   const supabase = await createClient();

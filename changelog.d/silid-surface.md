@@ -6,7 +6,7 @@ Its point is the free layer: every free tool is a real tappable doorway — the 
 
 Reuses the proven Studio data layer wholesale — **live admin-catalog prices (never hardcoded)**, bundle-aware/co-host-aware ownership (`eventActiveSkus`), roadmap-aware recommendations, and 0053 event-type surface gating — and the `StudioAppRow` component. So the still-open pricing decisions don't block it (prices read live) and the still-recommended name lives in the single `SILID_NAME` constant (rename = one edit).
 
-Gated behind `NEXT_PUBLIC_SILID='true'` (fail-closed `notFound()` when unset) so the live Studio (`../studio`) is byte-untouched until the owner switches it on. Also adds a `routes.dashboard.checklist` helper (the one free-planner route that lacked one) so no doorway uses a hand-typed path.
+Flag-dark **in production** (`notFound()` until `NEXT_PUBLIC_SILID='true'`) so the live Studio (`../studio`) is byte-untouched, but **always visible on Vercel preview deploys** (`VERCEL_ENV==='preview'`) so the PR can be reviewed without setting env vars — production is never `'preview'`, so prod stays dark. Also adds a `routes.dashboard.checklist` helper (the one free-planner route that lacked one) so no doorway uses a hand-typed path.
 
 Verified: `tsc --noEmit` clean, `next lint` clean, the route compiles (8251 modules) and renders past the flag with the couple-membership auth guard firing correctly; the existing `/studio` is unaffected.
 

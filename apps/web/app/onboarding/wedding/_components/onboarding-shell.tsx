@@ -3006,6 +3006,14 @@ export function OnboardingShell({
           setCommitError('Please create your account to save your plan.');
           goToId('account');
         }
+      } else if (res.error === 'wedding_exists') {
+        // Wedding cardinality (owner-locked 2026-07-12, wired into this commit
+        // path 2026-07-17): one wedding in planning at a time — same rule the
+        // create-event picker already explains with its guided router.
+        setFinishing(false);
+        setCommitError(
+          'You already have a wedding in planning — you can only plan one at a time. Open it from your dashboard, or archive it first to start a new one.',
+        );
       } else {
         // Surface the error + let them retry — don't strand them on the overlay.
         setFinishing(false);

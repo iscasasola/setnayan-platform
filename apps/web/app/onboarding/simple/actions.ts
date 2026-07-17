@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 
 /**
  * commitSimpleEvent — the create commit for a SIMPLE EVENT (owner 2026-06-27).
@@ -47,6 +48,19 @@ export async function commitSimpleEvent(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) {
     return redirect('/login?next=/onboarding/simple');
+  }
+
+  // Life-event gate (2026-07-17): simple_event is LIFESTYLE class so this
+  // returns null immediately (zero rules, unlimited — owner-verbatim). The
+  // call stands anyway: every events-insert path runs the guard so the
+  // lib/life-event-gate.test.ts insert-path scan holds as an invariant.
+  const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
+    eventType: 'simple_event',
+  });
+  if (blockingLifeEvent) {
+    return redirect(
+      `/dashboard/create-event?error=life_event_exists&existing=${encodeURIComponent(blockingLifeEvent.eventId)}`,
+    );
   }
 
   // Both writes go through the admin client because the user-scoped JWT can be

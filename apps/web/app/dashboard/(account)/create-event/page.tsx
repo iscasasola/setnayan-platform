@@ -6,6 +6,9 @@ import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { fetchCommunity } from '@/lib/communities';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
+import { manilaToday } from '@/lib/std-views';
 import { getInPlanningWedding } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
@@ -28,6 +31,8 @@ const ERROR_COPY: Record<string, string> = {
     'That event type belongs to a person, not a samahan — pick a community event type.',
   samahan_not_organizer:
     'Only an organizer of that samahan can plan its events.',
+  life_event_exists:
+    'That celebration is already in planning. Open the existing event — or, if this one is for a different celebrant, type their name in “Para kanino?” when creating.',
 };
 
 type SearchParams = Promise<{
@@ -35,6 +40,7 @@ type SearchParams = Promise<{
   next?: string;
   event_type?: string;
   samahan?: string;
+  existing?: string;
 }>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
@@ -97,6 +103,42 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       ).filter((t): t is (typeof eventTypes)[number] => t !== null)
     : eventTypes;
 
+  // Measured-life-type visibility (owner 2026-07-17: "hide events that do not
+  // concern them for their life events — Wedding available anytime, it's not a
+  // measured date"). Debut/christening are derivable from stored birthdates, so
+  // when the counsel-gated People layer is ON we hide them unless someone in
+  // the account's people actually approaches that moment. The picker keeps a
+  // "show all" doorway (wayfinding lock) — hiding is a default, never a wall.
+  // Flag OFF / samahan context → nothing hides (we can't measure).
+  let hiddenTypeKeys: string[] = [];
+  if (user && !samahan && dependentPeopleEnabled()) {
+    // RLS scopes this to the viewer's own (+ married-household shared)
+    // dependents; a household concern counts. Handed-over records aged out.
+    const { data: deps } = await supabase
+      .from('dependents')
+      .select('birth_date, sex')
+      .eq('dependent_kind', 'person')
+      .is('handed_over_at', null);
+    hiddenTypeKeys = hiddenMeasuredTypes(
+      (deps ?? []) as ConcernPerson[],
+      manilaToday(),
+    );
+  }
+
+  // Life-event cardinality blocked state (council § 5 card 1): the server
+  // action bounced a duplicate in-planning life event here with its id. Fetch
+  // the display name so the card can say WHICH celebration is already open —
+  // RLS (member-only read) naturally scopes this to the user's own events.
+  let blockedLifeEvent: { eventId: string; displayName: string } | null = null;
+  if (rawError === 'life_event_exists' && params.existing && user) {
+    const { data: ev } = await supabase
+      .from('events')
+      .select('event_id, display_name')
+      .eq('event_id', params.existing)
+      .maybeSingle();
+    if (ev) blockedLifeEvent = { eventId: ev.event_id, displayName: ev.display_name };
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
@@ -131,7 +173,32 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      {errorMessage ? (
+      {blockedLifeEvent ? (
+        /* Life-event cardinality — the LIVE-duplicate card (council § 5 card 1).
+           Every door is live: open the existing event (primary), start a
+           different celebrant (the form's "Para kanino?" field), or archive the
+           old event (the inline archive door — an undated in-planning event
+           otherwise blocks forever). Invitation, not wall. */
+        <div className="mb-6 rounded-2xl border border-ink/10 bg-ink/[0.02] p-5 sm:p-6" role="alert">
+          <p className="font-sans text-xl text-ink">Tuloy pa rin ang planning na ito</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink/70">
+            <span className="font-medium text-ink">{blockedLifeEvent.displayName}</span> is already in
+            planning — one celebration of this kind per celebrant at a time.
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Link
+              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              href={`/dashboard/${blockedLifeEvent.eventId}`}
+            >
+              Buksan ang {blockedLifeEvent.displayName}
+            </Link>
+            <span className="text-xs leading-relaxed text-ink/60">
+              Iba ang celebrant? Type their name in “Para kanino?” below. Tapos na ang lumang event?
+              Archive it from its dashboard to free the slot.
+            </span>
+          </div>
+        </div>
+      ) : errorMessage ? (
         <p
           role="alert"
           className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
@@ -147,6 +214,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         preselect={preselect}
         inPlanningWedding={inPlanningWedding}
         samahanCommunityId={samahan?.communityId}
+        hiddenTypeKeys={hiddenTypeKeys}
       />
     </div>
   );

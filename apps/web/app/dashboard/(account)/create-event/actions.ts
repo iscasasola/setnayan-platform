@@ -12,7 +12,9 @@ import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
 import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
+import { isGatedLifeType } from '@/lib/life-event-gate';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
+import { getBlockingLifeEvent } from './life-event-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
@@ -213,6 +215,30 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/dashboard/create-event?error=wedding_exists');
   }
 
+  // Life-event cardinality — the wedding guard generalized (council verdict
+  // 2026-07-17 § 2, owner "build it now"). ONE life event IN PLANNING per
+  // (account × type × honoree). "Para kanino?" is the OPTIONAL honoree first
+  // name; unlabeled events contend for the per-type singleton slot, and typing
+  // a different celebrant's name opens a new slot. Lifestyle types (travel,
+  // corporate, anniversary, …) pass through untouched — zero rules, unlimited.
+  const honoree_label_raw = String(formData.get('honoree_label') ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  const honoree_label =
+    isGatedLifeType(event_type) && honoree_label_raw ? honoree_label_raw : null;
+  if (!isWedding && isGatedLifeType(event_type)) {
+    const blocking = await getBlockingLifeEvent(supabase, user.id, {
+      eventType: event_type,
+      honoreeLabel: honoree_label,
+    });
+    if (blocking) {
+      return redirect(
+        `/dashboard/create-event?error=life_event_exists&existing=${encodeURIComponent(blocking.eventId)}&event_type=${encodeURIComponent(event_type)}`,
+      );
+    }
+  }
+
   // Owner 2026-07-12: the iteration-0000 §2.5 "single-field, name-only" lock is
   // RELAXED for the non-wedding inline path — the couple can optionally seed a
   // date + guest count + budget at creation, which lights up the checklist's
@@ -296,6 +322,10 @@ export async function createWeddingEvent(formData: FormData) {
       // wedding lands 'none' (it PRODUCES a union date — its own date is an
       // output of venue discovery, never asked here).
       anchor_kind: anchorForType(event_type).kind,
+      // Life-event gate (2026-07-17): the optional honoree first name — the
+      // cardinality key for life types (NULL for lifestyle types and unlabeled
+      // creations). Ordinary PI; never rendered on public/vendor/guest surfaces.
+      honoree_label,
       // Anniversary capture (PR-A): the commemorated date + typed origin, and
       // recurs=true (anniversaries return every year). NULL for every other type.
       anchor_date: anniversaryDate,

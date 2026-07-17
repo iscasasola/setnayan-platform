@@ -77,6 +77,13 @@ export async function saveStudioAction(formData: FormData): Promise<void> {
       // drop those pointers so exactly one source owns monogram_custom_svg.
       monogram_cipher_config: null,
       monogram_custom_generation_id: null,
+      // Reclaim precedence from any earlier upload (gap audit 2026-07-17):
+      // every surface resolves `uploaded ?? custom`, so a leftover
+      // monogram_uploaded_svg would make this "Save as my monogram" a silent
+      // no-op — the hero/QR/save-the-date would keep the OLD upload while the
+      // UI says "your mark everywhere." Hitting Save on a studio design is an
+      // unambiguous intent to make THAT the mark, so clear the upload.
+      monogram_uploaded_svg: null,
     })
     .eq('event_id', eventId);
   if (error) backToMaker(eventId, { studio_error: 'save' });
@@ -91,11 +98,40 @@ export async function clearStudioAction(formData: FormData): Promise<void> {
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);
 
+  // If an uploaded mark still exists, it becomes visible again once the studio
+  // mark is cleared — and it reads its chosen reveal from monogram_studio_config.anim
+  // (upload-actions merges it there). Wiping the whole config would silently
+  // drop the upload's reveal back to the default (gap audit 2026-07-17), so
+  // preserve a minimal config that keeps only the reveal when an upload is live.
+  const { data: ev } = await supabase
+    .from('events')
+    .select('monogram_uploaded_svg, monogram_text, monogram_studio_config')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const hasUpload = typeof ev?.monogram_uploaded_svg === 'string' && Boolean(ev.monogram_uploaded_svg);
+  const existing = hasUpload ? sanitizeStudioConfig(ev?.monogram_studio_config) : null;
+  const preservedConfig =
+    hasUpload && existing?.anim
+      ? sanitizeStudioConfig({
+          text: typeof ev?.monogram_text === 'string' ? ev.monogram_text : '',
+          font: 'cardo',
+          ink: '#5C2542',
+          outlineColor: '#C5A059',
+          bg: '#FBFBFA',
+          st: [],
+          order: [],
+          pstate: {},
+          strokes: [],
+          syms: [],
+          anim: existing.anim,
+        })
+      : null;
+
   const { error } = await supabase
     .from('events')
     .update({
       monogram_custom_svg: null,
-      monogram_studio_config: null,
+      monogram_studio_config: preservedConfig,
     })
     .eq('event_id', eventId);
   if (error) backToMaker(eventId, { studio_error: 'save' });

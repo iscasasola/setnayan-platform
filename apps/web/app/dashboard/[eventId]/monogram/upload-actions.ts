@@ -57,9 +57,9 @@ export async function saveUploadedMarkAction(formData: FormData): Promise<void> 
   const supabase = await requireCouple(eventId);
 
   const rawSvg = String(formData.get('svg') ?? '');
-  if (rawSvg.length > MAX_SVG_BYTES) backToMaker(eventId, { studio_error: 'render' });
+  if (rawSvg.length > MAX_SVG_BYTES) backToMaker(eventId, { upload_error: 'render' });
   const svg = sanitizeStudioSvg(rawSvg);
-  if (!svg) backToMaker(eventId, { studio_error: 'render' });
+  if (!svg) backToMaker(eventId, { upload_error: 'render' });
 
   const animRaw = String(formData.get('anim_kind') ?? '');
   const animKind: StudioAnimKind = (ANIM_KINDS as readonly string[]).includes(animRaw)
@@ -92,7 +92,7 @@ export async function saveUploadedMarkAction(formData: FormData): Promise<void> 
           syms: [],
           anim: { kind: animKind, dur: 6, smooth: 0.9, delay: 0.3 },
         });
-  if (!config) backToMaker(eventId, { studio_error: 'invalid' });
+  if (!config) backToMaker(eventId, { upload_error: 'invalid' });
 
   const { error } = await supabase
     .from('events')
@@ -101,7 +101,7 @@ export async function saveUploadedMarkAction(formData: FormData): Promise<void> 
       monogram_studio_config: config,
     })
     .eq('event_id', eventId);
-  if (error) backToMaker(eventId, { studio_error: 'save' });
+  if (error) backToMaker(eventId, { upload_error: 'save' });
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);
@@ -117,7 +117,7 @@ export async function clearUploadedMarkAction(formData: FormData): Promise<void>
     .from('events')
     .update({ monogram_uploaded_svg: null })
     .eq('event_id', eventId);
-  if (error) backToMaker(eventId, { studio_error: 'save' });
+  if (error) backToMaker(eventId, { upload_error: 'save' });
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);

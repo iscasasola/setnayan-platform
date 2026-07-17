@@ -56,7 +56,13 @@ export async function fileToMarkSvg(file: File): Promise<UploadDecode> {
     return { ok: true, svg: clean, elements: countPaths(clean), traced: false };
   }
 
-  if (type === 'image/png' || type === 'image/webp' || name.endsWith('.png') || name.endsWith('.webp')) {
+  // Raster art: transparent PNG/WebP trace via the alpha channel; opaque
+  // scans/photos (JPEG) trace via luminance — trace.ts is built for both, so
+  // JPEG is accepted (a couple photographing a paper monogram is the common
+  // case; gap audit 2026-07-17).
+  const rasterExt = ['.png', '.webp', '.jpg', '.jpeg'];
+  const rasterType = ['image/png', 'image/webp', 'image/jpeg'];
+  if (rasterType.includes(type) || rasterExt.some((x) => name.endsWith(x))) {
     try {
       const bmp = await createImageBitmap(file);
       const traced = traceImageToSvg(bmp, bmp.width, bmp.height);
@@ -68,7 +74,8 @@ export async function fileToMarkSvg(file: File): Promise<UploadDecode> {
       if (!traced) {
         return {
           ok: false,
-          error: 'We couldn’t find a mark in that image — a transparent-background PNG works best.',
+          error:
+            'We couldn’t find a mark in that image — a transparent-background PNG works best, or a scan of dark ink on light paper.',
         };
       }
       const clean = sanitizeStudioSvg(traced.svg);
@@ -79,5 +86,5 @@ export async function fileToMarkSvg(file: File): Promise<UploadDecode> {
     }
   }
 
-  return { ok: false, error: 'Upload an SVG or a transparent-background PNG.' };
+  return { ok: false, error: 'Upload an SVG, a transparent-background PNG, or a scan (JPEG/PNG).' };
 }

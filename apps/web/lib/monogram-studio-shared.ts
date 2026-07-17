@@ -420,6 +420,13 @@ const FORBIDDEN: RegExp[] = [
 export function sanitizeStudioSvg(raw: string): string | null {
   if (!raw || raw.length > MAX_SVG_BYTES) return null;
   let svg = raw.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').trim();
+  // Strip a leading DOCTYPE declaration (Adobe Illustrator's default SVG export
+  // ships one — a couple's designer file was rejected without this). Only the
+  // simple, internal-subset-FREE form is stripped: `[^[>]*` refuses to consume
+  // a `[`, so an internal-subset DOCTYPE (the XXE-entity vector, e.g.
+  // `<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>`) stays and
+  // then fails the startsWith('<svg') check below → rejected. Safe + permissive.
+  svg = svg.replace(/^\s*<!DOCTYPE\s+[^[>]*>\s*/i, '').trim();
   if (!svg.toLowerCase().startsWith('<svg')) return null;
   if (!svg.toLowerCase().endsWith('</svg>')) return null;
   for (const re of FORBIDDEN) {

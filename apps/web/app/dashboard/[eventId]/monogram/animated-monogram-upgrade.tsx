@@ -271,7 +271,7 @@ function OwnedView({
                identical component the live hero renders (StudioRevealPlayer).
                allowWebgl stays false: the maker page can co-mount the studio's
                molten portal, and one WebGL context is the budget on the phones
-               we serve — molten degrades to Gold Turn here, exactly as it does
+               we serve — molten degrades to the Medallion Turn here (one WebGL context
                on the website hero. key remounts so the reveal replays per visit. */
             <span
               className={`inline-flex h-40 w-40 items-center justify-center ${
@@ -415,7 +415,7 @@ async function UnownedView({
             {bespokeSvg ? (
               /* The couple's REAL mark playing their REAL saved reveal — the same
                  component the live hero uses. allowWebgl false (one WebGL context
-                 budget; molten shows as Gold Turn here AND on the hero). key
+                 budget; molten degrades to the Medallion Turn here). key
                  remounts so the reveal replays per render. */
               <span
                 className={`inline-flex h-20 w-20 items-center justify-center ${

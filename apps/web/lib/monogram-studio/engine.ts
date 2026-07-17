@@ -852,11 +852,46 @@ export function mountStudio(opts) {
         /* weave failure degrades to the plain stack */
       }
     }
-    built.forEach(function (paths) {
+    built.forEach(function (paths, fi) {
       paths.forEach(function (p) {
+        p.data = { fi: fi }; // frame-drag hit-testing (owner: "fixing the location of the frames")
         frameLayer.addChild(p);
       });
     });
+  }
+  function frameHit(pp) {
+    if (!frameLayer || !frameLayer.children.length) return null;
+    // Frame bands are thin (a 6-unit ring), so containment alone is a
+    // fingertip-hostile target — and paper's fill hit-testing ignores
+    // `tolerance` (it only applies to strokes). So: containment first, then a
+    // nearest-point distance test gives real grab slack around the ink.
+    const tol = 14 / view.zoom;
+    for (let k = frameLayer.children.length - 1; k >= 0; k--) {
+      const c = frameLayer.children[k];
+      if (!c.data || c.data.fi == null) continue;
+      try {
+        if (c.contains(pp)) return c.data.fi;
+      } catch (e) {}
+    }
+    let bestFi = null,
+      bestD = tol;
+    for (let k = frameLayer.children.length - 1; k >= 0; k--) {
+      const c = frameLayer.children[k];
+      if (!c.data || c.data.fi == null) continue;
+      try {
+        // cheap reject: outside the padded bounds → skip the curve math
+        if (!c.bounds.expand(tol * 2).contains(pp)) continue;
+        const loc = c.getNearestLocation ? c.getNearestLocation(pp) : null;
+        if (loc) {
+          const d = loc.point.getDistance(pp);
+          if (d < bestD) {
+            bestD = d;
+            bestFi = c.data.fi;
+          }
+        }
+      } catch (e) {}
+    }
+    return bestFi;
   }
   function decor() {
     if (drawMode || animating) return;
@@ -2039,13 +2074,18 @@ export function mountStudio(opts) {
       (showWeave
         ? '<div class="row"><button type="button" class="tg' +
           (weaveOn ? ' on' : '') +
-          '" id="ff_weave">⤫ Weave the two frames</button></div>' +
-          '<div><div class="lab2"><span>Offset ↔ · slide the frames apart or together</span><span id="ff_off_v">' +
-          Math.round(f.tx) +
-          '</span></div><input type="range" id="ff_off" min="-220" max="220" step="2" value="' +
-          Math.round(f.tx) +
-          '" aria-label="Frame horizontal offset"></div>'
+          '" id="ff_weave">⤫ Weave the two frames</button></div>'
         : '') +
+      '<div><div class="lab2"><span>Position ↔</span><span id="ff_off_v">' +
+      Math.round(f.tx) +
+      '</span></div><input type="range" id="ff_off" min="-300" max="300" step="2" value="' +
+      Math.max(-300, Math.min(300, Math.round(f.tx))) +
+      '" aria-label="Frame horizontal position"></div>' +
+      '<div><div class="lab2"><span>Position ↕</span><span id="ff_offy_v">' +
+      Math.round(f.ty) +
+      '</span></div><input type="range" id="ff_offy" min="-300" max="300" step="2" value="' +
+      Math.max(-300, Math.min(300, Math.round(f.ty))) +
+      '" aria-label="Frame vertical position"></div>' +
       '<div class="crow"><span class="ckey">Colour</span><div class="row swrow" id="ff_cols">' +
       ['#C5A059', '#E6D2A2', '#8C6932', '#C9CDD2', '#5C2542', '#1E2229', '#B07A86']
         .map(function (cH) {
@@ -2065,7 +2105,7 @@ export function mountStudio(opts) {
       '</div><label class="cust" title="Custom frame colour"><input type="color" id="ff_cust" value="' +
       (/^#[0-9a-fA-F]{6}$/.test(f.c) ? f.c : '#C5A059') +
       '" aria-label="Custom frame colour"></label></div>' +
-      '<p class="cap" style="margin:0">Auto-fits your letters · sits behind the letters.</p>' +
+      '<p class="cap" style="margin:0">Auto-fits your letters · sits behind the letters · drag the frame on the canvas to place it.</p>' +
       '</div>';
     wireFrameSlider('ff_scale', f, function (g, v) {
       g.scale = v / 100;
@@ -2098,10 +2138,13 @@ export function mountStudio(opts) {
           } catch (x) {}
           reflectShelf();
         });
-      wireFrameSlider('ff_off', f, function (g, v) {
-        g.tx = v;
-      }, 'ff_off_v');
     }
+    wireFrameSlider('ff_off', f, function (g, v) {
+      g.tx = v;
+    }, 'ff_off_v');
+    wireFrameSlider('ff_offy', f, function (g, v) {
+      g.ty = v;
+    }, 'ff_offy_v');
     const cols = $('ff_cols');
     if (cols)
       cols.addEventListener('click', function (e) {
@@ -2281,13 +2324,26 @@ export function mountStudio(opts) {
           lastP = pp;
           pts.get(e.pointerId).hitSel = true;
         } else {
-          sel = null;
-          // D5: on touch the background is the page's scroll surface (the
-          // touchstart guard above didn't claim it) — a background tap still
-          // deselects, but never pans the artboard out from under a scroll.
-          mode = e.pointerType === 'touch' ? 'bgtap' : 'pan';
-          lastV = vp;
-          hint.style.opacity = '0';
+          const fh = frameHit(pp);
+          if (fh != null) {
+            // Drag a frame to place it (owner 2026-07-17 "fixing the location
+            // of the frames"). Letters keep tap priority; the frame body is
+            // grabbable anywhere its ink is.
+            sel = null;
+            selPair = null;
+            selFrame = fh;
+            mode = 'framemove';
+            lastP = pp;
+            hint.style.opacity = '0';
+          } else {
+            sel = null;
+            // D5: on touch the background is the page's scroll surface (the
+            // touchstart guard above didn't claim it) — a background tap still
+            // deselects, but never pans the artboard out from under a scroll.
+            mode = e.pointerType === 'touch' ? 'bgtap' : 'pan';
+            lastV = vp;
+            hint.style.opacity = '0';
+          }
         }
       } else if (pts.size === 2) {
         mode = 'zoom';
@@ -2326,6 +2382,22 @@ export function mountStudio(opts) {
         st[sel].ty += pp1.y - lastP.y;
         lastP = view.viewToProject(vp);
         fast();
+      } else if (mode === 'framemove' && selFrame != null && frames[selFrame]) {
+        const ppf = view.viewToProject(vp);
+        const fdx = ppf.x - lastP.x,
+          fdy = ppf.y - lastP.y;
+        frames[selFrame].tx += fdx;
+        frames[selFrame].ty += fdy;
+        // translate the painted paths directly while dragging — the full
+        // rebuild (booleans + weave) waits for pointerup, so scallop/weave
+        // never re-run per move tick.
+        frameLayer.children.forEach(function (c) {
+          if (c.data && c.data.fi === selFrame) c.position = c.position.add(new paper.Point(fdx, fdy));
+        });
+        lastP = ppf;
+        try {
+          view.update();
+        } catch (x) {}
       } else if (mode === 'pan') {
         const d = vp.subtract(lastV);
         view.center = view.center.subtract(d.divide(view.zoom));
@@ -2376,7 +2448,7 @@ export function mountStudio(opts) {
         if (pts.size === 0) mode = null;
         return;
       }
-      const didModify = moved && (mode === 'move' || mode === 'resize');
+      const didModify = moved && (mode === 'move' || mode === 'resize' || mode === 'framemove');
       if (!moved) {
         if (downPair) {
           selPair = { i: downPair.i, j: downPair.j };
@@ -2391,6 +2463,9 @@ export function mountStudio(opts) {
       // v2: a tap-select surfaces the letter/crossing editor — its boxes live
       // in the Letters tab, so jump there with the selection kept (inert on v1).
       if (!moved && v2 && !drawMode && (sel != null || selPair)) v2.ensureLetters();
+      // …and tapping a frame surfaces ITS controls in the Frame tab.
+      if (v2 && mode === 'framemove') v2.ensureFrame();
+      if (mode === 'framemove') reflectShelf(); // sliders reflect the new spot
       if (didModify && preGesture) {
         undoStack.push(preGesture);
         if (undoStack.length > 80) undoStack.shift();
@@ -2451,6 +2526,7 @@ export function mountStudio(opts) {
         let claim = drawMode; // draw mode: every touch is a stroke/symbol interaction
         if (!claim && sel != null && hit[sel] && pp.getDistance(corner()) < 20 / view.zoom) claim = true;
         if (!claim && (topHit(pp) != null || pairAt(pp))) claim = true;
+        if (!claim && frameHit(pp) != null) claim = true;
         if (claim) e.preventDefault();
       },
       { passive: false },
@@ -2533,6 +2609,10 @@ export function mountStudio(opts) {
         // the couple is already on Letters.
         ensureLetters: function () {
           if (curTab !== 'letters') showTab('letters', true);
+        },
+        // Tapping/dragging a frame surfaces its controls in the Frame tab.
+        ensureFrame: function () {
+          if (curTab !== 'frame') showTab('frame', true);
         },
       };
       vtabs.addEventListener('click', function (e) {

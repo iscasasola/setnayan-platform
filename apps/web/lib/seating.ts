@@ -3136,11 +3136,82 @@ export function dropAccepted(
   zones: OracleZone[],
   params: OracleParams,
 ): boolean {
-  if (moved.length === 0) return true;
-  return moved.every((p) => {
+  return firstDropViolation(moved, others, zones, params) === null;
+}
+
+// The element a drop HITS — powers the named refusal (owner 2026-07-17 ·
+// confirm-on-drop). `otherId` is the colliding table (map to its label), `zoneId`
+// the colliding zone (`zoneDisplayName`); `kind` distinguishes a body overlap
+// ("intersects with X") from a walkway-tight release ("too close to X"). The
+// caller resolves the human name. Null when the drop is accepted — so
+// `dropAccepted` is exactly `firstDropViolation(...) === null`, one rule.
+export type DropHit = { otherId: string | null; zoneId: string | null; kind: 'overlap' | 'tight' };
+export function firstDropViolation(
+  moved: WorldPose[],
+  others: WorldPose[],
+  zones: OracleZone[],
+  params: OracleParams,
+): DropHit | null {
+  if (moved.length === 0) return null;
+  for (const p of moved) {
     const rest = others.concat(moved.filter((m) => m.tableId !== p.tableId));
-    return checkPlacement(p, { others: rest, zones }, params).valid;
-  });
+    const res = checkPlacement(p, { others: rest, zones }, params);
+    if (!res.valid) {
+      const v = res.violations[0]!;
+      return { otherId: v.otherId, zoneId: v.zoneId ?? null, kind: v.kind };
+    }
+  }
+  return null;
+}
+
+// THE DROP RULE for a moved ZONE — the mirror of `firstDropViolation` for the
+// non-table elements the owner made directly draggable (2026-07-17 · stage /
+// dance floor / cocktail / booth). A zone drop is refused when its new footprint
+// body-overlaps a table — a sweetheart table is exempt from the sweetheart-exempt
+// stage, symmetric with `checkPlacement` — or another zone; the walkway gap flags
+// a too-tight release the same way tables are. Entrances / service doors / signs
+// carry no footprint here (no existing collision semantics) → the caller simply
+// doesn't route them through this (place-anywhere, but still confirm-on-drop).
+// Returns the first blocking element for the named refusal, or null when accepted.
+export function zoneDropViolation(
+  movedZone: OracleZone,
+  tables: WorldPose[],
+  otherZones: OracleZone[],
+  params: OracleParams,
+): DropHit | null {
+  const fz = zoneFootprint(movedZone);
+  const gap = params.gapPx;
+  for (const t of tables) {
+    if (movedZone.sweetheartExempt && t.shape === 'sweetheart') continue;
+    const ft = obbOf(t);
+    if (footprintsOverlap(fz, ft, 0) > 0) return { otherId: t.tableId, zoneId: null, kind: 'overlap' };
+    if (gap > 0 && footprintsOverlap(fz, ft, gap) > 0) return { otherId: t.tableId, zoneId: null, kind: 'tight' };
+  }
+  for (const z of otherZones) {
+    const fo = zoneFootprint(z);
+    if (footprintsOverlap(fz, fo, 0) > 0) return { otherId: null, zoneId: z.id, kind: 'overlap' };
+    if (gap > 0 && footprintsOverlap(fz, fo, gap) > 0) return { otherId: null, zoneId: z.id, kind: 'tight' };
+  }
+  return null;
+}
+export function zoneDropAccepted(
+  movedZone: OracleZone,
+  tables: WorldPose[],
+  otherZones: OracleZone[],
+  params: OracleParams,
+): boolean {
+  return zoneDropViolation(movedZone, tables, otherZones, params) === null;
+}
+
+// A human name for a zone id, shared so both projections word the named refusal
+// identically ("intersects with the stage", "too close to the dance floor").
+export function zoneDisplayName(zoneId: string): string {
+  if (zoneId === 'stage') return 'the stage';
+  if (zoneId === 'dance') return 'the dance floor';
+  if (zoneId === 'cocktail') return 'the cocktail area';
+  if (zoneId === 'entrance') return 'the entrance';
+  if (zoneId.startsWith('booth')) return 'a vendor booth';
+  return 'another area';
 }
 
 // The first oracle-valid centre for a NEW round_10 table, spiralling out from the

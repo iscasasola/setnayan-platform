@@ -377,10 +377,13 @@ export function SeatingViewSegment({
   on3DHover?: () => void;
 }) {
   const show3D = process.env.NEXT_PUBLIC_SEATING_3D !== 'false';
+  // Order LIST | 2D | 3D (Lab chrome rules, owner 2026-07-17) — supersedes the
+  // prior [2D · 3D · List]. Shared by the 2D editor + the 3D lab chrome, so both
+  // render the same order. 3D still hides when the flag is off.
   const items: { key: '2d' | '3d' | 'list'; label: string }[] = [
+    { key: 'list', label: 'List' },
     { key: '2d', label: '2D' },
     ...(show3D ? ([{ key: '3d', label: '3D' }] as const) : []),
-    { key: 'list', label: 'List' },
   ];
   return (
     <div className="inline-flex shrink-0 rounded-lg border border-ink/15 bg-cream p-0.5">

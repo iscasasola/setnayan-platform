@@ -48,7 +48,6 @@ import {
 } from '@/lib/mood-board';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
-import { LabViewSegment } from './_components/lab-view-segment';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
 
@@ -345,8 +344,9 @@ export default async function SeatingLabPage({ params }: Props) {
 
   return (
     <section className="relative space-y-3">
-      {/* Mirrored [2D · 3D · List] segment (verdict §4) — one-click back to 2D. */}
-      <LabViewSegment eventId={eventId} />
+      {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
+          stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap
+          fix) — no longer an overlay that crowds the Build panel. */}
       <SeatingLabLoader
         eventId={eventId}
         ghostBooths={ghostBooths}

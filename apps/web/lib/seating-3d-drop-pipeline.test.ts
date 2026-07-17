@@ -42,11 +42,20 @@ import {
   // (owner 2026-07-17 · "undroppable when overlap"). `legalJoinPose` builds the
   // welded-pair pose for the group test.
   dropAccepted,
+  // NEW (owner 2026-07-17 · confirm-on-drop + universal draggability): the named
+  // refusal source + the ZONE mirror of the table drop rule (the bypass #3362 left
+  // open — moving the stage/dance never routed through the oracle).
+  firstDropViolation,
+  zoneDropViolation,
+  zoneDropAccepted,
+  zoneDisplayName,
+  stageZone,
   legalJoinPose,
   type WorldPose,
   type OracleWorld,
   type OracleParams,
   type OracleZone,
+  type DropHit,
   type TableType,
   type TableShapeHint,
 } from './seating';
@@ -356,4 +365,125 @@ test('(D)(e) a welded GROUP with an invalid release returns as a UNIT (both memb
   const res = simulateDrop([aStart, bStart], [aDrop, bDrop], [third], NO_ZONES, PARAMS);
   assert.equal(res.accepted, false, 'if ANY member collides, the whole unit is refused');
   assert.deepEqual(res.persisted, [aStart, bStart], 'the WHOLE unit returns to its start poses');
+});
+
+// ===========================================================================
+// (E) ZONE DROP RULE + CONFIRM-ON-DROP + NAMED REFUSAL (owner 2026-07-17 ·
+//     "Confirm-on-drop + universal draggability"). THE bypass this PR closes:
+//     moving the stage / dance floor never routed through the drop oracle, so a
+//     zone could be dropped ON TOP of tables (#3362 patched only the table
+//     commit). `zoneDropViolation` is the mirror of `firstDropViolation` for
+//     zones; both name the hit element so the shared bubble can explain the
+//     refusal. Same rule feeds the 3D lab (`placeZoneAt`/`commitZoneDrag`) and
+//     the 2D editor (marker release) — one helper, both projections.
+// ===========================================================================
+
+// A sweetheart-table pose (the ONE table allowed on the stage platform).
+function sweetheartPose(id: string, xPct: number, yPct: number): WorldPose {
+  const base = labRoundPose(id, xPct, yPct);
+  return { ...base, shape: 'sweetheart', capacity: 2, scale: scaleOfTable('sweetheart_2', 'sweetheart', 2) };
+}
+// The stage zone recentred at a room-percent centre (the lab's `zoneFootprintAt`).
+function stageAt(xPct: number, yPct: number): OracleZone {
+  return stageZone(
+    { stage_x: xPct, stage_y: yPct, stage_w: 24, stage_h: 16 },
+    { width: ROOM.w, height: ROOM.d },
+  );
+}
+// A plain dance-floor no-go rect at a room-percent centre.
+function danceAt(xPct: number, yPct: number): OracleZone {
+  return {
+    id: 'dance',
+    x: (xPct / 100) * ROOM.w,
+    y: (yPct / 100) * ROOM.d,
+    w: (24 / 100) * ROOM.w,
+    h: (16 / 100) * ROOM.d,
+  };
+}
+
+test('(E)(a) BYPASS FIXED — dragging the STAGE onto a table is refused, and names the table it hit', () => {
+  const t = labRoundPose('t7', 50, 50);
+  const stage = stageAt(50, 50); // dropped dead-centre on the table
+  const hit = zoneDropViolation(stage, [t], [], PARAMS);
+  assert.ok(hit, 'the stage-over-a-table release is a violation (the leak #3362 left open)');
+  assert.equal(hit!.otherId, 't7', 'the refusal names the specific table');
+  assert.equal(hit!.zoneId, null);
+  assert.equal(hit!.kind, 'overlap');
+  assert.equal(zoneDropAccepted(stage, [t], [], PARAMS), false);
+});
+
+test('(E)(b) sweetheart-exempt — the stage MAY sit under a sweetheart table (shared oracle rule)', () => {
+  const sweet = sweetheartPose('couple', 50, 50);
+  const stage = stageAt(50, 50);
+  assert.equal(zoneDropViolation(stage, [sweet], [], PARAMS), null, 'a sweetheart under the stage is allowed');
+  assert.equal(zoneDropAccepted(stage, [sweet], [], PARAMS), true);
+  // A REGULAR round in the same spot is still refused (only the sweetheart is exempt).
+  const round = labRoundPose('r', 50, 50);
+  assert.ok(zoneDropViolation(stage, [round], [], PARAMS), 'a non-sweetheart under the stage is refused');
+});
+
+test('(E)(c) the DANCE floor is a plain zone — a sweetheart over it is refused; a clear spot is accepted', () => {
+  const sweet = sweetheartPose('couple', 50, 50);
+  const dance = danceAt(50, 50);
+  assert.ok(zoneDropViolation(dance, [sweet], [], PARAMS), 'no sweetheart exemption for the dance floor');
+  // Move the dance floor to an empty corner → accepted.
+  const clear = danceAt(15, 12);
+  assert.equal(zoneDropAccepted(clear, [labRoundPose('t', 82, 84)], [], PARAMS), true);
+});
+
+test('(E)(d) a zone dropped onto ANOTHER zone is refused and names that zone', () => {
+  const stage = stageAt(30, 30);
+  const dance = danceAt(30, 30); // the moved dance floor lands on the stage
+  const hit = zoneDropViolation(dance, [], [stage], PARAMS);
+  assert.ok(hit, 'zone-on-zone overlap is refused');
+  assert.equal(hit!.zoneId, 'stage');
+  assert.equal(hit!.otherId, null);
+});
+
+// The confirm-on-drop gate, modelled at the pipeline level: valid → PENDING
+// (✓ persists the drop, ✗ restores the start), invalid → REJECT (never persists,
+// carries the named hit). Mirrors askConfirmDrop / showRejectDrop in both editors.
+type ConfirmOutcome =
+  | { kind: 'confirm'; confirm: () => WorldPose[]; cancel: () => WorldPose[] }
+  | { kind: 'reject'; hit: DropHit };
+function simulateConfirmDrop(
+  start: WorldPose[],
+  drop: WorldPose[],
+  others: WorldPose[],
+  zones: OracleZone[],
+  params: OracleParams,
+): ConfirmOutcome {
+  const hit = firstDropViolation(drop, others, zones, params);
+  if (hit) return { kind: 'reject', hit };
+  return { kind: 'confirm', confirm: () => drop, cancel: () => start };
+}
+
+test('(E)(e) confirm-ACCEPT persists the dropped pose; confirm-CANCEL restores the drag-start', () => {
+  const anchor = labRoundPose('anchor', 50, 50);
+  const start = labRoundPose('mover', xAt(4.0), 50);
+  const drop = labRoundPose('mover', xAt(4.6), 50); // a valid new spot
+  const outcome = simulateConfirmDrop([start], [drop], [anchor], NO_ZONES, PARAMS);
+  assert.equal(outcome.kind, 'confirm', 'a valid release asks "Drop here?"');
+  if (outcome.kind !== 'confirm') return;
+  assert.deepEqual(outcome.confirm(), [drop], '✓ persists exactly the dropped pose');
+  assert.deepEqual(outcome.cancel(), [start], '✗ / Esc returns it to the drag-start pose');
+});
+
+test('(E)(f) an invalid release NEVER persists and carries the named hit (no silent snap-back)', () => {
+  const anchor = labRoundPose('anchor', 50, 50);
+  const start = labRoundPose('mover', xAt(4.0), 50);
+  const drop = labRoundPose('mover', 50, 50); // released on top of the anchor
+  const outcome = simulateConfirmDrop([start], [drop], [anchor], NO_ZONES, PARAMS);
+  assert.equal(outcome.kind, 'reject', 'an overlapping release is rejected, not confirmed');
+  if (outcome.kind !== 'reject') return;
+  assert.equal(outcome.hit.otherId, 'anchor', 'the refusal names the table it intersects');
+  assert.equal(outcome.hit.kind, 'overlap');
+});
+
+test('(E)(g) zoneDisplayName words the refusal consistently for both projections', () => {
+  assert.equal(zoneDisplayName('stage'), 'the stage');
+  assert.equal(zoneDisplayName('dance'), 'the dance floor');
+  assert.equal(zoneDisplayName('cocktail'), 'the cocktail area');
+  assert.equal(zoneDisplayName('booth0'), 'a vendor booth');
+  assert.equal(zoneDisplayName('booth3'), 'a vendor booth');
 });

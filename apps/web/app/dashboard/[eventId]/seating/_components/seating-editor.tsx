@@ -71,6 +71,7 @@ import {
   SeatingViewSegment,
   type SaveState,
 } from './seating-frame';
+import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
@@ -93,7 +94,9 @@ import {
   nextTableName,
   obbOf,
   checkPlacement,
-  dropAccepted,
+  firstDropViolation,
+  zoneDropViolation,
+  zoneDisplayName,
   layoutViolations,
   legalJoinPose,
   isLegalJoint,
@@ -122,6 +125,7 @@ import {
   type TableType,
   type WorldPose,
   type OracleZone,
+  type DropHit,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
@@ -387,6 +391,15 @@ export function SeatingEditor({
   const dragStartRef = useRef<Record<string, LocalPos> | null>(null);
   const [dragInvalid, setDragInvalid] = useState(false);
   const [snapBackIds, setSnapBackIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Universal confirm-on-drop (owner 2026-07-17 · Confirm-on-drop + universal
+  // draggability) — the SAME shared bubble component the 3D lab uses. `dropConfirm`
+  // positions it at the drop point; `pendingDropRef` holds the ✓ commit / ✗ revert
+  // out of render. `markerStartRef` is the zone/marker/booth/sign twin of
+  // dragStartRef — the start pose so an invalid or cancelled release returns it.
+  const [dropConfirm, setDropConfirm] = useState<DropConfirmState | null>(null);
+  const pendingDropRef = useRef<{ commit: () => void; revert: () => void } | null>(null);
+  const lastPointerRef = useRef<{ cx: number; cy: number }>({ cx: 0, cy: 0 });
+  const markerStartRef = useRef<{ kind: string; pos: { x: number; y: number } } | null>(null);
   const reducedMotion = usePrefersReducedMotion();
   const [isPending, startTransition] = useTransition();
 
@@ -2225,6 +2238,11 @@ export function SeatingEditor({
       // drag).
       e.stopPropagation();
       dragRef.current = { kind, id: kind, sx: e.clientX, sy: e.clientY, moved: false };
+      // Capture the marker's drag-START centre so an invalid / cancelled release
+      // returns it (the zone twin of dragStartRef · owner 2026-07-17).
+      const src =
+        kind === 'stage' ? stage : kind === 'dance' ? dance : kind === 'cocktail' ? cocktail : kind === 'service' ? serviceDoor : entrance;
+      markerStartRef.current = { kind, pos: { x: src.x, y: src.y } };
       setDragId(`__${kind}__`);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     };
@@ -2241,6 +2259,8 @@ export function SeatingEditor({
     e.preventDefault();
     e.stopPropagation();
     dragRef.current = { kind: 'booth', id: boothId, sx: e.clientX, sy: e.clientY, moved: false };
+    const b0 = booths.find((x) => x.booth_id === boothId);
+    markerStartRef.current = b0 ? { kind: 'booth', pos: { x: b0.x_pos, y: b0.y_pos } } : null;
     setDragId(`__booth_${boothId}__`);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -2254,6 +2274,8 @@ export function SeatingEditor({
     e.preventDefault();
     e.stopPropagation();
     dragRef.current = { kind: 'sign', id: signId, sx: e.clientX, sy: e.clientY, moved: false };
+    const s0 = signs.find((x) => x.sign_id === signId);
+    markerStartRef.current = s0 ? { kind: 'sign', pos: { x: s0.x_pos, y: s0.y_pos } } : null;
     setDragId(`__sign_${signId}__`);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -2703,7 +2725,66 @@ export function SeatingEditor({
     }
   };
 
+  // ── Confirm-on-drop helpers (owner 2026-07-17) — one shared bubble, both
+  // projections. The bubble anchors at the drop point in canvas-relative coords,
+  // flipping toward the interior near the right / top edges so it never occludes.
+  const bubbleAnchor = () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const { cx, cy } = lastPointerRef.current;
+    if (!rect) return { x: cx, y: cy, flipX: false, flipY: false };
+    const x = cx - rect.left;
+    const y = cy - rect.top;
+    return { x, y, flipX: x > rect.width - 260, flipY: y < 150 };
+  };
+  const askConfirmDrop = (commit: () => void, revert: () => void) => {
+    pendingDropRef.current = { commit, revert };
+    setDropConfirm({ kind: 'confirm', ...bubbleAnchor() });
+  };
+  const showRejectDrop = (hit: DropHit) => {
+    pendingDropRef.current = null;
+    const name = hit.otherId
+      ? tables.find((t) => t.table_id === hit.otherId)?.table_label ?? 'another table'
+      : hit.zoneId
+        ? zoneDisplayName(hit.zoneId)
+        : 'another element';
+    const message =
+      hit.kind === 'tight'
+        ? `Too close to ${name} — needs ${aisleM.toFixed(1)} m clear.`
+        : `This area intersects with ${name} — please choose a different area.`;
+    setDropConfirm({ kind: 'reject', message, ...bubbleAnchor() });
+  };
+  const onDropConfirm = () => {
+    const p = pendingDropRef.current;
+    pendingDropRef.current = null;
+    setDropConfirm(null);
+    p?.commit();
+  };
+  const onDropCancel = () => {
+    const p = pendingDropRef.current;
+    pendingDropRef.current = null;
+    setDropConfirm(null);
+    p?.revert();
+  };
+  // The moved zone's oracle footprint at its released centre (for zoneDropViolation).
+  const movedZoneFootprint = (
+    kind: 'stage' | 'dance' | 'cocktail',
+    pos: { x: number; y: number },
+    rectWH: { width: number; height: number },
+  ): OracleZone => {
+    if (kind === 'stage')
+      return stageZone({ stage_x: pos.x, stage_y: pos.y, stage_w: stage.w, stage_h: stage.h }, rectWH);
+    const src = kind === 'dance' ? dance : cocktail;
+    return {
+      id: kind,
+      x: (pos.x / 100) * rectWH.width,
+      y: (pos.y / 100) * rectWH.height,
+      w: (src.w / 100) * rectWH.width,
+      h: (src.h / 100) * rectWH.height,
+    };
+  };
+
   const onCanvasPointerUp = (e?: React.PointerEvent) => {
+    if (e) lastPointerRef.current = { cx: e.clientX, cy: e.clientY };
     // End of a two-finger rotate: persist the final angle once (only if it
     // actually latched past the dead-zone) when either finger lifts.
     const rg = rotateGestureRef.current;
@@ -2746,7 +2827,7 @@ export function SeatingEditor({
         // preserved — the start pose is the table's own spot, so dragging OUT to a
         // valid pose sticks and any invalid release just returns it (never stucker).
         const rectSnap = canvasRef.current?.getBoundingClientRect();
-        let dropInvalid = false;
+        let dropHit: DropHit | null = null;
         if (!weld && venueScaled && rectSnap && rectSnap.width > 0) {
           const rectWH = { width: rectSnap.width, height: rectSnap.height };
           const memberSet = new Set(moved);
@@ -2760,9 +2841,12 @@ export function SeatingEditor({
           const others = tables
             .filter((o) => !memberSet.has(o.table_id))
             .map((o) => poseOfId(o.table_id));
-          dropInvalid = !dropAccepted(movedPoses, others, zonesFor(rectWH), { gapPx: gapPxNow() });
+          dropHit = firstDropViolation(movedPoses, others, zonesFor(rectWH), { gapPx: gapPxNow() });
         }
-        if (dropInvalid) {
+        if (dropHit) {
+          // Invalid release → snap back to the drag-START pose AND name what it hit
+          // (owner 2026-07-17 · the silent snap-back is superseded by the named
+          // refusal; the bounce animation remains).
           const start = dragStartRef.current;
           if (start) {
             setPositions((p) => {
@@ -2773,11 +2857,7 @@ export function SeatingEditor({
           }
           setDragInvalid(false);
           setSnapBackIds(new Set(moved));
-          setNotice(
-            `No room there — needs ${aisleM.toFixed(1)} m clear. ${
-              moved.length > 1 ? 'The linked group returned' : 'Returned'
-            } to its spot.`,
-          );
+          showRejectDrop(dropHit);
           // Drop the kit-ease flag once the bounce-back has played (instant under
           // reduced motion, where the transition is suppressed anyway).
           const clearing = moved;
@@ -2830,22 +2910,108 @@ export function SeatingEditor({
             await runGated(() => commitWeld(fd));
           });
         } else {
-          // Plain move (single table or a linked unit moved as one): mark the
-          // moved tables dirty → Save persists each own x/y (the join, if any,
-          // survives reload from each table's own coordinates).
-          setDirty((s) => {
-            const n = new Set(s);
-            moved.forEach((id) => n.add(id));
-            return n;
-          });
-          // A chain snap rotated the wedge to fit — persist it once (no weld pair).
-          if (serpRot && serpRot.id === d.id) {
-            const t = tables.find((x) => x.table_id === d.id);
-            if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
-          }
+          // Plain move (single table or a linked unit moved as one) → confirm-on-
+          // drop (owner 2026-07-17). The table is already at the drop pose
+          // (optimistic during drag); ✓ marks it dirty (Save persists each own
+          // x/y — the join, if any, survives reload from each table's own
+          // coordinates); ✗ / Esc returns it to the drag-START pose with the bounce.
+          const startPositions = dragStartRef.current;
+          askConfirmDrop(
+            () => {
+              setDirty((s) => {
+                const n = new Set(s);
+                moved.forEach((id) => n.add(id));
+                return n;
+              });
+              if (serpRot && serpRot.id === d.id) {
+                const t = tables.find((x) => x.table_id === d.id);
+                if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
+              }
+            },
+            () => {
+              if (startPositions) {
+                setPositions((p) => {
+                  const n = { ...p };
+                  for (const id of moved) if (startPositions[id]) n[id] = startPositions[id]!;
+                  return n;
+                });
+              }
+              setSnapBackIds(new Set(moved));
+              const clearing = moved;
+              window.setTimeout(() => {
+                setSnapBackIds((s) => {
+                  if (!s.size) return s;
+                  const n = new Set(s);
+                  for (const id of clearing) n.delete(id);
+                  return n;
+                });
+              }, 340);
+            },
+          );
         }
-      } else if (d.kind === 'booth') setBoothsDirty(true);
-      else setFloorDirty(true);
+      } else {
+        // A NON-table element moved (owner 2026-07-17 · universal draggability +
+        // confirm-on-drop). The stage / dance floor / cocktail room carry a
+        // footprint → route their release through the SHARED zone-drop rule (the
+        // bypass this editor left open for markers); an invalid drop names what it
+        // hit and returns to the drag-START centre. Entrances / service doors /
+        // signs / booths carry no table-collision footprint (booths are perimeter-
+        // clamped live) → place-anywhere, but every element still confirms-on-drop.
+        const rectM = canvasRef.current?.getBoundingClientRect();
+        const ms = markerStartRef.current;
+        let zoneHit: DropHit | null = null;
+        if (
+          venueScaled &&
+          rectM &&
+          rectM.width > 0 &&
+          (d.kind === 'stage' || d.kind === 'dance' || d.kind === 'cocktail')
+        ) {
+          const rectWH = { width: rectM.width, height: rectM.height };
+          const cur =
+            d.kind === 'stage' ? { x: stage.x, y: stage.y } : d.kind === 'dance' ? { x: dance.x, y: dance.y } : { x: cocktail.x, y: cocktail.y };
+          const mz = movedZoneFootprint(d.kind, cur, rectWH);
+          const tablePoses = tables.map((t) => {
+            const idx = tables.findIndex((x) => x.table_id === t.table_id);
+            const p = positions[t.table_id] ?? defaultGrid(idx, tables.length, !venueScaled);
+            return poseAt(t, p.x, p.y, rectWH);
+          });
+          const otherZones = zonesFor(rectWH).filter((z) => z.id !== mz.id);
+          zoneHit = zoneDropViolation(mz, tablePoses, otherZones, { gapPx: gapPxNow() });
+        }
+        if (zoneHit) {
+          // Invalid → return the marker to its drag-START centre + named refusal.
+          if (ms) {
+            const p = ms.pos;
+            if (d.kind === 'stage') setStage((s) => ({ ...s, x: p.x, y: p.y }));
+            else if (d.kind === 'dance') setDance((dz) => ({ ...dz, x: p.x, y: p.y }));
+            else if (d.kind === 'cocktail') setCocktail((c) => ({ ...c, x: p.x, y: p.y }));
+          }
+          showRejectDrop(zoneHit);
+        } else {
+          // Valid → confirm-on-drop. The marker is already at the drop spot
+          // (optimistic during drag); ✓ marks the layer dirty, ✗ returns it.
+          const kind = d.kind;
+          const dropId = d.id;
+          askConfirmDrop(
+            () => {
+              if (kind === 'booth') setBoothsDirty(true);
+              else if (kind === 'sign') setSignsDirty(true);
+              else setFloorDirty(true);
+            },
+            () => {
+              if (!ms) return;
+              const p = ms.pos;
+              if (kind === 'stage') setStage((s) => ({ ...s, x: p.x, y: p.y }));
+              else if (kind === 'dance') setDance((dz) => ({ ...dz, x: p.x, y: p.y }));
+              else if (kind === 'cocktail') setCocktail((c) => ({ ...c, x: p.x, y: p.y }));
+              else if (kind === 'service') setServiceDoor((sd) => ({ ...sd, x: p.x, y: p.y }));
+              else if (kind === 'booth') setBooths((bs) => bs.map((b) => (b.booth_id === dropId ? { ...b, x_pos: p.x, y_pos: p.y } : b)));
+              else if (kind === 'sign') setSigns((ss) => ss.map((s) => (s.sign_id === dropId ? { ...s, x_pos: p.x, y_pos: p.y } : s)));
+              else setEntrance((en) => ({ ...en, x: p.x, y: p.y }));
+            },
+          );
+        }
+      }
     } else if (d && !d.moved && !pickedId && !pickedGroupId && canEdit) {
       // A tap (no drag) selects the object → its verbs render in the Context Dock
       // (§1.4). Tables + every marker/booth/sign now share the one selection model
@@ -5375,6 +5541,10 @@ export function SeatingEditor({
               : {}),
           }}
         >
+          {/* Universal confirm-on-drop bubble (owner 2026-07-17) — screen-space
+              child of the canvas (outside the pan/zoom world layer), anchored at
+              the drop point. Shared component with the 3D lab. */}
+          <DropConfirmBubble state={dropConfirm} onConfirm={onDropConfirm} onCancel={onDropCancel} />
           {/* world layer — pan/zoom applied to its transform directly via refs */}
           <div ref={worldRef} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '0 0' }}>
           {/* room outline (walls) + metric labels, when a venue size is set */}

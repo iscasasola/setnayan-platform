@@ -155,6 +155,7 @@ export function VectorStudio({
           // Universal portal preview (benchmark §3): EVERY reveal kind renders
           // the identical live-site player over the canvas; null clears it.
           portalPreview: true,
+          appFrame: true,
           onPreviewKind: (kind: StudioAnimKind | null, svg: string | null, animInfo?: StudioAnim) => {
             if (!alive) return;
             setPreviewKind(kind);

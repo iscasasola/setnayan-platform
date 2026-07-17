@@ -38,18 +38,26 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;font-family:var(--font-hanken),system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
 .vsroot .vs .frame{background:transparent;padding:0;max-width:none;margin:0;}
-.vsroot .vs .card{background:#FBFBFA;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+/* APP FRAME (owner 2026-07-17 "fits neatly in a screen, like the Photoshop
+   app"): the editor is a fixed-height frame — the canvas is the dominant,
+   draggable imagespace; toolbars are compact and scroll-free (card sets ride
+   horizontal carousels, never long vertical columns). */
+.vsroot .vs .card{background:#FBFBFA;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;height:min(calc(100dvh - 170px), 900px);min-height:480px;position:relative;}
 .vsroot .vs .top{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--line);}
 .vsroot .vs .wm{font-family:var(--font-space-mono),ui-monospace,monospace;font-size:12px;letter-spacing:.3em;font-weight:500;color:#1E2229;}
 .vsroot .vs .tag{margin-left:auto;font-family:var(--font-space-mono),ui-monospace,monospace;font-size:11px;letter-spacing:.18em;color:var(--gold-deep);text-transform:uppercase;}
-.vsroot .vs .sw2{position:relative;height:clamp(320px,64vw,440px);}
-.vsroot .vs canvas{display:block;width:100%;height:100%;touch-action:pan-y;background:#FBFBFA;}
+.vsroot .vs .sw2{position:relative;flex:1 1 auto;min-height:200px;}
+/* the imagespace pans with a finger inside the app frame (there is no page
+   underneath to scroll) — the engine gets appFrame:true from both hosts */
+.vsroot .vs canvas{display:block;width:100%;height:100%;touch-action:none;background:#FBFBFA;}
 .vsroot .vs .load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-space-mono),ui-monospace,monospace;font-size:12px;color:var(--ink-soft);background:rgba(251,251,250,.9);}
 .vsroot .vs .load.off{display:none;}
 .vsroot .vs .zoom{position:absolute;top:10px;right:12px;font-family:var(--font-space-mono),ui-monospace,monospace;font-size:11px;color:var(--ink-soft);background:rgba(251,251,250,.7);padding:2px 7px;border-radius:6px;pointer-events:none;}
 .vsroot .vs .hint{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:12px;color:var(--ink-soft);font-family:var(--font-space-mono),ui-monospace,monospace;pointer-events:none;transition:opacity .35s;padding:0 12px;margin:0;}
-.vsroot .vs .panel{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);background:#FBFBFA;}
-.vsroot .vs .vtabs{position:sticky;top:0;z-index:3;display:flex;gap:4px;margin:0 -16px;padding:10px 16px;background:rgba(251,251,250,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);}
+.vsroot .vs .panel{padding:8px 12px 10px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);background:#FBFBFA;flex:0 0 auto;max-height:46dvh;overflow:hidden;}
+/* phones: the tab bar sits at the BOTTOM, app-style — thumb territory */
+.vsroot .vs .vtabs{order:99;display:flex;gap:4px;margin:0 -12px -10px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:rgba(251,251,250,.95);backdrop-filter:blur(6px);border-top:1px solid var(--line);border-bottom:none;}
+.vsroot .vs .vtab{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;}
 .vsroot .vs .vt{-webkit-appearance:none;appearance:none;flex:1;border:1px solid var(--line2);background:#fff;border-radius:10px;padding:9px 10px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
 .vsroot .vs .vt.on{background:#1E2229;color:#FBFBFA;border-color:#1E2229;}
 .vsroot .vs .vtab{display:flex;flex-direction:column;gap:12px;}
@@ -58,7 +66,7 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .lab{font-family:var(--font-space-mono),ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 7px;display:flex;justify-content:space-between;align-items:baseline;}
 .vsroot .vs .lab b{color:var(--gold-deep);font-size:15px;font-weight:700;}
 .vsroot .vs .lab2{font-family:var(--font-space-mono),ui-monospace,monospace;font-size:10.5px;letter-spacing:.06em;color:var(--ink-soft);margin:0;display:flex;justify-content:space-between;align-items:center;}
-.vsroot .vs .box{border:1px solid var(--gold);background:#FBF6EA;border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:10px;}
+.vsroot .vs .box{border:1px solid var(--gold);background:#FBF6EA;border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
 .vsroot .vs .names{width:100%;-webkit-appearance:none;appearance:none;border:1px solid #D9D2C4!important;background:#fff!important;border-radius:10px;padding:11px 13px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:15px;color:#1E2229!important;}
 .vsroot .vs .names:focus{outline:none;border-color:var(--gold)!important;}
 .vsroot .vs .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
@@ -105,13 +113,14 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .morebox.off{display:none;}
 .vsroot .vs .drawtools{display:flex;flex-direction:column;gap:12px;}
 .vsroot .vs .drawtools.off{display:none;}
-.vsroot .vs .fcards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+.vsroot .vs .fcards{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:96px;gap:8px;margin-top:6px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.vsroot .vs .fcard{scroll-snap-align:start;}
 .vsroot .vs .fcard{-webkit-appearance:none;appearance:none;border:1px solid var(--line2);background:#fff;border-radius:12px;padding:8px 6px 7px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
 .vsroot .vs .fcard.on{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);}
 .vsroot .vs .fthumb{width:58px;height:46px;background-size:contain;background-repeat:no-repeat;background-position:center;}
 .vsroot .vs .fname{font-family:var(--font-space-mono),ui-monospace,monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);text-align:center;}
 .vsroot .vs .pstrip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
-.vsroot .vs .pcard{-webkit-appearance:none;appearance:none;flex:0 0 auto;scroll-snap-align:start;border:1px solid var(--line2);background:#fff;border-radius:12px;padding:7px 8px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;width:88px;}
+.vsroot .vs .pcard{-webkit-appearance:none;appearance:none;flex:0 0 auto;scroll-snap-align:start;border:1px solid var(--line2);background:#fff;border-radius:12px;padding:6px 7px 5px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:84px;}
 .vsroot .vs .pcard.on{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);}
 .vsroot .vs .pthumb{width:66px;height:48px;background-size:contain;background-repeat:no-repeat;background-position:center;}
 .vsroot .vs .collapsible .animhdr{display:flex;align-items:center;cursor:pointer;user-select:none;}
@@ -132,14 +141,20 @@ export const STUDIO_CSS_V2 = `
 .vsroot .vs .drawtoggle{-webkit-appearance:none;appearance:none;border:1px dashed var(--gold)!important;background:#FBF6EA!important;border-radius:10px;padding:10px 14px;font-family:var(--font-hanken),system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--gold-deep)!important;cursor:pointer;text-align:left;}
 .vsroot .vs .drawtoggle.on{background:#1E2229!important;color:#FBFBFA!important;border-style:solid;border-color:#1E2229!important;}
 .vsroot .vs .shelfnote{font-size:12px;color:var(--ink-soft);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;}
-/* Desktop two-column workspace — unchanged geometry from v1 (§2.1). */
-@container (min-width:760px){
+/* Desktop/tablet app frame: canvas left (dominant), 312px toolbar right —
+   scroll-free (contextual boxes float over the canvas instead of pushing the
+   sidebar past the fold). */
+@container (min-width:700px){
   .vsroot .vs .frame{max-width:none;padding:0;}
-  .vsroot .vs .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);grid-template-rows:auto clamp(460px,72vh,900px);grid-template-areas:"top top" "canvas panel";}
+  .vsroot .vs .card{display:grid;grid-template-columns:minmax(0,1fr) 312px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top" "canvas panel";height:min(calc(100dvh - 150px), 920px);}
   .vsroot .vs .top{grid-area:top;}
   .vsroot .vs .sw2{grid-area:canvas;min-height:0;height:100%;border-right:1px solid var(--line);}
   .vsroot .vs canvas{height:100%;}
-  .vsroot .vs .panel{grid-area:panel;min-height:0;height:100%;overflow-y:auto;border-top:none;}
+  .vsroot .vs .panel{grid-area:panel;min-height:0;height:100%;max-height:none;overflow:hidden;border-top:none;}
+  .vsroot .vs .vtabs{order:0;margin:0 -12px;padding:8px 12px;border-top:none;border-bottom:1px solid var(--line);}
+  /* contextual editing boxes ride OVER the canvas, Photoshop-style */
+  .vsroot .vs #selbox,.vsroot .vs #cross{position:absolute;left:14px;bottom:14px;width:300px;z-index:4;box-shadow:0 10px 34px rgba(30,34,41,.16);}
+  .vsroot .vs #symbox{position:absolute;left:14px;bottom:14px;width:300px;z-index:4;box-shadow:0 10px 34px rgba(30,34,41,.16);}
 }
 `;
 

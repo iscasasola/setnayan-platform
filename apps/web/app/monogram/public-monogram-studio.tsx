@@ -195,6 +195,7 @@ export function PublicMonogramStudio() {
           PaperOffset,
           initialConfig: null,
           portalPreview: true,
+          appFrame: true,
           onPreviewKind: (kind: StudioAnimKind | null, svgStr: string | null, animInfo?: StudioAnim) => {
             if (!alive) return;
             setPreviewKind(kind);

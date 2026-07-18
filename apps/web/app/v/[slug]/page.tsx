@@ -58,6 +58,12 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import {
+  buildVendorVenueEvents,
+  fetchViewerVenue,
+  type VendorVenueEvent,
+} from '@/lib/vendor-venue-events';
+import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
@@ -1085,6 +1091,18 @@ export async function renderVendorBySlug({
       }
     }
   }
+
+  // Past-events gallery (owner 2026-07-18) — SAFE LAYER: the vendor's completed
+  // events, venue-aware. When the viewer is a couple, read their venue and sort
+  // the vendor's past events so the ones at the SAME venue come first (else most
+  // recent). Facts only (venue · month · type); no couple names/photos, private
+  // events excluded — the couple-identified photo layer is a consent-gated
+  // follow-up. Reuses the anti-fraud-clean `completedEvents` already fetched.
+  const viewerVenue = coupleEventId ? await fetchViewerVenue(admin, coupleEventId) : null;
+  const venueEvents = await buildVendorVenueEvents(admin, completedEvents, viewerVenue, {
+    limit: 12,
+  });
+  const venueMatchCount = venueEvents.filter((e) => e.atViewerVenue).length;
 
   // Inquiry composer (owner-locked 2026-06-12 "multi-service inquiry mapping") —
   // shown only for a signed-in couple with an active event viewing a bookable
@@ -2130,6 +2148,8 @@ export async function renderVendorBySlug({
           showComments={viewerTierCaps.reviewCommentsViewable}
           recommendingCouples={recommendingCouples}
           completedEvents={completedEvents}
+          venueEvents={venueEvents}
+          hasVenueMatch={venueMatchCount > 0}
         />
 
         {showTrustedBy ? (
@@ -2761,6 +2781,8 @@ function ReviewsSection({
   showComments,
   recommendingCouples,
   completedEvents,
+  venueEvents,
+  hasVenueMatch,
 }: {
   slug: string;
   businessName: string;
@@ -2778,6 +2800,10 @@ function ReviewsSection({
   recommendingCouples: number;
   /** Receipt-backed dated track record (Wave 5) — [] hides the section. */
   completedEvents: ReadonlyArray<VendorCompletedEventRow>;
+  /** Venue-aware past-events gallery (safe layer, owner 2026-07-18). */
+  venueEvents: VendorVenueEvent[];
+  /** True when ≥1 venueEvents is at the viewing couple's venue. */
+  hasVenueMatch: boolean;
 }) {
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -2802,7 +2828,9 @@ function ReviewsSection({
           vendor delivered THROUGH Setnayan — same owner/team/internal/self-comp
           exclusions as the public completed-events count, so it can't be
           padded. Renders for every viewer tier; omitted only when empty. */}
-      {completedEvents.length > 0 ? (
+      {venueEvents.length > 0 ? (
+        <VenueMatchedEvents events={venueEvents} hasMatch={hasVenueMatch} />
+      ) : completedEvents.length > 0 ? (
         <TrackRecord events={completedEvents} />
       ) : null}
 

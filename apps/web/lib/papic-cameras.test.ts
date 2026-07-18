@@ -13,8 +13,10 @@ import {
 // when unliFree is false.
 
 const RATES: CameraRates = { roll: 30, unlimited: 100 };
-// Generous caps so nothing clamps in the small-count cases below.
-const CAPS: CameraCaps = { ltd: 6000, unli: 10000 };
+// roll==Mini (owner 2026-07-17): the roll tier caps at the MINI cap (6000);
+// unlimited==Unli caps at the Unli cap (10000). ltd is dormant (distinct Ltd
+// tier ships later). Generous enough that nothing clamps in the small cases.
+const CAPS: CameraCaps = { mini: 6000, ltd: 10000, unli: 10000 };
 
 test('paid path (unliFree off): both tiers bill — Unli is NOT free', () => {
   const q = computeCameraQuote({ roll: 5, unlimited: 2 }, 1, RATES, CAPS);
@@ -54,12 +56,12 @@ test('unliFree never trips the Unli cap flag (free, not clamped)', () => {
   assert.equal(free.totalPhp, 0);
 });
 
-test('unliFree does NOT free Roll: a Roll-over-cap order still bills the Ltd cap', () => {
-  // 300 Roll × ₱30 = ₱9,000 → clamps to the ₱6,000 Ltd cap even when unliFree.
+test('unliFree does NOT free Roll: a Roll-over-cap order still bills the Mini cap', () => {
+  // 300 Roll × ₱30 = ₱9,000 → clamps to the ₱6,000 Mini cap even when unliFree.
   const q = computeCameraQuote({ roll: 300, unlimited: 5 }, 1, RATES, CAPS, {
     unliFree: true,
   });
-  assert.equal(q.rollChargePhp, 6000); // Ltd cap honored
+  assert.equal(q.rollChargePhp, 6000); // Mini cap honored (roll->Mini)
   assert.equal(q.unlimitedChargePhp, 0); // Unli free
   assert.equal(q.totalPhp, 6000);
   assert.equal(q.capped, true); // Roll tripped its cap
@@ -105,4 +107,36 @@ test('both unlocks: ltdFree + unliFree → whole order is ₱0', () => {
   });
   assert.equal(q.totalPhp, 0);
   assert.equal(q.capped, false);
+});
+
+// ── uncapped (non-wedding events): caps do NOT apply (owner 2026-07-17) ───────
+// Weddings clamp to the per-tier caps; every other event type bills the raw
+// subtotal (the `uncapped` flag, set by isPapicUncapped(event_type)).
+
+test('uncapped (non-wedding): bills the raw subtotal, nothing clamps', () => {
+  const q = computeCameraQuote({ roll: 300, unlimited: 200 }, 1, RATES, CAPS, {
+    uncapped: true,
+  });
+  assert.equal(q.rollChargePhp, 9000); // 300 × ₱30 — NOT clamped to the 6000 Mini cap
+  assert.equal(q.unlimitedChargePhp, 20000); // 200 × ₱100 — NOT clamped to the 10000 Unli cap
+  assert.equal(q.totalPhp, 29000);
+  assert.equal(q.capped, false); // uncapped never trips the cap flag
+});
+
+test('uncapped default off: the wedding path still clamps to the caps', () => {
+  const q = computeCameraQuote({ roll: 300, unlimited: 200 }, 1, RATES, CAPS);
+  assert.equal(q.rollChargePhp, 6000); // Mini cap
+  assert.equal(q.unlimitedChargePhp, 10000); // Unli cap
+  assert.equal(q.totalPhp, 16000);
+  assert.equal(q.capped, true);
+});
+
+test('uncapped does not override an unlock free tier (still ₱0)', () => {
+  const q = computeCameraQuote({ roll: 300, unlimited: 200 }, 1, RATES, CAPS, {
+    uncapped: true,
+    unliFree: true,
+  });
+  assert.equal(q.rollChargePhp, 9000); // roll uncapped raw
+  assert.equal(q.unlimitedChargePhp, 0); // unlock still frees Unli
+  assert.equal(q.totalPhp, 9000);
 });

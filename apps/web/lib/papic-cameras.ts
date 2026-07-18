@@ -88,8 +88,8 @@ export const PAPIC_CAMERA_UNLIMITED_SKU = 'PAPIC_CAMERA_UNLIMITED_DAY';
 export const PAPIC_CAMERAS_ORDER_KEY = 'PAPIC_CAMERAS';
 
 /** First N cameras are free (the funnel taste); paid orders require >= MIN. */
-export const PAPIC_FREE_CAMERA_COUNT = 5;
-export const PAPIC_MIN_PAID_CAMERAS = 5;
+export const PAPIC_FREE_CAMERA_COUNT = 3; // owner 2026-07-17 (was 5)
+export const PAPIC_MIN_PAID_CAMERAS = 1; // owner 2026-07-17 (was 5) — 1-camera minimum
 
 /** Paid per-camera seats start here so they never collide with the pack (1–5). */
 export const PAPIC_CAMERA_INDEX_BASE = 200;
@@ -99,13 +99,16 @@ export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
 /**
- * Per-tier price caps — each tier's subtotal locks here. Live values come from
- * events.papic_ltd_cap_php / papic_unli_cap_php; these are last-resort fallbacks.
- * Owner-set 2026-07-11 (PR #3112): Ltd ₱9,000 · Unli ₱15,000 (raised from the
- * ₱5,999/₱11,999 set earlier the same day; 6000/10000 before that).
+ * Per-tier WEDDING price caps — each tier's subtotal locks here (weddings only;
+ * every other event type is uncapped, via the quote's `uncapped` flag). Live
+ * values come from events.papic_mini_cap_php / papic_ltd_cap_php / papic_unli_cap_php;
+ * these are last-resort fallbacks. Under the 2026-07-17 roll->Mini remap the
+ * 'roll'/Mini tier caps at the MINI cap (₱6,000); PAPIC_LTD_CAP_FALLBACK is
+ * reserved for the distinct Ltd tier added in a later PR (currently dormant).
  */
-export const PAPIC_LTD_CAP_FALLBACK_PHP = 9000; // Ltd (Roll) ≈ 300 cameras × ₱30 (owner 2026-07-11)
-export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100 (owner 2026-07-11)
+export const PAPIC_MINI_CAP_FALLBACK_PHP = 6000; // Mini (and legacy roll->Mini) — owner 2026-07-17
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 10000; // Ltd (₱50 tier) — owner 2026-07-17 (dormant until the Ltd selection ships)
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100
 
 export type CameraTier = 'free' | 'roll' | 'unlimited';
 
@@ -167,7 +170,16 @@ export async function fetchCameraRates(
 
 export type CameraSelection = { roll: number; unlimited: number };
 
-export type CameraCaps = { ltd: number; unli: number };
+export type CameraCaps = { mini: number; ltd: number; unli: number };
+
+/**
+ * Papic caps apply to WEDDINGS ONLY (owner 2026-07-17); every other event type
+ * is uncapped (per-camera pricing runs to the raw subtotal). Callers pass the
+ * result as `computeCameraQuote(..., { uncapped })`.
+ */
+export function isPapicUncapped(eventType: string | null | undefined): boolean {
+  return eventType !== 'wedding';
+}
 
 export type CameraQuote = {
   rollCount: number;
@@ -206,10 +218,14 @@ export function computeCameraQuote(
   days: number,
   rates: CameraRates,
   caps: CameraCaps,
-  opts: { unliFree?: boolean; ltdFree?: boolean } = {},
+  opts: { unliFree?: boolean; ltdFree?: boolean; uncapped?: boolean } = {},
 ): CameraQuote {
   const unliFree = opts.unliFree === true;
   const ltdFree = opts.ltdFree === true;
+  // Non-wedding events are uncapped (owner 2026-07-17): the subtotal never
+  // clamps and `capped` stays false. Caps still populate the *CapPhp fields for
+  // reference. Defaults to false (wedding path).
+  const uncapped = opts.uncapped === true;
   const rollCount = intCount(selection.roll);
   const unlimitedCount = intCount(selection.unlimited);
   const d = Math.max(1, Math.floor(Number(days)) || 1);
@@ -217,8 +233,11 @@ export function computeCameraQuote(
   const unlimitedRate =
     Number(rates.unlimited) || PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP;
 
-  const ltdCap =
-    Number(caps.ltd) > 0 ? Number(caps.ltd) : PAPIC_LTD_CAP_FALLBACK_PHP;
+  // roll == Mini (owner 2026-07-17 roll->Mini remap) → caps at the MINI cap.
+  // The distinct Ltd tier (caps.ltd) is dormant until it ships as its own
+  // selection; unlimited == Unli caps at the Unli cap.
+  const miniCap =
+    Number(caps.mini) > 0 ? Number(caps.mini) : PAPIC_MINI_CAP_FALLBACK_PHP;
   const unliCap =
     Number(caps.unli) > 0 ? Number(caps.unli) : PAPIC_UNLI_CAP_FALLBACK_PHP;
 
@@ -229,8 +248,16 @@ export function computeCameraQuote(
   // Per-tier cap (owner 2026-06-26): each tier locks independently — so 300
   // guests on Ltd still pay the Ltd cap. Unlock owners pay ₱0 for the tier their
   // pass covers (free + uncapped): PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD → Ltd.
-  const rollChargePhp = ltdFree ? 0 : Math.min(rollSubtotalPhp, ltdCap);
-  const unlimitedChargePhp = unliFree ? 0 : Math.min(unlimitedSubtotalPhp, unliCap);
+  const rollChargePhp = ltdFree
+    ? 0
+    : uncapped
+      ? rollSubtotalPhp
+      : Math.min(rollSubtotalPhp, miniCap);
+  const unlimitedChargePhp = unliFree
+    ? 0
+    : uncapped
+      ? unlimitedSubtotalPhp
+      : Math.min(unlimitedSubtotalPhp, unliCap);
   const totalPhp = rollChargePhp + unlimitedChargePhp;
   const paidCount = rollCount + unlimitedCount;
 
@@ -251,13 +278,15 @@ export function computeCameraQuote(
     rollChargePhp,
     unlimitedChargePhp,
     rawTotalPhp,
-    ltdCapPhp: ltdCap,
+    ltdCapPhp: miniCap, // the cap applied to the roll/Mini tier (roll->Mini remap)
     unliCapPhp: unliCap,
     totalPhp,
-    // A tier never "caps" when its unlock frees it — it's ₱0, not clamped.
+    // A tier never "caps" when its unlock frees it (₱0, not clamped) or when the
+    // event is uncapped (non-wedding — charge is the raw subtotal).
     capped:
-      (!ltdFree && rollSubtotalPhp > ltdCap) ||
-      (!unliFree && unlimitedSubtotalPhp > unliCap),
+      !uncapped &&
+      ((!ltdFree && rollSubtotalPhp > miniCap) ||
+        (!unliFree && unlimitedSubtotalPhp > unliCap)),
     description,
   };
 }

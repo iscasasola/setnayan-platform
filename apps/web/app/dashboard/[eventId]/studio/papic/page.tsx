@@ -42,8 +42,10 @@ import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import {
   fetchCameraRates,
+  isPapicUncapped,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_FREE_CAMERA_COUNT,
+  PAPIC_MINI_CAP_FALLBACK_PHP,
 } from '@/lib/papic-cameras';
 import {
   countLimitedGuests,
@@ -159,7 +161,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, event_date, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
+      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -200,10 +202,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
-  const papicLtdCapPhp =
-    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 9000;
-  const papicUnliCapPhp =
-    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
+  // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
+  // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
+  // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
+  // diverges from the bill. The guest-list Limited tier IS the roll/Mini tier,
+  // so it reads the MINI cap — not the (dormant) Ltd cap.
+  const uncappedEvent = isPapicUncapped(
+    (event as Record<string, unknown>).event_type as string | null,
+  );
+  const papicMiniCapPhp = uncappedEvent
+    ? Number.MAX_SAFE_INTEGER
+    : Number((event as Record<string, unknown>).papic_mini_cap_php ?? 0) ||
+      PAPIC_MINI_CAP_FALLBACK_PHP;
+  const papicUnliCapPhp = uncappedEvent
+    ? Number.MAX_SAFE_INTEGER
+    : Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;
@@ -286,7 +299,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const limitedQuote = computeLimitedQuote(
     limitedGuestCount,
     cameraRates.roll,
-    papicLtdCapPhp,
+    papicMiniCapPhp,
     papicDays,
   );
   // The Unlimited-tier option for the same guest list (owner 2026-06-26) — same
